@@ -135,6 +135,12 @@ sequenced work, not parallelizable — the shape change lands first, everything 
 > semantics are worth keeping, but they belong in the one evaluator rather than a second one,
 > and with no rows to move the risk that made option 1 expensive is gone. **Awaiting the repo
 > owner's confirmation before LU-6a is dispatched.**
+>
+> **CONFIRMED 2026-08-07** — the repo owner reaffirmed the direction and handed Phase 2 oversight
+> back to the Senior. **Superseded in mechanism by Decision #5:** the goal (one condition
+> language, one evaluator, one editor) is unchanged, but it is reached by *reshaping*
+> `logic_rules` to carry a `ConditionExpression`, not by dropping the table. Wherever this
+> section says "migrate rows / drop the table", read Decision #5 instead.
 
 ### The shape mismatch that drives the design
 
@@ -615,94 +621,175 @@ reviewer's) was deliberately left running.
 
 ---
 
-# Phase 2 — Fold Model B into Model A (Decision #4)
+# Phase 2 — One condition language everywhere (Decisions #4 + #5)
 
-**Sequenced, not parallel.** Each ticket depends on the one before it. Do not dispatch more
-than one at a time. **Not dispatchable until the Phase 1 gate passes** — LU-2 changes
-`LogicBuilder`'s prop surface and LU-3 adds lint rules over `visibleIf`, and both are inputs
-here.
+**Sequenced, not parallel.** Each ticket depends on the one before it. Dispatch one at a time.
+**Load the `db-schema-change` skill** before touching schema/migrations and `add-api-endpoint`
+for route/service/repository work.
 
-**Every Phase 2 ticket must load the `db-schema-change` skill** before touching schema or
-migrations, and the `add-api-endpoint` skill for any route/service/repository work.
+## Decision #5 — RESOLVED 2026-08-07 (Senior): reshape `logic_rules`, do not drop it
 
-## LU-6a — Confirm the data reality and add actions to `ConditionExpression` 🔲
+Re-reading the engine before dispatch showed LU-6a's original framing ("extend
+`ConditionExpression` with an action concept") was **wrong**, and would have produced a bad
+design. The two models are different *shapes*, not different dialects:
+
+| | `visibleIf` (Model A) | `logic_rules` (Model B) |
+|---|---|---|
+| Direction | **Pull** — an element carries its own condition and asks "should I show?" | **Push** — a rule reaches out and acts on a *target* |
+| Stored on | the element it governs | the workflow |
+| Carries | a condition tree only | condition + target + action + order |
+| Condition language | 28 operators, nested AND/OR groups | 9 operators, one condition per row, flat |
+
+Bolting an `action` field onto `ConditionExpression` would conflate an element's own visibility
+with a workflow-level rule that acts on something else. **The duplication was never the rules
+table — it was the condition language.** `ConditionExpression` is strictly richer (28 operators
+vs 9, nested groups vs a flat list combined by one `logicalOperator` column).
+
+**So: keep both shapes, unify the language.** `logic_rules` stops storing
+`operator` + `condition_value` + `logical_operator` as flat columns and stores a single `when`
+jsonb holding a `ConditionExpression`. `visibleIf` is untouched.
+
+End state — one condition language, one evaluator, one editor:
+
+```
+WorkflowRule {                      // replaces the flat logic_rules columns
+  id, order,
+  when: ConditionExpression,        // the SAME language visibleIf already uses
+  action: 'show'|'hide'|'require'|'make_optional'|'skip_to',
+  target: { type: 'step'|'section', id },
+}
+```
+
+**Why reshape beats drop.** With zero rows the column change costs no data migration, and it
+keeps the *entity* that versioning, portability, cloning and run-definition serialization
+already understand — so most of the 46 files carry a different payload rather than being
+rewritten. Dropping the table would have forced every one of those subsystems to grow a new
+representation of the same idea. **This makes Phase 2 substantially smaller than LU-6c's
+original "drop the table" scope.**
+
+`shared/workflowLogic.ts` is the **reference implementation and must be preserved in
+behaviour** — `evaluateRules` already handles all five actions with first-firing-`skip_to`-wins
+ordering and a backward-skip guard. It changes only in how it reads a rule's condition (call
+the shared evaluator instead of the flat-column comparison). Do not reinvent its semantics.
+
+---
+
+## LU-6a — Give a rule a `ConditionExpression` trigger 🔲
 
 **Priority: P1** · Size: M
-**Files:** `shared/types/conditions.ts`, `shared/conditionEvaluator.ts`, tests
+**Files:** `shared/schema/workflow.ts`, a migration, `shared/workflowLogic.ts`,
+`server/repositories/LogicRuleRepository.ts`, tests
+**Ties:** `db-schema-change` skill (**required — read before writing any migration**),
+`run-tests`. This is the schema change everything else builds on.
 
-First: query the live database for `logic_rules` row counts by workflow and report the result.
-That single number decides whether LU-6c is a data migration or a `DROP TABLE`, and the Senior
-will not accept an assumption in place of it.
+### Finding
+`logic_rules` stores one flat condition per row (`conditionStepId`, `operator`,
+`conditionValue`) combined across rows by a `logicalOperator` column, limited to the 9-value
+`conditionOperatorEnum`. The same workflow's `steps.visible_if` uses the 28-operator nested
+`ConditionExpression`. Two languages for one job.
 
-Then extend `ConditionExpression` with an action concept covering `show` / `hide` / `require` /
-`make_optional` / `skip_to`, keeping today's actionless `visibleIf` valid and meaning "show if"
-(this must remain backward compatible — every existing `steps.visible_if` /
-`sections.visible_if` jsonb payload must still parse and evaluate identically). `skip_to`
-additionally carries a target, which the current type has nowhere to put.
+Evaluation lives in `shared/workflowLogic.ts` — `evaluateRules` switches on `rule.action` and
+is correct; only its condition comparison is tied to the flat columns.
+
+### Preferred fix
+Add a `when jsonb` column holding a `ConditionExpression`. Because the table is **empty**
+(0 rows / 84 workflows — Decision #4 data table), this is an additive migration with no
+backfill; the flat `operator` / `condition_value` / `logical_operator` columns are then dropped
+in the same migration rather than left as dead weight.
+
+Point `evaluateRules`' condition check at `shared/conditionEvaluator.ts` so rules and
+`visibleIf` share one evaluator. Preserve every action semantic exactly — especially
+first-firing-`skip_to`-wins ordering by `rule.order` and the backward-skip guard.
 
 ### Acceptance criteria
-1. ~~Reported `logic_rules` row count from the real database~~ — **done by the Senior
-   2026-08-07: 0 rows. Do not re-measure; see the Decision #4 data table.**
-2. Actions represented in the shared type; `skip_to` carries its target.
-3. Every existing `visibleIf` payload parses and evaluates **identically** — prove with a
-   regression test over representative existing shapes, not by inspection.
-4. `shared/conditionEvaluator.ts` evaluates actions on both client and server paths.
-5. `type-check` 0, `lint` 0, `test:fast` no regression vs the recorded baseline.
+1. `logic_rules` carries a `when` jsonb; the flat condition columns are gone. Migration applies
+   cleanly on a fresh database (no backfill needed — the table is empty; **do not write
+   speculative backfill logic**).
+2. `evaluateRules` evaluates `when` through `shared/conditionEvaluator.ts`, not a private
+   comparison.
+3. All five actions behave exactly as before — port the existing `workflowLogic` tests and add
+   coverage proving first-firing-`skip_to`-wins and the backward-skip guard still hold.
+4. `steps.visible_if` / `sections.visible_if` are **untouched** and still evaluate identically.
+5. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression vs **2603**.
+6. DB-backed suites: run `test:unit` and report the result — this ticket changes schema, so it
+   is the exception to the no-DB-suites rule. Say so prominently and run it alone.
 
-## LU-6b — Author actions in the unified editor 🔲
+---
+
+## LU-6b — Author rules in the unified editor 🔲
 
 **Priority: P1** · Size: M · Depends on LU-6a
-**Files:** `client/src/components/logic/`, `client/src/lib/vault-api.ts`, builder panels
+**Files:** `client/src/components/logic/`, `client/src/lib/vault-api.ts`,
+`client/src/hooks/api/useLogicRules.ts`, builder panels
+**Ties:** `add-api-endpoint`, `design`, `run-tests`.
 
-Surface the new actions in `LogicBuilder` (post-LU-2), and give `logicRuleAPI` a real typed
-contract — it currently exposes only `list` returning `unknown[]` (see O-3). Authors must be
-able to create, edit, and delete rules that today only AI can write.
+### Finding
+`logicRuleAPI` exposes only `list`, returning `unknown[]` (see O-3). Nothing but AI generation
+can create a rule, which is why the table is empty and why `skip_to`, `require` and
+`make_optional` have never been usable by a human author despite the engine supporting them.
 
-### Acceptance criteria
-1. Authors can create/edit/delete all five actions from the builder, including `skip_to` with
-   a target picker.
-2. `logicRuleAPI` / `useLogicRules` are properly typed — no `unknown[]`.
-3. Component tests cover each action; `skip_to` target selection is tested.
-4. Live proof in the running app (`verify` skill): author a `skip_to` rule and observe the
-   runner honour it.
-5. `type-check` 0, `lint` 0, `test:fast` no regression.
-
-## LU-6c — Migrate and drop `logic_rules` 🔲
-
-**Priority: P1** · Size: L · Depends on LU-6b · **Load `db-schema-change` first**
-**Files:** migration + the ~20 server files that read/write `logicRules`
-
-Collapse rows into expressions (group by target+action, combine by `logicalOperator` honouring
-`order`), then remove the table and every reader. Shape of the change depends on LU-6a's row
-count: with zero meaningful rows this is a drop plus dead-code removal.
+### Preferred fix
+Full CRUD, then a rules panel that reuses **`LogicBuilder`** for the `when` expression — the
+same editor steps, sections and list fields already use (post-LU-2 it accepts an injected
+variable list, and post-LU-4 its operand pickers are searchable). Add target and action
+pickers around it; do not build a second condition editor.
 
 ### Acceptance criteria
-1. Versioning, portability round-trip, cloning, AI generation, and run execution all work with
-   no `logic_rules` reads remaining. Each subsystem gets a test.
-2. Import/export round-trip of a workflow with conditional logic is byte-stable.
-3. Migration applies cleanly on a fresh database. ~~and on one seeded with pre-migration
-   rows~~ — **moot, the table is empty (Decision #4 data table); this is a DROP, and the
-   row-collapsing algorithm is not needed.**
-4. Repo-wide grep for `logicRules` / `logic_rules` returns zero non-historical hits.
-5. `type-check` 0, `lint` 0; **full `test:unit` and `test:integration` green** (this ticket is
-   the exception to the no-DB-suites rule — it runs alone).
+1. Authors can create, edit, delete and reorder rules, choosing action and target.
+2. `skip_to` offers a section target picker; ordering is author-controllable, since first
+   firing wins.
+3. `logicRuleAPI` and `useLogicRules` are properly typed — no `unknown[]`.
+4. The `when` editor is `LogicBuilder`, not a reimplementation.
+5. Component tests per action, including `skip_to` target selection and reordering.
+6. **Live proof** (`verify` skill): author a `skip_to` rule, run the workflow, observe the
+   runner honour it. Note the builder-chrome caveats in the Phase 1 gate note below.
+7. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression.
+
+---
+
+## LU-6c — Retire the second condition language 🔲
+
+**Priority: P1** · Size: M *(reduced from L — Decision #5 reshapes rather than drops)*
+**Files:** the `logic_rules` readers across `server/services/` (versioning, portability,
+cloning, AI generation, run execution), `server/lib/logic/optimizer.ts`
+**Ties:** `db-schema-change`, `run-tests`.
+
+### Preferred fix
+Remove every remaining assumption of the flat condition shape: `conditionOperatorEnum` itself
+if nothing else uses it, AI generation prompts/types that emit flat rules
+(`server/services/ai/`, `shared/types/ai.ts`), and portability/version serialization that names
+the dropped columns. Delete the unreferenced `detectCycles` stub in
+`server/lib/logic/optimizer.ts` (**O-6**) — LU-3 supersedes it.
+
+### Acceptance criteria
+1. No code references `operator` / `condition_value` / `logical_operator` on `logic_rules`.
+2. Versioning, portability round-trip, cloning, AI generation and run execution each work and
+   each have a test.
+3. Import/export round-trip of a workflow carrying rules is stable.
+4. AI-generated logic produces `ConditionExpression` triggers, not flat conditions.
+5. `optimizer.ts`'s stub `detectCycles` is deleted.
+6. `type-check` 0, `lint` 0, `check:strict-zones` pass; **full `test:unit` and
+   `test:integration` green** — run alone.
+
+---
 
 ## LU-5 — Final-document visibility conditions 🔲
 
-**Priority: P2** · Size: M · Depends on LU-6a (needs the action-bearing type)
+**Priority: P2** · Size: M · Independent of LU-6a/b/c — may be dispatched in parallel with any
+of them (disjoint footprint), or dropped if final-document conditions are not wanted.
 
 Epic GH-154 AC1 names "document outputs" as a surface the unified editor must cover.
 `client/src/components/builder/final/FinalDocumentsSectionEditor.tsx` has **no** condition UI
-at all — grepped for `visibleIf` / `Condition`, zero hits. Add one using the same
-`LogicBuilder`, storing a Model A expression.
+(grepped for `visibleIf` / `Condition`: zero hits). Add one using `LogicBuilder`, storing a
+Model A `visibleIf` — this is a pull-model element condition, **not** a rule, so it does not
+depend on Decision #5.
 
 ### Acceptance criteria
 1. Final documents accept a visibility condition authored in the shared `LogicBuilder`.
-2. The document engine honours it at generation time; a document whose condition is false is
-   not generated.
+2. The document engine honours it: a document whose condition is false is not generated.
 3. Tests cover generation with the condition true and false.
-4. Live proof: a run that produces one document and suppresses another.
-5. `type-check` 0, `lint` 0, `test:fast` no regression.
+4. Live proof: a run producing one document and suppressing another.
+5. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression.
 
 ---
 
