@@ -1,354 +1,39 @@
-# Workflow Condition System
-
-The workflow condition system provides a flexible, expression-based engine for evaluating conditional logic in Intake Runner 2.0.
-
-## Overview
-
-The condition system supports:
-
-- **Basic comparisons**: equals, notEquals, gt, gte, lt, lte
-- **Array/string operations**: in, notIn, contains, notContains, startsWith, endsWith
-- **Empty checks**: isEmpty, notEmpty
-- **Pattern matching**: matches (regex)
-- **Composite conditions**: AND, OR, NOT
-- **Variable references**: Support for dot notation and array indexing
-- **Multiple data sources**: Workflow variables and collection record data
-
-## Basic Usage
-
-```typescript
-import { evaluateCondition, varRef, value } from './conditions';
-
-// Simple equality check
-const condition = {
-  op: 'equals',
-  left: varRef('status'),
-  right: value('approved'),
-};
-
-const context = {
-  variables: { status: 'approved' },
-};
-
-const result = evaluateCondition(condition, context); // true
-```
-
-## Operators
-
-### Comparison Operators
-
-```typescript
-// Equals (case-insensitive for strings)
-{ op: 'equals', left: varRef('name'), right: value('John') }
-
-// Not equals
-{ op: 'notEquals', left: varRef('status'), right: value('banned') }
-
-// Greater than
-{ op: 'gt', left: varRef('age'), right: value(18) }
-
-// Greater than or equal
-{ op: 'gte', left: varRef('score'), right: value(50) }
-
-// Less than
-{ op: 'lt', left: varRef('price'), right: value(100) }
-
-// Less than or equal
-{ op: 'lte', left: varRef('items'), right: value(10) }
-```
-
-### Array/String Operators
-
-```typescript
-// Value in array
-{ op: 'in', left: varRef('role'), right: value(['admin', 'manager']) }
-
-// Value not in array
-{ op: 'notIn', left: varRef('status'), right: value(['banned', 'suspended']) }
-
-// Array/string contains value
-{ op: 'contains', left: varRef('tags'), right: value('urgent') }
-
-// Array/string doesn't contain value
-{ op: 'notContains', left: varRef('message'), right: value('error') }
-
-// String starts with
-{ op: 'startsWith', left: varRef('email'), right: value('admin@') }
-
-// String ends with
-{ op: 'endsWith', left: varRef('filename'), right: value('.pdf') }
-
-// Regex match
-{ op: 'matches', left: varRef('phone'), right: value('^\\d{3}-\\d{3}-\\d{4}$') }
-```
-
-### Empty Checks
-
-```typescript
-// Is empty (null, undefined, empty string, empty array)
-{ op: 'isEmpty', left: varRef('optional'), right: value(null) }
-
-// Is not empty
-{ op: 'notEmpty', left: varRef('required'), right: value(null) }
-```
-
-## Composite Conditions
-
-### AND Condition
-
-All sub-conditions must be true:
-
-```typescript
-const condition = {
-  and: [
-    { op: 'equals', left: varRef('status'), right: value('active') },
-    { op: 'gte', left: varRef('age'), right: value(18) },
-  ],
-};
-```
-
-### OR Condition
-
-At least one sub-condition must be true:
-
-```typescript
-const condition = {
-  or: [
-    { op: 'equals', left: varRef('role'), right: value('admin') },
-    { op: 'equals', left: varRef('role'), right: value('manager') },
-  ],
-};
-```
-
-### NOT Condition
-
-Negates the sub-condition:
-
-```typescript
-const condition = {
-  not: {
-    op: 'equals',
-    left: varRef('status'),
-    right: value('banned'),
-  },
-};
-```
-
-### Complex Nested Conditions
-
-Combine AND, OR, NOT for complex logic:
-
-```typescript
-// (status = 'active' AND age >= 18) OR (vip = true AND NOT banned)
-const condition = {
-  or: [
-    {
-      and: [
-        { op: 'equals', left: varRef('status'), right: value('active') },
-        { op: 'gte', left: varRef('age'), right: value(18) },
-      ],
-    },
-    {
-      and: [
-        { op: 'equals', left: varRef('vip'), right: value(true) },
-        { not: { op: 'equals', left: varRef('banned'), right: value(true) } },
-      ],
-    },
-  ],
-};
-```
-
-## Variable Resolution
-
-### Simple Variables
-
-```typescript
-// References workflow variable "firstName"
-varRef('firstName')
-```
-
-### Dot Notation
-
-```typescript
-// References nested property
-varRef('address.city')
-varRef('company.info.name')
-```
-
-### Array Indexing
-
-```typescript
-// References first item in array
-varRef('items[0]')
-
-// References nested property in array item
-varRef('users[0].name')
-varRef('addresses[1].city')
-```
-
-## Data Sources
-
-The evaluation context supports two data sources:
-
-1. **Workflow variables**: Step values collected during workflow run
-2. **Collection record data**: Pre-filled data from a collection record
-
-Variables are resolved in order:
-1. First check `context.variables`
-2. If not found, check `context.record`
-
-```typescript
-const context = {
-  variables: {
-    firstName: 'John',
-    lastName: 'Doe',
-  },
-  record: {
-    company: 'Acme Corp',
-    industry: 'Technology',
-  },
-};
-
-// Can reference both sources
-const condition1 = { op: 'equals', left: varRef('firstName'), right: value('John') };
-const condition2 = { op: 'equals', left: varRef('company'), right: value('Acme Corp') };
-```
-
-## Validation
-
-Validate condition structure before evaluation:
-
-```typescript
-import { validateConditionExpression } from './conditions';
-
-const condition = {
-  op: 'equals',
-  left: { type: 'variable', path: 'name' },
-  right: { type: 'value', value: 'John' },
-};
-
-const errors = validateConditionExpression(condition);
-if (errors.length > 0) {
-  console.error('Invalid condition:', errors);
-}
-```
-
-## Integration Examples
-
-### Page-Level Visibility (PR 2)
-
-```typescript
-// Page definition with visibleIf condition
-const page = {
-  id: 'employment-details',
-  title: 'Employment Details',
-  visibleIf: {
-    op: 'equals',
-    left: varRef('employmentStatus'),
-    right: value('employed'),
-  },
-  elements: [/* ... */],
-};
-
-// Evaluate visibility
-const isVisible = evaluateCondition(page.visibleIf, context);
-```
-
-### Question-Level Visibility (PR 3)
-
-```typescript
-// Question with conditional visibility
-const question = {
-  id: 'q1',
-  type: 'text',
-  slug: 'spouseName',
-  title: 'Spouse Name',
-  visibleIf: {
-    op: 'equals',
-    left: varRef('maritalStatus'),
-    right: value('married'),
-  },
-};
-
-// Evaluate visibility
-const isVisible = evaluateCondition(question.visibleIf, context);
-```
-
-### Repeater Visibility (PR 4)
-
-```typescript
-// Repeater with conditional display
-const repeater = {
-  id: 'r1',
-  type: 'repeater',
-  title: 'Dependents',
-  visibleIf: {
-    op: 'gt',
-    left: varRef('dependentCount'),
-    right: value(0),
-  },
-  fields: [/* ... */],
-};
-```
-
-### Validation Rules (PR 6)
-
-```typescript
-// Field validation with conditional requirement
-const field = {
-  id: 'ssn',
-  title: 'Social Security Number',
-  validation: {
-    requiredIf: {
-      op: 'equals',
-      left: varRef('country'),
-      right: value('USA'),
-    },
-  },
-};
-```
-
-## Best Practices
-
-1. **Use semantic variable names**: `varRef('isEmployed')` instead of `varRef('q3')`
-2. **Prefer simple conditions**: Break complex logic into multiple pages/questions
-3. **Validate before evaluation**: Use `validateConditionExpression()` in builder UI
-4. **Test edge cases**: Consider null, undefined, empty string, empty array
-5. **Use case-insensitive comparisons**: String operators are case-insensitive by default
-6. **Avoid deep nesting**: Limit nested conditions to 2-3 levels for readability
-
-## Type Safety
-
-All types are exported for TypeScript usage:
-
-```typescript
-import type {
-  ConditionExpression,
-  ConditionOperator,
-  ConditionOperand,
-  VariableReference,
-  ValueLiteral,
-  EvaluationContext,
-  ComparisonCondition,
-  AndCondition,
-  OrCondition,
-  NotCondition,
-} from './conditions';
-```
-
-## Testing
-
-See `tests/unit/workflows/conditionTruthTable.test.ts` for comprehensive test coverage including:
-
-- All basic operators
-- Composite conditions (AND, OR, NOT)
-- Variable resolution (simple, dot notation, array indexing)
-- Edge cases and error handling
-- Validation tests
-
-## Performance
-
-- Variable resolution is cached within a single evaluation
-- Regex compilation is done on-the-fly (not cached)
-- For high-frequency evaluations, consider caching evaluation results
-- Complex nested conditions may impact performance - profile if needed
+# server/workflows/
+
+## Live modules
+
+### `validation.ts` — page/section validation engine
+
+`validatePage()` validates all fields on a page against the run's submitted
+values, respecting visibility (`visibleStepIds`) and virtual steps. It builds
+each field's schema via `shared/validation/BlockValidation.ts`'s
+`getValidationSchema()` — the same schema builder the client uses — so
+required/format rules are byte-identical between browser and server.
+
+`list`-type steps get recursive, path-keyed validation via
+`validateListValue` instead of the flat `ValidationRule[]` schema.
+
+Format-rule enforcement (minLength/maxLength/min/max/email/url/pattern) is
+gated by `SERVER_FIELD_VALIDATION=enforce` (`isServerFieldValidationEnforced()`);
+`required` is unaffected by the switch and is always enforced. See the
+in-file comment on `isServerFieldValidationEnforced` for the rollout history
+(RUN2-16).
+
+Imported by `server/services/runs/RunExecutionCoordinator.ts`.
+
+## Condition evaluation lives elsewhere
+
+Workflow visibility conditions (`steps.visible_if`, `sections.visible_if`)
+are **not** evaluated in this directory. The live condition model —
+`ConditionExpression`, nested AND/OR groups, and the full comparison-operator
+set — is defined in `shared/types/conditions.ts` and evaluated by
+`shared/conditionEvaluator.ts` on both client and server. See that file and
+its tests (`tests/unit/shared/conditionEvaluator.test.ts`,
+`tests/unit/shared/conditions.test.ts`) for usage and operator coverage.
+
+An earlier, unrelated condition system — a string-expression /
+`ConditionExpression`-lookalike engine plus its UI-format adapter and usage
+examples, which this file used to document — lived in this directory but had
+no production importer. It was removed as dead code (LU-1, GH-154
+decomposition, 2026-08-07); its test coverage was checked against and is
+superseded by `shared/conditionEvaluator.ts`'s tests.

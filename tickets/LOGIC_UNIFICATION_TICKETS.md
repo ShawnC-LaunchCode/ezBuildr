@@ -152,7 +152,40 @@ written** — do not assume it in either direction.
 
 Dispatchable now. Footprints are disjoint except where noted.
 
-## LU-1 — Delete the dead third condition model 🔄
+## LU-1 — Delete the dead third condition model ✅
+
+> **Verified 2026-08-07 (Senior).** Gates re-run by the reviewer in the worktree, not taken
+> from the dev's report: `tsc --noEmit` exit 0, `npm run lint` (`--max-warnings 0`) exit 0,
+> `test:fast` **215 files / 2556 tests passed, 1 file + 14 tests skipped** — reproducing the
+> dev's numbers exactly.
+>
+> **Test-count delta accounted for.** Baseline 2604 → 2556 = −48, which is −51 (the deleted
+> `conditionTruthTable.test.ts`, confirmed at exactly 51 `it(` blocks) +3 ported. No
+> unexplained regression.
+>
+> **AC3 — ported coverage verified.** Three cases were genuinely uncovered and are now in
+> `tests/unit/shared/conditionEvaluator.test.ts`: `greater_than` against a non-numeric string
+> (the existing fail-closed suite covered only missing/empty, not unparseable), double
+> negation, and dot-notation path resolution through a full evaluation. The double-negation
+> port is a real translation rather than a copy — Model A expresses NOT as a `not: true` flag
+> on a group, not as a wrapper node, so the ported test nests two flagged groups. The dev
+> also named a covering test for every case it declined to port, and correctly identified
+> seven cases as unportable because the *feature* is absent from Model A (`in`/`notIn`,
+> regex `matches`, dual data source, bracket-index paths, whitespace trimming, the
+> empty-OR-array convention, and `validateConditionExpression`'s own error strings).
+>
+> **AC7 — REG-1 deletion upheld.** The reviewer checked the deleted file rather than the
+> argument for deleting it. `regression-REG-1.test.ts` imported `evaluateVisibility` from the
+> dead `conditionAdapter`, re-implemented its filtering inline (`allSteps.filter(...)`)
+> instead of calling `validatePage` or any production service, and — decisively — cast
+> `s.visibleIf as unknown as string` to make production's structured `ConditionExpression`
+> jsonb accept its fabricated string format. A test that must lie to the type system to
+> reach dead code protects nothing. Deleting was right.
+>
+> **`server/workflows/validation.ts` untouched** and still imported by
+> `RunExecutionCoordinator.ts:7`, as required by AC2. Scoped repo grep for
+> `conditionAdapter` / `workflows/conditions` / `workflows/examples` returns zero code hits.
+
 
 **Priority: P1** · Size: S
 **Files:** `server/workflows/conditions.ts`, `server/workflows/conditionAdapter.ts`,
@@ -493,5 +526,10 @@ at all — grepped for `visibleIf` / `Condition`, zero hits. Add one using the s
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-4.** The legacy string-expression branch of `extractConditionReferences` (`shared/conditionGraph.ts`,
+  inherited unchanged from the old `extractStringIdentifiers` in `workflowLintRules.ts`) matches bare
+  identifiers with a regex, so a string `visibleIf` such as `name == 'foo'` extracts `foo` and can
+  false-positive as a dangling reference. Pre-existing, not introduced by LU-3; deliberately left alone
+  there. Only reachable if raw-string `visibleIf` rows actually exist — check that before sizing.
 - **O-3.** `logicRuleAPI.list` returns `unknown[]` and `useLogicRules` is typed
   `UseQueryResult<unknown[]>`. Whatever the Model B decision, that type should be real.

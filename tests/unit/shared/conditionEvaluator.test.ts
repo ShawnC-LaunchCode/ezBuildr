@@ -86,6 +86,13 @@ describe("conditionEvaluator", () => {
         expect(evaluateConditionExpression(numExpr("between", 0, 50000), { age: 30000 })).toBe(true);
         expect(evaluateConditionExpression(numExpr("between", 0, 50000), { age: 60000 })).toBe(false);
       });
+
+      // Ported from the deleted server/workflows/conditionTruthTable.test.ts
+      // (LU-1): a non-numeric, non-empty string (garbage input, as opposed to
+      // an unanswered field) must also fail closed rather than coerce to 0.
+      it("'greater_than' is false when the field holds a non-numeric string", () => {
+        expect(evaluateConditionExpression(numExpr("greater_than", 10), { age: "abc" })).toBe(false);
+      });
     });
   });
 
@@ -384,6 +391,38 @@ describe("conditionEvaluator", () => {
 
         expect(evaluateConditionExpression(expression, { status: "blocked" })).toBe(false);
         expect(evaluateConditionExpression(expression, { status: "active" })).toBe(true);
+      });
+
+      // Ported from the deleted server/workflows/conditionTruthTable.test.ts
+      // (LU-1): Model A expresses NOT as a `not: true` flag on a group rather
+      // than a dedicated wrapper node, so double negation means nesting two
+      // `not: true` groups rather than nesting a `not` node twice. Confirms
+      // the negations cancel out.
+      it("should support double negation via nested not groups", () => {
+        const expression: ConditionExpression = {
+          type: "group", id: "g1",
+          operator: "AND",
+          not: true,
+          conditions: [
+            {
+              type: "group", id: "g2",
+              operator: "AND",
+              not: true,
+              conditions: [
+                {
+                  type: "condition", id: "c1",
+                  variable: "value",
+                  operator: "equals",
+                  value: true,
+                  valueType: "constant",
+                },
+              ],
+            },
+          ],
+        };
+
+        expect(evaluateConditionExpression(expression, { value: true })).toBe(true);
+        expect(evaluateConditionExpression(expression, { value: false })).toBe(false);
       });
     });
   });
@@ -1365,6 +1404,29 @@ describe("conditionEvaluator", () => {
 
       const result = evaluateConditionExpression(expression, {});
       expect(result).toBe(false);
+    });
+
+    // Ported from the deleted server/workflows/conditionTruthTable.test.ts
+    // (LU-1): getValueByPath supports dot-notation traversal, but nothing
+    // exercised it through a full condition evaluation before this.
+    it("should resolve dot-notation nested paths", () => {
+      const condition: Condition = {
+        type: "condition", id: "c1",
+        variable: "address.city",
+        operator: "equals",
+        value: "Boston",
+        valueType: "constant",
+      };
+
+      const expression: ConditionExpression = {
+        type: "group", id: "g1",
+        operator: "AND",
+        conditions: [condition],
+      };
+
+      const data: DataMap = { address: { city: "Boston", state: "MA" } };
+      expect(evaluateConditionExpression(expression, data)).toBe(true);
+      expect(evaluateConditionExpression(expression, { address: { city: "Denver" } })).toBe(false);
     });
   });
 
