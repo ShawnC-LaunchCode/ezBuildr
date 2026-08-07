@@ -449,9 +449,40 @@ existing severity convention in the file rather than inventing one.
 
 ---
 
-## LU-4 — Alias autocompletion in the condition operand picker 🔲
+## LU-4 — Alias autocompletion in the condition operand picker ✅
 
-**Priority: P2** · Size: M · **Status: BLOCKED until LU-2 is reviewed and committed**
+> **Verified 2026-08-07 (Senior).** All four gates re-run by the reviewer: `tsc --noEmit`
+> exit 0, `npm run lint` exit 0, `check:strict-zones` all 6 zones pass, `test:fast`
+> **222 files / 2603 tests passed**.
+>
+> **Baseline discrepancy was the reviewer's, not the dev's.** The dispatch prompt stated the
+> worktree baseline as 218 test files; the true figure is **219 files / 2583 tests**, measured
+> here by stashing the dev's work and re-running. With that corrected the delta is exact:
+> +3 test files and +20 tests, matching the 9+5+6 the dev added. The dev flagged the
+> mismatch rather than quietly absorbing it, and correctly identified the test-count match as
+> the definitive regression check — the right call on both counts.
+>
+> **Scope discipline verified at the diff, not the claim.** `git diff` on
+> `ConditionValueInput.tsx` shows no `+`/`-` on any `valueType` branch, `type="date"`,
+> `type="number"`, or the date-diff table — the constant-mode value inputs are untouched, as
+> the ticket required. Both orphaned helpers (`variablesBySection`, `getVariableLabel`) are
+> deleted, not left dormant.
+>
+> **No new dependency (AC-relevant).** `VariableCombobox` is built from the repo's existing
+> `Command`/`Popover` primitives and `package.json` / `package-lock.json` are byte-unchanged.
+>
+> **Deviation accepted.** The dev added `client/src/components/logic/VariableCombobox.tsx` as
+> a shared component rather than duplicating combobox JSX into both call sites. Not in the
+> ticket's Files list, but duplicating grouping + filtering + keyboard + a11y behavior across
+> two pickers is exactly the drift this initiative exists to remove. Correct call.
+>
+> **Live proof deliberately deferred**, per this ticket's own criteria (component tests, not a
+> live walkthrough) and the Phase 1 Gate's instruction to batch the drive-through across
+> LU-2 + LU-4. Discharged at the gate below, by the reviewer.
+
+
+**Priority: P2** · Size: M · **Unblocked 2026-08-07** — LU-2 committed as `2da2feb6`.
+Post-LU-2 baseline in a fresh worktree: `test:fast` **218 files / 2583 tests passed**.
 **Files:** `client/src/components/logic/ConditionRow.tsx`,
 `client/src/components/logic/ConditionValueInput.tsx`
 **Ties:** Load `run-tests` and `design`. **Collides with LU-2** on the variable-list plumbing.
@@ -497,7 +528,7 @@ Do not change the value-input branching logic — that is correct as-is and out 
 ## Phase 1 Gate (Senior)
 
 - [x] LU-1, LU-2, LU-3 reviewed, each committed as its own commit
-- [ ] LU-4 dispatched only after LU-2 is committed, then reviewed and committed
+- [x] LU-4 dispatched only after LU-2 is committed (worktree based on `2da2feb6`), reviewed and committed
 - [ ] One batched live drive-through of the builder covering LU-2 + LU-4 (both land on the
       condition editor) rather than one per ticket
 - [ ] `test:fast` at or above the recorded pre-initiative baseline

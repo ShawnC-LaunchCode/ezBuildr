@@ -10,9 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -32,6 +30,7 @@ import type {
 import { getOperatorsForStepType, getOperatorConfig } from "@shared/types/conditions";
 
 import { ConditionValueInput } from "./ConditionValueInput";
+import { VariableCombobox } from "./VariableCombobox";
 
 interface ConditionRowProps {
   condition: Condition;
@@ -56,29 +55,10 @@ export function ConditionRow({
   const operators = getOperatorsForStepType(stepType);
   const currentOperator = getOperatorConfig(stepType, condition.operator);
 
-  // Group variables by section for the dropdown
-  const variablesBySection = variables.reduce((acc, variable) => {
-    const sectionId = variable.sectionId;
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!acc[sectionId]) {
-      acc[sectionId] = {
-        title: variable.sectionTitle,
-        variables: [],
-      };
-    }
-    acc[sectionId].variables.push(variable);
-    return acc;
-  }, {} as Record<string, { title: string; variables: VariableInfo[] }>);
-
   // Helpers
   const getStringValue = (val: unknown): string => {
     if (val === null || val === undefined) { return ""; }
     return String(val);
-  };
-
-  const getVariableLabel = (val: string) => {
-    const v = variables.find((v) => v.id === val || v.alias === val);
-    return v ? (v.alias ?? v.title) : val;
   };
 
   // Handlers
@@ -124,30 +104,14 @@ export function ConditionRow({
   return (
     <div className="flex items-center gap-2 py-2 px-3 bg-muted/30 rounded-md">
       {/* Variable Selector */}
-      <Select value={getStringValue(condition.variable)} onValueChange={handleVariableChange}>
-        <SelectTrigger className="w-[160px] text-sm bg-background">
-          <SelectValue placeholder="Select variable...">
-            {getVariableLabel(getStringValue(condition.variable))}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(variablesBySection).map(([sectionId, { title, variables: sectionVars }]) => (
-            <SelectGroup key={sectionId}>
-              <SelectLabel className="text-xs font-semibold text-muted-foreground">{title}</SelectLabel>
-              {sectionVars.map((v) => (
-                <SelectItem key={v.id} value={v.alias ?? v.id}>
-                  <div className="flex flex-col text-left">
-                    <span>{v.alias ?? v.title}</span>
-                    {v.alias && (
-                      <span className="text-[10px] text-muted-foreground">{v.title}</span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          ))}
-        </SelectContent>
-      </Select>
+      <VariableCombobox
+        variables={variables}
+        value={getStringValue(condition.variable)}
+        onChange={handleVariableChange}
+        placeholder="Select variable..."
+        emptyText="No matching fields."
+        ariaLabel="Select variable"
+      />
 
       {/* Operator Selector */}
       <Select value={condition.operator} onValueChange={handleOperatorChange}>

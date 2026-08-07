@@ -4,14 +4,14 @@ import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
-    SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
 
 import type { Condition, ComparisonOperator, OperatorConfig, VariableInfo } from "@shared/types/conditions";
+
+import { VariableCombobox } from "./VariableCombobox";
 
 // Unit label for the numeric side of the date-diff operators (diff_days/weeks/months/years)
 const DATE_DIFF_UNIT_LABELS: Partial<Record<ComparisonOperator, string>> = {
@@ -53,48 +53,28 @@ export function ConditionValueInput({
         onChange({ value2: val });
     };
 
-    // Group variables for dropdown if needed
-    const variablesBySection = useMemo(() => {
+    // Candidate operands for variable-reference mode: every variable except
+    // the one already selected as the condition's own operand (don't allow
+    // comparing a variable to itself).
+    const referenceVariables = useMemo(() => {
         if (condition.valueType !== "variable") {
-            return {};
+            return [];
         }
-
-        return allVariables.reduce((acc, variable) => {
-            const sectionId = variable.sectionId;
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-            if (!acc[sectionId]) {
-                acc[sectionId] = {
-                    title: variable.sectionTitle,
-                    variables: [],
-                };
-            }
-            acc[sectionId].variables.push(variable);
-            return acc;
-        }, {} as Record<string, { title: string; variables: VariableInfo[] }>);
-    }, [allVariables, condition.valueType]);
+        return allVariables.filter((v) => v.id !== condition.variable);
+    }, [allVariables, condition.valueType, condition.variable]);
 
     // 1. Variable Reference Mode
     if (condition.valueType === "variable") {
         return (
-            <Select value={getStringValue(condition.value)} onValueChange={handleValueChange}>
-                <SelectTrigger className="w-[180px] text-sm bg-background">
-                    <SelectValue placeholder="Select variable..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {Object.entries(variablesBySection).map(([sectionId, { title, variables: sectionVars }]) => (
-                        <SelectGroup key={sectionId}>
-                            <SelectLabel className="text-xs font-semibold text-muted-foreground">{title}</SelectLabel>
-                            {sectionVars
-                                .filter((v) => v.id !== condition.variable) // Don't allow comparing to self
-                                .map((v) => (
-                                    <SelectItem key={v.id} value={v.alias ?? v.id}>
-                                        {v.alias ?? v.title}
-                                    </SelectItem>
-                                ))}
-                        </SelectGroup>
-                    ))}
-                </SelectContent>
-            </Select>
+            <VariableCombobox
+                variables={referenceVariables}
+                value={getStringValue(condition.value)}
+                onChange={handleValueChange}
+                placeholder="Select variable..."
+                emptyText="No matching fields."
+                ariaLabel="Select comparison variable"
+                triggerClassName="w-[180px]"
+            />
         );
     }
 
