@@ -15,6 +15,7 @@
    🔲 to ✅, flip the matching node in the Roadmap Progress graphic below, bump that
    phase's count and the overall bar, and add a row to the Completed table.
 7. **Line numbers are advisory.** Every Finding quotes the code and names its enclosing symbol — that quote plus symbol is the real locator. If a line number has drifted, grep for the quoted text; a drifted line is not a broken ticket.
+8. **Deferred tickets are not dispatchable.** Anything under “Deferred — parked” is off the board: no phase owns it, no phase gate blocks on it, and it is not counted in the progress bar. Do not pick one up unless the repo owner promotes it back into a phase.
 
 ---
 
@@ -58,15 +59,15 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**13 of 28 tickets complete (46%)** — updated 2026-08-06
+**13 of 27 tickets complete (48%)** — updated 2026-08-07 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
 
 ```
-LEGEND    ✅ done      🔲 open
+LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   █████████████░░░░░░░░░░░░░░░   13 / 28   (46%)
+OVERALL   ██████████████░░░░░░░░░░░░░   13 / 27   (48%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -80,13 +81,13 @@ OVERALL   █████████████░░░░░░░░░░�
         │      ├── ✅ GH-157   DocuSign envelope lifecycle
         │      └── ✅ GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
-        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ████████░░  5/6
+        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ██████████  5/5  DONE
         │      ├── ✅ GH-160   Resilient autosave & offline buffering
         │      ├── ✅ GH-146   File uploads & repeaters in runner
         │      ├── ✅ GH-147   Save-and-resume & client handoff
         │      ├── ✅ GH-158   Workflow branding & white labeling
-        │      ├── ✅ GH-159   WCAG 2.2 AA accessibility conformance
-        │      └── 🔲 GH-148   Multilingual & locale-aware runner
+        │      └── ✅ GH-159   WCAG 2.2 AA accessibility conformance
+        │           ⏸ GH-148   Multilingual & locale-aware runner — parked 2026-08-07, not counted
         │
         ├──► [Phase 3 — Builder Logic & Visual Architecture]   ███░░░░░░░  1/4
         │      ├── 🔲 GH-154   Unified conditional logic editor
@@ -1153,23 +1154,6 @@ exists and expensive before it.
 
 ---
 
-## GH-148 — Add multilingual interview content and locale-aware formatting 🔲
-
-**Priority: P1** · Size: L · Files: `client/src/lib/i18n.ts`, `shared/schema/workflow.ts`, `client/src/components/runner/`
-**Ties:** Independent
-
-### Context & Current State
-- No unified translation schema or locale selector for runner workflows.
-
-### Acceptance Criteria
-1. Workflows can define base locale and translation dictionaries for titles, descriptions, choices, and errors.
-2. Runner supports URL query param (`?lang=es`) or dropdown locale switcher.
-3. Locale-aware formatting for dates, currency, numbers, and validation messages.
-4. Missing translations fall back predictably to base locale without crashing.
-5. Unit tests verify translation resolution and formatting fallbacks.
-
----
-
 # Phase 3: P1 Builder Logic & Visual Architecture
 
 ## GH-154 — Unify conditional logic editing across the builder 🔲
@@ -1424,6 +1408,62 @@ exists and expensive before it.
 
 ---
 
+## Deferred — parked, not dispatchable
+
+Full tickets the repo owner has pulled off the active board. They keep their acceptance
+criteria so they can be promoted back without a re-audit — but **re-verify the Context
+section before dispatching**, because the codebase moves underneath a parked ticket.
+Nothing here is counted in a phase total, and no phase gate blocks on it.
+
+### ⏸ GH-148 — Add multilingual interview content and locale-aware formatting
+
+> **Parked 2026-08-07 by the repo owner.** Pulled out of Phase 2 so the roadmap can close
+> Phase 2 and move on to Phase 3. Nothing depends on it: the ticket is `Ties: Independent`
+> and no Phase 3–5 ticket references it. Deferred, not dropped — the capability is still
+> wanted, just not next.
+>
+> **State of the code when parked (verified 2026-08-07).** This is greenfield. There is no
+> `client/src/lib/i18n.ts`; `shared/schema/workflow.ts` has no locale or translation column
+> (its only `language` enum is `transform_block_language`, for JS/Python transform blocks);
+> and there are **zero** locale references anywhere under `client/src/components/runner/`.
+> Formatting is ad hoc — 41 `Intl.*` / `toLocale*` call sites across 15 files, of which
+> only `runner/blocks/CurrencyBlock.tsx` and `runner/SaveAndResumeButton.tsx` are in the
+> runner. Validation strings are hardcoded English in `shared/validation/messages.ts` and
+> `shared/validation/BlockValidation.ts`.
+>
+> **Two questions must be answered before this is dispatchable.** Both are repo-owner
+> calls and both were left open by the original ticket text:
+>
+> 1. **Where do translations live?** A jsonb column on `workflows` vs. a dedicated
+>    translations table. This is a schema decision — load the `db-schema-change` skill.
+> 2. **Is the builder authoring UI in scope?** AC1 says workflows “can define” translation
+>    dictionaries but never says how an author enters them. If authoring is in scope this
+>    is XL rather than L and should be split into two tickets.
+>
+> **Two traps the original ticket does not mention:**
+>
+> - **Choice labels are stored as values** since the CVM initiative closed (2026-07-30).
+>   Translating a choice label must not change what is persisted, or logic rules and
+>   generated documents break on a translated run.
+> - **`shared/validation/` runs on both sides.** Localized validation messages (AC1, AC3)
+>   therefore mean threading a locale through *server-side* validation too — a wider
+>   footprint than the three paths the Files line names.
+
+**Priority: P1** · Size: L (XL if the builder authoring UI is in scope) · Files: `client/src/lib/i18n.ts`, `shared/schema/workflow.ts`, `client/src/components/runner/`
+**Ties:** Independent
+
+### Context & Current State
+- No unified translation schema or locale selector for runner workflows.
+
+### Acceptance Criteria
+1. Workflows can define base locale and translation dictionaries for titles, descriptions, choices, and errors.
+2. Runner supports URL query param (`?lang=es`) or dropdown locale switcher.
+3. Locale-aware formatting for dates, currency, numbers, and validation messages.
+4. Missing translations fall back predictably to base locale without crashing.
+5. Unit tests verify translation resolution and formatting fallbacks.
+
+---
+
 ## Backlog / observations
 
 Not tickets. Found during the 2026-08-04 GH-169 audit of the live Railway config. Promote
@@ -1615,7 +1655,7 @@ Found during the 2026-08-05 GH-158 branding audit:
 - [ ] Integration tests for document generation and e-sign green
 
 ### Phase 2 Gate (P1 Runner Experience)
-- [ ] GH-160, GH-146, GH-147, GH-158, GH-159, GH-148 all ✅ verified
+- [ ] GH-160, GH-146, GH-147, GH-158, GH-159 all ✅ verified (GH-148 deferred 2026-08-07 — does not block this gate)
 - [ ] `npm run test:fast` green with zero regressions
 
 ### Phase 3 Gate (P1 Builder Logic & Workflow Architecture)
