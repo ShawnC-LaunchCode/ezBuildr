@@ -1134,20 +1134,35 @@ saying why.
   Found during LU-5, which deliberately did not gate its new condition row on the flag. Not
   caused by this initiative; verify against the running app before sizing, and note the builder
   chrome is mid-refactor in the repo owner's tree.
-- **O-9. Error messages are being lost from ~541 log sites.** Found while diagnosing LU-6c's
-  blueprint regression: the 500 logged as
-  `{"error":{"code":"VALIDATION_ERROR","message":""}}` — an empty message. The real message
-  was `"Logic rule references non-existent step alias: ..."` the whole time. `server/logger.ts`
-  configures `redact` with wildcard paths (`*.password`, `*.token`, `*.secret`) and
-  `remove: true`; a nested error object's `message` does not survive that walk (an `Error`'s
-  `message` is non-enumerable, and the custom `toJSON()` on `ApiError`/`AIError` does not
-  survive redaction either). **`grep` finds 541 sites logging a nested `{ error }` object**, so
-  this is not one route's problem. `server/index.ts:146` already works around it by passing
-  `message:` explicitly alongside `error` — evidence someone hit this before and patched one
-  call site instead of the cause. LU-6c applied the same local workaround in
-  `blueprint.routes.ts` because a broad logger change is out of its scope. **Worth a ticket of
-  its own**: fix the redact config (or add an error serializer) once, then remove the
-  workarounds. Debugging any production 500 is materially harder until this is done.
+- **O-9. Error messages lost from ~541 log sites — ✅ FIXED 2026-08-08 (Senior).**
+  Found while diagnosing LU-6c's blueprint regression: a 500 logged as
+  `{"code":"VALIDATION_ERROR","message":""}` when the real text was
+  `"Logic rule references non-existent step alias: ..."` the whole time.
+
+  **The original attribution was wrong.** LU-6c blamed the wildcard `redact` paths
+  (`*.password`/`*.token`/`*.secret`). A three-way pino probe disproved that: the cause is that
+  an `Error`'s `message` and `stack` are **non-enumerable**, and pino only auto-applies its
+  error serializer to a key literally named `err`. This codebase logs `{ error }` (~541 sites),
+  so only the error's enumerable own properties were ever emitted. Redaction was innocent.
+
+  | Config | Output |
+  |---|---|
+  | current, key `error` | `{"error":{"code":"VALIDATION_ERROR"}}` — message gone |
+  | key `err` | full `message` + `stack` |
+  | `serializers.error = pino.stdSerializers.err` | full `message` + `stack` |
+
+  **Fix:** register `pino.stdSerializers.err` under both `error` and `err` in
+  `server/logger.ts`. Verified before applying that it does not trade observability for a
+  leak — a `token`/`password` carried **on** the error is still removed by the existing redact
+  paths, and non-Error payloads (plain objects, strings) pass through unchanged, so no call
+  site changes behaviour. Covered by `tests/unit/logger.errorSerialization.test.ts`, including
+  a test that pins the pre-fix behaviour so the fix cannot silently become a no-op.
+
+  Both local workarounds are now removed: LU-6c's `errorMessage` field in
+  `blueprint.routes.ts`, and the pre-existing `message`/`stack` duplication at
+  `server/index.ts:146` — evidence someone hit this before and patched one call site instead of
+  the cause.
+
 - **O-8.** Dispatch prompts tell devs not to touch files outside their ticket, but say nothing
   about **shared infrastructure**. A dev ran `npm run db:migrate` against the shared dev
   database during LU-6b — correctly, and harmlessly, but unilaterally. Add an explicit line to

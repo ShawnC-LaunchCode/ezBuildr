@@ -95,19 +95,7 @@ router.post('/:id/instantiate', requireAuth, requireUser, asyncHandler(async (re
 
         res.json({ data: result });
     } catch (error) {
-        // The nested `error` object's own `message` (set via a custom
-        // `toJSON()` on ApiError/AIError, e.g. the ingest pipeline's
-        // "Logic rule references non-existent step alias: ..." validation
-        // failure) is silently emptied by the logger's wildcard redact
-        // paths (`*.password`/`*.token`/`*.secret` in `server/logger.ts`) -
-        // a pre-existing fast-redact interaction, not something this route
-        // can fix in its own config. Log the message as its own top-level
-        // field, which the wildcard paths do not match, so a failed
-        // instantiate is actually debuggable.
-        logger.error(
-          { error, errorMessage: error instanceof Error ? error.message : String(error) },
-          'Instantiate blueprint error'
-        );
+        logger.error({ error }, 'Instantiate blueprint error');
         const { status, message } = classifyRouteError(error, 'Failed to instantiate blueprint');
         res.status(status).json({ error: message });
     }

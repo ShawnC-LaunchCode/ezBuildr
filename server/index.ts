@@ -143,7 +143,7 @@ void (async () => {
                 await setupVite(app, server);
                 logger.info("Vite setup complete");
             } catch (error) {
-                logger.error({ error, message: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined }, "Failed to load vite (this is expected in production)");
+                logger.error({ error }, "Failed to load vite (this is expected in production)");
                 // Fallback to static serving if vite module is not available
                 serveStatic(app);
             }

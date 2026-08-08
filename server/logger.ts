@@ -24,6 +24,22 @@ export const logger = pino({
         },
       }
     : undefined,
+  // An Error's `message` and `stack` are non-enumerable, and pino only applies
+  // its error serializer to a key literally named `err`. This codebase logs
+  // `{ error }` in ~540 places, which serialized to just its enumerable own
+  // properties — so `logger.error({ error }, "...")` emitted
+  // `{"error":{"code":"VALIDATION_ERROR"}}` with the message silently dropped.
+  // That cost real debugging time on a production 500 whose actual message
+  // ("Logic rule references non-existent step alias: ...") never reached a log.
+  //
+  // Registering the standard serializer under both keys restores message/stack.
+  // Redaction still applies afterwards (a `token`/`password` carried on an
+  // error object is still removed), and non-Error payloads — plain objects,
+  // strings — pass through untouched, so existing call sites are unaffected.
+  serializers: {
+    error: pino.stdSerializers.err,
+    err: pino.stdSerializers.err,
+  },
   // Redact sensitive information from logs
   redact: {
     paths: [
