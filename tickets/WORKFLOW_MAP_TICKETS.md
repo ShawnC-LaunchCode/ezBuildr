@@ -15,8 +15,16 @@ numbers are advisory** — they were accurate when written and drift as fixes
 land. The locator is the quoted code and the named symbol; grep for those. A
 stale line number is not a broken ticket and does not need re-issuing.
 
-Baseline at audit time: `npm run test:fast` → **232 files passed / 1 skipped**,
-**2681 tests passed / 14 skipped**, 57s.
+Baseline at audit time: `npm run test:fast` → **231 files passed / 1 skipped**,
+**2677 tests passed / 14 skipped**. Measured in a clean worktree off `ffef0fd8`.
+(The main checkout reports 2681 because the repo owner has uncommitted test files
+in it — 2677 is the number a dev in a clean tree must beat.)
+
+**One known-flaky area:** `tests/unit/services/PdfConverter.test.ts` and the
+ClamAV `VirusScanner` tests use real sockets and timers and produced one
+non-reproducible failure across three consecutive runs of this baseline. If a
+single failure appears there, re-run before reporting it — but re-run and *say
+so*, never assume.
 
 ---
 
@@ -83,8 +91,10 @@ migration to run.
 | MAP-9 | `server/routes/ai.routes.ts`, `server/controllers/AiController.ts`, `server/services/ai/`, `shared/types/ai.ts`, `client/src/components/builder/logic/` | none |
 
 MAP-1, MAP-2, MAP-3 have disjoint footprints and **may be dispatched in
-parallel** in separate worktrees. MAP-4, MAP-5, MAP-6 and MAP-8 all live in
-`client/src/components/builder/map/` and **must be sequenced**.
+parallel** in separate worktrees — MAP-3 is decoupled from MAP-2 on purpose
+(structural parameters + its own adapter), so neither touches the other's files.
+MAP-4, MAP-5, MAP-6 and MAP-8 all live in `client/src/components/builder/map/`
+and **must be sequenced**.
 
 ---
 
@@ -197,7 +207,7 @@ The v12 stylesheet import path is `@xyflow/react/dist/style.css` (v11's was
    contexts). The `verify` skill documents how to get an authenticated local
    session without Google OAuth.
 6. `npm run type-check` → 0 errors; `npm run lint` → 0 problems.
-7. `npm run test:fast` ≥ **2681** passing tests (the audit baseline), with the
+7. `npm run test:fast` ≥ **2677** passing tests (the audit baseline), with the
    collab file's own count reduced only by the assertions deleted in AC4.
 
 ---
@@ -315,11 +325,14 @@ inlined.
 ### Ties
 
 - **Load first:** `run-tests` skill.
-- **Blocks MAP-3, MAP-4 and MAP-7**, all of which import from `shared/workflowMap.ts`
-  or `tests/fixtures/workflowMap.ts`.
-- **Parallel-safe with MAP-1.** MAP-3 may be dispatched in parallel *only* if
-  its dev is told to import the fixture module by name and stub it until this
-  lands; otherwise sequence MAP-2 → MAP-3.
+- **Blocks MAP-4 and MAP-7**, which import `shared/workflowMap.ts` and
+  `tests/fixtures/workflowMap.ts`.
+- **Parallel-safe with MAP-1 and MAP-3.** MAP-3 deliberately takes structural
+  parameters and builds its own adapter, so it shares no file with this ticket.
+  Your `WorkflowMapNode` / `WorkflowMapEdge` must satisfy `analyzeWorkflowFlow`'s
+  structural signature — `{ id, kind, order }` and `{ id, from, to, kind }` — so
+  the client can pass this function's output straight in with no cast. The
+  interface above already does; do not narrow it.
 - Donor patterns: `shared/conditionGraph.ts` for module shape, doc-comment
   density and the pure-graph discipline; `calculateNextSection()` in
   `shared/workflowLogic.ts` for section ordering.
@@ -350,7 +363,7 @@ inlined.
    listed in the Preferred fix, and the new unit tests consume them.
 8. New test file `tests/unit/workflowMap.test.ts` covers AC2–AC6.
 9. `npm run type-check` → 0 errors; `npm run lint` → 0 problems;
-   `npm run test:fast` green and above the 2681 baseline.
+   `npm run test:fast` green and above the 2677 baseline.
 
 ---
 
@@ -402,9 +415,18 @@ publish gate ships workflows with sections no respondent can ever be shown.
 Extend the existing engine; do not start a new one.
 
 **In `shared/conditionGraph.ts`**, add a second, clearly-separated block of pure
-graph functions operating on MAP-2's `WorkflowMapNode[]` / `WorkflowMapEdge[]`.
-Keep them O(V+E) and keep the header comment honest about the new scope — the
-file currently states it covers only the pull model, and that stops being true.
+graph functions. Keep them O(V+E) and keep the header comment honest about the
+new scope — the file currently states it covers only the pull model, and that
+stops being true.
+
+**Take structural parameters, not MAP-2's named types.** `conditionGraph.ts`'s
+own header states its discipline: *"pure, framework-agnostic graph algorithms
+operating on a plain adjacency list so they can be unit-tested directly against
+small hand-built graphs, independent of how a workflow's sections/steps get
+turned into node/edge data"*. Importing `WorkflowMapNode` would break that, and
+it is also what lets this ticket run in parallel with MAP-2. MAP-2's types
+satisfy these shapes structurally, so the client passes its output in directly
+with no adapter and no cast.
 
 ```ts
 export interface WorkflowFlowDiagnostics {
@@ -413,8 +435,8 @@ export interface WorkflowFlowDiagnostics {
   loops: { path: string[] }[]; // cycles reachable through `skip` edges
 }
 export function analyzeWorkflowFlow(
-  nodes: WorkflowMapNode[],
-  edges: WorkflowMapEdge[]
+  nodes: { id: string; kind: string; order: number }[],
+  edges: { id: string; from: string; to: string; kind: string }[]
 ): WorkflowFlowDiagnostics;
 ```
 
@@ -444,15 +466,22 @@ so MAP-6 can target the map surface. (The union today is
 existing `review` and `snapshots` tabs — add only `"map"`; the rest is MAP-B3.)
 
 Note `lintWorkflowContent` receives **serialized** content — sections with
-nested `steps`, and a flat `logicRules` array — not the client's separate
-queries. Adapt to `buildWorkflowMap`'s input shape at the call site, as
-`buildWorkflowConditionGraph` already does for its own graph.
+nested `steps`, and a flat `logicRules` array. That is a *different* input shape
+from the client's three separate queries, so build the node/edge arrays with a
+small local adapter in `workflowLintRules.ts`, exactly as
+`buildWorkflowConditionGraph` in that same file already does for the visibleIf
+graph. **Do not import `buildWorkflowMap` from MAP-2** — it adapts the client's
+shape, not this one, and this ticket must not depend on MAP-2's file. Two
+adapters onto one analysis is the intended design here, not duplication.
 
 ### Ties
 
 - **Load first:** `run-tests`, then `add-api-endpoint` — `workflowLintRules.ts`
   is service-layer and the error/finding contract matters.
-- **Preceded by MAP-2** — imports `buildWorkflowMap` and the fixtures.
+- **Independent of MAP-2** by design (see Preferred fix: structural parameters,
+  local adapter). The two may run in parallel and share no file. If you find
+  yourself needing to create or edit `shared/workflowMap.ts`, stop and report a
+  blocker — that file belongs to MAP-2 and a concurrent dev is writing it.
 - **Blocks MAP-6**, which renders these findings on the map.
 - **Shares `shared/types/workflowLint.ts` with MAP-6** (one added union member).
   Sequence MAP-3 → MAP-6.
@@ -465,8 +494,9 @@ queries. Adapt to `buildWorkflowMap`'s input shape at the call site, as
 
 ### Acceptance criteria
 
-1. `analyzeWorkflowFlow` is exported from `shared/conditionGraph.ts` and
-   reuses `detectCycles`; `grep` shows no second three-colour DFS in the file.
+1. `analyzeWorkflowFlow` is exported from `shared/conditionGraph.ts`, reuses
+   `detectCycles` (`grep` shows no second three-colour DFS in the file), and
+   `shared/conditionGraph.ts` imports nothing from `shared/workflowMap.ts`.
 2. A section unreachable from the first section (its only inbound edge removed
    by a `hide` rule chain, or orphaned by ordering) appears in `unreachable`;
    a fully linear workflow yields `unreachable: []`.
@@ -485,7 +515,7 @@ queries. Adapt to `buildWorkflowMap`'s input shape at the call site, as
    fail without the new code — state in the turn-in report which assertions were
    confirmed red first.
 9. `npm run type-check` → 0 errors; `npm run lint` → 0 problems;
-   `npm run test:fast` green and above the 2681 baseline.
+   `npm run test:fast` green and above the 2677 baseline.
 
 ---
 
@@ -494,7 +524,7 @@ queries. Adapt to `buildWorkflowMap`'s input shape at the call site, as
 - [ ] MAP-1, MAP-2, MAP-3 all ✅ with dated verification notes
 - [ ] `npm run type-check` → 0 errors
 - [ ] `npm run lint` → 0 problems
-- [ ] `npm run test:fast` → ≥ 2681 passing (audit baseline), 0 failing
+- [ ] `npm run test:fast` → ≥ 2677 passing (audit baseline), 0 failing
 - [ ] `npm run test:unit` green (MAP-3 touches the publish gate)
 - [ ] Collaboration presence verified live in two browser contexts (MAP-1 AC5)
 - [ ] Reviewer has committed each passed ticket + this gate
