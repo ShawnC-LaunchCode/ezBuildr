@@ -4,11 +4,9 @@
  */
 
 import { PageCanvas } from "@/components/builder/pages/PageCanvas";
-import { RunnerPreview } from "@/components/builder/RunnerPreview";
 import { SidebarTree } from "@/components/builder/SidebarTree";
 import { DevPanel } from "@/components/devpanel/DevPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface SectionsTabProps {
   workflowId: string;
@@ -18,8 +16,6 @@ interface SectionsTabProps {
 const SIDEBAR_WIDTH_KEY = "builder-sidebar-width";
 
 export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
-  const { isPreviewOpen, previewRunId } = useWorkflowBuilder();
-
   // Restore from localStorage or use default (20% of width)
   const defaultLayout = [20, 80];
   try {
@@ -68,16 +64,9 @@ export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
 
       {/* Canvas - Page Builder */}
       <ResizablePanel defaultSize={defaultLayout[1]}>
-        <div className={`h-full overflow-hidden ${isPreviewOpen ? "border-r" : ""}`}>
+        <div className="h-full overflow-hidden">
           <PageCanvas workflowId={workflowId} />
         </div>
-
-        {/* Preview Pane */}
-        {isPreviewOpen && previewRunId && (
-          <div className="absolute top-0 right-0 w-96 h-full bg-muted/30 overflow-y-auto border-l shadow-lg">
-            <RunnerPreview runId={previewRunId} />
-          </div>
-        )}
       </ResizablePanel>
 
       {/* Dev Panel - Advanced Mode Only */}

@@ -1,3 +1,5 @@
+import { clearAllRunTokens } from "@/lib/runTokens";
+import { usePreviewStore } from "@/store/preview";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -65,6 +67,13 @@ export function useAuth(): AuthHookReturn {
   const logout = async (): Promise<void> => {
     await authAPI.logout();
     setAccessToken(null);
+    // O-11: run tokens persist to localStorage and authenticate access to
+    // their run, but nothing cleared them on logout — only expired ones were
+    // swept, once, at app start. On a shared machine the next person inherited
+    // any still-live token. They live in two independent stores, so both are
+    // cleared here.
+    usePreviewStore.getState().clearAll();
+    clearAllRunTokens();
     queryClient.setQueryData(["auth"], null);
     window.location.href = "/auth/login";
   };

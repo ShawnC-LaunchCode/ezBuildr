@@ -25,18 +25,16 @@ import { describe, it, expect } from "vitest";
 
 /**
  * Actions already dead when this check was introduced (2026-08-08, O-11).
- * Each means its state is frozen at its initial value.
+ *
+ * Deliberately EMPTY: every entry it started with was resolved rather than
+ * tolerated. `preview.ts`'s `clearAll` was wired into logout (run tokens
+ * outlived the session); `workflow-builder`'s `startPreview`/`selectWorkflow`/
+ * `clearSelection` and the superseded inline-preview cluster they fed were
+ * deleted; `useDatavaultFilterStore`'s redundant bulk `setFilters` was removed.
+ *
+ * Keep it empty. An entry here is debt, not permission.
  */
-const KNOWN_DEAD: Record<string, string[]> = {
-  // Builder preview state: nothing starts a preview through the store, so
-  // `previewRunId`/`isPreviewOpen` are permanently null/false — the same bug
-  // `mode` had. SectionsTab reads both.
-  "workflow-builder.ts": ["selectWorkflow", "clearSelection", "startPreview"],
-  // Run-token cache: individual tokens are cleared, the bulk clear is not.
-  "preview.ts": ["clearAll"],
-  // DataVault filter store: filters are never written through this action.
-  "useDatavaultFilterStore.ts": ["setFilters"],
-};
+const KNOWN_DEAD: Record<string, string[]> = {};
 
 const STORE_DIR = path.join(process.cwd(), "client", "src", "store");
 const SEARCH_ROOT = path.join(process.cwd(), "client", "src");

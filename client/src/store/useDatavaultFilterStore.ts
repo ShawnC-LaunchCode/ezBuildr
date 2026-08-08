@@ -39,7 +39,6 @@ interface FilterState {
   filtersByTable: Record<string, FilterCondition[]>;
 
   // Actions
-  setFilters: (tableId: string, filters: FilterCondition[]) => void;
   addFilter: (tableId: string, filter: FilterCondition) => void;
   updateFilter: (tableId: string, filterId: string, updates: Partial<FilterCondition>) => void;
   removeFilter: (tableId: string, filterId: string) => void;
@@ -50,14 +49,6 @@ interface FilterState {
 
 export const useDatavaultFilterStore = create<FilterState>((set, _get) => ({
   filtersByTable: {},
-
-  setFilters: (tableId, filters) =>
-    set((state) => ({
-      filtersByTable: {
-        ...state.filtersByTable,
-        [tableId]: filters,
-      },
-    })),
 
   addFilter: (tableId, filter) =>
     set((state) => {

@@ -11,6 +11,15 @@
  * every component gating on it silently never showed its Advanced branch. A
  * global store also cannot represent a per-workflow setting, so it was deleted
  * rather than synced: a mirror could only ever have been accidentally right.
+ *
+ * O-11: the preview fields went the same way. `startPreview` had no callers, so
+ * `isPreviewOpen` was always false, so SectionsTab's inline preview pane never
+ * rendered, so `RunnerPreview` never mounted and its `stopPreview` never fired
+ * — a whole cluster kept alive only by references between its own dead parts.
+ * `PreviewRunner` (rendered from WorkflowBuilder) is the live preview, so the
+ * superseded cluster was deleted. `selectWorkflow`/`clearSelection` went too:
+ * nothing ever called them, and `EntityType`'s "workflow" case existed only for
+ * the former.
  */
 
 import { create } from "zustand";
@@ -26,39 +35,23 @@ interface Selection {
 interface WorkflowBuilderState {
   // Selection
   selection: Selection | null;
-  selectWorkflow: (id: string) => void;
   selectSection: (id: string) => void;
   selectStep: (id: string) => void;
   selectBlock: (id: string) => void;
-  clearSelection: () => void;
 
   // Inspector Tab
   inspectorTab: InspectorTab;
   setInspectorTab: (tab: InspectorTab) => void;
-
-  // Preview
-  previewRunId: string | null;
-  isPreviewOpen: boolean;
-  startPreview: (runId: string) => void;
-  stopPreview: () => void;
 }
 
 export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
   // Selection
   selection: null,
-  selectWorkflow: (id) => set({ selection: { type: "workflow", id } }),
   selectSection: (id) => set({ selection: { type: "section", id } }),
   selectStep: (id) => set({ selection: { type: "step", id } }),
   selectBlock: (id) => set({ selection: { type: "block", id } }),
-  clearSelection: () => set({ selection: null }),
 
   // Inspector Tab
   inspectorTab: "properties",
   setInspectorTab: (tab) => set({ inspectorTab: tab }),
-
-  // Preview
-  previewRunId: null,
-  isPreviewOpen: false,
-  startPreview: (runId) => set({ previewRunId: runId, isPreviewOpen: true }),
-  stopPreview: () => set({ previewRunId: null, isPreviewOpen: false }),
 }));

@@ -1160,28 +1160,46 @@ saying why.
   allowlist entry and watching it fail. The rule is also recorded as Key Convention #8 in
   `CLAUDE.md`.
 
-- **O-11. NEW — five more dead store actions, found by O-10's guardrail.** The check
-  immediately turned up the same class of bug elsewhere, each meaning its state is frozen at
-  its initial value:
+- **O-11. ✅ FIXED 2026-08-08 (Senior) — all five resolved, allowlist now empty.**
+  Each dead action was investigated rather than deleted on sight; they resolved three
+  different ways.
 
-  | Store | Dead action(s) | Consequence |
-  |---|---|---|
-  | `workflow-builder.ts` | `selectWorkflow`, `clearSelection`, `startPreview` | nothing starts a preview through the store, so `previewRunId`/`isPreviewOpen` are permanently null/false — and `SectionsTab` reads both |
-  | `preview.ts` | `clearAll` | bulk token clear never runs (individual clears do) |
-  | `useDatavaultFilterStore.ts` | `setFilters` | filters never written through this action |
+  **`preview.ts` `clearAll` — a real gap, so it was wired up, not deleted.** Run tokens
+  persist to `localStorage` and authenticate access to their run, but `logout` only cleared
+  the access token and auth query cache. `cleanupStaleTokens` sweeps *expired* entries and
+  runs once at app start, so a still-live run token outlived the session — on a shared
+  machine the next person inherited it until expiry. Tokens live in **two independent
+  stores**, so `logout` now clears both: `usePreviewStore.clearAll()` plus a new
+  `clearAllRunTokens()` in `lib/runTokens.ts` (the existing sweep could not be reused; it
+  only removes expired keys).
 
-  All five verified by hand as zero-call-site, not just flagged. They are listed in the
-  guardrail's `KNOWN_DEAD` allowlist so it can start enforcing against *new* occurrences today
-  rather than waiting on unrelated cleanups; a companion test fails if any of them is later
-  wired up without being removed from the list. **`startPreview` is the one worth looking at
-  first** — it is the same shape as the `mode` bug, in the same store, and builder preview
-  state depends on it. Not fixed here: it is a separate subsystem and this was O-10's scope.
+  **`workflow-builder` preview cluster — superseded, so deleted.** `startPreview` had no
+  callers, so `isPreviewOpen` was always false, so `SectionsTab`'s inline preview pane never
+  rendered, so `RunnerPreview` never mounted and *its* `stopPreview` never fired. A cluster
+  kept alive only by references between its own dead parts. `PreviewRunner` (rendered from
+  `WorkflowBuilder`) is the live preview. Removed: the store's `previewRunId`/`isPreviewOpen`/
+  `startPreview`/`stopPreview`, `SectionsTab`'s branch, and `RunnerPreview.tsx` (43 lines).
+  `selectWorkflow`/`clearSelection` went too — never called. `EntityType`'s `"workflow"` case
+  was deliberately **kept**: it is still part of the selection contract `LogicPanel` accepts.
 
-- **O-12. Latent, not urgent — the remaining store state is global but conceptually
-  per-workflow.** `selection`, `inspectorTab` and `previewRunId` are fine today because only
-  one builder is open at a time. If builder tabs or split-view ever land, they collide exactly
-  the way `mode` would have. Worth knowing before that feature is designed; not worth
-  pre-solving.
+  **`useDatavaultFilterStore` `setFilters` — redundant, so deleted.** DataVault filtering is
+  not broken: `addFilter`/`updateFilter`/`removeFilter`/`clearFilters` are all wired to
+  `FilterPanel`. Only the unused bulk-replace action went.
+
+  **Worth noting about the guardrail:** it flagged `startPreview` but not `stopPreview`,
+  because `RunnerPreview.tsx` referenced the latter — while being itself unreachable. The
+  check tests *references*, not *reachability*, so it finds the entry point of a dead cluster
+  but not the whole cluster. That is still enough to pull the thread; just do not read a pass
+  as proof that everything reachable is alive.
+
+- **O-12. ✅ RESOLVED 2026-08-08 — the latent risk shrank to nothing on its own.** The concern
+  was that global store state is conceptually per-workflow and would collide if builder tabs
+  or split-view ever landed. After O-10 and O-11 the store holds only `selection` and
+  `inspectorTab` — both genuinely ephemeral "what am I looking at right now", which is exactly
+  what a client store should own, and both harmless to reset. The two fields that would
+  actually have hurt across concurrent builders, `mode` (server-owned, per-workflow) and
+  `previewRunId` (a live run id), are gone. Nothing further to do now; if multi-instance
+  builders are ever designed, scope the remaining two per builder instance at that point.
 
 - **O-9. Error messages lost from ~541 log sites — ✅ FIXED 2026-08-08 (Senior).**
   Found while diagnosing LU-6c's blueprint regression: a 500 logged as

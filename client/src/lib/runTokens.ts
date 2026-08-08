@@ -54,6 +54,27 @@ export function clearRunToken(runId: string): void {
   localStorage.removeItem(`run_token_${runId}`);
 }
 
+/**
+ * Remove every stored run token, expired or not.
+ *
+ * O-11: `cleanupStaleTokens` only drops *expired* entries and runs once at app
+ * start, so a live run token outlived logout. Run tokens authenticate access to
+ * their run, so on a shared machine the next person inherited them until they
+ * expired. Called from `logout`, alongside the preview store's `clearAll`,
+ * because run tokens live in two independent places.
+ */
+export function clearAllRunTokens(): void {
+  if (typeof window === 'undefined') {return;}
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('run_token_')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+}
+
 export function cleanupStaleTokens(): void {
   if (typeof window === 'undefined') {return;}
   const keysToRemove: string[] = [];
