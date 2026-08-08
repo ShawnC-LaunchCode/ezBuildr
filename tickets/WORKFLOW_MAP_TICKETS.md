@@ -947,7 +947,7 @@ the Review tab shipped without `dark:` variants and it was filed as a defect
 
 ---
 
-## MAP-5 — Open the inspector from a map node 🔲
+## MAP-5 — Open the inspector from a map node 🔄
 
 **Priority: P1** · Size: S · Files: `client/src/components/builder/map/`
 
@@ -1495,7 +1495,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
 | MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
-| MAP-5 | Node → inspector navigation | P1 | S | 🔲 |
+| MAP-5 | Node → inspector navigation | P1 | S | 🔄 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
@@ -1525,6 +1525,19 @@ Not tickets. Parked here while this initiative is open; they move to
   is its server counterpart. Left in place deliberately so MAP-1 stays a client
   ticket with a client gate. Check for other callers before removing — the
   awareness module also serves presence and cursors, which are live.
+
+- **MAP-B7 — the test Postgres container is tmpfs-backed, so every worktree
+  database vanishes when it restarts.** `docker-compose` publishes it on 5434
+  with tmpfs storage (see `npm run test:docker:up`). When it stopped and
+  restarted mid-initiative, all six per-worktree databases created by
+  `scripts/new-worktree.ps1` were silently gone — only `ezbuildr_test` survived,
+  because something recreates that one. A worktree created *before* the restart
+  therefore keeps a `TEST_DATABASE_URL` pointing at a database that no longer
+  exists, and its `unit-db`/`integration` suites fail with a connection error
+  that reads like a code problem. The creation-time proof cannot catch this
+  either — same shape as the `node_modules/.vite` lesson in `CLAUDE.md`. Either
+  give the container a volume, or have the worktree script re-create its database
+  on demand rather than only at creation.
 
 - **MAP-B5 — collaboration only admits the workflow's creator, so presence can
   never show two people.** `server/realtime/auth.ts` gates the websocket join on
