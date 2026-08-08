@@ -982,23 +982,84 @@ the dropped columns. Delete the unreferenced `detectCycles` stub in
 
 ---
 
-## LU-5 — Final-document visibility conditions 🔲
+## LU-5 — Unify the document condition language and make it authorable 🔲
 
-**Priority: P2** · Size: M · Independent of LU-6a/b/c — may be dispatched in parallel with any
-of them (disjoint footprint), or dropped if final-document conditions are not wanted.
+**Priority: P1** *(raised from P2)* · Size: M · Independent of LU-6a/b/c — disjoint footprint.
+**Ties:** `run-tests`, `design` (UI change), `add-step-type` if the `final_documents` config
+shape changes.
 
-Epic GH-154 AC1 names "document outputs" as a surface the unified editor must cover.
-`client/src/components/builder/final/FinalDocumentsSectionEditor.tsx` has **no** condition UI
-(grepped for `visibleIf` / `Condition`: zero hits). Add one using `LogicBuilder`, storing a
-Model A `visibleIf` — this is a pull-model element condition, **not** a rule, so it does not
-depend on Decision #5.
+> **Re-audited 2026-08-07 by the Senior. The original ticket was wrong** and said "add a
+> condition UI using `LogicBuilder`, storing a Model A `visibleIf`". That misdescribes the
+> code: per-document conditions already exist and are already evaluated. Rewritten below.
+
+### Finding — there is a fourth condition shape, and it is the same adapter pattern LU-6a killed
+
+1. **The document engine already supports per-document conditions.**
+   `server/services/document/EnhancedDocumentEngine.ts` evaluates them and skips non-matching
+   documents, reporting them as `skipped`:
+
+   ```ts
+   // Step 1: Evaluate conditions
+   if (doc.conditions) {
+     const conditionMet = this.evaluateConditions(doc.conditions, stepValues);
+     ...
+     logger.info({ alias: doc.alias }, 'Document skipped (conditions not met)');
+   ```
+
+2. **They are stored in a fourth wire shape.** `LogicExpression`
+   (`shared/types/stepConfigs.ts:569`) is a flat `{ operator?, conditions: Array<{key, op,
+   value}> }` — note `key`/`op`, not `variable`/`operator`. `FinalBlockConfig` carries
+   `conditions?: LogicExpression | null` per document.
+
+3. **It is only an adapter, not a real fourth engine.** `evaluateConditions` translates
+   `LogicExpression` into a `ConditionGroup` and calls `evaluateConditionExpression` — Model
+   A's evaluator. So evaluation is already unified; **only the stored shape differs.** This is
+   exactly the Model B situation LU-6a resolved by storing a `ConditionExpression` directly and
+   deleting the adapter. Its own comment concedes the point: *"Uses simplified logic evaluation
+   (can be replaced with full logic engine later)."*
+
+4. **Nothing can author it.** A repo-wide grep for `FinalBlockConfig` across `client/` returns
+   **zero** `.tsx` hits. The only editor is
+   `client/src/components/builder/final/FinalDocumentsSectionEditor.tsx`, whose config is a
+   flat `templates: string[]` with no per-document metadata at all. The legacy bridge
+   `RunLifecycleService.buildLegacyFinalBlockConfig` sets `conditions` **unconditionally
+   null**. Same shape as Model B before LU-6b: a working engine feature with no way in.
+
+5. **This confusion has already caused a real bug.** `RunLifecycleService` documents DEBT-13:
+   code once read `template.metadata.visibleIf` (a `ConditionGroup`) into `conditions` (a
+   `LogicExpression`) through an `as` cast, so *"any such condition would have evaluated to
+   garbage."* It was deleted rather than normalized because no rows carried it. Two shapes that
+   look alike and differ only in key names are a standing trap.
+
+### Preferred fix
+
+Mirror LU-6a: make `conditions` hold a `ConditionExpression` directly and delete
+`evaluateConditions`' translation step, so the document engine calls
+`evaluateConditionExpression` on the stored value. Then give the Final Documents editor a
+per-document condition UI built on **`LogicBuilder`** (post-LU-2 it accepts an injected
+variable list; post-LU-4 its operand pickers are searchable).
+
+That requires per-document metadata, which the current `templates: string[]` cannot hold —
+widen it to a per-entry object (`{ templateId, conditions? }`) and keep reading the bare-string
+form so existing rows still load. **Measure first**, exactly as Phase 2 did: count
+`final_documents` steps whose config has a non-empty `templates` array before deciding whether
+a migration is needed or whether tolerant reads suffice.
+
+`LogicExpression` should end up deleted, or reduced to a legacy read-path alias with a comment
+saying why.
 
 ### Acceptance criteria
-1. Final documents accept a visibility condition authored in the shared `LogicBuilder`.
-2. The document engine honours it: a document whose condition is false is not generated.
-3. Tests cover generation with the condition true and false.
-4. Live proof: a run producing one document and suppressing another.
-5. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression.
+1. Reported count of `final_documents` steps carrying templates, with the query used.
+2. `conditions` on a final-block document holds a `ConditionExpression`; the engine evaluates it
+   without a translation step.
+3. Existing `templates: string[]` configs still load and generate exactly as before — proven by
+   a regression test over the current shape, not by inspection.
+4. Authors can set a per-document condition in the Final Documents editor via `LogicBuilder`.
+5. Tests cover generation with a document's condition true and false, including that a skipped
+   document is reported as skipped rather than failing the run.
+6. **Live proof**: a run that generates one document and suppresses another.
+7. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression; run
+   `test:unit` if the config shape changes and say so.
 
 ---
 
