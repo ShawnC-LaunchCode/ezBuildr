@@ -42,18 +42,18 @@ interface WorkflowContentData {
   title?: string;
   description?: string;
   sections?: WorkflowSectionData[];
+  // LU-6c: a rule's trigger condition is `when` (a ConditionExpression) -
+  // the legacy flat `operator`/`conditionValue` shape is gone.
   logicRules?: Array<{
-    conditionStepAlias: string;
-    when?: unknown;
-    operator?: string;
-    conditionValue?: string;
+    conditionStepAlias?: string;
+    when: unknown;
     targetType: string;
     targetAlias: string;
     action: string;
   }>;
 }
 import { db } from "../db";
-import { workflowContentIngestService } from "./WorkflowContentIngestService";
+import { workflowContentIngestService, type WorkflowContentData as IngestWorkflowContentData } from "./WorkflowContentIngestService";
 import { logger } from "../logger";
 import {
   workflowRepository,
@@ -670,8 +670,13 @@ export class WorkflowService {
         throw new Error("Workflow not found");
       }
 
-      // 3. Sync Sections and everything else
-      await workflowContentIngestService.apply(workflowId, data, { source: 'ai', tx });
+      // 3. Sync Sections and everything else. `data`'s `logicRules[].when` is
+      // `unknown` here (this route accepts loosely-typed deep-update JSON,
+      // validated only by `updateWorkflowSchema`'s `z.any()` sections field) —
+      // `normalizeContent` inside `apply()` re-validates the actual shape via
+      // `validateWorkflowStructure`/`extractConditionReferences` before any
+      // of it is trusted.
+      await workflowContentIngestService.apply(workflowId, data as unknown as IngestWorkflowContentData, { source: 'ai', tx });
 
       // 4. Audit Log
       await tx.insert(auditLogs).values({
