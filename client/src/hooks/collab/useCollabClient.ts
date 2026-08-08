@@ -4,8 +4,6 @@ import * as Y from 'yjs';
 
 import { WebSocketProvider } from './WebSocketProvider';
 
-import type { Node, Edge } from 'reactflow';
-
 export interface CollabUser {
   userId: string;
   displayName: string;
@@ -33,10 +31,7 @@ export interface CollabClientState {
 }
 
 export interface CollabClientActions {
-  updateNodes: (nodes: Node[]) => void;
-  updateEdges: (edges: Edge[]) => void;
   updateCursor: (x: number, y: number) => void;
-  updateSelectedNode: (nodeId: string | null) => void;
   updateMode: (mode: 'easy' | 'advanced') => void;
   updateActiveBlock: (blockId: string | null) => void;
   disconnect: () => void;
@@ -46,8 +41,6 @@ interface UseCollabClientOptions {
   workflowId: string;
   tenantId: string;
   token: string;
-  onNodesChange: (nodes: Node[]) => void;
-  onEdgesChange: (edges: Edge[]) => void;
   enabled?: boolean;
   user: {
     id: string;
@@ -67,8 +60,6 @@ export function useCollabClient(
     workflowId,
     tenantId,
     token,
-    onNodesChange,
-    onEdgesChange,
     enabled = true,
     user,
   } = options;
@@ -85,7 +76,6 @@ export function useCollabClient(
   const docRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<WebSocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
-  const isLocalUpdateRef = useRef(false);
 
   // Room key format: tenant:{tenantId}:workflow:{workflowId}
   const roomKey = `tenant:${tenantId}:workflow:${workflowId}`;
@@ -110,15 +100,6 @@ export function useCollabClient(
 
     providerRef.current = provider;
     awarenessRef.current = provider.awareness;
-
-    // Setup Yjs document structure
-    const yGraph = doc.getMap('yGraph');
-    if (!yGraph.has('nodes')) {
-      yGraph.set('nodes', new Y.Array());
-    }
-    if (!yGraph.has('edges')) {
-      yGraph.set('edges', new Y.Array());
-    }
 
     // Initialize meta map
     doc.getMap('yMeta');
@@ -151,43 +132,6 @@ export function useCollabClient(
       setState((prev) => ({ ...prev, synced: isSynced }));
     });
 
-    // Observe changes from remote
-    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<unknown>>;
-    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<unknown>>;
-
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    const handleNodesChange = () => {
-      if (isLocalUpdateRef.current) {return;}
-
-      const nodes = yNodes.toArray().map((yNode) => {
-        const node: Record<string, unknown> = {};
-        yNode.forEach((value, key) => {
-          node[key] = value;
-        });
-        return node as unknown as Node;
-      });
-
-      onNodesChange(nodes);
-    };
-
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    const handleEdgesChange = () => {
-      if (isLocalUpdateRef.current) {return;}
-
-      const edges = yEdges.toArray().map((yEdge) => {
-        const edge: Record<string, unknown> = {};
-        yEdge.forEach((value, key) => {
-          edge[key] = value;
-        });
-        return edge as unknown as Edge;
-      });
-
-      onEdgesChange(edges);
-    };
-
-    yNodes.observe(handleNodesChange);
-    yEdges.observe(handleEdgesChange);
-
     // Observe awareness changes (other users)
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const handleAwarenessChange = () => {
@@ -212,8 +156,6 @@ export function useCollabClient(
 
     // Cleanup
     return () => {
-      yNodes.unobserve(handleNodesChange);
-      yEdges.unobserve(handleEdgesChange);
       awarenessRef.current?.off('change', handleAwarenessChange);
       provider.destroy();
       doc.destroy();
@@ -221,74 +163,6 @@ export function useCollabClient(
     // Only depend on core connection parameters - callbacks are set up once
 
   }, [enabled, workflowId, tenantId, token]);
-
-  // Update nodes in Yjs document
-  const updateNodes = useCallback((nodes: Node[]) => {
-    if (!docRef.current) {return;}
-
-    const yGraph = docRef.current.getMap('yGraph');
-    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<unknown>>;
-
-    isLocalUpdateRef.current = true;
-
-    docRef.current.transact(() => {
-      // Clear and rebuild array
-      yNodes.delete(0, yNodes.length);
-
-      nodes.forEach((node) => {
-        const yNode = new Y.Map();
-        // eslint-disable-next-line max-nested-callbacks
-        Object.entries(node).forEach(([key, value]) => {
-          // Serialize complex objects as JSON
-          if (typeof value === 'object' && value !== null) {
-            yNode.set(key, JSON.parse(JSON.stringify(value)));
-          } else {
-            yNode.set(key, value);
-          }
-        });
-        yNodes.push([yNode]);
-      });
-    });
-
-    // Reset flag after a short delay
-    setTimeout(() => {
-      isLocalUpdateRef.current = false;
-    }, 50);
-  }, []);
-
-  // Update edges in Yjs document
-  const updateEdges = useCallback((edges: Edge[]) => {
-    if (!docRef.current) {return;}
-
-    const yGraph = docRef.current.getMap('yGraph');
-    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<unknown>>;
-
-    isLocalUpdateRef.current = true;
-
-    docRef.current.transact(() => {
-      // Clear and rebuild array
-      yEdges.delete(0, yEdges.length);
-
-      edges.forEach((edge) => {
-        const yEdge = new Y.Map();
-        // eslint-disable-next-line max-nested-callbacks
-        Object.entries(edge).forEach(([key, value]) => {
-          // Serialize complex objects as JSON
-          if (typeof value === 'object' && value !== null) {
-            yEdge.set(key, JSON.parse(JSON.stringify(value)));
-          } else {
-            yEdge.set(key, value);
-          }
-        });
-        yEdges.push([yEdge]);
-      });
-    });
-
-    // Reset flag after a short delay
-    setTimeout(() => {
-      isLocalUpdateRef.current = false;
-    }, 50);
-  }, []);
 
   // Update cursor position
   const updateCursor = useCallback((x: number, y: number) => {
@@ -299,20 +173,6 @@ export function useCollabClient(
       awarenessRef.current.setLocalStateField('user', {
         ...currentState.user,
         cursor: { x, y },
-        lastActive: Date.now(),
-      });
-    }
-  }, []);
-
-  // Update selected node
-  const updateSelectedNode = useCallback((nodeId: string | null) => {
-    if (!awarenessRef.current) {return;}
-
-    const currentState = awarenessRef.current.getLocalState();
-    if (currentState?.user) {
-      awarenessRef.current.setLocalStateField('user', {
-        ...currentState.user,
-        selectedNodeId: nodeId,
         lastActive: Date.now(),
       });
     }
@@ -362,10 +222,7 @@ export function useCollabClient(
 
   return {
     ...state,
-    updateNodes,
-    updateEdges,
     updateCursor,
-    updateSelectedNode,
     updateMode,
     updateActiveBlock,
     disconnect,

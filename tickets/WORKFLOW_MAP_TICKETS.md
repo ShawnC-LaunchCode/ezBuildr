@@ -54,6 +54,16 @@ migration to run.
   resolver.** GH-154's predecessor spent eight tickets collapsing four condition
   languages into one. `shared/conditionEvaluator.ts` and `shared/workflowLogic.ts`
   are the only implementations; everything here composes them.
+- **Four gates, not three.** `npm run type-check`, `npm run lint`,
+  **`npm run check:strict-zones`**, `npm run test:fast`. The strict-zones check is
+  not implied by `type-check`: `tsconfig.strict.json` enables
+  `noUncheckedIndexedAccess` and its six zones pull files in **transitively**, so
+  editing something a zone imports (e.g. `workflowLintRules.ts`,
+  `conditionGraph.ts`) puts your code under stricter rules than `tsc` applied.
+  The pre-commit hook runs it, so a tree failing here cannot be committed at all.
+  MAP-3 turned in green on three gates and red on this one. The house fix is
+  destructure-and-check — see the `const [firstNode] = cycle.path;` comment in
+  `detectCycles` — never `!` and never `as`.
 - Devs do not commit; the reviewer commits per passed ticket.
 - Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
 
@@ -65,6 +75,7 @@ migration to run.
 | D-2 | A map **node is a section**. `final_documents` steps get their own node type, and one synthetic terminal "Complete" node stands in for AC1's "endings" — there is no ending entity in this schema. Step-level detail is expand-on-demand, never the default view. | 2026-08-08 |
 | D-3 | AC4's analysis lives in **`shared/conditionGraph.ts` and surfaces through `lintWorkflowContent`**, so the publish gate and Review tab get it too. The map renders those same findings. The AI-powered `LogicDebugTab` is **retired** (MAP-9). | 2026-08-08 |
 | D-4 | The map is **read-only**. It navigates and simulates; it does not author. Node positions are derived by layout, never persisted. | 2026-08-08 |
+| D-5 | A backward `skip_to` **stays a publish-blocking error** (`checkSkipDirection`), and MAP-3 emits no competing warning. Only its message changes — "would loop the interview forever" is false, since `isForwardSkipTarget` (RUN2-2) discards the skip and falls through to normal flow. Rationale: backward jump-back already exists as a *runner navigation* feature (`ReviewSection`'s per-section **Edit** buttons → `setCurrentSectionIndex`), which bypasses the logic engine entirely — so no legitimate authoring need is lost. And the realistic trigger is a **page reorder** silently turning a working forward rule backward (`SectionService.reorderSections` validates nothing), which is a regression; warnings publish and get ignored, so a dead rule would ship unnoticed. See MAP-B4. | 2026-08-08 |
 
 ### Phase overview
 
@@ -89,6 +100,7 @@ migration to run.
 | MAP-7 | `shared/workflowSimulation.ts` (new), `tests/unit/` | none |
 | MAP-8 | `client/src/components/builder/map/**` | MAP-4..6 |
 | MAP-9 | `server/routes/ai.routes.ts`, `server/controllers/AiController.ts`, `server/services/ai/`, `shared/types/ai.ts`, `client/src/components/builder/logic/` | none |
+| MAP-10 | `server/routes/auth.routes.ts`, `client/src/hooks/useAuth.ts` | none |
 
 MAP-1, MAP-2, MAP-3 have disjoint footprints and **may be dispatched in
 parallel** in separate worktrees — MAP-3 is decoupled from MAP-2 on purpose
@@ -105,7 +117,33 @@ renders with, the pure graph model it renders *from*, and the analysis engine
 behind AC4. Explicitly out of scope: any React component under
 `client/src/components/builder/map/`, which is Phase 2.
 
-## MAP-1 — Migrate `reactflow@11` to `@xyflow/react` v12 and delete the dead collab canvas sync 🔄
+## MAP-1 — Migrate `reactflow@11` to `@xyflow/react` v12 and delete the dead collab canvas sync ✅
+
+> **Verified 2026-08-08.** ACs 1–4 and 6–7 met; **AC5 deferred to MAP-10**, see
+> below. Reviewer re-ran all four gates in the worktree rather than accepting the
+> report: `type-check` exit 0, `lint` exit 0, `check:strict-zones`
+> `✅ ALL PASSED`, `test:fast` **231 files / 2675 passed** — exactly the 2677
+> baseline minus the two deleted node/edge tests. The diff is **1 insertion,
+> 189 deletions** across three files: a pure removal, as intended. No debug
+> leftovers, no commented-out code, presence/cursor/mode paths byte-identical.
+> `grep -rn "reactflow" client server shared tests` → zero. `@xyflow/react@^12.11.2`
+> installed via real npm commands, not a hand-edited manifest.
+>
+> **AC5 (live collaboration presence) could not be verified, and that is not this
+> ticket's fault.** The dev ran the worktree's own dev server on port 5271, seeded
+> a tenant, two users and a shared workflow, and drove two genuinely independent
+> browser contexts — then found no presence avatar in either, and root-caused it
+> instead of guessing or fabricating. Reviewer confirmed the diagnosis at the
+> source: `POST /api/auth/refresh-token` returns a four-field user with no
+> `tenantId`, while `WorkflowBuilder.tsx` gates collaboration on
+> `!!user?.tenantId`. **Presence is therefore off for every user after any page
+> reload, and was already off before this ticket.** Filed as **MAP-10** (P0).
+> AC5 is carried there as its AC6, with the reload step made explicit — that is
+> what makes the bug reproduce.
+>
+> Reviewer note: the honest "unverified, here is why" turn-in is exactly the
+> behaviour wanted. A dev who had quietly marked AC5 green would have buried a
+> live P0.
 
 **Priority: P2** · Size: M · Files: `package.json`, `client/src/hooks/collab/useCollabClient.ts`, `client/src/components/collab/CollaborationContext.tsx`
 
@@ -486,19 +524,26 @@ Do not write a second cycle detector; the existing one already gets the diamond
 case right (a re-reached BLACK node is a DAG merge, not a cycle) and that
 subtlety is exactly what a reimplementation loses.
 
-**A backward `skip_to` is a warning, not an error.** `isForwardSkipTarget()` in
-`shared/workflowLogic.ts` already guards it at runtime — a skip target whose
-`order` is `<=` the current section's is treated as a no-op and navigation falls
-through to normal flow (RUN2-2). So it cannot actually hang a run; it means the
-author's rule does nothing. Report it as such. Getting this wrong in either
-direction — silently dropping it, or blocking publish on it — is a review fail.
+**Emit nothing of your own for a backward `skip_to` — see D-5.** An earlier
+revision of this ticket asked for a `warning`; that was overturned at review on
+2026-08-08 once it emerged that `checkSkipDirection` in
+`server/services/workflowStructureRules.ts` already reports the same condition as
+a blocking error. Your job on that case is limited to **fixing its message**,
+which is factually wrong ("would loop the interview forever" — impossible, see
+`isForwardSkipTarget`). Do not add a second finding.
 
 **In `server/services/workflowLintRules.ts`**, add `lintWorkflowFlow()`
 alongside `lintConditionDependencies()` and call it from `lintWorkflowContent()`.
 Emit `category: "logic"` findings using the existing `WorkflowLintIssue` shape,
 with `target` pointing at the offending section — mirror how
 `lintConditionDependencies` builds its `target` from the node-info map. Severity:
-unreachable = `error`, dead end = `error`, backward-skip no-op = `warning`.
+unreachable = `error`, dead end = `error`.
+
+**Read the serializer, not the schema, for rule field names.**
+`lintWorkflowContent` receives `VersionService.serializeWorkflow`'s output, which
+emits `targetId` / `targetAlias` / `conditionStepAlias` — **not** the DB column
+names `targetSectionId` / `targetStepId`. An adapter written against the schema
+type-checks, passes its own fixtures, and never fires in production.
 
 **In `shared/types/workflowLint.ts`**, add `"map"` to `WorkflowLintBuilderTab`
 so MAP-6 can target the map surface. (The union today is
@@ -545,9 +590,14 @@ adapters onto one analysis is the intended design here, not duplication.
 4. A `skip_to` cycle among sections is reported in `loops` with its path; a
    diamond (two forward skips converging on one section) is **not** reported —
    this test must construct a real diamond, not an empty graph.
-5. A backward `skip_to` produces a `warning`-severity finding whose message
-   states the rule has no effect, and **does not** block publish. Asserted
-   against the publish gate, not just the lint function.
+5. **(Replaced at review 2026-08-08 — see D-5.)** `lintWorkflowFlow` emits **no**
+   finding of its own for a backward `skip_to`. Instead `checkSkipDirection` in
+   `server/services/workflowStructureRules.ts` keeps its blocking `error`, with
+   its message rewritten to say the rule can never fire and to name reordering as
+   the likely cause — the current "would loop the interview forever" wording is
+   false. `tests/unit/services/workflowStructureRules.test.ts` asserts the new
+   wording, plus a case pinning that the finding is still `error` severity and
+   still blocks `validateWorkflow`.
 6. `lintWorkflowContent` returns the new findings with `category: "logic"` and a
    `target` naming the offending `sectionId`.
 7. `WorkflowLintBuilderTab` includes `"map"`.
@@ -555,7 +605,150 @@ adapters onto one analysis is the intended design here, not duplication.
    fail without the new code — state in the turn-in report which assertions were
    confirmed red first.
 9. `npm run type-check` → 0 errors; `npm run lint` → 0 problems;
+   **`npm run check:strict-zones` → `Status: ✅ ALL PASSED`**;
    `npm run test:fast` green and above the 2677 baseline.
+
+   ⚠️ The strict-zones gate is **not** implied by `type-check`.
+   `tsconfig.strict.json` turns on `noUncheckedIndexedAccess` and the zones pull
+   files in **transitively** — the scripting zone imports the lint rules, so
+   edits to `workflowLintRules.ts` or `conditionGraph.ts` land inside it. The
+   pre-commit hook runs it, so a tree that fails here cannot be committed at all.
+   `detectCycles` already carries the house fix (destructure-and-check, never
+   `!` or `as`); copy it.
+
+---
+
+## MAP-10 — `refresh-token` drops `tenantId`, silently killing collaboration after any reload 🔲
+
+**Priority: P0 (bug)** · Size: S · Files: `server/routes/auth.routes.ts`, `client/src/hooks/useAuth.ts`
+
+> **Filed at MAP-1's review, 2026-08-08.** Not map work, and not caused by MAP-1
+> — but it is what made MAP-1's AC5 unverifiable, and it blocks the live-proof
+> criteria on MAP-4, MAP-5, MAP-6 and MAP-8 too. Sequenced into Phase 1 for that
+> reason.
+
+### Finding
+
+`POST /api/auth/refresh-token` returns a **four-field** user
+(`server/routes/auth.routes.ts`, the `res.json` at the end of the handler):
+
+```ts
+      res.json({
+        token: newAccessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          tenantRole: user.tenantRole
+        }
+      });
+```
+
+`issueTokens()` — the **login** path in the same file — returns nine, including
+the two that matter here:
+
+```ts
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      tenantId: user.tenantId,
+      ...
+```
+
+`useAuth()` (`client/src/hooks/useAuth.ts`) sources the app's entire user object
+from the **refresh** endpoint, and nothing else:
+
+```ts
+        const res = await fetch("/api/auth/refresh-token", { ... });
+        return await res.json() as AuthResponse;
+```
+
+with `staleTime: 1000 * 60 * 14` and `refetchOnWindowFocus: true`.
+
+**Why nobody noticed.** `LoginPage.handleSuccess` seeds the `["auth"]` cache with
+the *rich* login payload, so immediately after signing in `user.tenantId` is
+present and everything works. The first page reload, window refocus, or 14-minute
+staleness replaces it with the reduced refresh payload — and `tenantId` becomes
+`undefined` for the rest of the session. It works exactly long enough to be
+tested by hand, then stops.
+
+**Consequences.** `WorkflowBuilder.tsx` gates real-time collaboration on it:
+
+```ts
+  const isCollabReady = !!collabToken && !authLoading && !!user?.tenantId;
+```
+
+so presence and cursors are **off for every user, on every workflow, after any
+reload** — and when enabled at all, `CollaborationProvider` gets
+`tenantId: user?.tenantId ?? ""`. `firstName` is missing from the same payload,
+so `collabUser.name` falls back to `"Guest User"` for everybody. Five other
+surfaces read `user?.tenantId` from the same hook and get `undefined`:
+`BrandingSettingsPage`, `CollectionsPage`, `CollectionDetailPage`,
+`DomainSettingsPage`, `IntakePreviewPage`, plus `AssignInterviewDialog`'s
+`tenantId` prop.
+
+**Why the type system does not catch it.** `useAuth` declares
+`interface AuthResponse { user: User }` — the full Drizzle row — while the route
+sends an untyped inline object literal. `issueTokens` is at least annotated
+`Partial<User>`; the refresh handler has no annotation at all, so nothing
+reconciles the two shapes.
+
+Server-side requests are unaffected: `authService.createToken(user)` puts the
+real `tenantId` in the JWT, so API authorization is correct throughout. This is
+purely a client-state gap.
+
+### Preferred fix
+
+Make the refresh payload identical to the login payload. `issueTokens()` already
+builds the correct object — extract that user projection into one shared helper
+in `server/routes/auth.routes.ts` and have **both** call sites use it, so the two
+can never drift again. Do not fix it by widening only `tenantId`; the same class
+of bug is sitting in `firstName`/`lastName` right now.
+
+Then make the contract type-checked rather than conventional: give the helper an
+explicit named return type and annotate `AuthResponse["user"]` in
+`client/src/hooks/useAuth.ts` with that same shape (imported from `@shared`, or a
+type declared alongside it) instead of the full `User` row. `User` is a lie
+there — the client has never received a complete row from either endpoint.
+
+Do **not** change what goes into the JWT, and do not add fields beyond login's
+existing nine — this ticket closes a gap, it does not widen an auth payload.
+
+### Ties
+
+- **Load first:** `run-tests`, then `add-api-endpoint` (auth route + response
+  contract).
+- **Blocks MAP-1's AC5** and the live-proof criteria on MAP-4, MAP-5, MAP-6 and
+  MAP-8. MAP-1 is committed with AC5 explicitly deferred here.
+- Disjoint from every other MAP ticket — **dispatch in parallel** with anything.
+- Note `docs/guides/AUTH_SYSTEM.md` documents this flow; update it if it states
+  the refresh response shape.
+- File footprint: `server/routes/auth.routes.ts`, `client/src/hooks/useAuth.ts`,
+  plus auth route tests.
+
+### Acceptance criteria
+
+1. `POST /api/auth/refresh-token` returns the same user fields as the login
+   response, including `tenantId`, `firstName` and `lastName`.
+2. Both endpoints build that object from **one** shared helper — asserted by
+   `grep` showing a single projection, not two literals.
+3. The helper has an explicit named return type, and `useAuth`'s `AuthResponse`
+   uses that type rather than `User`.
+4. A route test asserts the refresh response contains `tenantId` and that it
+   equals the user's real tenant — it must fail against today's four-field
+   payload. State in the turn-in that you confirmed it red first.
+5. A test asserts the login and refresh user payloads have identical key sets, so
+   the two cannot drift again.
+6. **Live proof:** with the dev server running, sign in, **reload the page**, and
+   show that collaboration presence still initialises — two independent browser
+   contexts (separate cookie jars, not two tabs) on the same workflow, both
+   showing a presence avatar with the user's real first name, not "Guest User".
+   The reload is the point; without it the bug does not reproduce.
+7. `npm run type-check` → 0 errors; `npm run lint` → 0 problems;
+   `npm run check:strict-zones` → `Status: ✅ ALL PASSED`;
+   `npm run test:fast` green and above the current baseline.
 
 ---
 
@@ -1182,7 +1375,7 @@ verify it is genuinely unreferenced first, don't assume.
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | 🔄 |
+| MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | ✅ |
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
 | MAP-4 | Map tab + graph rendering | P1 | L | 🔲 |
@@ -1191,6 +1384,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-7 | Shared deterministic path simulator | P1 | M | 🔲 |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
 | MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | 🔲 |
+| MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | 🔲 |
 
 ---
 
@@ -1215,6 +1409,28 @@ Not tickets. Parked here while this initiative is open; they move to
   is its server counterpart. Left in place deliberately so MAP-1 stays a client
   ticket with a client gate. Check for other callers before removing — the
   awareness module also serves presence and cursors, which are live.
+
+- **MAP-B4 — reordering sections silently kills a working `skip_to` rule, and
+  nothing checks.** `SectionService.reorderSections` writes orders in a
+  transaction and validates nothing:
+
+  ```ts
+  await db.transaction(async (tx) => {
+    for (const { id, order } of sectionOrders) {
+      await this.sectionRepo.updateOrder(id, workflowId, order, tx);
+    }
+  });
+  ```
+
+  So dragging a section above another can turn a valid forward `skip_to` into a
+  backward one, which `isForwardSkipTarget` then discards at run time — the rule
+  stops firing and the author is told nothing until the next publish. Live runs
+  are unaffected in the meantime (they pin `workflowVersionId`), so publish is a
+  genuine chokepoint and D-5 keeps it blocking. But discovering a dead rule at
+  publish is much worse than at drag time. Re-running the direction check on
+  reorder and surfacing it in the builder is the real fix. Filed as an
+  observation rather than a ticket because it is a builder-UX change, not map
+  work, and D-5 already prevents the bad state from shipping.
 
 - **MAP-B3 — `WorkflowLintBuilderTab` omits two real tabs.** The union is
   `"sections" | "templates" | "data-sources" | "settings"`, while `BuilderTab`

@@ -45,8 +45,6 @@ describe('useCollabClient', () => {
     workflowId: 'workflow-test',
     tenantId: 'tenant-test',
     token: 'test-token',
-    onNodesChange: vi.fn(),
-    onEdgesChange: vi.fn(),
     user: {
       id: 'user-1',
       name: 'Test User',
@@ -73,39 +71,6 @@ describe('useCollabClient', () => {
     await waitFor(() => {
       expect(result.current.connected).toBe(true);
     }, { timeout: 2000 });
-  });
-
-  it('should update nodes in Yjs document', async () => {
-    const { result } = renderHook(() => useCollabClient(mockOptions));
-
-    await waitFor(() => {
-      expect(result.current.connected).toBe(true);
-    });
-
-    act(() => {
-      result.current.updateNodes([
-        { id: '1', type: 'default', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-      ]);
-    });
-
-    // Nodes should be updated in Yjs document
-    expect(mockOptions.onNodesChange).not.toHaveBeenCalled(); // Local update shouldn't trigger callback
-  });
-
-  it('should update edges in Yjs document', async () => {
-    const { result } = renderHook(() => useCollabClient(mockOptions));
-
-    await waitFor(() => {
-      expect(result.current.connected).toBe(true);
-    });
-
-    act(() => {
-      result.current.updateEdges([
-        { id: 'e1', source: '1', target: '2' },
-      ]);
-    });
-
-    expect(mockOptions.onEdgesChange).not.toHaveBeenCalled(); // Local update shouldn't trigger callback
   });
 
   it('should disconnect cleanly', async () => {
