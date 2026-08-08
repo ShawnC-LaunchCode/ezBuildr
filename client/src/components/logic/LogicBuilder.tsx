@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { useWorkflowVariables, useWorkflowSteps } from "@/lib/vault-hooks";
+import { useWorkflowVariables } from "@/lib/vault-hooks";
 
 import { describeConditionExpression } from "@shared/conditionEvaluator";
 import {
@@ -30,12 +30,7 @@ import type {
   VariableInfo,
 } from "@shared/types/conditions";
 
-import { getLegacyChoiceOptions } from "./choiceOptions";
 import { ConditionGroup } from "./ConditionGroup";
-
-// Step types whose config carries selectable choices (legacy radio/multiple_choice
-// options); other ConditionSupportedStepType values never have a `choices` list.
-const CHOICE_STEP_TYPES = new Set<VariableInfo["type"]>(["radio", "multiple_choice"]);
 
 interface LogicBuilderProps {
   /** The workflow ID to fetch variables from. Ignored when `variables` is injected. */
@@ -53,7 +48,7 @@ interface LogicBuilderProps {
   isSaving?: boolean;
   /**
    * Optional pre-built operand list. When supplied, this replaces the internal
-   * `useWorkflowVariables`/`useWorkflowSteps` fetches entirely — both are disabled
+   * `useWorkflowVariables` fetch entirely — it is disabled
    * via `enabled` (not fetched-and-discarded). Used by list-field visibility, whose
    * operands are sibling fields rather than workflow-level variables.
    */
@@ -74,14 +69,6 @@ export function LogicBuilder({
   // Fetch workflow variables — disabled entirely when a variable list is injected.
   const { data: rawVariables, isLoading: isLoadingVariables } = useWorkflowVariables(workflowId, {
     enabled: !hasInjectedVariables,
-  });
-  // Steps carry the raw `config` (incl. choice options) that the variables
-  // endpoint doesn't return. This reuses the same workflow-steps query the
-  // step editor's AliasField already populates for this workflowId, so it's
-  // typically served from cache rather than issuing a new request.
-  const { data: workflowSteps } = useWorkflowSteps(workflowId, {
-    enabled: !hasInjectedVariables && Boolean(workflowId),
-    staleTime: 5000,
   });
   const isLoading = !hasInjectedVariables && isLoadingVariables;
 
@@ -109,25 +96,19 @@ export function LogicBuilder({
 
     return rawVariables
       .filter((v) => v.key !== elementId) // Filter out self-references
-      .map((v) => {
-        const type = v.type as VariableInfo["type"];
-        const step = workflowSteps?.find((s) => s.id === v.key);
-        const choices = CHOICE_STEP_TYPES.has(type)
-          ? getLegacyChoiceOptions(step?.config ?? null)
-          : undefined;
-
-        return {
-          id: v.key,
-          alias: v.alias ?? null,
-          label: v.label,
-          title: v.label,
-          type,
-          sectionId: v.sectionId,
-          sectionTitle: v.sectionTitle,
-          choices,
-        };
-      });
-  }, [hasInjectedVariables, injectedVariables, rawVariables, elementId, workflowSteps]);
+      // O-2: `choices` is served by the variables endpoint, so this no longer
+      // fetches every step just to read its config.
+      .map((v) => ({
+        id: v.key,
+        alias: v.alias ?? null,
+        label: v.label,
+        title: v.label,
+        type: v.type as VariableInfo["type"],
+        sectionId: v.sectionId,
+        sectionTitle: v.sectionTitle,
+        choices: v.choices,
+      }));
+  }, [hasInjectedVariables, injectedVariables, rawVariables, elementId]);
 
   // Generate human-readable description
   const description = useMemo(() => {

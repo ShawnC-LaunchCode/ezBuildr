@@ -66,7 +66,14 @@ export const AIGeneratedStepSchema = z.object({
   alias: z.string().nullable().optional().describe('Human-friendly variable name for this step'),
   required: z.boolean().default(false).describe('Whether this step is required'),
   config: z.record(z.any()).nullable().optional().describe('Type-specific configuration (choices, validation, etc)'),
-  visibleIf: z.any().describe('Condition expression for visibility (string or object)'),
+  // O-4: was `z.any()` described as "string or object". A string here was
+  // stored as jsonb through an `as unknown as` cast, then failed evaluation
+  // and fell through to `false` — silently hiding the question forever. The
+  // same ConditionExpression the rest of the app uses is the only valid shape.
+  visibleIf: conditionExpressionSchema.optional().describe(
+    'Visibility condition: a ConditionExpression tree (nested AND/OR groups of comparisons). ' +
+    'Each condition has a "variable" holding a step alias. Omit for always-visible.'
+  ),
   order: z.number().int().optional().describe('Display order'),
   defaultValue: z.any().optional().describe('Default value'),
 });

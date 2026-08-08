@@ -139,8 +139,11 @@ All DataVault tables are `datavault_`-prefixed:
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 
-**Condition operators (`conditionOperatorEnum`):** equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty
-(`shared/types/conditions.ts` defines a much richer 28-operator `ComparisonOperator` union for the logic engine — starts_with, date diffs, includes_all, etc.)
+**Condition operators:** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all store
+the same `ConditionExpression` jsonb, evaluated by `shared/conditionEvaluator.ts` against the
+28-operator `ComparisonOperator` union in `shared/types/conditions.ts` (starts_with, date diffs,
+includes_all, etc.). The flat 9-value `conditionOperatorEnum` DB enum `logic_rules` used before
+LU-6a/LU-6c is dropped — no column references it anymore.
 
 **Conditional actions (`conditionalActionEnum`):** show, hide, require, make_optional, skip_to
 

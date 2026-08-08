@@ -4,6 +4,7 @@ import crypto from "crypto";
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
 import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
 import type { IntakeConfig } from "@shared/types/intake";
+import type { ConditionExpression } from "@shared/types/conditions";
 
 interface GraphConfig {
   title?: string;
@@ -34,7 +35,9 @@ interface WorkflowSectionData {
   title: string;
   description?: string;
   order?: number;
-  visibleIf?: string;
+  // O-4: a ConditionExpression, not a string. This shadows the ingest
+  // service's type of the same name, so the two must be kept in step.
+  visibleIf?: ConditionExpression | null;
   config?: Record<string, unknown>;
   steps?: WorkflowStepData[];
 }

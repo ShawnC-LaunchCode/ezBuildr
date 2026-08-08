@@ -7,6 +7,7 @@
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
+import type { ChoiceOptionDescriptor } from "@shared/choiceOptions";
 import type { ResolvedBranding } from '@shared/types/branding';
 import type { ConditionExpression } from '@shared/types/conditions';
 
@@ -565,6 +566,13 @@ export interface ApiWorkflowVariable {
   sectionId: string;
   sectionTitle: string;  // section title for grouping
   stepId: string;
+  /**
+   * O-2: selectable options for step types whose config carries them (legacy
+   * radio/multiple_choice). Served with the variable so the condition editor
+   * does not have to fetch every step just to read its config. Absent for
+   * types that never have options.
+   */
+  choices?: ChoiceOptionDescriptor[];
 }
 export const variableAPI = {
   list: (workflowId: string) =>

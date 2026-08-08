@@ -519,6 +519,8 @@ export type InsertCollabUpdate = InferInsertModel<typeof collabUpdates>;
 export type CollabSnapshot = InferSelectModel<typeof collabSnapshots>;
 export type InsertCollabSnapshot = InferInsertModel<typeof collabSnapshots>;
 
+import type { ChoiceOptionDescriptor } from "../choiceOptions";
+
 export interface WorkflowVariable {
     key: string;
     alias: string | null;
@@ -527,4 +529,11 @@ export interface WorkflowVariable {
     sectionId: string;
     sectionTitle: string;
     stepId: string;
+    /**
+     * Selectable options, for step types whose config carries them (legacy
+     * `radio`/`multiple_choice`). O-2: served here so the condition editor can
+     * offer a choice dropdown without separately fetching every step's config.
+     * Absent for step types that never have options.
+     */
+    choices?: ChoiceOptionDescriptor[];
 }

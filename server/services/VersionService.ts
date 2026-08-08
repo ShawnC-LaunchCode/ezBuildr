@@ -159,9 +159,11 @@ export class VersionService {
         title: section.title,
         description: section.description ?? undefined,
         order: section.order,
-        // JSONB expressions are preserved verbatim; the ingest DTO retains its
-        // legacy string annotation for compatibility with WorkflowService.
-        visibleIf: (section.visibleIf ?? undefined) as string | undefined,
+        // O-4: was cast to `string | undefined` to satisfy an ingest DTO that
+        // wrongly annotated visibleIf as a string. Both DTOs now declare the
+        // ConditionExpression this column actually holds, so the cast is only
+        // the usual jsonb-is-unknown narrowing.
+        visibleIf: (section.visibleIf ?? null) as ConditionExpression,
         skipIf: section.skipIf ?? undefined,
         config: section.config as Record<string, unknown> | undefined,
         steps: section.steps.map(step => ({
@@ -173,7 +175,7 @@ export class VersionService {
           config: step.config as Record<string, unknown> | undefined,
           order: step.order,
           alias: step.alias ?? undefined,
-          visibleIf: (step.visibleIf ?? undefined) as string | undefined,
+          visibleIf: (step.visibleIf ?? null) as ConditionExpression,
           defaultValue: step.defaultValue ?? undefined,
           isVirtual: step.isVirtual,
         })),

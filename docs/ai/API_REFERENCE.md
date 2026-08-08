@@ -282,9 +282,21 @@ POST /api/ai/workflows/generate-logic
   "rules": [
     {
       "id": "rule-1",
-      "conditionStepAlias": "hasInsurance",
-      "operator": "equals",
-      "value": "yes",
+      "when": {
+        "type": "group",
+        "id": "cond-1",
+        "operator": "AND",
+        "conditions": [
+          {
+            "type": "condition",
+            "id": "cond-1-leaf",
+            "variable": "hasInsurance",
+            "operator": "equals",
+            "value": "yes",
+            "valueType": "constant"
+          }
+        ]
+      },
       "targetType": "step",
       "targetAlias": "insuranceProvider",
       "action": "show",

@@ -1,6 +1,11 @@
 /**
  * Choice option extraction for the condition/logic builder.
  *
+ * O-2: lives in `shared/` because both sides need the same answer — the
+ * server populates `WorkflowVariable.choices` from it so the condition editor
+ * no longer has to fetch every step just to read its options, and the client
+ * type still refers to the same descriptor.
+ *
  * Legacy `radio` / `multiple_choice` steps store their options as
  * `{ options: (string | { id?, label?, alias? })[] }` on the step config.
  * The value that ends up in step data when a respondent picks an option is

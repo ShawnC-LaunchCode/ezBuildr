@@ -28,8 +28,6 @@ export interface ConditionCycle {
   path: string[];
 }
 
-const CONDITION_KEYWORDS = new Set(["true", "false", "null", "undefined", "and", "or", "not"]);
-
 /** Walk a `ConditionExpression` tree collecting every `variable` operand it references. */
 function collectVariableReferences(node: unknown): string[] {
   if (node === null || typeof node !== "object") { return []; }
@@ -50,17 +48,27 @@ function collectVariableReferences(node: unknown): string[] {
 /**
  * Extract every operand identifier a `visibleIf` expression references.
  *
- * `visibleIf` is normally stored as a `ConditionExpression` object (jsonb):
+ * `visibleIf` is a `ConditionExpression` object (jsonb):
  * `{ type: 'group', operator, conditions: [{ type: 'condition', variable, ... } | nested group] }`.
- * Older/imported rows may still be a raw string expression — both forms are
- * handled here.
+ *
+ * O-4: this used to also accept a raw *string* expression and pull identifiers
+ * out of it with a bare `[a-zA-Z_]\w*` regex. That branch was both dead and
+ * dangerous. Dead: zero string-shaped rows exist (all 52 populated `visible_if`
+ * values are objects), and the ingest DTO that claimed to accept a string only
+ * ever reached storage through an `as unknown as` cast. Dangerous: the regex
+ * matched string *literals* too, so `name == 'foo'` yielded `foo` as an
+ * operand — and since LU-3 made unresolvable references publish-blocking
+ * errors, one such value would have blocked publish with a nonsense message.
+ * A string can no longer be stored (`shared/types/ai.ts` and the ingest DTO
+ * both require a `ConditionExpression`), so the branch is gone rather than
+ * left as a trap.
  */
 export function extractConditionReferences(expression: unknown): string[] {
   if (!expression) { return []; }
-  const raw = typeof expression === "string"
-    ? (expression.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [])
-    : collectVariableReferences(expression);
-  return raw.filter((id) => !CONDITION_KEYWORDS.has(id));
+  // No keyword filtering: operands come from a structured tree, so a value
+  // like "or" can only be a genuine step alias. Filtering those would drop a
+  // real edge and could hide a cycle.
+  return collectVariableReferences(expression);
 }
 
 /**

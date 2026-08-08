@@ -39,7 +39,7 @@ export interface WorkflowStepData {
   options?: string[];
   order?: number;
   alias?: string;
-  visibleIf?: string;
+  visibleIf?: ConditionExpression | null;
   defaultValue?: unknown;
   isVirtual?: boolean;
 }
@@ -124,7 +124,7 @@ export interface WorkflowSectionData {
   description?: string;
   order?: number;
   alias?: string;
-  visibleIf?: string;
+  visibleIf?: ConditionExpression | null;
   skipIf?: unknown;
   config?: Record<string, unknown>;
   steps?: WorkflowStepData[];
@@ -364,7 +364,7 @@ export class WorkflowContentIngestService {
         title: sectionData.title ?? "Untitled",
         description: sectionData.description ?? null,
         order: sectionData.order ?? 0,
-        visibleIf: sectionData.visibleIf as unknown as Record<string, unknown>,
+        visibleIf: sectionData.visibleIf ?? null,
         config: sectionData.config ?? {},
       })
       .returning();

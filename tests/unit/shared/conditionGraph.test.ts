@@ -51,8 +51,23 @@ describe("conditionGraph", () => {
       expect(extractConditionReferences(nested).sort()).toEqual(["a", "b"]);
     });
 
-    it("extracts identifiers from a legacy raw-string expression, filtering keywords", () => {
-      expect(extractConditionReferences("has_pet and not is_owner")).toEqual(["has_pet", "is_owner"]);
+    it("ignores a raw-string expression (O-4: strings can no longer be stored)", () => {
+      // The old string branch pulled identifiers out with a bare regex, which
+      // also matched string literals — `name == 'foo'` yielded `foo` as an
+      // operand, and LU-3 made unresolvable operands publish-blocking errors.
+      expect(extractConditionReferences("has_pet and not is_owner")).toEqual([]);
+    });
+
+    it("keeps an operand whose alias collides with a logic keyword", () => {
+      // A step legitimately aliased `or` is a real edge; dropping it could
+      // hide a cycle.
+      expect(
+        extractConditionReferences({
+          type: "group",
+          operator: "AND",
+          conditions: [{ type: "condition", variable: "or", operator: "is_true" }],
+        })
+      ).toEqual(["or"]);
     });
   });
 

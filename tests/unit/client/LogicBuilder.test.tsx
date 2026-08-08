@@ -2,7 +2,8 @@
 /**
  * LogicBuilder (LU-2) — Decision #2: `LogicBuilder` stays one component and
  * gains an optional injected `variables` prop that replaces its internal
- * `useWorkflowVariables` / `useWorkflowSteps` fetches entirely, rather than
+ * `useWorkflowVariables` fetch entirely (O-2 removed the companion
+ * `useWorkflowSteps` query), rather than
  * fetching and discarding (`enabled: false`, not "fetch then ignore").
  *
  * This is the plumbing that let `ListFieldSettings` stop hand-wiring
@@ -60,7 +61,7 @@ const SIBLING_VARIABLES: VariableInfo[] = [
 ];
 
 describe('LogicBuilder — injected variables gate the workflow fetch (LU-2 AC1)', () => {
-  it('disables both useWorkflowVariables and useWorkflowSteps when a variable list is injected', () => {
+  it('disables useWorkflowVariables when a variable list is injected', () => {
     useWorkflowVariablesMock.mockReturnValue({ data: undefined, isLoading: false });
     useWorkflowStepsMock.mockReturnValue({ data: undefined });
 
@@ -73,13 +74,12 @@ describe('LogicBuilder — injected variables gate the workflow fetch (LU-2 AC1)
       />
     );
 
-    // The hooks are still invoked (Rules of Hooks), but gated off via
+    // The hook is still invoked (Rules of Hooks), but gated off via
     // `enabled: false` rather than fetched and discarded.
     expect(useWorkflowVariablesMock).toHaveBeenCalledWith(undefined, { enabled: false });
-    expect(useWorkflowStepsMock).toHaveBeenCalledWith(
-      undefined,
-      expect.objectContaining({ enabled: false })
-    );
+    // O-2 removed the companion useWorkflowSteps fetch entirely — choices now
+    // arrive on the variable itself, so there is no second query to gate.
+    expect(useWorkflowStepsMock).not.toHaveBeenCalled();
   });
 
   it('leaves the fetch enabled on the workflow-variables path when no list is injected', () => {
@@ -97,10 +97,8 @@ describe('LogicBuilder — injected variables gate the workflow fetch (LU-2 AC1)
     );
 
     expect(useWorkflowVariablesMock).toHaveBeenCalledWith('wf-1', { enabled: true });
-    expect(useWorkflowStepsMock).toHaveBeenCalledWith(
-      'wf-1',
-      expect.objectContaining({ enabled: true })
-    );
+    // O-2: no second steps query on this path either.
+    expect(useWorkflowStepsMock).not.toHaveBeenCalled();
   });
 });
 

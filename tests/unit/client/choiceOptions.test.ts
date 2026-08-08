@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { getLegacyChoiceOptions } from "../../../client/src/components/logic/choiceOptions";
+import { getLegacyChoiceOptions } from "../../../shared/choiceOptions";
 
 describe("getLegacyChoiceOptions (ICW2-16)", () => {
   it("returns an empty array for a null/missing config", () => {

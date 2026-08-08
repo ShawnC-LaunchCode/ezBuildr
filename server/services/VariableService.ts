@@ -1,3 +1,4 @@
+import { getLegacyChoiceOptions } from "@shared/choiceOptions";
 import type { WorkflowVariable } from "@shared/schema";
 
 import { sectionRepository, stepRepository } from "../repositories";
@@ -8,6 +9,12 @@ import { workflowService } from "./WorkflowService";
  * Service layer for workflow variable management
  * Provides access to step aliases and variable references
  */
+/**
+ * Step types whose config carries selectable choices (legacy radio /
+ * multiple_choice options). Other types never have an options list.
+ */
+const CHOICE_STEP_TYPES = new Set<string>(["radio", "multiple_choice"]);
+
 export class VariableService {
   private stepRepo: typeof stepRepository;
   private sectionRepo: typeof sectionRepository;
@@ -48,6 +55,13 @@ export class VariableService {
     // Build variables array
     const variables: WorkflowVariable[] = steps.map(step => {
       const section = sectionMap.get(step.sectionId);
+      // O-2: options travel with the variable. The condition editor used to
+      // fetch every step separately just to read them; only legacy
+      // radio/multiple_choice configs carry any, so `choices` is omitted for
+      // every other type rather than sent as an empty array.
+      const choices = CHOICE_STEP_TYPES.has(step.type)
+        ? getLegacyChoiceOptions(step.config)
+        : undefined;
       return {
         key: step.id,
         alias: step.alias,
@@ -56,6 +70,7 @@ export class VariableService {
         sectionId: step.sectionId,
         sectionTitle: section?.title ?? 'Unknown Section',
         stepId: step.id,
+        ...(choices && choices.length > 0 ? { choices } : {}),
       };
     });
 

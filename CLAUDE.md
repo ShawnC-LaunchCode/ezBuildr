@@ -97,8 +97,12 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 37 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question with runner drill-in navigation; both List initiatives closed 2026-08-02 — parked follow-ups are in `tickets/BACKLOG.md`). There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
 
 ### Logic Operators & Actions
-- **DB operators** (`conditionOperatorEnum`): equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty
-- **Engine operators**: 28-value `ComparisonOperator` union in `shared/types/conditions.ts` (starts_with, date diffs, includes_all, ...)
+- **One condition language.** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all
+  store the same `ConditionExpression` (28-value `ComparisonOperator` union in
+  `shared/types/conditions.ts`: starts_with, date diffs, includes_all, ...), evaluated by
+  `shared/conditionEvaluator.ts`. The flat 9-value `conditionOperatorEnum` DB enum
+  (`equals`/`not_equals`/`contains`/.../`is_not_empty`) that `logic_rules` used before LU-6a/LU-6c
+  is gone — nothing produces or reads it anymore.
 - **Actions** (`conditionalActionEnum`): show, hide, require, make_optional, skip_to
 
 ## Environment Variables
