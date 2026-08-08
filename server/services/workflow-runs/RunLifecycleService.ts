@@ -15,6 +15,7 @@ import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
+import { normalizeFinalDocumentsTemplateEntry } from "../../../shared/finalDocumentsTemplates";
 import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
@@ -550,18 +551,25 @@ export class RunLifecycleService {
 
   /**
    * Synthesize a FinalBlockConfig from legacy Final Documents sections
-   * (section.config.finalBlock === true with config.templates: string[]).
-   * Template-level mapping carries over so the unified renderer path
-   * preserves the old behavior.
+   * (section.config.finalBlock === true with config.templates). Template-level
+   * mapping carries over so the unified renderer path preserves the old
+   * behavior.
    *
-   * DEBT-13: this also used to read `template.metadata.visibleIf` into
-   * `conditions` through an `as` cast, and the cast hid a shape mismatch --
-   * the stored value is a ConditionGroup (`{ variable, operator }`) while the
-   * renderer reads a LogicExpression (`{ key, op }`), so any such condition
-   * would have evaluated to garbage. No code in this repo's history has ever
-   * written that key and no rows carry it, so the read was deleted rather
-   * than normalized. `conditions` is now unconditionally null -- which is
-   * exactly what the old expression already produced for every row.
+   * LU-5: each `templates` entry is normalized through
+   * `normalizeFinalDocumentsTemplateEntry`, which reads either the legacy
+   * bare template-id string or the widened `{ templateId, conditions? }`
+   * object the Final Documents editor now writes. `conditions`, when
+   * present, is already a `ConditionExpression` — the exact type
+   * `FinalBlockConfig.documents[].conditions` declares — so this assigns it
+   * directly with no cast.
+   *
+   * DEBT-13 (historical): code once read `template.metadata.visibleIf` (a
+   * ConditionGroup) into `conditions` (the old flat `LogicExpression`,
+   * `{ key, op }`) through an `as` cast, so any such condition would have
+   * evaluated to garbage. That trap can no longer occur: `conditions` is now
+   * the same `ConditionExpression` type everywhere it appears, so there is
+   * no second shape to mismatch — not "avoided by having no rows" but
+   * structurally unrepresentable.
    *
    * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
    * definition from `RunDefinitionProvider` -- not a fresh live-table read --
@@ -569,20 +577,25 @@ export class RunLifecycleService {
    * does not retroactively change what gets generated.
    */
   private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
-    const templateIds: string[] = [];
+    const entries: Array<{ templateId: string; conditions: FinalBlockConfig['documents'][number]['conditions'] }> = [];
     for (const section of sections) {
-      const config = section.config as { finalBlock?: boolean; templates?: string[] } | null;
+      const config = section.config as { finalBlock?: boolean; templates?: unknown[] } | null;
       if (config?.finalBlock === true && Array.isArray(config.templates)) {
-        templateIds.push(...config.templates);
+        for (const rawEntry of config.templates) {
+          const normalized = normalizeFinalDocumentsTemplateEntry(rawEntry);
+          if (normalized) {
+            entries.push(normalized);
+          }
+        }
       }
     }
 
-    if (templateIds.length === 0) {
+    if (entries.length === 0) {
       return null;
     }
 
     const documents: FinalBlockConfig['documents'] = [];
-    for (const templateId of templateIds) {
+    for (const { templateId, conditions } of entries) {
       const template = await documentTemplateRepository.findByIdAndProjectId(templateId, projectId);
       if (!template) {
         // RUN-12: a legacy template id that doesn't resolve within this
@@ -597,7 +610,7 @@ export class RunLifecycleService {
         id: templateId,
         documentId: templateId,
         alias: template.name,
-        conditions: null,
+        conditions,
         mapping: (template.mapping ?? undefined) as FinalBlockConfig['documents'][number]['mapping'],
       });
     }

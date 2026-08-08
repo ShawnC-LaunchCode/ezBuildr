@@ -25,9 +25,8 @@ import { normalizeVariables, type NormalizedData, type NormalizationOptions } fr
 
 import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
 import { evaluateConditionExpression } from '../../../shared/conditionEvaluator.js';
-import type { ConditionGroup } from '../../../shared/types/conditions.js';
+import type { ConditionExpression } from '../../../shared/types/conditions.js';
 import type { DatavaultMappingBinding } from '../../../shared/types/documentMapping.js';
-import type { LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
 
@@ -117,7 +116,7 @@ export interface FinalBlockDocument {
   mapping?: DocumentMapping;
 
   /** Optional conditional logic */
-  conditions?: LogicExpression | null;
+  conditions?: ConditionExpression | null;
 }
 
 /**
@@ -438,18 +437,21 @@ export class EnhancedDocumentEngine {
     // Process each document
     for (const doc of documents) {
       try {
-        // Step 1: Evaluate conditions
-        if (doc.conditions) {
-          const conditionMet = this.evaluateConditions(doc.conditions, stepValues);
+        // Step 1: Evaluate conditions. `doc.conditions` is a
+        // ConditionExpression -- the same language steps.visible_if /
+        // sections.visible_if use -- evaluated directly by the shared
+        // evaluator (no per-document translation step). A null expression
+        // means "always generated", matching evaluateConditionExpression's
+        // null-is-always-true contract.
+        const conditionMet = evaluateConditionExpression(doc.conditions ?? null, stepValues);
 
-          if (!conditionMet) {
-            skipped.push({
-              alias: doc.alias,
-              reason: 'Conditions not met',
-            });
-            logger.info({ alias: doc.alias }, 'Document skipped (conditions not met)');
-            continue;
-          }
+        if (!conditionMet) {
+          skipped.push({
+            alias: doc.alias,
+            reason: 'Conditions not met',
+          });
+          logger.info({ alias: doc.alias }, 'Document skipped (conditions not met)');
+          continue;
         }
 
         // Step 2: Generate document
@@ -524,42 +526,6 @@ export class EnhancedDocumentEngine {
     }, 'Final Block rendering complete');
 
     return finalResult;
-  }
-
-  /**
-   * Evaluate conditional logic for document inclusion
-   *
-   * Uses simplified logic evaluation (can be replaced with full logic engine later)
-   *
-   * @param conditions - Logic expression
-   * @param stepValues - Step values to evaluate against
-   * @returns Whether conditions are met
-   */
-  private evaluateConditions(
-    conditions: LogicExpression,
-    stepValues: Record<string, unknown>
-  ): boolean {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!conditions?.conditions || conditions.conditions.length === 0) {
-      return true;
-    }
-
-    const expression: ConditionGroup = {
-      type: 'group',
-      id: 'root',
-      operator: conditions.operator ?? 'AND',
-      conditions: conditions.conditions.map((cond, index) => ({
-        type: 'condition',
-        id: `doc_cond_${index}`,
-        variable: cond.key,
-        operator: cond.op,
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
-        value: cond.value,
-        valueType: 'constant'
-      }))
-    };
-
-    return evaluateConditionExpression(expression, stepValues);
   }
 }
 

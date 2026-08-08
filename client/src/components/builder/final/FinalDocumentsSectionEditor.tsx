@@ -4,13 +4,16 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { FileText, Eye, HelpCircle, CheckCircle } from "lucide-react";
+import { FileText, Eye, HelpCircle, CheckCircle, ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { LogicBuilder } from "@/components/logic";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +22,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
+import {
+  normalizeFinalDocumentsTemplateEntry,
+  type FinalDocumentsTemplateEntry,
+} from "@shared/finalDocumentsTemplates";
+import { countConditions } from "@shared/types/conditions";
+import type { ConditionExpression } from "@shared/types/conditions";
 
 interface FinalDocumentsSectionEditorProps {
   section: ApiSection;
@@ -29,6 +39,62 @@ interface WorkflowTemplate {
   name: string;
   description: string | null;
 }
+
+interface DocumentEntry {
+  templateId: string;
+  conditions: ConditionExpression | null;
+}
+
+/** Collapsed-by-default per-document condition editor, built on the shared
+ * `LogicBuilder` (LU-5) — the same condition language and editor
+ * steps/sections already use, so a document's "generate only when..." rule
+ * is authored identically to a question's "show only when...". */
+function DocumentConditionRow({
+  workflowId,
+  conditions,
+  onChange,
+}: {
+  workflowId: string;
+  conditions: ConditionExpression | null;
+  onChange: (conditions: ConditionExpression) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const conditionCount = conditions ? countConditions(conditions) : 0;
+  const hasConditions = conditionCount > 0;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md bg-muted/20">
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full justify-between px-2 py-1.5 h-auto text-xs font-normal"
+        >
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <GitBranch className="h-3.5 w-3.5" />
+            Condition
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className={hasConditions ? "text-amber-600 font-medium" : "text-muted-foreground"}>
+              {hasConditions ? `Conditional (${conditionCount})` : "Always generated"}
+            </span>
+            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </span>
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-2 pb-2 pt-1 border-t">
+        <LogicBuilder
+          workflowId={workflowId}
+          elementType="document"
+          value={conditions}
+          onChange={onChange}
+        />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
   const { mode } = useWorkflowBuilder();
@@ -36,7 +102,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   // Define config type locally if not available globally yet
   interface FinalDocumentsConfig {
     finalBlock?: boolean;
-    templates?: string[];
+    templates?: FinalDocumentsTemplateEntry[];
     screenTitle?: string;
     markdownMessage?: string;
     advanced?: Record<string, unknown>;
@@ -51,7 +117,14 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     advanced: {}
   }) as FinalDocumentsConfig;
 
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>(config.templates ?? []);
+  // LU-5: `templates` entries are either the legacy bare template-id string
+  // or the widened `{ templateId, conditions? }` object; normalize once on
+  // read so the rest of this component only deals with one shape.
+  const [documentEntries, setDocumentEntries] = useState<DocumentEntry[]>(() =>
+    (config.templates ?? [])
+      .map(normalizeFinalDocumentsTemplateEntry)
+      .filter((entry): entry is DocumentEntry => entry !== null)
+  );
   const [screenTitle, setScreenTitle] = useState(config.screenTitle ?? "Your Completed Documents");
   const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage ?? "# Thank You!\n\nYour documents are ready for download below.");
   // Fetch workflow to get projectId
@@ -86,12 +159,27 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
       config: newConfig
     });
   };
+  // Writes the smallest shape each entry needs: a bare id when there's no
+  // condition (matches the legacy contract byte-for-byte), the widened
+  // object only for documents that actually carry one.
+  const commitDocumentEntries = (entries: DocumentEntry[]) => {
+    setDocumentEntries(entries);
+    const serialized: FinalDocumentsTemplateEntry[] = entries.map((entry) =>
+      entry.conditions ? { templateId: entry.templateId, conditions: entry.conditions } : entry.templateId
+    );
+    handleUpdate("templates", serialized);
+  };
   const handleTemplateToggle = (templateId: string) => {
-    const newSelection = selectedTemplates.includes(templateId)
-      ? selectedTemplates.filter(id => id !== templateId)
-      : [...selectedTemplates, templateId];
-    setSelectedTemplates(newSelection);
-    handleUpdate("templates", newSelection);
+    const isSelected = documentEntries.some((entry) => entry.templateId === templateId);
+    const next = isSelected
+      ? documentEntries.filter((entry) => entry.templateId !== templateId)
+      : [...documentEntries, { templateId, conditions: null }];
+    commitDocumentEntries(next);
+  };
+  const handleConditionChange = (templateId: string, conditions: ConditionExpression) => {
+    commitDocumentEntries(
+      documentEntries.map((entry) => (entry.templateId === templateId ? { ...entry, conditions } : entry))
+    );
   };
   const handleScreenTitleChange = (value: string) => {
     setScreenTitle(value);
@@ -196,35 +284,56 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
               </div>
             ) : (
               <div className="border rounded-md p-4 space-y-3">
-                {templates.map((template: WorkflowTemplate) => (
-                  <div key={template.id} className="flex items-start space-x-3">
-                    <Checkbox
-                      id={`template-${template.id}`}
-                      checked={selectedTemplates.includes(template.id)}
-                      onCheckedChange={() => handleTemplateToggle(template.id)}
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor={`template-${template.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {template.name}
-                      </label>
-                      {(!isEasyMode && template.description) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {template.description}
-                        </p>
+                {templates.map((template: WorkflowTemplate) => {
+                  const entry = documentEntries.find((e) => e.templateId === template.id);
+                  const isSelected = entry !== undefined;
+                  return (
+                    <div key={template.id} className="space-y-2">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox
+                          id={`template-${template.id}`}
+                          checked={isSelected}
+                          onCheckedChange={() => handleTemplateToggle(template.id)}
+                        />
+                        <div className="flex-1">
+                          <label
+                            htmlFor={`template-${template.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {template.name}
+                          </label>
+                          {(!isEasyMode && template.description) && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {template.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Per-document condition. Deliberately NOT gated on
+                          isEasyMode: unlike this file's pre-existing
+                          easy/advanced split (screenTitle, Advanced
+                          Options), conditional generation mirrors
+                          VisibilityField.tsx's step-level "Conditional
+                          Visibility", which is always available regardless
+                          of mode -- the same LogicBuilder-based feature
+                          should not be reachable only in one mode. */}
+                      {isSelected && (
+                        <div className="ml-7">
+                          <DocumentConditionRow
+                            workflowId={workflowId}
+                            conditions={entry.conditions}
+                            onChange={(conditions) => handleConditionChange(template.id, conditions)}
+                          />
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-            {!isEasyMode && (
-              <p className="text-xs text-muted-foreground">
-                Select which document templates to generate
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Select which document templates to generate. Optionally add a condition to generate a document only when it applies.
+            </p>
           </div>
           {/* Advanced Options - Hidden in Easy Mode */}
           {!isEasyMode && (

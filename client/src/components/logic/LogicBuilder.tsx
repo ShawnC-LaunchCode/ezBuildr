@@ -44,7 +44,7 @@ interface LogicBuilderProps {
    * when fetching. Ignored when `variables` is injected. */
   elementId?: string;
   /** Type of element being edited (drives copy only) */
-  elementType: "step" | "section" | "field";
+  elementType: "step" | "section" | "field" | "document";
   /** Current condition expression (null means always visible) */
   value: ConditionExpression;
   /** Callback when the expression changes */

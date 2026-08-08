@@ -239,10 +239,13 @@ describe('Runtime Pipelines Integration Tests', () => {
       // Wire the template into an actual 'final' step the run reaches, with
       // the visibleIf expression as that document's `conditions` -- the
       // shape RunLifecycleService/EnhancedDocumentEngine actually evaluate
-      // (LogicExpression: { operator, conditions: [{ key, op, value }] }).
-      // The old fixture put an equivalent-looking but incompatible nested
-      // ConditionGroup on `template.metadata.visibleIf` and never attached
-      // the template to any step at all, so it was orphaned twice over.
+      // (LU-5: ConditionExpression, the same nested AND/OR-group language
+      // steps.visible_if / sections.visible_if use -- not the old flat
+      // LogicExpression `{ operator, conditions: [{ key, op, value }] }`
+      // this superseded). The old fixture put an equivalent-looking but
+      // incompatible nested ConditionGroup on `template.metadata.visibleIf`
+      // and never attached the template to any step at all, so it was
+      // orphaned twice over.
       const [finalSection] = await db
         .insert(sections)
         .values({
@@ -261,8 +264,12 @@ describe('Runtime Pipelines Integration Tests', () => {
             documentId: testTemplateId,
             alias: 'contract',
             conditions: {
+              type: 'group',
+              id: 'g1',
               operator: 'AND',
-              conditions: [{ key: 'email', op: 'contains', value: 'show' }],
+              conditions: [
+                { type: 'condition', id: 'c1', variable: 'email', operator: 'contains', value: 'show', valueType: 'constant' },
+              ],
             },
           },
         ],

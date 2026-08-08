@@ -982,7 +982,45 @@ the dropped columns. Delete the unreferenced `detectCycles` stub in
 
 ---
 
-## LU-5 — Unify the document condition language and make it authorable 🔄
+## LU-5 — Unify the document condition language and make it authorable ✅
+
+> **Verified 2026-08-08 (Senior).** Gates re-run by the reviewer on a corrected base:
+> `tsc` 0, `lint` 0, `check:strict-zones` 6/6, `test:fast` **227 files / 2661 tests**
+> (+7 vs 2654), `test:unit` **242 files / 2806 tests**, `test:integration` **108 files /
+> 1075 tests**, zero failures anywhere.
+>
+> **The fourth condition language is gone.** `LogicExpression` is deleted; it survives only in
+> comments explaining what superseded it. `EnhancedDocumentEngine` now calls
+> `evaluateConditionExpression` on the stored value with the translation adapter removed, so
+> documents, rules, steps, sections and list fields all speak one language through one
+> evaluator.
+>
+> **DEBT-13's trap is now structurally unrepresentable**, not merely unencountered — there is
+> only one condition shape left, so the `ConditionGroup`-stored-where-`LogicExpression`-is-read
+> confusion cannot recur. The dev rewrote that comment to say so.
+>
+> **AC3 verified at the test, not the claim.** `normalizeFinalDocumentsTemplateEntry` is the
+> single place both shapes are read, covered by five cases: legacy bare string, widened object
+> without conditions, widened object with a `ConditionExpression` (unchanged), explicit null,
+> and a malformed entry returning null. `workflowStructureRules` uses the same normalizer, so
+> lint and the reader cannot drift apart by construction.
+>
+> **No migration written**, as instructed — 0 rows existed.
+>
+> ### Reviewer error found via this ticket's turn-in
+>
+> The dev reported three "pre-existing" type-check errors and **proved they were pre-existing
+> with a stash test** rather than assuming its own work caused them. That was correct and it
+> exposed a reviewer mistake: `server/services/WorkflowService.ts` was part of LU-6c's diff but
+> was omitted from that commit's explicit staging list, so `0db2e2a3` shipped incomplete and
+> left `main` failing `type-check` and `check:strict-zones`. Fixed in `d7be0c2f`. **Lesson:
+> staging by explicit path protects the repo owner's uncommitted work but silently drops files
+> — diff the patch's file list against the staged list before committing.**
+>
+> **Observation filed (O-10):** the dev found `isEasyMode` in the Final Documents editor reads
+> a zustand `mode` that is never synced with the server-backed Easy/Advanced toggle, so it is
+> permanently `"easy"`. It correctly did **not** gate the new condition row on that flag (which
+> would have shipped it unreachable) and left the pre-existing gating alone as out of scope.
 
 **Priority: P1** *(raised from P2)* · Size: M · Independent of LU-6a/b/c — disjoint footprint.
 **Ties:** `run-tests`, `design` (UI change), `add-step-type` if the `final_documents` config
@@ -1087,6 +1125,15 @@ saying why.
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-10.** `isEasyMode` in
+  `client/src/components/builder/final/FinalDocumentsSectionEditor.tsx` derives from
+  `useWorkflowBuilder().mode` (zustand), but the live Easy/Advanced toggle is server-backed and
+  read via a separate `useWorkflowMode` query in `WorkflowBuilder.tsx`. The store's `mode` is
+  never synced and stays `"easy"` permanently, so anything gated on it — the screen title and
+  the "Advanced Options" block in that file — may be **unreachable in the live app today**.
+  Found during LU-5, which deliberately did not gate its new condition row on the flag. Not
+  caused by this initiative; verify against the running app before sizing, and note the builder
+  chrome is mid-refactor in the repo owner's tree.
 - **O-9. Error messages are being lost from ~541 log sites.** Found while diagnosing LU-6c's
   blueprint regression: the 500 logged as
   `{"error":{"code":"VALIDATION_ERROR","message":""}}` — an empty message. The real message

@@ -56,7 +56,21 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
     js_question: { code: "emit(1 + 1);", timeoutMs: 500 },
     final_documents: {
       markdownHeader: "## Your documents",
-      documents: [{ id: randomUUID(), documentId: templateId, alias: "contract" }],
+      documents: [{
+        id: randomUUID(),
+        documentId: templateId,
+        alias: "contract",
+        // LU-5: conditions is a ConditionExpression -- prove it survives
+        // export/import as-is, not just the mapping/alias fields.
+        conditions: {
+          type: "group",
+          id: "g1",
+          operator: "AND",
+          conditions: [
+            { type: "condition", id: "c1", variable: "tier", operator: "equals", value: "vip", valueType: "constant" },
+          ],
+        },
+      }],
     },
     signature_block: {
       signerRole: "Applicant",

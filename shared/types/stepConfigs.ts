@@ -563,20 +563,6 @@ export interface FileUploadConfig {
 }
 
 /**
- * Conditional Logic Expression
- * Used for conditional document output
- */
-export interface LogicExpression {
-  operator?: 'AND' | 'OR';
-  conditions: Array<{
-    key: string;              // Step alias to check
-    op: import('./conditions').ComparisonOperator | 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    value?: any;              // Expected value (not needed for is_empty/is_not_empty)
-  }>;
-}
-
-/**
  * Final Block Config
  * Document selection and output configuration for workflow completion
  *
@@ -599,7 +585,11 @@ export interface FinalBlockConfig {
     id: string;               // Unique ID for this document entry in the block
     documentId: string;       // Reference to uploaded template document
     alias: string;            // Short name for this document (e.g., "contract", "receipt")
-    conditions?: LogicExpression | null;  // Optional conditional logic for this document
+    // LU-5: the same ConditionExpression language steps.visible_if /
+    // sections.visible_if already use (28 operators, nested AND/OR groups),
+    // evaluated directly by shared/conditionEvaluator.ts - not the flat
+    // `{key, op}` LogicExpression this superseded. See EnhancedDocumentEngine.
+    conditions?: ConditionExpression | null;  // Optional conditional logic for this document
     mapping?: {
       // Field mapping for document generation (Prompt 10; widened to
       // MappingBinding in GH-156 to support constant/formula/datavault
@@ -633,7 +623,7 @@ export interface SignatureBlockConfig {
       [tabName: string]: MappingBinding;
     };
   }>;
-  conditions?: LogicExpression | null;  // Optional conditional logic
+  conditions?: ConditionExpression | null;  // Optional conditional logic (LU-5: unified language, see FinalBlockConfig.documents[].conditions)
   markdownHeader?: string;    // Optional text shown before signature redirect
   provider?: 'docusign' | 'hellosign' | 'native';  // E-signature provider
   allowDecline?: boolean;     // Allow signer to decline (default: false)

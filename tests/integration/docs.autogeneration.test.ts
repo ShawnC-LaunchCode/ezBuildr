@@ -301,6 +301,152 @@ describe('Automatic document generation on run completion', () => {
     expect(text).toContain('Dear Globex LLC, welcome aboard.');
   });
 
+  it('LU-5: generates a document whose condition is met and skips one whose condition is not, via the real evaluator', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const statusStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Status',
+      alias: 'status',
+      order: 0,
+    });
+    const approvedTemplate = await createTemplateOnDisk('Approval Letter', 'Congratulations, you are approved.');
+    const rejectionTemplate = await createTemplateOnDisk('Rejection Letter', 'We are sorry, you were not approved.');
+    await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 1,
+      config: {
+        markdownHeader: '',
+        documents: [
+          {
+            id: 'doc-approved',
+            documentId: approvedTemplate.id,
+            alias: 'approvalLetter',
+            conditions: {
+              type: 'group',
+              id: 'g1',
+              operator: 'AND',
+              conditions: [
+                { type: 'condition', id: 'c1', variable: 'status', operator: 'equals', value: 'approved', valueType: 'constant' },
+              ],
+            },
+          },
+          {
+            id: 'doc-rejected',
+            documentId: rejectionTemplate.id,
+            alias: 'rejectionLetter',
+            conditions: {
+              type: 'group',
+              id: 'g2',
+              operator: 'AND',
+              conditions: [
+                { type: 'condition', id: 'c2', variable: 'status', operator: 'equals', value: 'rejected', valueType: 'constant' },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
+    const runId = await createRunWithValue(workflow.id, statusStep.id, 'approved');
+
+    const result = await runLifecycleService.generateDocuments(runId);
+
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+    // The condition-false document is reported as skipped, not as a failure.
+    expect(result.skipped).toEqual(['rejectionLetter']);
+    expect(result.failed ?? []).toHaveLength(0);
+
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, runId));
+    expect(records).toHaveLength(1);
+
+    const text = await readDocxText(await getGeneratedFileBuffer(records[0].storageKey));
+    expect(text).toContain('Congratulations, you are approved.');
+  });
+
+  it('LU-5: a legacy Final Documents section entry can carry a per-document condition via the widened { templateId, conditions } form', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const matchingTemplate = await createTemplateOnDisk('VIP Letter', 'Dear {{clientName}}, welcome to VIP status.');
+    const nonMatchingTemplate = await createTemplateOnDisk('Standard Letter', 'Dear {{clientName}}, welcome aboard.');
+    // Widened per-entry object form (LU-5): a bare-string sibling entry
+    // proves the two forms coexist in one `templates` array, exercising the
+    // same tolerant read AC3 covers for the all-bare-string case above.
+    const section = await factory.createSection(workflow.id, {
+      config: {
+        finalBlock: true,
+        templates: [
+          {
+            templateId: matchingTemplate.id,
+            conditions: {
+              type: 'group',
+              id: 'g1',
+              operator: 'AND',
+              conditions: [
+                { type: 'condition', id: 'c1', variable: 'tier', operator: 'equals', value: 'vip', valueType: 'constant' },
+              ],
+            },
+          },
+          {
+            templateId: nonMatchingTemplate.id,
+            conditions: {
+              type: 'group',
+              id: 'g2',
+              operator: 'AND',
+              conditions: [
+                { type: 'condition', id: 'c2', variable: 'tier', operator: 'equals', value: 'standard', valueType: 'constant' },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    const nameStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Client name',
+      alias: 'clientName',
+      order: 0,
+    });
+    const tierStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Tier',
+      alias: 'tier',
+      order: 1,
+    });
+
+    const [run] = await db
+      .insert(schema.workflowRuns)
+      .values({
+        workflowId: workflow.id,
+        runToken: `test-token-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        createdBy: `creator:${userId}`,
+      })
+      .returning();
+    await db.insert(schema.stepValues).values([
+      { runId: run.id, stepId: nameStep.id, value: 'Wile E. Coyote' },
+      { runId: run.id, stepId: tierStep.id, value: 'vip' },
+    ]);
+
+    const result = await runLifecycleService.generateDocuments(run.id);
+
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+    expect(result.failed ?? []).toHaveLength(0);
+
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, run.id));
+    expect(records).toHaveLength(1);
+
+    const text = await readDocxText(await getGeneratedFileBuffer(records[0].storageKey));
+    expect(text).toContain('Dear Wile E. Coyote, welcome to VIP status.');
+  });
+
   it('reports success with zero documents when the workflow has no final config', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);

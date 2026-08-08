@@ -19,6 +19,7 @@
  * header. Facts requiring I/O arrive via `WorkflowReadinessContext`.
  */
 
+import { normalizeFinalDocumentsTemplateEntry } from "@shared/finalDocumentsTemplates";
 import { stepTypeEnum } from "@shared/schema";
 import { extractFormulaReferences } from "@shared/types/documentMapping";
 import {
@@ -569,9 +570,14 @@ function checkFinalBlockSteps(
  * Check 10 — legacy Final Documents sections (`section.config.finalBlock`).
  *
  * This is the shape the live `FinalDocumentsSectionEditor` writes: a
- * `templates: string[]` of template ids, read back by
- * `RunLifecycleService.buildLegacyFinalBlockConfig`. It is still the primary
- * authoring path, so it gets the same template-existence guarantee.
+ * `templates` array read back by
+ * `RunLifecycleService.buildLegacyFinalBlockConfig`. Each entry is either the
+ * legacy bare template-id string or LU-5's widened
+ * `{ templateId, conditions? }` object — `normalizeFinalDocumentsTemplateEntry`
+ * (shared) is the one place that understands both, so this check stays in
+ * sync with the reader by construction rather than duplicating the parsing.
+ * It is still the primary authoring path, so it gets the same
+ * template-existence guarantee.
  */
 function checkLegacyFinalSections(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
@@ -585,9 +591,9 @@ function checkLegacyFinalSections(
     if (config.finalBlock !== true) { continue; }
 
     const templates: unknown = config.templates;
-    const ids = Array.isArray(templates) ? templates : [];
+    const rawEntries = Array.isArray(templates) ? templates : [];
 
-    if (ids.length === 0) {
+    if (rawEntries.length === 0) {
       results.push(issue(
         "warning",
         "documents",
@@ -597,8 +603,9 @@ function checkLegacyFinalSections(
       continue;
     }
 
-    for (const rawId of ids) {
-      const templateId = typeof rawId === "string" ? rawId.trim() : "";
+    for (const rawEntry of rawEntries) {
+      const normalized = normalizeFinalDocumentsTemplateEntry(rawEntry);
+      const templateId = normalized?.templateId.trim() ?? "";
       if (templateId.length === 0) {
         results.push(issue(
           "error",

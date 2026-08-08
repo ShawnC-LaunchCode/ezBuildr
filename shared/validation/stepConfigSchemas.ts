@@ -334,19 +334,6 @@ export const FileUploadConfigSchema = z.object({
   previewThumbnails: z.boolean().optional(),
 }).optional();
 
-/**
- * Logic Expression Schema
- * Used for conditional document output in Final Block
- */
-const LogicExpressionSchema = z.object({
-  operator: z.enum(['AND', 'OR']).optional(),
-  conditions: z.array(z.object({
-    key: z.string(),
-    op: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty']),
-    value: z.unknown().optional(),
-  })),
-});
-
 export const EmailDeliveryConfigSchema = z.object({
   to: z.string().min(1, 'Recipient email or variable is required'),
   subject: z.string().optional(),
@@ -434,7 +421,7 @@ export const FinalBlockConfigSchema = z.object({
     id: z.string(),
     documentId: z.string(),
     alias: z.string().min(1, 'Document alias is required'),
-    conditions: LogicExpressionSchema.nullable().optional(),
+    conditions: conditionExpressionSchema.optional(),
     mapping: z.record(z.object({
       type: z.literal('variable'),
       source: z.string(),
