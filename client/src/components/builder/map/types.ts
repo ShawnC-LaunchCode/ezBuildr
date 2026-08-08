@@ -17,6 +17,13 @@ export interface MapNodeData extends Record<string, unknown> {
   conditional: boolean;
   /** Present for the expand-on-demand payload (D-2); MAP-4 does not render step-level detail. */
   conditionalStepIds: string[];
+  /**
+   * MAP-5: activation callback (click, Enter or Space on the node's own
+   * `<button>`) that navigates to the node's inspector via a URL — see
+   * `MapTab`'s `handleActivateNode`. Undefined for the terminal node, which
+   * has no section/step behind it to open.
+   */
+  onActivate?: () => void;
 }
 
 export type MapFlowNode = Node<MapNodeData, WorkflowMapNodeKind>;

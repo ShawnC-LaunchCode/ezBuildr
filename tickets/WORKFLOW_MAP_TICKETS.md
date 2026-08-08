@@ -983,7 +983,41 @@ the Review tab shipped without `dark:` variants and it was filed as a defect
 
 ---
 
-## MAP-5 — Open the inspector from a map node 🔄
+## MAP-5 — Open the inspector from a map node ✅
+
+> **Verified 2026-08-08.** All eight ACs met — including **AC7 live**, which is
+> the first pixel-level proof obtained in this initiative. Reviewer
+> fast-forwarded the worktree to current main (no overlap) and re-ran all four
+> gates: `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`,
+> `test:fast` **238 files / 2744 passed** (main was 2737, +7).
+>
+> AC5 verified by the reviewer directly: `grep -rn "useWorkflowBuilder"
+> client/src/components/builder/map/` returns nothing, and the tests mock `wouter`
+> and assert the exact resulting URL string rather than spying on a store action —
+> a store spy would have passed even against the wrong architecture. AC3 verified:
+> `TerminalMapNode` renders `role="img"` with no button or link.
+>
+> **AC7 live proof was obtained, and it overturns the reviewer's earlier
+> conclusion.** At MAP-4's review the reviewer tried `preview_start` on port 5000
+> and got `ERR_CONNECTION_REFUSED` from Playwright, and concluded no route to
+> pixel proof existed in this environment. That was wrong — most likely the server
+> was still re-optimising Vite dependencies after the `reactflow` →
+> `@xyflow/react` swap when the connection was attempted. This dev started the
+> worktree's own server on port 5280 and drove it with Playwright cleanly:
+> clicked a section node and saw the URL become `?tab=sections&sectionId=<id>`
+> with the Sections tab genuinely opening on that section; clicked the
+> final-documents node and saw `stepId` rather than a section id; focused a node
+> and pressed **Enter**, then a different node and pressed **Space**, both
+> navigating live; captured light, dark and focus-ring screenshots. Fixtures were
+> cleaned up and proven gone. **MAP-4's deferred AC10 is therefore obtainable the
+> same way — carry it into the Phase 2 gate rather than writing it off.**
+>
+> One deviation, accepted: the dev set xyflow's own `focusable` to `false` (MAP-4
+> had `kind !== "terminal"`). Correct — once the node's content is a real
+> `<button>`, the library's flag adds a second, unlabelled Tab stop ahead of it
+> and its `onKeyDown` only manages internal selection, never the activation
+> callback. Documented in the code.
+
 
 **Priority: P1** · Size: S · Files: `client/src/components/builder/map/`
 
@@ -1543,7 +1577,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | ✅ |
 | MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
-| MAP-5 | Node → inspector navigation | P1 | S | 🔄 |
+| MAP-5 | Node → inspector navigation | P1 | S | ✅ |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |

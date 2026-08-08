@@ -8,6 +8,15 @@
  * `draggable: false` / `connectable: false` here too, in addition to the
  * global `nodesDraggable`/`nodesConnectable` props MapTab sets on
  * `<ReactFlow>` — belt and suspenders, not a substitute for the global prop.
+ *
+ * MAP-5: `toFlowNodes` takes an optional `onActivateNode` callback and wires
+ * it into every non-terminal node's `data.onActivate` (rendered as a real
+ * `<button>` by the node components under `./nodes/`). The xyflow-level node
+ * itself is kept non-focusable here — the node's own button is the real,
+ * correctly-labelled, keyboard-activatable control, and giving the library's
+ * own node wrapper a `tabIndex` too would add a second, unlabeled Tab stop
+ * ahead of it for no benefit (its `onKeyDown` only manages xyflow's internal
+ * selection state, not this callback).
  */
 import { MarkerType } from "@xyflow/react";
 
@@ -20,10 +29,15 @@ import type { MapFlowEdge, MapFlowNode } from "./types";
 export const SEQUENTIAL_EDGE_CLASS = "workflow-map-edge-sequential";
 export const SKIP_EDGE_CLASS = "workflow-map-edge-skip";
 
-export function toFlowNodes(nodes: WorkflowMapNode[], edges: WorkflowMapEdge[]): MapFlowNode[] {
+export function toFlowNodes(
+  nodes: WorkflowMapNode[],
+  edges: WorkflowMapEdge[],
+  onActivateNode?: (node: WorkflowMapNode) => void
+): MapFlowNode[] {
   const positions = computeMapLayout(nodes, edges);
   return nodes.map((node) => {
     const position = positions[node.id] ?? { x: 0, y: 0 };
+    const isActivatable = node.kind !== "terminal" && Boolean(onActivateNode);
     return {
       id: node.id,
       type: node.kind,
@@ -31,12 +45,13 @@ export function toFlowNodes(nodes: WorkflowMapNode[], edges: WorkflowMapEdge[]):
       draggable: false,
       connectable: false,
       deletable: false,
-      focusable: node.kind !== "terminal",
+      focusable: false,
       data: {
         label: node.label,
         order: node.order,
         conditional: node.conditional,
         conditionalStepIds: node.conditionalStepIds,
+        onActivate: isActivatable ? () => onActivateNode?.(node) : undefined,
       },
     };
   });

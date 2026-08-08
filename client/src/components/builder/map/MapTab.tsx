@@ -3,16 +3,27 @@
  * workflow's sections, skip routes and final documents. Per D-4 this tab
  * never authors anything — no drag, no connect, no persisted position —
  * it composes `shared/workflowMap.ts` (MAP-2) with `@xyflow/react` (MAP-1)
- * and nothing else. Node-click-to-inspector (MAP-5) and lint-finding
- * overlays (MAP-6) land in later tickets on top of this component tree.
+ * and nothing else. Node-click-to-inspector (MAP-5) is wired below;
+ * lint-finding overlays (MAP-6) land in a later ticket on top of this
+ * component tree.
+ *
+ * MAP-5 / GH-153 AC2: activating a node navigates to
+ * `/workflows/:id/builder?tab=sections&sectionId=<id>` (or `&stepId=<id>`
+ * for a `final_documents` node) via wouter's `useLocation`, exactly as
+ * `ReviewIssueList.tsx`'s `buildIssuePath` does for its own deep links.
+ * `WorkflowBuilder.tsx` already reads those query params in a `useEffect`
+ * and calls `selectSection`/`selectStep` itself — the map never calls the
+ * builder store directly, so this survives a page reload or a shared URL.
  */
 import "@xyflow/react/dist/style.css";
 import "./map.css";
 
 import { Background, Controls, ReactFlow, ReactFlowProvider } from "@xyflow/react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useLocation } from "wouter";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import type { WorkflowMapNode } from "@shared/workflowMap";
 
 import { MapLegend } from "./MapLegend";
 import { toFlowEdges, toFlowNodes } from "./toFlowElements";
@@ -25,8 +36,26 @@ interface MapTabProps {
 
 export function MapTab({ workflowId }: MapTabProps) {
   const { graph, isLoading, isError } = useWorkflowMapGraph(workflowId);
+  const [, navigate] = useLocation();
 
-  const nodes = useMemo(() => toFlowNodes(graph.nodes, graph.edges), [graph]);
+  const handleActivateNode = useCallback(
+    (node: WorkflowMapNode) => {
+      if (!workflowId) { return; }
+      const params = new URLSearchParams({ tab: "sections" });
+      if (node.kind === "final_documents") {
+        params.set("stepId", node.id);
+      } else {
+        params.set("sectionId", node.id);
+      }
+      navigate(`/workflows/${workflowId}/builder?${params.toString()}`);
+    },
+    [navigate, workflowId]
+  );
+
+  const nodes = useMemo(
+    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode),
+    [graph, handleActivateNode]
+  );
   const edges = useMemo(() => toFlowEdges(graph.edges), [graph]);
 
   if (isError) {

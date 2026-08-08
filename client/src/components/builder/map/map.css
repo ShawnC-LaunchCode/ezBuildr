@@ -17,6 +17,9 @@
   --map-line: hsl(220, 13%, 68%);
   --map-line-arrow: hsl(220, 13%, 55%);
 
+  /* MAP-5: hover background for a node's activation button, shared across node kinds. */
+  --map-hover-bg: hsl(220, 20%, 96%);
+
   --map-section-bg: hsl(0, 0%, 100%);
   --map-section-border: hsl(220, 13%, 82%);
   --map-section-fg: hsl(220, 10%, 15%);
@@ -41,6 +44,8 @@
 .dark .workflow-map {
   --map-line: hsl(220, 13%, 42%);
   --map-line-arrow: hsl(220, 13%, 52%);
+
+  --map-hover-bg: hsl(220, 15%, 24%);
 
   --map-section-bg: hsl(220, 15%, 16%);
   --map-section-border: hsl(220, 15%, 28%);

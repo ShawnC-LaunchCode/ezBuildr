@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   SEQUENTIAL_EDGE_CLASS,
@@ -9,6 +9,7 @@ import {
 import { buildWorkflowMap } from "@shared/workflowMap";
 
 import {
+  linearThreeSections,
   workflowWithConditionalSection,
   workflowWithForwardSkip,
 } from "../../fixtures/workflowMap";
@@ -59,6 +60,37 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
       expect(edge.focusable).toBe(false);
       expect(edge.deletable).toBe(false);
       expect(edge.reconnectable).toBe(false);
+    }
+  });
+
+  it("wires an onActivate callback for every non-terminal node when one is supplied (MAP-5)", () => {
+    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const onActivateNode = vi.fn();
+    const flowNodes = toFlowNodes(nodes, edges, onActivateNode);
+
+    const sectionA = flowNodes.find((n) => n.id === "section-a");
+    expect(sectionA?.data.onActivate).toBeTypeOf("function");
+    sectionA?.data.onActivate?.();
+    expect(onActivateNode).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "section-a", kind: "section" })
+    );
+  });
+
+  it("never gives the terminal node an onActivate callback, even when one is supplied (MAP-5 AC3)", () => {
+    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const onActivateNode = vi.fn();
+    const flowNodes = toFlowNodes(nodes, edges, onActivateNode);
+
+    const terminal = flowNodes.find((n) => n.id === "__complete__");
+    expect(terminal?.data.onActivate).toBeUndefined();
+  });
+
+  it("leaves every node non-focusable at the xyflow level — the node's own button handles keyboard activation (MAP-5)", () => {
+    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const flowNodes = toFlowNodes(nodes, edges, vi.fn());
+
+    for (const node of flowNodes) {
+      expect(node.focusable).toBe(false);
     }
   });
 });

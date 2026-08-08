@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MapTab } from "@/components/builder/map/MapTab";
@@ -15,6 +16,19 @@ import {
   workflowWithFinalDocuments,
   workflowWithForwardSkip,
 } from "../../fixtures/workflowMap";
+
+/**
+ * MAP-5: navigation must go through a URL (`wouter`'s `useLocation`), never
+ * the builder store — `grep -rn "useWorkflowBuilder"
+ * client/src/components/builder/map/` returns nothing, and this mock makes
+ * that the only path a test can observe. `navigateMock` records the exact
+ * string `MapTab` pushes, so assertions below check the resulting URL
+ * rather than a store call (MAP-5 AC6).
+ */
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock("wouter", () => ({
+  useLocation: () => ["/workflows/wf-1/builder", navigateMock],
+}));
 
 /**
  * MAP-4 AC9: covers AC2 (one node per section, in order, sequential edges),
@@ -151,6 +165,7 @@ function mockGraphData(input: BuildWorkflowMapInput): void {
 
 afterEach(() => {
   cleanup();
+  navigateMock.mockClear();
 });
 
 describe("MapTab (MAP-4)", () => {
@@ -237,5 +252,71 @@ describe("MapTab (MAP-4)", () => {
 
     render(<MapTab workflowId="wf-1" />);
     expect(screen.queryByTestId("react-flow-stub")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * MAP-5 (GH-153 AC2): node-click-to-inspector. `ReactFlow` is stubbed above
+ * exactly as MAP-4 left it — the real `SectionMapNode` / `FinalDocumentsMapNode`
+ * / `TerminalMapNode` render for real inside it, so these exercise the actual
+ * `<button>`, its `onClick`/keyboard handling and `MapTab`'s
+ * `handleActivateNode`, not a mock of them.
+ */
+describe("MapTab node activation (MAP-5)", () => {
+  it("navigates to the section's inspector via a URL on click (AC1)", async () => {
+    const user = userEvent.setup();
+    mockGraphData(linearThreeSections());
+    render(<MapTab workflowId="wf-1" />);
+
+    await user.click(screen.getByRole("button", { name: "Open Section B section" }));
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/workflows/wf-1/builder?tab=sections&sectionId=section-b"
+    );
+  });
+
+  it("navigates with the step's id, not the section's, when activating a final_documents node (AC2)", async () => {
+    const user = userEvent.setup();
+    mockGraphData(workflowWithFinalDocuments());
+    render(<MapTab workflowId="wf-1" />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Open Generated Documents final documents" })
+    );
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/workflows/wf-1/builder?tab=sections&stepId=step-doc"
+    );
+  });
+
+  it("does not make the terminal node activatable — no button or link role (AC3)", () => {
+    mockGraphData(linearThreeSections());
+    render(<MapTab workflowId="wf-1" />);
+
+    const terminalNode = screen.getByTestId("node-__complete__");
+    expect(within(terminalNode).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(terminalNode).queryByRole("link")).not.toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("is reachable by Tab, names its section, and activates on both Enter and Space (AC4)", async () => {
+    const user = userEvent.setup();
+    mockGraphData(linearThreeSections());
+    render(<MapTab workflowId="wf-1" />);
+
+    const button = screen.getByRole("button", { name: /Section A/i });
+    button.focus();
+    expect(button).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/workflows/wf-1/builder?tab=sections&sectionId=section-a"
+    );
+
+    navigateMock.mockClear();
+    await user.keyboard(" ");
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/workflows/wf-1/builder?tab=sections&sectionId=section-a"
+    );
   });
 });
