@@ -105,7 +105,7 @@ renders with, the pure graph model it renders *from*, and the analysis engine
 behind AC4. Explicitly out of scope: any React component under
 `client/src/components/builder/map/`, which is Phase 2.
 
-## MAP-1 — Migrate `reactflow@11` to `@xyflow/react` v12 and delete the dead collab canvas sync 🔲
+## MAP-1 — Migrate `reactflow@11` to `@xyflow/react` v12 and delete the dead collab canvas sync 🔄
 
 **Priority: P2** · Size: M · Files: `package.json`, `client/src/hooks/collab/useCollabClient.ts`, `client/src/components/collab/CollaborationContext.tsx`
 
@@ -212,7 +212,47 @@ The v12 stylesheet import path is `@xyflow/react/dist/style.css` (v11's was
 
 ---
 
-## MAP-2 — Build the pure workflow-graph model in `shared/` 🔲
+## MAP-2 — Build the pure workflow-graph model in `shared/` ✅
+
+> **Verified 2026-08-08.** All nine ACs met. Reviewer re-ran every gate in the
+> worktree rather than accepting the report: `type-check` exit 0, `lint` exit 0,
+> `check:strict-zones` 6 zones / 11 files all passed, `test:fast` **232 files /
+> 2692 passed** (clean baseline 2677, +15 new). Three new files, nothing existing
+> touched.
+>
+> **Defect found at review and sent back — a cross-ticket seam neither ticket's
+> own gate could see.** The `final_documents` node was built with **zero outgoing
+> edges**. Reviewer probed the dev's own fixture:
+>
+> ```
+> section          section-a      outgoing=2 step-doc,section-b
+> final_documents  step-doc       outgoing=0
+> section          section-b      outgoing=1 __complete__
+> terminal         __complete__   outgoing=0
+> ```
+>
+> MAP-3's AC3 makes any non-terminal node with no outgoing edge an error-severity
+> `deadEnds` finding, and dead ends are publish-blocking — so once MAP-3 and MAP-6
+> landed, **every workflow containing final documents would have been blocked from
+> publishing**. Fixed by giving each `final_documents` node a sequential edge to
+> the terminal node, which is also the semantically right model: documents are an
+> ending, and `section.config.finalBlock === true` already marks their section as
+> the final one. Re-probed after the fix — the terminal node is now the only
+> zero-out-degree node in all three fixtures.
+>
+> The regression test asserts *"the terminal node is the only node with zero
+> outgoing edges"* against `workflowWithFinalDocuments()` specifically, not a
+> linear fixture where it would pass trivially.
+>
+> **Ticket bug found by the dev, and they were right.** The `Preferred fix` code
+> sample omitted `conditionStepId` from the rule input, but a rule's origin
+> section is only reachable via `conditionStepId → steps.sectionId`, so AC4's
+> "from = the section holding the rule's condition" was not computable as
+> written. Added to the input type only; the two output interfaces MAP-3 consumes
+> structurally are unchanged and unnarrowed.
+>
+> Both absence-assertions (AC4's dangling target, AC6's `skipIf`) carry explicit
+> sanity checks proving the fixture contains the thing being excluded.
 
 **Priority: P1** · Size: M · Files: `shared/workflowMap.ts` (new), `tests/fixtures/workflowMap.ts` (new)
 
@@ -367,7 +407,7 @@ inlined.
 
 ---
 
-## MAP-3 — Detect unreachable sections, dead ends and loop risks in the lint pipeline 🔲
+## MAP-3 — Detect unreachable sections, dead ends and loop risks in the lint pipeline 🔄
 
 **Priority: P1** · Size: M · Files: `shared/conditionGraph.ts`, `server/services/workflowLintRules.ts`, `shared/types/workflowLint.ts`
 
@@ -1142,9 +1182,9 @@ verify it is genuinely unreferenced first, don't assume.
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | 🔲 |
-| MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | 🔲 |
-| MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔲 |
+| MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | 🔄 |
+| MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
+| MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
 | MAP-4 | Map tab + graph rendering | P1 | L | 🔲 |
 | MAP-5 | Node → inspector navigation | P1 | S | 🔲 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
