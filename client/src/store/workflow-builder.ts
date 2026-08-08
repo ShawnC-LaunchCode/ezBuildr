@@ -1,10 +1,20 @@
 /**
- * Zustand store for Workflow Builder UI state
+ * Zustand store for Workflow Builder UI state.
+ *
+ * EPHEMERAL CLIENT STATE ONLY. Everything here answers "what am I looking at
+ * right now" and is discarded on reload. Anything persisted server-side is
+ * owned by its TanStack Query hook and must NOT be mirrored here.
+ *
+ * O-10: `mode` used to live here. It is persisted per workflow and served by
+ * `useWorkflowMode(workflowId)`, but the store's copy was global and its
+ * `setMode` had zero callers — so it sat at its `"easy"` default forever and
+ * every component gating on it silently never showed its Advanced branch. A
+ * global store also cannot represent a per-workflow setting, so it was deleted
+ * rather than synced: a mirror could only ever have been accidentally right.
  */
 
 import { create } from "zustand";
 
-export type BuilderMode = "easy" | "advanced";
 export type EntityType = "workflow" | "section" | "step" | "block";
 export type InspectorTab = "properties" | "blocks" | "logic" | "transform";
 
@@ -14,10 +24,6 @@ interface Selection {
 }
 
 interface WorkflowBuilderState {
-  // UI Mode
-  mode: BuilderMode;
-  setMode: (mode: BuilderMode) => void;
-
   // Selection
   selection: Selection | null;
   selectWorkflow: (id: string) => void;
@@ -38,10 +44,6 @@ interface WorkflowBuilderState {
 }
 
 export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
-  // Mode
-  mode: "easy",
-  setMode: (mode) => set({ mode }),
-
   // Selection
   selection: null,
   selectWorkflow: (id) => set({ selection: { type: "workflow", id } }),

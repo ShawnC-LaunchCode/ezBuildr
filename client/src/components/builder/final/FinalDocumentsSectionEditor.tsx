@@ -20,8 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ApiSection } from "@/lib/vault-api";
-import { useUpdateSection } from "@/lib/vault-hooks";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
+import { useUpdateSection, useWorkflowMode } from "@/lib/vault-hooks";
 
 import {
   normalizeFinalDocumentsTemplateEntry,
@@ -97,8 +96,12 @@ function DocumentConditionRow({
 
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
-  const { mode } = useWorkflowBuilder();
-  const isEasyMode = mode === 'easy';
+  // O-10: mode is server-owned and per-workflow. This used to read a global
+  // zustand copy that was never written, so it was permanently "easy" and the
+  // Advanced branches below were unreachable. `?? 'easy'` while the query
+  // loads keeps the simpler surface from flashing into Advanced.
+  const { data: modeData } = useWorkflowMode(workflowId);
+  const isEasyMode = (modeData?.mode ?? 'easy') === 'easy';
   // Define config type locally if not available globally yet
   interface FinalDocumentsConfig {
     finalBlock?: boolean;

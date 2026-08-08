@@ -1127,26 +1127,61 @@ saying why.
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
-- **O-10. ⬆️ PROMOTE TO A TICKET — verified 2026-08-08, deliberately NOT fixed here.**
-  There are two sources of truth for builder Easy/Advanced mode, and one of them is dead.
+- **O-10. ✅ FIXED 2026-08-08 (Senior).** Builder mode had two sources of truth. The zustand
+  store's `mode` was global and its `setMode` had **zero callers**, so it sat at its `"easy"`
+  default forever and every component gating on it never rendered its Advanced branch.
 
-  `client/src/store/workflow-builder.ts` initialises `mode: "easy"` (line 42) and exposes
-  `setMode` (line 43). **`setMode` has zero callers** — the only greps are an unrelated local
-  `useState` in `LogicRulesTab` and `useSetWorkflowMode()` in `WorkflowSettings`, which writes
-  the *server* mode. So the store's `mode` is permanently `"easy"`.
+  **The blast radius was smaller than first filed.** The original note said six components; a
+  precise grep (for actual destructuring of `mode` from the store, not merely files containing
+  both `useWorkflowBuilder()` and the substring "mode") found **two**. The other four had local
+  `mode` variables — `config.mode` in `BlockCard`, a `mode` prop in `SectionsTab`, and
+  `LogicAddMenu`/`QuestionAddMenu` were already on the correct server hook.
 
-  **Six components gate UI on that dead flag** and therefore never show their Advanced
-  branches: `final/FinalDocumentsSectionEditor.tsx`, `pages/BlockCard.tsx`,
-  `pages/LogicAddMenu.tsx`, `pages/QuestionAddMenu.tsx`, `tabs/SectionsTab.tsx`, and
-  `layout/CommandPalette.tsx`. Eight other components already use the correct server-backed
-  `useWorkflowMode` hook — including `cards/StepCard.tsx`, so the right pattern is in-repo and
-  the fix is mechanical.
+  **Fixed by deleting, not syncing.** A global store cannot represent a per-workflow setting,
+  so a mirror could only ever have been accidentally right. `mode`/`setMode` (and the orphaned
+  `BuilderMode` type) are gone from the store, whose docblock now states the rule.
+  `FinalDocumentsSectionEditor` reads `useWorkflowMode(workflowId)` with the `?? 'easy'`
+  default `StepCard` already used, so the simpler surface does not flash into Advanced while
+  the query loads.
 
-  **Why it is not fixed here:** switching six components to the real mode makes
-  previously-invisible Advanced UI appear, which is a product change the repo owner should
-  approve, not a silent cleanup. It also lands in builder components while a builder-chrome
-  refactor is in flight in the working tree. LU-5 correctly side-stepped it by leaving its new
-  condition row ungated rather than gating it on a flag that would have hidden it forever.
+  **`CommandPalette`'s mode command was entirely dead and is deleted.** It read the frozen
+  store value only to choose a label — so it always read "Switch to Advanced Mode" even in
+  Advanced — and its `onSelect` dispatched a `toggle-advanced-mode` window event that appears
+  **exactly once in the whole codebase**: the dispatch itself. Nothing ever listened. Clicking
+  it did nothing. Since it was the only reason a *global* mode existed, removing it is what
+  made deleting the store copy clean, with no need for a "current workflow id" mechanism. The
+  real control is the repo owner's `BuilderModeToggle`; a palette duplicate should be rebuilt
+  against that if wanted, not resurrected here mid-refactor.
+
+  **Guardrail added.** `tests/unit/client/store.deadSetters.test.ts` asserts every zustand
+  action has a caller outside its store. This is the check that would have caught the bug on
+  day one, and **no standard tool can**: to `tsc` and ESLint an uncalled store action is a used
+  property of an object literal, not an unused export. Proven load-bearing by removing an
+  allowlist entry and watching it fail. The rule is also recorded as Key Convention #8 in
+  `CLAUDE.md`.
+
+- **O-11. NEW — five more dead store actions, found by O-10's guardrail.** The check
+  immediately turned up the same class of bug elsewhere, each meaning its state is frozen at
+  its initial value:
+
+  | Store | Dead action(s) | Consequence |
+  |---|---|---|
+  | `workflow-builder.ts` | `selectWorkflow`, `clearSelection`, `startPreview` | nothing starts a preview through the store, so `previewRunId`/`isPreviewOpen` are permanently null/false — and `SectionsTab` reads both |
+  | `preview.ts` | `clearAll` | bulk token clear never runs (individual clears do) |
+  | `useDatavaultFilterStore.ts` | `setFilters` | filters never written through this action |
+
+  All five verified by hand as zero-call-site, not just flagged. They are listed in the
+  guardrail's `KNOWN_DEAD` allowlist so it can start enforcing against *new* occurrences today
+  rather than waiting on unrelated cleanups; a companion test fails if any of them is later
+  wired up without being removed from the list. **`startPreview` is the one worth looking at
+  first** — it is the same shape as the `mode` bug, in the same store, and builder preview
+  state depends on it. Not fixed here: it is a separate subsystem and this was O-10's scope.
+
+- **O-12. Latent, not urgent — the remaining store state is global but conceptually
+  per-workflow.** `selection`, `inspectorTab` and `previewRunId` are fine today because only
+  one builder is open at a time. If builder tabs or split-view ever land, they collide exactly
+  the way `mode` would have. Worth knowing before that feature is designed; not worth
+  pre-solving.
 
 - **O-9. Error messages lost from ~541 log sites — ✅ FIXED 2026-08-08 (Senior).**
   Found while diagnosing LU-6c's blueprint regression: a 500 logged as

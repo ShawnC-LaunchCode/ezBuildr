@@ -1,12 +1,10 @@
 import {
     Calculator,
-    Code2,
     LayoutDashboard,
     Play,
     Plus,
     Save,
     Settings,
-    Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -21,12 +19,10 @@ import {
     CommandSeparator,
     CommandShortcut,
 } from "@/components/ui/command";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 export function CommandPalette() {
     const [open, setOpen] = useState(false);
     const [location, setLocation] = useLocation();
-    const { mode: builderMode } = useWorkflowBuilder();
 
     // Use location to determine context (some actions only valid in builder)
     const isBuilder = location.includes("/builder");
@@ -68,10 +64,6 @@ export function CommandPalette() {
                                 <Play className="mr-2 h-4 w-4" />
                                 <span>Run Preview</span>
                                 <CommandShortcut>⌘Enter</CommandShortcut>
-                            </CommandItem>
-                            <CommandItem onSelect={() => runCommand(() => window.dispatchEvent(new CustomEvent('toggle-advanced-mode')))}>
-                                {builderMode === 'easy' ? <Code2 className="mr-2 h-4 w-4" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                <span>{builderMode === 'easy' ? "Switch to Advanced Mode" : "Switch to Easy Mode"}</span>
                             </CommandItem>
                         </CommandGroup>
                     )}

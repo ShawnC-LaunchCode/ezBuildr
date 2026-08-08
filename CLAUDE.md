@@ -232,7 +232,8 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 5. **Sandboxed Execution:** JS (vm2/vm) + Python (subprocess) with timeouts; vm2/isolated-vm are optional deps and may be missing locally
 6. **Secrets:** AES-256-GCM encrypted, accessed via the secrets service only; outbound HTTP to user URLs goes through `safeFetch`
 7. **Tenant Isolation:** service-layer `tenant_id` scoping, plus the `withTenant` helper and staged Postgres RLS (`migrations/0001_enable_rls.sql`, defined not-yet-enforced). New tenant tables need an RLS policy; never set the tenant GUC session-level — see `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051)
-8. **Parallel agents use worktrees, never the shared tree** — see below.
+8. **Client state vs server state:** anything persisted server-side is owned by its TanStack Query hook and must **never** be mirrored into a zustand store. The stores in `client/src/store/` hold ephemeral UI state only — "what am I looking at right now", discarded on reload. A mirrored copy drifts silently: builder `mode` lived in the global store with a `setMode` nobody called, so it sat at its `"easy"` default forever and every Advanced branch gating on it was unreachable for months (O-10). A global store also cannot represent a per-workflow setting, so syncing such a copy is not a fix. `tests/unit/client/store.deadSetters.test.ts` guards this — neither `tsc` nor ESLint can, because an uncalled store action is a *used property of an object literal*, not an unused export.
+9. **Parallel agents use worktrees, never the shared tree** — see below.
 
 ## Parallel work: use git worktrees
 
