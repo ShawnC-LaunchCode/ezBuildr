@@ -982,7 +982,7 @@ the dropped columns. Delete the unreferenced `detectCycles` stub in
 
 ---
 
-## LU-5 — Unify the document condition language and make it authorable 🔲
+## LU-5 — Unify the document condition language and make it authorable 🔄
 
 **Priority: P1** *(raised from P2)* · Size: M · Independent of LU-6a/b/c — disjoint footprint.
 **Ties:** `run-tests`, `design` (UI change), `add-step-type` if the `final_documents` config
@@ -1041,15 +1041,30 @@ variable list; post-LU-4 its operand pickers are searchable).
 
 That requires per-document metadata, which the current `templates: string[]` cannot hold —
 widen it to a per-entry object (`{ templateId, conditions? }`) and keep reading the bare-string
-form so existing rows still load. **Measure first**, exactly as Phase 2 did: count
-`final_documents` steps whose config has a non-empty `templates` array before deciding whether
-a migration is needed or whether tolerant reads suffice.
+form so existing rows still load.
+
+**Measured 2026-08-07 by the Senior — there is no data to migrate:**
+
+| Query | Result |
+|---|---|
+| `steps` of type `final_documents` | **0** |
+| ...with a non-empty `config.templates` | **0** |
+| `sections` with `config.finalBlock = true` (the legacy path) | **1** |
+| ...with a non-empty `config.templates` | **0** |
+| any `final_documents` config containing `conditions` | **0** |
+
+So **write no migration and no backfill.** Keep the tolerant read of the bare-string
+`templates` form because it is the documented legacy contract and costs a few lines — but do
+not build machinery to convert rows, because none exist. If you find yourself writing a
+converter, you have misread this.
 
 `LogicExpression` should end up deleted, or reduced to a legacy read-path alias with a comment
 saying why.
 
 ### Acceptance criteria
-1. Reported count of `final_documents` steps carrying templates, with the query used.
+1. ~~Reported count of `final_documents` steps carrying templates~~ — **done by the Senior
+   2026-08-07: 0 steps, 0 carrying templates, 0 stored conditions. Do not re-measure; see the
+   table above.**
 2. `conditions` on a final-block document holds a `ConditionExpression`; the engine evaluates it
    without a translation step.
 3. Existing `templates: string[]` configs still load and generate exactly as before — proven by
