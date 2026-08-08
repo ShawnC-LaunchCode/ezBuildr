@@ -15,10 +15,12 @@ numbers are advisory** — they were accurate when written and drift as fixes
 land. The locator is the quoted code and the named symbol; grep for those. A
 stale line number is not a broken ticket and does not need re-issuing.
 
-Baseline at audit time: `npm run test:fast` → **231 files passed / 1 skipped**,
-**2677 tests passed / 14 skipped**. Measured in a clean worktree off `ffef0fd8`.
-(The main checkout reports 2681 because the repo owner has uncommitted test files
-in it — 2677 is the number a dev in a clean tree must beat.)
+**Baseline moves as tickets land — always use the number for YOUR base commit.**
+A clean worktree reports: **2677** off `ffef0fd8` (audit time), **2690** off
+`6dbbeb17` (after MAP-1 −2 and MAP-2 +15). The worktree script prints the real
+number when it creates your tree; trust that over any number written here.
+Note the main checkout reads ~4 higher than a clean worktree because the repo
+owner has uncommitted test files in it — never take your baseline from main.
 
 **One known-flaky area:** `tests/unit/services/PdfConverter.test.ts` and the
 ClamAV `VirusScanner` tests use real sockets and timers and produced one
@@ -618,7 +620,7 @@ adapters onto one analysis is the intended design here, not duplication.
 
 ---
 
-## MAP-10 — `refresh-token` drops `tenantId`, silently killing collaboration after any reload 🔲
+## MAP-10 — `refresh-token` drops `tenantId`, silently killing collaboration after any reload 🔄
 
 **Priority: P0 (bug)** · Size: S · Files: `server/routes/auth.routes.ts`, `client/src/hooks/useAuth.ts`
 
@@ -1051,7 +1053,49 @@ in real time". The engine and the UI are split because the engine must be
 provably identical to the server's navigation, and that proof is a unit-test
 job, not a component-test job.
 
-## MAP-7 — Add a shared deterministic path simulator 🔲
+## MAP-7 — Add a shared deterministic path simulator ✅
+
+> **Verified 2026-08-08.** All ten ACs met. Reviewer re-ran all four gates:
+> `type-check` 0 errors, `lint` 0 problems, `check:strict-zones` `✅ ALL PASSED`,
+> `test:fast` **233 files / 2703 passed** (baseline off `6dbbeb17` was 2690, +13).
+>
+> `simulateWorkflowPath` calls `evaluateWorkflowVisibility`,
+> `calculateNextSection` and `resolveNextSection` in exactly the order
+> `LogicService.evaluateNavigation()` calls them, and adds no comparison or
+> ordering logic of its own — the one sort in the file is bookkeeping for
+> `notVisited`'s presentation order, documented as such. AC7's parity test is an
+> independent transcription of the server's call sequence driving the real shared
+> functions, not a call back into the simulator; the ticket's DB escape hatch was
+> used and disclosed. AC8's cap is proven with a genuine oscillation (a duplicate
+> section id makes `calculateNextSection`'s `findIndex` always resolve to the
+> first occurrence, so the walk cycles `a → b → a → b` forever without it).
+>
+> **Defect found at review and fixed at its source.** Traversed skip edges were
+> labelled via `rules.find(...)` — first match in *array* order — while
+> `evaluateRules` picks the winner by `rule.order`, among rules that actually
+> fired. Reviewer probe with two rules targeting one section from different
+> origins:
+>
+> ```
+> traversedEdges: [ 'skip:rule-from-A', 'sequential:D->__complete__' ]
+> The skip was triggered by rule-from-B (order 0, condition met).
+> ```
+>
+> Not cosmetic: `buildWorkflowMap` sets a skip edge's `from` to the condition
+> step's section, so that id is the **A→D** arrow while the run skipped **B→D** —
+> MAP-8 highlights by edge id and would have lit an arrow leaving a section the
+> respondent never skipped from. Fixed additively in `shared/workflowLogic.ts`:
+> `WorkflowEvaluationResult` gained `skipToRuleId`, set in the same
+> first-firing-wins branch that sets `skipToSectionId`, and the simulator reads it
+> instead of searching. Reconstructing the winner simulator-side would have been a
+> second implementation of a decision the engine already makes. Re-probed after
+> the fix — correct. The now-orphaned `conditionStepId` on `SimulationRuleInput`
+> was removed rather than left.
+>
+> Reviewer cross-check: widening `EvaluableLogicRule` to require `id` is safe on
+> the production run path — `RunDefinitionProvider` projects
+> `id: rule.id ?? \`runtime-rule-${index}\``, so a pinned rule always carries one.
+
 
 **Priority: P1** · Size: M · Files: `shared/workflowSimulation.ts` (new)
 
@@ -1381,10 +1425,10 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-4 | Map tab + graph rendering | P1 | L | 🔲 |
 | MAP-5 | Node → inspector navigation | P1 | S | 🔲 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
-| MAP-7 | Shared deterministic path simulator | P1 | M | 🔲 |
+| MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
 | MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | 🔲 |
-| MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | 🔲 |
+| MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | 🔄 |
 
 ---
 

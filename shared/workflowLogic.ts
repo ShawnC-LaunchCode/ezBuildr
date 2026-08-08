@@ -24,7 +24,7 @@ import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 
 export type EvaluableLogicRule = Pick<
   LogicRule,
-  'when' | 'targetType' | 'targetStepId' | 'targetSectionId' | 'action' | 'order'
+  'id' | 'when' | 'targetType' | 'targetStepId' | 'targetSectionId' | 'action' | 'order'
 >;
 
 /**
@@ -126,6 +126,15 @@ export interface WorkflowEvaluationResult {
   hiddenSteps: Set<string>;
   requiredSteps: Set<string>;
   skipToSectionId?: string; // Section to skip to based on logic
+  /**
+   * The `id` of the rule that set `skipToSectionId` — the same first-firing,
+   * lowest-`order` winner, recorded alongside it so a consumer (MAP-7's
+   * `shared/workflowSimulation.ts`) can label the edge it traversed without
+   * re-deriving which rule won by searching/re-sorting `rules` itself.
+   * Purely additive: existing consumers that only read `skipToSectionId` are
+   * unaffected.
+   */
+  skipToRuleId?: string;
   nextSectionId?: string; // Next section in normal flow
 }
 
@@ -177,6 +186,7 @@ export function evaluateRules(
           // First firing skip_to rule (lowest order) wins; later ones are ignored.
           if (result.skipToSectionId === undefined) {
             result.skipToSectionId = targetId;
+            result.skipToRuleId = rule.id;
           }
           break;
       }
