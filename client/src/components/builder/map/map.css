@@ -1,0 +1,77 @@
+/**
+ * Theme-aware color tokens for the workflow map (MAP-4 AC7).
+ *
+ * Scoped under `.workflow-map` rather than added to the global
+ * `client/src/index.css` design system, since these are map-specific
+ * accents (a section's "conditional" flag, a "final documents" branch, the
+ * terminal node, a skip edge) with no existing token family covering all
+ * four. The app's dark mode is class-based (`darkMode: ["class"]` in
+ * tailwind.config, toggled as `.dark` on `<html>`) — the `.dark` override
+ * below follows that exact convention, so these vars repaint automatically
+ * whenever the app's theme does. The Review tab shipped with no dark
+ * variant and was filed as a defect (O-13); every color used by the map's
+ * nodes/edges comes from one of these `var(...)` references, never a raw
+ * hex value in a component.
+ */
+.workflow-map {
+  --map-line: hsl(220, 13%, 68%);
+  --map-line-arrow: hsl(220, 13%, 55%);
+
+  --map-section-bg: hsl(0, 0%, 100%);
+  --map-section-border: hsl(220, 13%, 82%);
+  --map-section-fg: hsl(220, 10%, 15%);
+
+  --map-conditional-accent: hsl(35, 90%, 38%);
+  --map-conditional-bg: hsl(35, 90%, 95%);
+  --map-conditional-border: hsl(35, 75%, 60%);
+
+  --map-doc-bg: hsl(150, 55%, 96%);
+  --map-doc-border: hsl(150, 45%, 62%);
+  --map-doc-fg: hsl(150, 65%, 24%);
+
+  --map-terminal-bg: hsl(220, 85%, 96%);
+  --map-terminal-border: hsl(220, 75%, 58%);
+  --map-terminal-fg: hsl(220, 85%, 38%);
+
+  --map-skip-line: hsl(270, 60%, 55%);
+  --map-skip-bg: hsl(270, 55%, 95%);
+  --map-skip-fg: hsl(270, 60%, 34%);
+}
+
+.dark .workflow-map {
+  --map-line: hsl(220, 13%, 42%);
+  --map-line-arrow: hsl(220, 13%, 52%);
+
+  --map-section-bg: hsl(220, 15%, 16%);
+  --map-section-border: hsl(220, 15%, 28%);
+  --map-section-fg: hsl(220, 10%, 92%);
+
+  --map-conditional-accent: hsl(35, 90%, 68%);
+  --map-conditional-bg: hsl(35, 45%, 17%);
+  --map-conditional-border: hsl(35, 55%, 40%);
+
+  --map-doc-bg: hsl(150, 35%, 15%);
+  --map-doc-border: hsl(150, 40%, 34%);
+  --map-doc-fg: hsl(150, 60%, 72%);
+
+  --map-terminal-bg: hsl(220, 40%, 18%);
+  --map-terminal-border: hsl(220, 55%, 46%);
+  --map-terminal-fg: hsl(220, 90%, 76%);
+
+  --map-skip-line: hsl(270, 70%, 74%);
+  --map-skip-bg: hsl(270, 35%, 17%);
+  --map-skip-fg: hsl(270, 70%, 80%);
+}
+
+/* @xyflow/react ships its own default background/handle colors; align them
+   with the app surface instead of the library's stock light theme. */
+.workflow-map .react-flow__handle {
+  background: var(--map-line);
+  border: none;
+  width: 6px;
+  height: 6px;
+}
+
+.workflow-map .react-flow__attribution {
+  display: none;
+}

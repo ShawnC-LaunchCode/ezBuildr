@@ -803,7 +803,49 @@ Phase 2 builds the read-only map. All three tickets live in
 scope: path simulation (Phase 3) and any authoring affordance — per D-4 the map
 does not create, delete, reorder or reposition anything.
 
-## MAP-4 — Add the Map tab and render the workflow graph 🔄
+## MAP-4 — Add the Map tab and render the workflow graph ✅
+
+> **Verified 2026-08-08.** ACs 1–9 and 11 met; **AC10 (pixel screenshots) deferred
+> to the Phase 2 gate** — see below. Reviewer re-ran all four gates in the
+> worktree: `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`,
+> `test:fast` **236 files / 2717 passed** (baseline 2703, +14).
+>
+> **The two shared files were kept surgical, as required, and hand-merged rather
+> than copied.** `BuilderTabNav.tsx` +4/-1 (one icon import, one union member, one
+> `TABS` entry); `WorkflowBuilder.tsx` +6/-0 (one import, one `BuilderTabPanel`
+> block on the `review` pattern). The repo owner had **243 uncommitted lines** in
+> `WorkflowBuilder.tsx`; `git apply --3way` refuses on a dirty index, so the five
+> hunks were applied by hand and the result verified: their diff went 243 → 249
+> (exactly MAP-4's +6) and their `scrollbar-hide` / `BuilderModeToggle` edits are
+> intact. Type-check passes on the merged tree, and all 21 map + tab-nav tests
+> pass in main.
+>
+> **AC10 is an environment blocker, confirmed by the reviewer, not a dev excuse.**
+> The dev reported being unable to screenshot and diagnosed it: the Browser pane
+> is not compositing, so `ResizeObserver` never fires, so `@xyflow/react` never
+> marks nodes measured and leaves them `visibility:hidden`. Reviewer reproduced
+> both halves independently — `computer{screenshot}` returns *"the Browser pane is
+> not displayed, so the page is not compositing frames"*, and Playwright cannot
+> reach the host's `localhost` at all (`ERR_CONNECTION_REFUSED` against a server
+> demonstrably serving on 5000). **No route to pixel proof exists in this
+> session.**
+>
+> What the dev *did* prove live, which is stronger than a screenshot for
+> correctness though not for appearance: the a11y tree shows the conditional
+> badge on the conditional section and not its neighbour, one `role="img"`
+> "Workflow complete" node, and the `final_documents` node; the React fiber shows
+> `<ReactFlow>` receiving all **7** correct edges (6 sequential + 1 skip) with
+> correct `source`/`target`; and `getComputedStyle` on four elements resolves to
+> genuinely different, correct values with `.dark` toggled — e.g. section
+> background `rgb(255,255,255)` → `rgb(35,39,47)`. A diagnostic edit made while
+> ruling out styling was reverted and confirmed clean.
+>
+> Per this file's own policy — *"batch it where tickets compose: several UI
+> tickets landing on the same screen are proven by one drive-through at the phase
+> gate"* — appearance verification moves to the Phase 2 gate, which needs a human
+> or a working browser surface. **This is the one thing in the initiative that
+> cannot be closed by an agent in this environment.**
+
 
 **Priority: P1** · Size: **L** · Files: `client/src/components/builder/map/` (new), `client/src/components/builder/layout/BuilderTabNav.tsx`, `client/src/pages/WorkflowBuilder.tsx`
 
@@ -1452,7 +1494,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | ✅ |
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
-| MAP-4 | Map tab + graph rendering | P1 | L | 🔄 |
+| MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
 | MAP-5 | Node → inspector navigation | P1 | S | 🔲 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |

@@ -12,6 +12,7 @@ import { BuilderTabPanel } from '../../../client/src/components/builder/layout/B
 
 const tabIds: BuilderTab[] = [
   'sections',
+  'map',
   'templates',
   'data-sources',
   'review',
@@ -50,11 +51,11 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
     const sectionsTab = screen.getByRole('tab', { name: 'Sections' });
     sectionsTab.focus();
 
-    // ArrowRight navigates to Templates
+    // ArrowRight navigates to Map (inserted between Sections and Templates, MAP-4)
     await user.keyboard('{ArrowRight}');
-    expect(onTabChange).toHaveBeenCalledWith('templates');
+    expect(onTabChange).toHaveBeenCalledWith('map');
 
-    // ArrowLeft from Templates (which is now focused) navigates back to Sections
+    // ArrowLeft from Map (which is now focused) navigates back to Sections
     await user.keyboard('{ArrowLeft}');
     expect(onTabChange).toHaveBeenCalledWith('sections');
 

@@ -36,6 +36,7 @@ import {
 import { BuilderTabPanel } from "@/components/builder/layout/BuilderTabPanel";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
+import { MapTab } from "@/components/builder/map/MapTab";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
 import { ReviewTab } from "@/components/builder/tabs/ReviewTab";
 import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
@@ -393,6 +394,11 @@ export default function WorkflowBuilder() {
               <BuilderTabPanel activeTab={activeTab} tab="sections">
                 {activeTab === "sections" && (
                   <SectionsTab workflowId={workflowId} mode={mode} />
+                )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="map">
+                {activeTab === "map" && (
+                  <MapTab workflowId={workflowId} />
                 )}
               </BuilderTabPanel>
               <BuilderTabPanel activeTab={activeTab} tab="templates">
