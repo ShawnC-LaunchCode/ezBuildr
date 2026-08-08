@@ -3,9 +3,13 @@
  * `visibleIf` expressions (Model A: `ConditionExpression` on steps and
  * sections, evaluated by `shared/conditionEvaluator.ts`).
  *
- * Model B (`logic_rules` rows) is explicitly out of scope here — see LU-3 /
- * Decision #3 in `tickets/LOGIC_UNIFICATION_TICKETS.md`: this initiative may
- * not change the `logic_rules` schema or its runtime evaluation.
+ * Scoped to `visibleIf` (the pull model: an element carries its own condition).
+ * Workflow logic rules are the push model — a rule acts on a target — and are
+ * evaluated by `shared/workflowLogic.ts`. Both now speak the same
+ * `ConditionExpression` language, but they are different shapes and this graph
+ * deliberately covers only the first.
+ *
+ * History: `git log -p -- tickets/LOGIC_UNIFICATION_TICKETS.md` (LU-3).
  *
  * Kept as pure, framework-agnostic graph algorithms operating on a plain
  * adjacency list so they can be unit-tested directly against small

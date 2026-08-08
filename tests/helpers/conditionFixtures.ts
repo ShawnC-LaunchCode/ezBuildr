@@ -8,7 +8,7 @@ import type { ComparisonOperator, ConditionExpression } from '@shared/types/cond
  * (`shared/workflowLogic.ts`) - the seam that translated the legacy flat
  * `logic_rules` shape (`operator`/`conditionValue`) into a
  * `ConditionExpression` - once nothing in production still emitted that flat
- * shape (see tickets/LOGIC_UNIFICATION_TICKETS.md, LU-6c). Fixtures across
+ * shape (`git log -p -- tickets/LOGIC_UNIFICATION_TICKETS.md`, LU-6c). Fixtures across
  * the suite still need a quick way to build a working `when` without hand
  * writing the group/condition tree every time; this is that convenience,
  * scoped to tests only.

@@ -14,13 +14,15 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-04 there is no open initiative.** `tickets/` holds this index and
-> `backlog/` only. All three DataVault rounds closed and retired into
-> `backlog/DATAVAULT.md` — the audit (DV-1..14, 2026-08-03), hardening (DVH-1..3 and
-> DVH-5, 2026-08-04) and performance (DVP-1..3, 2026-08-04). Every earlier initiative is
-> likewise closed and retired. The next piece of work starts with a fresh
-> `*_TICKETS.md`; check this index first so a settled question is not re-filed as a new
-> finding.
+> **As of 2026-08-08 the live board is `tickets/ROADMAP_TICKETS.md`** (the GH-146..174
+> epics). The Logic Unification initiative (LU-1..6c, epic **GH-154**) closed and retired
+> into `backlog/LOGIC_UNIFICATION.md` on 2026-08-08 — with it, **GH-153** (visual workflow
+> map) is unblocked and is the natural next piece of work. All DataVault rounds and every
+> earlier initiative are likewise closed and retired. Check this index before auditing
+> anything, so a settled question is not re-filed as a new finding.
+>
+> **Read `LU-B1` first if you are about to run a migration.** Local development and
+> production share one Neon database; a local `db:migrate` hits production immediately.
 
 ### Why an entry is parked
 
@@ -66,6 +68,10 @@ IDs are stable, heading anchors are not.
 | IEX3-B3 | `enhancement` | A `.ezb` has no human-readable `README.txt` | `backlog/PORTABILITY.md` |
 | Phase 3 | `needs-initiative` | Client-wide export/import (ask #2) | `backlog/PORTABILITY.md` |
 | Phase 4 | `needs-initiative` | Admin multi-tenant archive (ask #1) | `backlog/PORTABILITY.md` |
+| LU-B1 | `operational` | **Local dev and production share one Neon database — a local `db:migrate` hits prod** | `backlog/LOGIC_UNIFICATION.md` |
+| LU-B2 | `informational` | LU Phase 1 gate never drive-through'd; two changes went live unwatched | `backlog/LOGIC_UNIFICATION.md` |
+| LU-B3 | `informational` | Dead-store-action guardrail tests references, not reachability | `backlog/LOGIC_UNIFICATION.md` |
+| LU-B4 | `informational` | Builder store is global but conceptually per-workflow — latent if tabs land | `backlog/LOGIC_UNIFICATION.md` |
 | DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
 | DEBT-OPS1 | `operational` | **`STORAGE_DRIVER=s3` unset in Railway — live 404s** | `backlog/TECH_DEBT.md` |
 | DEBT-OPS2 | `operational` | Branch protection is off | `backlog/TECH_DEBT.md` |
@@ -160,6 +166,31 @@ read them before ruling on anything portability-shaped, and check its
 - **IEX-B4 — passphrase-wrapped secrets sidecar** · `product-decision`. Would
   allow cross-system DR without exporting `VL_MASTER_KEY`. Depends on D-2
   holding.
+## Logic Unification (LU) — retired 2026-08-08
+
+Epic **GH-154**. Four condition languages became one: `ConditionExpression` is now the only
+one, and `skip_to`/`require`/`make_optional` became authorable for the first time. Detail and
+the full closed-ticket table: `backlog/LOGIC_UNIFICATION.md`.
+
+- **LU-B1 — local dev and production share one Neon database** · `operational`. `railway
+  status` reports environment `production` and its `DATABASE_URL` resolves to the same host
+  and database as local `.env`. A dev's routine `npm run db:migrate` therefore ran against
+  production and, with the matching code unpushed, left **starting or resuming a run**
+  returning 500 for hours; `/health` stayed green because it only checks connectivity.
+  Unblocked by the repo owner's planned DB-setup change. Until then, every local migration is
+  a production migration.
+- **LU-B2 — LU's Phase 1 gate was never drive-through'd** · `informational`. LU-4's combobox
+  is tested and proven *served*, but never eyeballed in the real builder; the attempt was
+  blocked by the a11y defect it then found (O-5). Advanced UI in the Final Documents editor
+  and the logout token-clearing change also went live unwatched.
+- **LU-B3 — the dead-store-action guardrail finds entry points, not whole clusters** ·
+  `informational`. It tests references, not reachability: it flagged `startPreview` but not
+  `stopPreview`, whose only caller was itself unreachable. Its `KNOWN_DEAD` allowlist is
+  deliberately empty — keep it that way.
+- **LU-B4 — builder store state is global but conceptually per-workflow** · `informational`.
+  Only `selection` and `inspectorTab` remain, both harmless. The two that would have collided
+  across concurrent builders are gone. Revisit only if builder tabs or split-view are designed.
+
 - **IEX-B7 — real DR: Neon PITR + scheduled `pg_dump`** · `operational`. Per
   D-4 this, not the admin archive, is the backup story. Ops task; **was tracked
   nowhere until now.**

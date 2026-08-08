@@ -90,7 +90,7 @@ OVERALL   ██████████████░░░░░░░░░�
         │           ⏸ GH-148   Multilingual & locale-aware runner — parked 2026-08-07, not counted
         │
         ├──► [Phase 3 — Builder Logic & Visual Architecture]   ███░░░░░░░  1/4
-        │      ├── 🔲 GH-154   Unified conditional logic editor
+        │      ├── ✅ GH-154   Unified conditional logic editor
         │      ├── 🔲 GH-153   Visual workflow map & path simulation
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔲 GH-167   Document-to-interview AI onboarding
@@ -1156,7 +1156,19 @@ exists and expensive before it.
 
 # Phase 3: P1 Builder Logic & Visual Architecture
 
-## GH-154 — Unify conditional logic editing across the builder 🔲
+## GH-154 — Unify conditional logic editing across the builder ✅
+
+> **CLOSED 2026-08-08.** Delivered by the Logic Unification initiative (LU-1..6c), retired
+> into `tickets/backlog/LOGIC_UNIFICATION.md`. Recover the full ticket text with
+> `git log -p -- tickets/LOGIC_UNIFICATION_TICKETS.md`.
+>
+> The audit found **four** condition languages, not two. `ConditionExpression` is now the only
+> one — steps, sections, list fields, workflow rules and documents all speak it through one
+> evaluator. `skip_to`/`require`/`make_optional` were fully implemented but had no authoring
+> UI; they are now usable. Two of this epic's five ACs (the operator dropdown, and type-aware
+> value inputs) were **already built** when it was written.
+>
+> `test:fast` 2277 → 2681 · `test:unit` 2826 · `test:integration` 108 files / 1075 tests.
 
 **Priority: P1** · Size: L · Files: `client/src/components/logic/`, `client/src/components/builder/`, `shared/conditionEvaluator.ts`
 **Ties:** Blocks GH-153
@@ -1176,7 +1188,25 @@ exists and expensive before it.
 ## GH-153 — Add a visual workflow map with deterministic path simulation 🔲
 
 **Priority: P1** · Size: XL · Files: `client/src/components/builder/map/`, `shared/workflowLogic.ts`
-**Ties:** Preceded by GH-154
+**Ties:** Preceded by GH-154 — **now ✅ closed, so this is unblocked.**
+
+> **What GH-154 left you (read before auditing this).** Detail:
+> `tickets/backlog/LOGIC_UNIFICATION.md`.
+>
+> - **One condition language.** `ConditionExpression` (`shared/types/conditions.ts`) evaluated
+>   by `shared/conditionEvaluator.ts` on both client and server. The map can draw every branch
+>   from one model; there is no longer a second dialect to reconcile.
+> - **`shared/conditionGraph.ts` already exists** — LU-3 built a `visibleIf` dependency graph
+>   with three-colour DFS cycle detection, O(V+E), correctly not flagging diamonds. **AC4
+>   (unreachable sections, dead ends, loop risks) should extend this, not reimplement it.**
+>   Note its limit: it resolves references through an alias-or-raw-id map because
+>   `ConditionRow` writes `v.alias ?? v.id`.
+> - **`shared/workflowLogic.ts` `evaluateRules` is the deterministic simulator core** for AC3.
+>   It resolves all five actions with first-firing-`skip_to`-wins ordering by `rule.order` and
+>   a backward-skip guard. Reuse it; do not write a second evaluator — that is the mistake
+>   this epic's predecessor spent 8 tickets undoing.
+> - **`logic_rules` holds 0 rows across 84 workflows** and is only now authorable (LU-6b), so
+>   a map built today has almost no rule data to render. Seed fixtures deliberately.
 
 ### Context & Current State
 - Complex branching workflows are difficult to visualize across sequential pages.
