@@ -880,12 +880,41 @@ failing. Cover it with a test.
 
 ---
 
-## LU-6c — Retire the second condition language 🔲
+## LU-6c — Retire the second condition language 🔄
 
 **Priority: P1** · Size: M *(reduced from L — Decision #5 reshapes rather than drops)*
 **Files:** the `logic_rules` readers across `server/services/` (versioning, portability,
 cloning, AI generation, run execution), `server/lib/logic/optimizer.ts`
 **Ties:** `db-schema-change`, `run-tests`.
+
+### Where the flat shape still lives — located by the Senior 2026-08-07
+
+| Site | What it does |
+|---|---|
+| `shared/types/ai.ts:92,104` | AI schema still declares `conditionStepAlias` + `operator` + `conditionValue` |
+| `server/services/ai/AIPromptBuilder.ts:80-82` | the prompt literally instructs the model to emit the flat shape |
+| `server/services/ai/AIServiceUtils.ts:330` | validates the flat shape |
+| `server/services/WorkflowContentIngestService.ts:558` | converts flat → `when` via `buildSingleConditionExpression` |
+| `server/services/workflow-runs/RunDefinitionProvider.ts:101` | same conversion, for **pinned version** definitions |
+| `shared/workflowLogic.ts:59` | `buildSingleConditionExpression` itself — the seam |
+
+**Measured, so you do not have to be defensive about it:** `workflow_versions` holds **57**
+rows; **all 57** carry a `logicRules` array and **every one is empty** (`logicRules` non-empty:
+**0**). Combined with `logic_rules` having 0 rows, **no pinned version anywhere contains a
+flat-shaped rule.** `RunDefinitionProvider`'s shim therefore has nothing to be backward
+compatible *with* — it may read `when` directly. Do **not** write defensive dual-shape handling
+"in case an old version exists"; none does, and the measurement is repeatable:
+
+```sql
+SELECT count(*) FROM workflow_versions
+WHERE jsonb_typeof(graph_json->'logicRules') = 'array'
+  AND jsonb_array_length(graph_json->'logicRules') > 0;   -- 0
+```
+
+Note the column is `graph_json`, not `definition`.
+
+**Newly published versions will carry rules from now on** — LU-6b made rules authorable — but
+in the new shape, with `when`. That is the only shape that needs supporting.
 
 ### Preferred fix
 Remove every remaining assumption of the flat condition shape: `conditionOperatorEnum` itself
@@ -899,7 +928,13 @@ the dropped columns. Delete the unreferenced `detectCycles` stub in
 2. Versioning, portability round-trip, cloning, AI generation and run execution each work and
    each have a test.
 3. Import/export round-trip of a workflow carrying rules is stable.
-4. AI-generated logic produces `ConditionExpression` triggers, not flat conditions.
+4. AI-generated logic produces `ConditionExpression` triggers, not flat conditions — the
+   schema in `shared/types/ai.ts`, the prompt in `AIPromptBuilder`, and the validation in
+   `AIServiceUtils` all move together. An AI-generation test proves a generated rule round-trips
+   into a working `when`.
+4b. `buildSingleConditionExpression` and both its call sites are deleted once nothing emits the
+   flat shape — **or**, if you conclude it must survive, say exactly what still produces a flat
+   rule and why. Leaving it in place unexplained is a fail.
 5. `optimizer.ts`'s stub `detectCycles` is deleted.
 6. `type-check` 0, `lint` 0, `check:strict-zones` pass; **full `test:unit` and
    `test:integration` green** — run alone.
