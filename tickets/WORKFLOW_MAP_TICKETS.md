@@ -773,7 +773,7 @@ Phase 2 builds the read-only map. All three tickets live in
 scope: path simulation (Phase 3) and any authoring affordance — per D-4 the map
 does not create, delete, reorder or reposition anything.
 
-## MAP-4 — Add the Map tab and render the workflow graph 🔲
+## MAP-4 — Add the Map tab and render the workflow graph 🔄
 
 **Priority: P1** · Size: **L** · Files: `client/src/components/builder/map/` (new), `client/src/components/builder/layout/BuilderTabNav.tsx`, `client/src/pages/WorkflowBuilder.tsx`
 
@@ -1422,7 +1422,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | ✅ |
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
-| MAP-4 | Map tab + graph rendering | P1 | L | 🔲 |
+| MAP-4 | Map tab + graph rendering | P1 | L | 🔄 |
 | MAP-5 | Node → inspector navigation | P1 | S | 🔲 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
@@ -1453,6 +1453,31 @@ Not tickets. Parked here while this initiative is open; they move to
   is its server counterpart. Left in place deliberately so MAP-1 stays a client
   ticket with a client gate. Check for other callers before removing — the
   awareness module also serves presence and cursors, which are live.
+
+- **MAP-B5 — collaboration only admits the workflow's creator, so presence can
+  never show two people.** `server/realtime/auth.ts` gates the websocket join on
+  `const isCreator = workflow.creatorId === payload.userId;` and rejects everyone
+  else with `'Access denied: User is not the creator'` — a user granted edit
+  rights through `workflow_access` is still refused. Found by MAP-10's dev while
+  trying to produce two-user live proof: they could only demonstrate presence for
+  one account, and correctly reported that rather than claiming two. So real-time
+  collaboration is doubly broken — MAP-10 fixes the client gate that turned it off
+  entirely, and this is why it still will not show a *second* person afterwards.
+  Not filed as a ticket because it is an authorization-model decision (should ACL
+  edit-access imply collab access? what about org/workspace roles?), not a
+  fix with an obvious shape. Note the file already carries a `DEBT-3b` comment
+  nearby about a different role-check bug, so this area has form.
+
+- **MAP-B6 — `scripts/new-worktree.ps1`'s verification gate produces false
+  negatives under load.** Creating the `map-4` worktree failed with *"test:fast
+  did not report any passing tests. The tree is broken — do not dispatch anyone
+  into it."* while four other test runs were competing for the machine. Re-running
+  `test:fast` in that same worktree immediately reported **233 files / 2703
+  passed** — the tree was fine. The `map-3` worktree hit the same guard earlier
+  for a different reason (one flaky socket-timing test). The guard is valuable and
+  should stay, but its failure message asserts a conclusion it has not earned;
+  it should distinguish "suite did not run" from "suite ran and something failed",
+  and say to re-run before believing it.
 
 - **MAP-B4 — reordering sections silently kills a working `skip_to` rule, and
   nothing checks.** `SectionService.reorderSections` writes orders in a
