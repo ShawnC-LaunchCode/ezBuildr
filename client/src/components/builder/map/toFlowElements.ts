@@ -21,6 +21,7 @@
 import { MarkerType } from "@xyflow/react";
 
 import type { WorkflowMapEdge, WorkflowMapNode } from "@shared/workflowMap";
+import type { WorkflowLintIssue } from "@shared/types/workflowLint";
 
 import { computeMapLayout } from "./mapLayout";
 import type { MapFlowEdge, MapFlowNode } from "./types";
@@ -32,7 +33,9 @@ export const SKIP_EDGE_CLASS = "workflow-map-edge-skip";
 export function toFlowNodes(
   nodes: WorkflowMapNode[],
   edges: WorkflowMapEdge[],
-  onActivateNode?: (node: WorkflowMapNode) => void
+  onActivateNode?: (node: WorkflowMapNode) => void,
+  /** MAP-6: lint findings grouped by node id (`mapLintDecoration.ts`). Defaults to none so every existing caller keeps working. */
+  findingsBySection?: ReadonlyMap<string, WorkflowLintIssue[]>
 ): MapFlowNode[] {
   const positions = computeMapLayout(nodes, edges);
   return nodes.map((node) => {
@@ -52,6 +55,7 @@ export function toFlowNodes(
         conditional: node.conditional,
         conditionalStepIds: node.conditionalStepIds,
         onActivate: isActivatable ? () => onActivateNode?.(node) : undefined,
+        findings: findingsBySection?.get(node.id) ?? [],
       },
     };
   });

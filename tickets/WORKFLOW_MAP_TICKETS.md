@@ -1097,7 +1097,36 @@ this assertion, and an unnamed toggle was a real defect here before (O-5).
 
 ---
 
-## MAP-6 — Surface flow diagnostics on the map 🔲
+## MAP-6 — Surface flow diagnostics on the map ✅
+
+> **Verified 2026-08-08.** All nine ACs met. Reviewer re-ran all four gates:
+> `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`, `test:fast`
+> **239 files / 2756 passed** (main was 2744, +12).
+>
+> Reviewer-checked directly rather than from the report: `grep -rn
+> "analyzeWorkflowFlow" client/` is empty (AC6 — the map computes nothing);
+> exactly **one** real fetch of `/api/workflows/:id/lint` exists, in
+> `client/src/hooks/api/useWorkflowLint.ts`, with every other match being a doc
+> comment (AC1); and `tests/unit/client/ReviewIssueList.test.tsx` is byte-unchanged
+> (AC2). AC5's unmatched-finding case uses a real `ghost` finding whose
+> `target.sectionId` matches no node — not an empty array that would pass
+> trivially.
+>
+> The dev flagged an honest literal-vs-intent deviation: the ticket's example grep
+> used `'lint'` in single quotes, their code uses double quotes per the convention
+> in `useSections.ts`/`useLogicRules.ts`. The substantive requirement — one shared
+> fetch, one cache entry — holds and was verified by content.
+>
+> **Live proof captured** (Playwright against a worktree-local server on 5295):
+> the unreachable section's node carries a red badge and the summary bar reads
+> "1 blocking error", the Review tab shows the identical message under Logic as a
+> blocking error, and dark mode repaints correctly through the `.dark` tokens.
+> Fixtures cleaned up and proven zero. One caveat reported and accepted: Radix's
+> `hasPointerMoveOpenedRef` latch stopped the tooltip reopening after a prior
+> click in the same session, so the screenshots show the badge closed — hover and
+> keyboard reachability are covered by two passing unit tests asserting
+> `role="tooltip"`.
+
 
 **Priority: P1** · Size: S · Files: `client/src/components/builder/map/`, `shared/types/workflowLint.ts`
 
@@ -1578,7 +1607,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | ✅ |
 | MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
 | MAP-5 | Node → inspector navigation | P1 | S | ✅ |
-| MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
+| MAP-6 | Flow diagnostics on the map | P1 | S | ✅ |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
 | MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | 🔲 |

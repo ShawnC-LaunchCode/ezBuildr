@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MapTab } from "@/components/builder/map/MapTab";
 import type { MapFlowNode } from "@/components/builder/map/types";
 import type { BuildWorkflowMapInput } from "@shared/workflowMap";
+import type { WorkflowLintIssue } from "@shared/types/workflowLint";
 
 import {
   linearThreeSections,
@@ -15,6 +16,7 @@ import {
   workflowWithConditionalSection,
   workflowWithFinalDocuments,
   workflowWithForwardSkip,
+  workflowWithUnreachableSection,
 } from "../../fixtures/workflowMap";
 
 /**
@@ -145,6 +147,11 @@ const mockQueryData = vi.hoisted(() => ({
   isError: false,
 }));
 
+/** MAP-6: the map's own findings state, independent of the graph-query mocks above. */
+const mockLintData = vi.hoisted(() => ({
+  issues: [] as WorkflowLintIssue[],
+}));
+
 vi.mock("@/hooks/api/useSections", () => ({
   useSections: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.sections, isError: mockQueryData.isError }),
 }));
@@ -153,6 +160,9 @@ vi.mock("@/hooks/api/useSteps", () => ({
 }));
 vi.mock("@/hooks/api/useLogicRules", () => ({
   useLogicRules: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.rules, isError: mockQueryData.isError }),
+}));
+vi.mock("@/hooks/api/useWorkflowLint", () => ({
+  useWorkflowLint: () => ({ data: mockLintData.issues, isError: false, isLoading: false }),
 }));
 
 function mockGraphData(input: BuildWorkflowMapInput): void {
@@ -166,6 +176,7 @@ function mockGraphData(input: BuildWorkflowMapInput): void {
 afterEach(() => {
   cleanup();
   navigateMock.mockClear();
+  mockLintData.issues = [];
 });
 
 describe("MapTab (MAP-4)", () => {
@@ -318,5 +329,102 @@ describe("MapTab node activation (MAP-5)", () => {
     expect(navigateMock).toHaveBeenCalledWith(
       "/workflows/wf-1/builder?tab=sections&sectionId=section-a"
     );
+  });
+});
+
+/**
+ * MAP-6 (GH-153 AC4, second half): flow-diagnostic overlays. `useWorkflowLint`
+ * is mocked above (`mockLintData`) — these tests only exercise how `MapTab`
+ * groups and renders findings the server already computed; per the ticket's
+ * own warning, `analyzeWorkflowFlow` must never run client-side, so nothing
+ * here calls it.
+ */
+describe("MapTab flow diagnostics (MAP-6)", () => {
+  const unreachableError: WorkflowLintIssue = {
+    type: "error",
+    category: "logic",
+    message: "Section B is unreachable: nothing on the published path leads to it.",
+    target: { tab: "map", sectionId: "section-b" },
+  };
+
+  const backwardSkipWarning: WorkflowLintIssue = {
+    type: "warning",
+    category: "logic",
+    message: "This rule can never fire; a page reorder likely broke it.",
+    target: { tab: "map", sectionId: "section-c" },
+  };
+
+  it("flags an unreachable section as a blocking error, with its message reachable by hover (AC3)", async () => {
+    const user = userEvent.setup();
+    mockGraphData(workflowWithUnreachableSection());
+    mockLintData.issues = [unreachableError];
+    render(<MapTab workflowId="wf-1" />);
+
+    const badge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
+    await user.hover(badge);
+    // `role="tooltip"` is the one accessibly-connected node (Radix also
+    // renders a duplicate for touch/no-hover fallback, so a plain text query
+    // would match twice) — asserting on it proves both that it's open AND
+    // that `aria-describedby` on the trigger actually resolves to real content.
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Blocking error");
+    expect(tooltip).toHaveTextContent(unreachableError.message);
+  });
+
+  it("flags an unreachable section as a blocking error, with its message reachable by keyboard focus (AC3)", async () => {
+    mockGraphData(workflowWithUnreachableSection());
+    mockLintData.issues = [unreachableError];
+    render(<MapTab workflowId="wf-1" />);
+
+    const badge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
+    badge.focus();
+    expect(badge).toHaveFocus();
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent(unreachableError.message);
+  });
+
+  it("renders a backward-skip warning as visually distinct from an error — different icon, label and tooltip heading, not colour alone (AC4)", async () => {
+    const user = userEvent.setup();
+    mockGraphData(linearThreeSections());
+    mockLintData.issues = [unreachableError, backwardSkipWarning];
+    render(<MapTab workflowId="wf-1" />);
+
+    const errorBadge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
+    const warningBadge = screen.getByRole("button", { name: /Section C: 0 errors, 1 warning/i });
+
+    // Distinct styling (never colour alone — className carries the distinct token pair, not just a hue).
+    expect(errorBadge.className).not.toBe(warningBadge.className);
+    // Distinct icons.
+    expect(errorBadge.querySelector("svg")?.outerHTML).not.toBe(warningBadge.querySelector("svg")?.outerHTML);
+
+    await user.hover(warningBadge);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Warning");
+    expect(tooltip).not.toHaveTextContent("Blocking error");
+  });
+
+  it("counts a finding whose target.sectionId matches no node in a visible summary, rather than dropping it (AC5)", () => {
+    const danglingWarning: WorkflowLintIssue = {
+      type: "warning",
+      category: "logic",
+      message: "Stale reference to a section that no longer exists.",
+      target: { tab: "map", sectionId: "section-ghost" },
+    };
+    mockGraphData(linearThreeSections());
+    mockLintData.issues = [danglingWarning];
+    render(<MapTab workflowId="wf-1" />);
+
+    expect(screen.getByText(/1 finding isn't shown on the map/i)).toBeInTheDocument();
+    // It never silently attaches to some other node either.
+    expect(screen.queryByText(danglingWarning.message)).not.toBeInTheDocument();
+  });
+
+  it("renders no findings summary and no node badges on a clean workflow", () => {
+    mockGraphData(linearThreeSections());
+    mockLintData.issues = [];
+    render(<MapTab workflowId="wf-1" />);
+
+    expect(screen.queryByLabelText("Map findings summary")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /error|warning/i })).not.toBeInTheDocument();
   });
 });

@@ -39,6 +39,17 @@
   --map-skip-line: hsl(270, 60%, 55%);
   --map-skip-bg: hsl(270, 55%, 95%);
   --map-skip-fg: hsl(270, 60%, 34%);
+
+  /* MAP-6: flow-diagnostic findings (`GET /api/workflows/:id/lint`) rendered
+     on a node's badge and the map's summary bar. Errors and warnings are
+     never distinguished by color alone — see SectionMapNode's icon/text. */
+  --map-error-bg: hsl(0, 85%, 96%);
+  --map-error-border: hsl(0, 70%, 60%);
+  --map-error-fg: hsl(0, 65%, 40%);
+
+  --map-warning-bg: hsl(38, 92%, 95%);
+  --map-warning-border: hsl(38, 80%, 55%);
+  --map-warning-fg: hsl(30, 70%, 35%);
 }
 
 .dark .workflow-map {
@@ -66,6 +77,14 @@
   --map-skip-line: hsl(270, 70%, 74%);
   --map-skip-bg: hsl(270, 35%, 17%);
   --map-skip-fg: hsl(270, 70%, 80%);
+
+  --map-error-bg: hsl(0, 45%, 18%);
+  --map-error-border: hsl(0, 55%, 45%);
+  --map-error-fg: hsl(0, 85%, 82%);
+
+  --map-warning-bg: hsl(38, 45%, 16%);
+  --map-warning-border: hsl(38, 55%, 42%);
+  --map-warning-fg: hsl(40, 85%, 75%);
 }
 
 /* @xyflow/react ships its own default background/handle colors; align them

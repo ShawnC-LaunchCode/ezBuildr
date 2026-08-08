@@ -9,18 +9,17 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSections, useAllSteps, ApiStep, useWorkflow } from "@/lib/vault-hooks";
-import { apiRequest } from "@/lib/queryClient";
+import { useWorkflowLint } from "@/hooks/api/useWorkflowLint";
 import { fetchAPI } from "@/lib/vault-api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-import { ReviewIssueList, type ReviewIssue } from "./review/ReviewIssueList";
+import { ReviewIssueList } from "./review/ReviewIssueList";
 import { ReviewStatsCard } from "./review/ReviewStatsCard";
 
 interface ReviewTabProps {
@@ -36,14 +35,7 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
 
     const [isActivating, setIsActivating] = useState(false);
 
-    const { data: lintIssues = [], refetch: refetchLint, isLoading: isLinting } = useQuery({
-        queryKey: ['workflow', workflowId, 'lint'],
-        queryFn: async () => {
-            const res = await apiRequest('GET', `/api/workflows/${workflowId}/lint`);
-            if (!res.ok) { throw new Error("Failed to lint workflow"); }
-            return res.json() as Promise<ReviewIssue[]>;
-        }
-    });
+    const { data: lintIssues = [], refetch: refetchLint, isLoading: isLinting } = useWorkflowLint(workflowId);
 
     const totalSections = sections?.length ?? 0;
     let totalQuestions = 0;

@@ -3,9 +3,8 @@
  * workflow's sections, skip routes and final documents. Per D-4 this tab
  * never authors anything — no drag, no connect, no persisted position —
  * it composes `shared/workflowMap.ts` (MAP-2) with `@xyflow/react` (MAP-1)
- * and nothing else. Node-click-to-inspector (MAP-5) is wired below;
- * lint-finding overlays (MAP-6) land in a later ticket on top of this
- * component tree.
+ * and nothing else. Node-click-to-inspector (MAP-5) is wired below, and
+ * flow-diagnostic overlays (MAP-6) on top of that.
  *
  * MAP-5 / GH-153 AC2: activating a node navigates to
  * `/workflows/:id/builder?tab=sections&sectionId=<id>` (or `&stepId=<id>`
@@ -14,6 +13,11 @@
  * `WorkflowBuilder.tsx` already reads those query params in a `useEffect`
  * and calls `selectSection`/`selectStep` itself — the map never calls the
  * builder store directly, so this survives a page reload or a shared URL.
+ *
+ * MAP-6 / GH-153 AC4 (second half): flow-diagnostic findings
+ * (`useWorkflowLint`, the same shared hook the Review tab consumes) are
+ * grouped by `target.sectionId` (`mapLintDecoration.ts`) and handed to each
+ * node as `data.findings` — this component computes no diagnostics itself.
  */
 import "@xyflow/react/dist/style.css";
 import "./map.css";
@@ -23,9 +27,12 @@ import { useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { useWorkflowLint } from "@/hooks/api/useWorkflowLint";
 import type { WorkflowMapNode } from "@shared/workflowMap";
 
+import { MapFindingsSummary } from "./MapFindingsSummary";
 import { MapLegend } from "./MapLegend";
+import { decorateMapFindings, summarizeMapFindings } from "./mapLintDecoration";
 import { toFlowEdges, toFlowNodes } from "./toFlowElements";
 import { workflowMapNodeTypes } from "./nodeTypes";
 import { useWorkflowMapGraph } from "./useWorkflowMapGraph";
@@ -36,6 +43,7 @@ interface MapTabProps {
 
 export function MapTab({ workflowId }: MapTabProps) {
   const { graph, isLoading, isError } = useWorkflowMapGraph(workflowId);
+  const { data: lintIssues } = useWorkflowLint(workflowId);
   const [, navigate] = useLocation();
 
   const handleActivateNode = useCallback(
@@ -52,9 +60,16 @@ export function MapTab({ workflowId }: MapTabProps) {
     [navigate, workflowId]
   );
 
+  const nodeIds = useMemo(() => new Set(graph.nodes.map((node) => node.id)), [graph]);
+  const decoration = useMemo(
+    () => decorateMapFindings(lintIssues ?? [], nodeIds),
+    [lintIssues, nodeIds]
+  );
+  const findingsSummary = useMemo(() => summarizeMapFindings(decoration), [decoration]);
+
   const nodes = useMemo(
-    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode),
-    [graph, handleActivateNode]
+    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode, decoration.bySection),
+    [graph, handleActivateNode, decoration]
   );
   const edges = useMemo(() => toFlowEdges(graph.edges), [graph]);
 
@@ -79,6 +94,7 @@ export function MapTab({ workflowId }: MapTabProps) {
   return (
     <div className="workflow-map flex flex-1 flex-col overflow-hidden bg-background">
       <MapLegend />
+      <MapFindingsSummary counts={findingsSummary} />
       <div className="relative flex-1">
         <ReactFlowProvider>
           <ReactFlow

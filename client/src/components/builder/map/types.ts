@@ -8,6 +8,7 @@
 import type { Edge, Node } from "@xyflow/react";
 
 import type { WorkflowMapNodeKind } from "@shared/workflowMap";
+import type { WorkflowLintIssue } from "@shared/types/workflowLint";
 
 /** The fields a map node component needs — a render-only projection of `WorkflowMapNode` (shared/workflowMap.ts). */
 export interface MapNodeData extends Record<string, unknown> {
@@ -24,6 +25,12 @@ export interface MapNodeData extends Record<string, unknown> {
    * has no section/step behind it to open.
    */
   onActivate?: () => void;
+  /**
+   * MAP-6: lint findings from `GET /api/workflows/:id/lint` whose
+   * `target.sectionId` equals this node's id — always an array (possibly
+   * empty), never computed by the map itself. See `mapLintDecoration.ts`.
+   */
+  findings: WorkflowLintIssue[];
 }
 
 export type MapFlowNode = Node<MapNodeData, WorkflowMapNodeKind>;

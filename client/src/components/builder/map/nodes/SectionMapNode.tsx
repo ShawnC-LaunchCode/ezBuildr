@@ -11,9 +11,20 @@
  * builder store. The outer `role="group"` card is kept as the semantic
  * container so the section's conditional-state a11y name (used by MAP-4's
  * own tests) is unaffected by the nested control.
+ *
+ * MAP-6: `data.findings` are lint findings the server already computed
+ * (`GET /api/workflows/:id/lint`) whose `target.sectionId` is this node's id
+ * — never anything this component derives itself. An error outranks a
+ * warning for the badge's overall severity, but the message list underneath
+ * still lists every finding. The badge is its own `<button>`, a sibling of
+ * the activation button rather than nested inside it — nesting two
+ * interactive elements is invalid HTML and would swallow the inner one's
+ * clicks/focus.
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { GitBranch, Layers } from "lucide-react";
+import { AlertTriangle, GitBranch, Layers, XCircle } from "lucide-react";
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { MapFlowNode } from "../types";
 
@@ -22,13 +33,53 @@ export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
     ? "border-dashed border-[var(--map-conditional-border)]"
     : "border-solid border-[var(--map-section-border)]";
 
+  const findings = data.findings;
+  const errorCount = findings.filter((f) => f.type === "error").length;
+  const warningCount = findings.length - errorCount;
+  const severity: "error" | "warning" | null = errorCount > 0 ? "error" : warningCount > 0 ? "warning" : null;
+
   return (
     <div
       role="group"
       aria-label={data.conditional ? `${data.label} — conditional section` : `${data.label} — section`}
-      className={`min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-section-bg)] shadow-sm ${borderStyle}`}
+      className={`relative min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-section-bg)] shadow-sm ${borderStyle}`}
     >
       <Handle type="target" position={Position.Top} />
+      {severity && (
+        <div className="absolute right-1.5 top-1.5 z-10">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`${data.label}: ${errorCount} ${errorCount === 1 ? "error" : "errors"}, ${warningCount} ${warningCount === 1 ? "warning" : "warnings"}`}
+                  className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    severity === "error"
+                      ? "border-[var(--map-error-border)] bg-[var(--map-error-bg)] text-[var(--map-error-fg)]"
+                      : "border-[var(--map-warning-border)] bg-[var(--map-warning-bg)] text-[var(--map-warning-fg)]"
+                  }`}
+                >
+                  {severity === "error" ? (
+                    <XCircle className="h-3 w-3" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                  )}
+                  <span>{findings.length}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-medium">{severity === "error" ? "Blocking error" : "Warning"}</p>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {findings.map((finding) => (
+                    <li key={`${finding.type}-${finding.message}`}>{finding.message}</li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
       <button
         type="button"
         disabled={!data.onActivate}
