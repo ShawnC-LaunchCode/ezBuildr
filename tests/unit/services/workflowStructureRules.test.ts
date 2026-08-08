@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { versionService } from "../../../server/services/VersionService";
 import { validateWorkflowStructure } from "../../../server/services/workflowStructureRules";
+import type { WorkflowGraph } from "../../../shared/zod-schemas.js";
 
 const SECTION_A = "11111111-1111-4111-8111-111111111111";
 const SECTION_B = "22222222-2222-4222-8222-222222222222";
@@ -106,7 +108,14 @@ describe("validateWorkflowStructure (RUN2-9)", () => {
         action: "skip_to", targetType: "section", targetId: SECTION_A,
         conditionStepId: STEP_1, operator: "equals", conditionValue: "yes",
       }];
-      expect(errorsOf(data).join(" ")).toMatch(/would loop the interview forever/);
+      // Repo owner's ruling (2026-08-08): the old "would loop the interview
+      // forever" wording was false — isForwardSkipTarget (RUN2-2) discards a
+      // backward-or-equal skip at run time, so it never loops, it just never
+      // fires. The message now says that, and names reordering as the likely
+      // cause, since SectionService.reorderSections validates nothing and can
+      // silently turn a working forward rule into a dead one.
+      expect(errorsOf(data).join(" ")).toMatch(/can never fire/i);
+      expect(errorsOf(data).join(" ")).not.toMatch(/loop/i);
     });
 
     it("allows a forward skip_to", () => {
@@ -116,6 +125,22 @@ describe("validateWorkflowStructure (RUN2-9)", () => {
         conditionStepId: STEP_1, operator: "equals", conditionValue: "yes",
       }];
       expect(errorsOf(data)).toEqual([]);
+    });
+
+    it("stays an error and still blocks VersionService.validateWorkflow's publish gate (pinned so a later refactor cannot quietly downgrade it)", () => {
+      const data = validWorkflow();
+      data.logicRules = [{
+        action: "skip_to", targetType: "section", targetId: SECTION_A,
+        conditionStepId: STEP_1, operator: "equals", conditionValue: "yes",
+      }];
+
+      const structuralErrors = validateWorkflowStructure(data).filter((r) => r.type === "error");
+      expect(structuralErrors.some((r) => /can never fire/i.test(r.message))).toBe(true);
+
+      const graph = { ...data, title: "Backward skip only" } as unknown as WorkflowGraph;
+      const validation = versionService.validateWorkflow("irrelevant-workflow-id", graph);
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/can never fire/i);
     });
   });
 

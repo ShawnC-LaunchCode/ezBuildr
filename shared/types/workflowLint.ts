@@ -4,7 +4,8 @@ export type WorkflowLintBuilderTab =
   | "sections"
   | "templates"
   | "data-sources"
-  | "settings";
+  | "settings"
+  | "map";
 
 export interface WorkflowLintTarget {
   tab: WorkflowLintBuilderTab;

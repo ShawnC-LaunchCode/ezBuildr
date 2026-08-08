@@ -301,7 +301,7 @@ function checkSkipDirection(
     results.push(issue(
       "error",
       "logic",
-      `A "skip to" rule sends the respondent back to a section at or before the question that triggers it, which would loop the interview forever. Point it at a later section.`,
+      `A "skip to" rule targets a section at or before the question that triggers it, so it can never fire. This usually happens after sections get reordered. Point it at a later section.`,
       { tab: "sections", panel: "logic" }
     ));
   }

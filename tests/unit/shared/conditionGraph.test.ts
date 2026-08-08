@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  analyzeWorkflowFlow,
   buildConditionDependencyGraph,
   detectCycles,
   detectDanglingReferences,
   extractConditionReferences,
+  type WorkflowFlowEdge,
+  type WorkflowFlowNode,
 } from "@shared/conditionGraph";
 import type { ConditionExpression } from "@shared/types/conditions";
 
@@ -156,6 +159,115 @@ describe("conditionGraph", () => {
         { id: "b", visibleIf: refExpr("a") },
       ]);
       expect(detectDanglingReferences(graph)).toEqual([]);
+    });
+  });
+
+  describe("analyzeWorkflowFlow (MAP-3)", () => {
+    /** A straight A -> B -> C -> terminal chain, no skips. */
+    function linearChain(): { nodes: WorkflowFlowNode[]; edges: WorkflowFlowEdge[] } {
+      const nodes: WorkflowFlowNode[] = [
+        { id: "a", kind: "section", order: 0 },
+        { id: "b", kind: "section", order: 1 },
+        { id: "c", kind: "section", order: 2 },
+        { id: "term", kind: "terminal", order: 3 },
+      ];
+      const edges: WorkflowFlowEdge[] = [
+        { id: "e1", from: "a", to: "b", kind: "sequential" },
+        { id: "e2", from: "b", to: "c", kind: "sequential" },
+        { id: "e3", from: "c", to: "term", kind: "sequential" },
+      ];
+      return { nodes, edges };
+    }
+
+    it("finds no unreachable nodes, no dead ends, and no loops in a linear chain", () => {
+      const { nodes, edges } = linearChain();
+      const diagnostics = analyzeWorkflowFlow(nodes, edges);
+      expect(diagnostics.unreachable).toEqual([]);
+      expect(diagnostics.deadEnds).toEqual([]);
+      expect(diagnostics.loops).toEqual([]);
+    });
+
+    it("reports a node with no inbound edge as unreachable (orphaned by ordering)", () => {
+      // "orphan" has the lowest order of the disconnected pair, so it isn't
+      // mistaken for the start node either.
+      const nodes: WorkflowFlowNode[] = [
+        { id: "start", kind: "section", order: 0 },
+        { id: "next", kind: "section", order: 1 },
+        { id: "orphan", kind: "section", order: 2 },
+        { id: "term", kind: "terminal", order: 3 },
+      ];
+      const edges: WorkflowFlowEdge[] = [
+        { id: "e1", from: "start", to: "next", kind: "sequential" },
+        { id: "e2", from: "next", to: "term", kind: "sequential" },
+        // Nothing points at "orphan".
+      ];
+      const diagnostics = analyzeWorkflowFlow(nodes, edges);
+      expect(diagnostics.unreachable).toEqual(["orphan"]);
+    });
+
+    it("reports a non-terminal node with no outgoing edge as a dead end, and never the terminal", () => {
+      const nodes: WorkflowFlowNode[] = [
+        { id: "a", kind: "section", order: 0 },
+        { id: "stuck", kind: "section", order: 1 },
+        { id: "term", kind: "terminal", order: 2 },
+      ];
+      const edges: WorkflowFlowEdge[] = [
+        { id: "e1", from: "a", to: "stuck", kind: "sequential" },
+        // "stuck" has no outgoing edge at all — nothing connects it onward,
+        // not even to the terminal.
+      ];
+      const diagnostics = analyzeWorkflowFlow(nodes, edges);
+      expect(diagnostics.deadEnds).toEqual(["stuck"]);
+      expect(diagnostics.deadEnds).not.toContain("term");
+    });
+
+    it("reports a skip_to cycle among sections in loops", () => {
+      // a(0) -skip-> c(2) [forward] -skip-> b(1) [backward] -skip-> a(0) [backward]
+      const nodes: WorkflowFlowNode[] = [
+        { id: "a", kind: "section", order: 0 },
+        { id: "b", kind: "section", order: 1 },
+        { id: "c", kind: "section", order: 2 },
+        { id: "term", kind: "terminal", order: 3 },
+      ];
+      const edges: WorkflowFlowEdge[] = [
+        { id: "seq1", from: "a", to: "b", kind: "sequential" },
+        { id: "seq2", from: "b", to: "c", kind: "sequential" },
+        { id: "seq3", from: "c", to: "term", kind: "sequential" },
+        { id: "skip1", from: "a", to: "c", kind: "skip" },
+        { id: "skip2", from: "c", to: "b", kind: "skip" },
+        { id: "skip3", from: "b", to: "a", kind: "skip" },
+      ];
+      const diagnostics = analyzeWorkflowFlow(nodes, edges);
+      expect(diagnostics.loops.length).toBeGreaterThan(0);
+      const involved = new Set(diagnostics.loops.flatMap((loop) => loop.path));
+      expect(involved.has("a")).toBe(true);
+      expect(involved.has("b")).toBe(true);
+      expect(involved.has("c")).toBe(true);
+    });
+
+    it("does NOT report a diamond (two forward skips converging on one section) as a loop", () => {
+      // a(0) -skip-> d(3), b(1) -skip-> d(3): both forward, converging on d.
+      const nodes: WorkflowFlowNode[] = [
+        { id: "a", kind: "section", order: 0 },
+        { id: "b", kind: "section", order: 1 },
+        { id: "c", kind: "section", order: 2 },
+        { id: "d", kind: "section", order: 3 },
+        { id: "term", kind: "terminal", order: 4 },
+      ];
+      const edges: WorkflowFlowEdge[] = [
+        { id: "seq1", from: "a", to: "b", kind: "sequential" },
+        { id: "seq2", from: "b", to: "c", kind: "sequential" },
+        { id: "seq3", from: "c", to: "d", kind: "sequential" },
+        { id: "seq4", from: "d", to: "term", kind: "sequential" },
+        { id: "skip1", from: "a", to: "d", kind: "skip" },
+        { id: "skip2", from: "b", to: "d", kind: "skip" },
+      ];
+      const diagnostics = analyzeWorkflowFlow(nodes, edges);
+      expect(diagnostics.loops).toEqual([]);
+    });
+
+    it("returns empty diagnostics for an empty graph", () => {
+      expect(analyzeWorkflowFlow([], [])).toEqual({ unreachable: [], deadEnds: [], loops: [] });
     });
   });
 });

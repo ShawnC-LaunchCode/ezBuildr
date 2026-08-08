@@ -16,12 +16,15 @@
  */
 
 import {
+  analyzeWorkflowFlow,
   buildConditionDependencyGraphFromEdges,
   detectCycles,
   detectDanglingReferences,
   extractConditionReferences,
   type ConditionDependencyEdge,
   type ConditionDependencyGraph,
+  type WorkflowFlowEdge,
+  type WorkflowFlowNode,
 } from "@shared/conditionGraph";
 import type {
   WorkflowLintCategory,
@@ -267,6 +270,248 @@ function lintConditionDependencies(
   }
 }
 
+const FLOW_TERMINAL_ID = "__complete__";
+
+interface WorkflowFlowGraph {
+  nodes: WorkflowFlowNode[];
+  edges: WorkflowFlowEdge[];
+  info: Map<string, ConditionGraphNodeInfo>;
+}
+
+/** `{ id, order }` plus the section's own record, sorted by `order`. */
+interface OrderedFlowSection {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  section: Record<string, any>;
+  id: string;
+  order: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+function orderFlowSections(sections: Record<string, any>[]): OrderedFlowSection[] {
+  return sections
+    .map((section, index) => ({
+      section,
+      id: String(section.id),
+      order: typeof section.order === "number" ? section.order : index,
+    }))
+    .sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Sections that can never be shown to any respondent: the target of an
+ * UNCONDITIONAL `hide` rule (`when` null/absent — "always fires", per
+ * `shared/workflowLogic.ts`'s `evaluateCondition`) with no `show` rule also
+ * targeting it. A `show` target's visibility is governed entirely by whether
+ * that show rule fires (`evaluateWorkflowVisibility`), so an unconditional
+ * hide sharing a target with any show rule is not actually a guaranteed
+ * always-off — excluded here rather than mis-flagged.
+ */
+function findAlwaysHiddenSectionIds(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  rules: Record<string, any>[],
+  knownSectionIds: Set<string>
+): Set<string> {
+  const showTargets = new Set<string>();
+  const unconditionalHideTargets = new Set<string>();
+  for (const rule of rules) {
+    if (rule.targetType !== "section") { continue; }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
+    const targetId = rule.targetId;
+    if (typeof targetId !== "string" || !knownSectionIds.has(targetId)) { continue; }
+    if (rule.action === "show") { showTargets.add(targetId); }
+    if (rule.action === "hide" && (rule.when === null || rule.when === undefined)) {
+      unconditionalHideTargets.add(targetId);
+    }
+  }
+  return new Set([...unconditionalHideTargets].filter((id) => !showTargets.has(id)));
+}
+
+interface FlowSectionMaps {
+  info: Map<string, ConditionGraphNodeInfo>;
+  sectionOrderById: Map<string, number>;
+  stepToSectionId: Map<string, string>;
+}
+
+/** First pass over the ordered sections: node-info lookup, order-by-id, and a step-id/alias -> section-id resolver. */
+function buildFlowSectionMaps(ordered: OrderedFlowSection[]): FlowSectionMaps {
+  const info = new Map<string, ConditionGraphNodeInfo>();
+  const sectionOrderById = new Map<string, number>();
+  const stepToSectionId = new Map<string, string>();
+
+  for (const { section, id, order } of ordered) {
+    sectionOrderById.set(id, order);
+    info.set(id, { target: { tab: "sections", sectionId: id }, label: `Section "${String(section.title)}"` });
+
+    const rawSteps: unknown = section.steps;
+    const steps = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
+    for (const step of steps) {
+      stepToSectionId.set(String(step.id), id);
+      if (typeof step.alias === "string" && step.alias.length > 0) {
+        stepToSectionId.set(step.alias, id);
+      }
+    }
+  }
+  info.set(FLOW_TERMINAL_ID, { target: { tab: "sections" }, label: "Complete" });
+
+  return { info, sectionOrderById, stepToSectionId };
+}
+
+/**
+ * `sequential` edges following `order`, bypassing any always-hidden section
+ * forward to the next non-hidden one (or the terminal) so it loses its own
+ * inbound edge (see `buildWorkflowFlowGraph`) without cutting reachability
+ * for what follows it.
+ */
+function buildSequentialFlowEdges(
+  ordered: OrderedFlowSection[],
+  alwaysHidden: Set<string>
+): WorkflowFlowEdge[] {
+  const edges: WorkflowFlowEdge[] = [];
+  for (let i = 0; i < ordered.length; i++) {
+    // The loop bound guarantees `ordered[i]` exists, but under the strict
+    // zones' `noUncheckedIndexedAccess` an indexed read is `T | undefined`
+    // regardless — checked rather than asserted (matches the `[firstNode]`
+    // pattern in `shared/conditionGraph.ts`'s `detectCycles`/`lintConditionDependencies`).
+    const current = ordered[i];
+    if (current === undefined) { continue; }
+
+    let next = i + 1;
+    let nextSection = ordered[next];
+    while (nextSection !== undefined && alwaysHidden.has(nextSection.id)) {
+      next++;
+      nextSection = ordered[next];
+    }
+    const toId = nextSection !== undefined ? nextSection.id : FLOW_TERMINAL_ID;
+    edges.push({ id: `sequential:${current.id}->${toId}`, from: current.id, to: toId, kind: "sequential" });
+  }
+  return edges;
+}
+
+/** One `skip` edge per resolvable `skip_to` section rule, from its condition's section to its target section. */
+function buildSkipFlowEdges(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  rules: Record<string, any>[],
+  maps: FlowSectionMaps,
+  alwaysHidden: Set<string>
+): WorkflowFlowEdge[] {
+  const edges: WorkflowFlowEdge[] = [];
+
+  for (const rule of rules) {
+    if (rule.action !== "skip_to" || rule.targetType !== "section") { continue; }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
+    const targetId = rule.targetId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
+    const conditionRef = rule.conditionStepId ?? rule.conditionStepAlias;
+    if (typeof targetId !== "string" || typeof conditionRef !== "string") { continue; }
+    const fromId = maps.stepToSectionId.get(conditionRef);
+    // A rule whose condition or target does not resolve to a known
+    // step/section produces no edge — not this analysis's job to flag
+    // (lintLogicRules already reports the dangling reference).
+    if (fromId === undefined || !maps.sectionOrderById.has(targetId) || alwaysHidden.has(targetId)) { continue; }
+
+    edges.push({ id: String(rule.id), from: fromId, to: targetId, kind: "skip" });
+  }
+
+  return edges;
+}
+
+/**
+ * Build the section-level navigational graph `analyzeWorkflowFlow` walks:
+ * one node per section plus a synthetic terminal, `sequential` edges
+ * following `order`, and `skip` edges from a `skip_to` rule's condition
+ * section to its target section.
+ *
+ * An always-hidden section (see `findAlwaysHiddenSectionIds`) gets no
+ * INCOMING edge of either kind — nothing can land there, matching how
+ * `calculateNextSection`/`resolveNextSection` skip straight past a hidden
+ * section at run time. `sequential` edges bypass it forward (to the next
+ * non-hidden section, or the terminal) so sections after it stay reachable;
+ * its own outgoing edge is unaffected.
+ */
+function buildWorkflowFlowGraph(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  sections: Record<string, any>[],
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  rules: Record<string, any>[]
+): WorkflowFlowGraph {
+  const ordered = orderFlowSections(sections);
+  const maps = buildFlowSectionMaps(ordered);
+  const alwaysHidden = findAlwaysHiddenSectionIds(rules, new Set(maps.sectionOrderById.keys()));
+
+  const nodes: WorkflowFlowNode[] = ordered.map(({ id, order }) => ({ id, kind: "section", order }));
+  const maxOrder = maps.sectionOrderById.size > 0 ? Math.max(...maps.sectionOrderById.values()) : 0;
+  nodes.push({ id: FLOW_TERMINAL_ID, kind: "terminal", order: maxOrder + 1 });
+
+  const sequentialEdges = buildSequentialFlowEdges(ordered, alwaysHidden);
+  const skipFlowEdges = buildSkipFlowEdges(rules, maps, alwaysHidden);
+
+  return { nodes, edges: [...sequentialEdges, ...skipFlowEdges], info: maps.info };
+}
+
+/**
+ * Detect unreachable sections, dead ends, and skip_to loop risk (GH-153 AC4,
+ * MAP-3). Distinct from `lintConditionDependencies` above: that graph is
+ * `visibleIf` (pull, Model A); this one is the section-to-section
+ * navigational graph (`sequential` order + `skip_to` push edges), analyzed
+ * by `analyzeWorkflowFlow` in `shared/conditionGraph.ts`.
+ *
+ * A backward (or same-position) `skip_to` is flagged elsewhere, not here:
+ * `checkSkipDirection` in `server/services/workflowStructureRules.ts` is the
+ * single source for that finding (repo owner's ruling, 2026-08-08) — a rule
+ * that can never fire is a dead rule regardless of whether
+ * `isForwardSkipTarget` (`shared/workflowLogic.ts`, RUN2-2) also keeps it
+ * from ever executing at run time, and the realistic way an author hits it
+ * is an unvalidated section reorder (`SectionService.reorderSections`)
+ * silently turning a working forward rule into a dead one — a regression an
+ * `error` belongs to, not a `warning` that would still let it publish
+ * unnoticed. Duplicating it here as a warning would give the same rule two
+ * conflicting severities on one publish gate.
+ */
+function lintWorkflowFlow(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  sections: Record<string, any>[],
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  rules: Record<string, any>[],
+  results: LintResult[]
+): void {
+  if (sections.length === 0) { return; } // "must have at least one section" already covers this
+
+  const { nodes, edges, info } = buildWorkflowFlowGraph(sections, rules);
+  const diagnostics = analyzeWorkflowFlow(nodes, edges);
+
+  for (const id of diagnostics.unreachable) {
+    const nodeInfo = info.get(id);
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `${nodeInfo?.label ?? id} is unreachable: no path from the first section reaches it.`,
+      target: nodeInfo?.target ?? { tab: "sections" },
+    });
+  }
+
+  for (const id of diagnostics.deadEnds) {
+    const nodeInfo = info.get(id);
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `${nodeInfo?.label ?? id} is a dead end: the workflow has no way to continue past it.`,
+      target: nodeInfo?.target ?? { tab: "sections" },
+    });
+  }
+
+  for (const loop of diagnostics.loops) {
+    const labels = loop.path.map((id) => info.get(id)?.label ?? id);
+    const [firstNode] = loop.path;
+    const target = (firstNode === undefined ? undefined : info.get(firstNode)?.target) ?? { tab: "sections" };
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `Skip-to loop detected: ${labels.join(" -> ")}.`,
+      target,
+    });
+  }
+}
+
 function lintLogicRules(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   rules: Record<string, any>[],
@@ -370,6 +615,11 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
   // (Model A). Model B (logic_rules) reference checks stay in lintLogicRules
   // below — out of scope here per Decision #3.
   lintConditionDependencies(sections, results);
+
+  // MAP-3 / GH-153 AC4: unreachable sections, dead ends, and skip_to loop
+  // risk over the section-to-section navigational graph.
+// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
+  lintWorkflowFlow(sections, data.logicRules || [], results);
 
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   lintLogicRules(data.logicRules || [], stepRefs, sectionRefs, results);

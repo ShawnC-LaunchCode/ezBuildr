@@ -447,7 +447,43 @@ inlined.
 
 ---
 
-## MAP-3 — Detect unreachable sections, dead ends and loop risks in the lint pipeline 🔄
+## MAP-3 — Detect unreachable sections, dead ends and loop risks in the lint pipeline ✅
+
+> **Verified 2026-08-08.** All nine ACs met, with AC5 as replaced by **D-5**.
+> Reviewer fast-forwarded the worktree from its stale base `945c98ff` to current
+> main (zero file overlap, verified first) and re-ran all four gates there:
+> `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`, `test:fast`
+> **238 files / 2737 passed** (main was 2723, +14).
+>
+> `analyzeWorkflowFlow` reuses `detectCycles` — no second three-colour DFS — and
+> takes structural parameters, so `shared/conditionGraph.ts` imports nothing from
+> `shared/workflowMap.ts` and the two tickets ran in parallel without sharing a
+> file. Scoping `loops` to `skip`-kind edges only is the dev's own call and is
+> correct: over the combined graph a backward skip plus the ever-present forward
+> sequential edge trivially closes a 2-cycle, which would have double-escalated
+> exactly the case D-5 downgrades.
+>
+> **The adapter reads the serializer, not the schema.** `rule.targetId` and
+> `conditionStepId ?? conditionStepAlias`, matching
+> `VersionService.serializeWorkflow`. An adapter written against the DB column
+> names (`targetSectionId`) would type-check, pass its own fixtures, and never
+> fire in production. Reviewer confirmed it fires on real serialized content.
+>
+> **D-5 rework landed clean.** The competing backward-skip warning is deleted
+> (along with its now-unused `skipEdges`/`FlowSkipEdgeMeta` plumbing, not left
+> orphaned), and `checkSkipDirection`'s message is a one-line change to
+> *"...so it can never fire. This usually happens after sections get reordered."*
+> — no looping claim, still `error`, still blocking, now pinned by a test that
+> asserts both the severity and that `validateWorkflow` still rejects.
+>
+> **Cross-seam probe (reviewer).** Ran MAP-2's `buildWorkflowMap` output through
+> this ticket's `analyzeWorkflowFlow`: `deadEnds=[]` on the final-documents
+> fixture, confirming MAP-2's terminal-edge fix holds end to end. Then ran
+> `lintWorkflowContent` on the unreachable fixture and confirmed the finding
+> carries `target.sectionId="section-b"`, which **attaches to a real MAP-2 node
+> id** — so MAP-6 can render it. See the note added to MAP-6 about why the two
+> graphs deliberately disagree on reachability.
+
 
 **Priority: P1** · Size: M · Files: `shared/conditionGraph.ts`, `server/services/workflowLintRules.ts`, `shared/types/workflowLint.ts`
 
@@ -1031,6 +1067,18 @@ this assertion, and an unnamed toggle was a real defect here before (O-5).
 
 **Priority: P1** · Size: S · Files: `client/src/components/builder/map/`, `shared/types/workflowLint.ts`
 
+
+> **⚠️ The map's own graph and the lint's graph deliberately disagree on
+> reachability — do not "fix" it.** `buildWorkflowMap` (MAP-2, client) draws
+> sequential edges between all consecutive sections regardless of `hide` rules,
+> because those edges are structural. `lintWorkflowFlow` (MAP-3, server) drops
+> always-hidden sections before analysing. So calling `analyzeWorkflowFlow`
+> client-side on `buildWorkflowMap`'s output returns **`unreachable: []` even for
+> a genuinely unreachable section** — verified by the reviewer. That is why AC6
+> forbids the map computing anything: render the findings the lint endpoint
+> returns, keyed by `target.sectionId`, which the reviewer confirmed matches
+> MAP-2's node ids.
+
 ### Finding
 
 MAP-3 produces the diagnostics (`analyzeWorkflowFlow`, surfaced as
@@ -1493,7 +1541,7 @@ verify it is genuinely unreferenced first, don't assume.
 |---|---|---|---|---|
 | MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | ✅ |
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
-| MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | 🔄 |
+| MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | ✅ |
 | MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
 | MAP-5 | Node → inspector navigation | P1 | S | 🔄 |
 | MAP-6 | Flow diagnostics on the map | P1 | S | 🔲 |
