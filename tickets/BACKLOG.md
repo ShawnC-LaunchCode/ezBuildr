@@ -14,12 +14,14 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-08 the live board is `tickets/ROADMAP_TICKETS.md`** (the GH-146..174
-> epics). The Logic Unification initiative (LU-1..6c, epic **GH-154**) closed and retired
-> into `backlog/LOGIC_UNIFICATION.md` on 2026-08-08 — with it, **GH-153** (visual workflow
-> map) is unblocked and is the natural next piece of work. All DataVault rounds and every
-> earlier initiative are likewise closed and retired. Check this index before auditing
-> anything, so a settled question is not re-filed as a new finding.
+> **As of 2026-08-08 there are two live boards.** `tickets/ROADMAP_TICKETS.md` holds the
+> GH-146..174 epics; `tickets/WORKFLOW_MAP_TICKETS.md` holds **MAP-1..9**, the audited
+> breakdown of epic **GH-153** (visual workflow map & path simulation) — dispatch from the
+> MAP file, not from the GH-153 epic entry. The Logic Unification initiative (LU-1..6c,
+> epic **GH-154**) closed and retired into `backlog/LOGIC_UNIFICATION.md` on 2026-08-08,
+> which is what unblocked GH-153. All DataVault rounds and every earlier initiative are
+> likewise closed and retired. Check this index before auditing anything, so a settled
+> question is not re-filed as a new finding.
 >
 > **Read `LU-B1` first if you are about to run a migration.** Local development and
 > production share one Neon database; a local `db:migrate` hits production immediately.

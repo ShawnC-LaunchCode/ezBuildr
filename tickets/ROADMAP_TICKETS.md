@@ -1190,6 +1190,17 @@ exists and expensive before it.
 **Priority: P1** · Size: XL · Files: `client/src/components/builder/map/`, `shared/workflowLogic.ts`
 **Ties:** Preceded by GH-154 — **now ✅ closed, so this is unblocked.**
 
+> **🔄 AUDITED AND PARTED OUT 2026-08-08 → `tickets/WORKFLOW_MAP_TICKETS.md` (MAP-1..9).**
+> This entry is the epic; the dispatchable tickets live in that file, which also carries
+> the four architecture decisions (D-1..D-4) the repo owner ruled on at generation time and
+> a table mapping each of the five ACs below to the tickets covering it. Do not dispatch
+> from this entry.
+>
+> Audit grade at the time: **C** — every input the map needs already exists and is correct
+> after GH-154, but nothing composes them, the previous attempt at this feature
+> (`0cbcf479`) was deleted and left `reactflow@11` behind as an unused dependency, and the
+> only surface claiming to do AC4 today asks an LLM to do it.
+
 > **What GH-154 left you (read before auditing this).** Detail:
 > `tickets/backlog/LOGIC_UNIFICATION.md`.
 >
