@@ -4,6 +4,7 @@
  * Token estimation, cost calculation, validation, and error handling utilities
  */
 
+import { extractConditionReferences } from '../../../shared/conditionGraph';
 import { createLogger } from '../../logger';
 
 import { AIError } from './AIError';
@@ -286,6 +287,39 @@ export function fenceUntrusted(content: unknown, maxLen = 8000): string {
 }
 
 /**
+ * Validate logic rules reference existing steps/sections. LU-6c: a rule's
+ * condition is `when` (a ConditionExpression) - walk every operand it
+ * references rather than checking a single flat `conditionStepAlias`.
+ * Split out from `validateWorkflowStructure` to keep its cognitive
+ * complexity under the lint threshold.
+ *
+ * A `when` operand may be a step's alias OR its raw step id - the same
+ * dual-key lookup `AliasResolver.resolve` and `WorkflowContentIngestService`
+ * both already use ("map id to itself, allows lookup by ID"). A rule authored
+ * against a step with no alias (or authored directly by id) is not malformed;
+ * checking only `stepAliases` rejected exactly that legitimate case and broke
+ * the build -> publish -> template -> instantiate round trip, since a
+ * template snapshot's `when` can carry a raw id even when its sibling
+ * `conditionStepAlias` bookkeeping field resolved a real alias.
+ */
+function validateLogicRuleReferences(
+  logicRules: AIGeneratedWorkflow['logicRules'],
+  stepIds: Set<string>,
+  stepAliases: Set<string>,
+): void {
+  for (const rule of (logicRules ?? [])) {
+    for (const ref of extractConditionReferences(rule.when)) {
+      if (!stepAliases.has(ref) && !stepIds.has(ref)) {
+        throw createAIError(
+          `Logic rule references non-existent step alias: ${ref}`,
+          'VALIDATION_ERROR',
+        );
+      }
+    }
+  }
+}
+
+/**
  * Validate workflow structure (unique IDs, etc)
  */
 export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
@@ -325,15 +359,7 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
     }
   }
 
-  // Validate logic rules reference existing steps/sections
-  for (const rule of (workflow.logicRules ?? [])) {
-    if (rule.conditionStepAlias && !stepAliases.has(rule.conditionStepAlias)) {
-      throw createAIError(
-        `Logic rule references non-existent step alias: ${rule.conditionStepAlias}`,
-        'VALIDATION_ERROR',
-      );
-    }
-  }
+  validateLogicRuleReferences(workflow.logicRules, stepIds, stepAliases);
 
   // Validate transform blocks reference existing steps
   for (const block of workflow.transformBlocks) {

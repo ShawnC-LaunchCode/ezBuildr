@@ -3,7 +3,7 @@
  */
 
 import type { Workflow, Section, Step, LogicRule, WorkflowRun } from "../../shared/schema";
-import { buildSingleConditionExpression } from "../../shared/workflowLogic";
+import { buildTestWhen } from "../helpers/conditionFixtures";
 
 /**
  * Create a test workflow
@@ -93,7 +93,7 @@ export function createTestLogicRule(workflowId: string, overrides?: Partial<Logi
     id: `logic-${  Math.random().toString(36).substring(7)}`,
     workflowId,
     conditionStepId: "step-123",
-    when: buildSingleConditionExpression("step-123", "equals", "yes"),
+    when: buildTestWhen("step-123", "equals", "yes"),
     targetType: "step",
     targetStepId: "step-456",
     targetSectionId: null,

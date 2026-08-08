@@ -880,7 +880,48 @@ failing. Cover it with a test.
 
 ---
 
-## LU-6c — Retire the second condition language 🔄
+## LU-6c — Retire the second condition language ✅
+
+> **Verified 2026-08-07 (Senior), after one failed review.** All six gates re-run by the
+> reviewer: `tsc` 0, `lint` 0, `check:strict-zones` 6/6, `test:fast` **226 files / 2654 tests**
+> (baseline 2647, +7 — 4 from the new `tests/unit/shared/ai.test.ts`, 3 from
+> `AIServiceUtils.test.ts`), `test:unit` **241 files / 2799 tests**, and `test:integration`
+> **108 files / 1073 tests, zero failures**.
+>
+> **`ConditionExpression` is now the only condition language in the codebase.** AI generation
+> emits `when` natively, so `shared/types/ai.ts` gained the 28-operator nested tree in place of
+> the flat 9-operator trio — this widened AI capability rather than merely refactoring it.
+> `buildSingleConditionExpression` is gone from production **and** from `scripts/`; the
+> `buildDemoWhen` helpers there are correctly script-local, not a production shim re-exported
+> to serve demos. Migration `0022` drops the orphaned `condition_operator` enum. O-6 done: the
+> unreferenced `detectCycles` stub is deleted from `optimizer.ts`.
+>
+> ### Failed the first review pass — a real regression, caught only because the reviewer ran
+> the gate the dev never reached
+>
+> The dev was killed by a session limit before running any integration suite, and modified
+> `tests/integration/blueprint-instantiate.test.ts` **without ever executing it**. The reviewer
+> ran it: **3 passed on clean HEAD, 2 failed with a 500** under the change. Failing case was
+> `build -> publish -> template -> instantiate`, dying on a `VALIDATION_ERROR` in
+> `syncLogicRules`' alias resolution — a genuinely broken feature path, not a stale fixture.
+>
+> Fixed at the cause (the alias-vs-resolved-id resolution in `WorkflowContentIngestService`),
+> **not by relaxing the test**. The reviewer checked that specifically: the assertions were
+> *strengthened*, and the new round-trip regression test asserts the instantiated rule's actual
+> condition leaf (`variable === "has_pets"`, `operator === "is_true"`) rather than just a 200.
+> `blueprint-instantiate` now passes 4/4.
+>
+> **Stale doc note:** the `verify` skill records `organizations-audit-fixes` and
+> `organizations-workflow` as failing on `main` for unrelated org-invite reasons. Both passed
+> here — the whole integration project is green. That note should be removed the next time
+> someone touches the skill.
+>
+> **Escalated finding — see O-9.** Diagnosing the 500 turned up that the error's message was
+> empty in the logs (`{"code":"VALIDATION_ERROR","message":""}`) while the real text was
+> `"Logic rule references non-existent step alias: ..."` all along. Root cause is
+> `server/logger.ts`'s wildcard `redact` config, and it affects **541** nested-`{ error }` log
+> sites app-wide, not this route. LU-6c applied a local workaround in `blueprint.routes.ts`
+> and correctly left the logger alone; the real fix needs its own ticket.
 
 **Priority: P1** · Size: M *(reduced from L — Decision #5 reshapes rather than drops)*
 **Files:** the `logic_rules` readers across `server/services/` (versioning, portability,
@@ -970,6 +1011,20 @@ depend on Decision #5.
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-9. Error messages are being lost from ~541 log sites.** Found while diagnosing LU-6c's
+  blueprint regression: the 500 logged as
+  `{"error":{"code":"VALIDATION_ERROR","message":""}}` — an empty message. The real message
+  was `"Logic rule references non-existent step alias: ..."` the whole time. `server/logger.ts`
+  configures `redact` with wildcard paths (`*.password`, `*.token`, `*.secret`) and
+  `remove: true`; a nested error object's `message` does not survive that walk (an `Error`'s
+  `message` is non-enumerable, and the custom `toJSON()` on `ApiError`/`AIError` does not
+  survive redaction either). **`grep` finds 541 sites logging a nested `{ error }` object**, so
+  this is not one route's problem. `server/index.ts:146` already works around it by passing
+  `message:` explicitly alongside `error` — evidence someone hit this before and patched one
+  call site instead of the cause. LU-6c applied the same local workaround in
+  `blueprint.routes.ts` because a broad logger change is out of its scope. **Worth a ticket of
+  its own**: fix the redact config (or add an error serializer) once, then remove the
+  workarounds. Debugging any production 500 is materially harder until this is done.
 - **O-8.** Dispatch prompts tell devs not to touch files outside their ticket, but say nothing
   about **shared infrastructure**. A dev ran `npm run db:migrate` against the shared dev
   database during LU-6b — correctly, and harmlessly, but unilaterally. Add an explicit line to

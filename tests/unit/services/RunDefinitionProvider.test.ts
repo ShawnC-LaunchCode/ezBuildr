@@ -7,6 +7,7 @@ vi.mock('../../../server/logger', () => ({
 
 import { logger } from '../../../server/logger';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 const workflowId = '22222222-2222-4222-8222-222222222222';
@@ -53,8 +54,7 @@ function makeProvider(overrides: {
         }],
         logicRules: [{
           conditionStepAlias: 'controller',
-          operator: 'equals',
-          conditionValue: 'yes',
+          when: buildTestWhen('controller', 'equals', 'yes'),
           targetType: 'step',
           targetId,
           action: 'show',

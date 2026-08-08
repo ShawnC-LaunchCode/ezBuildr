@@ -49,9 +49,10 @@ export const stepTypeEnum = pgEnum('step_type', [
 ]);
 
 export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);
-export const conditionOperatorEnum = pgEnum('condition_operator', [
-    'equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than', 'between', 'is_empty', 'is_not_empty'
-]);
+// LU-6c: `condition_operator` backed the flat `logic_rules.operator` column
+// LU-6a already dropped in favor of `when` (a ConditionExpression) - no
+// column anywhere uses this enum anymore. Dropped rather than left as an
+// orphaned type nothing references.
 export const conditionalActionEnum = pgEnum('conditional_action', ['show', 'hide', 'require', 'make_optional', 'skip_to']);
 
 export const blockTypeEnum = pgEnum('block_type', [

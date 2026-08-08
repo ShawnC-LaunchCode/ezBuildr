@@ -16,7 +16,7 @@
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
-import { buildSingleConditionExpression } from '@shared/workflowLogic';
+import { buildTestWhen } from '../helpers/conditionFixtures';
 
 import type {
   users,
@@ -311,7 +311,7 @@ export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<Lo
   return {
     workflowId: overrides?.workflowId || uuidv4(),
     conditionStepId,
-    when: overrides?.when ?? buildSingleConditionExpression(conditionStepId, 'equals', 'test_value'),
+    when: overrides?.when ?? buildTestWhen(conditionStepId, 'equals', 'test_value'),
     targetType: overrides?.targetType || 'step',
     targetStepId: overrides?.targetStepId || uuidv4(),
     targetSectionId: overrides?.targetSectionId || null,

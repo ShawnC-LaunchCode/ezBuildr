@@ -3,12 +3,17 @@ import { ConditionExpression, ConditionGroup } from "../../../shared/types/condi
 
 /**
  * Logic Optimizer Engine
- * 
+ *
  * Responsible for:
  * 1. Simplification (A AND true -> A)
  * 2. Redundancy removal
  * 3. Flattening nested groups
- * 4. Cycle detection
+ *
+ * Cycle detection lives in `shared/conditionGraph.ts` (LU-3) - the real
+ * implementation. This module previously carried a second, unreferenced
+ * `detectCycles` stub that unconditionally returned `[]`; it was deleted
+ * (LU-6c/O-6) rather than left beside the real detector as a trap for the
+ * next reader.
  */
 
 export class LogicOptimizer {
@@ -38,13 +43,5 @@ export class LogicOptimizer {
         // Deep clone to avoid mutation side effects if needed, or structured clone
         // For now returning as is, will implement full AST traversal later
         return group;
-    }
-
-    /**
-     * Detect circular logic in workflow
-     */
-    static detectCycles(_workflow: unknown): string[] {
-        // Graph traversal to find cycles in visibleIf/skipIf dependencies
-        return [];
     }
 }

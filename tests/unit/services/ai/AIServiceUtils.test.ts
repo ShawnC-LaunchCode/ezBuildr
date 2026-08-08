@@ -6,7 +6,9 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { fenceUntrusted } from "../../../../server/services/ai/AIServiceUtils";
+import { fenceUntrusted, validateWorkflowStructure } from "../../../../server/services/ai/AIServiceUtils";
+
+import type { AIGeneratedWorkflow } from "../../../../shared/types/ai";
 
 const OPEN = "<<<UNTRUSTED_INPUT";
 const CLOSE = "<<<END_UNTRUSTED_INPUT>>>";
@@ -64,5 +66,111 @@ describe("fenceUntrusted", () => {
     expect(body(fenceUntrusted(null))).toBe("");
     expect(body(fenceUntrusted(undefined))).toBe("");
     expect(body(fenceUntrusted(42))).toBe("42");
+  });
+});
+
+/**
+ * LU-6c: a generated logic rule's condition is `when` (a ConditionExpression
+ * tree), not a flat `conditionStepAlias`. These prove
+ * `validateWorkflowStructure` walks every operand `when` references -
+ * including nested groups a single flat field could never have expressed -
+ * rather than checking one field.
+ */
+describe("validateWorkflowStructure - logic rule condition references", () => {
+  function workflow(overrides: Partial<AIGeneratedWorkflow> = {}): AIGeneratedWorkflow {
+    return {
+      title: "Test Workflow",
+      sections: [
+        {
+          id: "section_1",
+          title: "Section 1",
+          order: 0,
+          steps: [
+            { id: "step_1", type: "short_text", title: "Step 1", alias: "step1", required: false, visibleIf: null },
+            { id: "step_2", type: "short_text", title: "Step 2", alias: "step2", required: false, visibleIf: null },
+          ],
+        },
+      ],
+      logicRules: [],
+      transformBlocks: [],
+      ...overrides,
+    };
+  }
+
+  it("accepts a rule whose `when` references a real step alias", () => {
+    const wf = workflow({
+      logicRules: [
+        {
+          id: "rule_1",
+          when: {
+            type: "group",
+            id: "g1",
+            operator: "AND",
+            conditions: [
+              { type: "condition", id: "c1", variable: "step1", operator: "equals", value: "x", valueType: "constant" },
+            ],
+          },
+          targetType: "step",
+          targetAlias: "step2",
+          action: "show",
+        },
+      ],
+    });
+
+    expect(() => validateWorkflowStructure(wf)).not.toThrow();
+  });
+
+  it("throws when a rule's `when` references a non-existent step alias", () => {
+    const wf = workflow({
+      logicRules: [
+        {
+          id: "rule_1",
+          when: {
+            type: "group",
+            id: "g1",
+            operator: "AND",
+            conditions: [
+              { type: "condition", id: "c1", variable: "nonexistent", operator: "equals", value: "x", valueType: "constant" },
+            ],
+          },
+          targetType: "step",
+          targetAlias: "step2",
+          action: "show",
+        },
+      ],
+    });
+
+    expect(() => validateWorkflowStructure(wf)).toThrow(/references non-existent step alias: nonexistent/);
+  });
+
+  it("throws when a nested group's condition references a non-existent step alias", () => {
+    const wf = workflow({
+      logicRules: [
+        {
+          id: "rule_1",
+          when: {
+            type: "group",
+            id: "g1",
+            operator: "AND",
+            conditions: [
+              { type: "condition", id: "c1", variable: "step1", operator: "equals", value: "x", valueType: "constant" },
+              {
+                type: "group",
+                id: "g2",
+                operator: "OR",
+                conditions: [
+                  { type: "condition", id: "c2", variable: "ghost", operator: "is_empty", valueType: "constant" },
+                ],
+              },
+            ],
+          },
+          targetType: "step",
+          targetAlias: "step2",
+          action: "show",
+        },
+      ],
+    });
+
+    expect(() => validateWorkflowStructure(wf)).toThrow(/references non-existent step alias: ghost/);
   });
 });

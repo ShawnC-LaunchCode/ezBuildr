@@ -63,8 +63,11 @@ export class SchemaManager {
     // and drops the flat `operator`/`condition_value`/`logical_operator`
     // columns — a stale _v23 schema still has the dropped columns and
     // inserts against the new shape would fail.
+    // Bumped to _v25 for LU-6c (0022_ancient_stellaris), which drops the now
+    // orphaned `condition_operator` Postgres enum type (nothing has
+    // referenced it since 0021 dropped the column it backed).
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v24`;
+        return `test_schema_w${this.workerId}_v25`;
     }
 
     /**

@@ -8,7 +8,7 @@ import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middlewar
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
 import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
-import { buildSingleConditionExpression } from '../../../shared/workflowLogic';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -695,7 +695,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const [foreignRule] = await db.insert(logicRules).values({
       workflowId: otherWorkflow.id,
       conditionStepId: condStep.id,
-      when: buildSingleConditionExpression(condStep.id, 'equals', 'yes'),
+      when: buildTestWhen(condStep.id, 'equals', 'yes'),
       targetType: 'section',
       targetSectionId: otherSection.id,
       action: 'show',

@@ -7,6 +7,8 @@
 
 import { z } from 'zod';
 
+import { conditionExpressionSchema } from './conditions';
+
 /**
  * AI-generated step (question/action) specification
  */
@@ -86,22 +88,20 @@ export type AIGeneratedSection = z.infer<typeof AIGeneratedSectionSchema>;
 
 /**
  * AI-generated logic rule specification
+ *
+ * LU-6c: the trigger condition is `when` - the same nested `ConditionExpression`
+ * tree (28 operators, AND/OR groups) that step/section `visibleIf` already
+ * uses - not the old flat `conditionStepAlias`/`operator`/`conditionValue`
+ * trio. `when`'s condition operands reference a step by its `alias` (just
+ * like `targetAlias` references the rule's target); the ingest pipeline
+ * (`WorkflowContentIngestService`) resolves both to real step/section ids.
  */
 export const AIGeneratedLogicRuleSchema = z.object({
   id: z.string().describe('Unique identifier for the logic rule'),
-  conditionStepAlias: z.string().optional().describe('Step alias to check condition on'),
-  operator: z.enum([
-    'equals',
-    'not_equals',
-    'contains',
-    'not_contains',
-    'greater_than',
-    'less_than',
-    'between',
-    'is_empty',
-    'is_not_empty',
-  ]).describe('Comparison operator'),
-  conditionValue: z.any().describe('Value to compare against'),
+  when: conditionExpressionSchema.describe(
+    'Trigger condition: a ConditionExpression tree (nested AND/OR groups of comparisons), ' +
+    'the same shape used for step/section visibility. Each condition\'s "variable" is a step alias.'
+  ),
   targetType: z.enum(['section', 'step']).describe('Whether the target is a section or step'),
   targetAlias: z.string().optional().describe('Alias of the target section/step'),
   action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']).describe('Action to perform when condition is met'),

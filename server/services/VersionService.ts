@@ -4,6 +4,7 @@ import { z } from "zod";
 import { CURRENT_VERSION_ID } from "@shared/config";
 import * as schema from "@shared/schema";
 import type { WorkflowVersion } from "@shared/schema";
+import type { ConditionExpression } from "@shared/types/conditions";
 import type { WorkflowJSON } from "@shared/types/workflow";
 
 import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
@@ -30,6 +31,7 @@ import { EsignProviderFactory } from "./esign/EsignProvider";
 import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffService";
 // eslint-disable-next-line import/no-cycle
 import { workflowService } from "./WorkflowService";
+
 import type { WorkflowContentData } from "./WorkflowContentIngestService";
 
 type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>;
@@ -185,7 +187,7 @@ export class VersionService {
         id: rule.id,
         conditionStepId: rule.conditionStepId ?? undefined,
         conditionStepAlias: rule.conditionStepId ? (stepIdToAlias.get(rule.conditionStepId) ?? rule.conditionStepId) : '',
-        when: rule.when ?? null,
+        when: (rule.when ?? null) as ConditionExpression,
         targetType: rule.targetType,
         targetId: rule.targetType === 'section' ? (rule.targetSectionId ?? undefined) : (rule.targetStepId ?? undefined),
         targetAlias: (rule.targetType === 'section' && rule.targetSectionId) ? (sectionIdToAlias.get(rule.targetSectionId) ?? rule.targetSectionId) : (rule.targetStepId ? (stepIdToAlias.get(rule.targetStepId) ?? rule.targetStepId) : ''),

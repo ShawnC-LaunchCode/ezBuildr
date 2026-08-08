@@ -6,10 +6,10 @@ import { describeWithDb } from '../../helpers/dbTestHelper';
 import { stepService } from '../../../server/services/StepService';
 import { logicRuleRepository } from '../../../server/repositories/LogicRuleRepository';
 import { stepRepository, transformBlockRepository } from '../../../server/repositories';
-import { buildSingleConditionExpression } from '../../../shared/workflowLogic';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 import type { ConditionExpression, Condition } from '../../../shared/types/conditions';
 
-/** Reads the (single, leaf) comparison value out of a `when` built by `buildSingleConditionExpression`. */
+/** Reads the (single, leaf) comparison value out of a `when` built by `buildTestWhen`. */
 function leafValue(when: unknown): unknown {
   const group = when as ConditionExpression;
   return (group?.conditions[0] as Condition)?.value;
@@ -65,7 +65,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        when: buildSingleConditionExpression(choiceStep.id, 'equals', 'old_val1'),
+        when: buildTestWhen(choiceStep.id, 'equals', 'old_val1'),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,
@@ -74,7 +74,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        when: buildSingleConditionExpression(choiceStep.id, 'contains', ['old_val1', 'old_val2']),
+        when: buildTestWhen(choiceStep.id, 'contains', ['old_val1', 'old_val2']),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,
@@ -187,7 +187,7 @@ describeWithDb('StepService DB', () => {
       const rule = await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: otherChoiceStep.id,
-        when: buildSingleConditionExpression(otherChoiceStep.id, 'equals', 'shared_val'),
+        when: buildTestWhen(otherChoiceStep.id, 'equals', 'shared_val'),
         action: 'show',
         targetType: 'step',
         targetStepId: otherChoiceStep.id,
@@ -229,7 +229,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        when: buildSingleConditionExpression(choiceStep.id, 'equals', 'old_val'),
+        when: buildTestWhen(choiceStep.id, 'equals', 'old_val'),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,

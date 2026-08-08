@@ -7,10 +7,10 @@ import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { run as runMigration } from '../../../scripts/migrateOptionAliases';
 import { stepService } from '../../../server/services/StepService';
-import { buildSingleConditionExpression } from '../../../shared/workflowLogic';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 import type { ConditionExpression, Condition } from '../../../shared/types/conditions';
 
-/** Reads the (single, leaf) comparison value out of a `when` built by `buildSingleConditionExpression`. */
+/** Reads the (single, leaf) comparison value out of a `when` built by `buildTestWhen`. */
 function leafValue(when: unknown): unknown {
   const group = when as ConditionExpression;
   return (group?.conditions[0] as Condition)?.value;
@@ -68,7 +68,7 @@ describeWithDb('migrateOptionAliases DB', () => {
       await tx.insert(logicRules).values({
         workflowId: testWorkflowId,
         conditionStepId: step.id,
-        when: buildSingleConditionExpression(step.id, 'equals', 'oldAlias'),
+        when: buildTestWhen(step.id, 'equals', 'oldAlias'),
         action: 'show',
         targetType: 'step',
         targetStepId: step.id,

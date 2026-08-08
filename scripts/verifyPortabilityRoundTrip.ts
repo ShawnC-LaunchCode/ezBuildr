@@ -34,10 +34,35 @@
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { buildSingleConditionExpression } from '@shared/workflowLogic';
+import type { ComparisonOperator, ConditionExpression } from '@shared/types/conditions';
 import { db, initializeDatabase } from '../server/db';
 import { authService } from '../server/services/AuthService';
 import { storageProvider } from '../server/services/storage';
+
+/**
+ * Builds a one-leaf `ConditionExpression` `when` for this script's demo
+ * logic rule. Not a production shim - `shared/workflowLogic.ts`'s
+ * `buildSingleConditionExpression` (the legacy flat-shape translation seam)
+ * was deleted in LU-6c once nothing produced that shape anymore; this is a
+ * local, script-only convenience for building a `when` literal.
+ */
+function buildDemoWhen(variable: string, operator: ComparisonOperator, value: unknown): ConditionExpression {
+  return {
+    type: 'group',
+    id: 'demo-condition-group',
+    operator: 'AND',
+    conditions: [
+      {
+        type: 'condition',
+        id: 'demo-condition-leaf',
+        variable,
+        operator,
+        value,
+        valueType: 'constant',
+      },
+    ],
+  };
+}
 
 const BASE = process.env.PORTABILITY_VERIFY_BASE ?? 'http://localhost:5000';
 const KEEP = process.env.PORTABILITY_VERIFY_KEEP === '1';
@@ -233,7 +258,7 @@ async function main(): Promise<void> {
   const [logicRule] = await db.insert(schema.logicRules).values({
     workflowId: workflow.id,
     conditionStepId: sourceStepIds[0],
-    when: buildSingleConditionExpression(sourceStepIds[0], 'equals', { v: 'test' }),
+    when: buildDemoWhen(sourceStepIds[0], 'equals', { v: 'test' }),
     targetType: 'step',
     targetStepId: sourceStepIds[1],
     action: 'show'

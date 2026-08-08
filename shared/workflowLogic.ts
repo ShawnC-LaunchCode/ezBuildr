@@ -4,21 +4,23 @@
  * This module provides conditional logic evaluation for Vault-Logic workflows.
  * It extends the base conditional logic to support both step-level and section-level targeting.
  *
- * LU-6a (Decision #5): a rule's trigger condition is a `ConditionExpression`
- * (`when`) - the same nested, 28-operator language `steps.visible_if` /
- * `sections.visible_if` already use - evaluated by the shared
- * `conditionEvaluator`. This module no longer implements its own comparison
- * logic; it is responsible only for the *push* semantics a `ConditionExpression`
- * does not have on its own: which rules target which section/step, what
- * action they take, and in what order they resolve when more than one fires
- * (first-firing `skip_to` wins; see `evaluateRules` below).
+ * LU-6a/LU-6c (Decision #5): a rule's trigger condition is a
+ * `ConditionExpression` (`when`) - the same nested, 28-operator language
+ * `steps.visible_if` / `sections.visible_if` already use - evaluated by the
+ * shared `conditionEvaluator`. It is the only condition language a rule
+ * carries anywhere (LU-6c retired the flat `operator`/`conditionValue` shape
+ * from every producer, including AI generation). This module no longer
+ * implements its own comparison logic; it is responsible only for the *push*
+ * semantics a `ConditionExpression` does not have on its own: which rules
+ * target which section/step, what action they take, and in what order they
+ * resolve when more than one fires (first-firing `skip_to` wins; see
+ * `evaluateRules` below).
  */
 
 import { evaluateConditionExpression } from './conditionEvaluator';
-import type { ConditionExpression, ComparisonOperator } from './types/conditions';
-import { generateConditionId } from './types/conditions';
-import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 import type { LogicRule } from './schema';
+import type { ConditionExpression } from './types/conditions';
+import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 
 export type EvaluableLogicRule = Pick<
   LogicRule,
@@ -31,68 +33,6 @@ export type EvaluableLogicRule = Pick<
  * alias layer) evaluate raw ids directly.
  */
 export type RuleAliasResolver = (aliasOrId: string) => string | undefined;
-
-/**
- * The 9 comparison operators the pre-LU-6a flat `logic_rules.operator`
- * column supported. Every one of them is also a valid `ComparisonOperator`
- * (Model A is a strict superset - see Decision #5), so this is a type
- * constraint, not a translation table.
- */
-export type FlatRuleOperator =
-  | 'equals' | 'not_equals' | 'contains' | 'not_contains'
-  | 'greater_than' | 'less_than' | 'between' | 'is_empty' | 'is_not_empty';
-
-/**
- * Builds a single-condition `ConditionExpression` from the legacy flat
- * (variable, operator, value) shape.
- *
- * Exists so callers that still speak the flat DSL keep working unchanged:
- * AI workflow generation (`AIGeneratedLogicRuleSchema`,
- * `shared/types/ai.ts`) and the workflow-content-ingest wire format
- * (`WorkflowLogicRuleData`, `server/services/WorkflowContentIngestService.ts`)
- * still emit/consume `{ conditionStepAlias, operator, conditionValue }`.
- * Teaching those surfaces to natively emit a `ConditionExpression` is LU-6c's
- * job (Decision #5: "AI-generated logic produces ConditionExpression
- * triggers, not flat conditions"); this helper is the seam that lets LU-6a
- * unify storage without also rewriting AI generation.
- */
-export function buildSingleConditionExpression(
-  variable: string,
-  operator: string,
-  value: unknown
-): ConditionExpression {
-  // The flat model's `between` packed both bounds into one
-  // `{ min, max }` conditionValue; Model A splits them across `value` and
-  // `value2`. Translate so `between` rules keep working, not just compile.
-  const { value: leafValue, value2 } = operator === 'between'
-    ? splitBetweenValue(value)
-    : { value, value2: undefined };
-
-  return {
-    type: 'group',
-    id: generateConditionId(),
-    operator: 'AND',
-    conditions: [
-      {
-        type: 'condition',
-        id: generateConditionId(),
-        variable,
-        operator: operator as ComparisonOperator,
-        value: leafValue,
-        value2,
-        valueType: 'constant',
-      },
-    ],
-  };
-}
-
-function splitBetweenValue(value: unknown): { value: unknown; value2: unknown } {
-  if (typeof value === 'object' && value !== null && 'min' in value && 'max' in value) {
-    const range = value as { min: unknown; max: unknown };
-    return { value: range.min, value2: range.max };
-  }
-  return { value, value2: undefined };
-}
 
 interface VisibilitySectionDefinition {
   id: string;

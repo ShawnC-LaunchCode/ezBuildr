@@ -7,6 +7,7 @@ vi.mock('../../../server/logger', () => ({
 
 import { logger } from '../../../server/logger';
 import { RunRuntimeService } from '../../../server/services/workflow-runs/RunRuntimeService';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 import { DEFAULT_RESOLVED_BRANDING, type ResolvedBranding } from '../../../shared/types/branding';
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -60,8 +61,7 @@ function makeService(overrides: {
         }],
         logicRules: [{
           conditionStepAlias: 'controller',
-          operator: 'equals',
-          conditionValue: 'yes',
+          when: buildTestWhen('controller', 'equals', 'yes'),
           targetType: 'step',
           targetId,
           action: 'show',
@@ -280,7 +280,7 @@ describe('RunRuntimeService', () => {
           }],
           logicRules: [{
             conditionStepAlias: 'ghost-controller',
-            operator: 'is_empty',
+            when: buildTestWhen('ghost-controller', 'is_empty'),
             targetType: 'step',
             targetId,
             action: 'hide',

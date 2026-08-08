@@ -2,7 +2,10 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
+import { AIGeneratedWorkflowSchema } from '@shared/types/ai';
+import { evaluateRules, type EvaluableLogicRule } from '@shared/workflowLogic';
 
+import { AliasResolver } from '../../server/services/AliasResolver';
 import { db } from '../../server/db';
 import {
   workflowContentIngestService,
@@ -32,8 +35,7 @@ interface PersistedSectionShape {
 
 interface PersistedRuleShape {
   conditionStepAlias: string | null;
-  operator: unknown;
-  conditionValue: unknown;
+  when: unknown;
   targetType: string;
   targetAlias: string | null;
   action: string;
@@ -109,8 +111,21 @@ const parityFixture: WorkflowContentData = {
   logicRules: [
     {
       conditionStepAlias: 'contactPreference',
-      operator: 'equals',
-      conditionValue: 'Email',
+      when: {
+        type: 'group',
+        id: 'parity-group',
+        operator: 'AND',
+        conditions: [
+          {
+            type: 'condition',
+            id: 'parity-condition',
+            variable: 'contactPreference',
+            operator: 'equals',
+            value: 'Email',
+            valueType: 'constant',
+          },
+        ],
+      },
       targetType: 'step',
       targetAlias: 'eligibilityNotes',
       action: 'show',
@@ -127,19 +142,6 @@ function cloneFixture(overrides?: Partial<WorkflowContentData>): WorkflowContent
 
 function stableJson(value: unknown): unknown {
   return value === undefined ? null : value;
-}
-
-/**
- * Extracts the (operator, value) pair out of a `when` built by
- * `buildSingleConditionExpression` - ignoring the leaf condition's `id`,
- * which is randomly generated per call and would otherwise make the AI vs.
- * manual ingest paths compare unequal even when they produced the same
- * condition.
- */
-function flatFromWhen(when: unknown): { operator: unknown; conditionValue: unknown } {
-  const group = when as { conditions?: Array<{ operator?: unknown; value?: unknown }> } | null;
-  const leaf = group?.conditions?.[0];
-  return { operator: leaf?.operator, conditionValue: leaf?.value };
 }
 
 async function readPersistedShape(workflowId: string): Promise<PersistedWorkflowShape> {
@@ -179,12 +181,10 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
       const targetAlias = rule.targetType === 'step'
         ? stepById.get(rule.targetStepId ?? '')?.alias ?? null
         : sectionById.get(rule.targetSectionId ?? '')?.title ?? null;
-      const { operator, conditionValue } = flatFromWhen(rule.when);
 
       return {
         conditionStepAlias,
-        operator,
-        conditionValue: stableJson(conditionValue),
+        when: stableJson(rule.when),
         targetType: rule.targetType,
         targetAlias,
         action: rule.action,
@@ -329,5 +329,72 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, workflowId));
     expect(auditsAfter.filter((row) => row.action === 'ai_revision_apply')).toHaveLength(1);
+  });
+
+  it('an AI-shaped payload (AIGeneratedWorkflowSchema) round-trips its `when` rule into one that actually evaluates (LU-6c AC4)', async () => {
+    const workflowId = await createWorkflow('AI schema round-trip workflow');
+
+    // A real AI-provider response would parse through this schema before
+    // ever reaching the ingest service — proves the schema itself now
+    // speaks ConditionExpression, not the retired flat shape.
+    const parsed = AIGeneratedWorkflowSchema.parse({
+      title: 'Pet Intake',
+      sections: [
+        {
+          id: 'section_1',
+          title: 'Section 1',
+          order: 0,
+          steps: [
+            { id: 'step_1', type: 'yes_no', title: 'Do you have pets?', alias: 'has_pets', required: false },
+            { id: 'step_2', type: 'short_text', title: 'Pet name', alias: 'pet_name', required: false },
+          ],
+        },
+      ],
+      logicRules: [
+        {
+          id: 'rule_1',
+          when: {
+            type: 'group',
+            id: 'ai-round-trip-group',
+            operator: 'AND',
+            conditions: [
+              { type: 'condition', id: 'ai-round-trip-condition', variable: 'has_pets', operator: 'is_true', valueType: 'constant' },
+            ],
+          },
+          targetType: 'step',
+          targetAlias: 'pet_name',
+          action: 'show',
+        },
+      ],
+      transformBlocks: [],
+    });
+
+    await workflowContentIngestService.apply(workflowId, parsed as unknown as WorkflowContentData, { source: 'ai' });
+
+    const storedSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const controller = storedSteps.find((step) => step.alias === 'has_pets');
+    const target = storedSteps.find((step) => step.alias === 'pet_name');
+    expect(controller).toBeDefined();
+    expect(target).toBeDefined();
+
+    const storedRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    expect(storedRules).toHaveLength(1);
+    const [rule] = storedRules;
+    expect(rule.action).toBe('show');
+    expect(rule.targetType).toBe('step');
+    // The alias-based FK bookkeeping resolved to the freshly-created steps.
+    expect(rule.conditionStepId).toBe(controller!.id);
+    expect(rule.targetStepId).toBe(target!.id);
+
+    // Not just stored — evaluate it through the real production path
+    // (shared/workflowLogic.ts, the same evaluator a run uses) with a
+    // negative and a positive control, proving `when` is a working
+    // condition and not inert JSON.
+    const resolveAlias = AliasResolver.createInlineResolver(storedSteps);
+    const hiddenResult = evaluateRules([rule as EvaluableLogicRule], {}, resolveAlias);
+    expect(hiddenResult.visibleSteps.has(target!.id)).toBe(false);
+
+    const shownResult = evaluateRules([rule as EvaluableLogicRule], { [controller!.id]: true }, resolveAlias);
+    expect(shownResult.visibleSteps.has(target!.id)).toBe(true);
   });
 });

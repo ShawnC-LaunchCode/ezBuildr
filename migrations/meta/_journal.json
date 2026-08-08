@@ -155,6 +155,13 @@
       "when": 1786139786694,
       "tag": "0021_tired_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786155795948,
+      "tag": "0022_ancient_stellaris",
+      "breakpoints": true
     }
   ]
 }

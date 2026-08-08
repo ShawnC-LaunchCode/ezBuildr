@@ -77,9 +77,21 @@ Output a JSON object with this exact structure:
   "logicRules": [
     {
       "id": "unique_rule_id",
-      "conditionStepAlias": "stepVariableName",
-      "operator": "equals|not_equals|contains|greater_than|less_than|is_empty|is_not_empty",
-      "conditionValue": "value to compare",
+      "when": {
+        "type": "group",
+        "id": "unique_condition_group_id",
+        "operator": "AND",
+        "conditions": [
+          {
+            "type": "condition",
+            "id": "unique_condition_id",
+            "variable": "stepVariableName",
+            "operator": "equals",
+            "value": "value to compare",
+            "valueType": "constant"
+          }
+        ]
+      },
       "targetType": "section|step",
       "targetAlias": "targetVariableName",
       "action": "show|hide|require|make_optional|skip_to",
@@ -143,7 +155,14 @@ LOGIC RULES GUIDANCE:
 - Use show/hide for optional sections based on answers
 - Use require/make_optional for conditional required fields
 - Use skip_to for branching workflows
-- Keep conditions simple: prefer equals/not_equals over complex operators
+- "when" is a condition tree, exactly like a step/section visibility condition: a "group" with
+  "operator" AND|OR and a "conditions" array of leaf conditions (and/or nested groups). Keep it
+  to a single leaf condition unless the request genuinely needs multiple criteria combined.
+- Keep conditions simple: prefer "equals"/"not_equals"/"is_empty"/"is_not_empty" over the more
+  specialized operators (starts_with, includes_any, diff_days, etc.) unless the request needs them
+- "value" is the comparison value; "valueType" is almost always "constant". "between" and the
+  date-diff operators use "value" AND "value2" instead of a combined range object
+- Every leaf condition's "variable" MUST be a step alias declared elsewhere in this same JSON
 
 TRANSFORM BLOCK PATTERNS:
 - Concatenation: \`emit(input.firstName + ' ' + input.lastName);\`
@@ -304,6 +323,10 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
   buildLogicGenerationPrompt(request: AIConnectLogicRequest): { systemMessage: string; userPrompt: string } {
     const systemMessage = `You are a Logic Architect for ezBuildr.
 Task: Generate logical conditions (logicRules) to connect steps based on the user's description.
+Each rule's trigger condition is "when": a ConditionExpression group ({ type: "group", id, operator:
+"AND"|"OR", conditions: [...] }) whose leaf conditions ({ type: "condition", id, variable, operator,
+value, valueType: "constant" }) reference a step by its alias - the same shape used for step/section
+visibility. Do not use a flat conditionStepAlias/operator/conditionValue shape.
 Workflow Context:
 ${JSON.stringify(request.currentWorkflow, null, 2)}
 }

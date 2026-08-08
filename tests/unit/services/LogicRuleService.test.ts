@@ -13,8 +13,7 @@ import {
   createTestStep,
   createTestLogicRule,
 } from "../../factories/workflowFactory";
-
-import { buildSingleConditionExpression } from "@shared/workflowLogic";
+import { buildTestWhen } from "../../helpers/conditionFixtures";
 
 import type { LogicRule } from "@shared/schema";
 
@@ -97,7 +96,7 @@ describe("LogicRuleService", () => {
   });
 
   const stepTargetInput = (overrides?: Partial<LogicRuleInput>): LogicRuleInput => ({
-    when: buildSingleConditionExpression("triggerAlias", "equals", "yes"),
+    when: buildTestWhen("triggerAlias", "equals", "yes"),
     targetType: "step",
     targetStepId: targetStep.id,
     action: "show",
@@ -127,7 +126,7 @@ describe("LogicRuleService", () => {
       await service.createRule(
         workflow.id,
         "user-1",
-        stepTargetInput({ when: buildSingleConditionExpression(stepB.id, "equals", "x") })
+        stepTargetInput({ when: buildTestWhen(stepB.id, "equals", "x") })
       );
 
       expect(mockLogicRuleRepo.create).toHaveBeenCalledWith(
@@ -147,7 +146,7 @@ describe("LogicRuleService", () => {
         service.createRule(
           workflow.id,
           "user-1",
-          stepTargetInput({ when: buildSingleConditionExpression("nonexistentAlias", "equals", "x") })
+          stepTargetInput({ when: buildTestWhen("nonexistentAlias", "equals", "x") })
         )
       ).rejects.toThrow(/unknown step/);
     });
@@ -161,7 +160,7 @@ describe("LogicRuleService", () => {
     it("rejects require/make_optional against a section target", async () => {
       await expect(
         service.createRule(workflow.id, "user-1", {
-          when: buildSingleConditionExpression("triggerAlias", "equals", "yes"),
+          when: buildTestWhen("triggerAlias", "equals", "yes"),
           targetType: "section",
           targetSectionId: section.id,
           action: "require",
@@ -171,7 +170,7 @@ describe("LogicRuleService", () => {
 
     it("accepts skip_to against a section target", async () => {
       await service.createRule(workflow.id, "user-1", {
-        when: buildSingleConditionExpression("triggerAlias", "equals", "yes"),
+        when: buildTestWhen("triggerAlias", "equals", "yes"),
         targetType: "section",
         targetSectionId: section.id,
         action: "skip_to",
@@ -193,7 +192,7 @@ describe("LogicRuleService", () => {
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
       await expect(
         service.createRule(workflow.id, "user-1", {
-          when: buildSingleConditionExpression("triggerAlias", "equals", "yes"),
+          when: buildTestWhen("triggerAlias", "equals", "yes"),
           targetType: "section",
           targetSectionId: "some-other-workflows-section",
           action: "show",
@@ -228,7 +227,7 @@ describe("LogicRuleService", () => {
     const existingRule = createTestLogicRule(workflow.id, {
       id: "rule-1",
       conditionStepId: stepA.id,
-      when: buildSingleConditionExpression("triggerAlias", "equals", "yes"),
+      when: buildTestWhen("triggerAlias", "equals", "yes"),
       targetType: "step",
       targetStepId: targetStep.id,
       targetSectionId: null,
@@ -257,7 +256,7 @@ describe("LogicRuleService", () => {
       // Update its `when` to reference stepB (raw id, no alias) instead —
       // conditionStepId must follow to stepB, not remain stale at stepA.
       await service.updateRule("rule-1", workflow.id, "user-1", {
-        when: buildSingleConditionExpression(stepB.id, "equals", "x"),
+        when: buildTestWhen(stepB.id, "equals", "x"),
       });
 
       expect(mockLogicRuleRepo.update).toHaveBeenCalledWith(

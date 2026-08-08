@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import type { LogicRule } from "@shared/schema";
 import type { ConditionExpression, ComparisonOperator } from "@shared/types/conditions";
+import { generateConditionId } from "@shared/types/conditions";
 import {
   evaluateRules,
   calculateNextSection,
@@ -9,17 +10,45 @@ import {
   validateRequiredSteps,
   getEffectiveRequiredSteps,
   evaluateWorkflowVisibility,
-  buildSingleConditionExpression,
 } from "@shared/workflowLogic";
 
 /**
- * Shorthand for building a single-condition `when` in these fixtures - a
- * thin alias over the same `buildSingleConditionExpression` production code
- * uses (LU-6a), so every rule below exercises the real evaluator through the
- * real production shape rather than a test-only shortcut.
+ * `between`'s two bounds are packed into one fixture `value` here purely for
+ * fixture ergonomics ({ min, max }); split them across the real `value`/
+ * `value2` fields `shared/conditionEvaluator.ts` expects. Not a production
+ * shim - LU-6c deleted the legacy-shape translation seam
+ * (`buildSingleConditionExpression`) this used to delegate to; this is a
+ * test-only fixture convenience.
  */
+function splitBetweenValue(value: unknown): { value: unknown; value2: unknown } {
+  if (typeof value === "object" && value !== null && "min" in value && "max" in value) {
+    const range = value as { min: unknown; max: unknown };
+    return { value: range.min, value2: range.max };
+  }
+  return { value, value2: undefined };
+}
+
+/** Shorthand for building a single-condition `when` in these fixtures. */
 function cond(variable: string, operator: string, value?: unknown): ConditionExpression {
-  return buildSingleConditionExpression(variable, operator as ComparisonOperator, value);
+  const { value: leafValue, value2 } = operator === "between"
+    ? splitBetweenValue(value)
+    : { value, value2: undefined };
+  return {
+    type: "group",
+    id: generateConditionId(),
+    operator: "AND",
+    conditions: [
+      {
+        type: "condition",
+        id: generateConditionId(),
+        variable,
+        operator: operator as ComparisonOperator,
+        value: leafValue,
+        value2,
+        valueType: "constant",
+      },
+    ],
+  };
 }
 
 describe("evaluateWorkflowVisibility parity contract", () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildSingleConditionExpression } from "../../../shared/workflowLogic";
+import { buildTestWhen } from "../../helpers/conditionFixtures";
 
 const getWorkflowWithDetails = vi.fn();
 const findBlocks = vi.fn();
@@ -40,11 +40,8 @@ describe("VersionService.serializeWorkflow", () => {
     const visibleIf = { operator: "equals", alias: "approved", value: true };
     const skipIf = { operator: "is_empty", alias: "email" };
     // Built once and reused for both the fixture and the assertion: `when`
-    // is passed through verbatim by VersionService, but
-    // `buildSingleConditionExpression` mints a fresh random condition id on
-    // every call, so two independently-built calls would never be
-    // deep-equal even when they represent the same condition.
-    const ruleWhen = buildSingleConditionExpression("step-1", "equals", conditionValue);
+    // is passed through verbatim by VersionService.
+    const ruleWhen = buildTestWhen("step-1", "equals", conditionValue);
 
     getWorkflowWithDetails.mockResolvedValue({
       id: "workflow-1",

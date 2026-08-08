@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { AIService } from '../../server/services/AIService';
+import { buildTestWhen } from '../helpers/conditionFixtures';
 
 import type { AIProviderConfig } from '../../shared/types/ai';
 
@@ -236,9 +237,7 @@ describe('AIService', () => {
         logicRules: [
           {
             id: 'rule_1',
-            conditionStepAlias: 'nonexistent', // Non-existent step
-            operator: 'equals',
-            conditionValue: 'yes',
+            when: buildTestWhen('nonexistent', 'equals', 'yes'), // Non-existent step
             targetType: 'step',
             targetAlias: 'step1',
             action: 'show',

@@ -23,7 +23,32 @@ import {
   transformBlocks,
   logicRules,
 } from '../shared/schema';
-import { buildSingleConditionExpression } from '../shared/workflowLogic';
+import type { ComparisonOperator, ConditionExpression } from '../shared/types/conditions';
+
+/**
+ * Builds a one-leaf `ConditionExpression` `when` for this demo script's
+ * logic rules. Not a production shim - `shared/workflowLogic.ts`'s
+ * `buildSingleConditionExpression` (the legacy flat-shape translation seam)
+ * was deleted in LU-6c once nothing produced that shape anymore; this is a
+ * local, script-only convenience for building a `when` literal.
+ */
+function buildDemoWhen(variable: string, operator: ComparisonOperator, value: unknown): ConditionExpression {
+  return {
+    type: 'group',
+    id: `demo-condition-group-${variable}-${operator}`,
+    operator: 'AND',
+    conditions: [
+      {
+        type: 'condition',
+        id: `demo-condition-leaf-${variable}-${operator}`,
+        variable,
+        operator,
+        value,
+        valueType: 'constant',
+      },
+    ],
+  };
+}
 
 // 2024 Federal Poverty Level thresholds (for demonstration)
 const _POVERTY_LEVELS: Record<number, number> = {
@@ -983,7 +1008,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
+    when: buildDemoWhen(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
     targetType: 'step',
     targetStepId: stepIds.employerName,
     action: 'require',
@@ -994,7 +1019,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
+    when: buildDemoWhen(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
     targetType: 'step',
     targetStepId: stepIds.employerName,
     action: 'require',
@@ -1006,7 +1031,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.qualificationStatus,
-    when: buildSingleConditionExpression(stepIds.qualificationStatus, 'equals', 'Likely Qualified'),
+    when: buildDemoWhen(stepIds.qualificationStatus, 'equals', 'Likely Qualified'),
     targetType: 'section',
     targetSectionId: sectionIds.assets,
     action: 'hide',
@@ -1017,7 +1042,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
+    when: buildDemoWhen(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
     targetType: 'step',
     targetStepId: stepIds.payStubs,
     action: 'require',
@@ -1028,7 +1053,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
+    when: buildDemoWhen(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
     targetType: 'step',
     targetStepId: stepIds.payStubs,
     action: 'require',

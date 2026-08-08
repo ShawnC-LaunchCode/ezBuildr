@@ -17,8 +17,9 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
-import { buildSingleConditionExpression } from "@shared/workflowLogic";
 import type { ConditionExpression, Condition } from "@shared/types/conditions";
+
+import { buildTestWhen } from "../helpers/conditionFixtures";
 
 import { db } from "../../server/db";
 import {
@@ -82,7 +83,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     await db.insert(schema.logicRules).values({
       workflowId,
       conditionStepId: stepBId,
-      when: buildSingleConditionExpression(stepBId, "equals", "true"),
+      when: buildTestWhen(stepBId, "equals", "true"),
       targetType: "step",
       targetStepId: stepCId,
       action: "show",
@@ -144,6 +145,74 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     expect(rule.action).toBe("show");
     expect(rule.conditionStepId).toBe(stepsByAlias.has_pets.id);
     expect(rule.targetStepId).toBe(stepsByAlias.pet_name.id);
+  });
+
+  it("LU-6c regression: a rule whose `when` references its condition step by ALIAS survives build -> publish -> template -> instantiate with `when` intact", async () => {
+    // Unlike buildWorkflowWithContent's rule (which references its condition
+    // step by raw id - the case that surfaced this regression), this one's
+    // `when` references the step by ALIAS ("has_pets"), the shape
+    // LogicRuleService/O-7 and AI generation both produce. LU-6c's tightened
+    // ingest validation must accept an alias reference exactly as readily as
+    // a raw-id one, not just the raw-id case.
+    const wfRes = await agent
+      .post("/api/workflows")
+      .send({ title: `WF ${nanoid()}`, projectId: ctx.projectId });
+    expect(wfRes.status).toBe(201);
+    const workflowId = wfRes.body.id as string;
+
+    const secRes = await agent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Applicant Info" });
+    expect(secRes.status).toBe(201);
+    const sectionId = secRes.body.id as string;
+
+    const stepBRes = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "yes_no", title: "Has pets?", alias: "has_pets" });
+    expect(stepBRes.status).toBe(201);
+    const stepBId = stepBRes.body.id as string;
+
+    const stepCRes = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Pet name", alias: "pet_name" });
+    expect(stepCRes.status).toBe(201);
+    const stepCId = stepCRes.body.id as string;
+
+    await db.insert(schema.logicRules).values({
+      workflowId,
+      conditionStepId: stepBId,
+      when: buildTestWhen("has_pets", "is_true"),
+      targetType: "step",
+      targetStepId: stepCId,
+      action: "show",
+    });
+
+    const templateId = await publishAndTemplate(workflowId);
+
+    const instRes = await agent
+      .post(`/api/blueprints/${templateId}/instantiate`)
+      .send({ projectId: ctx.projectId });
+    expect(instRes.status).toBe(200);
+    const newWorkflowId = instRes.body.data.workflowId as string;
+
+    const newSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, newWorkflowId));
+    const newController = newSteps.find((step) => step.alias === "has_pets");
+    const newTarget = newSteps.find((step) => step.alias === "pet_name");
+    expect(newController).toBeDefined();
+    expect(newTarget).toBeDefined();
+
+    const newRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, newWorkflowId));
+    expect(newRules).toHaveLength(1);
+    const [rule] = newRules;
+    const whenGroup = rule.when as ConditionExpression;
+    const leaf = whenGroup?.conditions[0] as Condition;
+    // `when` survived the round trip intact - still alias-keyed, still the
+    // right operator - not silently dropped or rewritten.
+    expect(leaf?.variable).toBe("has_pets");
+    expect(leaf?.operator).toBe("is_true");
+    expect(rule.conditionStepId).toBe(newController!.id);
+    expect(rule.targetStepId).toBe(newTarget!.id);
+    expect(rule.action).toBe("show");
   });
 
   it("returns 400 and creates nothing for an empty blueprint", async () => {

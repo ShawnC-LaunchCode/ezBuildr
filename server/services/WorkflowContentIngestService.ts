@@ -4,12 +4,13 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
+import { extractConditionReferences } from "../../shared/conditionGraph";
 import { LIMITS, LimitExceededError } from "../../shared/limits";
-import { buildSingleConditionExpression } from "../../shared/workflowLogic";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 
 import type { StepConfig } from "../../shared/types/stepConfigs";
+import type { ConditionExpression } from "../../shared/types/conditions";
 
 import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
 import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
@@ -45,25 +46,24 @@ export interface WorkflowStepData {
 
 /**
  * Wire shape for a logic rule as produced/consumed by AI workflow generation
- * (`AIGeneratedLogicRuleSchema`) and portability content ingest.
+ * (`AIGeneratedLogicRuleSchema`) and template/blueprint content ingest (a
+ * `VersionService.serializeWorkflow` snapshot).
  *
- * LU-6a (Decision #5): DB storage moved from a flat
- * (operator/conditionValue/logicalOperator) condition to a `when`
- * ConditionExpression, but this wire DTO still accepts the flat shape too -
- * `syncLogicRules` synthesizes `when` from it via
- * `buildSingleConditionExpression` when `when` itself isn't supplied. This
- * keeps AI generation and existing import payloads working unchanged;
- * teaching those producers to emit `when` natively is LU-6c's job.
+ * LU-6c: both producers emit `when` (a `ConditionExpression`) natively - the
+ * legacy flat `operator`/`conditionValue` shape and the
+ * `buildSingleConditionExpression` seam that synthesized `when` from it are
+ * gone. `conditionStepAlias`/`targetAlias` are not a second condition
+ * language; they are alias-keyed FK bookkeeping `syncLogicRules` resolves
+ * into real ids for the *newly created* steps/sections in this ingest pass
+ * (`conditionStepId`/`targetId` are the already-resolved forms a version
+ * snapshot supplies directly, when ids don't need remapping).
  */
 export interface WorkflowLogicRuleData {
   id?: string;
-  conditionStepAlias: string;
+  conditionStepAlias?: string;
   conditionStepId?: string;
-  /** ConditionExpression trigger. Preferred over operator/conditionValue when present. */
-  when?: unknown;
-  operator?: string;
-  conditionValue?: string;
-  value?: string;
+  /** Trigger condition - the same ConditionExpression `visibleIf` uses. */
+  when: ConditionExpression;
   targetType: string;
   targetAlias: string;
   targetId?: string;
@@ -539,9 +539,19 @@ export class WorkflowContentIngestService {
 
     const mappedRules = rules
       .map((rule): InsertLogicRule | null => {
-        const conditionStepId = aliasMap.get(rule.conditionStepAlias) ?? rule.conditionStepId;
+        // LU-6c: `when` is the only condition language a rule carries.
+        // `conditionStepAlias`, when supplied (a version/template snapshot
+        // always sets it - see VersionService.serializeWorkflow), is the
+        // authoritative FK-remap key; otherwise derive it from `when`'s own
+        // first operand (AI generation supplies only `when`), the same way
+        // `LogicRuleService`/O-7 derive `conditionStepId` for human-authored
+        // rules.
+        const [firstConditionRef] = extractConditionReferences(rule.when);
+        const conditionAlias = isPresent(rule.conditionStepAlias) ? rule.conditionStepAlias : firstConditionRef;
+        const conditionStepId = (conditionAlias ? aliasMap.get(conditionAlias) : undefined)
+          ?? rule.conditionStepId;
         const targetId = aliasMap.get(rule.targetAlias) ?? rule.targetId;
-        if (!isPresent(conditionStepId) || !isPresent(targetId)) {
+        if (!isPresent(conditionStepId) || !isPresent(targetId) || !rule.when) {
           return null;
         }
 
@@ -549,20 +559,10 @@ export class WorkflowContentIngestService {
           ? { targetSectionId: targetId, targetStepId: null }
           : { targetSectionId: null, targetStepId: targetId };
 
-        // LU-6a: prefer a native `when` ConditionExpression (a restored
-        // version snapshot supplies one); fall back to synthesizing one from
-        // the legacy flat operator/value shape (AI generation, older import
-        // payloads) so those producers don't need to change (Decision #5).
-        const when = rule.when ?? (
-          rule.operator
-            ? buildSingleConditionExpression(conditionStepId, rule.operator, rule.value ?? rule.conditionValue)
-            : null
-        );
-
         return {
           workflowId,
           conditionStepId,
-          when,
+          when: rule.when,
           action: rule.action,
           targetType: rule.targetType,
           ...targetFields,

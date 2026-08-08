@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import type { LogicRule, Section, Step, WorkflowRun } from "@shared/schema";
-import { buildSingleConditionExpression } from "@shared/workflowLogic";
 
 import { logger } from "../../logger";
 import {
@@ -44,62 +43,26 @@ const VersionSectionSchema = z.object({
   steps: z.array(VersionStepSchema).nullish(),
 }).passthrough();
 
-// LU-6a: a rule's trigger condition is `when` (a ConditionExpression),
-// evaluated the same way `visibleIf` is. `operator`/`conditionValue` are kept
-// nullish-optional (not removed) because a version published before LU-6a
-// can still have a graphJson snapshot frozen in the legacy flat shape -
-// `getDefinition` synthesizes `when` from them for that case (see below).
+// LU-6c: a rule's trigger condition is `when` (a ConditionExpression),
+// evaluated the same way `visibleIf` is - it is the only condition language
+// a pinned rule carries (measured 2026-08-07: all 57 `workflow_versions` rows
+// have an empty `logicRules` array, so no pinned snapshot anywhere is frozen
+// in the legacy flat operator/conditionValue shape; nothing produces that
+// shape going forward either). `conditionStepAlias`/`targetAlias` are not a
+// second condition language - they are alias-keyed FK bookkeeping
+// `VersionService.serializeWorkflow` derives from the real, already-resolved
+// `conditionStepId`/`targetId`.
 const VersionLogicRuleSchema = z.object({
   id: z.string().nullish(),
   conditionStepId: z.string().nullish(),
   conditionStepAlias: z.string().nullish(),
-  when: z.unknown().optional(),
-  operator: z.string().nullish(),
-  conditionValue: z.unknown().optional(),
+  when: z.unknown().nullish(),
   targetType: z.enum(["section", "step"]),
   targetId: z.string().nullish(),
   targetAlias: z.string().nullish(),
   action: z.string(),
   order: z.number().nullish(),
 }).passthrough();
-
-type VersionLogicRule = z.infer<typeof VersionLogicRuleSchema>;
-
-/** Sentinel returned by `resolveRuleWhen` to signal the rule must be dropped. */
-const DROP_RULE = Symbol("drop-rule");
-
-/**
- * Resolves a pinned rule's `when` (LU-6a). Prefers a native `when` (any rule
- * written after the schema change has one). Falls back to synthesizing one
- * from the legacy flat operator/conditionValue shape for a version snapshot
- * published *before* LU-6a, preserving RUN2-11's original guard: a rule
- * whose condition step cannot be resolved is dropped, logged once.
- */
-function resolveRuleWhen(
-  rule: VersionLogicRule,
-  conditionStepId: string,
-  index: number,
-  workflowVersionId: string
-): unknown {
-  if (rule.when != null) {
-    return rule.when;
-  }
-  if (typeof rule.operator !== "string") {
-    return null;
-  }
-  if (!conditionStepId) {
-    logger.warn(
-      {
-        versionId: workflowVersionId,
-        ruleId: rule.id ?? `runtime-rule-${index}`,
-        conditionStepAlias: rule.conditionStepAlias ?? null,
-      },
-      "Dropping runtime logic rule with unresolvable condition step"
-    );
-    return DROP_RULE;
-  }
-  return buildSingleConditionExpression(conditionStepId, rule.operator, rule.conditionValue);
-}
 
 const VersionRuntimeSchema = z.object({
   title: z.string(),
@@ -248,22 +211,30 @@ export class RunDefinitionProvider {
     );
     const sectionIds = new Set(graph.sections.map((section) => section.id));
 
-    // LU-6a: a rule's trigger condition is `when`, evaluated through the
-    // same alias-aware ConditionExpression evaluator as `visibleIf`. Any
-    // rule written after the schema change has `when` natively (RUN2-11's
-    // guard no longer applies to it - `when`'s own operand references are
-    // the evaluator's problem, exactly like `visibleIf`). A version snapshot
-    // published *before* LU-6a can still be frozen with the legacy flat
-    // operator/conditionValue shape and no `when` at all; for that case only,
-    // synthesize `when` the same way `WorkflowContentIngestService` does, and
-    // preserve RUN2-11's original guard: a rule whose condition step cannot
-    // be resolved (neither a direct id nor an alias found in this version's
-    // steps) is dropped rather than synthesized with an empty operand,
-    // logged once per dropped rule.
+    // LU-6c: a rule's trigger condition is `when`, evaluated through the
+    // same alias-aware ConditionExpression evaluator as `visibleIf` - it is
+    // the only condition language a pinned rule carries (see the schema
+    // comment above). A rule with no `when` has nothing to evaluate and is
+    // dropped. `conditionStepId` is not read by evaluation (`evaluateRules`
+    // resolves `when`'s own operand at eval time) but is still denormalized
+    // FK bookkeeping other consumers may read, so RUN2-11's guard - drop a
+    // rule whose condition step cannot be resolved in this version's own
+    // steps, rather than passing one through with a hollow "" id - still
+    // applies, logged once per dropped rule.
     const logicRules: LogicRule[] = (graph.logicRules ?? []).flatMap((rule, index) => {
+      if (rule.when == null) {
+        return [];
+      }
       const conditionStepId = rule.conditionStepId ?? stepIdByAlias.get(rule.conditionStepAlias ?? "") ?? "";
-      const resolvedWhen = resolveRuleWhen(rule, conditionStepId, index, workflowVersionId);
-      if (resolvedWhen === DROP_RULE) {
+      if (!conditionStepId) {
+        logger.warn(
+          {
+            versionId: workflowVersionId,
+            ruleId: rule.id ?? `runtime-rule-${index}`,
+            conditionStepAlias: rule.conditionStepAlias ?? null,
+          },
+          "Dropping runtime logic rule with unresolvable condition step"
+        );
         return [];
       }
 
@@ -274,7 +245,7 @@ export class RunDefinitionProvider {
         id: rule.id ?? `runtime-rule-${index}`,
         workflowId: run.workflowId,
         conditionStepId,
-        when: resolvedWhen,
+        when: rule.when,
         targetType: rule.targetType,
         targetStepId: rule.targetType === "step" ? targetId ?? null : null,
         targetSectionId: rule.targetType === "section" ? targetId ?? null : null,
