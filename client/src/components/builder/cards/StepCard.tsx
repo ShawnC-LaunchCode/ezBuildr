@@ -205,11 +205,25 @@ export function StepCard({
                                     </div>
                                 )}
                             </div>
+                            {/*
+                              * O-5: this toggle is icon-only, so without an
+                              * explicit name it is announced as an unlabelled
+                              * button and is unreachable by any name-based
+                              * query. `aria-expanded` also lets assistive tech
+                              * (and tests) read the open state, which the
+                              * chevron alone only conveys visually.
+                              */}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5"
                                 onClick={() => { onToggleExpand?.(); }}
+                                aria-expanded={isExpanded}
+                                aria-label={
+                                    isExpanded
+                                        ? `Collapse settings for ${step.title}`
+                                        : `Expand settings for ${step.title}`
+                                }
                             >
                                 {isExpanded ? (
                                     <ChevronDown className="h-3 w-3" />

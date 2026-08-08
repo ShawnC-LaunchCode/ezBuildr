@@ -1118,22 +1118,36 @@ saying why.
 
 ## Backlog / observations
 
-- **O-1.** `client/src/components/builder/LogicPanel.tsx` renders `LogicBuilder` twice
-  (two call sites in one component). Probably a step/section split, but worth confirming it
-  isn't a copy-paste artifact. Not sized; look at it during the Phase 1 gate.
+- **O-1. ✅ CLOSED 2026-08-08 — not a defect.** The two `LogicBuilder` call sites in
+  `LogicPanel.tsx` are the section branch (`elementType="section"`, `section.visibleIf`,
+  `updateSectionMutation`) and the step branch (`elementType="step"`, `step.visibleIf`,
+  `updateStepMutation`). Different element, different mutation, different early return — not a
+  copy-paste artifact. No change made.
 - **O-2.** `getLegacyChoiceOptions` + the `CHOICE_STEP_TYPES` set in `LogicBuilder` reach into
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
-- **O-10.** `isEasyMode` in
-  `client/src/components/builder/final/FinalDocumentsSectionEditor.tsx` derives from
-  `useWorkflowBuilder().mode` (zustand), but the live Easy/Advanced toggle is server-backed and
-  read via a separate `useWorkflowMode` query in `WorkflowBuilder.tsx`. The store's `mode` is
-  never synced and stays `"easy"` permanently, so anything gated on it — the screen title and
-  the "Advanced Options" block in that file — may be **unreachable in the live app today**.
-  Found during LU-5, which deliberately did not gate its new condition row on the flag. Not
-  caused by this initiative; verify against the running app before sizing, and note the builder
-  chrome is mid-refactor in the repo owner's tree.
+- **O-10. ⬆️ PROMOTE TO A TICKET — verified 2026-08-08, deliberately NOT fixed here.**
+  There are two sources of truth for builder Easy/Advanced mode, and one of them is dead.
+
+  `client/src/store/workflow-builder.ts` initialises `mode: "easy"` (line 42) and exposes
+  `setMode` (line 43). **`setMode` has zero callers** — the only greps are an unrelated local
+  `useState` in `LogicRulesTab` and `useSetWorkflowMode()` in `WorkflowSettings`, which writes
+  the *server* mode. So the store's `mode` is permanently `"easy"`.
+
+  **Six components gate UI on that dead flag** and therefore never show their Advanced
+  branches: `final/FinalDocumentsSectionEditor.tsx`, `pages/BlockCard.tsx`,
+  `pages/LogicAddMenu.tsx`, `pages/QuestionAddMenu.tsx`, `tabs/SectionsTab.tsx`, and
+  `layout/CommandPalette.tsx`. Eight other components already use the correct server-backed
+  `useWorkflowMode` hook — including `cards/StepCard.tsx`, so the right pattern is in-repo and
+  the fix is mechanical.
+
+  **Why it is not fixed here:** switching six components to the real mode makes
+  previously-invisible Advanced UI appear, which is a product change the repo owner should
+  approve, not a silent cleanup. It also lands in builder components while a builder-chrome
+  refactor is in flight in the working tree. LU-5 correctly side-stepped it by leaving its new
+  condition row ungated rather than gating it on a flag that would have hidden it forever.
+
 - **O-9. Error messages lost from ~541 log sites — ✅ FIXED 2026-08-08 (Senior).**
   Found while diagnosing LU-6c's blueprint regression: a 500 logged as
   `{"code":"VALIDATION_ERROR","message":""}` when the real text was
@@ -1163,36 +1177,71 @@ saying why.
   `server/index.ts:146` — evidence someone hit this before and patched one call site instead of
   the cause.
 
-- **O-8.** Dispatch prompts tell devs not to touch files outside their ticket, but say nothing
+- **O-8. ⚠️ SEVERITY CORRECTED 2026-08-08.** This was filed as a dev writing to "the shared
+  **dev** database". It was **production**. `railway status` reports environment `production`,
+  and its `DATABASE_URL` resolves to the same Neon host and database as local `.env` — local
+  development and production share one database. The LU-6b dev's `npm run db:migrate` therefore
+  ran against production, and because nothing had been pushed, production spent hours running
+  code that queried `logic_rules.operator` after the column had been dropped: any path through
+  `RunDefinitionProvider` (starting or resuming a run) returned a 500. Resolved by pushing
+  (deploy `b96489ad`), verified afterwards — the old query fails, the new one succeeds, 84
+  workflows and 52 `visible_if` rows intact.
+
+  The lasting lesson is the environment topology, not the dev's judgement: **any schema change
+  made locally hits production immediately, before any code ships.** The repo owner has a
+  planned DB-setup change that addresses this. Until then, dispatch prompts must say that
+  schema/data changes, pushes, and anything outward-facing are the reviewer's call. Dispatch
+  prompts tell devs not to touch files outside their ticket, but say nothing
   about **shared infrastructure**. A dev ran `npm run db:migrate` against the shared dev
   database during LU-6b — correctly, and harmlessly, but unilaterally. Add an explicit line to
   the kickoff prompt: schema/data changes to the shared dev database, pushes, and anything
   outward-facing are the reviewer's call, and a dev that believes one is needed should report a
   blocker. (The dev DB being behind `main` after a schema ticket is itself a recurring gap
   worth a checklist item at the phase gate.)
-- **O-7.** After LU-6a, `logic_rules.condition_step_id` is denormalized against the operand
-  inside `when`: both name a step, and nothing enforces that they agree. It is kept on purpose
-  (FK remapping for alias rename, portability and cloning need a plain column they can rewrite
-  without parsing a condition tree), but **LU-6b must write both together** or an authored rule
-  can end up with `when` referencing step X while `condition_step_id` says Y — which would
-  silently corrupt import/export and clone remapping rather than failing loudly.
-- **O-6.** `server/lib/logic/optimizer.ts` exports a `detectCycles(_workflow): string[]` that
-  is a **stub returning `[]`**, with a comment describing the graph traversal it never got.
-  The file has **zero importers**. LU-3 did not duplicate working code — it implemented what
-  was only ever a TODO — but the stub should now be deleted, or a future reader finds two
-  cycle detectors and picks the one that silently reports nothing. Small; fold into LU-6c's
-  dead-read removal.
-- **O-5.** The step-card expand/collapse toggle in
-  `client/src/components/builder/cards/StepCard.tsx` is an icon-only ghost `Button` wrapping a
-  `ChevronRight`/`ChevronDown` with no `aria-label` and no text, so it has no accessible name.
-  Screen readers announce it as an unlabelled button, and it is unreachable by any name-based
-  query (which is how it was found — it blocked the reviewer's own drive-through). Cheap fix,
-  real a11y defect, and it touches GH-158's accessibility scope. Not caused by this
-  initiative.
-- **O-4.** The legacy string-expression branch of `extractConditionReferences` (`shared/conditionGraph.ts`,
-  inherited unchanged from the old `extractStringIdentifiers` in `workflowLintRules.ts`) matches bare
-  identifiers with a regex, so a string `visibleIf` such as `name == 'foo'` extracts `foo` and can
-  false-positive as a dangling reference. Pre-existing, not introduced by LU-3; deliberately left alone
-  there. Only reachable if raw-string `visibleIf` rows actually exist — check that before sizing.
-- **O-3.** `logicRuleAPI.list` returns `unknown[]` and `useLogicRules` is typed
-  `UseQueryResult<unknown[]>`. Whatever the Model B decision, that type should be real.
+- **O-7. ✅ CLOSED — resolved by LU-6b, better than asked.** `conditionStepId` cannot drift
+  from `when`: the input schema has no such field, so a client cannot supply it, and the server
+  derives it inside the same write. The invariant is unrepresentable rather than merely tested.
+
+- **O-6. ✅ CLOSED — done in LU-6c.** The unreferenced `detectCycles` stub returning `[]`
+  is deleted from `server/lib/logic/optimizer.ts`.
+
+- **O-5. ✅ FIXED 2026-08-08 (Senior).** The step-card expand/collapse toggle in
+  `client/src/components/builder/cards/StepCard.tsx` was an icon-only ghost button with no
+  text and no `aria-label`, so it had no accessible name — screen readers announced an
+  unlabelled button, and it was unreachable by any name-based query. That is how it was found:
+  it blocked the Phase 1 gate's own drive-through of the builder. Now carries
+  `aria-label` ("Expand/Collapse settings for <question title>") and `aria-expanded`, which
+  also exposes open state that the chevron previously conveyed only visually. Covered by
+  `tests/unit/client/StepCard.a11y.test.tsx`. Relevant to GH-158's accessibility scope.
+
+- **O-4. ✅ FIXED 2026-08-08 (Senior) — and the real defect was larger than filed.**
+  The observation described a regex that could false-positive on a legacy raw-string
+  `visibleIf`. Chasing it down found a type lie running through three files:
+
+  - `shared/types/ai.ts` declared `visibleIf: z.any()` described as **"string or object"**, so
+    AI generation was free to emit a string.
+  - `WorkflowContentIngestService`'s DTOs declared `visibleIf?: string`, and stored it via
+    `sectionData.visibleIf as unknown as Record<string, unknown>` — a double cast that hid the
+    mismatch from the compiler.
+  - `VersionService` cast both section and step `visibleIf` to `string | undefined`, its
+    comment conceding it did so "for compatibility with WorkflowService".
+
+  A string that actually took that path would be stored as a JSON string, then fail
+  `evaluateGroup`, get swallowed by `evaluateConditionExpression`'s catch, and return `false`
+  — **silently hiding the question forever**. The lint regex would additionally match string
+  *literals* (`name == 'foo'` yields `foo`), and since LU-3 made unresolvable operands
+  publish-blocking errors, one such value would have blocked publish with a nonsense message.
+
+  Measured before changing anything: **0** string-shaped `visible_if` rows (all 52 are
+  objects), so nothing had yet taken the path.
+
+  Fixed at the source — `ai.ts` now requires `conditionExpressionSchema`, both ingest DTOs and
+  `WorkflowService`'s shadowing copy declare `ConditionExpression | null`, and the double cast
+  is gone. With a string no longer storable, the regex branch in `conditionGraph.ts` is deleted
+  rather than left as a trap. The `CONDITION_KEYWORDS` filter went with it: operands now come
+  only from a structured tree, so a step legitimately aliased `or` or `not` was being silently
+  dropped from the dependency graph, which could hide a real cycle. Covered by two tests.
+
+- **O-3. ✅ CLOSED — resolved by LU-6b.** `logicRuleAPI` and `useLogicRules` are properly
+  typed (`ApiLogicRule[]`); the remaining `unknown[]` occurrences in `vault-api.ts` are
+  unrelated (run documents, choice options). Verified 2026-08-08.
