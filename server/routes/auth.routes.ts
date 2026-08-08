@@ -4,7 +4,7 @@ import { serialize } from "cookie";
 import { eq, and, gt, ne, desc } from "drizzle-orm";
 import { rateLimit } from 'express-rate-limit';
 
-import type { User } from "@shared/schema";
+import type { AuthUserPayload, User } from "@shared/schema";
 import { refreshTokens, trustedDevices, tenants } from "@shared/schema";
 import { isPublicSignupEnabled, SIGNUP_CLOSED_MESSAGE } from "@shared/publicSignup";
 
@@ -126,10 +126,34 @@ async function checkMfaRequirement(user: User, req: Request): Promise<boolean> {
   return true; // MFA required
 }
 /**
+ * Builds the user projection sent to the client on login, on refresh, and by
+ * Google OAuth (`server/googleAuth.ts`). All three endpoints must never
+ * diverge (MAP-10): a refresh that drops fields another endpoint sends
+ * silently breaks every client feature gated on them (tenant-scoped pages,
+ * real-time collaboration, the collaborator's displayed name and avatar) as
+ * soon as the page reloads or the access token goes stale — long after login
+ * looked fine. Exported so `googleAuth.ts` builds from the same helper rather
+ * than its own fourth literal.
+ */
+export function buildAuthUserPayload(user: User): AuthUserPayload {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profileImageUrl: user.profileImageUrl,
+    tenantId: user.tenantId,
+    role: user.role,
+    tenantRole: user.tenantRole,
+    emailVerified: user.emailVerified,
+    mfaEnabled: user.mfaEnabled
+  };
+}
+/**
  * Issues authentication tokens and sets cookies
  * @returns Object with token and user info
  */
-async function issueTokens(user: User, req: Request, res: Response): Promise<{ message: string; token: string; user: Partial<User> }> {
+async function issueTokens(user: User, req: Request, res: Response): Promise<{ message: string; token: string; user: AuthUserPayload }> {
   const token = authService.createToken(user);
   const refreshToken = await authService.createRefreshToken(user.id, {
     ip: req.ip,
@@ -148,17 +172,7 @@ async function issueTokens(user: User, req: Request, res: Response): Promise<{ m
   return {
     message: 'Login successful',
     token,
-    user: {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      tenantId: user.tenantId,
-      role: user.role,
-      tenantRole: user.tenantRole,
-      emailVerified: user.emailVerified,
-      mfaEnabled: user.mfaEnabled
-    }
+    user: buildAuthUserPayload(user)
   };
 }
 // =================================================================
@@ -413,12 +427,7 @@ export function registerAuthRoutes(app: Express): void {
       metricsService.recordAuthLatency(startTime, 'refresh', 200);
       res.json({
         token: newAccessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          tenantRole: user.tenantRole
-        }
+        user: buildAuthUserPayload(user)
       });
     } catch (error: unknown) {
       logger.error({ error: error as Error }, 'Refresh token failed');

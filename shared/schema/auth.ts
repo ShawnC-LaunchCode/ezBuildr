@@ -411,6 +411,29 @@ export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPe
 export const insertTeamSchema = createInsertSchema(teams);
 export const insertTeamMemberSchema = createInsertSchema(teamMembers);
 export type User = InferSelectModel<typeof users>;
+/**
+ * The user projection sent to the client by `POST /api/auth/login`,
+ * `POST /api/auth/refresh-token` (`server/routes/auth.routes.ts`), and
+ * `POST /api/auth/google` (`server/googleAuth.ts`). Kept as a named `Pick`
+ * (not a hand-copied literal) so all three payloads are structurally
+ * guaranteed to match — see MAP-10. `profileImageUrl` is included because the
+ * Google endpoint already sent it before this fix; dropping it there would
+ * have turned a working (if reload-fragile) avatar into a permanently broken
+ * one instead of fixing the underlying divergence.
+ */
+export type AuthUserPayload = Pick<
+  User,
+  | "id"
+  | "email"
+  | "firstName"
+  | "lastName"
+  | "profileImageUrl"
+  | "tenantId"
+  | "role"
+  | "tenantRole"
+  | "emailVerified"
+  | "mfaEnabled"
+>;
 export type UpsertUser = InferInsertModel<typeof users>;
 export type InsertUser = InferInsertModel<typeof users>;
 export type Tenant = InferSelectModel<typeof tenants>;

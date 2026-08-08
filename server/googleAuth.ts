@@ -6,6 +6,7 @@ import { isPublicSignupEnabled, SIGNUP_CLOSED_MESSAGE } from "@shared/publicSign
 
 import { createLogger } from "./logger";
 import { userRepository } from "./repositories";
+import { buildAuthUserPayload } from "./routes/auth.routes";
 import { authService } from "./services/AuthService";
 
 
@@ -200,16 +201,7 @@ export async function setupAuth(app: Express): Promise<void> {
       res.json({
         message: "Authentication successful",
         token: jwtToken,
-        user: {
-          id: payload.sub,
-          email: payload.email,
-          firstName: dbUser.firstName,
-          lastName: dbUser.lastName,
-          profileImageUrl: dbUser.profileImageUrl,
-          tenantId: dbUser.tenantId,
-          role: dbUser.role,
-          tenantRole: dbUser.tenantRole,
-        }
+        user: buildAuthUserPayload(dbUser)
       });
     } catch (error) {
       logger.error({ err: error }, 'Google authentication failed');

@@ -5,16 +5,19 @@ import { useEffect } from "react";
 
 import { authAPI, setAccessToken } from "@/lib/vault-api";
 
-import type { User } from "@shared/schema";
+import type { AuthUserPayload } from "@shared/schema";
 
-// Response type from refresh/login
+// Response type from refresh/login. `AuthUserPayload` is the exact projection
+// both endpoints send (`server/routes/auth.routes.ts`'s `buildAuthUserPayload`) —
+// not the full `User` row, which neither endpoint has ever actually returned
+// (MAP-10).
 interface AuthResponse {
-  user: User;
+  user: AuthUserPayload;
   token: string;
 }
 
 interface AuthHookReturn {
-  user: User | null;
+  user: AuthUserPayload | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;

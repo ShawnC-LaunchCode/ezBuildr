@@ -620,7 +620,37 @@ adapters onto one analysis is the intended design here, not duplication.
 
 ---
 
-## MAP-10 — `refresh-token` drops `tenantId`, silently killing collaboration after any reload 🔄
+## MAP-10 — `refresh-token` drops `tenantId`, silently killing collaboration after any reload ✅
+
+> **Verified 2026-08-08.** All seven ACs met. Reviewer re-ran all four gates:
+> `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`, `test:fast`
+> **233 files / 2696 passed** (baseline 2690, +6). Dev confirmed the new tests red
+> first, twice — 3 of 4 in round one, 5 of 6 in round two.
+>
+> **The audit was incomplete and the ticket was wrong; the fix is bigger than
+> filed.** There were **three** divergent user projections, not two: login (9
+> fields), refresh (4), and `POST /api/auth/google` (8, and the only one carrying
+> `profileImageUrl`). My "do not add fields beyond login's existing nine"
+> instruction led the dev to delete the avatar `<img>` branches in `Header.tsx`
+> and `Sidebar.tsx` as dead code. They were not dead — Google users' avatars
+> rendered after sign-in and vanished on the first reload, the identical bug to
+> `tenantId`. Branches restored byte-for-byte, `profileImageUrl` added to
+> `AuthUserPayload`, and all **three** endpoints now build from one exported
+> `buildAuthUserPayload`.
+>
+> **A second bug fixed in passing, which the dev under-sold as a "minor side
+> effect".** The Google response used to send `id: payload.sub` — the Google
+> subject — while `authService.createToken(dbUser)` issued a JWT carrying
+> `dbUser.id`. Those differ whenever an account existed before Google sign-in,
+> because `dbUser` is fetched by **email** (`findByEmail(payload.email)`), so the
+> row keeps its original uuid. The client cached one identity while the server
+> authorized another; `WorkflowBuilder` feeds `user.id` straight into
+> `collabUser.id`. Routing through the helper makes both `dbUser.id`.
+>
+> Reviewer note: the dev's honest "AC6 unverified, here is why" in round one is
+> what surfaced this whole vertical. See **MAP-B5** — presence still cannot show
+> a *second* person, because the websocket join admits only `workflow.creatorId`.
+
 
 **Priority: P0 (bug)** · Size: S · Files: `server/routes/auth.routes.ts`, `client/src/hooks/useAuth.ts`
 
@@ -1428,7 +1458,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
 | MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
 | MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | 🔲 |
-| MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | 🔄 |
+| MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | ✅ |
 
 ---
 
