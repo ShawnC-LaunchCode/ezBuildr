@@ -59,7 +59,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**15 of 27 tickets complete (56%)** — updated 2026-08-09 · 1 deferred (GH-148)
+**17 of 27 tickets complete (63%)** — updated 2026-08-09 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -67,7 +67,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ███████████████░░░░░░░░░░░░   15 / 27   (56%)
+OVERALL   █████████████████░░░░░░░░░░   17 / 27   (63%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -1565,6 +1565,13 @@ Build in this order; each step should leave the tree gate-clean.
 > values, so git auto-merged them with no conflict and the board silently read
 > 14/27 and Phase 4 1/7 with *two* ✅ tickets in it. Corrected to 15/27 and 2/7.
 > Observations O-15..O-17 filed below.
+>
+> **Also corrected:** the OVERALL counter had drifted independently of the phase
+> rows and read 15/27 while the six phase numerators summed to 17/27 (17 done,
+> 9 open, 1 in progress, GH-148 deferred and uncounted). The drift predates
+> GH-155 -- it read 13 when the phases summed to 15 -- so incrementing it per
+> ticket, as the "keep this in sync" note directs, propagated the error rather
+> than fixing it. Recount the phase rows rather than incrementing next time.
 
 **Priority: P2** · Size: S · Files: `client/src/components/blocks/FinalBlockEditor.tsx`, `client/src/components/runner/blocks/FinalBlock.tsx`
 **Ties:** Preceded by GH-156
