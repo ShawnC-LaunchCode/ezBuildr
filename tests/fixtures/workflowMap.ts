@@ -1,6 +1,6 @@
 /**
  * Named `shared/workflowMap.ts` input fixtures, shared by MAP-2's own tests
- * and reused (per the MAP tickets in `tickets/WORKFLOW_MAP_TICKETS.md`) by
+ * and reused (per the MAP tickets in `tickets/backlog/WORKFLOW_MAP.md`) by
  * MAP-4 (map rendering), MAP-7 (path simulator) and MAP-8 (simulation
  * panel), so the map's test data doesn't drift into per-ticket copies.
  *

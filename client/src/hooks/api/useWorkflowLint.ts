@@ -8,7 +8,7 @@ import type { WorkflowLintIssue } from "@shared/types/workflowLint";
  * tab's publish gate and the Map tab's flow-diagnostic overlay render the
  * same findings, so they share one query key and one cache entry rather than
  * each holding an independent copy that can drift — see D-3 in
- * `tickets/WORKFLOW_MAP_TICKETS.md`.
+ * `tickets/backlog/WORKFLOW_MAP.md`.
  *
  * The query key is unchanged from the inline `useQuery` this replaces
  * (`ReviewTab.tsx`, pre-MAP-6) so an in-flight cache entry survives the

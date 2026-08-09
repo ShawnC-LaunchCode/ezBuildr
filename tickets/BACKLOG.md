@@ -14,12 +14,13 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-08 there are two live boards.** `tickets/ROADMAP_TICKETS.md` holds the
-> GH-146..174 epics; `tickets/WORKFLOW_MAP_TICKETS.md` holds **MAP-1..9**, the audited
-> breakdown of epic **GH-153** (visual workflow map & path simulation) — dispatch from the
-> MAP file, not from the GH-153 epic entry. The Logic Unification initiative (LU-1..6c,
-> epic **GH-154**) closed and retired into `backlog/LOGIC_UNIFICATION.md` on 2026-08-08,
-> which is what unblocked GH-153. All DataVault rounds and every earlier initiative are
+> **As of 2026-08-09 the live board is `tickets/ROADMAP_TICKETS.md`** (the GH-146..174
+> epics). The Workflow Map initiative (MAP-1..10, epic **GH-153**) closed and retired into
+> `backlog/WORKFLOW_MAP.md` on 2026-08-09 — **all ten tickets and all eight of its backlog
+> observations shipped, so it parks nothing.** Its detail file is kept for the
+> `Closed — do not re-file` table, the six standing decisions D-1..D-6, and the process
+> lessons. Logic Unification (LU-1..6c, epic **GH-154**) retired the day before into
+> `backlog/LOGIC_UNIFICATION.md`; all DataVault rounds and every earlier initiative are
 > likewise closed and retired. Check this index before auditing anything, so a settled
 > question is not re-filed as a new finding.
 >
@@ -80,6 +81,26 @@ IDs are stable, heading anchors are not.
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
 
 ---
+
+## Workflow Map (MAP) — [detail](backlog/WORKFLOW_MAP.md) — retired 2026-08-09
+
+Epic **GH-153**. Opened at grade **C**, closed with **all ten tickets and all eight
+backlog observations shipped** — it parks no work. `test:fast` 2677 → ~2795.
+
+Nothing here is dispatchable. Open the detail file only for:
+
+- The **`Closed — do not re-file` table** — every MAP ticket and B-entry with its commit,
+  so a later audit does not rediscover shipped work.
+- **Standing decisions D-1..D-6.** Two are load-bearing beyond the map: **D-5** (a
+  backward `skip_to` stays a publish-blocking error; backward *navigation* is a runner
+  feature, not a logic-rule one) and **D-6** (`sections.skip_if` was dropped as redundant
+  with `visible_if`'s `not` flag — do not reintroduce a parallel skip dialect).
+- The **seam lesson**: every defect in this initiative lived *between* tickets, invisible
+  to per-ticket gates. Budget reviewer time for cross-seam probes on any multi-ticket
+  initiative.
+- **Environment facts** — the four-gate rule (`check:strict-zones` is not implied by
+  `type-check`), the tmpfs test-DB trap, and the Playwright-not-Browser-pane recipe for
+  live proof.
 
 ## DataVault — [detail](backlog/DATAVAULT.md)
 
