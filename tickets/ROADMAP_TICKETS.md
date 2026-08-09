@@ -89,11 +89,11 @@ OVERALL   ██████████████░░░░░░░░░�
         │      └── ✅ GH-159   WCAG 2.2 AA accessibility conformance
         │           ⏸ GH-148   Multilingual & locale-aware runner — parked 2026-08-07, not counted
         │
-        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ███░░░░░░░  1/4
+        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ████████░░  3/4
         │      ├── ✅ GH-154   Unified conditional logic editor
         │      ├── ✅ GH-153   Visual workflow map & path simulation
         │      ├── ✅ GH-152   Publish gate review grouping
-        │      └── 🔲 GH-167   Document-to-interview AI onboarding
+        │      └── 🔄 GH-167   Document-to-interview AI onboarding
         │
         ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ░░░░░░░░░░  0/7
         │      ├── 🔲 GH-161   Answer piping & dynamic recall
@@ -1289,20 +1289,128 @@ exists and expensive before it.
 
 ---
 
-## GH-167 — Build document-to-interview onboarding with field and question generation 🔲
+## GH-167 — Build document-to-interview onboarding with field and question generation 🔄
 
-**Priority: P1** · Size: L · Files: `client/src/pages/onboarding/`, `server/routes/ai.doc.routes.ts`, `server/services/ai/`
-**Ties:** Preceded by GH-156
+**Priority: P1** · Size: L · **In progress** — dispatched 2026-08-08 (worktree `gh-167`)
+**Files:** `client/src/pages/onboarding/` (new), `client/src/Router.tsx` (one lazy import + one route),
+`server/routes/ai.doc.routes.ts`, `server/services/ai/`, `tests/integration/`, `tests/unit/client/`
+**Ties:** Preceded by GH-156 (✅ mapping workbench — this ticket hands off *to* it, never reimplements it).
+Adjacent to GH-152 (publish gate) but **must not touch it**. Load skills: `add-api-endpoint`,
+`run-tests`, `design` (any UI work), `verify` (live proof).
 
-### Context & Current State
-- AI doc analysis and placeholder extraction exist in separate API routes. A cohesive onboarding wizard should allow an author to upload a DOCX/PDF, auto-generate corresponding interview questions, and bind mappings in one step.
+> **File-footprint warning — read before you start.** Another IDE is concurrently editing
+> `client/src/pages/WorkflowBuilder.tsx`, `client/src/components/builder/layout/BuilderTabNav.tsx`,
+> `ResizableBuilderLayout.tsx`, `SidebarTree.tsx` and `ActivateToggle.tsx`. **Do not modify any file
+> under `client/src/components/builder/`.** This ticket is designed to need zero changes there
+> (see Preferred fix step 5). If you believe you need one, STOP and report it as a blocker.
+
+### Context & Current State (re-audited 2026-08-08 — the original one-liner understated this badly)
+
+Every capability this ticket needs **already exists and works**. The gap is purely orchestration:
+nothing joins them, and the generation endpoint has no client caller at all.
+
+| Piece | Where | State |
+|---|---|---|
+| `POST /api/ai/doc/analyze` (multipart) returns `{ variables: AnalyzedVariable[], suggestions: string[] }` | `server/routes/ai.doc.routes.ts`, handler `router.post("/analyze"` | works: magic-byte + virus scan + temp cleanup + `uploadLimiter` |
+| `POST /api/ai/doc/suggest-improvements` returns `{ aliases?, formatting? }` | same file | works — **this is AC2's alias source** |
+| `POST /api/ai/doc/suggest-mappings` returns `MappingSuggestion[]` | same file | works |
+| `POST /api/ai/workflows/generate` returns `AIGeneratedWorkflow`, **not persisted** | `server/routes/ai.routes.ts`, `AiController.generateWorkflow` | works but **zero client callers** |
+| `POST /api/projects/:projectId/templates` (multipart upload) | `server/routes/templates.routes.ts` | works |
+| `PATCH /api/templates/:id` body `{ mapping }` typed `DocumentFieldMapping` | `templates.routes.ts`; types in `shared/types/documentMapping.ts` | works, GH-156, auto-versions |
+| `replaceWorkflowContent` delegating to `workflowContentIngestService.apply(..., { source: 'ai' })` | `server/services/WorkflowService.ts`, method `replaceWorkflowContent` | works — the persist path |
+| `client/src/pages/onboarding/` | — | **does not exist** |
+
+**Gotchas found during the re-audit — do not rediscover these:**
+
+1. **The JSDoc in `ai.doc.routes.ts` lies about its own paths.** Comments say
+   `POST /api/ai/template/analyze`, but `server/routes/index.ts` mounts the router with
+   `app.use("/api/ai/doc", aiDocRouter)`. The real paths are `/api/ai/doc/analyze`,
+   `/api/ai/doc/suggest-mappings`, `/api/ai/doc/suggest-improvements`. Correct those three stale
+   comments while you are in the file — one line each, in scope.
+2. **`generateWorkflow` returns a draft and persists nothing.** That is exactly what AC2 wants
+   (review before creation). Do **not** add a draft table or any new persistence — the draft lives
+   in client state until the author approves, mirroring `ImportWorkflow.tsx`'s deliberate two-step
+   design (see its header comment: the two-step shape exists precisely so a user can review before
+   applying).
+3. **`?tab=templates` deep-linking already works.** `WorkflowBuilder.tsx` reads
+   `searchParams.get("tab")` and `"templates"` is a member of the `BuilderTab` union declared in
+   `BuilderTabNav.tsx`. So the handoff in step 5 needs **no builder changes**.
+
+### Decisions already made (Senior, 2026-08-08) — implement these, do not relitigate
+
+- **The wizard ends by creating the workflow and opening PreviewRunner. It does NOT publish.**
+  AC5's phrase "published workflow" is loose wording for *created and runnable*; AC1 and AC3 both
+  stop short of publish. Auto-publishing generated content contradicts AC2's human-in-the-loop
+  intent, and a freshly generated workflow often fails GH-152's publish gate — which would make the
+  wizard dead-end on its final screen. Leave the workflow unpublished; the existing publish gate
+  stays the one and only publish path.
+- **Step 4 "Map Fields" deep-links into GH-156's existing workbench — it is not reimplemented
+  inline.** Duplicating binding UI would fork the surface GH-171 (template versioning) is already
+  scheduled to land on. To keep the flow seamless, the wizard **pre-writes the AI-suggested
+  bindings** via `PATCH /api/templates/:id` before navigating, so the author arrives at a populated
+  workbench and reviews rather than maps from scratch.
+
+### Preferred fix
+
+Build in this order; each step should leave the tree gate-clean.
+
+1. **Server orchestration service.** Add `server/services/ai/DocumentOnboardingService.ts`. One
+   method that takes extracted variables plus author-approved question edits and returns an
+   `AIGeneratedWorkflow`-shaped payload. Compose the existing services — call
+   `documentAIAssistService` and the AI generation service directly; **do not** re-implement
+   extraction or prompt-building. Follow the 3-tier rules in the `add-api-endpoint` skill: the
+   service owns authorization and throws the exact error strings (`not found`, `Access denied`)
+   that `classifyRouteError` maps to 404/403.
+2. **Server route.** Add the orchestration endpoint(s) to `server/routes/ai.doc.routes.ts`, reusing
+   the `hybridAuth` + `strictLimiter`/`uploadLimiter` + Zod-validation pattern already in that file.
+   AC4's rate limiting is satisfied by reusing those limiters plus
+   `aiWorkflowRateLimit`/`aiDailyRateLimit` where an AI call is made — do not invent a new limiter.
+   Every Zod schema must enumerate and length-cap its fields and `.strip()` unknown keys (SEC-028 —
+   see `variableObjectSchema` in that file for the exact precedent).
+3. **Wizard shell.** New `client/src/pages/onboarding/DocumentOnboardingWizard.tsx` plus step
+   components in the same folder. Copy the state shape from `client/src/pages/ImportWorkflow.tsx`
+   (file → result → apply → navigate, with per-phase `isXing` flags and a single `uploadError`) and
+   the step chrome from `client/src/pages/optimization/OptimizationWizard.tsx` (`activeStep` plus a
+   `steps` array plus sidebar). Register one lazy route in `Router.tsx` at `/workflows/onboarding`,
+   next to the existing `/workflows/import` entry.
+4. **Review/edit step (AC2).** The author must be able to edit generated **question type** and
+   **alias** per variable before anything is persisted. Seed aliases from
+   `/api/ai/doc/suggest-improvements`'s `aliases` map. Question types must come from the real
+   `stepTypeEnum` — load the `add-step-type` skill for the canonical list; do not hardcode a subset.
+5. **Persist and hand off.** On approve: create the workflow, apply content via the existing
+   `replaceWorkflowContent` path, upload/attach the template, `PATCH` the AI-suggested `mapping`,
+   then navigate to `/workflows/:id/builder?tab=templates`. Offer PreviewRunner via
+   `/workflows/:workflowId/preview` (AC3). **No changes to any file under
+   `client/src/components/builder/`.**
 
 ### Acceptance Criteria
-1. Step-by-step onboarding flow: Upload Document -> AI Extracts Variables -> Generates Workflow -> Maps Fields.
-2. Author can review, edit, and approve generated question types and aliases before workflow creation.
-3. Resulting workflow immediately testable in PreviewRunner.
-4. Error handling and rate limiting prevent AI timeouts on large templates.
-5. Integration tests verify full generation flow from document buffer to published workflow.
+
+1. Wizard implements the four steps in order: Upload Document → AI Extracts Variables → Review &
+   Approve → Generate Workflow → hand off to Mapping. Reachable from a route registered in
+   `Router.tsx`, and linked from `client/src/pages/NewWorkflow.tsx` as an entry point.
+2. Author can review, edit, and approve generated **question types and aliases** before the workflow
+   is created; nothing is persisted until approve is pressed. A component test proves that editing a
+   type/alias changes the payload sent on approve, and that cancelling persists nothing.
+3. On completion the workflow exists, the template is attached with its AI-suggested `mapping`
+   already written, and the author lands on the populated GH-156 workbench. The resulting workflow
+   opens and runs in PreviewRunner (`/workflows/:workflowId/preview`). **The workflow is left
+   unpublished.**
+4. Error handling and rate limiting: oversized, wrong-type and malicious uploads surface a clear
+   inline error (reuse `ImportWorkflow.tsx`'s error mapping); AI timeouts and provider failures
+   surface a retryable error rather than a blank screen or an unhandled rejection; the AI endpoints
+   sit behind the existing rate limiters. A test covers the AI-failure path.
+5. Integration test in `tests/integration/` drives document buffer → extracted variables → generated
+   workflow → persisted workflow plus attached template with mapping, asserting the rows land.
+   Follow the fixture/`ctx` pattern in `tests/integration/templates.mapping-workbench.test.ts`.
+   Cross-tenant access is rejected (mirror that file's tenant-isolation case).
+6. The three stale JSDoc route paths in `ai.doc.routes.ts` (`/api/ai/template/...`) are corrected to
+   `/api/ai/doc/...`.
+7. Gates green and reported with pasted output: `npm run type-check`, `npm run lint`,
+   `npm run test:fast` (no regressions against the baseline recorded at dispatch), the new
+   integration test, and `npx tsx scripts/pre-commit-checks.ts` — that last one is the real commit
+   gate, because `type-check` alone does **not** run `check:strict-zones`.
+8. Live proof per the `verify` skill: screenshots of the wizard driving a real DOCX end-to-end on the
+   running dev app, plus the resulting workflow open in PreviewRunner. RTL tests are not live proof.
 
 ---
 
