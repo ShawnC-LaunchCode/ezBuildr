@@ -18,6 +18,12 @@
  * (`useWorkflowLint`, the same shared hook the Review tab consumes) are
  * grouped by `target.sectionId` (`mapLintDecoration.ts`) and handed to each
  * node as `data.findings` — this component computes no diagnostics itself.
+ *
+ * MAP-8 / GH-153 AC3: `useWorkflowSimulation` runs `simulateWorkflowPath`
+ * (MAP-7) against whatever hypothetical answers the `SimulationPanel` holds,
+ * and `computeSimulationHighlight` turns that into the on/off-path node and
+ * edge id sets `toFlowNodes`/`toFlowEdges` decorate with. Nothing here
+ * computes a route itself — same discipline as MAP-6's findings.
  */
 import "@xyflow/react/dist/style.css";
 import "./map.css";
@@ -33,9 +39,12 @@ import type { WorkflowMapNode } from "@shared/workflowMap";
 import { MapFindingsSummary } from "./MapFindingsSummary";
 import { MapLegend } from "./MapLegend";
 import { decorateMapFindings, summarizeMapFindings } from "./mapLintDecoration";
+import { computeSimulationHighlight } from "./simulationHighlight";
+import { SimulationPanel } from "./SimulationPanel";
 import { toFlowEdges, toFlowNodes } from "./toFlowElements";
 import { workflowMapNodeTypes } from "./nodeTypes";
 import { useWorkflowMapGraph } from "./useWorkflowMapGraph";
+import { useWorkflowSimulation } from "./useWorkflowSimulation";
 
 interface MapTabProps {
   workflowId: string | undefined;
@@ -44,6 +53,7 @@ interface MapTabProps {
 export function MapTab({ workflowId }: MapTabProps) {
   const { graph, isLoading, isError } = useWorkflowMapGraph(workflowId);
   const { data: lintIssues } = useWorkflowLint(workflowId);
+  const { fields, answers, setAnswer, resetAnswers, simulation } = useWorkflowSimulation(workflowId);
   const [, navigate] = useLocation();
 
   const handleActivateNode = useCallback(
@@ -67,11 +77,25 @@ export function MapTab({ workflowId }: MapTabProps) {
   );
   const findingsSummary = useMemo(() => summarizeMapFindings(decoration), [decoration]);
 
+  // MAP-8: only pass a highlight down when there's a real on/off-path
+  // distinction to draw (`hasOffPathNodes`) — see `simulationHighlight.ts`.
+  // The common case (no rule fired, or none exists) renders exactly as MAP-4
+  // left it, with no highlight noise.
+  const highlight = useMemo(() => {
+    if (!simulation) { return undefined; }
+    const ids = graph.nodes.map((node) => node.id);
+    const computed = computeSimulationHighlight(simulation, ids, graph.edges);
+    return computed.hasOffPathNodes ? computed : undefined;
+  }, [simulation, graph]);
+
   const nodes = useMemo(
-    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode, decoration.bySection),
-    [graph, handleActivateNode, decoration]
+    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode, decoration.bySection, highlight?.onPathNodeIds),
+    [graph, handleActivateNode, decoration, highlight]
   );
-  const edges = useMemo(() => toFlowEdges(graph.edges), [graph]);
+  const edges = useMemo(
+    () => toFlowEdges(graph.edges, highlight?.onPathEdgeIds),
+    [graph, highlight]
+  );
 
   if (isError) {
     return (
@@ -95,22 +119,31 @@ export function MapTab({ workflowId }: MapTabProps) {
     <div className="workflow-map flex flex-1 flex-col overflow-hidden bg-background">
       <MapLegend />
       <MapFindingsSummary counts={findingsSummary} />
-      <div className="relative flex-1">
-        <ReactFlowProvider>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={workflowMapNodeTypes}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            edgesFocusable={false}
-            fitView
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background gap={24} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        </ReactFlowProvider>
+      <div className="relative flex flex-1 overflow-hidden">
+        <div className="relative flex-1">
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={workflowMapNodeTypes}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              edgesFocusable={false}
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background gap={24} />
+              <Controls showInteractive={false} />
+            </ReactFlow>
+          </ReactFlowProvider>
+        </div>
+        <SimulationPanel
+          fields={fields}
+          answers={answers}
+          onAnswerChange={setAnswer}
+          onReset={resetAnswers}
+          truncated={simulation?.truncated ?? false}
+        />
       </div>
     </div>
   );

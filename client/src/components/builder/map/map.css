@@ -50,6 +50,15 @@
   --map-warning-bg: hsl(38, 92%, 95%);
   --map-warning-border: hsl(38, 80%, 55%);
   --map-warning-fg: hsl(30, 70%, 35%);
+
+  /* MAP-8: simulation highlight (GH-153 AC3). The dimmed treatment below
+     deliberately goes achromatic (grayscale + reduced opacity) rather than
+     shifting a hue, and the on-path ring is additive polish, never the sole
+     signal — see `simulationStyles.ts`'s doc comment. */
+  --map-onpath-ring: hsl(199, 89%, 45%);
+  --map-dim-line: hsl(220, 10%, 75%);
+  --map-dim-bg: hsl(220, 15%, 94%);
+  --map-dim-fg: hsl(220, 10%, 45%);
 }
 
 .dark .workflow-map {
@@ -85,6 +94,11 @@
   --map-warning-bg: hsl(38, 45%, 16%);
   --map-warning-border: hsl(38, 55%, 42%);
   --map-warning-fg: hsl(40, 85%, 75%);
+
+  --map-onpath-ring: hsl(199, 89%, 66%);
+  --map-dim-line: hsl(220, 10%, 42%);
+  --map-dim-bg: hsl(220, 15%, 22%);
+  --map-dim-fg: hsl(220, 10%, 65%);
 }
 
 /* @xyflow/react ships its own default background/handle colors; align them
@@ -98,4 +112,40 @@
 
 .workflow-map .react-flow__attribution {
   display: none;
+}
+
+/* MAP-8 review fix: skip edges route through dedicated left-side anchors
+   (SectionMapNode) so the path can jog around a bypassed node instead of
+   running straight through it. The map is read-only (D-4) and these anchors
+   are never meant to be seen or dragged — only registered so xyflow has a
+   routing point. */
+.workflow-map-skip-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* MAP-8: simulation highlight (GH-153 AC3/AC4). Grayscale + reduced opacity
+   is a categorically different rendering from the normal on-path state, not
+   a hue shift — colour-blind-safe by construction. The ring on the on-path
+   state is additive polish; `simulationDimmedNote` (a visually-hidden child
+   span) carries the same distinction to assistive tech. */
+.workflow-map-node-dimmed {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.workflow-map-node-onpath {
+  box-shadow: 0 0 0 2px var(--map-onpath-ring);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .workflow-map-node-dimmed,
+  .workflow-map-node-onpath {
+    transition: opacity 150ms ease, filter 150ms ease, box-shadow 150ms ease;
+  }
+
+  .workflow-map-edge-onpath,
+  .workflow-map-edge-dimmed {
+    transition: opacity 150ms ease, stroke 150ms ease, stroke-width 150ms ease;
+  }
 }

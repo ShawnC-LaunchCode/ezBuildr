@@ -8,19 +8,28 @@
  * id (`stepId`, not `sectionId`) — per D-2 a `final_documents` node's own id
  * *is* the step id. See `SectionMapNode` for why the interactive surface is
  * a nested `<button>` rather than the outer `role="group"` card itself.
+ *
+ * MAP-8: see `SectionMapNode`'s doc comment for the dim/highlight treatment —
+ * identical discipline here (className + visually-hidden note, `aria-label`
+ * untouched).
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { FileText } from "lucide-react";
 
+import { simulationDimmedNote, simulationNodeClassName } from "../simulationStyles";
 import type { MapFlowNode } from "../types";
 
 export function FinalDocumentsMapNode({ data }: NodeProps<MapFlowNode>) {
+  const simulationClass = simulationNodeClassName(data.simulation);
+  const dimmedNote = simulationDimmedNote(data.simulation);
+
   return (
     <div
       role="group"
       aria-label={`${data.label} — final documents`}
-      className="min-w-[190px] max-w-[220px] overflow-hidden rounded-full border-2 border-dotted border-[var(--map-doc-border)] bg-[var(--map-doc-bg)] shadow-sm"
+      className={`min-w-[190px] max-w-[220px] overflow-hidden rounded-full border-2 border-dotted border-[var(--map-doc-border)] bg-[var(--map-doc-bg)] shadow-sm ${simulationClass}`}
     >
+      {dimmedNote && <span className="sr-only">{dimmedNote}</span>}
       <Handle type="target" position={Position.Left} />
       <button
         type="button"

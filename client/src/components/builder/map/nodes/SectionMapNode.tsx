@@ -20,12 +20,30 @@
  * the activation button rather than nested inside it — nesting two
  * interactive elements is invalid HTML and would swallow the inner one's
  * clicks/focus.
+ *
+ * MAP-8: `data.simulation` (undefined = nothing to distinguish) drives a
+ * dim/highlight treatment — see `simulationStyles.ts`'s doc comment for why
+ * it's a className + visually-hidden note rather than a change to
+ * `aria-label` (several existing tests here assert an exact accessible name).
+ *
+ * MAP-8 review fix: a skip edge only ever connects two sections
+ * (`buildWorkflowMap` never routes one to/from a `final_documents` or
+ * terminal node), so this is the only node kind that needs dedicated skip
+ * handles. They sit on the **left** side, declared *after* the original
+ * top/bottom handles so a plain sequential edge (which never sets
+ * `sourceHandle`/`targetHandle`) keeps resolving to those originals — xyflow
+ * falls back to the first handle of the matching type when no id is given.
+ * `toFlowElements.ts` routes skip edges through these with a `smoothstep`
+ * `pathOptions.offset` wide enough to clear this card, instead of drawing
+ * straight through whatever section the skip bypasses (a real defect: the
+ * "Skip" label rendered on top of the bypassed node's own title).
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertTriangle, GitBranch, Layers, XCircle } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { simulationDimmedNote, simulationNodeClassName } from "../simulationStyles";
 import type { MapFlowNode } from "../types";
 
 export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
@@ -38,12 +56,16 @@ export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
   const warningCount = findings.length - errorCount;
   const severity: "error" | "warning" | null = errorCount > 0 ? "error" : warningCount > 0 ? "warning" : null;
 
+  const simulationClass = simulationNodeClassName(data.simulation);
+  const dimmedNote = simulationDimmedNote(data.simulation);
+
   return (
     <div
       role="group"
       aria-label={data.conditional ? `${data.label} — conditional section` : `${data.label} — section`}
-      className={`relative min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-section-bg)] shadow-sm ${borderStyle}`}
+      className={`relative min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-section-bg)] shadow-sm ${borderStyle} ${simulationClass}`}
     >
+      {dimmedNote && <span className="sr-only">{dimmedNote}</span>}
       <Handle type="target" position={Position.Top} />
       {severity && (
         <div className="absolute right-1.5 top-1.5 z-10">
@@ -102,6 +124,9 @@ export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
         )}
       </button>
       <Handle type="source" position={Position.Bottom} />
+      {/* MAP-8 review fix: skip-only anchors, invisible (`.workflow-map-skip-handle`, map.css) — the map is read-only, so these exist purely to give `toFlowElements.ts`'s skip edges somewhere to route from/to besides the top/bottom pair sequential edges use. */}
+      <Handle type="source" position={Position.Left} id="skip-source" className="workflow-map-skip-handle" />
+      <Handle type="target" position={Position.Left} id="skip-target" className="workflow-map-skip-handle" />
     </div>
   );
 }

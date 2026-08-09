@@ -1387,7 +1387,52 @@ directly and say so in the turn-in — but do not skip the parity assertion.
 
 ---
 
-## MAP-8 — Add the simulation panel and highlight the live route 🔲
+## MAP-8 — Add the simulation panel and highlight the live route ✅
+
+> **Verified 2026-08-08.** All ten ACs met. Reviewer re-ran all four gates:
+> `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`, `test:fast`
+> **244 files / 2787 passed** (baseline 2754, +33).
+>
+> **Reviewer probed the MAP-7 seam directly** — every id in `traversedEdges`
+> exists among the ids `toFlowEdges` renders, and the skipped sequential edges
+> correctly are *not* traversed. AC2's assertion is the right pairing: the spy's
+> captured `data` is `{ "step-a-trigger-uuid": true }` with no `skip_ahead` key,
+> *and* a separate test proves the alias still resolves — so it cannot pass by
+> accident, which is the whole failure mode (a misspelled key makes
+> `conditionEvaluator` fail safe and *look* like it works).
+>
+> **Defect found by looking at the screenshot, after every gate was green.** The
+> skip edge routed vertically straight through the node it bypassed, and its
+> "Skip" label landed on that node's title — rendering `Extra S`+`kip`+`eening`.
+> 33 passing tests, a correct a11y tree, correct computed styles and matching edge
+> ids could none of them see two pieces of text occupying the same pixels. Worse
+> than cosmetic: the one node an author most needs to read during a skip
+> simulation had its name corrupted exactly when the skip was active. **This is
+> the concrete justification for AC9/AC10 existing at all.**
+>
+> Fixed at the routing layer, not by nudging the label: dedicated invisible
+> `Position.Left` handles on `SectionMapNode` (declared *after* the top/bottom
+> pair so sequential edges keep resolving to the originals through xyflow's
+> "no id → first handle" fallback), plus smoothstep `pathOptions.offset`. The dev
+> declined the reviewer's suggested bezier with a sound reason: its `curvature`
+> degenerates to zero when source and target share an x-coordinate, which is
+> exactly this layout. Re-verified by eye in both themes — label clear of the
+> column, dimmed title fully legible.
+>
+> **The dev also caught a regression before shipping it.** Several MAP-4/5/6 tests
+> assert node accessible names as exact strings, and `logic_rules.when: undefined`
+> means "always fires", so wiring live simulation in would have made a shared
+> fixture's rule fire on first render and broken those assertions. They kept
+> `aria-label` untouched and carried the on/off-path distinction in `className`
+> plus a visually-hidden span.
+>
+> Disclosed deviation, accepted: local fixtures with a real `when`, because
+> `WorkflowMapRuleInput` has no `when` field — the identical move MAP-7's test
+> file made for the identical reason.
+>
+> **This run also closes MAP-4's deferred AC10** — `map8-light-before-fixed.png`
+> and `map8-dark-before-fixed.png` are the plain map in both themes.
+
 
 **Priority: P1** · Size: **L** · Files: `client/src/components/builder/map/`
 
@@ -1643,7 +1688,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-5 | Node → inspector navigation | P1 | S | ✅ |
 | MAP-6 | Flow diagnostics on the map | P1 | S | ✅ |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
-| MAP-8 | Simulation panel + route highlight | P1 | L | 🚧 blocked — API spend limit |
+| MAP-8 | Simulation panel + route highlight | P1 | L | ✅ |
 | MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | ✅ |
 | MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | ✅ |
 
@@ -1670,6 +1715,15 @@ Not tickets. Parked here while this initiative is open; they move to
   is its server counterpart. Left in place deliberately so MAP-1 stays a client
   ticket with a client gate. Check for other callers before removing — the
   awareness module also serves presence and cursors, which are live.
+
+- **MAP-B8 — xyflow's zoom controls are unstyled in dark mode.** The `+` / `−` /
+  fit-view cluster at the bottom-left of the map renders as white boxes on the
+  dark canvas, visible in `map8-dark-after-fixed.png`. These are
+  `@xyflow/react`'s default `<Controls>` internals, not tokens any MAP ticket
+  wrote, which is why MAP-4's AC7 token audit did not catch them. Cosmetic and
+  library-default; filed rather than sent back for a third round-trip on the
+  initiative's last ticket. Fix by overriding `.react-flow__controls-button` in
+  `map.css` alongside the existing `.dark` tokens.
 
 - **MAP-B7 — the test Postgres container is tmpfs-backed, so every worktree
   database vanishes when it restarts.** `docker-compose` publishes it on 5434

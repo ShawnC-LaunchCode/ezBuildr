@@ -5,7 +5,7 @@
  * `./nodes/` and the conversion functions can both import it without a
  * circular dependency.
  */
-import type { Edge, Node } from "@xyflow/react";
+import type { BuiltInEdge, Node } from "@xyflow/react";
 
 import type { WorkflowMapNodeKind } from "@shared/workflowMap";
 import type { WorkflowLintIssue } from "@shared/types/workflowLint";
@@ -31,9 +31,22 @@ export interface MapNodeData extends Record<string, unknown> {
    * empty), never computed by the map itself. See `mapLintDecoration.ts`.
    */
   findings: WorkflowLintIssue[];
+  /**
+   * MAP-8: whether this node is on the currently simulated path
+   * (`shared/workflowSimulation.ts`, via `MapTab`'s `computeSimulationHighlight`).
+   * Undefined whenever there's nothing to distinguish — see
+   * `simulationStyles.ts`'s doc comment for why that's the common case and
+   * why it's deliberately never folded into `aria-label`.
+   */
+  simulation?: { onPath: boolean };
 }
 
 export type MapFlowNode = Node<MapNodeData, WorkflowMapNodeKind>;
 
-/** Plain edges (built-in `@xyflow/react` edge types) — no custom edge component needed for a read-only map. */
-export type MapFlowEdge = Edge;
+/**
+ * Built-in `@xyflow/react` edge types only — no custom edge component needed
+ * for a read-only map. `BuiltInEdge` (rather than the bare `Edge`) is what
+ * gives skip edges a typed `pathOptions.offset` (MAP-8 review fix: routing
+ * skip edges around a bypassed node instead of through it).
+ */
+export type MapFlowEdge = BuiltInEdge;

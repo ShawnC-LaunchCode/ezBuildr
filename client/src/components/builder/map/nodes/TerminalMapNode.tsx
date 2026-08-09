@@ -5,18 +5,27 @@
  * navigation, and the terminal node has no section/step behind it to open,
  * so it must expose no button/link role and must not look clickable —
  * a plain `<div>`, no `tabIndex`, no cursor-pointer.
+ *
+ * MAP-8: dim/highlight is className-only here (no visually-hidden note) —
+ * `role="img"` means this node's content isn't exposed to assistive tech
+ * beyond its `aria-label` anyway, so a hidden child span would never be
+ * announced. `aria-label` itself stays untouched, same reasoning as
+ * `SectionMapNode`.
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { CheckCircle2 } from "lucide-react";
 
+import { simulationNodeClassName } from "../simulationStyles";
 import type { MapFlowNode } from "../types";
 
 export function TerminalMapNode({ data }: NodeProps<MapFlowNode>) {
+  const simulationClass = simulationNodeClassName(data.simulation);
+
   return (
     <div
       role="img"
       aria-label="Workflow complete"
-      className="flex items-center gap-1.5 rounded-full border-2 border-[var(--map-terminal-border)] bg-[var(--map-terminal-bg)] px-4 py-2 shadow-sm"
+      className={`flex items-center gap-1.5 rounded-full border-2 border-[var(--map-terminal-border)] bg-[var(--map-terminal-bg)] px-4 py-2 shadow-sm ${simulationClass}`}
     >
       <Handle type="target" position={Position.Top} />
       <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--map-terminal-fg)]" aria-hidden="true" />

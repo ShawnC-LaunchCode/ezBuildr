@@ -51,6 +51,27 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
     expect(skipEdge?.className).not.toBe(sequentialEdge?.className);
   });
 
+  it("routes a skip edge through the dedicated left-side anchors with a wide enough offset to clear a bypassed section (review fix)", () => {
+    const { edges } = buildWorkflowMap(workflowWithForwardSkip());
+    const flowEdges = toFlowEdges(edges);
+    const skipEdge = flowEdges.find((e) => e.id.startsWith("skip:"));
+    const sequentialEdge = flowEdges.find((e) => e.id.startsWith("sequential:"));
+
+    // Regression: a defect found at review had this edge using the node's
+    // default top/bottom handles (same as a sequential edge), which drew a
+    // straight line directly through the bypassed section with the "Skip"
+    // label rendered on top of that node's own title.
+    expect(skipEdge?.sourceHandle).toBe("skip-source");
+    expect(skipEdge?.targetHandle).toBe("skip-target");
+    expect(skipEdge?.type).toBe("smoothstep");
+    expect(skipEdge?.type === "smoothstep" ? skipEdge.pathOptions?.offset : undefined).toBeGreaterThanOrEqual(50);
+
+    // A sequential edge must keep using the original, unnamed handles — it
+    // never sets sourceHandle/targetHandle at all.
+    expect(sequentialEdge?.sourceHandle).toBeUndefined();
+    expect(sequentialEdge?.targetHandle).toBeUndefined();
+  });
+
   it("makes every edge non-focusable, non-deletable and non-reconnectable (read-only per D-4)", () => {
     const { edges } = buildWorkflowMap(workflowWithForwardSkip());
     const flowEdges = toFlowEdges(edges);
