@@ -21,7 +21,6 @@ export interface PresenceState {
     x: number;
     y: number;
   };
-  selectedNodeId?: string | null;
   lastActive: number;
 }
 
@@ -108,25 +107,6 @@ export function updateCursor(
     const updatedState: PresenceState = {
       ...currentUser,
       cursor: { x, y },
-      lastActive: Date.now(),
-    };
-    awareness.setLocalStateField('user', updatedState);
-  }
-}
-
-/**
- * Update selected node
- */
-export function updateSelectedNode(
-  awareness: Awareness,
-  clientId: number,
-  nodeId: string | null
-): void {
-  const currentUser: unknown = awareness.getLocalState()?.user;
-  if (isPresenceState(currentUser)) {
-    const updatedState: PresenceState = {
-      ...currentUser,
-      selectedNodeId: nodeId,
       lastActive: Date.now(),
     };
     awareness.setLocalStateField('user', updatedState);

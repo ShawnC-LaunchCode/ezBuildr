@@ -23,7 +23,7 @@ interface TabConfig {
   label: string;
   icon: ComponentType<{ className?: string }>;
 }
-const TABS: TabConfig[] = [
+export const TABS: TabConfig[] = [
   { id: "sections", label: "Sections", icon: Layers },
   { id: "map", label: "Map", icon: Waypoints },
   { id: "templates", label: "Templates", icon: FileText },

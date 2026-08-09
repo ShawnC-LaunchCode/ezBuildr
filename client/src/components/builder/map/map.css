@@ -59,6 +59,15 @@
   --map-dim-line: hsl(220, 10%, 75%);
   --map-dim-bg: hsl(220, 15%, 94%);
   --map-dim-fg: hsl(220, 10%, 45%);
+
+  /* MAP-B8: @xyflow/react's <Controls> zoom/fit-view cluster. The library
+     ships its own light/dark theme gated on a `.react-flow.dark` class this
+     app never sets (MapTab renders <ReactFlow> with no `colorMode`/className),
+     so its buttons stay hardcoded to the light defaults regardless of theme —
+     override them directly instead of wiring up the unused library toggle. */
+  --map-controls-bg: hsl(0, 0%, 100%);
+  --map-controls-border: hsl(220, 13%, 82%);
+  --map-controls-fg: hsl(220, 10%, 15%);
 }
 
 .dark .workflow-map {
@@ -99,6 +108,10 @@
   --map-dim-line: hsl(220, 10%, 42%);
   --map-dim-bg: hsl(220, 15%, 22%);
   --map-dim-fg: hsl(220, 10%, 65%);
+
+  --map-controls-bg: hsl(220, 15%, 16%);
+  --map-controls-border: hsl(220, 15%, 28%);
+  --map-controls-fg: hsl(220, 10%, 92%);
 }
 
 /* @xyflow/react ships its own default background/handle colors; align them
@@ -112,6 +125,22 @@
 
 .workflow-map .react-flow__attribution {
   display: none;
+}
+
+/* MAP-B8: see the --map-controls-* token comment above for why this can't
+   just be xyflow's own dark theme. */
+.workflow-map .react-flow__controls-button {
+  background: var(--map-controls-bg);
+  border-bottom: 1px solid var(--map-controls-border);
+  color: var(--map-controls-fg);
+}
+
+.workflow-map .react-flow__controls-button:hover {
+  background: var(--map-hover-bg);
+}
+
+.workflow-map .react-flow__controls-button svg {
+  fill: var(--map-controls-fg);
 }
 
 /* MAP-8 review fix: skip edges route through dedicated left-side anchors

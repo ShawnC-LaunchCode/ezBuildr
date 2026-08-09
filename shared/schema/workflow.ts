@@ -247,6 +247,14 @@ export const sections = pgTable("sections", {
     order: integer("order").notNull(),
     config: jsonb("config").default(sql`'{}'::jsonb`),
     visibleIf: jsonb("visible_if"),
+    // RESERVED — never evaluated, never authored (MAP-B1). Cloned, versioned,
+    // and exported alongside the rest of the section, but
+    // `evaluateWorkflowVisibility()` (shared/workflowLogic.ts) reads only
+    // `visibleIf`, and the only authoring surface (SectionLogicSheet.tsx)
+    // writes only `visibleIf`. Every row is therefore null. Whether to
+    // implement this, drop the column, or leave it reserved is a decision for
+    // the repo owner, not settled by this comment — see MAP-B1 in
+    // tickets/WORKFLOW_MAP_TICKETS.md (backlog) / tickets/BACKLOG.md.
     skipIf: jsonb("skip_if"),
     // Soft-delete (ICW2-B1): set instead of a hard DELETE so cascaded
     // `step_values` (respondent answers) survive. Chokepoint repo reads
