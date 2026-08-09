@@ -673,9 +673,18 @@ existing tests for that file actually mock before removing anything.
 > gone. `fenceUntrusted` count unchanged at 4/4/4 per file, verified against the
 > pre-change files rather than by eye.
 >
-> AC5 is satisfied in its strongest form: `tests/integration/api.ai.transform.test.ts`
-> is **byte-identical to main** — the dev did not touch it, and it passes. That
-> is what "existing route tests pass without modification" is supposed to mean.
+> AC5: the five endpoints' response shapes are unchanged, proven by a **new**
+> `tests/integration/api.ai.transform.test.ts` the dev wrote — main had no
+> integration coverage for these routes at all, so "the existing route tests
+> pass unmodified" was unsatisfiable as written and the dev did the better
+> thing. 14 integration tests pass across the two AI files.
+>
+> *(Reviewer correction: an earlier version of this note claimed that file was
+> "byte-identical to main". That was wrong — `git diff` reports no change for an
+> **untracked** file, and I read the empty output as "unmodified" instead of
+> "new". The file was also missed by the AISL-5 commit as a result and landed in
+> a follow-up. Check `git status`, not `git diff`, before concluding a file is
+> unchanged.)*
 >
 > Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
 > `test:fast` **259 files / 2848 tests**, and the two AI integration files
