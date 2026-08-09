@@ -29,6 +29,7 @@ import { createLogger } from '../logger';
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
 import { AIProviderClient } from './ai/AIProviderClient';
 import { QualityImprovementConfig, ImprovementResult } from './ai/IterativeQualityImprover';
+import { ModelRegistry } from './ai/ModelRegistry';
 import { WorkflowGenerationService } from './ai/WorkflowGenerationService';
 import { WorkflowLogicService } from './ai/WorkflowLogicService';
 import { workflowOptimizationService, WorkflowOptimizationService } from './ai/WorkflowOptimizationService';
@@ -230,7 +231,8 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
       const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
-      return { configured: true, provider: 'gemini', model };
+      const error = getUnregisteredModelError('gemini', model);
+      return { configured: true, provider: 'gemini', model, error };
     }
     const apiKey = process.env.AI_API_KEY;
     if (!apiKey) {
@@ -239,10 +241,27 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
         error: 'No API key configured. Set GEMINI_API_KEY or AI_API_KEY environment variable.'
       };
     }
-    const provider = process.env.AI_PROVIDER ?? 'openai';
-    const model = process.env.AI_MODEL_WORKFLOW ?? getDefaultModel(provider as AIProvider);
-    return { configured: true, provider, model };
+    const provider = (process.env.AI_PROVIDER ?? 'openai') as AIProvider;
+    const model = process.env.AI_MODEL_WORKFLOW ?? getDefaultModel(provider);
+    const error = getUnregisteredModelError(provider, model);
+    return { configured: true, provider, model, error };
   } catch (error: unknown) {
     return { configured: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+function getUnregisteredModelError(provider: AIProvider, model: string): string | undefined {
+  if (ModelRegistry.isRegistered(provider, model)) {
+    return undefined;
+  }
+
+  const registeredModels = ModelRegistry.getModelsForProvider(provider);
+  const error = `AI model "${model}" is not registered for provider "${provider}". Registered models: ${registeredModels.join(', ') || '(none)'}.`;
+
+  logger.warn(
+    { provider, model, registeredModels },
+    'AI model is not registered; continuing with the ModelRegistry fallback configuration',
+  );
+
+  return error;
 }

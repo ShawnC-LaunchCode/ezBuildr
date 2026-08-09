@@ -1,0 +1,1331 @@
+# AI Service Layer — Consolidation & Provider Readiness Tickets (AISL-1..11 + backlog)
+
+Source: full read-through of the AI service layer (`server/services/ai/`,
+`server/services/AIService.ts`, `server/lib/ai/`, `server/routes/ai*`,
+`shared/schema/ai.ts`, `shared/types/ai.ts`), 2026-08-09.
+Scope: every code path that reaches an LLM provider, plus the budget, telemetry,
+rate-limit, and prompt-injection controls around them. Overall grade at audit
+time: **B−** (the governed core is well-designed and deliberately hardened; it
+just doesn't cover most of the surface).
+
+Every finding below was verified against the working tree at audit time. **Line
+numbers are advisory** — they were accurate when written and drift as fixes
+land. The locator is the quoted code and the named symbol; grep for those. A
+stale line number is not a broken ticket and does not need re-issuing.
+
+## Why this initiative exists
+
+ezBuildr has **two AI stacks**, not one.
+
+The governed stack (`server/services/ai/`) funnels every call through
+`AIProviderClient.callLLM()`, which enforces a per-tenant token budget, records
+usage to `ai_usage`, retries rate-limits and timeouts with backoff, and emits
+cost telemetry. It sits behind a provider abstraction with three
+implementations.
+
+A second set of call sites constructs `new GoogleGenerativeAI(...)` directly and
+gets **none of that** — no budget, no ledger row, no retry, no cost telemetry —
+and ignores `AI_PROVIDER` entirely. By endpoint count that second stack is the
+majority of the AI surface: all of `/api/ai/transform/*` (5),
+`/api/ai/doc/*` (4), `/api/ai/personalize/*` (5), and `/api/ai/sentiment`.
+
+The consequence that makes this urgent rather than cosmetic: **the repo owner is
+evaluating a provider switch for production, and it cannot be done today.**
+Setting `AI_PROVIDER=openai` moves the governed half and silently leaves the
+other half on Gemini, and the governed half would immediately hard-fail on
+context-window validation because `ModelRegistry` has never heard of the new
+model. Consolidation is the prerequisite for the provider decision, not a
+follow-up cleanup.
+
+These tickets are deliberately **provider-neutral** — none of them picks a
+provider. They make the layer capable of switching.
+
+---
+
+## How to work this document
+
+- **Tickets are grouped into 3 phases**, ordered by dependency. Do not start a
+  phase until the previous phase's **Phase Gate** has been verified and
+  committed by the reviewer (the repo owner's senior model). Phase 1 is a hard
+  prerequisite for Phase 2 — consolidating onto a client whose budget is opt-in
+  and whose registry misreports context windows would spread those bugs to
+  every remaining endpoint.
+- Each ticket has: **Finding**, **Preferred fix**, **Ties**, and
+  **Acceptance criteria** (all must pass).
+- **Load the `add-api-endpoint` skill** before touching anything under
+  `server/routes/`, `server/services/`, or `server/repositories/` — the
+  error-string contract and tenancy checks are easy to get subtly wrong.
+- **Load the `run-tests` skill** before running any test. `npm test` naively
+  gives wrong results here; the suite is three Vitest projects with separate
+  commands. `npm run test:fast` (~13s, no DB) is the default sanity check.
+- `test:fast` intermittently fails **one unrelated test** that passes in
+  isolation, and adding a test file shifts scheduling enough to surface it.
+  Verify any single failure in isolation before blaming your change.
+- Gates for every ticket: `npm run type-check` (0 errors), `npm run lint`
+  (`--max-warnings 0`, repo-wide), and the relevant suites. `tsc --pretty`
+  emits ANSI codes — `grep "error TS"` finds nothing on a failing tree; grep
+  `Found [0-9]+ error` or read the raw output.
+- Devs do not commit; the reviewer commits per passed ticket.
+- Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
+
+### Phase overview
+
+| Phase | Theme | Tickets | Est. effort |
+|---|---|---|---|
+| 1 | Make the governed path correct and switchable | AISL-1..4 | ~1 day |
+| 2 | Consolidate the bypass stack onto `AIProviderClient` | AISL-5..8 | ~2 days |
+| 3 | Cost visibility and control | AISL-9..11 | ~1 day |
+| Backlog | Not phase-gated | AISL-B1..B8 | |
+
+### Ticket index
+
+| Ticket | Title | Priority | Size | Status |
+|---|---|---|---|---|
+| AISL-1 | `ModelRegistry` silently fabricates config for unknown models | P0 | M | ✅ |
+| AISL-2 | Tenant budget is fail-open by omission | P0 | S | ✅ |
+| AISL-3 | `AnthropicProvider` would 400 on every current Claude model | P1 | S | 🔲 |
+| AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | 🔲 |
+| AISL-5 | Transform AI bypasses the governed client | P1 | M | 🔲 |
+| AISL-6 | Personalization AI bypasses the governed client | P1 | M | 🔲 |
+| AISL-7 | Document-assist AI bypasses the governed client | P1 | M | 🔲 |
+| AISL-8 | Sentiment AI bypasses the governed client | P2 | S | 🔲 |
+| AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
+| AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
+| AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | 🔲 |
+
+---
+
+# Phase 1 — Make the governed path correct and switchable
+
+Four independent fixes to `server/services/ai/` and its callers. All are
+prerequisites for Phase 2. In scope: the registry/env contract, budget
+enforcement, the Anthropic provider, and the `TaskType` union. Explicitly out
+of scope: touching any `server/lib/ai/` file (that is Phase 2), and choosing a
+provider or model (that is the repo owner's call).
+
+## AISL-1 — `ModelRegistry` silently fabricates config for unknown models ✅
+
+> **Verified 2026-08-09** (branch `aisl-1`, base `1bbab2a7`). All 7 criteria met.
+> Took three passes; the last correction was made by the reviewer, not the dev.
+>
+> Reviewer-run gates: `type-check` 0 errors, `npm run lint` clean at repo-wide
+> `--max-warnings 0`, focused suite **7/7**, `test:fast` **252 files / 2825
+> tests passed** (+2 vs the 2823 baseline). Criterion 3 confirmed from actual
+> log output, not by inspection — the `level: 40` line carries `provider`,
+> `model`, and `registeredModels`, and execution continues.
+>
+> **Rev 1 failed:** three retired Anthropic models retained (incl. the then-live
+> default `claude-3-5-sonnet-20241022`), `claude-sonnet-5` and `claude-opus-4-8`
+> missing — which would have blocked AISL-3 AC2.
+>
+> **Rev 2 failed:** the Anthropic table was corrected, but `gemini-2.0-flash`
+> and `gemini-1.5-pro` were dropped as vendor-deprecated **while seven files
+> still selected them**. That put the live production model into the "not
+> registered" path (permanent boot warning for the model actually in use) and
+> cut `gemini-1.5-pro`'s ceiling from 2,097,152 to `getDefaultConfig`'s
+> 1,000,000, so large transform prompts would begin hard-throwing — a
+> request-time behavior change, violating AC5, and the exact failure this
+> ticket exists to prevent. **Caused by the reviewer's own send-back wording**
+> ("remove any entry you cannot confirm"), which never stated the constraint
+> that mattered.
+>
+> **Rev 3 (reviewer fix):** both rows restored with a comment recording *why*
+> they are retained, plus two regression tests — one asserting every
+> code-selected model stays registered with its real context/pricing, one
+> asserting the default Gemini deployment boots with `error: undefined`.
+>
+> **Rule this establishes:** the registry's contract is *"models this deployment
+> might call"*, not *"models the vendor currently sells."* Never delete a row
+> while any code path can still select it. Dropping the retired Anthropic rows
+> was correct because nothing referenced them.
+>
+> **Residual risk, accepted:** the OpenAI and Gemini figures are sourced by the
+> dev from vendor pages but are **past the reviewer's knowledge cutoff and were
+> not independently verified**; only the Anthropic table was checked against
+> authoritative data. Wrong prices would distort AISL-10's unit economics;
+> wrong context windows could throw at request time. Re-verify both providers
+> as part of the provider decision — the point at which they start to matter.
+
+**Priority: P0 (bug)** · Size: M · File: `server/services/ai/ModelRegistry.ts`
+
+### Finding
+
+Which model ezBuildr calls is **env-driven**; what `ModelRegistry` knows is
+**code-driven**; nothing validates that the env value exists in the registry.
+
+`getConfig()` in `server/services/ai/ModelRegistry.ts` falls through to
+`getDefaultConfig(provider)` for any unregistered model:
+
+```ts
+const config = this.configMap.get(key);
+
+if (!config) {
+  // Return reasonable defaults for unknown models
+  return this.getDefaultConfig(provider);
+}
+```
+
+and that default is a fabricated entry:
+
+```ts
+case 'openai':
+  return {
+    provider: 'openai',
+    model: 'unknown',
+    maxContextTokens: 8000,
+    pricing: { input: 10.00, output: 30.00 },
+  };
+```
+
+This is not merely bad telemetry. `getMaxContextTokens()` feeds
+`validateTokenLimits()` in `BaseAIProvider`, which **hard-throws**:
+
+```ts
+if (totalTokens > maxContext) {
+  ...
+  throw this.createError(errorMsg, 'VALIDATION_ERROR', { ... });
+}
+```
+
+So pointing `AI_MODEL_WORKFLOW` at any real OpenAI model the registry doesn't
+list gives it an 8,000-token ceiling and rejects workflows that worked the day
+before, with an error message that blames the workflow's size and never
+mentions the registry. The Anthropic fallback (100K) has the same shape with a
+milder blast radius. Gemini's (1M) is generous enough to have hidden the bug so
+far, which is why nobody has hit it — Gemini is the live provider.
+
+`MODEL_CONFIGS` is also stale: the newest entries are
+`claude-3-5-sonnet-20241022`, `gpt-4-turbo-preview`, and `gemini-2.5-pro`.
+Every current Anthropic and OpenAI model resolves to the "unknown" fallback.
+
+`providerConfig.ts` already documents the hazard in its header comment — "Model
+ids default to registry-known values so telemetry cost/context checks resolve
+to real pricing rather than the ModelRegistry 'unknown' fallback" — so the
+*defaults* are safe and anything an operator types is not.
+
+### Preferred fix
+
+Two parts, both in `server/services/ai/`:
+
+1. **Fail loudly at startup instead of silently at request time.** Extend
+   `validateAIConfig()` in `server/services/AIService.ts` (it already runs at
+   boot and is already non-throwing) to check the resolved model against
+   `ModelRegistry.getModelsForProvider(provider)` and return a populated
+   `error` field when it is unregistered. Log it at `warn` with the provider,
+   the model, and the list of registered models for that provider. Do not
+   throw — an unregistered model must stay usable, it just must not be silent.
+2. **Add an explicit `isRegistered(provider, model)` static** to
+   `ModelRegistry` rather than having callers infer it from
+   `getModelsForProvider().includes(...)`. `getDefaultConfig` stays as the
+   runtime behavior; this ticket makes the fallback *observable*, not fatal.
+3. **Refresh `MODEL_CONFIGS`** with the current Anthropic, OpenAI, and Gemini
+   model IDs, context windows, and per-1M pricing. Do not guess these — take
+   them from each provider's live pricing/models page and put the retrieval
+   date in a comment above the array. For Anthropic, the `claude-api` skill
+   carries the current table.
+
+Do **not** make an unregistered model throw at request time, and do not remove
+`getDefaultConfig` — a deployment must be able to run a model newer than the
+registry.
+
+### Ties
+
+- **Blocks AISL-3** (which adds current Claude model IDs the registry must
+  know) — sequence AISL-1 before AISL-3, or bundle if one dev takes both.
+- Blocks all of Phase 2: consolidating onto a client that misreports context
+  windows spreads the bug.
+- Load: `add-api-endpoint` skill (service-layer conventions).
+- Model IDs and pricing for Anthropic: load the `claude-api` skill rather than
+  answering from memory.
+- File footprint: `server/services/ai/ModelRegistry.ts`,
+  `server/services/AIService.ts` (`validateAIConfig` only),
+  `tests/unit/services/ai/`. Collides with **AISL-3** (`ModelRegistry.ts`) and
+  **AISL-2** (`AIService.ts`, different function). No other overlap.
+
+### Acceptance criteria
+
+1. `ModelRegistry.isRegistered(provider, model)` exists and returns `false` for
+   a model not in `MODEL_CONFIGS`, `true` for one that is.
+2. `validateAIConfig()` returns `configured: true` **with a populated `error`
+   string naming the unregistered model** when the resolved model is not in the
+   registry; it returns `error: undefined` when the model is registered.
+3. Boot logs a `warn` containing the provider, the unregistered model, and the
+   registered models for that provider when (2) fires. Boot is not blocked.
+4. `MODEL_CONFIGS` contains current model IDs, context windows, and pricing for
+   all three providers, with a dated sourcing comment above the array.
+5. `getConfig()` still returns the provider default for an unknown model — no
+   throw, no behavior change at request time.
+6. New tests in `tests/unit/services/ai/` assert 1, 2, and 5, including the
+   specific case that an unregistered OpenAI model still yields the 8,000-token
+   default (documenting the fallback rather than silently changing it).
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## AISL-2 — Tenant budget is fail-open by omission ✅
+
+> **Verified 2026-08-09** (branch `aisl-2`, base `3f5f6b35`). All 6 criteria met.
+> Reviewer re-ran every gate independently: `type-check` 0 errors, `npm run lint`
+> clean at `--max-warnings 0`, `test:fast` **253 files / 2827 tests passed**.
+> Criterion 5's third clause spot-checked rather than taken on report —
+> `tests/unit/services/ai/AIProviderClient.test.ts:165`
+> (`records random-fill usage against the requesting tenant`) asserts a real
+> `recordUsage` call carrying `tenantId: 'tenant-random-fill'`.
+> Tenant threading verified in the diff: `runs.routes.ts` → `RunService` →
+> `RunLifecycleService.generateRandomValues(workflowId, tenantId)` →
+> `createAIServiceFromEnv(tenantId)`. `enforceBudget` and `recordUsage` are
+> untouched. Observation filed as AISL-B9 (anonymous public-link runs).
+
+**Priority: P0 (bug)** · Size: S · File: `server/services/ai/AIProviderClient.ts`
+
+### Finding
+
+`enforceBudget` is only called when a `tenantId` happens to be present on the
+config. `callLLM` in `server/services/ai/AIProviderClient.ts`:
+
+```ts
+const { provider, model, tenantId } = this.config;
+...
+if (tenantId) {
+  await this.enforceBudget(tenantId);
+}
+```
+
+and the same guard gates the ledger write:
+
+```ts
+if (tenantId) {
+  await this.recordUsage(tenantId, taskType, usage.inputTokens, usage.outputTokens);
+}
+```
+
+`AIProviderConfig.tenantId` is optional, so **forgetting to thread a tenant
+silently disables both the budget and the usage ledger** rather than erroring.
+This is not hypothetical — `generateRandomValues()` in
+`server/services/workflow-runs/RunLifecycleService.ts` already forgets:
+
+```ts
+// Call AI service to generate random values
+const aiService = createAIServiceFromEnv();
+return aiService.suggestValues(stepData, 'full');
+```
+
+Every other call site (`AiController`, six occurrences) threads
+`authReq.tenantId` correctly, so this path is the odd one out — AI random-fill
+runs unbudgeted and invisible to `ai_usage`.
+
+The guard being opt-in is the underlying defect; the `RunLifecycleService` call
+is the proof that the shape invites the mistake.
+
+### Preferred fix
+
+1. Thread the tenant through `generateRandomValues()` in
+   `RunLifecycleService.ts`. Follow the existing convention: the callers of
+   `AiController` read `authReq.tenantId` and pass it to
+   `createAIServiceFromEnv(tenantId)` — do the same here, taking `tenantId` as
+   a parameter on `generateRandomValues` and passing it down from its route
+   caller. Grep for callers of `generateRandomValues` and update them.
+2. Make the omission loud rather than silent. In `AIProviderClient`'s
+   constructor, when `config.apiKey` is present but `config.tenantId` is not,
+   log a `warn` with `event: 'ai_client_untenanted'` naming the provider and
+   model. Do **not** throw — a throw would break any legitimately
+   tenant-less path (scripts, tests) and is a bigger behavioral change than
+   this ticket should make. The warn is what turns a silent hole into a
+   greppable one.
+
+Do not make `tenantId` required on the `AIProviderConfig` type in this ticket —
+that is a wider refactor and would fight with Phase 2, which adds new call
+sites. Revisit after AISL-8.
+
+### Ties
+
+- **AISL-9** replaces the budget's unit of account and touches
+  `enforceBudget` — sequence AISL-2 before AISL-9.
+- Phase 2 tickets all construct `AIProviderClient` and must pass `tenantId`;
+  the warn added here is how the reviewer verifies they did.
+- Load: `add-api-endpoint` skill (tenancy conventions), `run-tests` skill.
+- File footprint: `server/services/ai/AIProviderClient.ts`,
+  `server/services/workflow-runs/RunLifecycleService.ts`, that service's route
+  caller, `tests/unit/services/ai/AIProviderClient.test.ts`. Collides with
+  **AISL-9** (`AIProviderClient.ts`). No overlap with Phase 2 files.
+
+### Acceptance criteria
+
+1. `generateRandomValues()` accepts a `tenantId` and passes it to
+   `createAIServiceFromEnv`; its route caller supplies `authReq.tenantId`.
+2. Constructing `AIProviderClient` with an `apiKey` but no `tenantId` logs a
+   `warn` containing `ai_client_untenanted`, the provider, and the model.
+3. Constructing it *with* a `tenantId` logs no such warning.
+4. Budget enforcement and `ai_usage` recording still occur exactly as before
+   when `tenantId` is present — no change to the enforced threshold or the
+   recorded row.
+5. New/updated tests in `tests/unit/services/ai/AIProviderClient.test.ts`
+   assert 2 and 3, and a test asserts that a random-fill run now produces an
+   `ai_usage` row for the tenant.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## AISL-3 — `AnthropicProvider` would 400 on every current Claude model 🔲
+
+**Priority: P1** · Size: S · File: `server/services/ai/providers/AnthropicProvider.ts`
+
+### Finding
+
+The Anthropic path has never been exercised — `GEMINI_API_KEY` takes precedence
+in both `resolveAiProviderConfig` and `createAIServiceFromEnv`, and
+`AI_PROVIDER` defaults to `openai` — and it would fail immediately if it were.
+
+`generateResponse()` in `server/services/ai/providers/AnthropicProvider.ts`
+sends a sampling parameter:
+
+```ts
+const { model, temperature = 0.7, maxTokens } = this.config;
+...
+const response = await this.client.messages.create({
+    model,
+    max_tokens: safeMaxTokens,
+    temperature,
+    messages: [{ role: 'user', content: prompt }],
+    system: systemMessage ?? 'You are a workflow design expert. ...',
+});
+```
+
+`temperature`, `top_p`, and `top_k` are **rejected with a 400** on current
+Claude models (Sonnet 5, Opus 5, and the Opus 4.7/4.8 family). Combined with
+the default model in `providerConfig.ts` and `AIService.ts`:
+
+```ts
+anthropic: 'claude-3-5-sonnet-20241022',
+```
+
+— a model ID that is retired — the provider is wired to a dead model and would
+400 on a live one. Any plan that puts Claude in an escalation tier hits this on
+its first call.
+
+`@anthropic-ai/sdk` is pinned at `^0.68.0` in `package.json`, which predates
+several of the current request-shape changes.
+
+### Preferred fix
+
+1. **Drop `temperature` from the Anthropic request.** Steer with the system
+   prompt instead — that is the documented replacement. Leave the field on
+   `AIProviderConfig` (OpenAI and Gemini still use it); just do not forward it
+   from `AnthropicProvider`.
+2. **Update the Anthropic default model** in both
+   `server/services/ai/providerConfig.ts` (`DEFAULT_MODELS.anthropic`) and
+   `server/services/AIService.ts` (`getDefaultModel`) to a current, registered
+   ID. These two constants duplicate each other — see AISL-B4; do not attempt
+   the dedup here, just keep them in sync and note it.
+3. **Bump `@anthropic-ai/sdk`** to a current release and confirm
+   `messages.create` still type-checks.
+4. Load the `claude-api` skill for the exact current model IDs and request
+   shape rather than answering from memory — the IDs are complete as written
+   there and must not have date suffixes appended.
+
+Do **not** add adaptive thinking, effort, or structured outputs in this ticket.
+The goal is a provider that works, not one that is optimized; structured
+outputs is tracked separately as AISL-B1.
+
+### Ties
+
+- **Depends on AISL-1** — the new model ID must be in `MODEL_CONFIGS` or it
+  resolves to the 100K "unknown" fallback. Sequence after AISL-1, or bundle.
+- Load: `claude-api` skill (model IDs, request shape), `run-tests` skill.
+- File footprint: `server/services/ai/providers/AnthropicProvider.ts`,
+  `server/services/ai/providerConfig.ts`, `server/services/AIService.ts`
+  (`getDefaultModel` only), `package.json`,
+  `tests/unit/services/ai/`. Collides with **AISL-1** (`ModelRegistry` /
+  `AIService.ts`) and **AISL-2** (`AIService.ts`, different function).
+
+### Acceptance criteria
+
+1. `AnthropicProvider.generateResponse` does not send `temperature`, `top_p`,
+   or `top_k` in the `messages.create` payload.
+2. `DEFAULT_MODELS.anthropic` in `providerConfig.ts` and the `'anthropic'` case
+   of `getDefaultModel` in `AIService.ts` both resolve to the same current
+   model ID, and that ID is present in `MODEL_CONFIGS`.
+3. `@anthropic-ai/sdk` is upgraded; `npm run type-check` passes against the new
+   version.
+4. A new test in `tests/unit/services/ai/` mocks the Anthropic SDK and asserts
+   the request payload contains no `temperature` key and uses the configured
+   model.
+5. A test asserts `resolveAiProviderConfig({ provider: 'anthropic' })` and
+   `createAIServiceFromEnv` agree on the default Anthropic model.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## AISL-4 — Extend `TaskType` to cover the four bypass domains 🔲
+
+**Priority: P1** · Size: S · File: `server/services/ai/types.ts`
+
+### Finding
+
+The `TaskType` union in `server/services/ai/types.ts` covers only the governed
+stack:
+
+```ts
+export type TaskType =
+  | 'workflow_generation'
+  | 'workflow_suggestion'
+  | 'binding_suggestion'
+  | 'value_suggestion'
+  | 'workflow_revision'
+  | 'logic_generation'
+  | 'logic_debug'
+  | 'logic_visualization';
+```
+
+None of these describe the work done by the four bypass domains (transform
+generation/revision/schema-align, personalization, document assist, sentiment).
+`taskType` is the column `ai_usage` groups by and the key
+`ModelRegistry.getTaskMaxTokens` looks up, so Phase 2 cannot route its calls
+through `callLLM` without values to pass.
+
+`TASK_MAX_TOKENS` in `ModelRegistry.ts` is typed `Record<TaskType, number>`, so
+adding a union member without an output cap is a compile error — that is the
+desired behavior and must be preserved.
+
+This ticket exists separately so that the four Phase 2 tickets have **disjoint
+file footprints** and can be dispatched in parallel. Without it, four devs
+would each edit `types.ts` and `ModelRegistry.ts`.
+
+### Preferred fix
+
+Add exactly these members to `TaskType`, and a `TASK_MAX_TOKENS` entry for
+each:
+
+| New `TaskType` | Used by (Phase 2) | Suggested cap |
+|---|---|---|
+| `transform_generation` | AISL-5 | 4000 |
+| `transform_revision` | AISL-5 | 4000 |
+| `transform_schema_align` | AISL-5 | 4000 |
+| `personalization` | AISL-6 | 1000 |
+| `document_analysis` | AISL-7 | 4000 |
+| `document_mapping` | AISL-7 | 4000 |
+| `sentiment_analysis` | AISL-8 | 500 |
+
+Caps are the reviewer's starting estimates — a dev may deviate with a stated
+reason, but personalization and sentiment must stay small (they return a
+sentence and a small JSON object respectively, and an oversized cap only
+inflates the context-window check).
+
+Keep `VALID_STEP_TYPES` / `TYPE_ALIASES` in this file untouched — they are
+duplicated with `AIServiceUtils.ts` and that dedup is AISL-B4, not this ticket.
+
+### Ties
+
+- **Blocks AISL-5, AISL-6, AISL-7, AISL-8** — all four read these values.
+  Must land before any of them is dispatched.
+- File footprint: `server/services/ai/types.ts`,
+  `server/services/ai/ModelRegistry.ts` (`TASK_MAX_TOKENS` only),
+  `tests/unit/services/ai/`. Collides with **AISL-1** and **AISL-3**
+  (`ModelRegistry.ts`) — sequence within Phase 1.
+- Load: `run-tests` skill.
+
+### Acceptance criteria
+
+1. All seven new members exist on the `TaskType` union.
+2. `TASK_MAX_TOKENS` has an entry for each; `npm run type-check` proves
+   exhaustiveness (no entry may be missing).
+3. `ModelRegistry.getTaskMaxTokens()` returns the configured cap for each new
+   value.
+4. No existing `TaskType` member is renamed or removed.
+5. A new test in `tests/unit/services/ai/` asserts 3 for every member of the
+   union by iterating it, so a future added member without a cap fails the test
+   as well as the compiler.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## Phase 1 Gate
+
+- [ ] AISL-1..4 all ✅ with dated verification notes
+- [ ] `npm run type-check` → `Found 0 errors`
+- [ ] `npm run lint` → clean at `--max-warnings 0`
+- [ ] `npm run test:fast` green (record the file/test counts as the Phase 2
+      baseline)
+- [ ] Boot the app with a deliberately unregistered `AI_MODEL_WORKFLOW` and
+      confirm the AISL-1 startup warning fires and boot is not blocked
+      (`verify` skill)
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Phase 2 — Consolidate the bypass stack onto `AIProviderClient`
+
+Four tickets, one per bypass domain, with **disjoint file footprints** — they
+can be dispatched in parallel, each in its own worktree. Every one is the same
+transformation: replace a direct `new GoogleGenerativeAI(...)` with a
+`AIProviderClient` constructed from `resolveAiProviderConfig({ tenantId })`,
+and call `callLLM(prompt, taskType, systemMessage)` instead of
+`model.generateContent(prompt)`.
+
+**In scope:** the provider call and its plumbing. **Explicitly out of scope:**
+changing prompts, changing response schemas, changing route contracts, or
+"improving" the JSON parsing while you are in there (that is AISL-B1). A
+reviewer will bounce a diff that changes what these endpoints return.
+
+**Preserve prompt-injection fencing exactly.** Every one of these files already
+wraps untrusted input in `fenceUntrusted(...)`. Coverage is currently 100% of
+prompt-building sites and must stay that way — do not drop, move, or "simplify"
+a fence while restructuring the call.
+
+**Preserve test escape hatches.** Each of these files has a
+`NODE_ENV === 'test'` / `'test_without_mock'` branch that exists because the
+Google SDK is awkward to mock. `AIProviderClient` is mocked differently (it
+takes an injectable `aiUsageRepo`, and `ProviderFactory` builds from config),
+so these branches will need reworking rather than deleting — check what the
+existing tests for that file actually mock before removing anything.
+
+## AISL-5 — Transform AI bypasses the governed client 🔲
+
+**Priority: P1** · Size: M · Files: `server/lib/ai/transformGenerator.ts`, `server/lib/ai/transformRevision.ts`, `server/lib/transforms/schemaAlign.ts`
+
+### Finding
+
+All three files behind `/api/ai/transform/*` construct their own Gemini client.
+`getModel()` in `server/lib/ai/transformGenerator.ts`:
+
+```ts
+const getModel = (systemPrompt: string) => {
+  const apiKey = process.env.GEMINI_API_KEY ?? "";
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set");
+  }
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    return genAI.getGenerativeModel({
+      model: "gemini-1.5-pro",
+      systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+    });
+```
+
+`transformRevision.ts` and `schemaAlign.ts` do the same thing at
+`new GoogleGenerativeAI(apiKey)` in their own module-level helpers.
+
+Three consequences:
+
+1. The five endpoints `/api/ai/transform/{generate,revise,debug,auto-fix,schema-align}`
+   consume tokens that never reach `ai_usage` and are never counted against
+   `AI_TENANT_MONTHLY_TOKEN_BUDGET`. A tenant can burn unlimited tokens here.
+2. No retry on 429 — a rate-limited transform generation fails outright where
+   the governed path would back off and succeed.
+3. `transformGenerator.ts` hardcodes **`gemini-1.5-pro`**, a different model
+   from every other call site's `gemini-2.0-flash` and from `GEMINI_MODEL`.
+   Nothing selected it deliberately and nothing reports that it is in use.
+
+The routes already have `hybridAuth`, `requireBuilder`, and `aiRateLimit`, so
+request-count limiting works — it is only the token accounting and budget that
+are missing.
+
+### Preferred fix
+
+Mirror the pattern already used by the hardened ops pipeline in
+`server/routes/ai/workflowEdit.routes.ts` — it is the donor:
+
+```ts
+const client = new AIProviderClient(resolveAiProviderConfig({ maxTokens: 8192, tenantId }));
+```
+
+For each of the three files:
+
+1. Replace the module-level `getModel()` helper with an `AIProviderClient`
+   constructed from `resolveAiProviderConfig({ tenantId })`.
+2. Move what is currently passed as `systemInstruction` into the
+   `systemMessage` argument of `callLLM(prompt, taskType, systemMessage)` —
+   that parameter exists precisely for this.
+3. Pass the `TaskType` added by AISL-4: `transform_generation`,
+   `transform_revision`, `transform_schema_align` respectively.
+4. Thread `tenantId` from the route. `api.ai.transform.routes.ts` already has
+   `hybridAuth`, so `(req as AuthRequest).tenantId` is available — pass it down
+   through each exported function's signature.
+5. Delete the hardcoded `gemini-1.5-pro`; the model now comes from config.
+6. Keep every `fenceUntrusted(...)` call exactly where it is.
+
+Do not change the Zod response schemas (`transformResponseSchema` and
+siblings), the prompts, or the route response shapes.
+
+### Ties
+
+- **Depends on AISL-4** (needs the three new `TaskType` values).
+- Parallel-safe with AISL-6, AISL-7, AISL-8 — no shared files.
+- Load: `add-api-endpoint` skill, `run-tests` skill.
+- Donor pattern to copy: `server/routes/ai/workflowEdit.routes.ts` around the
+  `new AIProviderClient(resolveAiProviderConfig(...))` call.
+- File footprint: `server/lib/ai/transformGenerator.ts`,
+  `server/lib/ai/transformRevision.ts`, `server/lib/transforms/schemaAlign.ts`,
+  `server/routes/api.ai.transform.routes.ts`, plus their tests. **No overlap
+  with any other Phase 2 ticket.**
+
+### Acceptance criteria
+
+1. None of the three files contains `new GoogleGenerativeAI` — grep proves
+   zero occurrences.
+2. Each calls `AIProviderClient.callLLM` with its assigned `TaskType`.
+3. `tenantId` is threaded from `api.ai.transform.routes.ts` to all three; a
+   request to each of the five transform endpoints produces an `ai_usage` row
+   with the correct `tenant_id`, `task_type`, and non-zero token counts.
+4. Every `fenceUntrusted(...)` call present before the change is present after
+   it, wrapping the same value.
+5. The response shape of all five `/api/ai/transform/*` endpoints is unchanged
+   — the existing route tests pass without modification.
+6. No hardcoded model ID remains in any of the three files.
+7. New tests assert 2 and 3 (mock `AIProviderClient`; assert the `taskType`
+   argument and that a usage row is written).
+8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green; the transform-related integration tests green.
+
+---
+
+## AISL-6 — Personalization AI bypasses the governed client 🔲
+
+**Priority: P1** · Size: M · File: `server/lib/ai/personalization.ts`
+
+### Finding
+
+`PersonalizationService` in `server/lib/ai/personalization.ts` builds its own
+Gemini client in the constructor and calls it through a private helper:
+
+```ts
+this.genAI = new GoogleGenerativeAI(apiKey ?? "");
+const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+this.model = this.genAI.getGenerativeModel({ model });
+```
+
+```ts
+private async generateText(prompt: string): Promise<string> {
+    if (!this.model) {
+        throw new Error("Personalization AI is unavailable");
+    }
+
+    const result = await this.model.generateContent(prompt);
+    return result.response.text().trim();
+}
+```
+
+Five endpoints run through this — `/api/ai/personalize/{block,help,clarify,followup,translate}`
+— and none of their token usage is budgeted or recorded. Because
+personalization fires during **runtime interview sessions**, this is the
+highest-volume uncounted path in the app: it can run several times per question
+per respondent, and the `ai_usage` ledger shows none of it.
+
+The service is instantiated once at module load
+(`export const personalizationService = new PersonalizationService()`), so it
+captures the provider config at import time and has no tenant context at all.
+
+### Preferred fix
+
+The module-level singleton is the obstacle: a tenant-scoped budget needs a
+per-request tenant, and a module singleton cannot have one.
+
+1. Keep the exported singleton for call-site compatibility, but change
+   `generateText` to take a `tenantId` and construct its `AIProviderClient`
+   per call from `resolveAiProviderConfig({ tenantId })`. Constructing the
+   client is cheap — `ProviderFactory.createProvider` is a constructor call, no
+   network — so per-call construction is correct here and avoids a wider
+   refactor of how the singleton is wired.
+2. Add `tenantId` to each public method's signature
+   (`rewriteBlockText`, and the four siblings) and thread it from
+   `api.ai.personalization.routes.ts`, which already has `hybridAuth` and a
+   `getUserContext` middleware.
+3. Use `TaskType` `personalization` for all five (they are the same kind of
+   work at the same size; separate task types would fragment the reporting in
+   AISL-10 for no benefit).
+4. Keep the `allowAdaptivePrompts` / `allowDynamicHelp` short-circuits exactly
+   as they are — those return early without calling the model and must keep
+   doing so.
+5. Keep every `fenceUntrusted(...)` call.
+
+### Ties
+
+- **Depends on AISL-4** (needs the `personalization` `TaskType`).
+- Parallel-safe with AISL-5, AISL-7, AISL-8 — no shared files.
+- Load: `add-api-endpoint` skill, `run-tests` skill.
+- Donor pattern: same as AISL-5 —
+  `server/routes/ai/workflowEdit.routes.ts`.
+- Note: `workflow_personalization_settings` (in `shared/schema/ai.ts`) gates
+  whether these calls happen at all. Do not change that gating.
+- File footprint: `server/lib/ai/personalization.ts`,
+  `server/routes/api.ai.personalization.routes.ts`,
+  `tests/integration/api.ai.personalization.test.ts`. **No overlap with any
+  other Phase 2 ticket.**
+
+### Acceptance criteria
+
+1. `server/lib/ai/personalization.ts` contains no `new GoogleGenerativeAI` —
+   grep proves zero occurrences.
+2. All five public methods accept a `tenantId` and pass it through to
+   `resolveAiProviderConfig`.
+3. Each of the five `/api/ai/personalize/*` endpoints produces an `ai_usage`
+   row with the correct `tenant_id` and `task_type: 'personalization'`.
+4. The `allowAdaptivePrompts` / `allowDynamicHelp` / `allowDynamicTone`
+   short-circuits still return the original text **without** producing an
+   `ai_usage` row.
+5. Every `fenceUntrusted(...)` call present before the change is present after.
+6. `tests/integration/api.ai.personalization.test.ts` passes without changes to
+   its assertions about response shape.
+7. New tests assert 3 and 4.
+8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green; `api.ai.personalization` integration test green.
+
+---
+
+## AISL-7 — Document-assist AI bypasses the governed client 🔲
+
+**Priority: P1** · Size: M · File: `server/lib/ai/DocumentAIAssistService.ts`
+
+### Finding
+
+`DocumentAIAssistService` in `server/lib/ai/DocumentAIAssistService.ts` builds
+its own Gemini client in the constructor:
+
+```ts
+this.genAI = new GoogleGenerativeAI(apiKey);
+const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+this.model = this.genAI.getGenerativeModel({ model });
+```
+
+with a documented degraded mode when the key is absent:
+
+```ts
+logger.warn("GEMINI_API_KEY not found. AI Assist Service will run in degraded mode (deterministic only).");
+```
+
+It backs four endpoints — `/api/ai/doc/{analyze,extract-text,suggest-mappings,suggest-improvements}`
+— across `analyzeTemplate`, `suggestMappings`, `suggestImprovements`, and
+`suggestCleanupActions`. None of that usage is budgeted or recorded.
+
+This is the most cost-relevant path to instrument: document analysis sends
+extracted template text (`fenceUntrusted(text.substring(0, 2000))` and full
+variable lists) and is the operation whose per-unit cost the repo owner most
+wants to know (see AISL-10).
+
+The degraded-mode design is good and must survive: `analyzeTemplate` runs
+deterministic extraction first and only then augments with AI, so the endpoint
+still works with no AI provider configured.
+
+### Preferred fix
+
+1. Replace the constructor-held `genAI`/`model` with an `AIProviderClient`
+   constructed per call from `resolveAiProviderConfig({ tenantId })`, same
+   shape as AISL-6.
+2. Thread `tenantId` from `ai.doc.routes.ts` into the four public methods.
+3. Task types: `document_analysis` for `analyzeTemplate` and
+   `suggestCleanupActions`; `document_mapping` for `suggestMappings` and
+   `suggestImprovements`.
+4. **Preserve degraded mode.** `resolveAiProviderConfig` *throws* when no
+   provider key is configured — the current code instead sets `model = null`
+   and falls back to deterministic-only. Wrap the client construction so that a
+   missing key still yields degraded mode rather than a 500. Mirror the
+   existing `logger.warn` message so the operational signal is unchanged.
+5. Keep every `fenceUntrusted(...)` call — this file has four of them.
+
+### Ties
+
+- **Depends on AISL-4** (needs `document_analysis`, `document_mapping`).
+- Parallel-safe with AISL-5, AISL-6, AISL-8 — no shared files.
+- Load: `add-api-endpoint` skill, `run-tests` skill.
+- Related: **AISL-10** consumes the `task_type` values this ticket starts
+  writing; the per-operation cost report is only meaningful once this lands.
+- File footprint: `server/lib/ai/DocumentAIAssistService.ts`,
+  `server/routes/ai.doc.routes.ts`,
+  `tests/integration/api.ai.doc.test.ts`. **No overlap with any other Phase 2
+  ticket.**
+
+### Acceptance criteria
+
+1. `DocumentAIAssistService.ts` contains no `new GoogleGenerativeAI` — grep
+   proves zero occurrences.
+2. The four public methods accept a `tenantId` and route through
+   `AIProviderClient.callLLM` with the task types assigned above.
+3. Each of the four `/api/ai/doc/*` endpoints produces an `ai_usage` row with
+   the correct `tenant_id` and `task_type`.
+4. **With no provider key configured**, `analyzeTemplate` still returns its
+   deterministic results, logs the existing degraded-mode warning, and does
+   **not** throw or return 500. A test proves this.
+5. Every `fenceUntrusted(...)` call present before the change is present after.
+6. `tests/integration/api.ai.doc.test.ts` passes without changes to its
+   response-shape assertions.
+7. New tests assert 3 and 4.
+8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green; `api.ai.doc` integration test green.
+
+---
+
+## AISL-8 — Sentiment AI bypasses the governed client 🔲
+
+**Priority: P2** · Size: S · File: `server/services/geminiService.ts`
+
+### Finding
+
+`GeminiService` in `server/services/geminiService.ts` is a whole service class
+whose only live consumer is one method. `AiController.analyzeSentiment` is its
+sole caller:
+
+```ts
+const result = await geminiService.analyzeSentiment(text);
+```
+
+and `analyzeSentiment` builds its own model, twice, with a fallback path:
+
+```ts
+const model = genAI.getGenerativeModel({
+  model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+  systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+});
+result = await model.generateContent(`Text: "${fenceUntrusted(text)}"`);
+} catch (e) {
+  // Fallback if genAI model creation fails (e.g. in some mock setups)
+  const prompt = `${systemPrompt}\n\nText: "${fenceUntrusted(text)}"`;
+  result = await fallbackModel.generateContent(prompt);
+}
+```
+
+`POST /api/ai/sentiment` is the only endpoint affected. It is the smallest of
+the four bypass domains, hence P2 — but it is also the cleanest to convert, and
+leaving it behind means `grep "new GoogleGenerativeAI" server/` never reaches
+zero, which is the check that makes this initiative verifiable.
+
+Note the duplicated-model dance in the `catch` exists purely to survive test
+mocks, and should disappear entirely once the call goes through
+`AIProviderClient` (which is mocked at a different seam).
+
+### Preferred fix
+
+1. Convert `analyzeSentiment` to `AIProviderClient.callLLM(prompt, 'sentiment_analysis', systemPrompt)`,
+   constructed from `resolveAiProviderConfig({ tenantId })`.
+2. Thread `tenantId` from `AiController.analyzeSentiment` — the controller
+   already reads `authReq.tenantId` for its six other methods, so follow that
+   existing line exactly.
+3. Delete the `catch` fallback that re-creates the model; it exists only for
+   mock setups that no longer apply.
+4. Keep the `fenceUntrusted(text)` call and the `sentimentResponseSchema`
+   validation, including the existing behavior of returning a neutral fallback
+   object when parsing fails.
+5. If, after conversion, `GeminiService` has no remaining members, **delete the
+   file and its export** rather than leaving an empty class. Check for other
+   importers first (`grep -rn "geminiService" server/ client/`).
+
+### Ties
+
+- **Depends on AISL-4** (needs the `sentiment_analysis` `TaskType`).
+- Parallel-safe with AISL-5, AISL-6, AISL-7 — no shared files.
+- **Closes out the Phase 2 gate check** (`grep "new GoogleGenerativeAI" server/`
+  returning only `server/services/ai/providers/GeminiProvider.ts`).
+- Load: `add-api-endpoint` skill, `run-tests` skill.
+- File footprint: `server/services/geminiService.ts`,
+  `server/controllers/AiController.ts` (`analyzeSentiment` only),
+  `tests/unit/services/`. **No overlap with any other Phase 2 ticket.**
+
+### Acceptance criteria
+
+1. `server/services/geminiService.ts` contains no `new GoogleGenerativeAI`, or
+   the file is deleted along with all its imports.
+2. `POST /api/ai/sentiment` routes through `AIProviderClient.callLLM` with
+   `task_type: 'sentiment_analysis'` and produces an `ai_usage` row carrying
+   the caller's `tenant_id`.
+3. The endpoint's response shape is unchanged, including the neutral fallback
+   returned when the model's JSON fails schema validation. A test covers the
+   fallback.
+4. `fenceUntrusted(text)` is still applied to the input.
+5. `grep -rn "new GoogleGenerativeAI" server/` returns **exactly one** match:
+   `server/services/ai/providers/GeminiProvider.ts`.
+6. New/updated tests assert 2 and 3.
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## Phase 2 Gate
+
+- [ ] AISL-5..8 all ✅ with dated verification notes
+- [ ] `grep -rn "new GoogleGenerativeAI" server/` returns exactly one match
+      (`GeminiProvider.ts`) — this is the headline check for the initiative
+- [ ] `npm run type-check` → `Found 0 errors`
+- [ ] `npm run lint` → clean
+- [ ] `npm run test:fast` green; count ≥ Phase 1 baseline
+- [ ] `npm run test:integration` green for the `api.ai.*` files
+- [ ] **Live proof, batched:** with the dev server up (`verify` skill), exercise
+      one endpoint from each of the four domains and confirm four `ai_usage`
+      rows appear with the right `tenant_id` and distinct `task_type` values.
+      One drive-through covers all four tickets.
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Phase 3 — Cost visibility and control
+
+With every call flowing through one client, the budget and the ledger finally
+describe the whole system. These three tickets make them accurate and useful.
+
+## AISL-9 — Budget on dollars, not raw token count 🔲
+
+**Priority: P1** · Size: M · Files: `server/repositories/AiUsageRepository.ts`, `server/services/ai/AIProviderClient.ts`
+
+### Finding
+
+The budget sums input and output tokens as one undifferentiated number.
+`getTokenUsageSince()` in `server/repositories/AiUsageRepository.ts`:
+
+```ts
+total: sql<string>`COALESCE(SUM(${aiUsage.inputTokens} + ${aiUsage.outputTokens}), 0)`,
+```
+
+compared in `enforceBudget` against `LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET`
+(20,000,000 tokens over a 30-day rolling window).
+
+Output tokens cost **3–10× input** across every model in `MODEL_CONFIGS` — for
+`gemini-2.0-flash`, $0.10 vs $0.40 per 1M. So a tenant doing output-heavy
+workflow generation gets the same allowance as one doing cheap classification,
+and the budget under-prices the expensive tenant by up to 4×.
+
+`cost_usd` is already computed and stored on every row
+(`ModelRegistry.estimateCost` → `aiUsageRepo.recordUsage`) and is simply never
+read back.
+
+There is also no gradation: the tenant goes from working to
+`BUDGET_EXCEEDED` with no warning. `LIMITS` has one threshold and no
+warn/throttle tiers.
+
+### Preferred fix
+
+1. Add `getCostUsdSince(tenantId, since, tx?)` to `AiUsageRepository`,
+   mirroring `getTokenUsageSince` exactly but summing `cost_usd`. Keep the
+   token method — AISL-10 reports on both.
+2. Add three limits to `shared/limits.ts` alongside the existing AI block,
+   following the `envInt` convention already used there (a cents-based
+   `envInt` avoids float env parsing):
+   - `AI_TENANT_BUDGET_USD_CENTS` (hard limit)
+   - `AI_TENANT_BUDGET_WARN_CENTS` (log a warning, do not block)
+   - `AI_TENANT_BUDGET_THROTTLE_CENTS` (between warn and hard)
+3. Rework `enforceBudget` to compare against dollars: emit
+   `event: 'ai_budget_warning'` at the warn threshold,
+   `event: 'ai_budget_throttled'` at the throttle threshold, and throw the
+   existing `AIError('...', 'BUDGET_EXCEEDED', ...)` at the hard limit. The
+   thrown error's message and code must not change — the client surfaces it.
+4. **Throttle behavior is the repo owner's call and is not specified here.**
+   Ship the throttle tier as *log-only* in this ticket, with the enforcement
+   point clearly marked. Do not invent a queueing or degradation policy.
+5. Keep `AI_TENANT_MONTHLY_TOKEN_BUDGET` in place and still enforced as a
+   secondary ceiling — removing it in the same ticket that adds a new
+   accounting basis makes a regression impossible to attribute.
+
+### Ties
+
+- **Depends on AISL-2** (touches `enforceBudget`) and on **all of Phase 2** —
+  a dollar budget computed over a ledger that is missing most of the traffic is
+  worse than the token one, because it looks authoritative.
+- Load: `add-api-endpoint` skill (repository pattern), `run-tests` skill.
+- Uses DB-backed tests → **cannot run concurrently with another DB suite.** If
+  dispatched alongside AISL-10, sequence the test runs.
+- File footprint: `server/repositories/AiUsageRepository.ts`,
+  `server/services/ai/AIProviderClient.ts`, `shared/limits.ts`,
+  `tests/unit/services/ai/AIProviderClient.test.ts`, unit-db repository tests.
+  Collides with **AISL-10** (`AiUsageRepository.ts`).
+
+### Acceptance criteria
+
+1. `AiUsageRepository.getCostUsdSince()` exists and returns the summed
+   `cost_usd` for a tenant over a window; returns `0` for a tenant with no rows.
+2. `shared/limits.ts` defines the three new cents-based limits with `envInt`
+   defaults and env-var overrides.
+3. `enforceBudget` logs `ai_budget_warning` at/above the warn threshold and
+   allows the call.
+4. `enforceBudget` logs `ai_budget_throttled` at/above the throttle threshold
+   and allows the call (log-only in this ticket).
+5. `enforceBudget` throws `AIError` with code `BUDGET_EXCEEDED` and the
+   existing user-facing message at/above the hard limit.
+6. The token budget is still enforced as a secondary ceiling — a tenant over
+   the token limit but under the dollar limit is still blocked.
+7. New unit-db tests assert 1, and unit tests assert 3, 4, 5, and 6 by seeding
+   usage rows at each threshold.
+8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` and
+   `npm run test:unit` green.
+
+---
+
+## AISL-10 — No per-operation unit economics 🔲
+
+**Priority: P1** · Size: S · File: `server/repositories/AiUsageRepository.ts`
+
+### Finding
+
+`ai_usage` records `task_type`, `provider`, `model`, both token counts, and
+`cost_usd` per call, indexed on `(tenant_id, created_at)` — everything needed
+to answer "what does one document analysis cost us?" — and **nothing reads it
+back**. `AiUsageRepository` has exactly two methods:
+
+```ts
+async recordUsage(entry: InsertAiUsage, tx?: DbTransaction): Promise<AiUsage>
+async getTokenUsageSince(tenantId: string, since: Date, tx?: DbTransaction): Promise<number>
+```
+
+The admin surface reports AI *feedback* stats
+(`/api/admin/ai-settings/feedback/{stats,recent}`) but no AI *cost* stats.
+
+Without this, every model- or provider-selection decision is made on list
+prices instead of measured cost, and the escalation-ladder question (AISL-B2)
+cannot be evaluated at all.
+
+### Preferred fix
+
+1. Add `getUsageBreakdownSince(since, opts?)` to `AiUsageRepository`, grouping
+   by `task_type`, `provider`, and `model`, returning per-group: call count,
+   summed input tokens, summed output tokens, summed `cost_usd`, and mean
+   `cost_usd` per call. Accept an optional `tenantId` filter — omitted means
+   all tenants (admin view).
+2. Expose it at `GET /api/admin/ai-settings/usage` behind `hybridAuth` +
+   `isAdmin`, mirroring the existing
+   `/api/admin/ai-settings/feedback/stats` handler in
+   `server/routes/admin.aiSettings.routes.ts` — same file, same middleware
+   chain, same response envelope. That handler is the donor pattern; copy its
+   shape rather than inventing one.
+3. Accept a `days` query param (default 30, validated with Zod, capped at 365)
+   to set the window.
+
+No client UI in this ticket — the endpoint is the deliverable. A dashboard, if
+wanted, is a separate ticket.
+
+### Ties
+
+- **Depends on all of Phase 2** — the numbers are misleading until every
+  domain writes to the ledger. Explicitly: do not dispatch this before the
+  Phase 2 gate passes.
+- **Feeds AISL-B2** (model tiering) — that backlog item is unevaluable without
+  this data.
+- Load: `add-api-endpoint` skill (route → service → repository, Zod validation,
+  `classifyRouteError`), `run-tests` skill.
+- Uses DB-backed tests → sequence against **AISL-9** rather than running both
+  DB suites at once.
+- File footprint: `server/repositories/AiUsageRepository.ts`,
+  `server/routes/admin.aiSettings.routes.ts`, tests. Collides with **AISL-9**
+  (`AiUsageRepository.ts`).
+
+### Acceptance criteria
+
+1. `AiUsageRepository.getUsageBreakdownSince()` returns per-`(task_type,
+   provider, model)` rows with count, input tokens, output tokens, total
+   `cost_usd`, and mean `cost_usd` per call.
+2. Passing a `tenantId` scopes the result to that tenant; omitting it returns
+   all tenants.
+3. `GET /api/admin/ai-settings/usage` returns that breakdown, requires
+   `hybridAuth` + `isAdmin`, and returns 403 for a non-admin authenticated user.
+4. `?days=N` sets the window; a non-numeric or out-of-range `days` returns 400
+   with validation details; omitting it defaults to 30.
+5. A tenant with no usage rows yields an empty array, not an error.
+6. New unit-db tests assert 1, 2, and 5; a route test asserts 3 and 4.
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` and
+   `npm run test:unit` green.
+
+---
+
+## AISL-11 — System prompt is not a stable cacheable prefix 🔲
+
+**Priority: P2** · Size: S · File: `server/routes/ai/workflowEdit.routes.ts`
+
+### Finding
+
+Provider prompt caching keys on an exact byte-prefix match, and ezBuildr's
+system prompt is *almost* a perfect candidate: `DEFAULT_SYSTEM_PROMPT` plus
+`buildWorkflowVocabulary()` is large, generated at module load from the
+platform's own Zod schemas, and identical for every request.
+
+Three per-request substitutions break it. In
+`server/routes/ai/workflowEdit.routes.ts`:
+
+```ts
+const readingLevel = preferences?.readingLevel ?? "standard";
+const interviewerRole = preferences?.interviewerRole ?? "workflow designer";
+...
+  .replace(/{{interviewerRole}}/g, interviewerRole)
+  .replace(/{{readingLevel}}/g, readingLevel)
+  .replace(/{{tone}}/g, tone);
+```
+
+Because the placeholders sit **inside** the prompt body, every distinct
+preference combination produces a distinct prefix. The vocabulary catalog — by
+far the largest and most stable part — sits after them and is re-billed for
+each combination instead of being shared across all tenants.
+
+The volatile per-request content is already correctly downstream (the
+`fenceUntrusted(workflowContext)` and `fenceUntrusted(userMessage)` blocks are
+in the user turn), so this is the only thing standing between the current
+prompt and a single shared cacheable prefix.
+
+This ticket is **structural only** — it does not enable caching on any
+provider. Enabling it is AISL-B3, which is blocked on the provider decision.
+
+### Preferred fix
+
+Restructure `DEFAULT_SYSTEM_PROMPT` in `server/services/AiSettingsService.ts`
+so the stable content leads and the personalized content trails:
+
+1. Move `${buildWorkflowVocabulary()}` and the fixed guideline list to the
+   **top** of the template.
+2. Move the three `{{...}}` placeholder lines to the **end**, as a short
+   trailing block.
+3. Leave the substitution code in `workflowEdit.routes.ts` unchanged — it is
+   a `String.replace` on placeholder tokens and does not care where they sit.
+4. Update the admin warning in `admin.aiSettings.routes.ts` only if its
+   placeholder list changes (it should not).
+
+Do not change the *wording* of any guideline, and do not remove the
+placeholders — an admin-supplied custom prompt may rely on them, and
+`admin.aiSettings.routes.ts` already warns when they are absent.
+
+### Ties
+
+- **Enables AISL-B3** (provider prompt caching) — that backlog item is blocked
+  on the provider decision, this one is not.
+- Load: `run-tests` skill.
+- Related: `tests/unit/shared/aiVocabulary.test.ts` covers the generated
+  catalog; check it still passes unchanged.
+- File footprint: `server/services/AiSettingsService.ts`,
+  `tests/unit/`. Minimal overlap — safe to dispatch alongside AISL-9/10.
+
+### Acceptance criteria
+
+1. In `DEFAULT_SYSTEM_PROMPT`, all three `{{...}}` placeholders appear **after**
+   the full output of `buildWorkflowVocabulary()`.
+2. The set of placeholders is unchanged: `{{interviewerRole}}`,
+   `{{readingLevel}}`, `{{tone}}` all still present exactly once each.
+3. Substitution in `workflowEdit.routes.ts` still replaces all three; the
+   fully-rendered prompt contains no residual `{{` sequence.
+4. The rendered prompt still contains every guideline line and the complete
+   vocabulary catalog — no content dropped in the reordering.
+5. A new test renders the prompt with a preferences object and asserts 2, 3,
+   and that the index of the first placeholder is greater than the index of the
+   vocabulary catalog's last line.
+6. `tests/unit/shared/aiVocabulary.test.ts` passes unchanged.
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
+
+---
+
+## Phase 3 Gate
+
+- [ ] AISL-9..11 all ✅ with dated verification notes
+- [ ] `npm run type-check` → `Found 0 errors`
+- [ ] `npm run lint` → clean
+- [ ] `npm run test:fast` and `npm run test:unit` green
+- [ ] **Live proof:** with the dev server up, exercise one endpoint from each
+      domain, then `GET /api/admin/ai-settings/usage` and confirm the breakdown
+      shows distinct `task_type` rows with non-zero `cost_usd`. Screenshot or
+      response body attached.
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Backlog / observations
+
+Not phase-gated. Not dispatchable as written. Promote to a ticket only with the
+repo owner's agreement.
+
+**AISL-B1 — Structured outputs would delete the JSON-parsing subsystem.**
+`needs-initiative`, Size L, escalated. Every AI response currently runs through
+`stripMarkdownCodeBlocks` → `JSON.parse` → Zod validate → truncation detection
+(`isResponseTruncated`: ends-with-brace, balanced-delimiter count, re-parse) →
+`INVALID_RESPONSE` / `RESPONSE_TRUNCATED` error paths and their troubleshooting
+hints. Both Anthropic (`output_config.format` with `json_schema`) and OpenAI
+support schema-constrained output; Gemini has `responseSchema`. ezBuildr already
+has Zod schemas for every response shape (`AIGeneratedWorkflowSchema`,
+`AIConnectLogicResponseSchema`, `aiModelResponseSchema`) that would feed the
+constraint directly. This is a subtraction — it removes a whole class of runtime
+failure — but it is provider-coupled and should not be attempted before the
+provider decision, and it is too large for one ticket.
+
+**AISL-B2 — Model tiering / escalation ladder.** `needs-initiative`, blocked on
+AISL-10. `TaskType` is already the natural routing key and `TASK_MAX_TOKENS`
+already varies output caps per task, so routing *model* by task is a small
+change to an existing structure. Two cautions recorded at audit: (a)
+`IterativeQualityImprover` is already an escalation loop (3 iterations / 25¢
+cap) and a second escalation axis multiplies against it — design them together;
+(b) the current cheap tier is `gemini-2.0-flash` at $0.10/$0.40, so the savings
+are much smaller for workflow generation than for the document path. ezBuildr
+has a better escalation trigger than self-reported model confidence:
+`WorkflowQualityValidator` produces a deterministic score with a breakdown.
+
+**AISL-B3 — Enable provider prompt caching.** `needs-initiative`, blocked on the
+provider decision; AISL-11 is its prerequisite and is not blocked. Cache reads
+run ~0.1× input price and ezBuildr's system prompt is a large stable prefix, so
+this is likely the largest single cost lever available. Implementation differs
+sharply by provider (Anthropic `cache_control` breakpoints; Gemini explicit
+`CachedContent` with a TTL and a token minimum; OpenAI automatic prefix
+caching), which is why it cannot be specified until the provider is chosen.
+
+**AISL-B4 — Three duplicated definitions in the AI layer.** `enhancement`,
+Size S. (a) `VALID_STEP_TYPES` and `TYPE_ALIASES` exist verbatim in both
+`server/services/ai/types.ts` and `server/services/ai/AIServiceUtils.ts`;
+(b) truncation detection is duplicated between `AIServiceUtils.isResponseTruncated`
+and `BaseAIProvider.isResponseTruncated`; (c) env→config resolution is
+duplicated between `providerConfig.resolveAiProviderConfig` and
+`AIService.createAIServiceFromEnv`. Each pair agrees today by discipline alone.
+The step-type copy is the dangerous one given `add-step-type` already lists ~10
+places to touch. Deliberately not bundled into Phase 1 — it would collide with
+AISL-3 and AISL-4 for no functional gain.
+
+**AISL-B5 — `__qualityScore` side channel.** `enhancement`, Size S.
+`WorkflowGenerationService.generateWorkflow` attaches quality metadata to the
+returned object via `(validated as any).__qualityScore = qualityScore` and the
+caller `delete`s it. A return type would express this properly. Cosmetic; two
+`eslint-disable` lines ride on it.
+
+**AISL-B6 — Retry loop has no wall-clock deadline and no circuit breaker.**
+`enhancement`. `AIProviderClient.callLLM` allows 6 attempts with exponential
+backoff capped at 60s per wait, with no total time budget — a request can stay
+open for several minutes. There is also no breaker, so a provider outage means
+every tenant pays full retry cost on every call. Not urgent while the provider
+is stable; revisit if an outage bites.
+
+**AISL-B7 — `WorkflowOptimizationService` is not an AI service.**
+`informational`. It lives in `server/services/ai/`, is exported from
+`ai/index.ts`, and is served at `/api/ai/workflows/optimize/*`, but makes **no
+LLM call at all** — `analyze()` and `applyFixes()` are pure rule-based analysis.
+Nothing is broken. Recorded because it will mislead the next person auditing AI
+cost or deciding which endpoints need budget coverage. Do not "fix" by adding
+an LLM call.
+
+**AISL-B9 — Anonymous public-link runs still call AI untenanted.** `enhancement`,
+Size S. Found during AISL-2 review. `runs.routes.ts` now reads `authReq.tenantId`
+for both branches, but on the anonymous public-link path there is no
+authenticated user, so `tenantId` is `undefined` and a `randomize` run still
+reaches the model unbudgeted. AISL-2's criteria are met as written and the new
+`ai_client_untenanted` warn makes the remaining case visible, which is what that
+warn is for. The fix is to resolve the tenant from the *workflow* rather than the
+request on that path — out of AISL-2's stated scope, so not folded in.
+
+**AISL-B8 — Per-user / per-org system prompt scoping.** `product-decision`,
+originally ICW-15. `ai_settings.scope` already has the column
+(`'global' | 'org' | 'user'`) and an index, but `AiSettingsService` implements
+only the global override and says so in a comment. Whether tenants should be
+able to override the system prompt is the repo owner's call, not an
+implementation gap.
+
+---
+
+## Escalations for the repo owner
+
+Raised during ticket generation per the skill's Stage 2 rule, before dispatch:
+
+1. **AISL-B1 (structured outputs) is Size L and provider-coupled** — it would
+   delete a real subsystem and remove a class of runtime failure, but it should
+   not be attempted before the provider decision, and it does not fit in one
+   ticket. Parked rather than ticketed. Say the word and it becomes its own
+   initiative.
+2. **AISL-B2 (model tiering) is the idea from the ChatGPT thread** and is
+   deliberately *not* ticketed — it is unevaluable until AISL-10 produces real
+   per-operation costs, and the current cheap tier is already near the bottom
+   of the price curve. Revisit after Phase 3 with data.
+3. **AISL-9 ships the throttle tier as log-only.** What "throttled" should
+   actually *do* — queue, degrade to a cheaper model, hard-fail early — is a
+   product decision. The enforcement point is marked in the code; the policy is
+   yours.
+4. **These tickets do not pick a provider.** They make the layer switchable.
+   The provider choice is a separate decision and is best made after Phase 3,
+   on measured cost rather than list prices.

@@ -39,51 +39,116 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
 
 /**
  * Comprehensive model configurations
+ *
+ * OpenAI and Gemini model IDs, context windows, and standard per-1M-token
+ * prices were retrieved 2026-08-09 from their official live model/pricing
+ * pages. Anthropic entries use the authoritative current table supplied in the
+ * AISL-1 review dated 2026-08-09. Tiered long-context pricing is intentionally
+ * not represented because ModelConfig supports one input and one output rate.
  */
 const MODEL_CONFIGS: ModelConfig[] = [
   // OpenAI Models
   {
     provider: 'openai',
-    model: 'gpt-4-turbo-preview',
-    maxContextTokens: 128000,
-    pricing: { input: 10.00, output: 30.00 },
+    model: 'gpt-5.6',
+    maxContextTokens: 1050000,
+    pricing: { input: 5.00, output: 30.00 },
   },
   {
     provider: 'openai',
-    model: 'gpt-4',
-    maxContextTokens: 8192,
-    pricing: { input: 30.00, output: 60.00 },
+    model: 'gpt-5.6-sol',
+    maxContextTokens: 1050000,
+    pricing: { input: 5.00, output: 30.00 },
   },
   {
     provider: 'openai',
-    model: 'gpt-3.5-turbo',
-    maxContextTokens: 16385,
-    pricing: { input: 0.50, output: 1.50 },
+    model: 'gpt-5.6-terra',
+    maxContextTokens: 1050000,
+    pricing: { input: 2.00, output: 12.00 },
+  },
+  {
+    provider: 'openai',
+    model: 'gpt-5.6-luna',
+    maxContextTokens: 1050000,
+    pricing: { input: 0.20, output: 1.20 },
   },
 
   // Anthropic Models
   {
     provider: 'anthropic',
-    model: 'claude-3-5-sonnet-20241022',
-    maxContextTokens: 200000,
+    model: 'claude-fable-5',
+    maxContextTokens: 1000000,
+    pricing: { input: 10.00, output: 50.00 },
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-opus-5',
+    maxContextTokens: 1000000,
+    pricing: { input: 5.00, output: 25.00 },
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-opus-4-8',
+    maxContextTokens: 1000000,
+    pricing: { input: 5.00, output: 25.00 },
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-opus-4-7',
+    maxContextTokens: 1000000,
+    pricing: { input: 5.00, output: 25.00 },
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-opus-4-6',
+    maxContextTokens: 1000000,
+    pricing: { input: 5.00, output: 25.00 },
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-sonnet-5',
+    maxContextTokens: 1000000,
+    // Use the standard rate; the $2/$10 introductory rate ends 2026-08-31.
     pricing: { input: 3.00, output: 15.00 },
   },
   {
     provider: 'anthropic',
-    model: 'claude-3-opus-20240229',
-    maxContextTokens: 200000,
-    pricing: { input: 15.00, output: 75.00 },
+    model: 'claude-sonnet-4-6',
+    maxContextTokens: 1000000,
+    pricing: { input: 3.00, output: 15.00 },
   },
   {
     provider: 'anthropic',
-    model: 'claude-3-sonnet-20240229',
+    model: 'claude-haiku-4-5',
     maxContextTokens: 200000,
-    pricing: { input: 3.00, output: 15.00 },
+    pricing: { input: 1.00, output: 5.00 },
   },
 
   // Gemini Models
-  // Pricing is the published per-1M-token rate at time of writing; used only for
-  // telemetry cost estimates, so approximate values are acceptable.
+  {
+    provider: 'gemini',
+    model: 'gemini-3.6-flash',
+    maxContextTokens: 1048576,
+    pricing: { input: 1.50, output: 7.50 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-3.5-flash',
+    maxContextTokens: 1048576,
+    pricing: { input: 1.50, output: 9.00 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-3.5-flash-lite',
+    maxContextTokens: 1048576,
+    pricing: { input: 0.30, output: 2.50 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-3.1-flash-lite',
+    maxContextTokens: 1048576,
+    pricing: { input: 0.25, output: 1.50 },
+  },
   {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
@@ -93,20 +158,33 @@ const MODEL_CONFIGS: ModelConfig[] = [
   {
     provider: 'gemini',
     model: 'gemini-2.5-flash',
-    maxContextTokens: 1048576, // 1M tokens
+    maxContextTokens: 1048576,
     pricing: { input: 0.30, output: 2.50 },
   },
   {
     provider: 'gemini',
-    model: 'gemini-2.0-flash',
-    maxContextTokens: 1048576, // 1M tokens
+    model: 'gemini-2.5-flash-lite',
+    maxContextTokens: 1048576,
     pricing: { input: 0.10, output: 0.40 },
   },
+
+  // Vendor-deprecated, but RETAINED because ezBuildr still selects them.
+  // The registry's contract is "models this deployment might call", not
+  // "models the vendor currently sells" — a model can be deprecated upstream
+  // and still be the configured default here, and dropping its row silently
+  // swaps in `getDefaultConfig`'s guessed context window and pricing.
+  //   - gemini-2.0-flash is DEFAULT_GEMINI_MODEL (providerConfig.ts) and the
+  //     `GEMINI_MODEL ?? ...` fallback across AIService/geminiService/
+  //     personalization/DocumentAIAssistService/schemaAlign/AiController.
+  //   - gemini-1.5-pro is hardcoded in transformGenerator/transformRevision;
+  //     AISL-5 removes those, after which this row may be reconsidered.
+  // Do not delete either while any code path can still select it — see the
+  // AISL-1 review notes in tickets/AI_SERVICE_LAYER_TICKETS.md.
   {
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
-    maxContextTokens: 1048576, // 1M tokens
-    pricing: { input: 0.075, output: 0.30 },
+    model: 'gemini-2.0-flash',
+    maxContextTokens: 1048576,
+    pricing: { input: 0.10, output: 0.40 },
   },
   {
     provider: 'gemini',
@@ -152,6 +230,15 @@ export class ModelRegistry {
     }
 
     return config;
+  }
+
+  /**
+   * Check whether a provider/model pair has an explicit registry entry.
+   */
+  static isRegistered(provider: AIProvider, model: string): boolean {
+    this.initialize();
+
+    return this.configMap.has(`${provider}:${model}`);
   }
 
   /**
