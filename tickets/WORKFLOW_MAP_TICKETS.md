@@ -876,11 +876,19 @@ does not create, delete, reorder or reposition anything.
 > background `rgb(255,255,255)` → `rgb(35,39,47)`. A diagnostic edit made while
 > ruling out styling was reverted and confirmed clean.
 >
-> Per this file's own policy — *"batch it where tickets compose: several UI
-> tickets landing on the same screen are proven by one drive-through at the phase
-> gate"* — appearance verification moves to the Phase 2 gate, which needs a human
-> or a working browser surface. **This is the one thing in the initiative that
-> cannot be closed by an agent in this environment.**
+> **AC10 CLOSED 2026-08-08 by MAP-8's live run.** The reviewer's "no route to
+> pixel proof exists" conclusion was **wrong** — it came from a single Playwright
+> attempt against port 5000 while the server was still re-optimising Vite deps
+> after the `reactflow` → `@xyflow/react` swap, and was not retried. The working
+> recipe, used successfully by MAP-5, MAP-6 and MAP-8: start the worktree's *own*
+> dev server on a spare port and drive it with **Playwright MCP**, never the
+> Claude Browser pane (which does not composite frames here). The plain map in
+> both themes is `map8-light-before-fixed.png` / `map8-dark-before-fixed.png`.
+>
+> That mistake had a real cost: MAP-8's review then found a defect — a skip edge
+> label rendered on top of the node it bypassed — that had been shipping on this
+> surface since MAP-4 and that no gate could see. Had AC10 been obtained here, it
+> would have been caught four tickets earlier.
 
 
 **Priority: P1** · Size: **L** · Files: `client/src/components/builder/map/` (new), `client/src/components/builder/layout/BuilderTabNav.tsx`, `client/src/pages/WorkflowBuilder.tsx`
@@ -1684,7 +1692,7 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-1 | Migrate to `@xyflow/react`, delete dead collab canvas sync | P2 | M | ✅ |
 | MAP-2 | Pure workflow-graph model in `shared/` | P1 | M | ✅ |
 | MAP-3 | Reachability / dead-end / loop analysis in the lint pipeline | P1 | M | ✅ |
-| MAP-4 | Map tab + graph rendering | P1 | L | ✅ |
+| MAP-4 | Map tab + graph rendering | P1 | L | ✅ (AC10 closed via MAP-8) |
 | MAP-5 | Node → inspector navigation | P1 | S | ✅ |
 | MAP-6 | Flow diagnostics on the map | P1 | S | ✅ |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |

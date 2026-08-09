@@ -91,7 +91,7 @@ OVERALL   ██████████████░░░░░░░░░�
         │
         ├──► [Phase 3 — Builder Logic & Visual Architecture]   ███░░░░░░░  1/4
         │      ├── ✅ GH-154   Unified conditional logic editor
-        │      ├── 🔲 GH-153   Visual workflow map & path simulation
+        │      ├── ✅ GH-153   Visual workflow map & path simulation
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔲 GH-167   Document-to-interview AI onboarding
         │
@@ -1185,12 +1185,15 @@ exists and expensive before it.
 
 ---
 
-## GH-153 — Add a visual workflow map with deterministic path simulation 🔲
+## GH-153 — Add a visual workflow map with deterministic path simulation ✅
 
 **Priority: P1** · Size: XL · Files: `client/src/components/builder/map/`, `shared/workflowLogic.ts`
 **Ties:** Preceded by GH-154 — **now ✅ closed, so this is unblocked.**
 
-> **🔄 AUDITED AND PARTED OUT 2026-08-08 → `tickets/WORKFLOW_MAP_TICKETS.md` (MAP-1..9).**
+> **✅ CLOSED 2026-08-08.** Delivered by MAP-1..10 in `tickets/WORKFLOW_MAP_TICKETS.md`.
+> All five ACs met. `test:fast` 2677 → 2787.
+>
+> **AUDITED AND PARTED OUT 2026-08-08 → `tickets/WORKFLOW_MAP_TICKETS.md` (MAP-1..10).**
 > This entry is the epic; the dispatchable tickets live in that file, which also carries
 > the four architecture decisions (D-1..D-4) the repo owner ruled on at generation time and
 > a table mapping each of the five ACs below to the tickets covering it. Do not dispatch
