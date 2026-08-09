@@ -50,15 +50,25 @@ export type AIErrorCode =
 /**
  * Task types for LLM calls
  */
-export type TaskType =
-  | 'workflow_generation'
-  | 'workflow_suggestion'
-  | 'binding_suggestion'
-  | 'value_suggestion'
-  | 'workflow_revision'
-  | 'logic_generation'
-  | 'logic_debug'
-  | 'logic_visualization';
+export const TASK_TYPES = [
+  'workflow_generation',
+  'workflow_suggestion',
+  'binding_suggestion',
+  'value_suggestion',
+  'workflow_revision',
+  'logic_generation',
+  'logic_debug',
+  'logic_visualization',
+  'transform_generation',
+  'transform_revision',
+  'transform_schema_align',
+  'personalization',
+  'document_analysis',
+  'document_mapping',
+  'sentiment_analysis',
+] as const;
+
+export type TaskType = (typeof TASK_TYPES)[number];
 
 /**
  * Token estimation utilities

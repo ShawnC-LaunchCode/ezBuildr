@@ -34,6 +34,13 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   logic_generation: 4000,
   logic_debug: 4000,
   logic_visualization: 4000,
+  transform_generation: 4000,
+  transform_revision: 4000,
+  transform_schema_align: 4000,
+  personalization: 1000,
+  document_analysis: 4000,
+  document_mapping: 4000,
+  sentiment_analysis: 500,
 };
 
 

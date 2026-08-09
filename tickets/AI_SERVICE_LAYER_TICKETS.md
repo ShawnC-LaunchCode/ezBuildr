@@ -84,7 +84,7 @@ provider. They make the layer capable of switching.
 | AISL-1 | `ModelRegistry` silently fabricates config for unknown models | P0 | M | ✅ |
 | AISL-2 | Tenant budget is fail-open by omission | P0 | S | ✅ |
 | AISL-3 | `AnthropicProvider` would 400 on every current Claude model | P1 | S | ✅ |
-| AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | 🔲 |
+| AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | ✅ |
 | AISL-5 | Transform AI bypasses the governed client | P1 | M | 🔲 |
 | AISL-6 | Personalization AI bypasses the governed client | P1 | M | 🔲 |
 | AISL-7 | Document-assist AI bypasses the governed client | P1 | M | 🔲 |
@@ -487,7 +487,25 @@ outputs is tracked separately as AISL-B1.
 
 ---
 
-## AISL-4 — Extend `TaskType` to cover the four bypass domains 🔲
+## AISL-4 — Extend `TaskType` to cover the four bypass domains ✅
+
+> **Verified 2026-08-09** (worktree `aisl-4`, base `180962c6` — current main, so no
+> merge hazard). All 6 criteria met. Reviewer-run gates on merged main:
+> type-check 0, strict-zones 6/6, lint clean, `test:fast` **255 files / 2837
+> tests**.
+>
+> Approach note: the dev converted `TaskType` from a hand-written union into
+> `TaskType = (typeof TASK_TYPES)[number]` over an exported `as const` array.
+> That is not a deviation — AC5 requires a test that iterates the union, which a
+> bare type cannot do. `TASK_MAX_TOKENS` stays `Record<TaskType, number>`, so
+> exhaustiveness remains compiler-enforced, and the new test pairs a
+> `satisfies Record<TaskType, number>` expectation map with a loop over
+> `TASK_TYPES`, meaning a future member added without a cap fails at compile
+> time *and* at runtime. All eight pre-existing members are preserved (AC4).
+>
+> One `test:fast` run reported "2 errors" and a clean rerun did not; this is the
+> documented order-dependent flake (adding a test file shifts scheduling), not
+> a regression from this ticket.
 
 **Priority: P1** · Size: S · File: `server/services/ai/types.ts`
 

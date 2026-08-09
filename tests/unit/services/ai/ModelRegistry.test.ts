@@ -2,6 +2,36 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { validateAIConfig } from '../../../../server/services/AIService';
 import { ModelRegistry } from '../../../../server/services/ai/ModelRegistry';
+import { TASK_TYPES, type TaskType } from '../../../../server/services/ai/types';
+
+describe('ModelRegistry task token caps', () => {
+  it('returns the configured cap for every task type', () => {
+    const expectedCaps = {
+      workflow_generation: 8000,
+      workflow_suggestion: 4000,
+      binding_suggestion: 4000,
+      value_suggestion: 4000,
+      workflow_revision: 8192,
+      logic_generation: 4000,
+      logic_debug: 4000,
+      logic_visualization: 4000,
+      transform_generation: 4000,
+      transform_revision: 4000,
+      transform_schema_align: 4000,
+      personalization: 1000,
+      document_analysis: 4000,
+      document_mapping: 4000,
+      sentiment_analysis: 500,
+    } satisfies Record<TaskType, number>;
+
+    for (const taskType of TASK_TYPES) {
+      const configuredCap = ModelRegistry.getTaskMaxTokens(taskType);
+
+      expect(configuredCap).toBe(expectedCaps[taskType]);
+      expect(configuredCap).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe('ModelRegistry registration', () => {
   it('reports registered and unregistered provider/model pairs explicitly', () => {
