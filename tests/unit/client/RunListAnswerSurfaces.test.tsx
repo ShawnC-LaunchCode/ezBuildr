@@ -33,7 +33,8 @@ describe('List answers in run surfaces (GH-146 AC3)', () => {
         allSteps={[listStep]}
         values={{ 'list-step': value }}
         visibleSectionIds={['section-1']}
-        onEditSection={vi.fn()}
+        visibleStepIds={['list-step']}
+        onEditStep={vi.fn()}
       />,
     );
 

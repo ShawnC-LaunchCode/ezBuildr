@@ -60,7 +60,7 @@ function ListAnswerItem({ item, config, index, depth }: ListAnswerItemProps) {
               <div key={field.id} className="grid grid-cols-1 gap-0.5 sm:grid-cols-3 sm:gap-2">
                 <span className="text-xs font-medium text-slate-500 sm:col-span-1">{field.title}</span>
                 <span className="break-words text-sm text-slate-900 sm:col-span-2">
-                  {formatAnswerValue(item.values[field.alias])}
+                  {formatAnswerValue(item.values[field.alias], { type: field.type, config: field.config })}
                 </span>
               </div>
             );

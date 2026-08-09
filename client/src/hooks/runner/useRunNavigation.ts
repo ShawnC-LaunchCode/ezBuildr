@@ -39,6 +39,7 @@ interface AdvanceContext {
   isLastSection: boolean;
   setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
   setShowReview: Dispatch<SetStateAction<boolean>>;
+  returnToReviewAfterValidation: boolean;
 }
 
 export interface RunNavigationTransport {
@@ -66,6 +67,7 @@ interface UseRunNavigationProps {
   visibleSections: ApiSection[];
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
+  returnToReviewAfterNext?: boolean;
 }
 
 function hasFinalBlock(section: ApiSection): boolean {
@@ -158,7 +160,15 @@ export function useRunNavigationTransport({
           visibleSections,
           isLastSection,
           setCurrentSectionIndex,
+          setShowReview,
+          returnToReviewAfterValidation,
         }) => {
+          if (returnToReviewAfterValidation) {
+            setShowReview(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return undefined;
+          }
+
           if (isLastSection) {
             previewEnvironment.completeRun();
             void previewEnvironment.addTraceEntry({
@@ -209,6 +219,7 @@ export function useRunNavigationTransport({
         isLastSection,
         setCurrentSectionIndex,
         setShowReview,
+        returnToReviewAfterValidation,
       }) => {
         if (!runId) {
           throw new Error("Run is not ready yet");
@@ -229,6 +240,12 @@ export function useRunNavigationTransport({
             errors: result.errors ?? ["Unable to continue"],
             fieldErrors: result.fieldErrors,
           };
+        }
+
+        if (returnToReviewAfterValidation) {
+          setShowReview(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return undefined;
         }
 
         if (isLastSection) {
@@ -300,6 +317,7 @@ export function useRunNavigation({
   visibleSections,
   effectiveValues,
   transport,
+  returnToReviewAfterNext = false,
 }: UseRunNavigationProps): UseRunNavigationReturn {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
@@ -449,6 +467,7 @@ export function useRunNavigation({
         isLastSection,
         setCurrentSectionIndex,
         setShowReview,
+        returnToReviewAfterValidation: returnToReviewAfterNext,
       });
 
       if (result?.kind === 'validation') {
@@ -472,6 +491,7 @@ export function useRunNavigation({
     currentSectionIndex,
     visibleSections,
     isLastSection,
+    returnToReviewAfterNext,
     toast,
   ]);
 

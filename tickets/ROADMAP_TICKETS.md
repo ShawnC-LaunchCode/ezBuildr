@@ -59,7 +59,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**13 of 27 tickets complete (48%)** — updated 2026-08-07 · 1 deferred (GH-148)
+**14 of 27 tickets complete (52%)** — updated 2026-08-09 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -67,7 +67,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ██████████████░░░░░░░░░░░░░   13 / 27   (48%)
+OVERALL   ██████████████░░░░░░░░░░░░░   14 / 27   (52%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -95,9 +95,9 @@ OVERALL   ██████████████░░░░░░░░░�
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔄 GH-167   Document-to-interview AI onboarding
         │
-        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ░░░░░░░░░░  0/7
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  █░░░░░░░░░  1/7
         │      ├── 🔲 GH-161   Answer piping & dynamic recall
-        │      ├── 🔲 GH-162   Review step structured values & visibility
+        │      ├── ✅ GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
         │      ├── 🔲 GH-171   Template versioning & impact analysis
@@ -128,6 +128,7 @@ OVERALL   ██████████████░░░░░░░░░�
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 | ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
 | ✅ GH-156 | Document mapping workbench with persisted bindings | 2026-08-06 |
+| ✅ GH-162 | Review step structured values and conditional visibility | 2026-08-09 |
 
 ---
 
@@ -1433,7 +1434,33 @@ Build in this order; each step should leave the tree gate-clean.
 
 ---
 
-## GH-162 — Improve review for structured values and conditional visibility 🔲
+## GH-162 — Improve review for structured values and conditional visibility ✅
+
+> **Verified 2026-08-09 (reviewer, live).** Review consumes the runner's canonical
+> visible-step set, so a step hidden by `visibleIf` is omitted along with its stale
+> answer. Structured formatting lives in the shared `formatAnswerValue` and
+> dispatches through `normalizeRunnerStepType`, so it applies identically to
+> top-level answers and to fields nested inside a List. Every answer carries a
+> step-specific Edit that returns to review after the section validates and saves.
+>
+> Live proof on a fixture run (server on :5183 from this worktree, source confirmed
+> served from the worktree, not `main`): a `parcel_number` step hidden by
+> `owns_property = Yes` kept the persisted value `STALE-HIDDEN-PARCEL-9999` in
+> `step_values` and did **not** appear on review; address rendered
+> `123 Main St, Suite 400, Chicago, IL 60601`; a `multiple_choice` stored as
+> option-id and alias rendered as labels; inside the List, the nested address
+> rendered `77 Lake Shore Dr, Evanston, IL 60201` and the nested choice rendered
+> `Spouse` / `Child`. Clicking Edit on a section-1 answer focused that step's
+> control and re-labelled Next as "Review"; the edit saved and returned to review.
+> Desktop and 390px mobile both checked; console clean apart from Vite HMR noise.
+>
+> First submission FAILED review: the formatting was local to `ReviewSection`, so a
+> nested address rendered raw JSON and a nested choice rendered its raw id, and it
+> hand-listed type aliases the `normalizeRunnerStepType` map already owned. Both
+> fixed on resubmission and covered by regression tests.
+>
+> Gates re-run by the reviewer on the post-fast-forward tree: `type-check` 0 errors,
+> `lint` 0 problems, `test:fast` 248 files / 2807 tests passed, 14 skipped.
 
 **Priority: P2** · Size: M · Files: `client/src/components/runner/ReviewStep.tsx`, `server/services/workflowLogic.ts`
 **Ties:** Preceded by GH-146
