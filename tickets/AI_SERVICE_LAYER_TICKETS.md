@@ -92,6 +92,7 @@ provider. They make the layer capable of switching.
 | AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
 | AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
 | AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | 🔲 |
+| AISL-12 | Every `workflow_personalization_settings` toggle is dead | P1 | M | 🔲 needs your decision |
 
 ---
 
@@ -817,9 +818,18 @@ per-request tenant, and a module singleton cannot have one.
 3. Use `TaskType` `personalization` for all five (they are the same kind of
    work at the same size; separate task types would fragment the reporting in
    AISL-10 for no benefit).
-4. Keep the `allowAdaptivePrompts` / `allowDynamicHelp` short-circuits exactly
-   as they are — those return early without calling the model and must keep
-   doing so.
+4. Keep the existing early returns exactly as they are — they skip the model
+   call entirely and must keep doing so. **Corrected 2026-08-09** (the original
+   wording named `allowDynamicHelp` / `allowDynamicTone`, which are columns on
+   `workflow_personalization_settings`, not runtime guards; see AISL-12). The
+   three real ones are:
+   - `rewriteBlockText`: `if (!context.userSettings.allowAdaptivePrompts) return originalText;`
+   - `generateClarification`: `if (!context.userSettings.allowAIClarification) { return null; }`
+   - `translateText`: `if (targetLanguage === 'en') { return text; }`
+
+   Note `generateHelpText` and `generateFollowUp` have **no** pre-call gate and
+   always reach the model. That is the current behavior — do not add a gate
+   here; it is AISL-12's job.
 5. Keep every `fenceUntrusted(...)` call.
 
 ### Ties
@@ -844,9 +854,12 @@ per-request tenant, and a module singleton cannot have one.
    `resolveAiProviderConfig`.
 3. Each of the five `/api/ai/personalize/*` endpoints produces an `ai_usage`
    row with the correct `tenant_id` and `task_type: 'personalization'`.
-4. The `allowAdaptivePrompts` / `allowDynamicHelp` / `allowDynamicTone`
-   short-circuits still return the original text **without** producing an
-   `ai_usage` row.
+4. The three existing early returns still skip the model and produce **no**
+   `ai_usage` row: `allowAdaptivePrompts === false` in `rewriteBlockText`
+   returns the original text; `allowAIClarification === false` in
+   `generateClarification` returns `null`; `translateText` with
+   `targetLanguage === 'en'` returns the input unchanged. No new gate is added
+   (see AISL-12).
 5. Every `fenceUntrusted(...)` call present before the change is present after.
 6. `tests/integration/api.ai.personalization.test.ts` passes without changes to
    its assertions about response shape.
@@ -1306,6 +1319,97 @@ placeholders — an admin-supplied custom prompt may rely on them, and
       shows distinct `task_type` rows with non-zero `cost_usd`. Screenshot or
       response body attached.
 - [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+## AISL-12 — Every `workflow_personalization_settings` toggle is dead 🔲
+
+**Priority: P1 (bug)** · Size: M · File: `server/lib/ai/personalization.ts`
+
+### Finding
+
+`workflow_personalization_settings` in `shared/schema/ai.ts` defines three
+per-workflow AI opt-outs, all defaulting to on:
+
+```ts
+allowDynamicPrompts: boolean("allow_dynamic_prompts").default(true).notNull(),
+allowDynamicHelp: boolean("allow_dynamic_help").default(true).notNull(),
+allowDynamicTone: boolean("allow_dynamic_tone").default(true).notNull(),
+```
+
+**Nothing reads any of them.** Grepping the repo outside `migrations/` returns
+only the schema definition itself. The runtime guards in
+`PersonalizationService` read a *different* object with *different* names —
+`context.userSettings.allowAdaptivePrompts` and
+`context.userSettings.allowAIClarification`, which come from user preferences,
+not from the workflow's settings row.
+
+Consequence: a tenant who turns off dynamic help or dynamic tone **for a
+workflow** still gets dynamic help and dynamic tone. The setting is persisted,
+surfaced, and ignored. `generateHelpText` and `generateFollowUp` have no
+pre-call gate at all, so there is no code path where `allowDynamicHelp` could
+take effect even accidentally.
+
+This is the O-10 failure mode from CLAUDE.md convention 8 — a setting that
+exists, defaults to on, and gates nothing, so every "off" is unreachable. It was
+found while working AISL-6, whose acceptance criteria had inherited the same
+confusion between the settings-table column names and the runtime guard names.
+
+Also worth deciding as part of this: whether `enabled` and `defaultTone` /
+`defaultReadingLevel` / `defaultVerbosity` on the same table are live, or dead
+in the same way.
+
+### Preferred fix
+
+**Decide first, then implement — this is a product question with two valid
+answers, and the ticket should not guess.** Escalate to the repo owner before
+writing code:
+
+- **(a) Wire them up.** Load the workflow's `workflow_personalization_settings`
+  row in the personalization route, merge it with user preferences (workflow
+  setting wins when it disables), and gate `generateHelpText` on
+  `allowDynamicHelp`, `rewriteBlockText` on `allowDynamicPrompts`, and tone
+  application on `allowDynamicTone`. This makes the persisted setting mean what
+  it says.
+- **(b) Delete them.** Drop the columns and any UI that writes them, on the
+  grounds that user preferences are the real control surface. Requires a
+  migration — load the `db-schema-change` skill.
+
+Do **not** ship a third option where the columns stay and are partially wired.
+
+Whichever path: add a test that fails if a toggle is persisted and not honored,
+so the next audit cannot rediscover this.
+
+### Ties
+
+- **Sequence after AISL-6** — both edit `server/lib/ai/personalization.ts`;
+  dispatching them together guarantees a collision.
+- AISL-6 corrected its AC4 to describe the three *real* early returns; this
+  ticket owns the missing ones.
+- Load: `add-api-endpoint` skill; `db-schema-change` skill **only if** option
+  (b) is chosen.
+- Related: CLAUDE.md convention 8 and `tests/unit/client/store.deadSetters.test.ts`
+  document the same class of defect on the client side.
+- File footprint: `server/lib/ai/personalization.ts`,
+  `server/routes/api.ai.personalization.routes.ts`, `shared/schema/ai.ts`
+  (option b only), tests.
+
+### Acceptance criteria
+
+1. The repo owner has chosen option (a) or (b), and the choice is recorded in
+   this ticket before any code lands.
+2. **If (a):** a workflow with `allowDynamicHelp = false` produces no help-text
+   model call and no `ai_usage` row; same for `allowDynamicPrompts` on
+   `rewriteBlockText` and `allowDynamicTone` on tone application.
+3. **If (b):** the columns are dropped via a generated migration, no code or UI
+   references them, and `npm run db:push`/`db:migrate` applies cleanly.
+4. A test asserts the chosen behavior and fails if a toggle is persisted but not
+   honored (a), or if a dropped column is still referenced (b).
+5. `enabled`, `defaultTone`, `defaultReadingLevel`, and `defaultVerbosity` on the
+   same table have been checked for the same defect, and the finding is recorded
+   here even if out of scope to fix.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green.
 
 ---
 
