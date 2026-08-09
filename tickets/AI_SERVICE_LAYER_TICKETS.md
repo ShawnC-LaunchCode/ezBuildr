@@ -589,17 +589,51 @@ duplicated with `AIServiceUtils.ts` and that dedup is AISL-B4, not this ticket.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate — ✅ PASSED 2026-08-09
 
-- [ ] AISL-1..4 all ✅ with dated verification notes
-- [ ] `npm run type-check` → `Found 0 errors`
-- [ ] `npm run lint` → clean at `--max-warnings 0`
-- [ ] `npm run test:fast` green (record the file/test counts as the Phase 2
-      baseline)
-- [ ] Boot the app with a deliberately unregistered `AI_MODEL_WORKFLOW` and
-      confirm the AISL-1 startup warning fires and boot is not blocked
-      (`verify` skill)
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] AISL-1..4 all ✅ with dated verification notes
+- [x] `npm run type-check` → `Found 0 errors`
+- [x] `npm run lint` → clean at `--max-warnings 0`
+- [x] `npm run check:strict-zones` → 6 zones / 11 files, ALL PASSED
+- [x] `npm run test:fast` green — **255 files / 2837 tests passed, 14 skipped.
+      This is the Phase 2 baseline.**
+- [x] Boot path exercised in a real process with an unregistered model
+      (`GEMINI_MODEL=gemini-not-registered-probe`): the `level: 40` warn fires
+      carrying provider, model, and the full registered list; the returned
+      `error` names the model and the alternatives; execution continues. The
+      happy path was checked too — with the real `.env`, `validateAIConfig()`
+      returns `error: undefined` and boot takes the INFO branch, so Phase 1
+      introduces **no spurious warning for this deployment's actual config**.
+- [x] Reviewer has committed each passed ticket + this gate
+
+### Defect found *at* the gate — fixed here, not sent back
+
+`server/index.ts` read `aiConfig.error` only in the `else` (not-configured)
+branch. AISL-1's unregistered-model case returns `configured: true` **with** an
+error, so boot logged the cheerful `AI Service configured and ready` and
+discarded the error string — the operator saw a warning immediately contradicted
+by a reassurance one line later. Every AISL-1 per-ticket gate passed; the defect
+only exists in the composition with `index.ts`, which no ticket touched. That is
+exactly the seam a phase gate is for. Boot now takes an explicit third branch:
+configured-but-unregistered logs a `warn` naming the fallback consequence, and
+`AI Service configured and ready` is reserved for a genuinely registered model.
+
+Not unit-tested: `index.ts` is the bootstrap and would need heavy mocking. The
+contract it depends on (`validateAIConfig` returning `configured: true` + an
+`error`) is covered by `tests/unit/services/ai/ModelRegistry.test.ts`, and the
+branch itself was exercised by the live probe above.
+
+---
+
+## Phase 2 dispatch — ready
+
+AISL-5..8 have **disjoint file footprints** and can go out together, each in its
+own worktree (`pwsh scripts/new-worktree.ps1 -Name aisl-5` …). Cut them from
+`main` at or after the Phase 1 gate commit — a worktree based before AISL-4 will
+not have the `TaskType` values its ticket tells it to use.
+
+Phase 2 gate headline check: `grep -rn "new GoogleGenerativeAI" server/` must
+return exactly one match (`GeminiProvider.ts`).
 
 ---
 

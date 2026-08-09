@@ -79,7 +79,17 @@ void (async () => {
         // CONFIGURATION CHECK: Validate AI provider configuration
         const { validateAIConfig } = await import("./services/AIService.js");
         const aiConfig = validateAIConfig();
-        if (aiConfig.configured) {
+        if (aiConfig.configured && aiConfig.error) {
+            // Configured, but the selected model has no ModelRegistry entry, so
+            // getConfig falls back to a guessed context window and price. Do not
+            // report "ready" here — the operator needs to see this, and an
+            // unregistered model can reject requests that would otherwise fit
+            // (AISL-1).
+            logger.warn(
+                { provider: aiConfig.provider, model: aiConfig.model, error: aiConfig.error },
+                'AI Service configured, but the selected model is not registered - context-window and cost checks will use fallback values',
+            );
+        } else if (aiConfig.configured) {
             logger.info({ provider: aiConfig.provider, model: aiConfig.model }, 'AI Service configured and ready');
         } else {
             logger.warn({ error: aiConfig.error }, 'AI Service not configured - AI features will be unavailable');
