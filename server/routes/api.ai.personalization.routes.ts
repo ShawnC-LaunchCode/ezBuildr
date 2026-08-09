@@ -51,6 +51,14 @@ function getAuthenticatedUserId(req: Request): string {
     return userId;
 }
 
+function getAuthenticatedTenantId(req: Request): string {
+    const tenantId = (req as PersonalizationRequest).tenantId;
+    if (tenantId === undefined || tenantId === "") {
+        throw new Error("Authenticated tenant missing from request");
+    }
+    return tenantId;
+}
+
 function getPersonalizationContext(req: Request): PersonalizationContext {
     const context = (req as PersonalizationRequest).personalizationContext;
     if (context === undefined) {
@@ -145,7 +153,8 @@ router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(as
 
         const rewrittenText = await personalizationService.rewriteBlockText(
             block.text,
-            getPersonalizationContext(req)
+            getPersonalizationContext(req),
+            getAuthenticatedTenantId(req)
         );
 
         res.json({ text: rewrittenText });
@@ -161,7 +170,8 @@ router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(asy
 
         const helpText = await personalizationService.generateHelpText(
             text,
-            getPersonalizationContext(req)
+            getPersonalizationContext(req),
+            getAuthenticatedTenantId(req)
         );
 
         res.json({ text: helpText });
@@ -178,7 +188,8 @@ router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(
         const clarification = await personalizationService.generateClarification(
             question,
             answer,
-            getPersonalizationContext(req)
+            getPersonalizationContext(req),
+            getAuthenticatedTenantId(req)
         );
 
         res.json({ clarification });
@@ -191,7 +202,12 @@ router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(
 router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
         const { question, answer } = ClarifyFollowupRequestSchema.parse(getRequestBody(req));
-        const result = await personalizationService.generateFollowUp(question, answer, getPersonalizationContext(req));
+        const result = await personalizationService.generateFollowUp(
+            question,
+            answer,
+            getPersonalizationContext(req),
+            getAuthenticatedTenantId(req)
+        );
         res.json({ followup: result });
     } catch (error) {
         logger.error({ error }, "Personalization Followup Error");
@@ -203,7 +219,11 @@ router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandle
     try {
         const { text, targetLanguage } = TranslateRequestSchema.parse(getRequestBody(req));
 
-        const translated = await personalizationService.translateText(text, targetLanguage);
+        const translated = await personalizationService.translateText(
+            text,
+            targetLanguage,
+            getAuthenticatedTenantId(req)
+        );
         res.json({ text: translated });
     } catch (error) {
         logger.error({ error }, "Personalization Translate Error");

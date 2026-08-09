@@ -1,8 +1,8 @@
-import { type GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
-
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
 import { logger } from "../../logger";
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 
 // Types for input
 interface PersonalizationContext {
@@ -13,43 +13,16 @@ interface PersonalizationContext {
 }
 
 export class PersonalizationService {
-    private genAI: GoogleGenerativeAI | null = null;
-    private model: GenerativeModel | null = null;
-
-    constructor() {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            logger.warn("GEMINI_API_KEY is not set. Personalization will be disabled.");
-        }
-
-        if (process.env.NODE_ENV !== 'test_without_mock') {
-            try {
-                this.genAI = new GoogleGenerativeAI(apiKey ?? "");
-                const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
-                this.model = this.genAI.getGenerativeModel({ model });
-            } catch (e) {
-                logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
-                this.model = null;
-            }
-        } else {
-            this.genAI = new GoogleGenerativeAI(apiKey ?? "");
-            const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
-            this.model = this.genAI.getGenerativeModel({ model });
-        }
-    }
-
-    private async generateText(prompt: string): Promise<string> {
-        if (!this.model) {
-            throw new Error("Personalization AI is unavailable");
-        }
-
-        const result = await this.model.generateContent(prompt);
-        return result.response.text().trim();
+    private async generateText(prompt: string, tenantId: string): Promise<string> {
+        const client = new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+        const result = await client.callLLM(prompt, 'personalization');
+        return result.trim();
     }
 
     async rewriteBlockText(
         originalText: string,
-        context: PersonalizationContext
+        context: PersonalizationContext,
+        tenantId: string
     ): Promise<string> {
         if (!context.userSettings.allowAdaptivePrompts) {
             return originalText;
@@ -73,7 +46,7 @@ ${fenceUntrusted(originalText)}
         `;
 
         try {
-            return await this.generateText(prompt);
+            return await this.generateText(prompt, tenantId);
         } catch (error) {
             logger.error({ err: error }, "Personalization AI Error");
             return originalText; // Fallback
@@ -82,7 +55,8 @@ ${fenceUntrusted(originalText)}
 
     async generateHelpText(
         questionText: string,
-        context: PersonalizationContext
+        context: PersonalizationContext,
+        tenantId: string
     ): Promise<string> {
         const { tone, readingLevel, language } = context.userSettings;
 
@@ -101,7 +75,7 @@ ${fenceUntrusted(questionText)}
      `;
 
         try {
-            return await this.generateText(prompt);
+            return await this.generateText(prompt, tenantId);
         } catch (error) {
             logger.error({ err: error }, "Help Gen AI Error");
             return "Unable to generate help text at this time.";
@@ -111,7 +85,8 @@ ${fenceUntrusted(questionText)}
     async generateClarification(
         questionText: string,
         userAnswer: string,
-        context: PersonalizationContext
+        context: PersonalizationContext,
+        tenantId: string
     ): Promise<string | null> {
         if (!context.userSettings.allowAIClarification) { return null; }
 
@@ -132,7 +107,7 @@ ${fenceUntrusted(userAnswer)}
       `;
 
         try {
-            const text = await this.generateText(prompt);
+            const text = await this.generateText(prompt, tenantId);
             return text === "CLEAR" ? null : text;
         } catch (error) {
             return null;
@@ -142,7 +117,8 @@ ${fenceUntrusted(userAnswer)}
     async generateFollowUp(
         questionText: string,
         userAnswer: string,
-        _context: PersonalizationContext
+        _context: PersonalizationContext,
+        tenantId: string
     ): Promise<{ text: string, type: 'text' | 'yes_no' } | null> {
         const prompt = `
         Analyze the user's answer to see if a follow-up question is needed to get more specific details.
@@ -158,7 +134,7 @@ ${fenceUntrusted(userAnswer)}
        `;
 
         try {
-            const text = await this.generateText(prompt);
+            const text = await this.generateText(prompt, tenantId);
             if (text.includes("NO")) { return null; }
 
             // Clean json block if present
@@ -181,12 +157,12 @@ ${fenceUntrusted(userAnswer)}
         }
     }
 
-    async translateText(text: string, targetLanguage: string): Promise<string> {
+    async translateText(text: string, targetLanguage: string, tenantId: string): Promise<string> {
         if (targetLanguage === 'en') { return text; }
 
         const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText:\n${fenceUntrusted(text)}`;
         try {
-            return await this.generateText(prompt);
+            return await this.generateText(prompt, tenantId);
         } catch (error) {
             logger.error({ err: error }, "Translation Error");
             return text;
