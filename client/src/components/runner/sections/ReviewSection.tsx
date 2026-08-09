@@ -1,4 +1,4 @@
-import { Edit2, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Edit2 } from "lucide-react";
 
 import { ListAnswerView } from "@/components/runner/list/ListAnswerView";
 import { normalizeListConfig } from "@/components/runner/list/listRuntime";
@@ -11,8 +11,9 @@ interface ReviewSectionProps {
     sections: ReviewSectionData[];
     allSteps: ReviewStepData[];
     values: Record<string, unknown>;
-    onEditSection: (sectionIndex: number) => void;
+    onEditStep: (stepId: string, sectionId: string) => void;
     visibleSectionIds: string[];
+    visibleStepIds: string[];
 }
 
 interface ReviewSectionData {
@@ -27,13 +28,40 @@ interface ReviewStepData {
     type?: string;
     config?: Record<string, unknown> | null;
 }
+
+function hasReviewValue(value: unknown): boolean {
+    return value !== undefined && value !== null && value !== "";
+}
+
+function StepEditButton({ step, onEditStep }: {
+    step: ReviewStepData;
+    onEditStep: ReviewSectionProps["onEditStep"];
+}) {
+    return (
+        <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 px-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+            aria-label={`Edit ${step.title}`}
+            onClick={() => { onEditStep(step.id, step.sectionId); }}
+        >
+            <Edit2 className="mr-1.5 h-3 w-3" aria-hidden="true" />
+            Edit
+        </Button>
+    );
+}
+
 export function ReviewSection({
     sections,
     allSteps,
     values,
-    onEditSection,
-    visibleSectionIds
+    onEditStep,
+    visibleSectionIds,
+    visibleStepIds,
 }: ReviewSectionProps) {
+    const visibleStepIdSet = new Set(visibleStepIds);
+
     return (
         <div className="space-y-8">
             <div className="text-center space-y-2 mb-8">
@@ -46,44 +74,37 @@ export function ReviewSection({
                 </p>
             </div>
             <div className="space-y-6">
-                {sections.map((section, index) => {
+                {sections.map((section) => {
                     // Only show visible sections
                     if (!visibleSectionIds.includes(section.id)) {
                         return null;
                     }
-                    const sectionSteps = allSteps.filter(s => s.sectionId === section.id);
-                    // Hide sections with no visible steps? For now show all visible sections.
+                    const sectionSteps = allSteps.filter((step) =>
+                        step.sectionId === section.id && visibleStepIdSet.has(step.id)
+                    );
+                    if (sectionSteps.length === 0) {
+                        return null;
+                    }
                     return (
                         <Card key={section.id} className="border-slate-200 shadow-sm overflow-hidden">
-                            <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 px-4 flex flex-row items-center justify-between">
+                            <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 px-4">
                                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
                                     {section.title}
                                 </CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2"
-                                    onClick={() => onEditSection(index)}
-                                >
-                                    <Edit2 className="w-3 h-3 mr-1.5" aria-hidden="true" />
-                                    Edit
-                                </Button>
                             </CardHeader>
                             <CardContent className="p-0">
                                 <div className="divide-y divide-slate-100">
                                     {sectionSteps.map(step => {
-                                        // Hide un-answered or invisible steps if needed
-                                        // For review, we usually want to show what was answered.
-                                        // If a step was hidden by logic, it shouldn't be here (values might be empty or stale).
-                                        // Ideally, we check step visibility too, but that requires re-running logic.
-                                        // Simplification: Show if value exists or if it's in the list.
                                         // A list answer always renders (even at zero items, as "None added"), since
                                         // an unanswered list is a meaningful confirmation state, not conciseness noise.
                                         if (step.type === "list") {
                                             return (
                                                 <div key={step.id} className="p-4 hover:bg-slate-50/30 transition-colors">
-                                                    <div className="text-sm font-medium text-slate-500 mb-2">
-                                                        {step.title}
+                                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                                        <div className="text-sm font-medium text-slate-500">
+                                                            {step.title}
+                                                        </div>
+                                                        <StepEditButton step={step} onEditStep={onEditStep} />
                                                     </div>
                                                     <ListAnswerView
                                                         config={normalizeListConfig(step.config)}
@@ -93,21 +114,22 @@ export function ReviewSection({
                                             );
                                         }
                                         const val = values[step.id];
-                                        if (val === undefined || val === null || val === "") {
+                                        if (!hasReviewValue(val)) {
                                             return null;
                                         } // Skip empty for conciseness
                                         return (
-                                            <div key={step.id} className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 p-4 hover:bg-slate-50/30 transition-colors">
+                                            <div key={step.id} className="grid grid-cols-1 gap-1 p-4 transition-colors hover:bg-slate-50/30 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] md:gap-4">
                                                 <div className="text-sm font-medium text-slate-500 md:col-span-1">
                                                     {step.title}
                                                 </div>
-                                                <div className="text-sm text-slate-900 md:col-span-2 font-medium break-words">
-                                                    {formatAnswerValue(val)}
+                                                <div className="text-sm font-medium text-slate-900 break-words">
+                                                    {formatAnswerValue(val, { type: step.type, config: step.config })}
                                                 </div>
+                                                <StepEditButton step={step} onEditStep={onEditStep} />
                                             </div>
                                         );
                                     })}
-                                    {sectionSteps.every(s => s.type !== "list" && !values[s.id]) && (
+                                    {sectionSteps.every((step) => step.type !== "list" && !hasReviewValue(values[step.id])) && (
                                         <div className="p-4 text-sm text-slate-400 italic text-center">
                                             No questions answered in this section.
                                         </div>

@@ -2,7 +2,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { validatePageMock, toastMock } = vi.hoisted(() => ({
+const { nextMock, submitSectionMock, validatePageMock, toastMock } = vi.hoisted(() => ({
+  nextMock: vi.fn(),
+  submitSectionMock: vi.fn(),
   validatePageMock: vi.fn(),
   toastMock: vi.fn(),
 }));
@@ -13,8 +15,8 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitSection: () => ({ mutateAsync: vi.fn() }),
-  useNext: () => ({ mutateAsync: vi.fn() }),
+  useSubmitSection: () => ({ mutateAsync: submitSectionMock }),
+  useNext: () => ({ mutateAsync: nextMock }),
 }));
 
 vi.mock('../../../shared/validation/PageValidator', () => ({
@@ -25,7 +27,11 @@ vi.mock('../../../shared/validation/BlockValidation', () => ({
   getValidationSchema: () => ({}),
 }));
 
-import { useRunNavigation, type RunNavigationTransport } from '../../../client/src/hooks/runner/useRunNavigation';
+import {
+  useRunNavigation,
+  useRunNavigationTransport,
+  type RunNavigationTransport,
+} from '../../../client/src/hooks/runner/useRunNavigation';
 import type { ApiSection, ApiStep } from '../../../client/src/lib/vault-api';
 
 const section: ApiSection = {
@@ -56,6 +62,9 @@ describe('useRunNavigation validation state', () => {
   beforeEach(() => {
     validatePageMock.mockReset();
     toastMock.mockReset();
+    submitSectionMock.mockReset();
+    nextMock.mockReset();
+    window.scrollTo = vi.fn();
   });
 
   it('clears stale field and summary errors when corrected answers validate and advance', async () => {
@@ -97,5 +106,43 @@ describe('useRunNavigation validation state', () => {
     expect(result.current.errors).toEqual([]);
     expect(result.current.fieldErrors).toEqual({});
     expect(transport.advanceAfterValidation).toHaveBeenCalledTimes(1);
+  });
+
+  it('submits an edited section and returns directly to review without advancing', async () => {
+    submitSectionMock.mockResolvedValue({ success: true });
+    const setCurrentSectionIndex = vi.fn();
+    const setShowReview = vi.fn();
+    const saveNow = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useRunNavigationTransport({
+      mode: 'production',
+      previewEnvironment: null,
+      getVisibleSectionSteps: () => [phoneStep],
+      saveNow,
+    }));
+
+    await act(async () => {
+      await result.current.advanceAfterValidation({
+        runId: 'run-1',
+        currentSection: section,
+        currentSectionIndex: 0,
+        visibleSections: [section],
+        visibleSectionSteps: [phoneStep],
+        effectiveValues: { 'phone-step': '312-555-1212' },
+        isLastSection: false,
+        setCurrentSectionIndex,
+        setShowReview,
+        returnToReviewAfterValidation: true,
+      });
+    });
+
+    expect(saveNow).toHaveBeenCalledTimes(1);
+    expect(submitSectionMock).toHaveBeenCalledWith({
+      runId: 'run-1',
+      sectionId: 'section-1',
+      values: [{ stepId: 'phone-step', value: '312-555-1212' }],
+    });
+    expect(nextMock).not.toHaveBeenCalled();
+    expect(setCurrentSectionIndex).not.toHaveBeenCalled();
+    expect(setShowReview).toHaveBeenCalledWith(true);
   });
 });

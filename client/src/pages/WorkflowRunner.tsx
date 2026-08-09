@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
-import { useEffect, useMemo, type ComponentProps, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
@@ -57,6 +57,7 @@ interface WorkflowRunnerScreenProps {
   effectiveValues: Record<string, unknown>;
   effectiveLogicRules: LogicRule[];
   visibleSectionSteps: ApiStep[];
+  visibleReviewStepIds: string[];
   runToken: string | null;
   saveStatus: SaveStatus;
   saveNow: () => Promise<void>;
@@ -73,6 +74,8 @@ interface WorkflowRunnerScreenProps {
   handleUpdateValue: (stepId: string, value: unknown) => void;
   setCurrentSectionIndex: (sectionIndex: number) => void;
   setShowReview: (showReview: boolean) => void;
+  reviewEditStepId: string | null;
+  onEditReviewStep: (stepId: string, sectionId: string) => void;
 }
 
 // `isProductionMode` stays in the loaded props: it is what tells a signature
@@ -172,6 +175,8 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     saveNow
   });
 
+  const [reviewEditStepId, setReviewEditStepId] = useState<string | null>(null);
+
   // 6. Navigation & Validation
   const {
     currentSectionIndex,
@@ -195,10 +200,45 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     initialSectionId: run?.currentSectionId,
     visibleSections: respondentSections,
     effectiveValues,
-    transport: navigationTransport
+    transport: navigationTransport,
+    returnToReviewAfterNext: reviewEditStepId !== null,
   });
 
   const visibleSectionSteps = currentSection != null ? getVisibleSectionSteps(currentSection.id) : [];
+  const visibleReviewStepIds = useMemo(() => respondentSections.flatMap((section) =>
+    getVisibleSectionSteps(section.id).map((step) => step.id)
+  ), [getVisibleSectionSteps, respondentSections]);
+
+  const onEditReviewStep = useCallback((stepId: string, sectionId: string) => {
+    const sectionIndex = respondentSections.findIndex((section) => section.id === sectionId);
+    if (sectionIndex < 0) {
+      return;
+    }
+    setReviewEditStepId(stepId);
+    setCurrentSectionIndex(sectionIndex);
+    setShowReview(false);
+  }, [respondentSections, setCurrentSectionIndex, setShowReview]);
+
+  useEffect(() => {
+    if (showReview || reviewEditStepId === null) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      const container = document.getElementById(`block-container-${reviewEditStepId}`);
+      container?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const focusTarget = container?.querySelector('input, select, textarea, button');
+      if (focusTarget instanceof HTMLElement) {
+        focusTarget.focus({ preventScroll: true });
+      }
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [reviewEditStepId, showReview]);
+
+  useEffect(() => {
+    if (showReview) {
+      setReviewEditStepId(null);
+    }
+  }, [showReview]);
 
   // Branding is resolved server-side on both paths so preview and production
   // agree: production reads it off the runtime payload, preview off the
@@ -226,6 +266,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       effectiveValues={effectiveValues}
       effectiveLogicRules={effectiveLogicRules}
       visibleSectionSteps={visibleSectionSteps}
+      visibleReviewStepIds={visibleReviewStepIds}
       runToken={runToken}
       saveStatus={saveStatus}
       saveNow={saveNow}
@@ -237,11 +278,16 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       fieldErrors={fieldErrors}
       completeMutationIsPending={completeMutationIsPending}
       handleNext={handleNext}
-      handlePrev={handlePrev}
+      handlePrev={async () => {
+        setReviewEditStepId(null);
+        await handlePrev();
+      }}
       handleFinalSubmit={handleFinalSubmit}
       handleUpdateValue={handleUpdateValue}
       setCurrentSectionIndex={setCurrentSectionIndex}
       setShowReview={setShowReview}
+      reviewEditStepId={reviewEditStepId}
+      onEditReviewStep={onEditReviewStep}
     />
   );
 }
@@ -459,10 +505,11 @@ function ReviewRunnerScreen({
   visibleSections,
   effectiveAllSteps,
   effectiveValues,
+  visibleReviewStepIds,
   saveStatus,
   completeMutationIsPending,
   handleFinalSubmit,
-  setCurrentSectionIndex,
+  onEditReviewStep,
   setShowReview,
 }: LoadedRunnerScreenProps): ReactElement {
   return (
@@ -479,11 +526,8 @@ function ReviewRunnerScreen({
         allSteps={effectiveAllSteps ?? []}
         values={effectiveValues}
         visibleSectionIds={visibleSections.map((section) => section.id)}
-        onEditSection={(sectionIndex) => {
-          setCurrentSectionIndex(sectionIndex);
-          setShowReview(false);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        visibleStepIds={visibleReviewStepIds}
+        onEditStep={onEditReviewStep}
       />
       <div className="mt-8 flex justify-between">
         <Button type="button" variant="outline" onClick={() => { setShowReview(false); }}>
@@ -518,6 +562,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     isLastSection,
     actualRunId,
     runToken,
+    reviewEditStepId,
   } = props;
 
   const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
@@ -549,6 +594,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
             errors={errors}
             currentSectionIndex={currentSectionIndex}
             isLastSection={isLastSection}
+            returnToReview={reviewEditStepId !== null}
             handlePrev={handlePrev}
             handleNext={handleNext}
             runId={actualRunId ?? undefined}
@@ -565,6 +611,7 @@ export interface QuestionCardContentProps extends QuestionSectionBodyProps {
   errors: string[];
   currentSectionIndex: number;
   isLastSection: boolean;
+  returnToReview?: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
 }
@@ -588,6 +635,7 @@ export function QuestionCardContent({
   errors,
   currentSectionIndex,
   isLastSection,
+  returnToReview = false,
   handlePrev,
   handleNext,
   runId,
@@ -648,6 +696,7 @@ export function QuestionCardContent({
         <QuestionNavigation
           currentSectionIndex={currentSectionIndex}
           isLastSection={isLastSection}
+          returnToReview={returnToReview}
           handlePrev={handlePrev}
           handleNext={handleNext}
         />
@@ -747,6 +796,7 @@ function QuestionSectionBody({
 interface QuestionNavigationProps {
   currentSectionIndex: number;
   isLastSection: boolean;
+  returnToReview: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
 }
@@ -754,6 +804,7 @@ interface QuestionNavigationProps {
 function QuestionNavigation({
   currentSectionIndex,
   isLastSection,
+  returnToReview,
   handlePrev,
   handleNext,
 }: QuestionNavigationProps): ReactElement {
@@ -769,7 +820,9 @@ function QuestionNavigation({
         <ChevronLeft className="w-4 h-4 mr-2" /> Back
       </Button>
       <Button type="button" onClick={() => { void handleNext(); }} className="w-28 md:w-32 shadow-sm font-medium relative group">
-        {isLastSection ? (
+        {returnToReview ? (
+          <>Review <Check className="w-4 h-4 ml-2" /></>
+        ) : isLastSection ? (
           <>Review <Check className="w-4 h-4 ml-2" /></>
         ) : (
           <>Next <ChevronRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" /></>

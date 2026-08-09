@@ -59,7 +59,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**14 of 27 tickets complete (52%)** — updated 2026-08-09 · 1 deferred (GH-148)
+**15 of 27 tickets complete (56%)** — updated 2026-08-09 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -67,7 +67,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ██████████████░░░░░░░░░░░░░   14 / 27   (52%)
+OVERALL   ███████████████░░░░░░░░░░░░   15 / 27   (56%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -95,9 +95,9 @@ OVERALL   ██████████████░░░░░░░░░�
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔄 GH-167   Document-to-interview AI onboarding
         │
-        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  █░░░░░░░░░  1/7
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ███░░░░░░░  2/7
         │      ├── 🔲 GH-161   Answer piping & dynamic recall
-        │      ├── 🔲 GH-162   Review step structured values & visibility
+        │      ├── ✅ GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
         │      ├── 🔲 GH-171   Template versioning & impact analysis
@@ -128,6 +128,7 @@ OVERALL   ██████████████░░░░░░░░░�
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 | ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
 | ✅ GH-156 | Document mapping workbench with persisted bindings | 2026-08-06 |
+| ✅ GH-162 | Review step structured values and conditional visibility | 2026-08-09 |
 | ✅ GH-155 | Final-document authoring configurability | 2026-08-09 |
 
 ---
@@ -1434,7 +1435,33 @@ Build in this order; each step should leave the tree gate-clean.
 
 ---
 
-## GH-162 — Improve review for structured values and conditional visibility 🔲
+## GH-162 — Improve review for structured values and conditional visibility ✅
+
+> **Verified 2026-08-09 (reviewer, live).** Review consumes the runner's canonical
+> visible-step set, so a step hidden by `visibleIf` is omitted along with its stale
+> answer. Structured formatting lives in the shared `formatAnswerValue` and
+> dispatches through `normalizeRunnerStepType`, so it applies identically to
+> top-level answers and to fields nested inside a List. Every answer carries a
+> step-specific Edit that returns to review after the section validates and saves.
+>
+> Live proof on a fixture run (server on :5183 from this worktree, source confirmed
+> served from the worktree, not `main`): a `parcel_number` step hidden by
+> `owns_property = Yes` kept the persisted value `STALE-HIDDEN-PARCEL-9999` in
+> `step_values` and did **not** appear on review; address rendered
+> `123 Main St, Suite 400, Chicago, IL 60601`; a `multiple_choice` stored as
+> option-id and alias rendered as labels; inside the List, the nested address
+> rendered `77 Lake Shore Dr, Evanston, IL 60201` and the nested choice rendered
+> `Spouse` / `Child`. Clicking Edit on a section-1 answer focused that step's
+> control and re-labelled Next as "Review"; the edit saved and returned to review.
+> Desktop and 390px mobile both checked; console clean apart from Vite HMR noise.
+>
+> First submission FAILED review: the formatting was local to `ReviewSection`, so a
+> nested address rendered raw JSON and a nested choice rendered its raw id, and it
+> hand-listed type aliases the `normalizeRunnerStepType` map already owned. Both
+> fixed on resubmission and covered by regression tests.
+>
+> Gates re-run by the reviewer on the post-fast-forward tree: `type-check` 0 errors,
+> `lint` 0 problems, `test:fast` 248 files / 2807 tests passed, 14 skipped.
 
 **Priority: P2** · Size: M · Files: `client/src/components/runner/ReviewStep.tsx`, `server/services/workflowLogic.ts`
 **Ties:** Preceded by GH-146
@@ -1517,9 +1544,11 @@ Build in this order; each step should leave the tree gate-clean.
 > later template renames (an empty field now means "follow the template name");
 > and the overall progress bar over-reported at 16 filled blocks for 14 done.
 >
-> Gates on the final tree: `type-check` exit 0 · `lint` exit 0 repo-wide
-> (`--max-warnings 0`) · `check:strict-zones` all 6 zones passed · `test:fast`
-> **241 files / 2761 passed / 14 skipped**.
+> Gates re-run by the reviewer on the merged tree (main `02ca681d` + GH-155):
+> `type-check` exit 0 · `lint` exit 0 repo-wide (`--max-warnings 0`) ·
+> `check:strict-zones` 6/6 zones · `test:fast` **250 files / 2814 passed /
+> 14 skipped / 0 failed**. The implementing session's lower counts (2760) were
+> measured on a base three commits behind main, as CLAUDE.md predicts.
 >
 > Live browser verification (port 5185, isolated test DB, fixtures removed) was
 > performed by the implementing session; the reviewer verified the gates and the
@@ -1530,6 +1559,12 @@ Build in this order; each step should leave the tree gate-clean.
 > (`ExternalSendRunner`, `WorkflowService.verifyOwnership`; each passes in
 > isolation, a different file each run) — an existing condition, not a GH-155
 > defect.
+>
+> **Reviewer fixed at merge:** GH-162 closed into Phase 4 on main while GH-155 sat
+> on an older base. Both branches bumped the same counter lines to the same
+> values, so git auto-merged them with no conflict and the board silently read
+> 14/27 and Phase 4 1/7 with *two* ✅ tickets in it. Corrected to 15/27 and 2/7.
+> Observations O-15..O-17 filed below.
 
 **Priority: P2** · Size: S · Files: `client/src/components/blocks/FinalBlockEditor.tsx`, `client/src/components/runner/blocks/FinalBlock.tsx`
 **Ties:** Preceded by GH-156
@@ -1655,6 +1690,31 @@ Nothing here is counted in a phase total, and no phase gate blocks on it.
 
 Not tickets. Found during the 2026-08-04 GH-169 audit of the live Railway config. Promote
 only with the repo owner's say-so.
+
+Filed 2026-08-09 during the GH-155 review pass:
+
+- **O-15 (correctness, low) — `totalGenerated` now counts output *files*, not documents.**
+  `FinalBlockRenderer.render` returns `totalGenerated: documents.length`
+  (`server/services/document/FinalBlockRenderer.ts`), so a one-template run that
+  emits DOCX+PDF reports `totalAttempted: 1, totalGenerated: 2`. It keeps the
+  count consistent with the `documents[]` array it accompanies, which is
+  defensible, but the two fields no longer measure the same unit. Only logging
+  and the render response consume it, so nothing breaks today.
+- **O-16 (security, low) — two redirect paths, only one hardened.** GH-155 makes
+  the completion redirect authorable in the builder for the first time, and the
+  runner path that consumes it
+  (`client/src/components/runner/sections/FinalDocumentsSection.tsx`) validates
+  only the protocol, while `client/src/pages/WorkflowRunner.tsx` routes its
+  redirect through `getSafeRedirectUrl`. Author-controlled and same trust level
+  as `customLinks`, so severity is low, but the two paths should converge on the
+  hardened helper. Related to the closed SEC-033 ruling on e-sign `redirectUrl`.
+- **O-17 (correctness, low) — the Final Documents inspector's `draftConfig`
+  snapshot never re-syncs.** `FinalDocumentsSectionEditor` now seeds a
+  `draftConfig` from server state once on mount and spreads it into every
+  `PATCH`. That deliberately fixes a real lost-update bug (with 5+ fields,
+  consecutive edits spreading a not-yet-refetched `config` dropped each other),
+  but it means a concurrent edit from another collaborator is overwritten
+  wholesale by this panel's next write.
 
 - **⚠️ O-1 (security, repo owner action) — production is running placeholder secrets.** The
   prod service has `JWT_SECRET` and `SESSION_SECRET` set to the literal example strings from

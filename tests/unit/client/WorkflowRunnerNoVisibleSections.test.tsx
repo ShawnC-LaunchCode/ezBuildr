@@ -34,6 +34,7 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     effectiveValues: {},
     effectiveLogicRules: [],
     visibleSectionSteps: [],
+    visibleReviewStepIds: [],
     runToken: null,
     saveStatus: 'idle',
     saveNow: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +51,8 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     handleUpdateValue: vi.fn(),
     setCurrentSectionIndex: vi.fn(),
     setShowReview: vi.fn(),
+    reviewEditStepId: null,
+    onEditReviewStep: vi.fn(),
     ...overrides,
   };
 }
