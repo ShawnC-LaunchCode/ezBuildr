@@ -92,7 +92,7 @@ provider. They make the layer capable of switching.
 | AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
 | AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
 | AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | 🔲 |
-| AISL-12 | Every `workflow_personalization_settings` toggle is dead | P1 | M | 🔲 needs your decision |
+| AISL-12 | `workflow_personalization_settings` is read and discarded | P1 | S | 🔲 decided: option (a) |
 
 ---
 
@@ -1337,12 +1337,40 @@ allowDynamicHelp: boolean("allow_dynamic_help").default(true).notNull(),
 allowDynamicTone: boolean("allow_dynamic_tone").default(true).notNull(),
 ```
 
-**Nothing reads any of them.** Grepping the repo outside `migrations/` returns
-only the schema definition itself. The runtime guards in
-`PersonalizationService` read a *different* object with *different* names —
-`context.userSettings.allowAdaptivePrompts` and
-`context.userSettings.allowAIClarification`, which come from user preferences,
-not from the workflow's settings row.
+**Corrected 2026-08-09 — the mechanism is more specific than "nothing reads
+them", and it changes the cost of each option.** The row *is* loaded, on every
+personalization request carrying a `workflowId`, by the `getUserContext`
+middleware in `server/routes/api.ai.personalization.routes.ts`:
+
+```ts
+const [ws] = await db
+    .select()
+    .from(workflowPersonalizationSettings)
+    .where(eq(workflowPersonalizationSettings.workflowId, workflowId))
+    .limit(1);
+workflowSettings = ws;
+```
+
+It is then placed on the context, and the field is declared on the type
+(`server/lib/ai/personalization.ts`):
+
+```ts
+interface PersonalizationContext {
+    userSettings: UserPersonalizationSettings;
+    workflowSettings?: WorkflowPersonalizationSettings;   // populated, never read
+    ...
+}
+```
+
+Every `PersonalizationService` method receives it and **not one reads it**. The
+guards that do fire read a different object — `context.userSettings`, from
+`user_personalization_settings`. So the value travels DB → query → context →
+method parameter → discarded.
+
+**And nothing writes the table.** `POST /api/ai/personalize/settings` writes
+`user_personalization_settings` only; there is no workflow-level write endpoint
+and no builder UI for it. So even wired up, the toggles are currently
+unsettable and every row would sit at its `true` default.
 
 Consequence: a tenant who turns off dynamic help or dynamic tone **for a
 workflow** still gets dynamic help and dynamic tone. The setting is persisted,
@@ -1361,24 +1389,39 @@ in the same way.
 
 ### Preferred fix
 
-**Decide first, then implement — this is a product question with two valid
-answers, and the ticket should not guess.** Escalate to the repo owner before
-writing code:
+**Decision recorded 2026-08-09 by the repo owner: option (a) — honor the
+settings in the service.** Dropping the columns was rejected: it would need a
+`DROP COLUMN` migration against a database production shares (see LU-B1) plus
+changes to the portability disclosure, `entityGraph`, and four docs, to delete
+something that costs nothing once honored — and per-workflow AI opt-out is a
+plausible near-term compliance requirement for legal intake work, which a
+*user*-level preference structurally cannot express.
 
-- **(a) Wire them up.** Load the workflow's `workflow_personalization_settings`
-  row in the personalization route, merge it with user preferences (workflow
-  setting wins when it disables), and gate `generateHelpText` on
-  `allowDynamicHelp`, `rewriteBlockText` on `allowDynamicPrompts`, and tone
-  application on `allowDynamicTone`. This makes the persisted setting mean what
-  it says.
-- **(b) Delete them.** Drop the columns and any UI that writes them, on the
-  grounds that user preferences are the real control surface. Requires a
-  migration — load the `db-schema-change` skill.
+**Scope is the read side only.** The value already reaches the service — the
+middleware populates `context.workflowSettings` and every method receives it.
+Consult it; do not add a query, an endpoint, or UI.
 
-Do **not** ship a third option where the columns stay and are partially wired.
+1. In `PersonalizationService`, read `context.workflowSettings` alongside
+   `context.userSettings`:
+   - `rewriteBlockText` → also gated by `allowDynamicPrompts`
+   - `generateHelpText` → gated by `allowDynamicHelp` (it currently has **no**
+     gate; this adds its first one)
+   - tone application → gated by `allowDynamicTone`
+2. **The merge must be restrictive: a workflow setting may only *disable*,
+   never re-enable.** `userSettings.allowAdaptivePrompts === false` must stay
+   off no matter what the workflow row says. An AI opt-out a workflow can
+   silently override is worse than none.
+3. `context.workflowSettings` is optional (`?`). Absent row = no additional
+   restriction — treat it as all-permissive, matching today's behavior.
+4. A disabled path must return early **without** calling the model, exactly like
+   the existing `allowAdaptivePrompts` guard, so it produces no `ai_usage` row.
 
-Whichever path: add a test that fails if a toggle is persisted and not honored,
-so the next audit cannot rediscover this.
+Behavior is unchanged for every existing caller: all three columns default to
+`true`, and nothing writes the table today (that write path is AISL-B10). This
+ticket makes the setting *mean* something; giving users a way to set it is a
+separate, later piece of work.
+
+Do **not** add a migration, a settings endpoint, or builder UI here.
 
 ### Ties
 
@@ -1396,19 +1439,24 @@ so the next audit cannot rediscover this.
 
 ### Acceptance criteria
 
-1. The repo owner has chosen option (a) or (b), and the choice is recorded in
-   this ticket before any code lands.
-2. **If (a):** a workflow with `allowDynamicHelp = false` produces no help-text
-   model call and no `ai_usage` row; same for `allowDynamicPrompts` on
-   `rewriteBlockText` and `allowDynamicTone` on tone application.
-3. **If (b):** the columns are dropped via a generated migration, no code or UI
-   references them, and `npm run db:push`/`db:migrate` applies cleanly.
-4. A test asserts the chosen behavior and fails if a toggle is persisted but not
-   honored (a), or if a dropped column is still referenced (b).
-5. `enabled`, `defaultTone`, `defaultReadingLevel`, and `defaultVerbosity` on the
-   same table have been checked for the same defect, and the finding is recorded
-   here even if out of scope to fix.
-6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+1. `allowDynamicHelp = false` on the workflow row makes `generateHelpText`
+   return without calling the model and **without** producing an `ai_usage` row.
+2. Same for `allowDynamicPrompts` on `rewriteBlockText` and `allowDynamicTone`
+   on tone application.
+3. The merge is restrictive: with `userSettings.allowAdaptivePrompts = false`
+   and `workflowSettings.allowDynamicPrompts = true`, the model is **not**
+   called. A workflow row can never re-enable what the user disabled.
+4. With `context.workflowSettings` undefined, behavior is byte-identical to
+   today for all five endpoints.
+5. With all three columns at their `true` default, behavior is byte-identical to
+   today — a test proves this, since that is the state of every existing row.
+6. Tests cover 1–5, including at least one asserting no `ai_usage` row is
+   written on a disabled path.
+7. `enabled`, `defaultTone`, `defaultReadingLevel`, and `defaultVerbosity` on the
+   same table have been checked for the same read-and-discard defect, and the
+   result is recorded in this ticket even where fixing them is out of scope.
+8. No migration, no new endpoint, no UI (see AISL-B10).
+9. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green.
 
 ---
@@ -1481,6 +1529,23 @@ LLM call at all** — `analyze()` and `applyFixes()` are pure rule-based analysi
 Nothing is broken. Recorded because it will mislead the next person auditing AI
 cost or deciding which endpoints need budget coverage. Do not "fix" by adding
 an LLM call.
+
+**AISL-B10 — No way to set a workflow's personalization toggles.**
+`needs-initiative`, Size M. AISL-12 makes `allowDynamicPrompts` /
+`allowDynamicHelp` / `allowDynamicTone` *mean* something, but nothing writes
+`workflow_personalization_settings` — there is no workflow-level settings
+endpoint and no builder UI, so every row sits at its `true` default and the
+toggles are unsettable. Completing the feature needs a write endpoint mirroring
+`POST /api/ai/personalize/settings` (which handles the *user* table) plus a
+builder surface, most naturally in the workflow settings tab.
+
+**Deliberately parked, not descoped.** The expected trigger is a compliance
+requirement rather than a preference: for legal intake work, "do not let AI
+rewrite the wording on this form" is a guarantee a tenant admin needs to make
+about a *workflow*, which a per-user preference structurally cannot express.
+Promote when that requirement actually lands — building the UI on speculation is
+what produced the half-wired state AISL-12 is fixing. The read path will already
+be correct and tested by then.
 
 **AISL-B9 — Anonymous public-link runs still call AI untenanted.** `enhancement`,
 Size S. Found during AISL-2 review. `runs.routes.ts` now reads `authReq.tenantId`
