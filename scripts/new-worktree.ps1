@@ -65,10 +65,17 @@
 .EXAMPLE
   # ALWAYS remove worktrees this way, never with a bare `git worktree remove`.
   pwsh scripts/new-worktree.ps1 -Name iex-5 -Remove
+
+.EXAMPLE
+  # MAP-B7: re-create every EXISTING worktree's database. Needed after the test
+  # Postgres container restarts, because it is tmpfs-backed (see .DESCRIPTION)
+  # and a restart silently wipes every per-worktree database — the worktree
+  # itself looks untouched, but its DB-backed suites start failing with a
+  # connection error that reads like a code problem, not an infra one.
+  pwsh scripts/new-worktree.ps1 -EnsureDbs
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)]
   [string]$Name,
 
   # Branch to base the worktree on.
@@ -83,10 +90,89 @@ param(
   [switch]$LinkModules,
 
   # Tear the worktree down safely (drops a junction before deleting).
-  [switch]$Remove
+  [switch]$Remove,
+
+  # MAP-B7: re-create the test database for every EXISTING worktree, instead
+  # of creating one worktree. Ignores -Name/-BaseBranch/-LinkModules/-Remove.
+  [switch]$EnsureDbs
 )
 
 $ErrorActionPreference = 'Stop'
+
+<#
+  MAP-B7: the test Postgres container (docker-compose.test.yml) is tmpfs-backed
+  on purpose, for speed — but that means restarting it (`test:docker:down` then
+  `up`, a host reboot, Docker Desktop restarting the container) discards every
+  database on it, including every per-worktree database this script created.
+  A worktree made before the restart keeps a `TEST_DATABASE_URL` pointing at a
+  database that no longer exists; its unit-db/integration suites then fail
+  with a Postgres connection error that reads exactly like a code regression.
+  This happened for real mid-initiative: a restart silently erased all six
+  per-worktree databases, and only `ezbuildr_test` came back (something else
+  recreates that one specifically).
+
+  Fix chosen: re-derive each worktree's database name from its directory name
+  (same `$dbSuffix` logic used at creation time below) and re-issue
+  `CREATE DATABASE`, tolerating "already exists". This is idempotent and safe
+  to run any time — after a container restart, or just to be sure. It
+  deliberately does NOT touch how `ezbuildr_test` itself is provisioned
+  (`npm run test:docker:up`/`:down`), only the per-worktree databases this
+  script owns.
+#>
+if ($EnsureDbs) {
+  $repoRoot = (git rev-parse --show-toplevel).Trim() -replace '/', '\'
+  $worktreesRoot = Join-Path $repoRoot '.claude\worktrees'
+
+  $testDbPort = '5434'
+  $composeFile = Join-Path $repoRoot 'docker-compose.test.yml'
+  if (Test-Path $composeFile) {
+    $portMatch = [regex]::Match((Get-Content $composeFile -Raw), '"(\d+):5432"')
+    if ($portMatch.Success) { $testDbPort = $portMatch.Groups[1].Value }
+  }
+
+  $pgContainer = $null
+  try {
+    $pgContainer = (docker ps --filter "publish=$testDbPort" --format '{{.Names}}' 2>$null | Select-Object -First 1)
+  } catch {
+    $pgContainer = $null
+  }
+  if (-not $pgContainer) {
+    throw "No container publishing port $testDbPort. Start it with: npm run test:docker:up"
+  }
+
+  if (-not (Test-Path $worktreesRoot)) {
+    Write-Host "No worktrees under $worktreesRoot — nothing to ensure." -ForegroundColor Yellow
+    return
+  }
+
+  $worktreeDirs = Get-ChildItem $worktreesRoot -Directory -ErrorAction SilentlyContinue
+  if (-not $worktreeDirs -or $worktreeDirs.Count -eq 0) {
+    Write-Host "No worktrees under $worktreesRoot — nothing to ensure." -ForegroundColor Yellow
+    return
+  }
+
+  Write-Host "==> Ensuring test databases for $($worktreeDirs.Count) worktree(s) on container $pgContainer (port $testDbPort)" -ForegroundColor Cyan
+  foreach ($dir in $worktreeDirs) {
+    $suffix = ($dir.Name -replace '[^A-Za-z0-9]', '_').ToLower()
+    $dbName = "ezbuildr_test_$suffix"
+    $createOut = (docker exec $pgContainer psql -U postgres -c "CREATE DATABASE $dbName" 2>&1 | Out-String)
+    $global:LASTEXITCODE = 0
+    if ($createOut -match 'CREATE DATABASE') {
+      Write-Host "  [created] $dbName (worktree $($dir.Name)) — was missing, e.g. after a container restart" -ForegroundColor Green
+    } elseif ($createOut -match 'already exists') {
+      Write-Host "  [ok] $dbName already exists (worktree $($dir.Name))" -ForegroundColor DarkGray
+    } else {
+      Write-Host "  [warn] could not ensure $dbName ($($dir.Name)): $($createOut.Trim())" -ForegroundColor Yellow
+    }
+  }
+
+  Write-Host "`nDone. Run this again any time the test container restarts, before trusting a worktree's DB-backed suites." -ForegroundColor Cyan
+  return
+}
+
+if (-not $Name) {
+  throw "-Name is required unless -EnsureDbs is passed."
+}
 
 $repoRoot = (git rev-parse --show-toplevel).Trim() -replace '/', '\'
 $worktreeDir = Join-Path $repoRoot ".claude\worktrees\$Name"
@@ -334,14 +420,38 @@ if ($SkipVerify) {
 
   $cleanOutput = $output -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
 
-  # "0 test" / "no tests" means the runner is broken, which is NOT the same as
-  # a failing test — and it is the failure that has actually bitten us.
-  if ($cleanOutput -notmatch 'Tests\s+\d+\s+passed') {
+  # MAP-B6: this gate used to conflate two different situations under one
+  # message — "the runner never produced a summary at all" (genuinely broken,
+  # e.g. the old bare-specifier misresolution) and "the runner ran and some
+  # tests failed" (could be a real regression, could be one flaky test or
+  # machine contention). Collapsing them into one throw produced two false
+  # negatives on this initiative alone: once under CPU load from concurrent
+  # worktree runs, once from a single flaky socket-timing test — both times a
+  # bare re-run of test:fast in the same worktree passed cleanly. Only the
+  # first case still throws; the second is reported, not asserted away.
+  $testsLine = [regex]::Match($cleanOutput, '(?m)^\s*Tests\s+(.+)$')
+  if (-not $testsLine.Success) {
     Write-Host $output
-    throw "test:fast did not report any passing tests. The tree is broken — do not dispatch anyone into it."
+    throw "test:fast produced no 'Tests' summary line at all — the runner did not execute. The tree is broken — do not dispatch anyone into it."
   }
-  $matched = [regex]::Match($cleanOutput, 'Tests\s+(\d+)\s+passed')
-  Write-Host "  [ok] test suite runs ($($matched.Groups[1].Value) tests passed)"
+
+  $summary = $testsLine.Groups[1].Value.Trim()
+  $passed = [regex]::Match($summary, '(\d+)\s+passed')
+  $failed = [regex]::Match($summary, '(\d+)\s+failed')
+  $passedCount = if ($passed.Success) { [int]$passed.Groups[1].Value } else { 0 }
+  $failedCount = if ($failed.Success) { [int]$failed.Groups[1].Value } else { 0 }
+
+  if ($passedCount -eq 0 -and $failedCount -eq 0) {
+    Write-Host $output
+    throw "test:fast reported a summary line ('$summary') with zero passed and zero failed. The tree is broken — do not dispatch anyone into it."
+  } elseif ($failedCount -gt 0) {
+    Write-Host "  [warn] test suite RAN but reported $failedCount failing, $passedCount passing ('$summary')." -ForegroundColor Yellow
+    Write-Host "  [warn] This may be a real regression, or it may be the known PdfConverter/ClamAV-type flake or machine" -ForegroundColor Yellow
+    Write-Host "  [warn] contention noted in the run-tests skill — re-run 'npm run test:fast' in this worktree before" -ForegroundColor Yellow
+    Write-Host "  [warn] concluding which. Do not treat this single run as proof either way." -ForegroundColor Yellow
+  } else {
+    Write-Host "  [ok] test suite runs ($passedCount tests passed)"
+  }
 
   # A bare-specifier misresolution (e.g. `stream` -> "<worktree>\stream") is the
   # shared-cache symptom this script now prevents; fail loudly if it reappears.
