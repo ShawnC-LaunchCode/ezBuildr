@@ -205,7 +205,6 @@ export class SectionService {
           order: section.order + 1,
           config: section.config,
           visibleIf: section.visibleIf,
-          skipIf: section.skipIf,
         },
         tx
       );

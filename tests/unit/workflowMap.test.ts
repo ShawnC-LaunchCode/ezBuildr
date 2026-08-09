@@ -8,7 +8,6 @@ import {
   workflowWithDanglingSkipTarget,
   workflowWithFinalDocuments,
   workflowWithForwardSkip,
-  workflowWithSkipIf,
   workflowWithUnreachableSection,
 } from "../fixtures/workflowMap";
 
@@ -156,27 +155,6 @@ describe("buildWorkflowMap", () => {
       const { nodes } = buildWorkflowMap(workflowWithConditionalSection());
       const sectionA = nodes.find((n) => n.id === "section-a");
       expect(sectionA?.conditionalStepIds).toEqual(["step-a-cond"]);
-    });
-  });
-
-  describe("AC6 — skipIf is dead (MAP-B1)", () => {
-    it("produces no edge and no node property derived from a section's skipIf", () => {
-      const input = workflowWithSkipIf();
-      // Sanity check the fixture actually sets skipIf, not an empty/no-op input.
-      expect(input.sections[0].skipIf).toBeDefined();
-
-      const { nodes, edges } = buildWorkflowMap(input);
-      const sectionA = nodes.find((n) => n.id === "section-a");
-      expect(sectionA).toEqual({
-        id: "section-a",
-        kind: "section",
-        label: "Section A",
-        order: 0,
-        conditional: false,
-        conditionalStepIds: [],
-      });
-      // No "skip" edges at all — nothing here should be readable as a route derived from skipIf.
-      expect(edges.filter((e) => e.kind === "skip")).toEqual([]);
     });
   });
 });

@@ -222,7 +222,6 @@ describe('RunRuntimeService', () => {
             description: null,
             order: 1,
             visibleIf: null,
-            skipIf: null,
             config: null,
             steps: [{
               id: controllerId,

@@ -176,23 +176,6 @@ export function workflowWithDanglingSkipTarget(): BuildWorkflowMapInput {
 }
 
 /**
- * A section that actually sets `skipIf` — a dead field (MAP-B1:
- * `evaluateWorkflowVisibility` never reads it and no authoring surface
- * writes it in production, but the DB column and type exist). Must produce
- * no edge and no node property derived from it (MAP-2 AC6).
- */
-export function workflowWithSkipIf(): BuildWorkflowMapInput {
-  return {
-    sections: [
-      { id: "section-a", title: "Section A", order: 0, skipIf: conditionExpr("some_step") },
-      { id: "section-b", title: "Section B", order: 1 },
-    ],
-    steps: [],
-    rules: [],
-  };
-}
-
-/**
  * A section with its own non-null `visibleIf`, plus a step inside it with
  * its own `visibleIf` — the `visibleIf` half of MAP-2 AC5, and coverage for
  * `conditionalStepIds` (the expand-on-demand payload, D-2).

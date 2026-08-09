@@ -162,6 +162,13 @@
       "when": 1786155795948,
       "tag": "0022_ancient_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786278230211,
+      "tag": "0023_condemned_hannibal_king",
+      "breakpoints": true
     }
   ]
 }

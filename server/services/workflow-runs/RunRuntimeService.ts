@@ -32,7 +32,6 @@ export interface RunRuntimeDefinition {
     description: string | null;
     order: number;
     visibleIf?: unknown;
-    skipIf?: unknown;
     config?: unknown;
     createdAt: Date;
   }>;

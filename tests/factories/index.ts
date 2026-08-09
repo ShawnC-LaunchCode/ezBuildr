@@ -214,7 +214,6 @@ export function createTestSection(overrides?: DeepPartial<Section>): Omit<Sectio
     title: overrides?.title || `Section ${uniqueId}`,
     description: overrides?.description || null,
     order: overrides?.order ?? 0,
-    skipIf: overrides?.skipIf || null,
     visibleIf: overrides?.visibleIf || null,
     config: overrides?.config || {},
     deletedAt: overrides?.deletedAt ?? null,

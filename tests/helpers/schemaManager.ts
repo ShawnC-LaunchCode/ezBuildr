@@ -66,8 +66,10 @@ export class SchemaManager {
     // Bumped to _v25 for LU-6c (0022_ancient_stellaris), which drops the now
     // orphaned `condition_operator` Postgres enum type (nothing has
     // referenced it since 0021 dropped the column it backed).
+    // Bumped to _v26 for MAP-2 (0023_condemned_hannibal_king), which drops
+    // the dead `sections.skip_if` column — a stale _v25 schema still has it.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v25`;
+        return `test_schema_w${this.workerId}_v26`;
     }
 
     /**

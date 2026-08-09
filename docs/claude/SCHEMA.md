@@ -17,7 +17,7 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `templates` / `template_versions` | Document templates + versioning |
 | `workflow_blueprints` | Template blueprint structures (JSONB) |
 | `workflow_templates` | Reusable workflow templates |
-| `sections` | Pages/sections: order, skipLogic, visibleIf |
+| `sections` | Pages/sections: order, visibleIf |
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |

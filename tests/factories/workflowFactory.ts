@@ -48,7 +48,6 @@ export function createTestSection(workflowId: string, overrides?: Partial<Sectio
     title: "Test Section",
     description: null,
     order: 1,
-    skipIf: null,
     config: {},
     visibleIf: null,
     deletedAt: null,

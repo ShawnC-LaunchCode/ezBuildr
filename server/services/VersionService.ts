@@ -164,7 +164,6 @@ export class VersionService {
         // ConditionExpression this column actually holds, so the cast is only
         // the usual jsonb-is-unknown narrowing.
         visibleIf: (section.visibleIf ?? null) as ConditionExpression,
-        skipIf: section.skipIf ?? undefined,
         config: section.config as Record<string, unknown> | undefined,
         steps: section.steps.map(step => ({
           id: step.id,
