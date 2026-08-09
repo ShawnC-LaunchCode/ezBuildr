@@ -1,9 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
 import { TransformBlock } from "shared/schema";
 import { logger } from "../../logger";
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 
 interface SchemaAlignRequest {
     transforms: TransformBlock[];
@@ -15,41 +16,6 @@ interface SchemaAlignmentResult {
     issues: string[];
     missingTransforms: TransformBlock[];
 }
-
-interface TextGenerationModel {
-    generateContent(prompt: string): Promise<{
-        response: {
-            text(): string;
-        };
-    }>;
-}
-
-// Lazy initialization helper
-const getModel = (systemPrompt: string): TextGenerationModel => {
-    const apiKey = process.env.GEMINI_API_KEY ?? "";
-    if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not set");
-    }
-
-    try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        return genAI.getGenerativeModel({
-            // Env-driven with a registry-known default; no hardcoded model pin (ICW-13).
-            model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
-            systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-        });
-    } catch (e) {
-        logger.warn({ err: e }, "Failed to init AI model in schemaAlign");
-        if (process.env.NODE_ENV === 'test') {
-            return {
-                generateContent: async () => ({
-                    response: { text: () => "{ \"issues\": [], \"missingTransforms\": [] }" }
-                })
-            };
-        }
-        throw e;
-    }
-};
 
 const schemaAlignResultSchema = z.object({
     issues: z.array(z.string()),
@@ -65,7 +31,7 @@ const schemaAlignResultSchema = z.object({
     )
 });
 
-export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAlignmentResult> => {
+export const alignSchema = async (request: SchemaAlignRequest, tenantId?: string): Promise<SchemaAlignmentResult> => {
     const systemPrompt = `
       You are an ETL expert. Align these transforms with the target document requirements.
       
@@ -96,10 +62,8 @@ export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAl
 
     let text = "";
     try {
-        const model = getModel(systemPrompt);
-        const result = await model.generateContent(userPrompt);
-        const response = result.response;
-        text = response.text();
+        const client = new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+        text = await client.callLLM(userPrompt, "transform_schema_align", systemPrompt);
     } catch (e) {
         logger.error({ err: e }, "Schema Align AI Error");
         throw new Error("Failed to align schema");

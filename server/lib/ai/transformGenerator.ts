@@ -1,41 +1,14 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 import { z } from "zod";
 import { TransformBlock } from "shared/schema";
 import { logger } from "../../logger";
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 interface GenerationRequest {
   workflowContext: unknown;
   description: string;
   currentTransforms?: TransformBlock[];
 }
-// Lazy initialization helper
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getModel = (systemPrompt: string) => {
-  const apiKey = process.env.GEMINI_API_KEY ?? "";
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set");
-  }
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro",
-      systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-    });
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to init AI model in transformGenerator");
-    // Return a mock-compatible object or throw
-    if (process.env.NODE_ENV === 'test') {
-      return {
-        generateContent: async () => ({
-          response: { text: () => "{ \"transforms\": [] }" }
-        })
-      } as unknown as ReturnType<GoogleGenerativeAI['getGenerativeModel']>;
-    }
-    throw e;
-  }
-};
-
 const transformResponseSchema = z.object({
   transforms: z.array(
     z.object({
@@ -49,7 +22,7 @@ const transformResponseSchema = z.object({
   )
 });
 
-export const generateTransforms = async (request: GenerationRequest): Promise<{
+export const generateTransforms = async (request: GenerationRequest, tenantId?: string): Promise<{
   updatedTransforms: Partial<TransformBlock>[];
   explanation: string[];
 }> => {
@@ -87,10 +60,8 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
 
   let text = "";
   try {
-    const model = getModel(systemPrompt);
-    const result = await model.generateContent(userPrompt);
-    const response = result.response;
-    text = response.text();
+    const client = new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+    text = await client.callLLM(userPrompt, "transform_generation", systemPrompt);
   } catch (e) {
     logger.error({ err: e }, "AI Generation failed");
     // Fallback or rethrow

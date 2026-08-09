@@ -1,41 +1,14 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 import { z } from "zod";
 import { TransformBlock, TransformResult } from "shared/schema";
 import { logger } from "../../logger";
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 interface RevisionRequest {
   currentTransforms: TransformBlock[];
   userRequest: string;
   workflowContext: unknown;
 }
-
-// Lazy initialization helper
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getModel = (systemPrompt: string) => {
-  const apiKey = process.env.GEMINI_API_KEY ?? "";
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set");
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro",
-      systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-    });
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to init AI model in transformRevision");
-    if (process.env.NODE_ENV === 'test') {
-      return {
-        generateContent: async () => ({
-          response: { text: () => "{ \"transforms\": [], \"diff\": {}, \"explanation\": [] }" }
-        })
-      } as unknown as ReturnType<GoogleGenerativeAI['getGenerativeModel']>;
-    }
-    throw e;
-  }
-};
 
 const transformResultSchema = z.object({
   transforms: z.array(
@@ -57,7 +30,7 @@ const transformResultSchema = z.object({
   explanation: z.array(z.string()).optional(),
 });
 
-export const reviseTransforms = async (request: RevisionRequest): Promise<TransformResult> => {
+export const reviseTransforms = async (request: RevisionRequest, tenantId?: string): Promise<TransformResult> => {
   const systemPrompt = `
     You are an ETL expert for VaultLogic.
     Your goal is to REVISE existing data transformations based on the user's request.
@@ -104,10 +77,8 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
 
   let text = "";
   try {
-    const model = getModel(systemPrompt);
-    const result = await model.generateContent(userPrompt);
-    const response = result.response;
-    text = response.text();
+    const client = new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+    text = await client.callLLM(userPrompt, "transform_revision", systemPrompt);
   } catch (e) {
     logger.error({ err: e }, "AI Revision Generation failed");
     throw new Error("Failed to revise transforms");

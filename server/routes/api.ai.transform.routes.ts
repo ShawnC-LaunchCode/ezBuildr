@@ -12,6 +12,7 @@ import { requireBuilder } from "../middleware/rbac";
 import { asyncHandler } from '../utils/asyncHandler';
 
 import type { TransformBlock } from "shared/schema";
+import type { AuthRequest } from "../middleware/auth";
 import type { TransformIssue } from "shared/types/debug";
 
 const router = Router();
@@ -65,7 +66,7 @@ router.post("/generate", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(a
             workflowContext,
             description,
             currentTransforms
-        });
+        }, (req as AuthRequest).tenantId);
 
         res.json(result);
     } catch (error: unknown) {
@@ -92,7 +93,7 @@ router.post("/revise", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(asy
             currentTransforms,
             userRequest,
             workflowContext
-        });
+        }, (req as AuthRequest).tenantId);
 
         res.json(result);
     } catch (error: unknown) {
@@ -160,7 +161,7 @@ router.post("/schema-align", hybridAuth, requireBuilder, aiRateLimit, asyncHandl
             transforms,
             documents,
             workflowVariables
-        });
+        }, (req as AuthRequest).tenantId);
         res.json(result);
     } catch (error: unknown) {
         logger.error({ error }, "Schema Align Error");

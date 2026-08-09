@@ -85,10 +85,10 @@ provider. They make the layer capable of switching.
 | AISL-2 | Tenant budget is fail-open by omission | P0 | S | ✅ |
 | AISL-3 | `AnthropicProvider` would 400 on every current Claude model | P1 | S | ✅ |
 | AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | ✅ |
-| AISL-5 | Transform AI bypasses the governed client | P1 | M | 🔲 |
-| AISL-6 | Personalization AI bypasses the governed client | P1 | M | 🔲 |
-| AISL-7 | Document-assist AI bypasses the governed client | P1 | M | 🔲 |
-| AISL-8 | Sentiment AI bypasses the governed client | P2 | S | 🔲 |
+| AISL-5 | Transform AI bypasses the governed client | P1 | M | ✅ |
+| AISL-6 | Personalization AI bypasses the governed client | P1 | M | ✅ |
+| AISL-7 | Document-assist AI bypasses the governed client | P1 | M | 🔲 **last one** |
+| AISL-8 | Sentiment AI bypasses the governed client | P2 | S | ✅ |
 | AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
 | AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
 | AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | 🔲 |
@@ -664,7 +664,30 @@ takes an injectable `aiUsageRepo`, and `ProviderFactory` builds from config),
 so these branches will need reworking rather than deleting — check what the
 existing tests for that file actually mock before removing anything.
 
-## AISL-5 — Transform AI bypasses the governed client 🔲
+## AISL-5 — Transform AI bypasses the governed client ✅
+
+> **Verified 2026-08-09** (worktree `aisl-5`, base `14e3a54b` — current main).
+> Zero `GoogleGenerativeAI` in all three files; `callLLM` with
+> `transform_generation` / `transform_revision` / `transform_schema_align`;
+> `tenantId` threaded at three route sites; the hardcoded `gemini-1.5-pro` is
+> gone. `fenceUntrusted` count unchanged at 4/4/4 per file, verified against the
+> pre-change files rather than by eye.
+>
+> AC5 is satisfied in its strongest form: `tests/integration/api.ai.transform.test.ts`
+> is **byte-identical to main** — the dev did not touch it, and it passes. That
+> is what "existing route tests pass without modification" is supposed to mean.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **259 files / 2848 tests**, and the two AI integration files
+> **14/14** against the Docker Postgres.
+>
+> **AC3 was wrong and the dev caught it.** It required an `ai_usage` row from
+> "each of the five transform endpoints". `/debug` and `/auto-fix` route to
+> `TransformDebugger` — 85 lines of deterministic static methods, no model call,
+> and outside this ticket's footprint. The dev implemented the three LLM-backed
+> endpoints and explicitly refused to fabricate usage for the other two, which
+> was correct: fabricated rows would have corrupted AISL-10's per-operation
+> economics before that ticket was even written. Finding and AC3 corrected.
 
 **Priority: P1** · Size: M · Files: `server/lib/ai/transformGenerator.ts`, `server/lib/ai/transformRevision.ts`, `server/lib/transforms/schemaAlign.ts`
 
@@ -692,9 +715,15 @@ const getModel = (systemPrompt: string) => {
 
 Three consequences:
 
-1. The five endpoints `/api/ai/transform/{generate,revise,debug,auto-fix,schema-align}`
-   consume tokens that never reach `ai_usage` and are never counted against
-   `AI_TENANT_MONTHLY_TOKEN_BUDGET`. A tenant can burn unlimited tokens here.
+1. **Corrected 2026-08-09:** three of the five transform endpoints —
+   `/generate`, `/revise`, `/schema-align` — consume tokens that never reach
+   `ai_usage` and are never counted against `AI_TENANT_MONTHLY_TOKEN_BUDGET`.
+   A tenant can burn unlimited tokens on those three. `/debug` and `/auto-fix`
+   are **not** affected: they route to `TransformDebugger`
+   (`server/lib/transforms/debugger.ts`), 85 lines of deterministic static
+   methods with no model call at all, and they are outside this ticket's file
+   footprint. The original wording said "five endpoints", which overstated the
+   scope by two.
 2. No retry on 429 — a rate-limited transform generation fails outright where
    the governed path would back off and succeed.
 3. `transformGenerator.ts` hardcodes **`gemini-1.5-pro`**, a different model
@@ -749,9 +778,14 @@ siblings), the prompts, or the route response shapes.
 1. None of the three files contains `new GoogleGenerativeAI` — grep proves
    zero occurrences.
 2. Each calls `AIProviderClient.callLLM` with its assigned `TaskType`.
-3. `tenantId` is threaded from `api.ai.transform.routes.ts` to all three; a
-   request to each of the five transform endpoints produces an `ai_usage` row
-   with the correct `tenant_id`, `task_type`, and non-zero token counts.
+3. **Corrected 2026-08-09** (originally said "each of the five endpoints", which
+   was wrong — see the Finding). `tenantId` is threaded from
+   `api.ai.transform.routes.ts` to all three modules, and a request to each of
+   the **three LLM-backed** endpoints — `/generate`, `/revise`, `/schema-align`
+   — produces an `ai_usage` row with the correct `tenant_id`, `task_type`, and
+   non-zero token counts. `/debug` and `/auto-fix` must write **no** row: they
+   never call a model, and fabricating usage for them would corrupt AISL-10's
+   per-operation economics.
 4. Every `fenceUntrusted(...)` call present before the change is present after
    it, wrapping the same value.
 5. The response shape of all five `/api/ai/transform/*` endpoints is unchanged
@@ -764,7 +798,29 @@ siblings), the prompts, or the route response shapes.
 
 ---
 
-## AISL-6 — Personalization AI bypasses the governed client 🔲
+## AISL-6 — Personalization AI bypasses the governed client ✅
+
+> **Verified 2026-08-09** (worktree `aisl-6`, base `21733c8d`; the only diff to
+> main was a docs-only commit, so no drift and no overlap). Zero
+> `GoogleGenerativeAI`; `callLLM(prompt, 'personalization')` via a per-call
+> client from `resolveAiProviderConfig({ tenantId })`; all seven `fenceUntrusted`
+> sites preserved.
+>
+> The three real early returns are intact and untouched —
+> `allowAdaptivePrompts` (line 27), `allowAIClarification` (line 91),
+> `targetLanguage === 'en'` (line 161) — and the integration test asserts each
+> writes **no** `ai_usage` row. `tenantId` is typed `string` (required) rather
+> than optional here, which is right: every personalization route is behind
+> `hybridAuth`, so a missing tenant is a bug, not a case to tolerate.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **259 files / 2848 tests**, AI integration **14/14**.
+>
+> **This ticket was paused mid-flight** on a contradiction in its own AC4, which
+> named `allowDynamicHelp` / `allowDynamicTone` — columns on
+> `workflow_personalization_settings`, not runtime guards. The dev stopped and
+> reported instead of inventing a gate to satisfy the criterion. Correcting it
+> surfaced AISL-12; had the dev improvised, that defect would still be hidden.
 
 **Priority: P1** · Size: M · File: `server/lib/ai/personalization.ts`
 
@@ -958,7 +1014,28 @@ still works with no AI provider configured.
 
 ---
 
-## AISL-8 — Sentiment AI bypasses the governed client 🔲
+## AISL-8 — Sentiment AI bypasses the governed client ✅
+
+> **Verified 2026-08-09** (worktree `aisl-8`, base `21733c8d`, docs-only diff to
+> main). Zero `GoogleGenerativeAI` in `geminiService.ts`;
+> `callLLM(..., 'sentiment_analysis')` via `resolveAiProviderConfig({ tenantId })`;
+> `fenceUntrusted(text)` preserved; the mock-only `catch` that rebuilt the model
+> is gone. `AiController` threads `authReq.tenantId`, matching the six sibling
+> methods.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **259 files / 2848 tests**.
+>
+> **One accepted scope expansion, called out by the reviewer rather than the
+> ticket.** The availability guard widened from `!process.env.GEMINI_API_KEY` to
+> `!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY`. That is three
+> characters beyond the letter of the ticket and it is correct: now that
+> sentiment runs on the governed client, an OpenAI- or Anthropic-only deployment
+> can serve it, and the old guard would have returned 503 on a perfectly working
+> configuration. Accepted.
+>
+> `GeminiService` retains other members, so the file was kept rather than
+> deleted — AC1's alternative branch.
 
 **Priority: P2** · Size: S · File: `server/services/geminiService.ts`
 
