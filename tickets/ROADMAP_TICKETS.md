@@ -89,11 +89,11 @@ OVERALL   █████████████████░░░░░░�
         │      └── ✅ GH-159   WCAG 2.2 AA accessibility conformance
         │           ⏸ GH-148   Multilingual & locale-aware runner — parked 2026-08-07, not counted
         │
-        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ████████░░  3/4
+        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ██████████  4/4  DONE
         │      ├── ✅ GH-154   Unified conditional logic editor
         │      ├── ✅ GH-153   Visual workflow map & path simulation
         │      ├── ✅ GH-152   Publish gate review grouping
-        │      └── 🔄 GH-167   Document-to-interview AI onboarding
+        │      └── ✅ GH-167   Document-to-interview AI onboarding
         │
         ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ███░░░░░░░  2/7
         │      ├── 🔲 GH-161   Answer piping & dynamic recall
@@ -1294,9 +1294,47 @@ exists and expensive before it.
 
 ---
 
-## GH-167 — Build document-to-interview onboarding with field and question generation 🔄
+## GH-167 — Build document-to-interview onboarding with field and question generation ✅
 
-**Priority: P1** · Size: L · **In progress** — dispatched 2026-08-08 (worktree `gh-167`)
+**Priority: P1** · Size: L · ✅ **Done 2026-08-09**
+
+> **Reviewer verification 2026-08-09.** The dev ended without a turn-in report, so **every
+> gate here was run by the reviewer from scratch**: `type-check` 0, `lint` 0 (full repo,
+> `--max-warnings 0`), `test:fast` **2824 passed / 14 skipped**, `pre-commit-checks` 0,
+> and `tests/integration/ai/documentOnboarding.test.ts` **4/4** — all re-run after
+> fast-forwarding the worktree onto current `main`.
+>
+> **Live proof (AC8), driven against an isolated local Postgres — never the Neon
+> instance `.env` points at.** Entry point `/workflows/new` → "From Document" → wizard;
+> a real DOCX yielded all 5 `{{ }}` placeholders; edited **type** (Short Text→Date) and
+> **alias** (`feeAmount`→`quotedFee`) on the review screen; Approve disabled until a
+> project is chosen and both buttons disabled in flight; **0 rows existed in the DB while
+> generation was running**, confirming nothing persists before approve. After approve:
+> workflow `status=draft` (unpublished), all 5 steps carrying the approved aliases with
+> `signingDate -> date`, template `gh167-live.docx` attached, and its mapping holding
+> **all 5 bindings** including `fee_amount -> quotedFee`. PreviewRunner opened the result
+> and **ran** it — page 1 → page 2 — and the signing-date question rendered as a native
+> `input[type="date"]`, proving the review-screen edit reaches the runner, not just the
+> database.
+>
+> **Two deviations, both verified and accepted.** (1) `logicRules`/`transformBlocks` are
+> forced to `[]`: the `updateWorkflowSchema` declared inside `PUT /api/workflows/:id`
+> (`workflows.routes.ts`) has no keys for them and Zod strips unknowns, so generating them
+> would only mislead the review screen. Confirmed by reading the schema, not taken on
+> report. (2) The mapping is built deterministically from approved aliases rather than via
+> AI `suggest-mappings` — strictly better here, since the overlay guarantees exactly one
+> step per variable with that exact alias, and it removes an AI call that can fail.
+>
+> **Process note worth keeping.** A first verification pass produced a convincing phantom
+> bug — a template carrying only 3 of 5 fields — caused by the dev subagent *still running*
+> and driving the same server, uploading its own fixture and deleting rows. Byte size
+> (1029 vs 1057) was what exposed it. Stop the agent and rebuild the environment before
+> trusting any live observation.
+>
+> **Filed, not fixed here:** the integration test `vi.mock`s the AI generator, so no
+> automated check anywhere exercises a real provider call; and `GEMINI_MODEL` is pinned
+> repo-wide to `gemini-2.0-flash`, whose free-tier limit Google has set to **0** — every
+> AI feature 429s until that pin moves (see Backlog).
 **Files:** `client/src/pages/onboarding/` (new), `client/src/Router.tsx` (one lazy import + one route),
 `server/routes/ai.doc.routes.ts`, `server/services/ai/`, `tests/integration/`, `tests/unit/client/`
 **Ties:** Preceded by GH-156 (✅ mapping workbench — this ticket hands off *to* it, never reimplements it).
@@ -1699,6 +1737,26 @@ Not tickets. Found during the 2026-08-04 GH-169 audit of the live Railway config
 only with the repo owner's say-so.
 
 Filed 2026-08-09 during the GH-155 review pass:
+
+- **O-17 (operational, HIGH) — `GEMINI_MODEL` is pinned to a model Google has capped at
+  zero.** `.env` and `.env.example` both set `GEMINI_MODEL=gemini-2.0-flash`, and Google
+  now returns `429 ... limit: 0` for it on the free tier — a permanent block, not a
+  rolling quota, so it never self-heals. Probed live 2026-08-09: `gemini-2.0-flash` 429,
+  `gemini-2.5-flash` **200**, `gemini-flash-latest` **200**, `gemini-1.5-flash` and
+  `gemini-1.5-pro` **404 (retired)**. Nine call sites take the pin via
+  `process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'`, so one env change fixes the running
+  app — but the stale string is also the hardcoded *fallback* in those nine, and
+  `server/lib/ai/transformGenerator.ts` / `transformRevision.ts` hardcode the retired
+  `gemini-1.5-pro` with no env override at all, so transform-block generation is dead
+  independently. `ModelRegistry.ts` also lists two retired models. **If Railway carries
+  the same pin, every AI feature is 429ing in production right now.** Needs its own
+  ticket; deliberately not fixed inside GH-167.
+
+- **O-18 (test-coverage, medium) — no automated test exercises a real AI provider call.**
+  `tests/integration/ai/documentOnboarding.test.ts` (and `api.ai.test.ts`) `vi.mock`
+  `createAIServiceFromEnv`, which is the right call for CI determinism but means a
+  provider-side break like O-17 is invisible to the entire suite. Worth a smoke check
+  gated on an env flag rather than un-mocking the suite.
 
 - **O-15 (correctness, low) — `totalGenerated` now counts output *files*, not documents.**
   `FinalBlockRenderer.render` returns `totalGenerated: documents.length`

@@ -10,11 +10,19 @@ import multer from "multer";
 import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
 import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
+import { aiWorkflowRateLimit, aiDailyRateLimit } from "../middleware/ai.middleware";
 import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
+import { AIError } from "../services/ai/AIError";
+import { documentOnboardingService } from "../services/ai/DocumentOnboardingService";
 import { virusScanner } from "../services/security/VirusScanner";
 import { MAX_FILE_SIZE } from "../services/fileService";
+import { classifyRouteError } from "../utils/routeErrors";
 import { z } from "zod";
 import { asyncHandler } from "../utils/asyncHandler";
+import { RUNNER_RENDERED_STEP_TYPES } from "../../shared/types/runnerStepTypes";
+
+import type { AuthRequest } from "../middleware/auth";
+import type { AIErrorCode } from "../services/ai/types";
 
 const router = Router();
 
@@ -40,6 +48,28 @@ const suggestMappingsSchema = z.object({
 const suggestImprovementsSchema = z.object({
   variables: variableObjectArraySchema
 });
+
+// GH-167: the onboarding wizard's review step lets the author edit a
+// question's type and alias before anything is generated. Enumerated and
+// length-capped fields, `.strip()`'d, matching the SEC-028 precedent above.
+const onboardingVariableSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    // Every generated step must be fillable in PreviewRunner (AC3), so the
+    // type is constrained to the canonical runner-fillable set rather than
+    // any stepTypeEnum string -- see shared/types/runnerStepTypes.ts.
+    type: z.enum([...RUNNER_RENDERED_STEP_TYPES] as [string, ...string[]]),
+    alias: z.string().min(1).max(200),
+    label: z.string().max(500).optional(),
+  })
+  .strip();
+const generateOnboardingWorkflowSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    documentName: z.string().min(1).max(255),
+    variables: z.array(onboardingVariableSchema).min(1).max(200),
+  })
+  .strip();
 
 // SECURITY FIX: Use disk storage instead of memory to prevent DoS (OOM)
 const upload = multer({
@@ -125,7 +155,7 @@ const cleanupFile = async (filePath?: string) => {
 };
 
 /**
- * POST /api/ai/template/analyze
+ * POST /api/ai/doc/analyze
  * Upload a file, save to temp disk, analyze, then delete.
  */
 router.post("/analyze", uploadLimiter, (req, res, next) => {
@@ -235,7 +265,7 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
 }));
 
 /**
- * POST /api/ai/template/suggest-mappings
+ * POST /api/ai/doc/suggest-mappings
  * Body: { templateVariables: [...], workflowVariables: [...] }
  */
 router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) => {
@@ -256,7 +286,7 @@ router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) =>
 }));
 
 /**
- * POST /api/ai/template/suggest-improvements
+ * POST /api/ai/doc/suggest-improvements
  * Body: { variables: [...] }
  * Returns aliases, formatting suggestions
  */
@@ -274,5 +304,80 @@ router.post("/suggest-improvements", strictLimiter, asyncHandler(async (req, res
         res.status(500).json({ error: "Improvement suggestion failed" });
     }
 }));
+
+/**
+ * Maps an error from the onboarding-generation pipeline to an HTTP status
+ * plus a client-usable body. AI-provider failures (timeout/rate-limit/budget)
+ * carry a `retryable` flag straight through from `AIError` so the wizard can
+ * distinguish "try again" from "this request will never succeed" (AC4).
+ * Authorization/not-found errors from `DocumentOnboardingService` follow the
+ * shared `classifyRouteError` contract (see the `add-api-endpoint` skill).
+ */
+function classifyOnboardingError(error: unknown): { status: number; body: Record<string, unknown> } {
+    if (error instanceof z.ZodError) {
+        return { status: 400, body: { error: "Invalid input", details: error.errors } };
+    }
+    if (error instanceof AIError) {
+        const statusByCode: Partial<Record<AIErrorCode, number>> = {
+            RATE_LIMIT: 429,
+            TIMEOUT: 504,
+            BUDGET_EXCEEDED: 402,
+            QUALITY_THRESHOLD: 422,
+            VALIDATION_ERROR: 422,
+        };
+        const status = statusByCode[error.code] ?? 502;
+        return {
+            status,
+            body: {
+                error: error.message,
+                retryable: error.retryable || error.code === 'TIMEOUT' || error.code === 'RATE_LIMIT',
+            },
+        };
+    }
+    const { status, message } = classifyRouteError(error, "Document onboarding generation failed");
+    // Anything not explicitly 4xx-classified is an unexpected server-side
+    // failure (provider outage, network blip) -- treat it as retryable.
+    return { status, body: { error: message, retryable: status >= 500 } };
+}
+
+/**
+ * POST /api/ai/doc/onboarding/generate-workflow
+ * Body: { projectId, documentName, variables: [{ name, type, alias, label? }] }
+ *
+ * GH-167: turns the onboarding wizard's author-approved variable list into a
+ * not-yet-persisted AIGeneratedWorkflow. See DocumentOnboardingService for
+ * the composition (documentAIAssistService already ran client-side to
+ * extract/suggest; this calls the AI workflow-generation service and
+ * reconciles its output against the author's approved edits).
+ */
+router.post(
+    "/onboarding/generate-workflow",
+    strictLimiter,
+    aiWorkflowRateLimit,
+    aiDailyRateLimit,
+    asyncHandler(async (req, res) => {
+        const authReq = req as AuthRequest;
+        try {
+            const userId = authReq.userId;
+            if (!userId) {
+                res.status(401).json({ error: "Unauthorized" });
+                return;
+            }
+            const data = generateOnboardingWorkflowSchema.parse(req.body);
+            const workflow = await documentOnboardingService.generateWorkflowFromVariables(
+                userId,
+                authReq.tenantId,
+                data
+            );
+            res.json({ data: workflow });
+        } catch (err) {
+            const { status, body } = classifyOnboardingError(err);
+            if (status >= 500) {
+                logger.error({ error: err, userId: authReq.userId }, 'Document onboarding generation failed');
+            }
+            res.status(status).json(body);
+        }
+    })
+);
 
 export default router;

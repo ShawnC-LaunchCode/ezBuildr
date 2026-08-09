@@ -3,7 +3,7 @@
  * Shows a form to create a new workflow, then redirects to the builder
  */
 
-import { ArrowLeft, Sparkles, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, Sparkles, LayoutTemplate, FileUp } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -26,7 +26,10 @@ export default function NewWorkflow() {
   const [isTemplateBrowserOpen, setIsTemplateBrowserOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const requestedTab = new URLSearchParams(window.location.search).get("tab");
-  const defaultTab = requestedTab === "ai" || requestedTab === "template" ? requestedTab : "manual";
+  const defaultTab =
+    requestedTab === "ai" || requestedTab === "template" || requestedTab === "document"
+      ? requestedTab
+      : "manual";
 
   const handleAiSubmit = async () => {
     if (!aiPrompt.trim()) {
@@ -113,10 +116,11 @@ export default function NewWorkflow() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={defaultTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="manual">Manual Creation</TabsTrigger>
                 <TabsTrigger value="template">Start from Template</TabsTrigger>
                 <TabsTrigger value="ai">Create with AI</TabsTrigger>
+                <TabsTrigger value="document">From Document</TabsTrigger>
               </TabsList>
 
               <TabsContent value="manual">
@@ -183,6 +187,23 @@ export default function NewWorkflow() {
                       {createWorkflowMutation.isPending ? "Generating..." : "Generate Workflow"}
                     </Button>
                   </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="document">
+                <div className="space-y-4 py-8 flex flex-col items-center justify-center text-center">
+                  <div className="bg-primary/10 p-4 rounded-full mb-4">
+                    <FileUp className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-medium">Build from a document</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Upload a DOCX or PDF and AI drafts the workflow, questions, and field mapping for
+                    you to review and approve before anything is created.
+                  </p>
+                  <Button onClick={() => { void navigate("/workflows/onboarding"); }} className="mt-4">
+                    <FileUp className="w-4 h-4 mr-2" />
+                    Start from a document
+                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
