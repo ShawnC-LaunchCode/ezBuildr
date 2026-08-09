@@ -16,11 +16,25 @@ import { remapJsonIds } from "../utils/remapJsonIds";
 
 import { generateAliasCopy } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
+import { isBackwardSkipTarget } from "./workflowStructureRules";
 
 const SECTION_NOT_FOUND = "Section not found";
 
 /** `order` is optional at the API boundary — the service auto-increments it. */
 type CreateSectionData = Omit<InsertSection, 'workflowId' | 'order'> & Partial<Pick<InsertSection, 'order'>>;
+
+/**
+ * A `skip_to` rule that a reorder just turned backward, so it can no longer
+ * fire (MAP-B4). Titles are included so the builder can name the rule in a
+ * toast without a second round-trip.
+ */
+export interface ReorderSkipRuleWarning {
+  ruleId: string;
+  conditionSectionId: string;
+  conditionSectionTitle: string;
+  targetSectionId: string;
+  targetSectionTitle: string;
+}
 
 /**
  * Constructor dependencies for {@link SectionService}, grouped into a single
@@ -343,13 +357,20 @@ export class SectionService {
   }
 
   /**
-   * Reorder sections
+   * Reorder sections.
+   *
+   * A drag that moves a section above another can turn a valid forward
+   * `skip_to` rule into a backward one — `isForwardSkipTarget` then discards
+   * it at run time and the author is told nothing until the next publish
+   * (MAP-B4, decision D-5). The reorder itself always succeeds — this is a
+   * non-blocking warning, not a gate — but the caller gets back the rules
+   * the reorder just broke so the builder can say so immediately.
    */
   async reorderSections(
     workflowId: string,
     userId: string,
     sectionOrders: Array<{ id: string; order: number }>
-  ): Promise<void> {
+  ): Promise<{ affectedSkipRules: ReorderSkipRuleWarning[] }> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     // Update each section's order
@@ -358,6 +379,53 @@ export class SectionService {
         await this.sectionRepo.updateOrder(id, workflowId, order, tx);
       }
     });
+
+    return { affectedSkipRules: await this.findBackwardSkipRules(workflowId) };
+  }
+
+  /**
+   * Every `skip_to` section rule whose target now sits at or before the
+   * section holding its condition question, evaluated against the
+   * workflow's *current* (post-reorder) section order. Reuses
+   * `isBackwardSkipTarget` — the same order comparison `checkSkipDirection`
+   * uses at publish time — rather than re-deriving it (MAP-B4).
+   */
+  private async findBackwardSkipRules(workflowId: string): Promise<ReorderSkipRuleWarning[]> {
+    const [sections, steps, rules] = await Promise.all([
+      this.sectionRepo.findByWorkflowId(workflowId),
+      // Include virtual steps: a rule's condition can reference a computed step too.
+      this.stepRepo.findByWorkflowId(workflowId, undefined, true),
+      this.logicRuleRepo.findByWorkflowId(workflowId),
+    ]);
+
+    const sectionById = new Map(sections.map((section) => [section.id, section]));
+    const sectionIdByStepId = new Map(steps.map((step) => [step.id, step.sectionId]));
+
+    const affected: ReorderSkipRuleWarning[] = [];
+    for (const rule of rules) {
+      if (rule.action !== "skip_to" || rule.targetType !== "section" || rule.targetSectionId === null) {
+        continue;
+      }
+
+      const targetSection = sectionById.get(rule.targetSectionId);
+      const conditionSectionId = sectionIdByStepId.get(rule.conditionStepId);
+      const conditionSection = conditionSectionId !== undefined ? sectionById.get(conditionSectionId) : undefined;
+      if (!targetSection || !conditionSection) {
+        continue;
+      }
+
+      if (isBackwardSkipTarget(targetSection.order, conditionSection.order)) {
+        affected.push({
+          ruleId: rule.id,
+          conditionSectionId: conditionSection.id,
+          conditionSectionTitle: conditionSection.title,
+          targetSectionId: targetSection.id,
+          targetSectionTitle: targetSection.title,
+        });
+      }
+    }
+
+    return affected;
   }
 
   /**

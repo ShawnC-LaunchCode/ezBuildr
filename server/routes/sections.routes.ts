@@ -170,8 +170,8 @@ export function registerSectionRoutes(app: Express): void {
           });
         }
       }
-      await sectionService.reorderSections(workflowId, userId, typedSections);
-      res.status(200).json({ message: "Sections reordered successfully" });
+      const { affectedSkipRules } = await sectionService.reorderSections(workflowId, userId, typedSections);
+      res.status(200).json({ message: "Sections reordered successfully", affectedSkipRules });
     } catch (error) {
       logger.error({ error }, "Error reordering sections");
       const { status, message } = classifyRouteError(error, "Failed to reorder sections");

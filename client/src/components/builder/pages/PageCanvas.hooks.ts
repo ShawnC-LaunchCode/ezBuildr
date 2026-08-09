@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { queryKeys } from "@/hooks/api/queryKeys";
-import { ApiSection, ApiStep } from "@/lib/vault-api";
+import { useToast } from "@/hooks/use-toast";
+import { ApiReorderSkipRuleWarning, ApiSection, ApiStep } from "@/lib/vault-api";
 import {
     useReorderSections,
     useReorderSteps,
@@ -33,6 +34,7 @@ export function usePageDragAndDrop(
     const [activeDragData, setActiveDragData] = useState<DragData | null>(null);
 
     const queryClient = useQueryClient();
+    const { toast } = useToast();
     const reorderSectionsMutation = useReorderSections();
     const reorderStepsMutation = useReorderSteps();
     const updateStepMutation = useUpdateStep();
@@ -56,6 +58,21 @@ export function usePageDragAndDrop(
         }
     };
 
+    const warnAboutBrokenSkipRules = (rules: ApiReorderSkipRuleWarning[]): void => {
+        if (rules.length === 0) { return; }
+
+        const describe = (rule: ApiReorderSkipRuleWarning): string =>
+            `"${rule.conditionSectionTitle}" → "${rule.targetSectionTitle}"`;
+
+        toast({
+            title: rules.length === 1
+                ? "A skip rule can no longer fire"
+                : `${rules.length} skip rules can no longer fire`,
+            description: `This reorder moved a "skip to" target at or before the page that triggers it, so it will never fire: ${rules.map(describe).join(", ")}. Fix it in Logic before publishing.`,
+            variant: "destructive",
+        });
+    };
+
     const handleSectionReorder = (activeIdString: string, overIdString: string): void => {
         const oldIndex = pages.findIndex((p) => p.id === activeIdString);
         const newIndex = pages.findIndex((p) => p.id === overIdString);
@@ -66,10 +83,18 @@ export function usePageDragAndDrop(
                 id: page.id,
                 order: index,
             }));
-            reorderSectionsMutation.mutate({
-                workflowId,
-                sections: updates,
-            });
+            reorderSectionsMutation.mutate(
+                { workflowId, sections: updates },
+                {
+                    // The reorder itself always succeeds — this only warns
+                    // about a side effect it just had (MAP-B4, D-5): a
+                    // forward "skip to" rule that the new order turned
+                    // backward, so it can no longer fire. Publish still
+                    // blocks on this separately; this is a heads-up at drag
+                    // time instead of a surprise at publish time.
+                    onSuccess: (result) => warnAboutBrokenSkipRules(result.affectedSkipRules),
+                }
+            );
         }
     };
 

@@ -650,6 +650,18 @@ export interface ApiSection {
   config?: unknown;
   createdAt: string;
 }
+/**
+ * A `skip_to` rule a section reorder just turned backward, so it can no
+ * longer fire (MAP-B4). Returned by `sectionAPI.reorder` so the builder can
+ * warn immediately instead of only at publish.
+ */
+export interface ApiReorderSkipRuleWarning {
+  ruleId: string;
+  conditionSectionId: string;
+  conditionSectionTitle: string;
+  targetSectionId: string;
+  targetSectionTitle: string;
+}
 export const sectionAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiSection[]>(`/api/workflows/${workflowId}/sections`),
@@ -666,10 +678,13 @@ export const sectionAPI = {
       body: JSON.stringify(data),
     }),
   reorder: (workflowId: string, sections: Array<{ id: string; order: number }>) =>
-    fetchAPI<void>(`/api/workflows/${workflowId}/sections/reorder`, {
-      method: "PUT",
-      body: JSON.stringify({ sections }),
-    }),
+    fetchAPI<{ message: string; affectedSkipRules: ApiReorderSkipRuleWarning[] }>(
+      `/api/workflows/${workflowId}/sections/reorder`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ sections }),
+      }
+    ),
   delete: (id: string) =>
     fetchAPI<void>(`/api/sections/${id}`, {
       method: "DELETE",

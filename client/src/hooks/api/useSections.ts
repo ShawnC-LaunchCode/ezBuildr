@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQu
 
 import { DevPanelBus } from "../../lib/devpanelBus";
 import { UI_LABELS } from "../../lib/labels";
-import { sectionAPI, type ApiSection } from "../../lib/vault-api";
+import { sectionAPI, type ApiSection, type ApiReorderSkipRuleWarning } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -101,7 +101,11 @@ export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Parti
     });
 }
 
-export function useReorderSections(): UseMutationResult<unknown, unknown, { workflowId: string; sections: Array<{ id: string; order: number }> }> {
+export function useReorderSections(): UseMutationResult<
+    { message: string; affectedSkipRules: ApiReorderSkipRuleWarning[] },
+    unknown,
+    { workflowId: string; sections: Array<{ id: string; order: number }> }
+> {
     const queryClient = useQueryClient();
     return useMutation({
         meta: { errorMessage: "Failed to reorder pages. The order has been reverted." },

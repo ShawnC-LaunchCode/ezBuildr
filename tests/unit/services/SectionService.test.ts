@@ -35,6 +35,7 @@ vi.mock("../../../server/repositories", () => ({
   },
   stepRepository: {
     findBySectionId: vi.fn(),
+    findByWorkflowId: vi.fn(),
     findByWorkflowIdWithAliases: vi.fn(),
     countByWorkflowId: vi.fn(),
     create: vi.fn(),
@@ -76,6 +77,7 @@ describe("SectionService", () => {
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
     mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
     mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([]);
+    mockStepRepo.findByWorkflowId.mockResolvedValue([]);
     mockStepRepo.countByWorkflowId.mockResolvedValue(0);
     mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
@@ -476,6 +478,144 @@ describe("SectionService", () => {
 
       await expect(service.duplicateSection(source.id, "user-123")).rejects.toThrow(/Question limit reached/);
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reorderSections (MAP-B4)", () => {
+    it("succeeds and reports the skip_to rule the reorder just turned backward", async () => {
+      const workflow = createTestWorkflow();
+      // Post-reorder state: the condition's section (A) now sits AFTER the
+      // rule's target section (C) — a forward skip turned backward.
+      const sectionA = createTestSection(workflow.id, { id: "section-a", order: 2, title: "Section A" });
+      const sectionB = createTestSection(workflow.id, { id: "section-b", order: 1, title: "Section B" });
+      const sectionC = createTestSection(workflow.id, { id: "section-c", order: 0, title: "Section C" });
+      const conditionStep = createTestStep(sectionA.id, {
+        id: "step-q1",
+        workflowId: workflow.id,
+        alias: "q1",
+      });
+      const rule = createTestLogicRule(workflow.id, {
+        id: "rule-1",
+        conditionStepId: conditionStep.id,
+        action: "skip_to",
+        targetType: "section",
+        targetStepId: null,
+        targetSectionId: sectionC.id,
+      });
+
+      mockSectionRepo.findByWorkflowId.mockResolvedValue(
+        [sectionA, sectionB, sectionC] as unknown as Section[]
+      );
+      mockStepRepo.findByWorkflowId.mockResolvedValue([conditionStep] as unknown as Step[]);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([rule]);
+
+      const result = await service.reorderSections(workflow.id, "user-123", [
+        { id: sectionA.id, order: 2 },
+        { id: sectionB.id, order: 1 },
+        { id: sectionC.id, order: 0 },
+      ]);
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      // The reorder itself is not gated by the finding — every order write happens.
+      expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(sectionA.id, workflow.id, 2, expect.anything());
+      expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(sectionB.id, workflow.id, 1, expect.anything());
+      expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(sectionC.id, workflow.id, 0, expect.anything());
+
+      expect(result.affectedSkipRules).toEqual([
+        {
+          ruleId: rule.id,
+          conditionSectionId: sectionA.id,
+          conditionSectionTitle: "Section A",
+          targetSectionId: sectionC.id,
+          targetSectionTitle: "Section C",
+        },
+      ]);
+    });
+
+    it("returns no warning when the reorder breaks nothing, even though a real skip_to rule exists", async () => {
+      const workflow = createTestWorkflow();
+      // Forward order preserved: condition section (A, order 0) comes before
+      // the target (C, order 2) — the rule still fires.
+      const sectionA = createTestSection(workflow.id, { id: "section-a", order: 0, title: "Section A" });
+      const sectionB = createTestSection(workflow.id, { id: "section-b", order: 1, title: "Section B" });
+      const sectionC = createTestSection(workflow.id, { id: "section-c", order: 2, title: "Section C" });
+      const conditionStep = createTestStep(sectionA.id, {
+        id: "step-q1",
+        workflowId: workflow.id,
+        alias: "q1",
+      });
+      const rule = createTestLogicRule(workflow.id, {
+        id: "rule-1",
+        conditionStepId: conditionStep.id,
+        action: "skip_to",
+        targetType: "section",
+        targetStepId: null,
+        targetSectionId: sectionC.id,
+      });
+
+      mockSectionRepo.findByWorkflowId.mockResolvedValue(
+        [sectionA, sectionB, sectionC] as unknown as Section[]
+      );
+      mockStepRepo.findByWorkflowId.mockResolvedValue([conditionStep] as unknown as Step[]);
+      // Sanity check: the fixture really does carry a skip_to rule — an empty
+      // rules array would trivially pass this test for the wrong reason.
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([rule]);
+      expect(rule.action).toBe("skip_to");
+
+      const result = await service.reorderSections(workflow.id, "user-123", [
+        { id: sectionB.id, order: 1 },
+        { id: sectionC.id, order: 2 },
+      ]);
+
+      expect(result.affectedSkipRules).toEqual([]);
+      expect(mockSectionRepo.updateOrder).toHaveBeenCalled();
+    });
+
+    it("ignores rules that are not a section-targeting skip_to (show/hide/require, or targeting a step)", async () => {
+      const workflow = createTestWorkflow();
+      const sectionA = createTestSection(workflow.id, { id: "section-a", order: 1, title: "Section A" });
+      const sectionB = createTestSection(workflow.id, { id: "section-b", order: 0, title: "Section B" });
+      const conditionStep = createTestStep(sectionA.id, { id: "step-q1", workflowId: workflow.id });
+      const targetStep = createTestStep(sectionB.id, { id: "step-q2", workflowId: workflow.id });
+
+      const showRule = createTestLogicRule(workflow.id, {
+        id: "rule-show",
+        conditionStepId: conditionStep.id,
+        action: "show",
+        targetType: "step",
+        targetStepId: targetStep.id,
+        targetSectionId: null,
+      });
+      const stepSkipRule = createTestLogicRule(workflow.id, {
+        id: "rule-step-skip",
+        conditionStepId: conditionStep.id,
+        action: "skip_to",
+        targetType: "step",
+        targetStepId: targetStep.id,
+        targetSectionId: null,
+      });
+
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([sectionA, sectionB] as unknown as Section[]);
+      mockStepRepo.findByWorkflowId.mockResolvedValue(
+        [conditionStep, targetStep] as unknown as Step[]
+      );
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([showRule, stepSkipRule]);
+
+      const result = await service.reorderSections(workflow.id, "user-123", [
+        { id: sectionA.id, order: 1 },
+        { id: sectionB.id, order: 0 },
+      ]);
+
+      expect(result.affectedSkipRules).toEqual([]);
+    });
+
+    it("throws when the user lacks edit access, and never writes an order", async () => {
+      mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied"));
+
+      await expect(
+        service.reorderSections("wf-1", "user-123", [{ id: "section-a", order: 0 }])
+      ).rejects.toThrow("Access denied");
+      expect(mockSectionRepo.updateOrder).not.toHaveBeenCalled();
     });
   });
 });

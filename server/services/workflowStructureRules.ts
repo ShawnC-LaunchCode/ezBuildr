@@ -285,6 +285,19 @@ function checkLogicRules(
   }
 }
 
+/**
+ * Whether a `skip_to` rule's target section can never fire, because it sits
+ * at or before the section holding the rule's condition question. Exported
+ * so `SectionService.reorderSections` (MAP-B4) can detect the same condition
+ * right after a drag-and-drop reorder, using the DB's live section orders
+ * instead of this module's serialized-content shape — without re-deriving
+ * the comparison or duplicating `checkSkipDirection`'s publish-blocking
+ * finding.
+ */
+export function isBackwardSkipTarget(targetOrder: number, conditionSectionOrder: number): boolean {
+  return targetOrder <= conditionSectionOrder;
+}
+
 function checkSkipDirection(
   targetRef: string,
   conditionRef: string,
@@ -297,7 +310,7 @@ function checkSkipDirection(
     return;
   }
 
-  if (targetOrder <= conditionSectionOrder) {
+  if (isBackwardSkipTarget(targetOrder, conditionSectionOrder)) {
     results.push(issue(
       "error",
       "logic",
