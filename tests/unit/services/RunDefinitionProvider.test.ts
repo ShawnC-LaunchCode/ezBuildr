@@ -71,7 +71,6 @@ function makeProvider(overrides: {
         description: null,
         order: 0,
         visibleIf: null,
-        skipIf: null,
         config: null,
         createdAt: new Date('2026-07-20T00:00:00.000Z'),
       },

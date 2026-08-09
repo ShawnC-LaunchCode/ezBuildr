@@ -125,7 +125,6 @@ export interface WorkflowSectionData {
   order?: number;
   alias?: string;
   visibleIf?: ConditionExpression | null;
-  skipIf?: unknown;
   config?: Record<string, unknown>;
   steps?: WorkflowStepData[];
 }

@@ -532,7 +532,6 @@ export class WorkflowClonerService {
           order: sourceSection.order,
           config: sourceSection.config,
           visibleIf: sourceSection.visibleIf,
-          skipIf: sourceSection.skipIf,
         })
         .returning();
 
@@ -1179,7 +1178,7 @@ export class WorkflowClonerService {
 
     const inspectValues: unknown[] = [
       ...workflowRows.map((workflow) => workflow.intakeConfig),
-      ...sectionRows.flatMap((section) => [section.config, section.visibleIf, section.skipIf]),
+      ...sectionRows.flatMap((section) => [section.config, section.visibleIf]),
       ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf]),
       ...blockRows.map((block) => block.config),
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
@@ -1563,7 +1562,6 @@ export class WorkflowClonerService {
         .set({
           config: remapJsonIds(section.config, idMap),
           visibleIf: remapJsonIds(section.visibleIf, idMap),
-          skipIf: remapJsonIds(section.skipIf, idMap),
         })
         .where(eq(sections.id, section.id));
     }

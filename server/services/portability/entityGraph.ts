@@ -97,9 +97,9 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'sections',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","title","description","order","config","visibleIf","skipIf"],
+    fields: ["id","workflowId","title","description","order","config","visibleIf"],
     refs: ["workflowId"],
-    jsonRefs: ["config","visibleIf","skipIf"],
+    jsonRefs: ["config","visibleIf"],
     scanPaths: ["config"]
   },
   {

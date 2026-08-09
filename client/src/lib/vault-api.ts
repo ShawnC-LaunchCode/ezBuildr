@@ -646,7 +646,6 @@ export interface ApiSection {
   description: string | null;
   order: number;
   visibleIf?: unknown; // Condition expression for visibility
-  skipIf?: unknown; // Condition expression for skip logic
   config?: unknown;
   createdAt: string;
 }

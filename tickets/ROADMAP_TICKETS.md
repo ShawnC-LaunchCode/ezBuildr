@@ -1191,10 +1191,13 @@ exists and expensive before it.
 **Priority: P1** · Size: XL · Files: `client/src/components/builder/map/`, `shared/workflowLogic.ts`
 **Ties:** Preceded by GH-154 — **now ✅ closed, so this is unblocked.**
 
-> **✅ CLOSED 2026-08-08.** Delivered by MAP-1..10 in `tickets/WORKFLOW_MAP_TICKETS.md`.
+> **✅ CLOSED 2026-08-08.** Delivered by MAP-1..10, retired 2026-08-09 into
+> `tickets/backlog/WORKFLOW_MAP.md`. Recover the full ticket text with
+> `git log -p -- tickets/WORKFLOW_MAP_TICKETS.md`.
 > All five ACs met. `test:fast` 2677 → 2787.
 >
-> **AUDITED AND PARTED OUT 2026-08-08 → `tickets/WORKFLOW_MAP_TICKETS.md` (MAP-1..10).**
+> **AUDITED AND PARTED OUT 2026-08-08 into MAP-1..10** (ten tickets, four phases), all
+> closed along with all eight of their backlog observations.
 > This entry is the epic; the dispatchable tickets live in that file, which also carries
 > the four architecture decisions (D-1..D-4) the repo owner ruled on at generation time and
 > a table mapping each of the five ACs below to the tickets covering it. Do not dispatch

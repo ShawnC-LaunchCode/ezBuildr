@@ -321,7 +321,7 @@ export interface ConditionGroup {
 }
 
 /**
- * Root expression stored in visibleIf/skipIf fields
+ * Root expression stored in visibleIf fields
  * Can be null (always visible) or a condition group
  */
 export type ConditionExpression = ConditionGroup | null;

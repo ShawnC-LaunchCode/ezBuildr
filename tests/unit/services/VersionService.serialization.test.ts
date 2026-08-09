@@ -38,7 +38,6 @@ describe("VersionService.serializeWorkflow", () => {
   it("preserves runtime-critical workflow, logic, block, and hook fields", async () => {
     const conditionValue = { choices: ["yes", 2], exact: true };
     const visibleIf = { operator: "equals", alias: "approved", value: true };
-    const skipIf = { operator: "is_empty", alias: "email" };
     // Built once and reused for both the fixture and the assertion: `when`
     // is passed through verbatim by VersionService.
     const ruleWhen = buildTestWhen("step-1", "equals", conditionValue);
@@ -56,7 +55,6 @@ describe("VersionService.serializeWorkflow", () => {
         description: "Applicant details",
         order: 3,
         visibleIf,
-        skipIf,
         config: { layout: "wide" },
         steps: [{
           id: "step-1",
@@ -146,7 +144,7 @@ describe("VersionService.serializeWorkflow", () => {
 
     expect(result.settings).toEqual({ theme: "midnight", progress: "compact" });
     expect(result.intakeConfig).toEqual({ allowPrefill: true, completionMessage: "Done" });
-    expect(result.sections?.[0]).toMatchObject({ visibleIf, skipIf });
+    expect(result.sections?.[0]).toMatchObject({ visibleIf });
     expect(result.sections?.[0]?.steps?.[0]?.defaultValue).toEqual(["yes", 2]);
     expect(result.logicRules).toEqual([expect.objectContaining({
       id: "rule-1",

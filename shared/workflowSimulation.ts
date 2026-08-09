@@ -23,7 +23,7 @@
  * this the first client-reachable implementation of route resolution with no
  * test tying it to the server's, which is exactly the divergence GH-154's
  * predecessor spent eight tickets undoing (see MAP-7 in
- * `tickets/WORKFLOW_MAP_TICKETS.md`).
+ * `tickets/backlog/WORKFLOW_MAP.md`).
  *
  * Edge ids in `traversedEdges` reuse `shared/workflowMap.ts`'s convention
  * (`sequential:${from}->${to}`, `skip:${ruleId}`) rather than inventing a new

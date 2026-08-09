@@ -363,10 +363,10 @@ export class WorkflowPatchService {
         return `Set step required: ${op.required}`;
       }
       // ====================================================================
-      // Logic Rule Operations (Using visibleIf/skipIf expressions)
+      // Logic Rule Operations (Using visibleIf expressions)
       // ====================================================================
       case "logicRule.create": {
-        // Logic rules are implemented via visibleIf/skipIf on steps/sections
+        // Logic rules are implemented via visibleIf on steps/sections
         // Parse the rule and apply to the target entity
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);

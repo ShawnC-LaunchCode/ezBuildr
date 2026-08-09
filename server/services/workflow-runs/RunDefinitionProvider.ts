@@ -38,7 +38,6 @@ const VersionSectionSchema = z.object({
   description: z.string().nullish(),
   order: z.number().nullish(),
   visibleIf: z.unknown().optional(),
-  skipIf: z.unknown().optional(),
   config: z.unknown().optional(),
   steps: z.array(VersionStepSchema).nullish(),
 }).passthrough();
@@ -93,7 +92,6 @@ export interface RunSection {
   description: string | null;
   order: number;
   visibleIf?: unknown;
-  skipIf?: unknown;
   config?: unknown;
   createdAt: Date;
 }
@@ -263,7 +261,6 @@ export class RunDefinitionProvider {
       description: section.description ?? null,
       order: section.order ?? 0,
       visibleIf: section.visibleIf,
-      skipIf: section.skipIf,
       config: section.config,
       createdAt: timestamp,
     }));
@@ -296,7 +293,6 @@ export class RunDefinitionProvider {
       description: section.description ?? null,
       order: section.order,
       visibleIf: section.visibleIf,
-      skipIf: section.skipIf,
       config: section.config,
       createdAt: section.createdAt ?? new Date(0),
     }));

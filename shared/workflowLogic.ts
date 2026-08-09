@@ -78,12 +78,6 @@ export interface LogicContextSection {
   description: string | null;
   order: number;
   visibleIf?: unknown;
-  // RESERVED — never evaluated, never authored (MAP-B1). Carried through this
-  // context because it is carried through the section row it mirrors
-  // (`shared/schema/workflow.ts`), but `evaluateWorkflowVisibility` below
-  // reads only `visibleIf`. See the schema comment on `sections.skipIf` for
-  // the full explanation; this field is always null in practice.
-  skipIf?: unknown;
   config?: unknown;
 }
 

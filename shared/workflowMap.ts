@@ -34,12 +34,6 @@
  *  - **Conditional visibility** — `visibleIf`, plus `show`/`hide` rules.
  *    These do not create a route; they only mark a node/step `conditional`.
  *    Drawing them as edges would misrepresent the model.
- *
- * `sections.skip_if` is deliberately **not** read anywhere in this file. It
- * is stored, cloned, versioned and exported, but `evaluateWorkflowVisibility()`
- * never evaluates it and no authoring surface writes it — it is dead (see
- * MAP-B1 in `tickets/WORKFLOW_MAP_TICKETS.md`). Wiring it up here would ship
- * a behaviour the runner does not have.
  */
 
 /** The kinds of node the map renders. A node is a section, unless D-2 promotes a step to its own node. */
@@ -76,12 +70,6 @@ export interface WorkflowMapSectionInput {
   title: string;
   order: number;
   visibleIf?: unknown;
-  /**
-   * Present because the DB column exists (`shared/schema/workflow.ts`), but
-   * deliberately never read below — see the module doc comment and MAP-B1.
-   * Kept on the input type so a fixture can set it and prove that.
-   */
-  skipIf?: unknown;
 }
 
 export interface WorkflowMapStepInput {

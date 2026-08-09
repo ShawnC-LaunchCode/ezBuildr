@@ -12,7 +12,7 @@
  * graph (`shared/workflowMap.ts`) and the lint's graph
  * (`server/services/workflowLintRules.ts`) deliberately disagree on
  * reachability — see the note on MAP-6 in
- * `tickets/WORKFLOW_MAP_TICKETS.md` — so re-deriving anything client-side
+ * `tickets/backlog/WORKFLOW_MAP.md` — so re-deriving anything client-side
  * here would silently reintroduce that disagreement.
  */
 import type { WorkflowLintIssue } from "@shared/types/workflowLint";
