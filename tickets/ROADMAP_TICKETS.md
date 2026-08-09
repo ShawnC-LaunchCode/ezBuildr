@@ -59,7 +59,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**13 of 27 tickets complete (48%)** — updated 2026-08-07 · 1 deferred (GH-148)
+**14 of 27 tickets complete (52%)** — updated 2026-08-09 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -67,7 +67,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ██████████████░░░░░░░░░░░░░   13 / 27   (48%)
+OVERALL   ██████████████░░░░░░░░░░░░░   14 / 27   (52%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -95,14 +95,14 @@ OVERALL   ██████████████░░░░░░░░░�
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔄 GH-167   Document-to-interview AI onboarding
         │
-        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ░░░░░░░░░░  0/7
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  █░░░░░░░░░  1/7
         │      ├── 🔲 GH-161   Answer piping & dynamic recall
         │      ├── 🔲 GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
         │      ├── 🔲 GH-171   Template versioning & impact analysis
         │      ├── 🔲 GH-173   Legal drafting primitives & templates
-        │      └── 🔲 GH-155   Final-document authoring config
+        │      └── ✅ GH-155   Final-document authoring config
         │
         └──► [Phase 5 — P2 Mobile, Kiosk, OCR & Documentation]  ░░░░░░░░░░  0/4
                ├── 🔲 GH-164   Mobile-first kiosk mode
@@ -128,6 +128,7 @@ OVERALL   ██████████████░░░░░░░░░�
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 | ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
 | ✅ GH-156 | Document mapping workbench with persisted bindings | 2026-08-06 |
+| ✅ GH-155 | Final-document authoring configurability | 2026-08-09 |
 
 ---
 
@@ -1494,7 +1495,38 @@ Build in this order; each step should leave the tree gate-clean.
 
 ---
 
-## GH-155 — Finish final-document authoring configurability 🔲
+## GH-155 — Finish final-document authoring configurability ✅
+
+> **Verified 2026-08-09** — reviewer independently re-ran every gate. All 3 ACs
+> met. The builder inspector now persists the completion page title, a
+> per-document output title, DOCX/PDF format selection, secure-download
+> visibility and a redirect URL, alongside the existing conditional rules. Both
+> formats upload through `storageProvider` and bundle into the existing ZIP when
+> both are selected; the obsolete advanced-options placeholder is gone.
+>
+> Output titles reach the filename through the document alias, and
+> `DocumentEngine.generate` — the only place `.docx`/`.pdf` names are
+> constructed — now sanitizes `outputName`, so an author-supplied title cannot
+> escape the output directory.
+>
+> **Two defects found and fixed in review:** visiting the output-title field
+> without editing it persisted the current template name, freezing it against
+> later template renames (an empty field now means "follow the template name");
+> and the overall progress bar over-reported at 16 filled blocks for 14 done.
+>
+> Gates on the final tree: `type-check` exit 0 · `lint` exit 0 repo-wide
+> (`--max-warnings 0`) · `check:strict-zones` all 6 zones passed · `test:fast`
+> **241 files / 2761 passed / 14 skipped**.
+>
+> Live browser verification (port 5185, isolated test DB, fixtures removed) was
+> performed by the implementing session; the reviewer verified the gates and the
+> full title→filename code path but did not re-run the browser pass.
+>
+> Mobile/tablet builder layout remains scoped to GH-166 — GH-155 adds no new
+> responsive regression. Unrelated pre-existing suite flakiness was observed
+> (`ExternalSendRunner`, `WorkflowService.verifyOwnership`; each passes in
+> isolation, a different file each run) — an existing condition, not a GH-155
+> defect.
 
 **Priority: P2** · Size: S · Files: `client/src/components/blocks/FinalBlockEditor.tsx`, `client/src/components/runner/blocks/FinalBlock.tsx`
 **Ties:** Preceded by GH-156
