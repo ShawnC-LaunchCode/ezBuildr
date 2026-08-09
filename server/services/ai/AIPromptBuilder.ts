@@ -10,7 +10,6 @@ import type {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AITemplateBindingsRequest,
   AIConnectLogicRequest,
-  AIDebugLogicRequest,
   AIVisualizeLogicRequest,
 } from '../../../shared/types/ai';
 
@@ -333,16 +332,6 @@ ${JSON.stringify(request.currentWorkflow, null, 2)}
 Only return JSON.`;
 
     const userPrompt = `User Request:\n${this.fenceUntrusted(request.description)}`;
-    return { systemMessage, userPrompt };
-  }
-
-  /**
-   * Build prompt for logic debugging
-   */
-  buildLogicDebugPrompt(request: AIDebugLogicRequest): { systemMessage: string; userPrompt: string } {
-    const systemMessage = `Analyze this workflow's logic for infinite loops, contradictions, or unreachable branches.
-Output JSON matching AIDebugLogicResponse.`;
-    const userPrompt = `Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}`;
     return { systemMessage, userPrompt };
   }
 

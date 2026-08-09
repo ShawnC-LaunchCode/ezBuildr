@@ -12,14 +12,12 @@ import { registerAiRoutes } from '@server/routes/ai.routes';
 
 // Mock AIService
 const mockGenerateLogic = vi.fn();
-const mockDebugLogic = vi.fn();
 const mockVisualizeLogic = vi.fn();
 
 vi.mock('../../server/services/AIService', () => ({
     AIService: vi.fn(),
     createAIServiceFromEnv: vi.fn(() => ({
         generateLogic: mockGenerateLogic,
-        debugLogic: mockDebugLogic,
         visualizeLogic: mockVisualizeLogic
     }))
 }));
@@ -95,27 +93,6 @@ describe('AI Logic Routes', () => {
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
             expect(mockGenerateLogic).toHaveBeenCalled();
-        });
-    });
-
-    describe('POST /api/ai/workflows/debug-logic', () => {
-        it('should return debug issues', async () => {
-            mockDebugLogic.mockResolvedValue({
-                issues: [{ id: '1', type: 'contradiction', severity: 'error', message: 'Conflict', locations: [] }],
-                recommendedFixes: [],
-                visualization: { nodes: [], edges: [] }
-            });
-
-            const res = await request(app)
-                .post('/api/ai/workflows/debug-logic')
-                .send({
-                    workflowId: '123e4567-e89b-12d3-a456-426614174000',
-                    currentWorkflow: mockWorkflow
-                });
-
-            expect(res.status).toBe(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.issues).toHaveLength(1);
         });
     });
 

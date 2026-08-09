@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { ApiWorkflow } from "@/lib/vault-api";
 
-import { LogicDebugTab } from "./logic/LogicDebugTab";
 import { LogicGeneratorTab } from "./logic/LogicGeneratorTab";
 import { LogicRulesTab } from "./logic/LogicRulesTab";
 import { VariablesInspector } from "./VariablesInspector";
@@ -33,10 +32,9 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
             </div>
             <div className="flex-1 overflow-hidden">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                    <TabsList className="m-4 grid grid-cols-4">
+                    <TabsList className="m-4 grid grid-cols-3">
                         <TabsTrigger value="generate">Generate</TabsTrigger>
                         <TabsTrigger value="rules">Rules</TabsTrigger>
-                        <TabsTrigger value="debug">Debug</TabsTrigger>
                         <TabsTrigger value="variables">Variables</TabsTrigger>
                     </TabsList>
 
@@ -46,10 +44,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
 
                     <TabsContent value="rules" className="flex-1 p-4 overflow-auto">
                         <LogicRulesTab workflowId={workflowId} />
-                    </TabsContent>
-
-                    <TabsContent value="debug" className="flex-1 p-4 flex flex-col overflow-hidden">
-                        <LogicDebugTab workflowId={workflowId} currentWorkflow={currentWorkflow} />
                     </TabsContent>
 
                     <TabsContent value="variables" className="flex-1 p-0 overflow-hidden">

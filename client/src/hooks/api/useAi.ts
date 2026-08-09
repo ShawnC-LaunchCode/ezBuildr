@@ -12,8 +12,6 @@ import type {
 import type {
     AIConnectLogicRequest,
     AIConnectLogicResponse,
-    AIDebugLogicRequest,
-    AIDebugLogicResponse,
     AIVisualizeLogicRequest,
     AIVisualizeLogicResponse,
 } from "../../../../shared/types/ai";
@@ -90,16 +88,6 @@ export function useConnectLogic(): UseMutationResult<AIConnectLogicResponse, unk
     return useMutation({
         mutationFn: (data: AIConnectLogicRequest) =>
             fetchAPI<AIConnectLogicResponse>('/api/ai/workflows/generate-logic', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-    });
-}
-
-export function useDebugLogic(): UseMutationResult<AIDebugLogicResponse, unknown, AIDebugLogicRequest> {
-    return useMutation({
-        mutationFn: (data: AIDebugLogicRequest) =>
-            fetchAPI<AIDebugLogicResponse>('/api/ai/workflows/debug-logic', {
                 method: 'POST',
                 body: JSON.stringify(data),
             }),

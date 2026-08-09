@@ -21,8 +21,6 @@ import {
   AITemplateBindingsRequest,
   AIConnectLogicRequest,
   AIConnectLogicResponse,
-  AIDebugLogicRequest,
-  AIDebugLogicResponse,
   AIVisualizeLogicRequest,
   AIVisualizeLogicResponse,
 } from '../../shared/types/ai';
@@ -148,14 +146,6 @@ export class AIService {
     request: AIConnectLogicRequest,
   ): Promise<AIConnectLogicResponse> {
     return this.logicService.generateLogic(request);
-  }
-  /**
-   * Debug logic for contradictions and issues
-   */
-  async debugLogic(
-    request: AIDebugLogicRequest,
-  ): Promise<AIDebugLogicResponse> {
-    return this.logicService.debugLogic(request);
   }
   /**
    * Visualize logic as a graph

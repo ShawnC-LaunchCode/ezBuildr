@@ -368,28 +368,17 @@ export const AIConnectLogicResponseSchema = z.object({
 export type AIConnectLogicResponse = z.infer<typeof AIConnectLogicResponseSchema>;
 
 /**
- * AI Logic Debugging Types
+ * AI Logic Visualization Types
+ *
+ * MAP-9 removed the AI logic *debugger* that also lived here
+ * (`AIDebugLogicRequest`/`Response`, plus the `LogicIssue`/`LogicFix` schemas
+ * only it used). Unreachable sections, dead ends and loop risks are now
+ * detected deterministically by `analyzeWorkflowFlow`
+ * (`shared/conditionGraph.ts`) and surfaced through `lintWorkflowContent`, so
+ * the publish gate, the Review tab and the map all read one answer instead of
+ * asking a model for a second, non-binding one. See
+ * `git log -p -- tickets/WORKFLOW_MAP_TICKETS.md` (MAP-3, MAP-6, MAP-9).
  */
-
-export const LogicIssueSchema = z.object({
-  id: z.string(),
-  type: z.enum(['contradiction', 'unreachable', 'cycle', 'unused_variable', 'dead_block', 'redundant', 'ambiguous']),
-  severity: z.enum(['error', 'warning', 'info']),
-  message: z.string(),
-  locations: z.array(z.string()).describe('IDs of elements involved'),
-});
-
-export type LogicIssue = z.infer<typeof LogicIssueSchema>;
-
-export const LogicFixSchema = z.object({
-  id: z.string(),
-  issueId: z.string(),
-  description: z.string(),
-  action: z.string(), // Description of action
-  // In a real implementation this might include specific patch data
-});
-
-export type LogicFix = z.infer<typeof LogicFixSchema>;
 
 export const LogicGraphNodeSchema = z.object({
   id: z.string(),
@@ -413,21 +402,6 @@ export const LogicGraphSchema = z.object({
 });
 
 export type LogicGraph = z.infer<typeof LogicGraphSchema>;
-
-export const AIDebugLogicRequestSchema = z.object({
-  workflowId: z.string().uuid(),
-  currentWorkflow: AIGeneratedWorkflowSchema,
-});
-
-export type AIDebugLogicRequest = z.infer<typeof AIDebugLogicRequestSchema>;
-
-export const AIDebugLogicResponseSchema = z.object({
-  issues: z.array(LogicIssueSchema),
-  recommendedFixes: z.array(LogicFixSchema),
-  visualization: LogicGraphSchema,
-});
-
-export type AIDebugLogicResponse = z.infer<typeof AIDebugLogicResponseSchema>;
 
 export const AIVisualizeLogicRequestSchema = z.object({
   workflowId: z.string().uuid(),

@@ -66,11 +66,6 @@ vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
                     explanation: ['Logic generated'],
                     diff: { changes: [] }
                 }),
-                debugLogic: vi.fn().mockResolvedValue({
-                    issues: [{ message: 'Bad logic', severity: 'error', id: 'i1', type: 'contradiction', locations: [] }],
-                    recommendedFixes: [],
-                    visualization: { nodes: [], edges: [] }
-                }),
                 visualizeLogic: vi.fn().mockResolvedValue({
                     graph: { nodes: [{ label: 'Node 1', id: 'n1', type: 'step' }], edges: [] }
                 })
@@ -174,17 +169,6 @@ describe('AIService Unit Tests', () => {
             const result = await aiService.generateLogic(request);
             expect(result.updatedWorkflow.logicRules).toHaveLength(1);
             expect(result.explanation[0]).toBe('Logic generated');
-        });
-
-        it('debugLogic should return issues', async () => {
-            const request = {
-                workflowId: '123e4567-e89b-12d3-a456-426614174000',
-                currentWorkflow: { title: 'Flow', sections: [], logicRules: [], transformBlocks: [] }
-            };
-
-            const result = await aiService.debugLogic(request);
-            expect(result.issues).toHaveLength(1);
-            expect(result.issues[0].message).toBe('Bad logic');
         });
 
         it('visualizeLogic should return graph data', async () => {

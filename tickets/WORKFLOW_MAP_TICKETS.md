@@ -1492,7 +1492,41 @@ the highlight treatment and the dimmed state all need to work in light and dark.
 
 # Phase 4 — Retire the surface this replaces
 
-## MAP-9 — Retire the AI logic-debug tab and its endpoint 🔲
+## MAP-9 — Retire the AI logic-debug tab and its endpoint ✅
+
+> **Verified 2026-08-08. Worked by the reviewer directly** — dev dispatch was
+> unavailable (the org hit its monthly API spend limit mid-initiative, killing
+> MAP-8's agent before it wrote any code). Deletion is well-specified and
+> mechanical, so it was done in the main checkout rather than left blocked.
+>
+> The whole vertical is gone: `LogicDebugTab.tsx` (deleted), its tab in
+> `LogicInspectorPanel.tsx` (with `grid-cols-4` → `grid-cols-3`), `useDebugLogic`,
+> the route, `AiController.debugLogic`, `AIService.debugLogic`,
+> `WorkflowLogicService.debugLogic`, `AIPromptBuilder.buildLogicDebugPrompt`, and
+> the Zod schemas. `LogicIssueSchema`/`LogicFixSchema` were orphaned by the
+> removal and went with it; `LogicGraphSchema` stayed, because
+> `AIVisualizeLogicResponseSchema` still uses it. `currentWorkflow` stays on the
+> panel's props — `LogicGeneratorTab` still needs it.
+>
+> `grep -rn "debugLogic\|DebugLogic\|debug-logic" client server shared tests`
+> returns exactly **one** match: a doc comment in `shared/types/ai.ts` recording
+> why the types went and pointing at the deterministic replacement. That is
+> deliberate.
+>
+> Gates: `type-check` 0, `lint` 0, `check:strict-zones` `✅ ALL PASSED`,
+> `test:fast` **240 files / 2758 passed**. That count reconciles as 2756 (clean
+> worktree) + 4 (the repo owner's uncommitted `SidebarTree` tests, present in the
+> main checkout) − 2 (the deleted `debug-logic` cases).
+>
+> **Live proof, with a control:**
+> ```
+> POST /api/ai/workflows/debug-logic     -> 404
+> POST /api/ai/workflows/visualize-logic -> 401
+> ```
+> The contrast is the evidence: a sibling route on the same router still
+> authenticates, so the router is mounted and only this endpoint was removed —
+> a bare 404 alone would also be consistent with having broken the whole router.
+
 
 **Priority: P2** · Size: M · Files: `client/src/components/builder/logic/LogicDebugTab.tsx`, `client/src/components/builder/LogicInspectorPanel.tsx`, `client/src/hooks/api/useAi.ts`, `server/routes/ai.routes.ts`, `server/controllers/AiController.ts`, `server/services/ai/`, `server/services/AIService.ts`, `shared/types/ai.ts`
 
@@ -1609,8 +1643,8 @@ verify it is genuinely unreferenced first, don't assume.
 | MAP-5 | Node → inspector navigation | P1 | S | ✅ |
 | MAP-6 | Flow diagnostics on the map | P1 | S | ✅ |
 | MAP-7 | Shared deterministic path simulator | P1 | M | ✅ |
-| MAP-8 | Simulation panel + route highlight | P1 | L | 🔲 |
-| MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | 🔲 |
+| MAP-8 | Simulation panel + route highlight | P1 | L | 🚧 blocked — API spend limit |
+| MAP-9 | Retire the AI logic-debug tab and endpoint | P2 | M | ✅ |
 | MAP-10 | `refresh-token` drops `tenantId`, killing collaboration | **P0** | S | ✅ |
 
 ---

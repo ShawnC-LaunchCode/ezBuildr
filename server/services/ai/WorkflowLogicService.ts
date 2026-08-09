@@ -1,6 +1,5 @@
 import {
     AIConnectLogicResponseSchema,
-    AIDebugLogicResponseSchema,
     AIVisualizeLogicResponseSchema,
 } from '../../../shared/types/ai';
 import { createLogger } from '../../logger';
@@ -12,8 +11,6 @@ import { createAIError } from './AIServiceUtils';
 import type {
     AIConnectLogicRequest,
     AIConnectLogicResponse,
-    AIDebugLogicRequest,
-    AIDebugLogicResponse,
     AIVisualizeLogicRequest,
     AIVisualizeLogicResponse,
 } from '../../../shared/types/ai';
@@ -57,55 +54,6 @@ export class WorkflowLogicService {
             if (error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError')) {
                 throw createAIError('Invalid AI Response', 'VALIDATION_ERROR', { originalError: error });
             }
-            throw error;
-        }
-    }
-
-    /**
-     * Debug logic for contradictions and issues
-     */
-    async debugLogic(
-        request: AIDebugLogicRequest,
-    ): Promise<AIDebugLogicResponse> {
-        const startTime = Date.now();
-
-        try {
-            const prompt = this.promptBuilder.buildLogicDebugPrompt(request);
-            const response = await this.client.callLLM(prompt.userPrompt, 'logic_debug', prompt.systemMessage);
-
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const parsed = JSON.parse(response);
-            const validated = AIDebugLogicResponseSchema.parse(parsed);
-
-            const duration = Date.now() - startTime;
-            logger.info({
-                duration,
-                workflowId: request.workflowId,
-                issuesCount: validated.issues.length,
-                fixesCount: validated.recommendedFixes.length,
-            }, 'AI logic debug succeeded');
-
-            return validated;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            logger.error({ error, duration }, 'AI logic debug failed');
-
-            if (error instanceof SyntaxError) {
-                throw createAIError(
-                    'Failed to parse AI response as JSON',
-                    'INVALID_RESPONSE',
-                    { originalError: error.message },
-                );
-            }
-
-            if (error instanceof Error && error.name === 'ZodError') {
-                throw createAIError(
-                    'AI response does not match expected schema',
-                    'VALIDATION_ERROR',
-                    { originalError: error },
-                );
-            }
-
             throw error;
         }
     }

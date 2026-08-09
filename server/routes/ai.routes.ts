@@ -110,21 +110,6 @@ export function registerAiRoutes(app: Express): void {
   );
 
   /**
-   * POST /api/ai/workflows/debug-logic
-   * Analyze logic for issues
-   */
-  app.post(
-    '/api/ai/workflows/debug-logic',
-    hybridAuth,
-    requireBuilder,
-    validateWorkflowSize(),
-    aiWorkflowRateLimit,
-    aiDailyRateLimit,
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
-    asyncHandler(AiController.debugLogic)
-  );
-
-  /**
    * POST /api/ai/workflows/visualize-logic
    * Generate graph representation of logic
    */
