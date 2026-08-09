@@ -1,12 +1,10 @@
 import { IncomingMessage } from 'http';
 
-import { eq } from 'drizzle-orm';
 import { WebSocket } from 'ws';
 
-import { workflows } from '../../shared/schema';
-import { db } from '../db';
 import { createLogger } from '../logger';
 import { authService, type JWTPayload } from '../services/AuthService';
+import { workflowService } from '../services/WorkflowService';
 const logger = createLogger({ module: 'collab-auth' });
 export interface AuthenticatedUser {
   userId: string;
@@ -115,44 +113,26 @@ export async function authenticateConnection(
     );
     throw new Error('Access denied: tenant mismatch');
   }
-  // Validate workflow access
-  // We simply look up the workflow by ID, then verify ownership/tenancy.
-  // The previous check assumed projectId === tenantId, which is incorrect for unfiled workflows or normal usage.
-  const workflow = await db.query.workflows.findFirst({
-    where: eq(workflows.id, roomInfo.workflowId),
-    with: {
-      project: true, // Fetch full project to check tenancy if needed
-    },
-  });
-  if (!workflow) {
-    logger.warn(
-      {
-        workflowId: roomInfo.workflowId,
-        tenantId: roomInfo.tenantId,
-        userId: payload.userId,
-      },
-      'Workflow not found in database'
-    );
-    throw new Error('Workflow not found');
-  }
-  // Security Check: Ensure user has access to this workflow
-  // 1. Is the user the creator?
-  const isCreator = workflow.creatorId === payload.userId;
-  // 2. Is the workflow in the user's tenant? (If projects have tenantId)
-  // Note: we'd need to check workflow.project?.tenantId === payload.tenantId
-  // For now, we rely on creator check for the owner.
-  if (!isCreator) {
+  // Validate workflow access. Collaboration is gated on the same ACL check
+  // the rest of the app uses to authorize editing a workflow
+  // (`WorkflowService.verifyAccess`), rather than a second, narrower
+  // "are you the creator" rule — a user granted edit access via
+  // `workflow_access` must be able to join too, and the creator keeps
+  // working because ownership already satisfies 'edit' in that check.
+  // Collaborative editing implies edit rights, so view-only access is still
+  // rejected here (MAP-B5).
+  try {
+    await workflowService.verifyAccess(roomInfo.workflowId, payload.userId, 'edit');
+  } catch (error) {
     logger.warn(
       {
         workflowId: roomInfo.workflowId,
         userId: payload.userId,
-        creatorId: workflow.creatorId,
+        error: error instanceof Error ? error.message : error,
       },
-      'Access denied: User is not the creator'
+      'Access denied: user lacks edit access to this workflow'
     );
-    // Temporarily allow if we can't verify tenant logic yet, OR block.
-    // Given the user is the 'owner' in the logs, isCreator should be true.
-    throw new Error('Access denied');
+    throw error instanceof Error ? error : new Error('Access denied');
   }
   // Validate RBAC permissions.
   //
