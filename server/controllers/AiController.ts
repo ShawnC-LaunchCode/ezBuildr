@@ -103,6 +103,7 @@ export class AiController {
      * Quick sentiment analysis for text
      */
     static async analyzeSentiment(req: Request, res: Response): Promise<Response | void> {
+        const authReq = req as AuthRequest;
         try {
             const body = req.body as { text?: unknown };
             const { text } = body;
@@ -115,13 +116,13 @@ export class AiController {
                 return res.status(400).json({ message: "Text exceeds 5000 character limit" });
             }
 
-            if (!process.env.GEMINI_API_KEY) {
+            if (!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY) {
                 return res.status(503).json({
                     message: "AI analysis not available"
                 });
             }
 
-            const result = await geminiService.analyzeSentiment(text);
+            const result = await geminiService.analyzeSentiment(text, authReq.tenantId);
 
             res.json({
                 success: true,

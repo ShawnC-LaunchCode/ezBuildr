@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI, type GenerateContentResult, type GenerativeModel } from "@google/generative-ai";
 import { z } from "zod";
 
-import { logger } from "../logger";
+import { AIProviderClient } from "./ai/AIProviderClient";
 import { fenceUntrusted } from "./ai/AIServiceUtils";
+import { resolveAiProviderConfig } from "./ai/providerConfig";
 
 const sentimentResponseSchema = z.object({
   sentiment: z.enum(["positive", "negative", "neutral", "mixed"]),
@@ -10,65 +10,24 @@ const sentimentResponseSchema = z.object({
   reasoning: z.string()
 });
 
+const NEUTRAL_FALLBACK = {
+  sentiment: 'neutral' as const,
+  confidence: 0,
+  reasoning: 'Unable to parse AI response',
+};
+
 /**
- * Service for Google Gemini AI integration
- * Handles AI-powered analytics and insights
+ * Service for AI-powered analytics and insights.
  */
 export class GeminiService {
-  private genAI: GoogleGenerativeAI | null = null;
-  private model: GenerativeModel | null = null;
-
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      // Allow instantiation without API key in all environments
-      // Methods will throw errors if called without proper configuration
-      logger.info("GEMINI_API_KEY not configured - AI features will be unavailable");
-      return;
-    }
-
-    if (process.env.NODE_ENV !== 'test_without_mock') {
-      try {
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        // Use configurable Gemini model from env, fallback to gemini-2.0-flash
-        const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
-        this.model = this.genAI.getGenerativeModel({ model });
-      } catch (e) {
-        logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI in GeminiService (likely mock issue in tests)");
-        this.model = null; // Mark as uninitialized
-      }
-    } else {
-      // Normal initialization if we are somehow here
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
-      this.model = this.genAI.getGenerativeModel({ model });
-    }
-  }
-
   /**
-   * Check if the service is properly initialized
+   * Quick sentiment analysis for text responses.
    */
-  private ensureInitialized(): void {
-    if (!this.model || !this.genAI) {
-      throw new Error("GEMINI_API_KEY not configured - AI features are unavailable");
-    }
-  }
-
-  /**
-   * Quick sentiment analysis for text responses
-   */
-  async analyzeSentiment(text: string): Promise<{
+  async analyzeSentiment(text: string, tenantId?: string): Promise<{
     sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
     confidence: number;
     reasoning: string;
   }> {
-    this.ensureInitialized();
-    const genAI = this.genAI;
-    const fallbackModel = this.model;
-    if (!genAI || !fallbackModel) {
-      throw new Error("GEMINI_API_KEY not configured - AI features are unavailable");
-    }
-
     const systemPrompt = `Analyze the sentiment of this text and respond in JSON format.
 Respond with:
 {
@@ -76,23 +35,14 @@ Respond with:
   "confidence": 0-100,
   "reasoning": "brief explanation"
 }`;
+    const prompt = `Text: "${fenceUntrusted(text)}"`;
+    const client = new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+    const response = await client.callLLM(
+      prompt,
+      'sentiment_analysis',
+      systemPrompt,
+    );
 
-    let result: GenerateContentResult;
-    try {
-      const model = genAI.getGenerativeModel({
-        model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
-        systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
-      });
-      result = await model.generateContent(`Text: "${fenceUntrusted(text)}"`);
-    } catch (e) {
-      // Fallback if genAI model creation fails (e.g. in some mock setups)
-      const prompt = `${systemPrompt}\n\nText: "${fenceUntrusted(text)}"`;
-      result = await fallbackModel.generateContent(prompt);
-    }
-    
-    const response = result.response.text();
-
-    // Parse JSON response
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -102,18 +52,12 @@ Respond with:
           return validation.data;
         }
       }
-    } catch (e) {
-      // Fallback if JSON parsing fails
+    } catch {
+      return NEUTRAL_FALLBACK;
     }
 
-    // Fallback response
-    return {
-      sentiment: 'neutral',
-      confidence: 0,
-      reasoning: 'Unable to parse AI response',
-    };
+    return NEUTRAL_FALLBACK;
   }
 }
 
-// Export singleton instance
 export const geminiService = new GeminiService();
