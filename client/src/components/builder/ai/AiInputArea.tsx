@@ -34,7 +34,7 @@ export function AiInputArea({
     onSend
 }: AiInputAreaProps) {
     return (
-        <div className="p-4 border-t bg-background">
+        <div className="shrink-0 border-t bg-background p-4">
             {/* File Previews */}
             {contextFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">

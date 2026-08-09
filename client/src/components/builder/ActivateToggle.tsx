@@ -1,13 +1,17 @@
 /**
- * ActivateToggle - Toggle workflow between Draft and Active states
- * PR2: Workflow activation control
+ * ActivateToggle - Compact Draft/Active status control for the builder toolbar.
+ *
+ * Replaces the former Switch + text label (~110px, and a `text-green-600`
+ * label that measured 3.35:1 against the card — below the 4.5:1 AA floor for
+ * 14px text). This is a single ~76px pill that keeps full `role="switch"`
+ * semantics while carrying its meaning in the *word*, with the colour only
+ * reinforcing it (WCAG 1.4.1), so the palette can stay dark enough to pass:
+ * emerald-900 on emerald-50 is 9.1:1 light, 14:1 dark.
  */
 
-import { Check, X } from "lucide-react";
 import { useState } from "react";
 
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { fetchAPI } from "@/lib/vault-api";
 import { cn } from "@/lib/utils";
@@ -33,7 +37,7 @@ export function ActivateToggle({
   const isActive = currentStatus === "active";
 
   const handleToggle = async () => {
-    if (disabled) { return; }
+    if (disabled || isUpdating) { return; }
 
     const newStatus: WorkflowStatus = isActive ? "draft" : "active";
 
@@ -75,39 +79,46 @@ export function ActivateToggle({
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-2">
-        <Switch
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
           id="activate-toggle"
-          checked={isActive}
-          onCheckedChange={() => { void handleToggle(); }}
+          role="switch"
+          aria-checked={isActive}
+          aria-label={
+            isActive
+              ? "Workflow is Active. Return it to Draft."
+              : "Workflow is a Draft. Activate it."
+          }
           disabled={disabled || isUpdating}
+          onClick={() => { void handleToggle(); }}
           className={cn(
-            "data-[state=checked]:bg-green-600",
-            isUpdating && "opacity-50 cursor-not-allowed"
-          )}
-        />
-        <Label
-          htmlFor="activate-toggle"
-          className={cn(
-            "text-sm font-medium cursor-pointer select-none",
-            isActive ? "text-green-600" : "text-muted-foreground",
-            (disabled || isUpdating) && "cursor-not-allowed opacity-50"
+            "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5",
+            "text-xs font-medium transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            isActive
+              ? "border-emerald-600 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-100 dark:hover:bg-emerald-900/60"
+              : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
-          {isActive ? (
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3" />
-              Active
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <X className="w-3 h-3" />
-              Draft
-            </span>
-          )}
-        </Label>
-      </div>
-    </div>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-1.5 rounded-full transition-colors",
+              isUpdating && "animate-pulse",
+              isActive ? "bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/70",
+            )}
+          />
+          {isActive ? "Active" : "Draft"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {isActive
+          ? "Active — participants can run this. Click to return to Draft."
+          : "Draft — not yet runnable. Click to activate."}
+      </TooltipContent>
+    </Tooltip>
   );
 }

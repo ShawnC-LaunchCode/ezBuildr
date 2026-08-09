@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarTree } from '../../../client/src/components/builder/SidebarTree';
+import { TooltipProvider } from '../../../client/src/components/ui/tooltip';
 
 const createSectionAtEnd = vi.fn();
 const createStepAsync = vi.fn();
@@ -53,10 +54,20 @@ afterEach(() => {
   cleanup();
 });
 
+// The outline's compact (icon-only) layout puts its actions in tooltips, and
+// App.tsx mounts the provider app-wide; isolated renders have to supply it.
+function renderTree() {
+  return render(
+    <TooltipProvider>
+      <SidebarTree workflowId="workflow-1" />
+    </TooltipProvider>
+  );
+}
+
 describe('SidebarTree authoring actions', () => {
   it('surfaces every authoring action in the header', async () => {
     const user = userEvent.setup();
-    render(<SidebarTree workflowId="workflow-1" />);
+    renderTree();
 
     expect(screen.getByRole('button', { name: /Edit with AI/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add Snip/i })).toBeInTheDocument();
@@ -71,7 +82,7 @@ describe('SidebarTree authoring actions', () => {
 
   it('opens the AI assistant dialog', async () => {
     const user = userEvent.setup();
-    render(<SidebarTree workflowId="workflow-1" />);
+    renderTree();
 
     expect(screen.queryByTestId('ai-dialog-open')).toBeNull();
     await user.click(screen.getByRole('button', { name: /Edit with AI/i }));
@@ -81,7 +92,7 @@ describe('SidebarTree authoring actions', () => {
 
   it('opens the add-snip dialog', async () => {
     const user = userEvent.setup();
-    render(<SidebarTree workflowId="workflow-1" />);
+    renderTree();
 
     expect(screen.queryByTestId('snip-dialog-open')).toBeNull();
     await user.click(screen.getByRole('button', { name: /Add Snip/i }));
@@ -91,7 +102,7 @@ describe('SidebarTree authoring actions', () => {
 
   it('creates a plain page', async () => {
     const user = userEvent.setup();
-    render(<SidebarTree workflowId="workflow-1" />);
+    renderTree();
 
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
     await user.click(screen.getByRole('menuitem', { name: /Regular Page/i }));
@@ -102,7 +113,7 @@ describe('SidebarTree authoring actions', () => {
 
   it('creates a final-documents page with its system step', async () => {
     const user = userEvent.setup();
-    render(<SidebarTree workflowId="workflow-1" />);
+    renderTree();
 
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
     await user.click(screen.getByRole('menuitem', { name: /Final Documents Section/i }));

@@ -60,7 +60,14 @@ export function AiConversationPanel({ workflowId, initialPrompt, className }: Ai
                 {mode === 'easy' && <Badge variant="secondary" className="ml-auto text-xs">Easy Mode</Badge>}
             </div>
 
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            {/* min-h-0 is load-bearing: a flex item defaults to
+                min-height:auto, so `flex-1` alone could not shrink below the
+                conversation's height. Once the thread got long the scroller
+                grew instead of scrolling and pushed the composer past the
+                bottom of the panel, so you had to scroll the page to reach it.
+                The ref belongs to the bottom sentinel below, not here — Radix
+                scrolls its Viewport child, not this Root. */}
+            <ScrollArea className="min-h-0 flex-1 p-4">
                 <div className="space-y-6 pb-4">
                     {messages.map((msg, idx) => (
                         <AiMessageItem
@@ -83,7 +90,7 @@ export function AiConversationPanel({ workflowId, initialPrompt, className }: Ai
                             </div>
                         </div>
                     )}
-                    <div ref={scrollRef} />
+                    <div ref={scrollRef} aria-hidden="true" />
                 </div>
             </ScrollArea>
 

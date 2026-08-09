@@ -20,6 +20,8 @@ import {
 // Tab components
 // Versioning Imports
 import { useState, useEffect, useMemo } from "react";
+
+import type { ComponentType } from "react";
 import { useLocation, useParams, useSearch } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
@@ -33,6 +35,7 @@ import {
   isBuilderTab,
   type BuilderTab,
 } from "@/components/builder/layout/BuilderTabNav";
+import { BuilderModeToggle } from "@/components/builder/layout/BuilderModeToggle";
 import { BuilderTabPanel } from "@/components/builder/layout/BuilderTabPanel";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
@@ -62,7 +65,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { type ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
 import {
   useVersions,
@@ -169,10 +178,12 @@ export default function WorkflowBuilder() {
     .filter((v) => !v.isDraft)
     .sort((a, b) => b.versionNumber - a.versionNumber)[0];
   // Determine label: "Draft" or "vX" (if we were viewing history, but we are always editing draft here)
+  // Label is the version being edited only — the word "Draft" belongs to the
+  // status pill, and having it in both places read as one duplicated control.
   const versionLabel =
     latestPublished !== undefined
-      ? `Draft (v${latestPublished.versionNumber} +)`
-      : "Draft (v1)";
+      ? `v${latestPublished.versionNumber}+`
+      : "v1";
   const handleDiff = (version: ApiWorkflowVersion) => {
     // Diff the selected version against the current draft. When no draft row
     // has been saved yet, compare against the workflow's live state, which the
@@ -246,96 +257,85 @@ export default function WorkflowBuilder() {
           onRightPanelToggle={setAiPanelOpen}
           leftPanel={<Sidebar className="w-full border-r-0 h-full" />}
           centerPanel={
-            <div className="h-screen flex flex-col bg-background">
+            <div className="flex h-full min-h-0 flex-col bg-background">
               {/* Header */}
               <div className="sticky top-0 z-10 bg-background">
-                <div className="border-b px-3 py-3 lg:px-6 bg-card">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 lg:gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate("/workflows")}
-                      className="shrink-0"
+                <div className="border-b bg-card px-3 py-2 lg:px-4">
+                  {/* flex-wrap with no breakpoint: this row lives inside the
+                      centre panel, whose width is the viewport minus whichever
+                      side panels are open, so no viewport media query can
+                      describe when it fits. Wrapping only engages when the
+                      controls genuinely do not fit, which also keeps the
+                      state cluster stays beside the title it describes. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate("/workflows")}
+                          className="size-8 shrink-0"
+                          aria-label="Back to workflows"
+                        >
+                          <ArrowLeft className="size-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Back to workflows</TooltipContent>
+                    </Tooltip>
+                    <h1
+                      className="min-w-0 shrink truncate text-base font-semibold tracking-tight"
+                      title={workflow.title}
                     >
-                      <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                    </Button>
-                    <h1 className="min-w-0 max-w-[20rem] truncate text-xl font-semibold" title={workflow.title}>
                       {workflow.title}
                     </h1>
-                    {mode === "advanced" && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium border border-indigo-200">
-                        <Sparkles className="w-3 h-3" />
-                        <span>Advanced</span>
+                    <ToolbarDivider />
+                    {/* State cluster: publish status, then the version it edits */}
+                    <ActivateToggle
+                      workflowId={workflowId}
+                      currentStatus={workflow.status}
+                      onStatusChange={(_s) => {
+                        void queryClient.invalidateQueries({
+                          queryKey: ["workflows"],
+                        });
+                      }}
+                    />
+                    <VersionBadge
+                      versionLabel={versionLabel}
+                      isDraft={true}
+                      onClick={() => setHistoryOpen(true)}
+                    />
+                    {/* Mode Selector — the current mode is now readable
+                        without opening anything, which also retires the
+                        separate indigo "Advanced" pill this used to duplicate. */}
+                    <BuilderModeToggle
+                      mode={mode}
+                      disabled={setWorkflowModeMutation.isPending}
+                      onChange={(next) => {
+                        setWorkflowModeMutation.mutate({
+                          workflowId: workflowId,
+                          modeOverride: next,
+                        });
+                      }}
+                    />
+                    {/* Everything after this is pushed to the trailing edge */}
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                      {/* Presence */}
+                      <div className="hidden 2xl:block">
+                        <CollabHeader />
                       </div>
-                    )}
-                    {/* Presence */}
-                    <div className="ml-1 hidden border-l pl-3 xl:block">
-                      <CollabHeader />
-                    </div>
-                    {/* Version Badge */}
-                    <div className="ml-1 border-l pl-3">
-                      <VersionBadge
-                        versionLabel={versionLabel}
-                        isDraft={true}
-                        onClick={() => setHistoryOpen(true)}
-                      />
-                    </div>
-                    {/* Mode Selector */}
+                      <Button
+                        size="sm"
+                        onClick={() => setIsPreviewMode(true)}
+                        disabled={launchingPreview}
+                        className="h-8 gap-1.5 px-2.5 text-xs"
+                      >
+                        <Eye className="size-3.5" /> Preview
+                      </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          {mode === "easy" ? "Easy Mode" : "Advanced Mode"}
-                          <ChevronDown className="w-4 h-4 ml-2" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            void setWorkflowModeMutation.mutate({
-                              workflowId: workflowId,
-                              modeOverride: "easy",
-                            });
-                          }}
-                        >
-                          Switch to Easy Mode
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            void setWorkflowModeMutation.mutate({
-                              workflowId: workflowId,
-                              modeOverride: "advanced",
-                            });
-                          }}
-                        >
-                          Switch to Advanced Mode
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <div className="ml-1 border-l pl-3">
-                      <ActivateToggle
-                        workflowId={workflowId}
-                        currentStatus={workflow.status}
-
-                        onStatusChange={(_s) => {
-                          void queryClient.invalidateQueries({
-                            queryKey: ["workflows"],
-                          });
-                        }}
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsPreviewMode(true)}
-                      disabled={launchingPreview}
-                    >
-                      <Eye className="w-4 h-4 mr-2" /> Preview
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Share2 className="w-4 h-4 mr-2" /> Share
-                          <ChevronDown className="w-4 h-4 ml-2" />
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs">
+                          <Share2 className="size-3.5" /> Share
+                          <ChevronDown className="size-3.5 opacity-60" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
@@ -369,20 +369,24 @@ export default function WorkflowBuilder() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button
-                      variant={logicPanelOpen ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setLogicPanelOpen(!logicPanelOpen)}
-                    >
-                      <GitGraph className="w-4 h-4 mr-2" /> Logic
-                    </Button>
-                    <Button
-                      variant={aiPanelOpen ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setAiPanelOpen(!aiPanelOpen)}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" /> AI Assist
-                    </Button>
+                      {/* Panel toggles: one segmented group, not two more
+                          outline buttons competing with the real actions. */}
+                      <div className="ml-1 flex items-center rounded-md border border-input p-0.5">
+                        <PanelToggleButton
+                          label="Logic"
+                          icon={GitGraph}
+                          pressed={logicPanelOpen}
+                          onClick={() => setLogicPanelOpen(!logicPanelOpen)}
+                        />
+                        <div aria-hidden="true" className="mx-0.5 h-4 w-px bg-border" />
+                        <PanelToggleButton
+                          label="AI Assist"
+                          icon={Sparkles}
+                          pressed={aiPanelOpen}
+                          onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <BuilderTabNav
@@ -497,6 +501,49 @@ export default function WorkflowBuilder() {
     </CollaborationProvider>
   );
 }
+/** 1px hairline separating toolbar clusters — one treatment, used everywhere. */
+function ToolbarDivider() {
+  return <div aria-hidden="true" className="mx-1.5 h-5 w-px shrink-0 bg-border" />;
+}
+
+/**
+ * Icon-only toggle for a side panel. Icon-only keeps the toolbar on one row at
+ * ~1150px of centre panel; the label survives in the tooltip and aria-label,
+ * and `aria-pressed` reports on/off to assistive tech (the old variant swap
+ * conveyed it by colour alone).
+ */
+function PanelToggleButton(props: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  const { label, pressed, onClick } = props;
+  const Icon = props.icon;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-pressed={pressed}
+          aria-label={label}
+          onClick={onClick}
+          className={cn(
+            "size-7 rounded-sm",
+            pressed && "bg-accent text-accent-foreground",
+          )}
+        >
+          <Icon className="size-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {pressed ? `Hide ${label}` : `Show ${label}`}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function CollabHeader() {
   const { users } = useCollaboration();
   return <PresenceAvatars users={users} />;

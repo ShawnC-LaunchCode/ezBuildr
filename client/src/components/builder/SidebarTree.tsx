@@ -1,8 +1,12 @@
+import { ListTree } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useContainerWidth } from "@/hooks/useContainerWidth";
 import { Mode } from "@/lib/mode";
+import { cn } from "@/lib/utils";
 import { ApiSection, ApiBlock } from "@/lib/vault-api";
 import { useSections, useCreateSectionAtEnd, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
 
@@ -15,7 +19,24 @@ import { SectionItem } from "./sidebar/SectionItem";
 import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 
+/**
+ * Measured against the live render rather than guessed: at the panel's own
+ * font the widest action ("Edit with AI", icon + label + the p-4 container)
+ * needs 159px, "Add Page" 153px, "Add Snip" 145px. 164 gives those a small
+ * buffer and nothing more — an earlier 200 sent the panel to icons across a
+ * 172-200px band where every label still fit, which is the band you land in
+ * whenever the 15% minSize is dragged to on a 1440px screen.
+ *
+ * The "Document Outline" heading wants 171px and simply truncates in the
+ * narrow band; it is the least load-bearing text here, and letting it drive
+ * the switch would drop the actions to icons while they still had room.
+ */
+const COMPACT_WIDTH_PX = 164;
+
 export function SidebarTree({ workflowId }: { workflowId: string }) {
+  const { ref: panelRef, width: panelWidth } = useContainerWidth<HTMLDivElement>();
+  // width 0 is the pre-measurement frame; assume roomy so we don't flash compact.
+  const isCompact = panelWidth > 0 && panelWidth < COMPACT_WIDTH_PX;
   const { data: workflow } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
   // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
@@ -82,9 +103,26 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center border-b p-2">
-        <h2 className="text-lg font-semibold">Document Outline</h2>
+    <div ref={panelRef} className="h-full flex flex-col">
+      <div className={cn("flex items-center border-b p-2", isCompact && "justify-center")}>
+        {isCompact ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="flex size-7 items-center justify-center text-muted-foreground"
+                aria-label="Document Outline"
+              >
+                <ListTree className="size-4" aria-hidden="true" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right">Document Outline</TooltipContent>
+          </Tooltip>
+        ) : (
+          // text-sm, not text-lg: at 18px this panel label outranked the
+          // 16px workflow title in the toolbar, and it was the only thing
+          // still truncating at the panel's 15% minimum width.
+          <h2 className="truncate text-sm font-semibold">Document Outline</h2>
+        )}
       </div>
       {/* Authoring actions live in one grouped panel rather than a row of
           ghost buttons in the title bar; the outline below stays navigation. */}
@@ -93,6 +131,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
         onAddFinalDocs={() => { void handleCreateFinalDocumentsSection(); }}
         onAiAssist={() => { setShowAiDialog(true); }}
         onAddSnip={() => { setShowSnipDialog(true); }}
+        compact={isCompact}
       />
       {mode === 'easy' && workflow?.projectId && (
         <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
@@ -100,10 +139,14 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       <ScrollArea className="flex-1">
         <div className="p-2">
           {sections && sections.length === 0 && (
-            <div className="p-4 text-center text-muted-foreground">
-              <p>No sections yet.</p>
-              <Button variant="link" onClick={() => { void handleCreateSection(); }}>
-                Click here to add your first page.
+            <div className="px-2 py-4 text-center text-muted-foreground">
+              <p className="text-balance text-sm">No pages yet.</p>
+              <Button
+                variant="link"
+                onClick={() => { void handleCreateSection(); }}
+                className="h-auto whitespace-normal text-balance px-1 py-1 text-sm leading-snug"
+              >
+                {isCompact ? "Add one" : "Add your first page"}
               </Button>
             </div>
           )}

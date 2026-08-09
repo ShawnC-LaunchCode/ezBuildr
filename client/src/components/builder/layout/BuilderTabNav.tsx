@@ -71,7 +71,10 @@ export function BuilderTabNav({ activeTab, onTabChange }: BuilderTabNavProps) {
       role="tablist"
       aria-label="Workflow Builder Navigation"
       aria-orientation="horizontal"
-      className="flex items-center justify-start gap-1 overflow-x-auto border-b bg-card/50 lg:justify-center"
+      className=// scrollbar-hide: the always-on scrollbar track cost ~15px of vertical
+      // space under the tabs even when nothing was actually overflowing.
+      // Arrow keys already move between tabs, so nothing becomes unreachable.
+      "flex items-center justify-start gap-1 overflow-x-auto scrollbar-hide border-b bg-card/50 lg:justify-center"
     >
       {TABS.map((tab, index) => {
         const Icon = tab.icon;
@@ -87,7 +90,7 @@ export function BuilderTabNav({ activeTab, onTabChange }: BuilderTabNavProps) {
             onClick={() => onTabChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              "flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 py-3 text-sm font-medium transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 py-2 text-sm font-medium transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "w-[100px] shrink-0 md:w-auto md:px-4",
               "hover:text-foreground hover:bg-accent/50",
               isActive

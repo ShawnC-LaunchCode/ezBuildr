@@ -71,10 +71,13 @@ export function useAiConversation(
         handleDrop
     } = useFileUpload();
 
+    // scrollRef marks the end of the thread. It used to be bound to the
+    // ScrollArea *and* this sentinel, so the sentinel won and the effect set
+    // scrollTop on a zero-height div — autoscroll had never actually run. It
+    // would not have worked on the ScrollArea either: Radix scrolls its
+    // Viewport child, not the Root that takes the ref.
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+        scrollRef.current?.scrollIntoView({ block: 'end' });
     }, [messages]);
 
     // Handle initial prompt from "Create with AI" flow
