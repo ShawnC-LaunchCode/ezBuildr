@@ -16,7 +16,7 @@ import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlo
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
 import { normalizeFinalDocumentsTemplateEntry } from "../../../shared/finalDocumentsTemplates";
-import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
+import type { FinalBlockConfig, FinalDocumentOutputFormat } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { createError } from "../../utils/errors";
@@ -30,6 +30,39 @@ export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
   toPdf?: boolean;
+}
+
+interface LegacyFinalDocumentEntry {
+  templateId: string;
+  title: string | null;
+  conditions: FinalBlockConfig['documents'][number]['conditions'];
+}
+
+function collectLegacyFinalDocumentConfig(sections: RunSection[]): {
+  entries: LegacyFinalDocumentEntry[];
+  outputFormats: Set<FinalDocumentOutputFormat>;
+} {
+  const entries: LegacyFinalDocumentEntry[] = [];
+  const outputFormats = new Set<FinalDocumentOutputFormat>();
+
+  for (const section of sections) {
+    const config = section.config as {
+      finalBlock?: boolean;
+      templates?: unknown[];
+      outputFormats?: unknown[];
+    } | null;
+    if (config?.finalBlock !== true || !Array.isArray(config.templates)) { continue; }
+
+    for (const format of config.outputFormats ?? []) {
+      if (format === 'docx' || format === 'pdf') { outputFormats.add(format); }
+    }
+    for (const rawEntry of config.templates) {
+      const normalized = normalizeFinalDocumentsTemplateEntry(rawEntry);
+      if (normalized) { entries.push(normalized); }
+    }
+  }
+
+  return { entries, outputFormats };
 }
 
 // RUN2-20: `initialValues` may come straight from a URL query string
@@ -577,25 +610,14 @@ export class RunLifecycleService {
    * does not retroactively change what gets generated.
    */
   private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
-    const entries: Array<{ templateId: string; conditions: FinalBlockConfig['documents'][number]['conditions'] }> = [];
-    for (const section of sections) {
-      const config = section.config as { finalBlock?: boolean; templates?: unknown[] } | null;
-      if (config?.finalBlock === true && Array.isArray(config.templates)) {
-        for (const rawEntry of config.templates) {
-          const normalized = normalizeFinalDocumentsTemplateEntry(rawEntry);
-          if (normalized) {
-            entries.push(normalized);
-          }
-        }
-      }
-    }
+    const { entries, outputFormats } = collectLegacyFinalDocumentConfig(sections);
 
     if (entries.length === 0) {
       return null;
     }
 
     const documents: FinalBlockConfig['documents'] = [];
-    for (const { templateId, conditions } of entries) {
+    for (const { templateId, title, conditions } of entries) {
       const template = await documentTemplateRepository.findByIdAndProjectId(templateId, projectId);
       if (!template) {
         // RUN-12: a legacy template id that doesn't resolve within this
@@ -609,13 +631,17 @@ export class RunLifecycleService {
       documents.push({
         id: templateId,
         documentId: templateId,
-        alias: template.name,
+        alias: title ?? template.name,
         conditions,
         mapping: (template.mapping ?? undefined) as FinalBlockConfig['documents'][number]['mapping'],
       });
     }
 
-    return documents.length > 0 ? { markdownHeader: '', documents } : null;
+    return documents.length > 0 ? {
+      markdownHeader: '',
+      documents,
+      ...(outputFormats.size > 0 ? { outputFormats: [...outputFormats] } : {}),
+    } : null;
   }
 
 }

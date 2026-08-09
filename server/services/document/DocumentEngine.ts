@@ -38,6 +38,19 @@ export interface DocumentGenerationResult {
     size: number;
     unresolvedVariables?: string[];
 }
+
+export function sanitizeDocumentOutputName(outputName: string): string {
+    const sanitized = outputName
+        .replace(/[\\/]/g, '_')
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_')
+        .slice(0, 180);
+
+    return sanitized === '' || sanitized === '.' || sanitized === '..'
+        ? 'document'
+        : sanitized;
+}
+
 export class DocumentEngine {
     private parser: TemplateParser;
     private pdfConverter: PdfConverter;
@@ -66,7 +79,8 @@ export class DocumentEngine {
         const buffer = await this.parser.render({ templatePath, templateBuffer, data, unresolvedVariables });
         // Generate output filename
         const uniqueId = crypto.randomUUID();
-        const docxFileName = `${outputName}-${uniqueId}.docx`;
+        const safeOutputName = sanitizeDocumentOutputName(outputName);
+        const docxFileName = `${safeOutputName}-${uniqueId}.docx`;
         const docxPath = path.join(outputDir, docxFileName);
         // Write DOCX
         await fs.writeFile(docxPath, buffer);
@@ -79,7 +93,7 @@ export class DocumentEngine {
         // 2. Convert to PDF if requested
         if (toPdf) {
             try {
-                const pdfFileName = `${outputName}-${uniqueId}.pdf`;
+                const pdfFileName = `${safeOutputName}-${uniqueId}.pdf`;
                 const pdfPath = path.join(outputDir, pdfFileName);
                 const outcome = await this.pdfConverter.convert({
                     docxPath,

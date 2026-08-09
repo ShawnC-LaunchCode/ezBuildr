@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { enhancedDocumentEngine } from "../../../server/services/document/EnhancedDocumentEngine.js";
 import { FinalBlockRenderer } from "../../../server/services/document/FinalBlockRenderer.js";
+import { storageProvider } from "../../../server/services/storage/index.js";
 
 import type { PdfStrategyName } from "../../../server/services/document/PdfConverter.js";
 
@@ -21,6 +22,12 @@ vi.mock("../../../server/services/TemplateAnalysisService.js", () => ({
 vi.mock("../../../server/services/document/EnhancedDocumentEngine.js", () => ({
   enhancedDocumentEngine: {
     renderFinalBlock: vi.fn(),
+  },
+}));
+
+vi.mock("../../../server/services/storage/index.js", () => ({
+  storageProvider: {
+    uploadFile: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -70,6 +77,23 @@ describe("FinalBlockRenderer", () => {
         markdownHeader: "",
         documents: [
           { id: "doc-1", documentId: "template-1", alias: "contract" },
+        ],
+      },
+    });
+  }
+
+  function renderBothFormats(): ReturnType<FinalBlockRenderer["render"]> {
+    return new FinalBlockRenderer().render({
+      workflowId: "wf-1",
+      runId: "run-1",
+      outputDir,
+      stepValues: { clientName: "Ada" },
+      resolveTemplate: async () => templatePath,
+      finalBlockConfig: {
+        markdownHeader: "",
+        outputFormats: ['docx', 'pdf'],
+        documents: [
+          { id: "doc-1", documentId: "template-1", alias: "client-contract" },
         ],
       },
     });
@@ -137,5 +161,28 @@ describe("FinalBlockRenderer", () => {
       pdfStrategy: undefined,
       pdfFellBack: undefined,
     }));
+  });
+
+  it("generates, uploads, and returns both selected output formats", async () => {
+    const result = await renderBothFormats();
+
+    expect(enhancedDocumentEngine.renderFinalBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ toPdf: true })
+    );
+    expect(result.documents.map((document) => document.filename)).toEqual([
+      'contract.docx',
+      'contract.pdf',
+    ]);
+    expect(result.totalGenerated).toBe(2);
+    expect(storageProvider.uploadFile).toHaveBeenCalledWith(
+      'runs/run-1/documents/contract.docx',
+      expect.any(Buffer),
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    expect(storageProvider.uploadFile).toHaveBeenCalledWith(
+      'runs/run-1/documents/contract.pdf',
+      expect.any(Buffer),
+      'application/pdf'
+    );
   });
 });

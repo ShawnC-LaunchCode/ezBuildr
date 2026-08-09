@@ -20,10 +20,15 @@ import type { ConditionExpression } from "./types/conditions";
 
 export type FinalDocumentsTemplateEntry =
   | string
-  | { templateId: string; conditions?: ConditionExpression | null };
+  | {
+      templateId: string;
+      title?: string;
+      conditions?: ConditionExpression | null;
+    };
 
 export interface NormalizedFinalDocumentsTemplateEntry {
   templateId: string;
+  title: string | null;
   conditions: ConditionExpression | null;
 }
 
@@ -38,14 +43,15 @@ export function normalizeFinalDocumentsTemplateEntry(
   entry: unknown
 ): NormalizedFinalDocumentsTemplateEntry | null {
   if (typeof entry === "string") {
-    return { templateId: entry, conditions: null };
+    return { templateId: entry, title: null, conditions: null };
   }
 
   if (typeof entry === "object" && entry !== null) {
-    const raw = entry as { templateId?: unknown; conditions?: unknown };
+    const raw = entry as { templateId?: unknown; title?: unknown; conditions?: unknown };
     if (typeof raw.templateId === "string") {
       return {
         templateId: raw.templateId,
+        title: typeof raw.title === "string" && raw.title.trim() !== "" ? raw.title.trim() : null,
         conditions: (raw.conditions ?? null) as ConditionExpression | null,
       };
     }

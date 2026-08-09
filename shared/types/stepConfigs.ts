@@ -562,6 +562,8 @@ export interface FileUploadConfig {
   previewThumbnails?: boolean;
 }
 
+export type FinalDocumentOutputFormat = 'docx' | 'pdf';
+
 /**
  * Final Block Config
  * Document selection and output configuration for workflow completion
@@ -574,6 +576,7 @@ export interface FileUploadConfig {
  */
 export interface FinalBlockConfig {
   markdownHeader: string;     // Markdown content shown above document list
+  outputFormats?: FinalDocumentOutputFormat[]; // Defaults to the caller's legacy DOCX/PDF choice
   redirectUrl?: string;       // URL to redirect to after finishing
   brandingColor?: string;     // Brand color for buttons
   customLinks?: Array<{

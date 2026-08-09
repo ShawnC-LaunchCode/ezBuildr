@@ -30,7 +30,7 @@ import { storageProvider } from '../storage/index.js';
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
 import type { PdfConversionNotice, PdfStrategyName } from './PdfConverter.js';
 import type { NormalizationOptions } from './VariableNormalizer.js';
-import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
+import type { FinalBlockConfig, FinalDocumentOutputFormat } from '../../../shared/types/stepConfigs.js';
 
 
 const logger = createLogger({ module: 'finalBlock-renderer' });
@@ -158,12 +158,14 @@ export class FinalBlockRenderer {
       // this method returns. Nothing durable may be read back out of this path.
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
+    const outputFormats = this.resolveOutputFormats(finalBlockConfig.outputFormats, toPdf);
+    const generatePdf = outputFormats.includes('pdf');
 
     logger.info({
       workflowId,
       runId,
       documentCount: finalBlockConfig.documents.length,
-      toPdf,
+      outputFormats,
     }, 'Rendering Final Block');
 
     // Validate configuration
@@ -228,7 +230,7 @@ export class FinalBlockRenderer {
       documents: documentsWithPaths,
       stepValues: enhancedStepValues,
       outputDir,
-      toPdf,
+      toPdf: generatePdf,
       runId,
       normalizationOptions,
       tenantId,
@@ -262,7 +264,7 @@ export class FinalBlockRenderer {
     // Step 3: Prepare response documents
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
-      toPdf,
+      outputFormats,
       runId
     );
 
@@ -277,7 +279,7 @@ export class FinalBlockRenderer {
           workflowId,
           runId,
           outputDir,
-          toPdf
+          outputFormats
         );
 
         logger.info({
@@ -306,7 +308,7 @@ export class FinalBlockRenderer {
       skipped: generationResult.skipped.map(s => s.alias),
       failed: generationResult.failed,
       totalAttempted: generationResult.totalAttempted,
-      totalGenerated: generationResult.totalGenerated,
+      totalGenerated: documents.length,
       isArchived,
     };
 
@@ -366,42 +368,38 @@ export class FinalBlockRenderer {
    */
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
-    toPdf: boolean,
+    outputFormats: FinalDocumentOutputFormat[],
     runId: string
   ): Promise<FinalBlockRenderResponse['documents']> {
     const documents: FinalBlockRenderResponse['documents'] = [];
 
     for (const result of results) {
-      // Prefer PDF if generated, otherwise use DOCX
-      const filePath = toPdf && result.pdfPath ? result.pdfPath : result.docxPath;
-      const filename = path.basename(filePath);
-      const mimeType = filePath.endsWith('.pdf')
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      for (const selected of this.selectOutputFiles(result, outputFormats)) {
+        const filename = path.basename(selected.filePath);
+        const mimeType = selected.isPdf
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const stats = await fs.stat(selected.filePath);
+        const fileBuffer = await fs.readFile(selected.filePath);
+        const storageKey = `runs/${runId}/documents/${filename}`;
+        await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
 
-      const stats = await fs.stat(filePath);
-      const fileBuffer = await fs.readFile(filePath);
-
-      const storageKey = `runs/${runId}/documents/${filename}`;
-      await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
-
-      documents.push({
-        alias: result.alias ?? 'document',
-        filename,
-        filePath,
-        storageKey,
-        mimeType,
-        size: stats.size,
-        unresolvedVariables: result.unresolvedVariables,
-        // Observed, not requested: whichever converter actually ran for THIS
-        // document. Previously this recorded a hardcoded 'puppeteer' regardless,
-        // so Gotenberg output and a silent fallback to the low-fidelity path
-        // were indistinguishable in the audit trail.
-        pdfStrategy: toPdf ? result.pdfStrategy : undefined,
-        pdfFellBack: toPdf ? result.pdfFellBack : undefined,
-        pdfFailed: result.pdfFailed,
-        pdfNotice: result.pdfNotice,
-      });
+        documents.push({
+          alias: result.alias ?? 'document',
+          filename,
+          filePath: selected.filePath,
+          storageKey,
+          mimeType,
+          size: stats.size,
+          unresolvedVariables: result.unresolvedVariables,
+          // Observed, not requested: whichever converter actually ran for THIS
+          // PDF. DOCX siblings deliberately carry no conversion metadata.
+          pdfStrategy: selected.isPdf ? result.pdfStrategy : undefined,
+          pdfFellBack: selected.isPdf ? result.pdfFellBack : undefined,
+          pdfFailed: result.pdfFailed,
+          pdfNotice: result.pdfNotice,
+        });
+      }
     }
 
     return documents;
@@ -415,22 +413,20 @@ export class FinalBlockRenderer {
     workflowId: string,
     runId: string,
     outputDir: string,
-    toPdf: boolean
+    outputFormats: FinalDocumentOutputFormat[]
   ): Promise<NonNullable<FinalBlockRenderResponse['archive']>> {
     const zipDocuments: ZipDocument[] = [];
 
     for (const result of results) {
-      const filePath = toPdf && result.pdfPath ? result.pdfPath : result.docxPath;
-      const filename = path.basename(filePath);
-      const mimeType = filePath.endsWith('.pdf')
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-      zipDocuments.push({
-        filename,
-        filePath,
-        mimeType,
-      });
+      for (const selected of this.selectOutputFiles(result, outputFormats)) {
+        zipDocuments.push({
+          filename: path.basename(selected.filePath),
+          filePath: selected.filePath,
+          mimeType: selected.isPdf
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+      }
     }
 
     await fs.mkdir(outputDir, { recursive: true });
@@ -442,7 +438,7 @@ export class FinalBlockRenderer {
       outputDir,
       {
         'Document Count': String(zipDocuments.length),
-        'Format': toPdf ? 'PDF' : 'DOCX',
+        'Format': outputFormats.map((format) => format.toUpperCase()).join(' + '),
       }
     );
 
@@ -458,6 +454,37 @@ export class FinalBlockRenderer {
       storageKey,
       size: stats.size,
     };
+  }
+
+  private resolveOutputFormats(
+    configured: FinalDocumentOutputFormat[] | undefined,
+    toPdf: boolean
+  ): FinalDocumentOutputFormat[] {
+    const valid = configured?.filter((format, index) =>
+      (format === 'docx' || format === 'pdf') && configured.indexOf(format) === index
+    );
+    return valid?.length ? valid : [toPdf ? 'pdf' : 'docx'];
+  }
+
+  /**
+   * Select the concrete files requested by the author. A failed PDF-only
+   * conversion retains the usable DOCX fallback, matching the converter's
+   * existing fail-soft contract. Paths are de-duplicated for a DOCX+PDF
+   * request whose PDF fell back to that same DOCX.
+   */
+  private selectOutputFiles(
+    result: EnhancedGenerationResult,
+    outputFormats: FinalDocumentOutputFormat[]
+  ): Array<{ filePath: string; isPdf: boolean }> {
+    const selected = new Map<string, { filePath: string; isPdf: boolean }>();
+    if (outputFormats.includes('docx')) {
+      selected.set(result.docxPath, { filePath: result.docxPath, isPdf: false });
+    }
+    if (outputFormats.includes('pdf')) {
+      const filePath = result.pdfPath ?? result.docxPath;
+      selected.set(filePath, { filePath, isPdf: result.pdfPath !== undefined });
+    }
+    return [...selected.values()];
   }
 }
 

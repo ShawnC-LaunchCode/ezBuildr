@@ -395,6 +395,7 @@ export const DeliveryDestinationSchema = z.discriminatedUnion('type', [
  */
 export const FinalBlockConfigSchema = z.object({
   markdownHeader: z.string(),
+  outputFormats: z.array(z.enum(['docx', 'pdf'])).min(1).optional(),
   redirectUrl: z.string().optional().refine(val => {
     if (!val) {return true;}
     try {

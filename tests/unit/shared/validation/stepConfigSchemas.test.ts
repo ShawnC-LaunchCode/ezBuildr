@@ -81,6 +81,14 @@ describe('Step Config Schemas', () => {
                 }
             });
 
+            it('accepts one or both supported output formats and rejects an empty selection', () => {
+                const baseConfig = { markdownHeader: 'Done', documents: [] };
+
+                expect(FinalBlockConfigSchema.safeParse({ ...baseConfig, outputFormats: ['docx'] }).success).toBe(true);
+                expect(FinalBlockConfigSchema.safeParse({ ...baseConfig, outputFormats: ['docx', 'pdf'] }).success).toBe(true);
+                expect(FinalBlockConfigSchema.safeParse({ ...baseConfig, outputFormats: [] }).success).toBe(false);
+            });
+
             it('ties each delivery destination config to its type', () => {
                 const result = FinalBlockConfigSchema.safeParse({
                     markdownHeader: 'Done',

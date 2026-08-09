@@ -13,6 +13,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
   it('normalizes the legacy bare-string form with no conditions', () => {
     expect(normalizeFinalDocumentsTemplateEntry('template-123')).toEqual({
       templateId: 'template-123',
+      title: null,
       conditions: null,
     });
   });
@@ -20,6 +21,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
   it('normalizes the widened object form without conditions', () => {
     expect(normalizeFinalDocumentsTemplateEntry({ templateId: 'template-123' })).toEqual({
       templateId: 'template-123',
+      title: null,
       conditions: null,
     });
   });
@@ -36,6 +38,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
 
     expect(normalizeFinalDocumentsTemplateEntry({ templateId: 'template-123', conditions })).toEqual({
       templateId: 'template-123',
+      title: null,
       conditions,
     });
   });
@@ -43,6 +46,15 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
   it('treats an explicit null conditions field as no condition', () => {
     expect(normalizeFinalDocumentsTemplateEntry({ templateId: 'template-123', conditions: null })).toEqual({
       templateId: 'template-123',
+      title: null,
+      conditions: null,
+    });
+  });
+
+  it('normalizes and trims a custom output title', () => {
+    expect(normalizeFinalDocumentsTemplateEntry({ templateId: 'template-123', title: '  Client Contract  ' })).toEqual({
+      templateId: 'template-123',
+      title: 'Client Contract',
       conditions: null,
     });
   });
