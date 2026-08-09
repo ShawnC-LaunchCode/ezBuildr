@@ -2,13 +2,64 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { LIMITS } from '@shared/limits';
 
+import { aiUsageRepository, stepRepository } from '../../../../server/repositories';
 import { AIError } from '../../../../server/services/ai/AIError';
 import { AIProviderClient } from '../../../../server/services/ai/AIProviderClient';
 import { estimateTokenCount } from '../../../../server/services/ai/AIServiceUtils';
+import { ProviderFactory } from '../../../../server/services/ai/providers/ProviderFactory';
+import { RunLifecycleService } from '../../../../server/services/workflow-runs/RunLifecycleService';
 
 import type { AiUsageRepository } from '../../../../server/repositories/AiUsageRepository';
 import type { IAIProvider } from '../../../../server/services/ai/providers/types';
-import type { AiUsage } from '../../../../shared/schema';
+import type { AiUsage, Step } from '../../../../shared/schema';
+
+const loggerMock = vi.hoisted(() => {
+  const mock = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn(),
+  };
+  mock.child.mockReturnValue(mock);
+  return mock;
+});
+
+vi.mock('../../../../server/logger', () => ({
+  createLogger: vi.fn(() => loggerMock),
+  logger: loggerMock,
+  default: loggerMock,
+}));
+
+describe('AIProviderClient tenant context diagnostics (AISL-2)', () => {
+  it('warns with provider and model when a keyed client has no tenant', () => {
+    new AIProviderClient({
+      provider: 'gemini',
+      apiKey: 'test-key',
+      model: 'gemini-2.0-flash',
+    });
+
+    expect(loggerMock.warn).toHaveBeenCalledWith({
+      event: 'ai_client_untenanted',
+      provider: 'gemini',
+      model: 'gemini-2.0-flash',
+    }, 'AI client initialized without tenant context');
+  });
+
+  it('does not emit the untenant warning when tenant context is present', () => {
+    new AIProviderClient({
+      provider: 'gemini',
+      apiKey: 'test-key',
+      model: 'gemini-2.0-flash',
+      tenantId: 'tenant-1',
+    });
+
+    expect(loggerMock.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'ai_client_untenanted' }),
+      expect.any(String),
+    );
+  });
+});
 
 /**
  * ICW-13 AC2: the AI edit path now routes through AIProviderClient, so transient
@@ -109,6 +160,50 @@ describe('AIProviderClient usage & budget (ICW2-B7)', () => {
     // Real usage (500/300), never the char/4 estimate of the short test prompt/response.
     expect(recorded.inputTokens).not.toBe(estimateTokenCount('a short prompt'));
     expect(recorded.costUsd).toBeGreaterThan(0);
+  });
+
+  it('records random-fill usage against the requesting tenant (AISL-2 AC5)', async () => {
+    const generateResponse = vi.fn<IAIProvider['generateResponse']>()
+      .mockResolvedValue({
+        text: JSON.stringify({ values: { email: 'random@example.com' } }),
+        usage: { inputTokens: 120, outputTokens: 20 },
+      });
+    vi.spyOn(ProviderFactory, 'createProvider').mockReturnValue({
+      generateResponse,
+    } as unknown as IAIProvider);
+
+    const getTokenUsageSince = vi.spyOn(aiUsageRepository, 'getTokenUsageSince')
+      .mockResolvedValue(0);
+    const recordUsage = vi.spyOn(aiUsageRepository, 'recordUsage')
+      .mockResolvedValue({} as AiUsage);
+    const randomFillStep = {
+      id: 'step-email',
+      alias: 'email',
+      title: 'Email address',
+      type: 'email',
+      config: null,
+      description: null,
+      isVirtual: false,
+    } as Step;
+    const randomFillStepRepo = {
+      findByWorkflowIdWithAliases: vi.fn().mockResolvedValue([randomFillStep]),
+    } as unknown as typeof stepRepository;
+    const lifecycleService = new RunLifecycleService(undefined, randomFillStepRepo);
+
+    await expect(
+      lifecycleService.generateRandomValues('workflow-1', 'tenant-random-fill'),
+    ).resolves.toEqual({ email: 'random@example.com' });
+
+    expect(getTokenUsageSince).toHaveBeenCalledWith(
+      'tenant-random-fill',
+      expect.any(Date),
+    );
+    expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant-random-fill',
+      taskType: 'value_suggestion',
+      inputTokens: 120,
+      outputTokens: 20,
+    }));
   });
 
   it('falls back to the char/4 estimate only when the provider omits usage (AC4)', async () => {

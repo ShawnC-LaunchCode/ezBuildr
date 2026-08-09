@@ -197,11 +197,11 @@ export function registerRunRoutes(app: Express): void {
 
       const parsedBody = CreateRunBodySchema.parse(req.body);
       const { initialValues, snapshotId, randomize, clientEmail, metadata } = parsedBody;
+      const authReq = req as AuthRequest;
       // Check if this is an anonymous run request
       const isAnonymous = publicLink != null && publicLink !== '';
       // For authenticated runs, require user ID from AuthRequest (populated by middleware)
       if (!isAnonymous) {
-        const authReq = req as AuthRequest;
         const userId = authReq.userId;
         if (!userId) {
           return res.status(401).json({
@@ -217,6 +217,7 @@ export function registerRunRoutes(app: Express): void {
           {
             snapshotId,
             randomize,
+            tenantId: authReq.tenantId,
             clientEmail: clientEmail?.toLowerCase(),
             accessMode: clientEmail ? 'portal' : undefined,
           }
@@ -236,7 +237,7 @@ export function registerRunRoutes(app: Express): void {
         undefined,
         metadata ? { metadata } : {},
         initialValues,
-        { snapshotId, randomize }
+        { snapshotId, randomize, tenantId: authReq.tenantId }
       );
       return res.status(201).json({
         success: true,

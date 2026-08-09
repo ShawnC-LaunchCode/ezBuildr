@@ -22,6 +22,7 @@ export interface ExecutionContext {
 export interface CreateRunOptions {
   snapshotId?: string;
   randomize?: boolean;
+  tenantId?: string;
   clientEmail?: string;
   accessMode?: 'anonymous' | 'token' | 'portal';
 }

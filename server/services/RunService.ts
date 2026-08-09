@@ -204,7 +204,7 @@ export class RunService {
     }
     // Generate random values if randomize is true
     if (options?.randomize) {
-      const randomValues = await this.lifecycleService.generateRandomValues(workflowId);
+      const randomValues = await this.lifecycleService.generateRandomValues(workflowId, options.tenantId);
       mergedInitialValues = { ...mergedInitialValues, ...randomValues };
     }
     // Create the run

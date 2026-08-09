@@ -255,7 +255,7 @@ export class RunLifecycleService {
   /**
    * Generate random values using AI
    */
-  async generateRandomValues(workflowId: string): Promise<Record<string, unknown>> {
+  async generateRandomValues(workflowId: string, tenantId?: string): Promise<Record<string, unknown>> {
     const { createAIServiceFromEnv } = await import('../AIService');
 
     // Get all steps for the workflow
@@ -273,7 +273,7 @@ export class RunLifecycleService {
     }));
 
     // Call AI service to generate random values
-    const aiService = createAIServiceFromEnv();
+    const aiService = createAIServiceFromEnv(tenantId);
     return aiService.suggestValues(stepData, 'full');
   }
 

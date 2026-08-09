@@ -43,6 +43,14 @@ export class AIProviderClient {
     this.config = config;
     this.aiUsageRepo = aiUsageRepo;
 
+    if (config.apiKey && !config.tenantId) {
+      logger.warn({
+        event: 'ai_client_untenanted',
+        provider: config.provider,
+        model: config.model,
+      }, 'AI client initialized without tenant context');
+    }
+
     // Only create provider if we have a valid config
     if (config.provider && config.apiKey) {
       try {
