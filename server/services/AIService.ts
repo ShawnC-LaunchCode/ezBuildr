@@ -165,7 +165,7 @@ function getDefaultModel(provider: AIProvider): string {
     case 'openai':
       return 'gpt-4-turbo-preview';
     case 'anthropic':
-      return 'claude-3-5-sonnet-20241022';
+      return 'claude-sonnet-5';
     case 'gemini':
       return 'gemini-2.0-flash';
     default:

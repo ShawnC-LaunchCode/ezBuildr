@@ -24,7 +24,7 @@ export class AnthropicProvider extends BaseAIProvider {
         taskType: TaskType,
         systemMessage?: string
     ): Promise<AIProviderResponse> {
-        const { model, temperature = 0.7, maxTokens } = this.config;
+        const { model, maxTokens } = this.config;
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt);
 
@@ -36,9 +36,7 @@ export class AnthropicProvider extends BaseAIProvider {
         try {
             const response = await this.client.messages.create({
                 model,
-
                 max_tokens: safeMaxTokens,
-                temperature,
                 messages: [{ role: 'user', content: prompt }],
                 system: systemMessage ?? 'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
             });

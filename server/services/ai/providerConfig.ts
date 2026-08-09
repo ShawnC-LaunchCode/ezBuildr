@@ -22,7 +22,7 @@ const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const DEFAULT_MODELS: Record<AIProvider, string> = {
   gemini: DEFAULT_GEMINI_MODEL,
   openai: 'gpt-4-turbo-preview',
-  anthropic: 'claude-3-5-sonnet-20241022',
+  anthropic: 'claude-sonnet-5',
 };
 
 /**

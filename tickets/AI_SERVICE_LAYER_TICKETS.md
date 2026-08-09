@@ -83,7 +83,7 @@ provider. They make the layer capable of switching.
 |---|---|---|---|---|
 | AISL-1 | `ModelRegistry` silently fabricates config for unknown models | P0 | M | ✅ |
 | AISL-2 | Tenant budget is fail-open by omission | P0 | S | ✅ |
-| AISL-3 | `AnthropicProvider` would 400 on every current Claude model | P1 | S | 🔲 |
+| AISL-3 | `AnthropicProvider` would 400 on every current Claude model | P1 | S | ✅ |
 | AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | 🔲 |
 | AISL-5 | Transform AI bypasses the governed client | P1 | M | 🔲 |
 | AISL-6 | Personalization AI bypasses the governed client | P1 | M | 🔲 |
@@ -368,7 +368,35 @@ sites. Revisit after AISL-8.
 
 ---
 
-## AISL-3 — `AnthropicProvider` would 400 on every current Claude model 🔲
+## AISL-3 — `AnthropicProvider` would 400 on every current Claude model ✅
+
+> **Verified 2026-08-09** (worktree `aisl-3`, base `3f5f6b35`). All 6 criteria met.
+> `temperature` dropped from the payload; both Anthropic defaults now resolve to
+> `claude-sonnet-5`, which AISL-1 registered; `@anthropic-ai/sdk` 0.68.0 → 0.116.0.
+>
+> **Criteria were only checkable after the merge.** The worktree was cut from
+> `3f5f6b35`, before AISL-1 landed, so `claude-sonnet-5` was absent from its
+> `MODEL_CONFIGS` and **AC2 was not provable there** — its `test:fast` figure
+> (255/2826) is likewise not comparable to main's. The dev flagged the
+> dependency and declined to duplicate AISL-1's registry rows, which was the
+> right call. Reviewer verified everything on merged main: type-check 0,
+> strict-zones passed, lint clean, `test:fast` **255 files / 2836 tests**
+> (+1 file, +2 tests over the post-AISL-2 baseline), `@anthropic-ai/sdk`
+> resolving at 0.116.0.
+>
+> **Merge hazard handled:** `server/services/AIService.ts` was dirty in the
+> worktree *and* modified by AISL-1 on main. Copying the worktree's copy would
+> have silently reverted `validateAIConfig` / `getUnregisteredModelError` with
+> no conflict. The one-line `getDefaultModel` change was hand-applied to main's
+> version instead; post-merge grep confirms AISL-1's symbols intact.
+>
+> Test quality note: `AnthropicProvider.test.ts` passes `temperature: 0.9` into
+> the config deliberately, so it proves the parameter is *dropped* rather than
+> merely absent.
+>
+> **Dispatch note:** the dev reported the `claude-api` skill was unavailable to
+> it. Model IDs must stay inline in ticket text rather than delegated to that
+> skill — the send-back table is what carried them here.
 
 **Priority: P1** · Size: S · File: `server/services/ai/providers/AnthropicProvider.ts`
 
@@ -833,6 +861,13 @@ still works with no AI provider configured.
 - Load: `add-api-endpoint` skill, `run-tests` skill.
 - Related: **AISL-10** consumes the `task_type` values this ticket starts
   writing; the per-operation cost report is only meaningful once this lands.
+- **New consumer since the audit (GH-167, commit `3f5f6b35`):** the document
+  onboarding wizard calls `/api/ai/doc/analyze` and
+  `/api/ai/doc/suggest-improvements` from the client before
+  `DocumentOnboardingService` runs. It does not import
+  `documentAIAssistService`, so this ticket's file footprint is unchanged — but
+  the wizard breaks if those two endpoints change shape. Exercise it as part of
+  the live check (`client/src/pages/onboarding/`).
 - File footprint: `server/lib/ai/DocumentAIAssistService.ts`,
   `server/routes/ai.doc.routes.ts`,
   `tests/integration/api.ai.doc.test.ts`. **No overlap with any other Phase 2
