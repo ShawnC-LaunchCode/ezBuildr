@@ -3,6 +3,8 @@
  * Helper functions for formatting values in DOCX templates
  */
 
+import { parseISO, isValid } from 'date-fns';
+
 /**
  * Convert string to uppercase
  */
@@ -52,7 +54,20 @@ export function date(
   }
 
   try {
-    const d = typeof iso === 'string' ? new Date(iso) : iso;
+    // TPL-9 Finding (b): `new Date('2026-01-05')` parses a bare date-only
+    // ISO string as UTC midnight (ECMA-262 Date Time String Format), so
+    // formatting it back out in a negative-UTC-offset timezone rolls it
+    // back a calendar day -- probed as "01/05/2026" rendering "01/04/2026".
+    // `formatDate` in `docxHelpers.ts` parses the identical string with
+    // date-fns' `parseISO`, which treats a date-only string as LOCAL
+    // midnight instead, and does not have the bug. Two formatters that
+    // disagree on the same input is exactly how that bug was found, so this
+    // one now parses the same way `formatDate` does -- a value that already
+    // carries a time component (or an actual `Date` instance) is unaffected.
+    let d = typeof iso === 'string' ? parseISO(iso) : iso;
+    if (typeof iso === 'string' && !isValid(d)) {
+      d = new Date(iso);
+    }
 
     if (isNaN(d.getTime())) {
       return '';

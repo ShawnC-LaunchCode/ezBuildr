@@ -11,6 +11,10 @@ import {
   defaultValue,
   formatDate,
   addDays,
+  addMonths,
+  addYears,
+  startOfMonth,
+  endOfMonth,
   daysBetween,
   formatCurrency,
   formatNumber,
@@ -236,6 +240,20 @@ describe('DOCX Helpers', () => {
       });
     });
 
+    describe('date (formatters) agrees with formatDate', () => {
+      // TPL-9 Finding (b), reproduced before the fix: `docxHelpers.date` used
+      // `new Date('2026-01-05')`, which the ECMA-262 Date Time String Format
+      // parses a bare date-only string as UTC midnight -- formatting it back
+      // out in a negative-UTC-offset timezone rendered "01/04/2026" instead
+      // of "01/05/2026", one calendar day behind `formatDate`'s (correct)
+      // "01/05/2026". Both must now agree.
+      it('AC3: renders the same calendar day as formatDate for a bare YYYY-MM-DD input', () => {
+        const iso = '2026-01-05';
+        expect(docxHelpers.date(iso)).toBe(formatDate(iso));
+        expect(docxHelpers.date(iso)).toBe('01/05/2026');
+      });
+    });
+
     describe('addDays', () => {
       it('should add days to date', () => {
         const date = new Date('2025-03-15T10:30:00Z');
@@ -243,8 +261,107 @@ describe('DOCX Helpers', () => {
         expect(addDays(date, -5, 'YYYY-MM-DD')).toBe('2025-03-10');
       });
 
-      it('should handle null/undefined', () => {
+      it('should handle null/undefined as a legitimate empty render (D3: empty, not unknown)', () => {
         expect(addDays(null)).toBe('');
+        expect(addDays('')).toBe('');
+      });
+
+      // AC1
+      it('AC1: a quoted numeric amount ("30") produces the identical result to a bare number (30)', () => {
+        expect(addDays('2026-01-05', '30', 'MM/DD/YYYY')).toBe(addDays('2026-01-05', 30, 'MM/DD/YYYY'));
+        expect(addDays('2026-01-05', '30', 'MM/DD/YYYY')).toBe('02/04/2026');
+      });
+
+      // AC8 regression: the exact wrong historical output, quoted here so the
+      // bug can never silently come back. Root cause: date-fns' addDays does
+      // `date.getDate() + amount`; with amount as the string "30" this is
+      // `5 + "30"`, which STRING-CONCATENATES to "530" rather than adding to
+      // 35, and `setDate(530)` rolls the date forward far past the intended
+      // one month. Reproduced before this fix: addDays('2026-01-05', '30')
+      // rendered '06/14/2027' (525 days away), not '02/04/2026' (30 days).
+      it('AC8 regression: addDays("2026-01-05", "30") no longer produces the historical wrong date', () => {
+        const result = addDays('2026-01-05', '30', 'MM/DD/YYYY');
+        expect(result).not.toBe('06/14/2027'); // the historical, silently wrong output
+        expect(result).toBe('02/04/2026');
+      });
+
+      // AC2
+      it('AC2: a non-numeric amount raises rather than returning a date or blank', () => {
+        expect(() => addDays('2026-01-05', 'soon')).toThrow(/addDays/);
+        expect(() => addDays('2026-01-05', 'soon')).toThrow(/soon/);
+      });
+
+      // AC4
+      it('AC4: an unparseable date input raises rather than returning blank', () => {
+        expect(() => addDays('not a date', 30)).toThrow(/addDays/);
+        expect(() => addDays('not a date', 30)).toThrow(/not a date/);
+      });
+    });
+
+    describe('addMonths', () => {
+      it('adds whole months and formats', () => {
+        expect(addMonths('2026-01-05', 1, 'MM/DD/YYYY')).toBe('02/05/2026');
+        expect(addMonths('2026-01-05', -1, 'MM/DD/YYYY')).toBe('12/05/2025');
+      });
+
+      // AC7: the month-end convention, asserted rather than left emergent.
+      // date-fns' addMonths clamps an overflowing day to the last day of the
+      // target month -- adopted as-is (see the code comment on addMonths in
+      // docxHelpers.ts). 2026 is not a leap year, so February has 28 days:
+      // one month after January 31 is February 28, not March 3 and not an
+      // error.
+      it('AC7: one month after 2026-01-31 is 2026-02-28 (date-fns month-end clamp)', () => {
+        expect(addMonths('2026-01-31', 1, 'MM/DD/YYYY')).toBe('02/28/2026');
+      });
+
+      it('handles null/undefined as empty and raises on a non-numeric amount', () => {
+        expect(addMonths(null)).toBe('');
+        expect(() => addMonths('2026-01-05', 'soon')).toThrow(/addMonths/);
+      });
+    });
+
+    describe('addYears', () => {
+      it('adds whole years and formats', () => {
+        expect(addYears('2026-01-05', 1, 'MM/DD/YYYY')).toBe('01/05/2027');
+      });
+
+      it('clamps Feb 29 on a leap year to Feb 28 on a non-leap target year', () => {
+        // 2028 is a leap year (Feb 29 exists); 2029 is not.
+        expect(addYears('2028-02-29', 1, 'MM/DD/YYYY')).toBe('02/28/2029');
+      });
+
+      it('handles null/undefined as empty and raises on a non-numeric amount', () => {
+        expect(addYears(null)).toBe('');
+        expect(() => addYears('2026-01-05', 'soon')).toThrow(/addYears/);
+      });
+    });
+
+    describe('startOfMonth', () => {
+      it('returns the first day of the month', () => {
+        expect(startOfMonth('2026-01-15', 0, 'MM/DD/YYYY')).toBe('01/01/2026');
+      });
+
+      it('applies a whole-month offset before truncating', () => {
+        expect(startOfMonth('2026-01-15', 1, 'MM/DD/YYYY')).toBe('02/01/2026');
+      });
+
+      it('handles null/undefined as empty', () => {
+        expect(startOfMonth(null)).toBe('');
+      });
+    });
+
+    describe('endOfMonth', () => {
+      it('returns the last day of the month', () => {
+        expect(endOfMonth('2026-01-15', 0, 'MM/DD/YYYY')).toBe('01/31/2026');
+        expect(endOfMonth('2026-02-15', 0, 'MM/DD/YYYY')).toBe('02/28/2026'); // 2026 is not a leap year
+      });
+
+      it('applies a whole-month offset before truncating', () => {
+        expect(endOfMonth('2026-01-15', 1, 'MM/DD/YYYY')).toBe('02/28/2026');
+      });
+
+      it('handles null/undefined as empty', () => {
+        expect(endOfMonth(null)).toBe('');
       });
     });
 
@@ -256,8 +373,18 @@ describe('DOCX Helpers', () => {
         expect(daysBetween(d2, d1)).toBe(5);
       });
 
-      it('should handle null/undefined', () => {
-        expect(daysBetween(null, new Date())).toBe(0);
+      // AC5: a missing operand used to return 0, and 0 is a plausible real
+      // term ("due 0 days after signing" reads as a stated deadline, not as
+      // "unknown") -- silently wrong in the same way as TPL-9's other two
+      // findings. It must raise instead.
+      it('AC5: a missing operand raises rather than returning 0', () => {
+        expect(() => daysBetween(null, new Date())).toThrow(/daysBetween/);
+        expect(() => daysBetween(new Date(), null)).toThrow(/daysBetween/);
+        expect(() => daysBetween('', new Date())).toThrow(/daysBetween/);
+      });
+
+      it('an unparseable operand raises', () => {
+        expect(() => daysBetween('not a date', new Date())).toThrow(/daysBetween/);
       });
     });
 

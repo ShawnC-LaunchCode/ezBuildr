@@ -96,7 +96,15 @@ describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
       { helper: 'upper', scope: { v: 'ada lovelace' }, pipeTag: 'v | upper', expected: 'ADA LOVELACE' },
       { helper: 'lower', scope: { v: 'ADA' }, pipeTag: 'v | lower', expected: 'ada' },
       { helper: 'currency', scope: { v: 250 }, pipeTag: 'v | currency', expected: '$250.00' },
-      { helper: 'date', scope: { v: '2026-01-05' }, pipeTag: 'v | date', expected: '01/04/2026' },
+      // TPL-9 corrected `date`'s UTC-parsed off-by-one; this expectation used to encode
+      // the bug (01/04/2026) and now matches `formatDate` for the same input.
+      { helper: 'date', scope: { v: '2026-01-05' }, pipeTag: 'v | date', expected: '01/05/2026' },
+      // TPL-9 date arithmetic. Amount is a month/year offset; 2026-01-31 is the month-end
+      // clamp case, documented in docxHelpers.
+      { helper: 'addMonths', scope: { v: '2026-01-31', n: 1 }, pipeTag: 'v | addMonths:n', expected: '02/28/2026' },
+      { helper: 'addYears', scope: { v: '2026-01-31', n: 1 }, pipeTag: 'v | addYears:n', expected: '01/31/2027' },
+      { helper: 'startOfMonth', scope: { v: '2026-01-31', n: 1 }, pipeTag: 'v | startOfMonth:n', expected: '02/01/2026' },
+      { helper: 'endOfMonth', scope: { v: '2026-01-31', n: 1 }, pipeTag: 'v | endOfMonth:n', expected: '02/28/2026' },
       { helper: 'yesno', scope: { v: true }, pipeTag: 'v | yesno', expected: 'Yes' },
       { helper: 'titleCase', scope: { v: 'hello world' }, pipeTag: 'v | titleCase', expected: 'Hello World' },
       { helper: 'number', scope: { v: 1234.5 }, pipeTag: 'v | number', expected: '1,235' },
