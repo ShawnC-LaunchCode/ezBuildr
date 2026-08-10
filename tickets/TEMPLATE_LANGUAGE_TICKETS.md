@@ -439,7 +439,7 @@ be gone by the end of Phase 1.
 
 ---
 
-## TPL-3 — Filter vocabulary, prefix-syntax removal, and strict-undefined ✅ (held)
+## TPL-3 — Filter vocabulary, prefix-syntax removal, and strict-undefined ✅
 
 > **Verified 2026-08-10 (reviewer). All 10 ACs met — but HELD OFF `main` pending TPL-10.**
 > Gates re-run by the reviewer: `type-check` exit 0 · `lint` exit 0 repo-wide ·
@@ -473,9 +473,9 @@ be gone by the end of Phase 1.
 > output *against the legacy form* this ticket deletes; rewritten to literal expected values.
 > Both correct calls.
 >
-> **WHY IT IS HELD:** see TPL-10. `main` auto-deploys, and merging this before TPL-10 would
-> fail document generation for any unanswered optional field. The work lives on branch
-> `tpl-3-strict-undefined` until TPL-10 lands; then both merge together.
+> **Was held off `main` until TPL-10 landed**, because strict mode without the alias
+> backfill would have failed document generation for any unanswered optional field.
+> TPL-10 and TPL-11 closed 2026-08-10 and all three merged to `main` together.
 
 **Priority: P1** · Size: M · Files: `server/services/document/RenderCore.ts`, `server/services/docxHelpers.ts`
 
@@ -886,14 +886,13 @@ warning on every indexed tag.
 ## Phase 1 Gate
 
 - [ ] TPL-1, TPL-2, TPL-3, TPL-9, TPL-10, TPL-11 all ✅ with dated verification notes
-- [ ] TPL-3 merged to `main` (held on a branch until TPL-10 lands — see its note)
+- [x] TPL-3 merged to `main` together with TPL-10 and TPL-11 (2026-08-10)
 - [ ] `npm run type-check` 0 errors · `npm run lint` 0 problems
 - [ ] `npm run test:fast` green at or above the header baseline
 - [ ] Reviewer has rendered the repo owner's `docxtpl` estate table through the new
       grammar and confirmed the output by hand
-- [ ] `grep -rn "parts\[0\] in docxHelpers" server/services/document/` returns nothing.
-      (The two hits in `server/services/templatePlaceholders.ts` are the separate static
-      extraction layer and are TPL-11's job, not TPL-3's — do not treat them as a miss.)
+- [x] `grep -rn "parts\[0\] in docxHelpers" server/` returns nothing anywhere
+      (TPL-11 removed the last two hits in `templatePlaceholders.ts`)
 - [ ] Reviewer has committed each passed ticket
 
 ---
