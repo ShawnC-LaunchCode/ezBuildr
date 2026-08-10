@@ -10,11 +10,9 @@ import { db } from "../db";
  * platform's own enums and schemas at module load (ICW2-12) — adding a step
  * type or an op teaches the model automatically, with no edit here.
  */
-export const DEFAULT_SYSTEM_PROMPT = `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
+export const DEFAULT_SYSTEM_PROMPT = `You are an expert helping to build and refine workflow automation systems.
 Your task is to analyze the user's request and generate structured operations to modify the workflow.
 Guidelines:
-- Reading level: {{readingLevel}}
-- Tone: {{tone}}
 - Generate clear, concise operation steps
 - Avoid destructive DataVault operations (no table/column drops, no data deletion)
 - Use tempId for new entities that might be referenced by other ops in the same batch
@@ -24,7 +22,11 @@ Guidelines:
 - Always set a step "config" when the type takes one (a choice step with no
   options is unusable)
 
-${buildWorkflowVocabulary()}`;
+${buildWorkflowVocabulary()}
+
+Role: {{interviewerRole}}
+Reading level: {{readingLevel}}
+Tone: {{tone}}`;
 export class AiSettingsService {
     /**
      * Get the effective system prompt: the global override if configured,
