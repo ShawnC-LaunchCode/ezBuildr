@@ -77,75 +77,102 @@ async function renderTag(tag: string, data: Record<string, unknown>): Promise<st
   return render(paragraph(`{{${tag}}}`), data);
 }
 
-describe('RenderCore expression layer (TPL-2)', () => {
-  // AC1: every one of the 31 pre-existing helpers renders identically as a
-  // pipe filter and via the legacy prefix form.
-  describe('AC1: pipe filters match the legacy prefix form for all 31 helpers', () => {
+describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
+  // AC1 (TPL-2): every function on docxHelpers renders correctly as a pipe
+  // filter. TPL-3 deleted the legacy `{{helper value arg}}` prefix grammar
+  // this originally compared against (D1) -- ground truth is now a literal
+  // expected value (computed by calling the same docxHelpers function
+  // directly and rendering it through the real DOCX pipeline once to
+  // confirm docxtemplater's own text stringification), not a second render.
+  describe('AC1 (TPL-2): pipe filters render every docxHelpers function correctly', () => {
     interface HelperCase {
       helper: string;
       scope: Record<string, unknown>;
-      oldTag: string;
       pipeTag: string;
+      expected: string;
     }
 
     const HELPER_CASES: HelperCase[] = [
-      { helper: 'upper', scope: { v: 'ada lovelace' }, oldTag: 'upper v', pipeTag: 'v | upper' },
-      { helper: 'lower', scope: { v: 'ADA' }, oldTag: 'lower v', pipeTag: 'v | lower' },
-      { helper: 'currency', scope: { v: 250 }, oldTag: 'currency v', pipeTag: 'v | currency' },
-      { helper: 'date', scope: { v: '2026-01-05' }, oldTag: 'date v', pipeTag: 'v | date' },
-      { helper: 'yesno', scope: { v: true }, oldTag: 'yesno v', pipeTag: 'v | yesno' },
-      { helper: 'titleCase', scope: { v: 'hello world' }, oldTag: 'titleCase v', pipeTag: 'v | titleCase' },
-      { helper: 'number', scope: { v: 1234.5 }, oldTag: 'number v', pipeTag: 'v | number' },
-      { helper: 'percent', scope: { v: 42.345 }, oldTag: 'percent v', pipeTag: 'v | percent' },
-      { helper: 'capitalize', scope: { v: 'hello' }, oldTag: 'capitalize v', pipeTag: 'v | capitalize' },
-      { helper: 'join', scope: { v: ['a', 'b', 'c'] }, oldTag: 'join v', pipeTag: 'v | join' },
-      { helper: 'length', scope: { v: [1, 2, 3] }, oldTag: 'length v', pipeTag: 'v | length' },
-      { helper: 'first', scope: { v: [1, 2, 3] }, oldTag: 'first v', pipeTag: 'v | first' },
-      { helper: 'last', scope: { v: [1, 2, 3] }, oldTag: 'last v', pipeTag: 'v | last' },
-      { helper: 'isEmpty', scope: { v: '' }, oldTag: 'isEmpty v', pipeTag: 'v | isEmpty' },
-      { helper: 'isNotEmpty', scope: { v: 'x' }, oldTag: 'isNotEmpty v', pipeTag: 'v | isNotEmpty' },
+      { helper: 'upper', scope: { v: 'ada lovelace' }, pipeTag: 'v | upper', expected: 'ADA LOVELACE' },
+      { helper: 'lower', scope: { v: 'ADA' }, pipeTag: 'v | lower', expected: 'ada' },
+      { helper: 'currency', scope: { v: 250 }, pipeTag: 'v | currency', expected: '$250.00' },
+      { helper: 'date', scope: { v: '2026-01-05' }, pipeTag: 'v | date', expected: '01/04/2026' },
+      { helper: 'yesno', scope: { v: true }, pipeTag: 'v | yesno', expected: 'Yes' },
+      { helper: 'titleCase', scope: { v: 'hello world' }, pipeTag: 'v | titleCase', expected: 'Hello World' },
+      { helper: 'number', scope: { v: 1234.5 }, pipeTag: 'v | number', expected: '1,235' },
+      { helper: 'percent', scope: { v: 42.345 }, pipeTag: 'v | percent', expected: '42%' },
+      { helper: 'capitalize', scope: { v: 'hello' }, pipeTag: 'v | capitalize', expected: 'Hello' },
+      { helper: 'join', scope: { v: ['a', 'b', 'c'] }, pipeTag: 'v | join', expected: 'a, b, c' },
+      { helper: 'length', scope: { v: [1, 2, 3] }, pipeTag: 'v | length', expected: '3' },
+      { helper: 'first', scope: { v: [1, 2, 3] }, pipeTag: 'v | first', expected: '1' },
+      { helper: 'last', scope: { v: [1, 2, 3] }, pipeTag: 'v | last', expected: '3' },
+      { helper: 'isEmpty', scope: { v: '' }, pipeTag: 'v | isEmpty', expected: 'true' },
+      { helper: 'isNotEmpty', scope: { v: 'x' }, pipeTag: 'v | isNotEmpty', expected: 'true' },
       {
         helper: 'formatDate',
         scope: { v: '2026-01-05T12:00:00Z' },
-        oldTag: 'formatDate v',
         pipeTag: 'v | formatDate',
+        expected: '01/05/2026',
       },
-      { helper: 'formatCurrency', scope: { v: 1234.5 }, oldTag: 'formatCurrency v', pipeTag: 'v | formatCurrency' },
-      { helper: 'formatNumber', scope: { v: 1234.567 }, oldTag: 'formatNumber v', pipeTag: 'v | formatNumber' },
-      { helper: 'round', scope: { v: 10.456 }, oldTag: 'round v', pipeTag: 'v | round' },
+      { helper: 'formatCurrency', scope: { v: 1234.5 }, pipeTag: 'v | formatCurrency', expected: '$1,234.50' },
+      { helper: 'formatNumber', scope: { v: 1234.567 }, pipeTag: 'v | formatNumber', expected: '1,235' },
+      { helper: 'round', scope: { v: 10.456 }, pipeTag: 'v | round', expected: '10' },
       {
         helper: 'truncate',
         scope: { v: 'a long string here' },
-        oldTag: 'truncate v 10',
         pipeTag: 'v | truncate:10',
+        expected: 'a long ...',
       },
       {
         helper: 'replace',
         scope: { v: 'hello world' },
-        oldTag: 'replace v "world" "there"',
         pipeTag: 'v | replace:"world":"there"',
+        expected: 'hello there',
       },
       {
         helper: 'defaultValue',
         scope: { v: '' },
-        oldTag: 'defaultValue v "fallback"',
         pipeTag: 'v | defaultValue:"fallback"',
+        expected: 'fallback',
       },
-      { helper: 'add', scope: { v: 5, b: 3 }, oldTag: 'add v b', pipeTag: 'v | add:b' },
-      { helper: 'subtract', scope: { v: 5, b: 3 }, oldTag: 'subtract v b', pipeTag: 'v | subtract:b' },
-      { helper: 'multiply', scope: { v: 5, b: 3 }, oldTag: 'multiply v b', pipeTag: 'v | multiply:b' },
-      { helper: 'divide', scope: { v: 10, b: 4 }, oldTag: 'divide v b', pipeTag: 'v | divide:b' },
-      { helper: 'pluralize', scope: { v: 2 }, oldTag: 'pluralize v "item"', pipeTag: 'v | pluralize:"item"' },
-      { helper: 'concat', scope: { v: 'x', b: 'y', c: 'z' }, oldTag: 'concat v b c', pipeTag: 'v | concat:b:c' },
-      { helper: 'addDays', scope: { v: '2026-01-05', n: 30 }, oldTag: 'addDays v n', pipeTag: 'v | addDays:n' },
+      // TPL-3: `default` is the documented preset name for the same
+      // function, registered under its own filter key.
+      { helper: 'default', scope: { v: '' }, pipeTag: 'v | default:"fallback"', expected: 'fallback' },
+      { helper: 'add', scope: { v: 5, b: 3 }, pipeTag: 'v | add:b', expected: '8' },
+      { helper: 'subtract', scope: { v: 5, b: 3 }, pipeTag: 'v | subtract:b', expected: '2' },
+      { helper: 'multiply', scope: { v: 5, b: 3 }, pipeTag: 'v | multiply:b', expected: '15' },
+      { helper: 'divide', scope: { v: 10, b: 4 }, pipeTag: 'v | divide:b', expected: '2.5' },
+      { helper: 'pluralize', scope: { v: 2 }, pipeTag: 'v | pluralize:"item"', expected: 'items' },
+      { helper: 'concat', scope: { v: 'x', b: 'y', c: 'z' }, pipeTag: 'v | concat:b:c', expected: 'xyz' },
+      { helper: 'addDays', scope: { v: '2026-01-05', n: 30 }, pipeTag: 'v | addDays:n', expected: '02/04/2026' },
       {
         helper: 'daysBetween',
         scope: { v: '2026-01-01', d2: '2026-01-10' },
-        oldTag: 'daysBetween v d2',
         pipeTag: 'v | daysBetween:d2',
+        expected: '9',
       },
-      { helper: 'percentage', scope: { v: 50, total: 200 }, oldTag: 'percentage v total', pipeTag: 'v | percentage:total' },
-      { helper: 'trim', scope: { v: '  hi  ' }, oldTag: 'trim v', pipeTag: 'v | trim' },
+      {
+        helper: 'percentage',
+        scope: { v: 50, total: 200 },
+        pipeTag: 'v | percentage:total',
+        expected: '25%',
+      },
+      { helper: 'trim', scope: { v: '  hi  ' }, pipeTag: 'v | trim', expected: 'hi' },
+      // TPL-3 named preset vocabulary.
+      {
+        helper: 'longdate',
+        scope: { v: '2026-01-05T12:00:00Z' },
+        pipeTag: 'v | longdate',
+        expected: 'January 5, 2026',
+      },
+      {
+        helper: 'shortdate',
+        scope: { v: '2026-01-05T12:00:00Z' },
+        pipeTag: 'v | shortdate',
+        expected: '01/05/2026',
+      },
+      { helper: 'usd', scope: { v: 1234.5 }, pipeTag: 'v | usd', expected: '$1,234.50' },
+      { helper: 'titlecase', scope: { v: 'hello world' }, pipeTag: 'v | titlecase', expected: 'Hello World' },
     ];
 
     // Helpers deliberately not covered by HELPER_CASES, with the reason.
@@ -155,10 +182,9 @@ describe('RenderCore expression layer (TPL-2)', () => {
 
     it('covers every function on docxHelpers (except explicit, commented exemptions)', () => {
       // Table-driven, not a hardcoded count: a new helper (TPL-9's addMonths
-      // etc., or this ticket's own new `trim`) must be added to HELPER_CASES
-      // or HELPER_CASES_EXEMPT, or this test fails and says which one is
-      // missing -- a fixed toHaveLength(31) would stay green while coverage
-      // silently rotted.
+      // etc.) must be added to HELPER_CASES or HELPER_CASES_EXEMPT, or this
+      // test fails and says which one is missing -- a fixed toHaveLength(31)
+      // would stay green while coverage silently rotted.
       const allHelperNames = Object.entries(docxHelpers)
         .filter(([, value]) => typeof value === 'function')
         .map(([name]) => name);
@@ -167,13 +193,12 @@ describe('RenderCore expression layer (TPL-2)', () => {
       expect(uncovered).toEqual([]);
     });
 
-    it.each(HELPER_CASES)('$helper: pipe form matches prefix form', async ({ scope, oldTag, pipeTag }) => {
-      const oldOutput = await renderTag(oldTag, scope);
+    it.each(HELPER_CASES)('$helper: pipe filter renders the expected value', async ({ scope, pipeTag, expected }) => {
       const newOutput = await renderTag(pipeTag, scope);
-      expect(newOutput).toBe(oldOutput);
-      // Guards against a vacuous pass: two forms silently agreeing on "" is
-      // not proof either one actually works.
-      expect(newOutput).not.toBe('');
+      // toContain, not toBe: renderTag's plain-text extraction keeps the
+      // surrounding XML template's own whitespace (newlines/indentation from
+      // createDocxBuffer's wrapper), which isn't part of what this case checks.
+      expect(newOutput).toContain(expected);
     });
   });
 
@@ -337,11 +362,11 @@ describe('RenderCore expression layer (TPL-2)', () => {
     expect(unmatched).not.toContain('GraceX');
   });
 
-  // Backward compatibility (kept working per the ticket -- TPL-3 removes this
-  // grammar entirely). Not a duplicate of TemplateParser.test.ts: this proves
-  // the two grammars coexist through the same createExpressionParser branch.
-  it('legacy helper-prefix form still renders unchanged', async () => {
-    const text = await renderTag('upper name', { name: 'ada lovelace' });
-    expect(text).toContain('ADA LOVELACE');
+  // TPL-3 (D1): the legacy helper-prefix grammar this file used to prove
+  // "still renders unchanged" is now deleted outright, not kept working --
+  // that regression (the old form now raises rather than silently working)
+  // is covered by TemplateParser.test.ts's AC3 case.
+  it('TPL-3 regression: the legacy helper-prefix form no longer renders -- it raises', async () => {
+    await expect(renderTag('upper name', { name: 'ada lovelace' })).rejects.toThrow(/upper name/);
   });
 });

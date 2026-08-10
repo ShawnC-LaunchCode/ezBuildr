@@ -439,7 +439,43 @@ be gone by the end of Phase 1.
 
 ---
 
-## TPL-3 — Filter vocabulary, prefix-syntax removal, and strict-undefined 🔲
+## TPL-3 — Filter vocabulary, prefix-syntax removal, and strict-undefined ✅ (held)
+
+> **Verified 2026-08-10 (reviewer). All 10 ACs met — but HELD OFF `main` pending TPL-10.**
+> Gates re-run by the reviewer: `type-check` exit 0 · `lint` exit 0 repo-wide ·
+> `test:fast` **262 files / 2924 passed / 14 skipped** (+13 over the 2911 baseline).
+>
+> Reviewer probes of the strict-undefined line, all behaving as D3 specifies:
+>
+> ```
+> top-level MISSING key            THROWS  undefined variable "nope"
+> key present but null             OK  "[]"
+> key present but empty string     OK  "[]"
+> missing + | default:"N/A"        OK  "[N/A]"
+> loop sibling missing field       OK  "A:[x] B:[] "
+> array index out of range         OK  "[]"
+> nested under a null parent       OK  "[]"
+> legacy prefix form               THROWS
+> curly-quoted filter argument     OK  "01/05/2026"   (TPL-2 behaviour preserved)
+> new preset | usd                 OK  "$250.00"
+> ```
+>
+> **The dev found and fixed a real bug before turn-in, unprompted.** Its first
+> implementation checked the whole `scopeList`, so a field present on one loop item but
+> absent on a sibling raised on every render. Restricted to top level
+> (`scopeList.length === 1`), matching the precedent in `TemplateValidationService`, which
+> already treats loop-scoped placeholders as not statically verifiable. Regression test added.
+>
+> **Deviations accepted.** (1) `default("N/A")` parenthesised syntax does not parse in
+> angular-expressions; the colon form `default:"N/A"` is used, consistent with TPL-1 and
+> TPL-2 AC3 — the ticket text was informal prose, not a literal contract. (2) The footprint
+> necessarily included `RenderCore.expressions.test.ts`, whose TPL-2 assertions compared pipe
+> output *against the legacy form* this ticket deletes; rewritten to literal expected values.
+> Both correct calls.
+>
+> **WHY IT IS HELD:** see TPL-10. `main` auto-deploys, and merging this before TPL-10 would
+> fail document generation for any unanswered optional field. The work lives on branch
+> `tpl-3-strict-undefined` until TPL-10 lands; then both merge together.
 
 **Priority: P1** · Size: M · Files: `server/services/document/RenderCore.ts`, `server/services/docxHelpers.ts`
 
@@ -662,14 +698,145 @@ Business-day and holiday arithmetic are **out of scope** — parked by the repo 
 
 ---
 
+## TPL-10 — Backfill known step aliases so strict mode can tell unanswered from unknown 🔲
+
+**Priority: P0 (blocks TPL-3 from `main`)** · Size: S · Files: `server/services/workflow-runs/RunDataService.ts`
+
+### Finding
+
+TPL-3's strict-undefined cannot distinguish a skipped optional question from a typo, because
+the run data never contains the skipped question at all. In **`buildForRun()`**
+(`server/services/workflow-runs/RunDataService.ts`), `byStepId` is built **only from
+persisted rows**:
+
+```ts
+    const byStepId: Record<string, unknown> = {};
+    for (const value of values) {
+      byStepId[value.stepId] = value.value;
+    }
+```
+
+and `toAliasKeyed()` then iterates only those keys:
+
+```ts
+  for (const [key, value] of Object.entries(data)) {
+    byAlias[aliasByStepId.get(key) ?? key] = value;
+  }
+```
+
+A step with an alias but **no `step_values` row** — the normal shape for a skipped optional
+field or a conditionally-hidden step — is therefore *absent* from `byAlias`, not
+present-as-null. Under TPL-3 that is indistinguishable from a misspelling, so a document
+referencing a legitimately unanswered optional field **raises instead of rendering blank**:
+precisely the failure D3's unknown-vs-empty split exists to prevent.
+
+Note `buildForRun` already loads the full alias list via
+`stepRepo.findByWorkflowIdWithAliases`, so the information needed is present — it is simply
+not used to seed the map.
+
+### Preferred fix
+
+Seed `byStepId` with **every known step id mapped to `null`** before filling in persisted
+values, so the alias map contains every alias the workflow defines. Keep `null` (not `''`)
+as the sentinel: TPL-3 renders a null as blank and a *missing* key as an error, which is
+exactly the intended semantics.
+
+Check every consumer before changing the shape. `RunCompletionService`, `RunLifecycleService`
+and `esign/SignatureBlockService` all call `buildForRun`. Anything that distinguishes "key
+absent" from "value null" must be found and considered — that survey is the risk in this
+ticket, not the one-line seed.
+
+### Ties
+
+- **Blocks TPL-3 from merging to `main`.** TPL-3 is verified and parked on branch
+  `tpl-3-strict-undefined`; this ticket is what lets it land.
+- Load `add-api-endpoint` (service-layer conventions) and `run-tests`.
+- File footprint: `server/services/workflow-runs/RunDataService.ts` plus its tests. Collides
+  with nothing else in this initiative.
+
+### Acceptance criteria
+
+1. `buildForRun` returns a `byAlias` map containing an entry for **every** aliased step in the
+   workflow, with `null` for steps having no persisted value.
+2. Steps with a persisted value are unchanged, including falsy values — a test asserts `0`,
+   `''` and `false` each survive and are not overwritten by the seed.
+3. A document referencing an aliased-but-unanswered step renders blank under TPL-3's strict
+   mode instead of raising. This test must render a **real DOCX** through `renderDocxBuffer`.
+4. A document referencing a genuinely misspelled alias still raises.
+5. Every existing `buildForRun` consumer is checked for absent-vs-null assumptions and the
+   findings stated in the turn-in, with a test for any that needed changing.
+6. `npm run type-check` 0 errors · `npm run lint` 0 problems · `npm run test:fast` green at or
+   above the baseline recorded in this file's header.
+
+---
+
+## TPL-11 — Teach the static extractor the pipe grammar 🔲
+
+**Priority: P1** · Size: S · Files: `server/services/templatePlaceholders.ts`
+
+### Finding
+
+`extractPlaceholdersDetailed()` predates the pipe grammar and mis-parses it. Probed
+2026-08-10 against a template using the syntax TPL-2 shipped:
+
+```
+TEMPLATE:  {{ client_name | upper }} {{ fee | usd }} {{ Children[0].name }} {{plain_var}}
+EXTRACTED: ["|", "Children[0].name", "plain_var"]
+```
+
+`client_name` and `fee` are lost entirely, and the pipe character is reported as a variable.
+The tokenizer still assumes the legacy shape — `parts[0] in docxHelpers` at
+`server/services/templatePlaceholders.ts:94` and `:119` — which TPL-3 has now deleted from
+the render path.
+
+This is a latent break shipped with TPL-2: before the pipe grammar existed no author could
+write it, so nothing surfaced. It bites in three places — the GH-156 mapping workbench,
+`TemplateValidationService`, and **TPL-5's entire variable inventory**, which is built on this
+function and would report `|` as a variable while missing the real ones.
+
+### Preferred fix
+
+Parse the tag body the way the renderer now does: take the segment **before the first `|`** as
+the variable path and treat the remainder as filters. Validate filter names against
+`TEMPLATE_FILTER_VOCABULARY` (exported by TPL-3) rather than `docxHelpers`, and drop the legacy
+`parts[0] in docxHelpers` control-word branch.
+
+Decide and document one thing explicitly: whether `Children[0].name` is reported as `Children`
+or verbatim. TPL-5 diffs these against the workflow's alias inventory, where the alias is
+`Children`, so reporting the indexed form verbatim would raise a false "unmapped variable"
+warning on every indexed tag.
+
+### Ties
+
+- **Blocks TPL-5**, which consumes this function for its inventory.
+- **Blocked by TPL-3** for `TEMPLATE_FILTER_VOCABULARY`.
+- Load `run-tests`. File footprint: `server/services/templatePlaceholders.ts` and its tests.
+
+### Acceptance criteria
+
+1. `{{ client_name | upper }}` extracts `client_name`, not `|`.
+2. A chained tag `{{ a | trim | upper }}` extracts `a` exactly once.
+3. Filter names are never reported as variables.
+4. An unknown filter name is reported as a problem, distinguishable from an unknown variable.
+5. The indexed-path decision is implemented, documented in a code comment, and asserted.
+6. Loop and inverted-section tags keep their existing behaviour (regression test).
+7. Tests cover 1–6 against real DOCX buffers.
+8. `npm run type-check` 0 errors · `npm run lint` 0 problems · `npm run test:fast` green at or
+   above the baseline recorded in this file's header.
+
+---
+
 ## Phase 1 Gate
 
-- [ ] TPL-1, TPL-2, TPL-3, TPL-9 all ✅ with dated verification notes
+- [ ] TPL-1, TPL-2, TPL-3, TPL-9, TPL-10, TPL-11 all ✅ with dated verification notes
+- [ ] TPL-3 merged to `main` (held on a branch until TPL-10 lands — see its note)
 - [ ] `npm run type-check` 0 errors · `npm run lint` 0 problems
 - [ ] `npm run test:fast` green at or above the header baseline
 - [ ] Reviewer has rendered the repo owner's `docxtpl` estate table through the new
       grammar and confirmed the output by hand
-- [ ] `grep -rn "parts\[0\] in docxHelpers" server/` returns nothing
+- [ ] `grep -rn "parts\[0\] in docxHelpers" server/services/document/` returns nothing.
+      (The two hits in `server/services/templatePlaceholders.ts` are the separate static
+      extraction layer and are TPL-11's job, not TPL-3's — do not treat them as a miss.)
 - [ ] Reviewer has committed each passed ticket
 
 ---
