@@ -92,7 +92,7 @@ provider. They make the layer capable of switching.
 | AISL-9 | Budget on dollars, not raw token count | P1 | M | ✅ |
 | AISL-10 | No per-operation unit economics | P1 | S | 🔲 **unblocked — last one** |
 | AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | ✅ |
-| AISL-12 | `workflow_personalization_settings` is read and discarded | P1 | S | 🔲 decided: option (a) |
+| AISL-12 | `workflow_personalization_settings` is read and discarded | P1 | S | ✅ |
 
 ---
 
@@ -1543,7 +1543,45 @@ placeholders — an admin-supplied custom prompt may rely on them, and
 
 ---
 
-## AISL-12 — Every `workflow_personalization_settings` toggle is dead 🔲
+## AISL-12 — Every `workflow_personalization_settings` toggle is dead ✅
+
+> **Verified 2026-08-09** (worktree `aisl-12`, base `b0353a2d` — two commits
+> stale, but AISL-9/11 touched no file this ticket touches, so no drift). All 9
+> criteria met after one reviewer fix.
+>
+> The merge semantics are right, which is the hard part:
+> `!userSettings.allowAdaptivePrompts || workflowSettings?.allowDynamicPrompts === false`
+> means a workflow row can only ever *disable* (AC3), and the `=== false`
+> comparison makes an absent row (`undefined === false`) a no-op rather than a
+> restriction (AC4). With all three columns at their `true` default nothing
+> changes (AC5) — which is every row that exists today.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **261 files / 2861 tests**, personalization integration **16/16**.
+>
+> **Reviewer fix — the disabled path returned an error message.**
+> `generateHelpText` returned `"Unable to generate help text at this time."`
+> when `allowDynamicHelp === false`. That string is the **catch block's failure
+> fallback**, and the route sends it straight to the user via
+> `res.json({ text: helpText })`. So a workflow with dynamic help deliberately
+> switched off would tell every user it was broken — reporting a fault that does
+> not exist, and making an intentional setting indistinguishable from an outage
+> in support reports. Now returns `""`. The test asserted the failure string and
+> was updated, with a comment explaining why pinning it would have locked the
+> defect in.
+>
+> **AC7 finding (carried over from the dev's report, correct by construction):**
+> `enabled`, `defaultTone`, `defaultReadingLevel`, and `defaultVerbosity` on the
+> same table are dead in the identical read-and-discard way and remain so — this
+> ticket wires only the three `allowDynamic*` columns. Recorded in AISL-B10.
+>
+> **Process notes, none blocking:** the report cited a "2799 test baseline"
+> (actual: 2853); its `test:fast` evidence was one passing file rather than a
+> summary line, which is not gate proof; five `*.out` scratch files were left in
+> the worktree while the report claimed none; and it edited this ticket file,
+> which is the reviewer's job — main's copy had moved, so copying it back would
+> have reverted the AISL-9 and AISL-11 notes. The code was sound; the reporting
+> was not.
 
 **Priority: P1 (bug)** · Size: M · File: `server/lib/ai/personalization.ts`
 
@@ -1774,6 +1812,14 @@ endpoint and no builder UI, so every row sits at its `true` default and the
 toggles are unsettable. Completing the feature needs a write endpoint mirroring
 `POST /api/ai/personalize/settings` (which handles the *user* table) plus a
 builder surface, most naturally in the workflow settings tab.
+
+**Confirmed 2026-08-09 (AISL-12 AC7):** the other four columns on the same
+table — `enabled`, `defaultTone`, `defaultReadingLevel`, `defaultVerbosity` —
+are dead in the identical read-and-discard way and were left that way.
+AISL-12 wired only the three `allowDynamic*` toggles. Whatever decides the write
+path should decide these four at the same time; wiring three of seven columns
+and leaving four inert is the state this backlog entry exists to prevent
+becoming permanent.
 
 **Deliberately parked, not descoped.** The expected trigger is a compliance
 requirement rather than a preference: for legal intake work, "do not let AI

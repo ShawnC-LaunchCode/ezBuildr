@@ -24,11 +24,12 @@ export class PersonalizationService {
         context: PersonalizationContext,
         tenantId: string
     ): Promise<string> {
-        if (!context.userSettings.allowAdaptivePrompts) {
+        if (!context.userSettings.allowAdaptivePrompts || context.workflowSettings?.allowDynamicPrompts === false) {
             return originalText;
         }
 
-        const { tone, readingLevel, verbosity, language } = context.userSettings;
+        const tone = context.workflowSettings?.allowDynamicTone === false ? 'neutral' : context.userSettings.tone;
+        const { readingLevel, verbosity, language } = context.userSettings;
 
         const prompt = `
       Rewrite the following survey question text to match the user's preferences.
@@ -58,7 +59,18 @@ ${fenceUntrusted(originalText)}
         context: PersonalizationContext,
         tenantId: string
     ): Promise<string> {
-        const { tone, readingLevel, language } = context.userSettings;
+        // Administratively disabled for this workflow. Return an empty string,
+        // not the catch block's failure message below — a workflow with dynamic
+        // help switched off is working as configured, and telling the user
+        // "Unable to generate help text at this time" reports a fault that does
+        // not exist and makes a deliberate setting indistinguishable from an
+        // outage in support reports.
+        if (context.workflowSettings?.allowDynamicHelp === false) {
+            return "";
+        }
+
+        const tone = context.workflowSettings?.allowDynamicTone === false ? 'neutral' : context.userSettings.tone;
+        const { readingLevel, language } = context.userSettings;
 
         const prompt = `
        Provide a helpful explanation for why the following question is being asked, and tips for how to answer it.

@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, vi, afterEach, beforeEach } 
 
 import { db } from "../../server/db";
 import { registerAllRoutes } from "../../server/routes/index";
-import { aiUsage, tenants, userPersonalizationSettings, users } from "../../shared/schema";
+import { aiUsage, tenants, userPersonalizationSettings, users, workflows, workflowPersonalizationSettings } from "../../shared/schema";
 
 // Mock Google Generative AI
 const { mockGenerateContent, mockTenantId } = vi.hoisted(() => ({
@@ -96,6 +96,23 @@ describe("Personalization API Integration Tests", () => {
             readingLevel: 'simple',
             language: 'es'
         });
+
+        // Insert Workflow
+        await db.insert(workflows).values({
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            title: 'Test Workflow',
+            status: 'draft',
+            ownerType: 'user',
+            ownerUuid: TEST_USER_ID
+        });
+
+        // Insert Workflow Settings
+        await db.insert(workflowPersonalizationSettings).values({
+            workflowId: '550e8400-e29b-41d4-a716-446655440000',
+            allowDynamicPrompts: true,
+            allowDynamicHelp: true,
+            allowDynamicTone: true
+        });
     });
 
     beforeEach(async () => {
@@ -108,6 +125,12 @@ describe("Personalization API Integration Tests", () => {
             allowAdaptivePrompts: true,
             allowAIClarification: true
         }).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+        
+        await db.update(workflowPersonalizationSettings).set({
+            allowDynamicPrompts: true,
+            allowDynamicHelp: true,
+            allowDynamicTone: true
+        }).where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
     });
 
     afterAll(async () => {
@@ -258,6 +281,104 @@ describe("Personalization API Integration Tests", () => {
             expect(response.body.text).toBe("Already English");
             expect(mockGenerateContent).not.toHaveBeenCalled();
             expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+        });
+    });
+
+    describe("workflow settings", () => {
+        it("returns original text without usage when workflow allowDynamicPrompts is false", async () => {
+            await db.update(workflowPersonalizationSettings)
+                .set({ allowDynamicPrompts: false })
+                .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
+
+            const response = await request(app)
+                .post("/api/ai/personalize/block")
+                .send({ block: { text: "Original Text" }, workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+                .expect(200);
+
+            expect(response.body.text).toBe("Original Text");
+            expect(mockGenerateContent).not.toHaveBeenCalled();
+            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+        });
+
+        it("returns empty help text without usage when workflow allowDynamicHelp is false", async () => {
+            await db.update(workflowPersonalizationSettings)
+                .set({ allowDynamicHelp: false })
+                .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
+
+            const response = await request(app)
+                .post("/api/ai/personalize/help")
+                .send({ text: "Question?", workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+                .expect(200);
+
+            // Empty, NOT the catch block's "Unable to generate help text at this
+            // time." — an administratively disabled workflow is working as
+            // configured and must not report a fault. Pinning the failure string
+            // here would lock in showing users an error for a valid setting.
+            expect(response.body.text).toBe("");
+            expect(mockGenerateContent).not.toHaveBeenCalled();
+            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+        });
+
+        it("uses neutral tone when workflow allowDynamicTone is false", async () => {
+            await db.update(workflowPersonalizationSettings)
+                .set({ allowDynamicTone: false })
+                .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
+            
+            mockGenerateContent.mockResolvedValueOnce({
+                response: { text: () => "Text with neutral tone" }
+            });
+
+            await request(app)
+                .post("/api/ai/personalize/block")
+                .send({ block: { text: "Original Text" }, workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+                .expect(200);
+
+            const callArgs = mockGenerateContent.mock.calls[0][0] as {
+                contents: Array<{ parts: Array<{ text: string }> }>;
+            };
+            const prompt = callArgs.contents[0]?.parts[0]?.text;
+            expect(prompt).toContain("Tone: neutral");
+            expect(prompt).not.toContain("Tone: friendly");
+        });
+
+        it("keeps model disabled if user disabled it but workflow enabled it (restrictive merge)", async () => {
+            // User disables, Workflow enables (default)
+            await db.update(userPersonalizationSettings)
+                .set({ allowAdaptivePrompts: false })
+                .where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+            
+            await db.update(workflowPersonalizationSettings)
+                .set({ allowDynamicPrompts: true })
+                .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
+
+            const response = await request(app)
+                .post("/api/ai/personalize/block")
+                .send({ block: { text: "Original Text" }, workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+                .expect(200);
+
+            expect(response.body.text).toBe("Original Text");
+            expect(mockGenerateContent).not.toHaveBeenCalled();
+            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+        });
+
+        it("works identically to today when workflow settings are true defaults", async () => {
+            mockGenerateContent.mockResolvedValueOnce({
+                response: { text: () => "Rewritten" }
+            });
+
+            const response = await request(app)
+                .post("/api/ai/personalize/block")
+                .send({ block: { text: "Original Text" }, workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+                .expect(200);
+
+            expect(response.body.text).toBe("Rewritten");
+            expect(mockGenerateContent).toHaveBeenCalled();
+            
+            const callArgs = mockGenerateContent.mock.calls[0][0] as {
+                contents: Array<{ parts: Array<{ text: string }> }>;
+            };
+            const prompt = callArgs.contents[0]?.parts[0]?.text;
+            expect(prompt).toContain("Tone: friendly"); // User tone used since workflow allowDynamicTone is true
         });
     });
 
