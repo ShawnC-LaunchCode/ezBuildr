@@ -448,8 +448,29 @@ be gone by the end of Phase 1.
 Three concerns that all live in the same two functions, bundled deliberately per the
 "same-code concerns are one ticket" rule.
 
-**(a) Quoted format strings are a live corruption vector.** `tokenizeTag()` in
-`server/services/docxHelpers.ts` recognises straight quotes only:
+> **Re-scoped 2026-08-09 after TPL-2 landed.** Two of this ticket's three premises
+> changed, both in your favour. Probed against the post-TPL-2 render path:
+>
+> ```
+> {{ d | formatDate:"MM/DD/YYYY" }}   -> "01/05/2026"     straight quotes
+> {{ d | formatDate:“MM/DD/YYYY” }}   -> "01/05/2026"     CURLY quotes — now fine
+> {{formatDate d “MM/DD/YYYY”}}       -> "“01/05/2026”"   legacy form, still mangled
+> {{ fee | no_such_filter }}          -> THROWS           already raises
+> [{{ nonexistent_thing }}]           -> "[]"             still silently blank
+> ```
+>
+> - **Finding (a) is now legacy-only.** `docxtemplater/expressions.js` normalises smart
+>   quotes inside the parser, so the new grammar is already immune. The corruption
+>   survives *only* in the prefix form — which means **deleting the legacy grammar (b) is
+>   the fix for (a)**, and no new quote-handling code is needed here.
+> - **AC7 already passes.** Unknown filters raise through angular-expressions. Your job on
+>   AC7 is a regression test that pins the behaviour, not an implementation.
+> - **Strict-undefined (c) is the real work in this ticket**, alongside the vocabulary and
+>   the deletion. An unknown variable still renders as an empty string.
+
+**(a) Quoted format strings — a corruption vector that now survives only in the grammar
+this ticket deletes.** `tokenizeTag()` in `server/services/docxHelpers.ts` recognises
+straight quotes only:
 
 ```ts
 return tag.trim().match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
@@ -524,10 +545,14 @@ Mirror the existing structured-error shape: `createError.internal()` with the
 5. A variable present but empty renders as an empty string and does **not** raise.
 6. `{{ maybe_missing | default("N/A") }}` renders `N/A` for both the absent and the empty
    case.
-7. An unknown filter name raises a template error naming the filter.
+7. An unknown filter name raises a template error naming the filter. **This already
+   works post-TPL-2** — deliver it as a regression test that pins the behaviour, not as new
+   code.
 8. Tests assert 2–7 against real rendered DOCX buffers, including a regression test that
    the exact prefix-form tag `{{formatDate dob "MMMM DD, YYYY"}}` now errors rather than
-   silently working.
+   silently working, and one proving a **curly-quoted** filter argument
+   (`{{ d | formatDate:“MM/DD/YYYY” }}`) renders correctly — that is the behaviour
+   inherited from TPL-2 and it must not regress when the legacy branch is removed.
 9. The 13 grammar-coupled assertions in `TemplateParser.test.ts`,
    `TemplateValidationService.test.ts` and `TemplateAnalysisService.test.ts` are updated
    to the new grammar and pass.
