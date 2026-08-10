@@ -86,8 +86,10 @@ describe('TemplateValidationService', () => {
       expect(names).toContain('client.address.city');
     });
 
+    // TPL-11: rewritten from the old `{{formatDate signedAt "..."}}` prefix
+    // grammar (D1 deleted it outright) to the pipe grammar TPL-2 shipped.
     it('should attribute helper tags to their variable', async () => {
-      const file = await writeDocx('helper.docx', '{{formatDate signedAt "MMMM DD, YYYY"}}');
+      const file = await writeDocx('helper.docx', '{{ signedAt | formatDate }}');
       const placeholders = await extractPlaceholdersDetailed(file);
       expect(placeholders).toHaveLength(1);
       expect(placeholders[0]).toMatchObject({
@@ -97,21 +99,23 @@ describe('TemplateValidationService', () => {
       });
     });
 
+    // TPL-11: rewritten from the old `{{mysteryHelper signedAt}}` prefix form.
     it('should mark unknown helper tags before validation', async () => {
-      const file = await writeDocx('unknown-helper.docx', '{{mysteryHelper signedAt}}');
+      const file = await writeDocx('unknown-helper.docx', '{{ signedAt | mysteryFilter }}');
       const placeholders = await extractPlaceholdersDetailed(file);
       expect(placeholders).toHaveLength(1);
       expect(placeholders[0]).toMatchObject({
         name: 'signedAt',
         kind: 'unknown_helper',
-        helper: 'mysteryHelper',
+        helper: 'mysteryFilter',
       });
     });
 
+    // TPL-11: rewritten from the old `{{formatCurrency amount "USD"}}` prefix form.
     it('should mark loop inner fields with their loop scope', async () => {
       const file = await writeDocx(
         'loop.docx',
-        '{{#lineItems}}{{description}} {{formatCurrency amount "USD"}}{{/lineItems}} Total: {{total}}'
+        '{{#lineItems}}{{description}} {{ amount | formatCurrency }}{{/lineItems}} Total: {{total}}'
       );
       const placeholders = await extractPlaceholdersDetailed(file);
 
@@ -122,19 +126,19 @@ describe('TemplateValidationService', () => {
       expect(byName['total'].loopScope).toEqual([]);
     });
 
-    it('should not scope fields inside inverted or helper-driven sections', async () => {
-      // Note: docxtemplater requires closing tags to match the opening text
-      // exactly, or be empty ({{/}})
-      const file = await writeDocx(
-        'inverted.docx',
-        '{{^hasItems}}{{emptyMessage}}{{/hasItems}} {{#isEmpty addOns}}{{fallbackNote}}{{/}}'
-      );
+    // TPL-11: the "or helper-driven" half of this test (`{{#isEmpty addOns}}`)
+    // exercised the old prefix-form section indirection, which D1 deleted
+    // along with the rest of the legacy grammar -- that construct no longer
+    // renders, so the extractor no longer special-cases it either (see
+    // processSectionTag's doc comment in templatePlaceholders.ts). Only the
+    // still-live inverted-section behaviour is asserted here now.
+    it('should not scope fields inside inverted sections', async () => {
+      const file = await writeDocx('inverted.docx', '{{^hasItems}}{{emptyMessage}}{{/hasItems}}');
       const placeholders = await extractPlaceholdersDetailed(file);
       const byName = Object.fromEntries(placeholders.map((p) => [p.name, p]));
 
       expect(byName['emptyMessage'].loopScope).toEqual([]);
-      expect(byName['fallbackNote'].loopScope).toEqual([]);
-      expect(byName['addOns']).toMatchObject({ kind: 'section' });
+      expect(byName['hasItems']).toMatchObject({ kind: 'section' });
     });
 
     it('should raise TemplateSyntaxError for malformed templates', async () => {
@@ -171,7 +175,8 @@ describe('TemplateValidationService', () => {
     it('should classify matched, missing, loop-scoped, unused, and alias-less', async () => {
       const file = await writeDocx(
         'report.docx',
-        'Dear {{clientName}}, born {{formatDate dateOfBirth "MM/DD/YYYY"}}. ' +
+        // TPL-11: rewritten from the old `{{formatDate dateOfBirth "..."}}` prefix form.
+        'Dear {{clientName}}, born {{ dateOfBirth | formatDate }}. ' +
           '{{#services}}{{serviceName}}{{/services}} Sig: {{signture}}'
       );
       const placeholders = await extractPlaceholdersDetailed(file);
@@ -223,8 +228,12 @@ describe('TemplateValidationService', () => {
       expect(report.valid).toBe(true);
     });
 
+    // TPL-11: rewritten from the old `{{mysteryHelper clientName}}` prefix form.
     it('should report unknown helpers even when their target variable exists', async () => {
-      const file = await writeDocx('unknown-helper-report.docx', '{{mysteryHelper clientName}}');
+      const file = await writeDocx(
+        'unknown-helper-report.docx',
+        '{{ clientName | mysteryFilter }}'
+      );
       const placeholders = await extractPlaceholdersDetailed(file);
       const variables = [variable({ key: 's1', alias: 'clientName', label: 'Client Name' })];
 
@@ -232,7 +241,7 @@ describe('TemplateValidationService', () => {
 
       expect(report.matched).toContain('clientName');
       expect(report.missing).toHaveLength(0);
-      expect(report.unknownHelpers).toEqual(['mysteryHelper']);
+      expect(report.unknownHelpers).toEqual(['mysteryFilter']);
       expect(report.valid).toBe(false);
     });
   });

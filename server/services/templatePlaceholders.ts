@@ -33,7 +33,23 @@ export interface PlaceholderInfo {
 }
 
 const TAG_REGEX = /\{\{([#/^]?)([^{}]+?)\}\}/g;
-const CONTROL_WORDS = new Set(['if', 'unless', 'with', 'each', 'for']);
+
+/**
+ * TPL-11: the set of filter names the render path (RenderCore.ts) actually
+ * registers -- every key of the `docxHelpers` object, the same object
+ * RenderCore iterates with `Object.entries(docxHelpers)` to build
+ * angular-expressions filters. Deliberately **not**
+ * `TEMPLATE_FILTER_VOCABULARY` (TPL-3, docxHelpers.ts): that constant's own
+ * doc comment calls it "a curated subset of docxHelpers, not every key in
+ * it" -- helpers like `add`, `round`, `join`, `length` and `formatDate`
+ * work today as pipe filters (TPL-2 AC1 renders all 31 through the real
+ * engine) but are not part of the *documented* preset list. Validating
+ * against the curated subset would flag every one of those as "unknown"
+ * on a template that renders correctly, which is a worse failure mode than
+ * the bug this ticket fixes. `docxHelpers` can't drift from the renderer's
+ * own registry because both import the same object.
+ */
+const KNOWN_FILTERS = new Set(Object.keys(docxHelpers));
 
 /** Raised when the template itself is malformed (unclosed/mismatched tags) */
 export class TemplateSyntaxError extends Error {
@@ -85,14 +101,82 @@ function addPlaceholder(state: ExtractionState, info: PlaceholderInfo, dedupeKey
   }
 }
 
-/** Handle a section-opening tag ({{#items}}, {{^flag}}, {{#isEmpty x}}) */
+/**
+ * Split a tag body on top-level `|` characters (quote-aware, so a filter
+ * argument like `default:"N/A"` -- or a hypothetical one containing a
+ * literal `|` -- never gets split mid-argument). Segment 0 is always the
+ * variable path; segments 1+ are filters, in application order.
+ */
+function splitPipeSegments(content: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quote: string | null = null;
+
+  for (const ch of content) {
+    if (quote !== null) {
+      current += ch;
+      if (ch === quote) {
+        quote = null;
+      }
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      current += ch;
+    } else if (ch === '|') {
+      segments.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  segments.push(current);
+
+  return segments.map((s) => s.trim());
+}
+
+/** A filter segment is `name` or `name:arg1:arg2`; only the name matters here. */
+function filterName(segment: string): string {
+  const colonIdx = segment.indexOf(':');
+  return (colonIdx === -1 ? segment : segment.slice(0, colonIdx)).trim();
+}
+
+/**
+ * TPL-11 AC5 decision: an indexed path (`Children[0].name`) is reported as
+ * its root alias (`Children`), not verbatim.
+ *
+ * Why: TPL-5's forthcoming variable inventory diffs extracted names against
+ * the workflow's alias inventory, where the alias is `Children` -- the
+ * array itself, never an indexed accessor (aliases name steps, and a step
+ * doesn't know at design time which loop iteration will read it). Reporting
+ * `Children[0].name` verbatim would make every single indexed tag in a
+ * template -- the exact shape the repo owner's `docxtpl` estate table uses
+ * throughout -- raise a false "unmapped variable" warning, on a variable
+ * that unambiguously *is* mapped. The cost of this choice is precision: we
+ * lose the trailing field/index in the reported name (`Children[0].name`
+ * collapses to the same `Children` as `Children[9].guardian`). That's an
+ * acceptable trade here -- alias-diffing only needs to know *which step*
+ * the tag depends on, not which array element -- and it mirrors how
+ * `TemplateValidationService.buildReport` already treats dotted paths
+ * (`client.address.city` matches alias `client` via a root-segment split).
+ * A verbatim-name option was considered and rejected for the false-warning
+ * reason above.
+ */
+function stripArrayIndex(pathStr: string): string {
+  const bracketIdx = pathStr.indexOf('[');
+  return bracketIdx === -1 ? pathStr : pathStr.slice(0, bracketIdx);
+}
+
+/**
+ * Handle a section-opening tag: `{{#items}}` (loop), `{{^flag}}` (inverted),
+ * or a comparison (`{{#a == b}}`, TPL-2). The old helper-driven
+ * (`{{#isEmpty addOns}}`) and control-word (`{{#each items}}`) indirection
+ * this used to special-case belonged to the prefix grammar TPL-3 deleted
+ * (D1) and no longer renders, so it is not parsed specially here either --
+ * `name` is always the section's first token, index-stripped like a value
+ * tag's path.
+ */
 function processSectionTag(state: ExtractionState, prefix: string, content: string): void {
-  const parts = tokenizeTag(content);
-  // Helper-driven sections ({{#isEmpty addOns}}) and legacy control-flow
-  // sections ({{#each items}}) name the underlying variable second
-  const usesIndirection =
-    parts[1] !== undefined && (CONTROL_WORDS.has(parts[0]) || parts[0] in docxHelpers);
-  const name = usesIndirection ? parts[1] : parts[0];
+  const firstToken = tokenizeTag(content)[0] ?? '';
+  const name = stripArrayIndex(firstToken);
   const sectionScope = currentScope(state);
 
   addPlaceholder(
@@ -101,34 +185,40 @@ function processSectionTag(state: ExtractionState, prefix: string, content: stri
     `#${name}|${sectionScope.join('>')}`
   );
 
-  // '#' array sections scope their inner fields to the loop items.
-  // Inverted ('^') and helper-driven sections render at the current
-  // scope — push a '^'-marked entry that only balances the closing tag.
-  const scopesFields = prefix === '#' && !usesIndirection;
-  state.loopStack.push(scopesFields ? name : `^${name}`);
+  // '#' sections scope their inner fields to the loop/array item. Inverted
+  // ('^') sections render at the current scope — push a '^'-marked entry
+  // that only balances the closing tag.
+  state.loopStack.push(prefix === '#' ? name : `^${name}`);
 }
 
-/** Handle a value tag ({{name}}, {{client.city}}, {{upper name}}) */
+/**
+ * Handle a value tag: `{{name}}`, `{{client.city}}`, `{{ x | upper }}`,
+ * `{{ x | trim | upper }}`, `{{ Children[0].name }}`. The variable path is
+ * whatever precedes the first `|`; everything after is a filter, checked
+ * against `KNOWN_FILTERS`. A tag with no `|` is a plain path — unaffected by
+ * the grammar this ticket fixes.
+ */
 function processValueTag(state: ExtractionState, content: string): void {
-  const parts = tokenizeTag(content);
-  let name = parts[0];
-  let kind: PlaceholderInfo['kind'] = 'variable';
-  let helper: string | undefined;
+  const segments = splitPipeSegments(content);
+  const name = stripArrayIndex(segments[0]);
 
-  if (parts.length > 1) {
-    if (parts[0] in docxHelpers) {
-      helper = parts[0];
-      name = parts[1];
-      kind = 'helper';
-    } else {
-      helper = parts[0];
-      name = parts[1];
-      kind = 'unknown_helper';
-    }
+  if (name === '' || name === '.') {
+    return;
   }
 
-  if (name === undefined || name === '' || name === '.') {
-    return;
+  const filters = segments.slice(1).map(filterName).filter((f) => f !== '');
+  const unknownFilter = filters.find((f) => !KNOWN_FILTERS.has(f));
+
+  let kind: PlaceholderInfo['kind'] = 'variable';
+  let helper: string | undefined;
+  if (filters.length > 0) {
+    // AC3/AC4: a chained tag reports one placeholder for the variable, never
+    // one per filter. `helper` names the problem filter when one is unknown,
+    // else the first applied filter (single-filter is the common case; for a
+    // chain of all-known filters this is a representative name, not a full
+    // list — nothing downstream needs the full chain today).
+    kind = unknownFilter !== undefined ? 'unknown_helper' : 'helper';
+    helper = unknownFilter ?? filters[0];
   }
 
   const scope = currentScope(state);

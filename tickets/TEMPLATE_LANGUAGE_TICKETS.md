@@ -770,7 +770,41 @@ ticket, not the one-line seed.
 
 ---
 
-## TPL-11 — Teach the static extractor the pipe grammar 🔲
+## TPL-11 — Teach the static extractor the pipe grammar ✅
+
+> **Verified 2026-08-10 (reviewer).** All 8 ACs met. Gates re-run by the reviewer:
+> `type-check` exit 0 · `lint` exit 0 repo-wide · `test:fast` **2942 passed / 14 skipped**
+> (+18 over the 2924 baseline). `grep -rn "parts\[0\] in docxHelpers" server/` now returns
+> nothing anywhere, so the Phase 1 Gate's carve-out for this file is no longer needed.
+>
+> Reviewer probes, independent of the dev's tests:
+> ```
+> {{ client_name | upper }} {{ fee | usd }} {{ Children[0].name }} {{plain_var}}
+>   -> ["client_name","fee","Children","plain_var"]     (was ["|","Children[0].name","plain_var"])
+> {{ a | trim | upper }} {{ a }}   -> ["a"]             chained, deduped
+> {{ Children[0].n }} {{ Children[9].g }} -> ["Children"]
+> {{#items}}{{n}}{{/items}}{{^empty}}x{{/empty}} -> ["items","n","empty"]   AC6 intact
+> ```
+>
+> **AC5 decided: `Children[0].name` reports as `Children`.** The dev's reasoning, which I
+> accept: an alias names a *step*, never an array-index accessor, and a step cannot know at
+> design time which iteration reads it. Reporting the indexed form verbatim would make every
+> indexed tag — the exact shape of the repo owner's `docxtpl` estate table — raise a false
+> "unmapped variable" in TPL-5. The cost is precision (`Children[0]` and `Children[9]`
+> collapse), which is acceptable because alias-diffing only needs to know which step a tag
+> depends on.
+>
+> **Deviation accepted, and it corrects an error in the ticket.** The ticket said to validate
+> filter names against `TEMPLATE_FILTER_VOCABULARY`; the dev validated against `docxHelpers`
+> instead, because the vocabulary is a *curated subset* by its own definition — `add`,
+> `round`, `join`, `length` and `formatDate` all render correctly (TPL-2 AC1 proved all 31)
+> but are not in it, so the ticket's instruction would have flagged working templates as
+> broken. `docxHelpers` also cannot drift from the renderer, which builds its filter registry
+> from the same object. My ticket was wrong; the dev was right to deviate and to say why.
+>
+> The extraction bug was a latent break shipped with TPL-2 — before the pipe grammar existed
+> no author could write it, so nothing surfaced. It was found by the reviewer probing
+> adjacent code after TPL-3, not by any ticket's gates. **This unblocks TPL-5.**
 
 **Priority: P1** · Size: S · Files: `server/services/templatePlaceholders.ts`
 

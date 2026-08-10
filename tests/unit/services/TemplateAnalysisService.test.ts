@@ -79,8 +79,10 @@ describe('TemplateAnalysisService', () => {
       expect(analysis.stats.conditionalCount).toBe(0);
     });
 
+    // TPL-11: rewritten from the old `{{upper name}}` prefix form (D1
+    // deleted it outright) to the pipe grammar TPL-2 shipped.
     it('attributes helper tags to their helper and variable', async () => {
-      const file = await writeDocx('helper.docx', '{{upper name}}');
+      const file = await writeDocx('helper.docx', '{{ name | upper }}');
       const analysis = await analyzeTemplate(file);
 
       const helper = analysis.variables.find((v) => v.type === 'helper');
