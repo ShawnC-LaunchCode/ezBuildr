@@ -24,6 +24,65 @@ drifted line is not a broken ticket.
 
 ---
 
+## Status board
+
+**5 of 11 closed** · updated 2026-08-10.
+
+> **Recount, do not increment.** These counts are derived from the ticket headings below
+> (`grep -c "^## TPL-.*✅"`). The roadmap file's equivalent board drifted by hand-incrementing
+> and had to be corrected twice — do not repeat that here.
+
+| Ticket | Status | Size | What it does | Blocked by | Owns |
+|---|---|---|---|---|---|
+| **TPL-1** | ✅ | P1 · S | Spike that chose the parser — adopt `angular-expressions`, don't hand-roll | — | spike test |
+| **TPL-2** | ✅ | P1 · M | Expression layer: pipe filters, chaining, filter args, comparisons in section tags, array indexing, loop counters; reserves `{%`/`{#` | — | `RenderCore.ts` |
+| **TPL-3** | ✅ | P1 · M | Named filter presets, deletes the legacy prefix grammar, strict-undefined | — | `RenderCore.ts` |
+| **TPL-10** | ✅ | P0 · S | Seeds every known alias as `null` so strict mode tells an unanswered field from a typo | — | `RunDataService.ts` |
+| **TPL-11** | ✅ | P1 · S | Teaches the static extractor the pipe grammar | — | `templatePlaceholders.ts` |
+| **TPL-9** | 🔲 ready | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
+| **TPL-4** | 🔲 ready | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
+| **TPL-5** | 🔲 ready | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
+| **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
+| **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
+| **TPL-6** | 🔲 **blocked** | P2 · M | Variable health on the template card | **TPL-5** | `client/…/templates/` |
+
+### Dependency chain — one open edge left
+
+```
+TPL-1 → TPL-2 → TPL-3 ┬→ TPL-10 ✅
+                       ├→ TPL-11 ✅ → TPL-5 → TPL-6   ← the only open edge
+                       ├→ TPL-9   ready
+                       ├→ TPL-7   ready → GH-161 closes
+                       └→ TPL-8   ready
+        TPL-4 (independent, never blocked)
+```
+
+### Parallelism
+
+TPL-9, TPL-4, TPL-5, TPL-7 and TPL-8 touch five disjoint file sets, so nothing forces them
+into sequence. Only TPL-6 waits on another ticket. Two limits are **not** in the graph:
+
+- **DB contention.** Any number of agents may run `test:fast` at once, but only one may run a
+  DB-backed suite at a time — schemas are per-worker, not per-process, so concurrent runs
+  clobber each other into dozens of fake failures. TPL-5 is the likely one.
+- **Review throughput.** Each ticket needs its own worktree and a full reviewer pass. Two to
+  three in flight is the honest ceiling; more just queues at review.
+
+### Roadmap knock-on
+
+- **GH-161** is not separately dispatchable — it closes when TPL-7 closes.
+- **GH-171** (template versioning) is unblocked; its `template_versions` table already exists.
+- **GH-173** (legal drafting primitives) is unblocked; its drafting helpers belong in TPL-3's
+  filter vocabulary rather than a separate mechanism.
+
+### Parked, awaiting a repo-owner decision
+
+- **TPL-O7 — business-day and holiday math.** The arithmetic is trivial; the holiday calendar
+  is the whole cost and it is jurisdictional. Worth answering before GH-173 writes retainer and
+  NDA templates, which is exactly where "30 business days" appears.
+
+---
+
 ## How to work this document
 
 - **Tickets are grouped into 4 phases**, ordered by dependency. Do not start a phase
@@ -908,6 +967,19 @@ produces).
 **Priority: P1** · Size: S · Files: `server/services/document/TemplateScanner.ts`, `tests/unit/services/document/TemplateScanner.test.ts` (new)
 
 ### Finding
+
+> **Re-scoped 2026-08-10, after TPL-2 and TPL-3 landed.** Finding (a) has shrunk and Finding
+> (b) has not. `docxtemplater/expressions.js` normalises smart quotes *inside the parser*, and
+> TPL-3 deleted the legacy grammar that was the only path still corrupting them — so a
+> curly-quoted filter argument already renders correctly today (probed:
+> `{{ d | formatDate:“MM/DD/YYYY” }}` → `01/05/2026`).
+>
+> That makes AC1/AC2 **defence in depth at the upload boundary**, not the primary fix. Still
+> worth doing — the stored template is what every other consumer reads — but do not size this
+> ticket as though document rendering depends on it.
+>
+> **The real value here is (b) and (c):** a repair that silently merges table cells, and the
+> fact that a file running on every single upload has never had a unit test.
 
 **(a) Smart quotes are not normalised.** `normalizeXml()` in **`class TemplateScanner`**
 (`server/services/document/TemplateScanner.ts`) handles three invisible characters and no
