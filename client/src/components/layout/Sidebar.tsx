@@ -1,4 +1,4 @@
-import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot, BarChart3 } from "lucide-react";
+import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot, BarChart3, Coins } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
@@ -26,6 +26,7 @@ const adminNavigation = [
   { name: "Manage Users", href: "/admin/users", icon: Users },
   { name: "Activity Logs", href: "/admin/logs", icon: List },
   { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },
+  { name: "AI Usage", href: "/admin/ai-usage", icon: Coins },
 ];
 
 export default function Sidebar({ className }: SidebarProps) {
