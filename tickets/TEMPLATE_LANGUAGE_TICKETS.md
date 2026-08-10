@@ -26,7 +26,7 @@ drifted line is not a broken ticket.
 
 ## Status board
 
-**5 of 11 closed** · updated 2026-08-10.
+**6 of 11 closed** · updated 2026-08-10.
 
 > **Recount, do not increment.** These counts are derived from the ticket headings below
 > (`grep -c "^## TPL-.*✅"`). The roadmap file's equivalent board drifted by hand-incrementing
@@ -39,7 +39,7 @@ drifted line is not a broken ticket.
 | **TPL-3** | ✅ | P1 · M | Named filter presets, deletes the legacy prefix grammar, strict-undefined | — | `RenderCore.ts` |
 | **TPL-10** | ✅ | P0 · S | Seeds every known alias as `null` so strict mode tells an unanswered field from a typo | — | `RunDataService.ts` |
 | **TPL-11** | ✅ | P1 · S | Teaches the static extractor the pipe grammar | — | `templatePlaceholders.ts` |
-| **TPL-9** | 🔲 ready | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
+| **TPL-9** | ✅ | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
 | **TPL-4** | 🔲 ready | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
 | **TPL-5** | 🔲 ready | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
 | **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
@@ -656,7 +656,38 @@ Mirror the existing structured-error shape: `createError.internal()` with the
 
 ---
 
-## TPL-9 — Date and duration filters: stop silent wrong dates, add month arithmetic 🔲
+## TPL-9 — Date and duration filters: stop silent wrong dates, add month arithmetic ✅
+
+> **Verified 2026-08-10 (reviewer).** All 9 ACs met. Gates: `type-check` exit 0 · `lint`
+> exit 0 repo-wide · `test:fast` **2970 passed / 14 skipped** (+22 over the 2948 baseline).
+>
+> Reviewer probes against the real helpers:
+> ```
+> addDays('2026-01-05', 30)      -> "02/04/2026"
+> addDays('2026-01-05', "30")    -> "02/04/2026"   AC1: quoted now matches numeric
+> addDays('2026-01-05', "soon")  -> THROWS  addDays: amount must be a number, received "soon"
+> date / formatDate on 2026-01-05 -> ["01/05/2026","01/05/2026"]   AC3: they finally agree
+> addDays('not a date', 30)      -> THROWS  not a valid date
+> addDays('', 30)                -> ""       AC4: empty stays empty
+> daysBetween('2026-01-01','')   -> THROWS  date2 is required
+> ```
+> AC7's month-end convention is stated in a code comment and asserted:
+> `addMonths('2026-01-31', 1)` → `02/28/2026` (date-fns clamp), not left emergent.
+>
+> **The implementing session was killed mid-ticket by an account session limit**, with the
+> implementation complete and the test wiring unfinished. The reviewer finished it rather
+> than re-dispatching:
+> - Added the four new helpers to TPL-2's completeness table in
+>   `RenderCore.expressions.test.ts`. That table derives coverage from the live
+>   `docxHelpers` object, so it failed with `uncovered: [addMonths, addYears, startOfMonth,
+>   endOfMonth]` — **the guard TPL-2 added working exactly as designed.**
+> - Corrected a stale expectation in the same table: it asserted `date` → `01/04/2026`,
+>   which *encoded the very off-by-one this ticket fixes*. Now `01/05/2026`.
+> - Extracted `DEFAULT_DATE_FORMAT`; six copies of `'MM/DD/YYYY'` tripped
+>   `sonarjs/no-duplicate-string` once four more date helpers shared it.
+>
+> Business-day and holiday arithmetic remain out of scope — parked as **TPL-O7**, awaiting
+> the repo owner's decision on which holiday calendar.
 
 **Priority: P1** · Size: S · Files: `server/services/docxHelpers.ts`, `server/utils/formatters.ts`
 

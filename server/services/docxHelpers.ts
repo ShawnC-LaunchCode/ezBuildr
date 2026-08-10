@@ -10,7 +10,17 @@
  * - Conditional helpers
  */
 
-import { format as formatDateFns, addDays as fnsAddDays, differenceInDays, parseISO, isValid } from 'date-fns';
+import {
+  format as formatDateFns,
+  addDays as fnsAddDays,
+  addMonths as fnsAddMonths,
+  addYears as fnsAddYears,
+  startOfMonth as fnsStartOfMonth,
+  endOfMonth as fnsEndOfMonth,
+  differenceInDays,
+  parseISO,
+  isValid,
+} from 'date-fns';
 
 import { formatters } from '../utils/formatters';
 
@@ -145,13 +155,20 @@ function translateDateFormat(momentFormat: string): string {
 }
 
 /**
+ * Default output format for every date helper. Extracted as a constant because
+ * TPL-9 added four more date helpers that share it, and six copies of the same
+ * literal is both a lint error and a real drift hazard.
+ */
+const DEFAULT_DATE_FORMAT = 'MM/DD/YYYY';
+
+/**
  * Format date with a Moment-style format string.
  * Supports: YYYY, YY, MMMM, MMM, MM, M, DD, D, Do, dddd, ddd, HH, H, hh, h,
  * mm, ss, A, a, and quoted literals ('at').
  */
 export function formatDate(
   iso: string | Date | null | undefined,
-  format: string = 'MM/DD/YYYY'
+  format: string = DEFAULT_DATE_FORMAT
 ): string {
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!iso) {return '';}
@@ -170,54 +187,177 @@ export function formatDate(
 }
 
 /**
- * Add days to a date
+ * TPL-9 Finding (a): coerce a filter argument to a finite number, accepting
+ * a real number (`addDays:30`) and a numeric string (`addDays:"30"`)
+ * identically. Every other pipe-filter argument in the docs is quoted
+ * (`| default:"N/A"`, `| replace:"world":"there"`), so authors reach for
+ * quotes here out of habit -- and without this coercion, date-fns silently
+ * does `date.getDate() + "30"`, which string-concatenates rather than adds
+ * (a day-of-month of `5` becomes `"530"`, not `35`), rolling the date
+ * forward roughly a year and a half with no error. Reproduced against the
+ * real render path: `{{ '2026-01-05' | addDays:"30" }}` rendered
+ * `06/14/2027` instead of `02/04/2026` before this fix. Raise on anything
+ * that isn't a finite number rather than falling through to date-fns.
  */
-export function addDays(
-  iso: string | Date | null | undefined,
-  days: number = 0,
-  format: string = 'MM/DD/YYYY'
-): string {
-  if (iso == null || iso === '') { return ''; }
-
-  try {
-    let d = typeof iso === 'string' ? parseISO(iso) : iso;
-    if (typeof iso === 'string' && !isValid(d)) {
-      d = new Date(iso);
-    }
-    if (isNaN(d.getTime())) { return ''; }
-
-    const updated = fnsAddDays(d, days);
-    return formatDateFns(updated, translateDateFormat(format));
-  } catch (error) {
-    return '';
+function coerceAmount(filterName: string, raw: unknown): number {
+  const num = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(num)) {
+    throw new Error(`${filterName}: amount must be a number, received ${JSON.stringify(raw)}`);
   }
+  return num;
 }
 
 /**
- * Calculate difference in days between two dates
+ * Parse a date argument for the date-arithmetic/formatting filters
+ * (addDays, addMonths, addYears, startOfMonth, endOfMonth). This is D3's
+ * unknown-vs-empty split applied to a *value* rather than a variable path:
+ * an empty/null input is a respondent who skipped an optional question --
+ * a legitimate empty render (returns `undefined`; callers render `''`), not
+ * an error. A non-empty input that still fails to parse is broken data or a
+ * broken template (TPL-9 Finding (c)) and must raise rather than silently
+ * rendering `''` as though nothing were wrong -- a blank is noticed in a
+ * legal document; a plausible-looking wrong date is signed.
+ */
+function parseDateArg(filterName: string, iso: string | Date | null | undefined): Date | undefined {
+  if (iso == null || iso === '') { return undefined; }
+
+  let d = typeof iso === 'string' ? parseISO(iso) : iso;
+  if (typeof iso === 'string' && !isValid(d)) {
+    d = new Date(iso);
+  }
+  if (isNaN(d.getTime())) {
+    throw new Error(`${filterName}: "${String(iso)}" is not a valid date`);
+  }
+  return d;
+}
+
+/**
+ * Same parsing as `parseDateArg`, but for helpers where a missing operand
+ * has no safe blank rendering. `daysBetween` returns a bare number, and `0`
+ * is a plausible real answer -- "payment due 0 days after signing" reads as
+ * a stated deadline, not as "unknown" -- so unlike the date-formatting
+ * helpers above, a missing operand here must raise too (TPL-9 Finding (c)),
+ * not quietly render as a number that looks like a real term.
+ */
+function requireDateArg(filterName: string, iso: string | Date | null | undefined, argLabel: string): Date {
+  if (iso == null || iso === '') {
+    throw new Error(`${filterName}: "${argLabel}" is required`);
+  }
+  let d = typeof iso === 'string' ? parseISO(iso) : iso;
+  if (typeof iso === 'string' && !isValid(d)) {
+    d = new Date(iso);
+  }
+  if (isNaN(d.getTime())) {
+    throw new Error(`${filterName}: "${argLabel}" (${JSON.stringify(iso)}) is not a valid date`);
+  }
+  return d;
+}
+
+/**
+ * Add days to a date. Empty input renders blank; an unparseable date or a
+ * non-numeric `days` argument raises (see `parseDateArg`/`coerceAmount`).
+ */
+export function addDays(
+  iso: string | Date | null | undefined,
+  days: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  const d = parseDateArg('addDays', iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount('addDays', days);
+  const updated = fnsAddDays(d, amount);
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/**
+ * Add whole months to a date, then format.
+ *
+ * TPL-9 AC7's month-end convention -- stated explicitly, not left emergent,
+ * because a legal deadline cannot have an accidental answer: date-fns'
+ * `addMonths` clamps an overflowing day to the last day of the target
+ * month, so one month after 2026-01-31 is 2026-02-28 (February has no
+ * 31st), not 2026-03-03 and not an error. Adopted as-is rather than
+ * reimplemented, so every `| addMonths` in a document follows one rule.
+ */
+export function addMonths(
+  iso: string | Date | null | undefined,
+  months: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  const d = parseDateArg('addMonths', iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount('addMonths', months);
+  const updated = fnsAddMonths(d, amount);
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/**
+ * Add whole years to a date, then format. Mirrors `addDays`'/`addMonths`'
+ * signature and blank/raise rules; date-fns' `addYears` inherits the same
+ * `addMonths` month-end clamp for Feb 29 -> Feb 28 on a non-leap target year.
+ */
+export function addYears(
+  iso: string | Date | null | undefined,
+  years: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  const d = parseDateArg('addYears', iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount('addYears', years);
+  const updated = fnsAddYears(d, amount);
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/**
+ * Start of the month, optionally offset by whole months first --
+ * `{{ signing_date | startOfMonth:1 }}` is the 1st of the month after
+ * signing. The `amount` argument mirrors `addDays`/`addMonths` rather than
+ * being dropped, so all four date-arithmetic filters share one calling
+ * convention: `(value, amount, format)`.
+ */
+export function startOfMonth(
+  iso: string | Date | null | undefined,
+  monthsOffset: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  const d = parseDateArg('startOfMonth', iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount('startOfMonth', monthsOffset);
+  const updated = fnsStartOfMonth(fnsAddMonths(d, amount));
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/** End of the month, optionally offset by whole months first. See `startOfMonth`. */
+export function endOfMonth(
+  iso: string | Date | null | undefined,
+  monthsOffset: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  const d = parseDateArg('endOfMonth', iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount('endOfMonth', monthsOffset);
+  const updated = fnsEndOfMonth(fnsAddMonths(d, amount));
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/**
+ * Calculate difference in days between two dates. TPL-9 Finding (c): both
+ * operands are required (see `requireDateArg`) -- a missing or unparseable
+ * operand raises rather than returning `0`, because `0` is a plausible real
+ * term ("due 0 days after signing") and would silently misstate the answer.
  */
 export function daysBetween(
   date1: string | Date | null | undefined,
   date2: string | Date | null | undefined
 ): number {
-  if (date1 == null || date1 === '' || date2 == null || date2 === '') { return 0; }
-
-  try {
-    let d1 = typeof date1 === 'string' ? parseISO(date1) : date1;
-    if (typeof date1 === 'string' && !isValid(d1)) {
-      d1 = new Date(date1);
-    }
-    let d2 = typeof date2 === 'string' ? parseISO(date2) : date2;
-    if (typeof date2 === 'string' && !isValid(d2)) {
-      d2 = new Date(date2);
-    }
-    
-    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) { return 0; }
-
-    return Math.abs(differenceInDays(d1, d2));
-  } catch (error) {
-    return 0;
-  }
+  const d1 = requireDateArg('daysBetween', date1, 'date1');
+  const d2 = requireDateArg('daysBetween', date2, 'date2');
+  return Math.abs(differenceInDays(d1, d2));
 }
 
 /**
@@ -493,6 +633,10 @@ export const docxHelpers = {
   pluralize,
   concat,
   addDays,
+  addMonths,
+  addYears,
+  startOfMonth,
+  endOfMonth,
   daysBetween,
   round,
   percentage,
