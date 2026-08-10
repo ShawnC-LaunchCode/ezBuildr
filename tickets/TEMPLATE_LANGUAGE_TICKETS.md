@@ -698,7 +698,30 @@ Business-day and holiday arithmetic are **out of scope** — parked by the repo 
 
 ---
 
-## TPL-10 — Backfill known step aliases so strict mode can tell unanswered from unknown 🔲
+## TPL-10 — Backfill known step aliases so strict mode can tell unanswered from unknown ✅
+
+> **Verified 2026-08-10 (reviewer).** All 6 ACs met. Gates re-run by the reviewer:
+> `type-check` exit 0 · `lint` exit 0 repo-wide · `test:fast` **2930 passed / 14 skipped**
+> (+6 over the 2924 baseline). Reviewer probe of `toAliasKeyed` directly:
+> `{"client_name":"Ada","zero_field":0,"empty_str":"","false_field":false,"never_answered":null}`
+> — the unanswered alias is present-as-null and all three falsy values survive.
+>
+> **Deviation accepted, and it is better than the ticket's Preferred fix.** The ticket said
+> to seed `byStepId`; the dev seeded **`byAlias` only** and left `byStepId` exactly as it
+> was. Reason: `RunCompletionService` passes `Object.keys(runData.byStepId).length` to
+> `captureRunSucceeded` as an analytics step count. Seeding `byStepId` would silently
+> redefine that metric from "steps answered" to "steps in the workflow". Verified at
+> `server/services/workflow-runs/RunCompletionService.ts:100`. Every AC references
+> `byAlias`, so the narrower seed satisfies all of them and avoids the metric drift.
+>
+> **AC5 consumer survey** covered all four `buildForRun` callers and is preserved as a doc
+> comment on the service rather than only in the turn-in. `RunCompletionService` is
+> unaffected (`byStepId` untouched); `RunLifecycleService` is the intended fix path;
+> `SignatureBlockService` is value-based throughout. One intentional shape change is
+> recorded: `DocumentDeliveryService`'s webhook adapter now emits an explicit `null` for an
+> aliased-but-unanswered step instead of omitting the key.
+>
+> **This unblocks TPL-3**, which was held off `main` for exactly this reason.
 
 **Priority: P0 (blocks TPL-3 from `main`)** · Size: S · Files: `server/services/workflow-runs/RunDataService.ts`
 
