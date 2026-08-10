@@ -26,7 +26,7 @@ drifted line is not a broken ticket.
 
 ## Status board
 
-**6 of 11 closed** · updated 2026-08-10.
+**7 of 11 closed** · updated 2026-08-10.
 
 > **Recount, do not increment.** These counts are derived from the ticket headings below
 > (`grep -c "^## TPL-.*✅"`). The roadmap file's equivalent board drifted by hand-incrementing
@@ -40,7 +40,7 @@ drifted line is not a broken ticket.
 | **TPL-10** | ✅ | P0 · S | Seeds every known alias as `null` so strict mode tells an unanswered field from a typo | — | `RunDataService.ts` |
 | **TPL-11** | ✅ | P1 · S | Teaches the static extractor the pipe grammar | — | `templatePlaceholders.ts` |
 | **TPL-9** | ✅ | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
-| **TPL-4** | 🔲 ready | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
+| **TPL-4** | ✅ | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
 | **TPL-5** | 🔲 ready | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
 | **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
 | **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
@@ -993,7 +993,41 @@ Turning silent blanks into feedback the author sees. TPL-4 is independent and ma
 parallel with Phase 0 or Phase 1. TPL-5 → TPL-6 are sequential (TPL-6 renders what TPL-5
 produces).
 
-## TPL-4 — Normalise Word's autocorrect damage, and test the repair path at all 🔲
+## TPL-4 — Normalise Word's autocorrect damage, and test the repair path at all ✅
+
+> **Verified 2026-08-10 (reviewer).** All 7 ACs met. `type-check` 0 errors · `lint` 0
+> problems · `test:fast` **264 files / 2962 passed / 14 skipped**. (One run reported a
+> single unrelated failure that did not reproduce on a second run — the documented
+> order-dependent flake in this suite, not this change.)
+>
+> Reviewer probe of the inline-versus-structural line, which is the whole ticket:
+> ```
+> run split         -> repaired, no error
+> paragraph split   -> repaired, no error
+> cell split        -> UNCHANGED, 1 structural error
+> row split         -> UNCHANGED, 1 structural error
+> clean template    -> unchanged, no error
+> ```
+>
+> **The implementing session was killed mid-ticket by an account session limit** with 5 of
+> its own 14 tests failing. The reviewer debugged and finished it. One of those five was a
+> **real implementation bug, not a test bug**: `repairXml` detected the structural boundary
+> and reported the right error, but still returned XML whose inline tags had already been
+> stripped around it — leaving `<w:t>{{ guardian_name </w:tc><w:tc> }}</w:t>`, unbalanced
+> markup spanning a cell edge, *worse than the input*. The author's own comment said "leave
+> the XML untouched"; the code returned the mutated copy. It now returns the caller's
+> original bytes when any structural error is found, since the upload is rejected anyway
+> and no repair should be applied to a template that is about to be refused.
+>
+> The other four were harness bugs: the text extractor kept the fixture's newlines and
+> indentation, and one fixture used `{{ client_name }}` **with spaces** while rendering
+> through docxtemplater's *default* parser, which looks up the raw tag text and so resolved
+> `' client_name '` to undefined. The harness now trims the tag, matching the shipped
+> grammar where spaces inside braces are normal.
+>
+> Per the 2026-08-10 re-scope, AC1/AC2 are defence in depth: the render path already
+> normalises smart quotes. The value delivered here is the cell-merge fix and the first
+> unit tests this file has ever had, on code that runs on every upload.
 
 **Priority: P1** · Size: S · Files: `server/services/document/TemplateScanner.ts`, `tests/unit/services/document/TemplateScanner.test.ts` (new)
 
