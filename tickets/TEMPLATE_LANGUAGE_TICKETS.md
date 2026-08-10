@@ -1,4 +1,4 @@
-# Template Language — Expression Layer & Authoring Safety (TPL-1..8)
+# Template Language — Expression Layer & Authoring Safety (TPL-1..9)
 
 Source: live investigation of the DOCX render path, 2026-08-09, driven by two
 real-world competitor templates supplied by the repo owner (a `docxtpl` estate-planning
@@ -53,7 +53,7 @@ drifted line is not a broken ticket.
 | Phase | Theme | Tickets | Notes |
 |---|---|---|---|
 | 0 | Decide the parser | TPL-1 ✅ | Closed 2026-08-09 — **adopt `angular-expressions`** |
-| 1 | Grammar & engine | TPL-2, TPL-3 | Sequential — same two files |
+| 1 | Grammar & engine | TPL-2, TPL-3, TPL-9 | Strictly sequential — all three touch `docxHelpers.ts` |
 | 2 | Authoring safety | TPL-4, TPL-5, TPL-6 | TPL-4 parallel; TPL-5 → TPL-6 sequential |
 | 3 | Consumers | TPL-7, TPL-8 | Parallel |
 
@@ -271,7 +271,7 @@ The dependency is lightweight (Unlicense, ~102KB unpacked size) and perfectly sa
 
 # Phase 1 — Grammar & engine
 
-Two tickets, both in `RenderCore.ts` + `docxHelpers.ts`. **Dispatch strictly
+Three tickets, all in `RenderCore.ts` + `docxHelpers.ts`. **Dispatch strictly
 sequentially** — they fight over the same two files, and TPL-3 assumes TPL-2's parser
 exists. Out of scope for this phase: the template card, the runner, and docs.
 
@@ -495,9 +495,110 @@ Mirror the existing structured-error shape: `createError.internal()` with the
 
 ---
 
+## TPL-9 — Date and duration filters: stop silent wrong dates, add month arithmetic 🔲
+
+**Priority: P1** · Size: S · Files: `server/services/docxHelpers.ts`, `server/utils/formatters.ts`
+
+### Finding
+
+Date math is the most common calculation in legal drafting ("payment due 30 days after
+signing") and it has three failure modes, two of which put a **plausible but wrong date**
+into an executed document. Probed 2026-08-09 through the TPL-1 parser with the real
+helpers registered, input `d = '2026-01-05'`:
+
+```
+{{ d | addDays:30 }}        -> "02/04/2026"    correct
+{{ d | addDays:"30" }}      -> "06/14/2027"    WRONG — 525 days, silently
+{{ d | date }}              -> "01/04/2026"    WRONG — off by one day
+{{ d | formatDate }}        -> "01/05/2026"    correct
+{{ 'not a date' | addDays:30 }} -> ""          silent
+{{ signing | daysBetween:blank }} -> 0         silent, and 0 reads as a real term
+```
+
+**(a) A quoted numeric argument silently produces a wildly wrong date.** `addDays()` in
+`server/services/docxHelpers.ts` types its parameter as a number and passes it straight to
+date-fns:
+
+```ts
+export function addDays(
+  iso: string | Date | null | undefined,
+  days: number = 0,
+  format: string = 'MM/DD/YYYY'
+): string {
+```
+
+Nothing coerces or rejects a string. Authors *will* write `addDays:"30"` — every other
+filter argument in the documentation is quoted — and the output looks like a real date.
+This is worse than a blank: a blank is noticed, a wrong date is signed. (The exact
+mechanism producing 525 days was not chased; reproduce it first, then fix.)
+
+**(b) Two date formatters disagree by a day, and the discoverable one is the broken one.**
+`formatDate` lives in `docxHelpers.ts` and parses with `parseISO`. `date` arrives via
+`...formatters` from `server/utils/formatters.ts` and returns the previous day for a bare
+`YYYY-MM-DD` input (reviewer machine UTC-6 — almost certainly an ISO string parsed as UTC
+midnight then formatted local). `date` is the shorter, more obvious name.
+
+**(c) Invalid input is swallowed.** `addDays` returns `''` for an unparseable date;
+`daysBetween` returns `0` when either operand is missing. Under **D3** an unparseable date
+is not an empty answer — it is a broken template or broken data and must be loud.
+
+### Preferred fix
+
+Fix the helpers, not the parser — these are helper-implementation bugs that the new
+grammar merely makes reachable.
+
+- **Coerce or reject numeric arguments.** Accept `30` and `"30"` identically (coerce via
+  `Number()` and validate with `Number.isFinite`), and raise on anything that is not a
+  finite number. Never fall through to date-fns with a non-number.
+- **One canonical date formatter.** `formatDate` is correct; make `date` an alias of it,
+  or fix `formatters.date` to parse date-only strings as local midnight. Do not leave two
+  implementations that disagree — that is how (b) happened.
+- **Raise on unparseable dates** per D3, keeping *empty input* (`''`/null — the respondent
+  skipped an optional question) as a legitimate empty render. The distinction is the whole
+  point of D3: unknown is loud, empty is blank.
+- **Add `addMonths`, `addYears`, `startOfMonth`, `endOfMonth`**, mirroring `addDays`'
+  signature (value, amount, optional format) so they register as filters identically.
+  **Document the month-end convention explicitly** — one month after January 31 must have
+  a stated answer, not an emergent one. date-fns `addMonths` clamps to the last day of the
+  target month (Jan 31 → Feb 28); state that in the code comment and in TPL-8's docs.
+
+Business-day and holiday arithmetic are **out of scope** — parked by the repo owner
+2026-08-09, see observation TPL-O7.
+
+### Ties
+
+- **Blocked by TPL-3.** Touches `server/services/docxHelpers.ts`, which TPL-2 and TPL-3
+  both rewrite. **Collides with TPL-2 and TPL-3 — sequence after both, never parallel.**
+- Load `run-tests`.
+- File footprint: `server/services/docxHelpers.ts`, `server/utils/formatters.ts`,
+  `tests/unit/services/docxHelpers.test.ts`. Note this is the one ticket in the initiative
+  that is *expected* to touch `docxHelpers.test.ts` — TPL-2 and TPL-3 must not.
+- Supersedes observation TPL-O6, which is folded into Finding (b).
+- TPL-8 documents the resulting filters and the month-end convention.
+
+### Acceptance criteria
+
+1. `{{ d | addDays:30 }}` and `{{ d | addDays:"30" }}` produce the identical result.
+2. A non-numeric amount (`addDays:"soon"`) raises an error naming the filter and the
+   argument; it does not return a date or a blank.
+3. `{{ d | date }}` and `{{ d | formatDate }}` return the same string for a bare
+   `YYYY-MM-DD` input, and that string is the same calendar day as the input.
+4. An unparseable date input raises per D3; an empty/null input still renders empty.
+5. `daysBetween` with a missing operand raises rather than returning `0`.
+6. `addMonths`, `addYears`, `startOfMonth` and `endOfMonth` exist, register as filters, and
+   accept the same `(value, amount, format)` shape as `addDays`.
+7. The month-end convention is asserted by a test: one month after `2026-01-31` renders the
+   documented value, with the convention named in a code comment.
+8. Tests cover 1–7 in `tests/unit/services/docxHelpers.test.ts`, including a regression test
+   for the exact `addDays:"30"` case with its wrong historical output quoted in a comment.
+9. `npm run type-check` 0 errors · `npm run lint` 0 problems · `npm run test:fast` green at
+   or above the baseline recorded in this file's header.
+
+---
+
 ## Phase 1 Gate
 
-- [ ] TPL-1, TPL-2, TPL-3 all ✅ with dated verification notes
+- [ ] TPL-1, TPL-2, TPL-3, TPL-9 all ✅ with dated verification notes
 - [ ] `npm run type-check` 0 errors · `npm run lint` 0 problems
 - [ ] `npm run test:fast` green at or above the header baseline
 - [ ] Reviewer has rendered the repo owner's `docxtpl` estate table through the new
@@ -921,13 +1022,18 @@ owner's say-so.
   numbering, party singular/plural agreement and pronoun agreement. These are natural
   filters in TPL-3's vocabulary once it exists, and GH-173 should implement them there
   rather than as a separate mechanism.
-- **TPL-O6 (correctness, needs confirming) — the `date` helper may shift the day
-  backwards.** Probed during the TPL-1 review: `{{ d | date }}` on the input `'2026-01-05'`
-  returned `01/04/2026`. The likely cause is an ISO date string parsed as UTC midnight and
-  then formatted in local time (the reviewer's machine is UTC-6). If that is what it is,
-  every bare `YYYY-MM-DD` answer renders one day early in a signed document west of
-  Greenwich. Pre-existing and unrelated to the template grammar, so not folded into any
-  TPL ticket — but confirm it before GH-173 ships date-bearing starter templates.
+- **TPL-O6 — CONFIRMED and promoted into TPL-9** (2026-08-09). `{{ d | date }}` returns
+  the previous calendar day where `{{ d | formatDate }}` is correct. No longer an
+  observation; see TPL-9 Finding (b).
+- **TPL-O7 (product-decision) — business-day and holiday date math.** Parked by the repo
+  owner 2026-08-09 when TPL-9 was scoped. "30 business days", and deadlines that roll off a
+  weekend or holiday, are common legal terms and are unexpressible today (`addBusinessDays`
+  does not exist). Deliberately **not** in TPL-9: business-day arithmetic is only correct
+  against a holiday calendar, and that is jurisdiction-specific — US federal, per-state, or
+  non-US for foreign clients. Three options when promoted: weekends-only (honest, simple,
+  documents its own limit), a fixed US federal list, or a per-workspace configurable
+  calendar. Needs a repo-owner decision on which before it is sized; the calendar choice,
+  not the arithmetic, is the whole cost.
 - **TPL-O5 (test-coverage) — no test renders a template through the full upload → store →
   generate path** with a real workflow's answers. Every test in this initiative builds
   buffers in-memory. An integration test covering the real path would have caught the
