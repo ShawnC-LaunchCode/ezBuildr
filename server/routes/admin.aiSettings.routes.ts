@@ -7,6 +7,7 @@ import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
 import { aiSettingsService } from "../services/AiSettingsService";
+import { aiUsageRepository } from "../repositories/AiUsageRepository";
 import { asyncHandler } from "../utils/asyncHandler";
 
 import type { Express, Request, Response } from "express";
@@ -69,6 +70,41 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
         } catch (error) {
             logger.error({ err: error, adminId: req.adminUser!.id }, 'Error updating AI settings');
             res.status(500).json({ message: "Failed to update AI settings" });
+        }
+    }));
+    /**
+     * GET /api/admin/ai-settings/usage
+     * Get global AI usage statistics (admin only)
+     */
+    app.get('/api/admin/ai-settings/usage', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+        try {
+            if (!req.adminUser) {
+                return res.status(403).json({ message: "Unauthorized" });
+            }
+
+            const querySchema = z.object({
+                days: z.coerce.number().int().min(1).max(365).optional().default(30)
+            });
+            const validation = querySchema.safeParse(req.query);
+            if (!validation.success) {
+                return res.status(400).json({ message: "Invalid parameters", errors: validation.error.errors });
+            }
+
+            const daysAgo = new Date();
+            daysAgo.setDate(daysAgo.getDate() - validation.data.days);
+
+            const usage = await aiUsageRepository.getUsageBreakdownSince(daysAgo);
+
+            res.json({
+                success: true,
+                usage,
+            });
+        } catch (error: unknown) {
+            logger.error({ error }, 'Failed to get admin AI usage stats');
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get usage statistics',
+            });
         }
     }));
     /**

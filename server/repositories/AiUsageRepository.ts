@@ -54,6 +54,55 @@ export class AiUsageRepository extends BaseRepository<typeof aiUsage, AiUsage, I
       .where(and(eq(aiUsage.tenantId, tenantId), gte(aiUsage.createdAt, since)));
     return Number(row?.total ?? 0);
   }
+  /**
+   * Returns a breakdown of AI usage grouped by task type, provider, and model.
+   * Includes count, summed input/output tokens, summed cost_usd, and mean cost_usd.
+   */
+  async getUsageBreakdownSince(
+    since: Date,
+    opts?: { tenantId?: string; tx?: DbTransaction }
+  ): Promise<Array<{
+    taskType: string | null;
+    provider: string;
+    model: string;
+    count: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalCostUsd: number;
+    meanCostUsd: number;
+  }>> {
+    const database = this.getDb(opts?.tx);
+    const conditions = [gte(aiUsage.createdAt, since)];
+    if (opts?.tenantId) {
+      conditions.push(eq(aiUsage.tenantId, opts.tenantId));
+    }
+
+    const rows = await database
+      .select({
+        taskType: aiUsage.taskType,
+        provider: aiUsage.provider,
+        model: aiUsage.model,
+        count: sql<string>`COUNT(*)`,
+        inputTokens: sql<string>`COALESCE(SUM(${aiUsage.inputTokens}), 0)`,
+        outputTokens: sql<string>`COALESCE(SUM(${aiUsage.outputTokens}), 0)`,
+        totalCostUsd: sql<string>`COALESCE(SUM(${aiUsage.costUsd}), 0)`,
+        meanCostUsd: sql<string>`COALESCE(AVG(${aiUsage.costUsd}), 0)`,
+      })
+      .from(aiUsage)
+      .where(and(...conditions))
+      .groupBy(aiUsage.taskType, aiUsage.provider, aiUsage.model);
+
+    return rows.map((row) => ({
+      taskType: row.taskType,
+      provider: row.provider,
+      model: row.model,
+      count: Number(row.count),
+      inputTokens: Number(row.inputTokens),
+      outputTokens: Number(row.outputTokens),
+      totalCostUsd: Number(row.totalCostUsd),
+      meanCostUsd: Number(row.meanCostUsd),
+    }));
+  }
 }
 
 export const aiUsageRepository = new AiUsageRepository();
