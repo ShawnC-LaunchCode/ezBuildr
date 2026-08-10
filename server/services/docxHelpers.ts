@@ -449,26 +449,3 @@ export const docxHelpers = {
   round,
   percentage,
 };
-
-/**
- * Create a custom parser function for docxtemplater
- * This enables angular-like expressions with filters
- */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function createAngularParser() {
-  return {
-
-    get(scope: Record<string, unknown>, context: string): unknown {
-      // Handle dot notation (e.g., "user.name")
-      const keys = context.split('.');
-      let current: unknown = scope;
-
-      for (const key of keys) {
-        if (current == null) {return '';}
-        current = (current as Record<string, unknown>)[key];
-      }
-
-      return current;
-    },
-  };
-}

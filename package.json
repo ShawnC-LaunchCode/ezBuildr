@@ -119,6 +119,7 @@
     "@types/zxcvbn": "^4.4.5",
     "@xyflow/react": "^12.11.2",
     "adm-zip": "^0.6.0",
+    "angular-expressions": "^1.6.0",
     "apicache": "^1.6.3",
     "archiver": "^8.0.0",
     "bcrypt": "^6.0.0",
