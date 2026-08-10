@@ -71,10 +71,53 @@ export class AIProviderClient {
   private async enforceBudget(tenantId: string): Promise<void> {
     const since = new Date(Date.now() - LIMITS.AI_TENANT_BUDGET_WINDOW_DAYS * MS_PER_DAY);
     const usedTokens = await this.aiUsageRepo.getTokenUsageSince(tenantId, since);
+    const usedCostUsd = await this.aiUsageRepo.getCostUsdSince(tenantId, since);
+    const usedCents = Math.round(usedCostUsd * 100);
 
+    if (usedCents >= LIMITS.AI_TENANT_BUDGET_USD_CENTS) {
+      logger.warn({
+        event: 'ai_budget_exceeded',
+        basis: 'cost',
+        tenantId,
+        usedCents,
+        budgetCents: LIMITS.AI_TENANT_BUDGET_USD_CENTS,
+        windowDays: LIMITS.AI_TENANT_BUDGET_WINDOW_DAYS,
+      }, 'AI budget exceeded for tenant');
+
+      throw new AIError(
+        'AI budget exceeded for this period. Please try again later or contact support to increase your limit.',
+        'BUDGET_EXCEEDED',
+        // Report the ceiling that actually tripped. Carrying the token figures
+        // here sent an operator to look at a token count that is under limit.
+        { tenantId, basis: 'cost', usedCents, budgetCents: LIMITS.AI_TENANT_BUDGET_USD_CENTS },
+        false,
+      );
+    }
+
+    if (usedCents >= LIMITS.AI_TENANT_BUDGET_THROTTLE_CENTS) {
+      logger.warn({
+        event: 'ai_budget_throttled',
+        tenantId,
+        usedCents,
+        throttleCents: LIMITS.AI_TENANT_BUDGET_THROTTLE_CENTS,
+        windowDays: LIMITS.AI_TENANT_BUDGET_WINDOW_DAYS,
+      }, 'AI budget throttled for tenant');
+    } else if (usedCents >= LIMITS.AI_TENANT_BUDGET_WARN_CENTS) {
+      logger.warn({
+        event: 'ai_budget_warning',
+        tenantId,
+        usedCents,
+        warnCents: LIMITS.AI_TENANT_BUDGET_WARN_CENTS,
+        windowDays: LIMITS.AI_TENANT_BUDGET_WINDOW_DAYS,
+      }, 'AI budget warning for tenant');
+    }
+
+    // Secondary ceiling. Cost is the primary basis (above); this stays enforced
+    // so a regression in cost accounting cannot uncap a tenant entirely.
     if (usedTokens >= LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET) {
       logger.warn({
         event: 'ai_budget_exceeded',
+        basis: 'tokens',
         tenantId,
         usedTokens,
         budget: LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET,
@@ -84,7 +127,7 @@ export class AIProviderClient {
       throw new AIError(
         'AI budget exceeded for this period. Please try again later or contact support to increase your limit.',
         'BUDGET_EXCEEDED',
-        { tenantId, usedTokens, budget: LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET },
+        { tenantId, basis: 'tokens', usedTokens, budget: LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET },
         false,
       );
     }

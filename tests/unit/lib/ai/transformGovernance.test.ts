@@ -23,6 +23,8 @@ describe("transform AI governance (AISL-5)", () => {
     } as unknown as IAIProvider);
     getTokenUsageSince = vi.spyOn(aiUsageRepository, "getTokenUsageSince")
       .mockResolvedValue(0);
+    vi.spyOn(aiUsageRepository, "getCostUsdSince")
+      .mockResolvedValue(0);
     recordUsage = vi.spyOn(aiUsageRepository, "recordUsage")
       .mockResolvedValue({} as AiUsage);
   });

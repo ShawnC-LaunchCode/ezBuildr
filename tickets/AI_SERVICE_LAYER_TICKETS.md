@@ -89,9 +89,9 @@ provider. They make the layer capable of switching.
 | AISL-6 | Personalization AI bypasses the governed client | P1 | M | ✅ |
 | AISL-7 | Document-assist AI bypasses the governed client | P1 | M | ✅ |
 | AISL-8 | Sentiment AI bypasses the governed client | P2 | S | ✅ |
-| AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
-| AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
-| AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | 🔲 |
+| AISL-9 | Budget on dollars, not raw token count | P1 | M | ✅ |
+| AISL-10 | No per-operation unit economics | P1 | S | 🔲 **unblocked — last one** |
+| AISL-11 | System prompt is not a stable cacheable prefix | P2 | S | ✅ |
 | AISL-12 | `workflow_personalization_settings` is read and discarded | P1 | S | 🔲 decided: option (a) |
 
 ---
@@ -1231,7 +1231,41 @@ the handler and follow the call.**
 With every call flowing through one client, the budget and the ledger finally
 describe the whole system. These three tickets make them accurate and useful.
 
-## AISL-9 — Budget on dollars, not raw token count 🔲
+## AISL-9 — Budget on dollars, not raw token count ✅
+
+> **Verified 2026-08-09** (worktree `aisl-9`, base `b0353a2d` — current main).
+> All 8 criteria met. `getCostUsdSince` mirrors `getTokenUsageSince` exactly
+> (same `COALESCE(...,0)` → returns 0 for a tenant with no rows); three
+> cents-based `envInt` limits at $50 hard / $45 throttle / $40 warn; the hard
+> ceiling throws with the **unchanged** user-facing message and code; throttle
+> and warn are log-only and correctly mutually exclusive via `else if`; the
+> token budget still runs afterward as a secondary ceiling.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **260 files / 2853 tests**, `test:unit:db` **16 files / 147 tests**.
+>
+> **Three files outside the stated footprint — all legitimate, and the ticket's
+> Ties should have predicted them.** (a) `vitest.config.ts` had to register the
+> new DB test in `dbUnitTests`, which is mandatory in this repo for a unit-db
+> file to run in the right project. (b/c) `transformGovernance.test.ts` (AISL-5)
+> and `GeminiService.test.ts` (AISL-8) each needed a two-line
+> `getCostUsdSince` spy — adding a repo call inside `callLLM` breaks every test
+> that mocks the repo with only the old methods, and without the stub they hit a
+> real database. No assertions were altered in either.
+>
+> **Reviewer fix applied:** the cost-triggered throw carried `usedTokens` and the
+> *token* budget in its `details`, so an operator debugging a BUDGET_EXCEEDED
+> would have been sent to a token count that was under limit. Both branches now
+> carry `basis: 'cost' | 'tokens'` in the log line and the error details, so the
+> two `ai_budget_exceeded` events are distinguishable at a glance.
+>
+> **On the red `test:fast`:** the dev reported 3 failures plus an unhandled
+> `IntegrationHub` error and dismissed them as "pre-existing flaky tests in the
+> baseline". The conclusion was right, the reasoning was not — main was fully
+> green at `b0353a2d`, so the baseline is not red. It is the documented
+> order-dependent flake, and a reviewer rerun of the same worktree came back
+> **259 files / 2851 tests, zero failures**. Filed as AISL-B11: three
+> consecutive devs have now hit this and each had to judge whether red meant red.
 
 **Priority: P1** · Size: M · Files: `server/repositories/AiUsageRepository.ts`, `server/services/ai/AIProviderClient.ts`
 
@@ -1392,7 +1426,27 @@ wanted, is a separate ticket.
 
 ---
 
-## AISL-11 — System prompt is not a stable cacheable prefix 🔲
+## AISL-11 — System prompt is not a stable cacheable prefix ✅
+
+> **Verified 2026-08-09** (worktree `aisl-11`, base `b0353a2d` — current main).
+> All 7 criteria met, two files touched, nothing outside scope.
+> `buildWorkflowVocabulary()` now leads and the three placeholders trail it as a
+> `Role: / Reading level: / Tone:` block; every guideline line is preserved
+> verbatim; all three placeholders remain, exactly once each;
+> `tests/unit/shared/aiVocabulary.test.ts` is untouched and passes.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **260 files / 2853 tests**.
+>
+> One necessary consequence, accepted: the opening sentence changed from
+> *"You are an expert {{interviewerRole}} helping to…"* to *"You are an expert
+> helping to…"*, because an inline placeholder cannot move to the end without
+> rewording the sentence containing it. The instruction content is equivalent
+> and the change is minimal. Placing role/tone/reading-level last is also
+> neutral-to-favorable for instruction following.
+>
+> **This ticket does not enable caching anywhere** — it only makes the prefix
+> cacheable. Turning it on is AISL-B3, still blocked on the provider decision.
 
 **Priority: P2** · Size: S · File: `server/routes/ai/workflowEdit.routes.ts`
 
@@ -1696,6 +1750,21 @@ LLM call at all** — `analyze()` and `applyFixes()` are pure rule-based analysi
 Nothing is broken. Recorded because it will mislead the next person auditing AI
 cost or deciding which endpoints need budget coverage. Do not "fix" by adding
 an LLM call.
+
+**AISL-B11 — The `IntegrationHub` flake is eroding the `test:fast` gate.**
+`needs-initiative`, Size S. Three consecutive AISL devs (6, 7, 9) hit failures in
+`client/src/components/builder/integrations/IntegrationHub.tsx` tests —
+variously described as a "mock race" and as
+`TypeError: Cannot read properties of undefined (reading 'find')` — that clear on
+a rerun or in isolation. Main itself is green, so this is the documented
+order-dependent flake, surfaced whenever a new test file shifts scheduling.
+
+**Why it is worth fixing rather than tolerating:** every dev now has to *judge*
+whether a red gate means red, and one of them will eventually judge wrong in the
+other direction. AISL-9's dev called it "pre-existing failures in the baseline",
+which is a reasonable-sounding but false description that would justify shipping
+red indefinitely. A gate that requires interpretation is not a gate. Fix the
+mock's setup/teardown so it is order-independent.
 
 **AISL-B10 — No way to set a workflow's personalization toggles.**
 `needs-initiative`, Size M. AISL-12 makes `allowDynamicPrompts` /

@@ -38,6 +38,22 @@ export class AiUsageRepository extends BaseRepository<typeof aiUsage, AiUsage, I
       .where(and(eq(aiUsage.tenantId, tenantId), gte(aiUsage.createdAt, since)));
     return Number(row?.total ?? 0);
   }
+
+  /**
+   * Sum of cost_usd recorded for a tenant since `since` (inclusive).
+   * Used to compare against dollar-based budgets for a rolling window.
+   * Returns 0 when the tenant has no usage rows yet.
+   */
+  async getCostUsdSince(tenantId: string, since: Date, tx?: DbTransaction): Promise<number> {
+    const database = this.getDb(tx);
+    const [row] = await database
+      .select({
+        total: sql<string>`COALESCE(SUM(${aiUsage.costUsd}), 0)`,
+      })
+      .from(aiUsage)
+      .where(and(eq(aiUsage.tenantId, tenantId), gte(aiUsage.createdAt, since)));
+    return Number(row?.total ?? 0);
+  }
 }
 
 export const aiUsageRepository = new AiUsageRepository();

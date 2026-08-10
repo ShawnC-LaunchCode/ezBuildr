@@ -36,6 +36,10 @@ export const LIMITS = {
   // to be overridden, but env-configurable for consistency with the rest of
   // this file and to ease testing.
   AI_TENANT_BUDGET_WINDOW_DAYS: envInt('AI_TENANT_BUDGET_WINDOW_DAYS', 30),
+  // Dollar-based budget ceilings for a tenant over the rolling window.
+  AI_TENANT_BUDGET_USD_CENTS: envInt('AI_TENANT_BUDGET_USD_CENTS', 5000), // Hard limit ($50)
+  AI_TENANT_BUDGET_WARN_CENTS: envInt('AI_TENANT_BUDGET_WARN_CENTS', 4000), // Warn only ($40)
+  AI_TENANT_BUDGET_THROTTLE_CENTS: envInt('AI_TENANT_BUDGET_THROTTLE_CENTS', 4500), // Throttle ($45)
 };
 
 /**

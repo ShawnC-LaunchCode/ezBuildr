@@ -17,6 +17,7 @@ describe('GeminiService sentiment analysis (AISL-8)', () => {
       generateResponse,
     } as unknown as IAIProvider);
     vi.spyOn(aiUsageRepository, 'getTokenUsageSince').mockResolvedValue(0);
+    vi.spyOn(aiUsageRepository, 'getCostUsdSince').mockResolvedValue(0);
     vi.spyOn(aiUsageRepository, 'recordUsage').mockResolvedValue({} as AiUsage);
   });
 
