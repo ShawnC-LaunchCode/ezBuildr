@@ -205,7 +205,11 @@ router.post("/analyze", uploadLimiter, (req, res, next) => {
             return;
         }
 
-        const result = await documentAIAssistService.analyzeTemplate(req.file.path, req.file.originalname);
+        const result = await documentAIAssistService.analyzeTemplate(
+            req.file.path,
+            req.file.originalname,
+            (req as AuthRequest).tenantId
+        );
         res.json({ data: result });
     } catch (err) {
         logger.error({ error: err }, 'Template analysis failed');
@@ -273,7 +277,8 @@ router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) =>
         const { templateVariables, workflowVariables } = suggestMappingsSchema.parse(req.body);
         const mappings = await documentAIAssistService.suggestMappings(
             templateVariables as Parameters<typeof documentAIAssistService.suggestMappings>[0],
-            workflowVariables as Parameters<typeof documentAIAssistService.suggestMappings>[1]
+            workflowVariables as Parameters<typeof documentAIAssistService.suggestMappings>[1],
+            (req as AuthRequest).tenantId
         );
         res.json({ data: mappings });
     } catch (err) {
@@ -294,7 +299,10 @@ router.post("/suggest-improvements", strictLimiter, asyncHandler(async (req, res
     try {
         const { variables } = suggestImprovementsSchema.parse(req.body);
         // Service takes variable names (string[]); callers send objects.
-        const result = await documentAIAssistService.suggestImprovements(variables.map(v => v.name));
+        const result = await documentAIAssistService.suggestImprovements(
+            variables.map(v => v.name),
+            (req as AuthRequest).tenantId
+        );
         res.json({ data: result });
     } catch (err) {
         if (err instanceof z.ZodError) {

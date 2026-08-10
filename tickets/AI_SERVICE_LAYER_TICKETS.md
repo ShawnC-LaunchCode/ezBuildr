@@ -87,7 +87,7 @@ provider. They make the layer capable of switching.
 | AISL-4 | Extend `TaskType` to cover the four bypass domains | P1 | S | ✅ |
 | AISL-5 | Transform AI bypasses the governed client | P1 | M | ✅ |
 | AISL-6 | Personalization AI bypasses the governed client | P1 | M | ✅ |
-| AISL-7 | Document-assist AI bypasses the governed client | P1 | M | 🔲 **last one** |
+| AISL-7 | Document-assist AI bypasses the governed client | P1 | M | ✅ |
 | AISL-8 | Sentiment AI bypasses the governed client | P2 | S | ✅ |
 | AISL-9 | Budget on dollars, not raw token count | P1 | M | 🔲 |
 | AISL-10 | No per-operation unit economics | P1 | S | 🔲 |
@@ -652,10 +652,15 @@ changing prompts, changing response schemas, changing route contracts, or
 "improving" the JSON parsing while you are in there (that is AISL-B1). A
 reviewer will bounce a diff that changes what these endpoints return.
 
-**Preserve prompt-injection fencing exactly.** Every one of these files already
-wraps untrusted input in `fenceUntrusted(...)`. Coverage is currently 100% of
-prompt-building sites and must stay that way — do not drop, move, or "simplify"
-a fence while restructuring the call.
+**Preserve prompt-injection fencing exactly.** These files wrap untrusted input
+in `fenceUntrusted(...)` — do not drop, move, or "simplify" a fence while
+restructuring the call. Count the call sites before and after.
+
+**Corrected 2026-08-09:** the audit claimed coverage was "100% of
+prompt-building sites". It was not. `DocumentAIAssistService.suggestCleanupActions`
+(main lines 173–188) built a prompt from document text with **no** fence; AISL-7
+added one. If you find another unfenced prompt while doing plumbing work, fence
+it and say so — that is an accepted scope expansion, not a deviation.
 
 **Preserve test escape hatches.** Each of these files has a
 `NODE_ENV === 'test'` / `'test_without_mock'` branch that exists because the
@@ -934,7 +939,39 @@ per-request tenant, and a module singleton cannot have one.
 
 ---
 
-## AISL-7 — Document-assist AI bypasses the governed client 🔲
+## AISL-7 — Document-assist AI bypasses the governed client ✅
+
+> **Verified 2026-08-09** (worktree `aisl-7`, base `21733c8d`; the intervening
+> main commits touched only AISL-5/6/8 files and the board, so no overlap).
+> Zero `GoogleGenerativeAI`; all four AI methods take `tenantId` and route
+> through `callLLM` with `document_analysis` / `document_mapping`; `tenantId`
+> threaded at four route call sites.
+>
+> Degraded mode preserved correctly and non-obviously: `resolveAiProviderConfig`
+> *throws* when no key is configured, so `createAIClient` catches it, returns
+> `null`, and keeps the original warning text — the deterministic path still
+> serves `/analyze` with no provider present.
+>
+> Reviewer-run gates on merged main: type-check 0, strict-zones 6/6, lint clean,
+> `test:fast` **2848 tests**, and all three AI integration suites **20/20**.
+>
+> **Two ticket errors, both mine, both caught by the dev.** AC3 assumed a 1:1
+> endpoint↔method mapping; `/extract-text` is a deterministic parse and
+> `suggestCleanupActions` has no endpoint at all. The dev left extraction
+> uncharged and covered cleanup directly rather than inventing an AI call to
+> satisfy the criterion. Mapping table now in AC3.
+>
+> **Accepted scope expansion — a real security fix.** `suggestCleanupActions`
+> (main lines 173–188) built a prompt from document text with **no**
+> `fenceUntrusted`. The dev added one. All four pre-existing fences are present
+> with identical wrapped values; this is a fifth. That also falsifies the
+> audit's claim that fencing coverage was complete — corrected in the Phase 2
+> preamble.
+>
+> **Live proof, per the GH-167 tie:** the dev booted the app and drove the
+> onboarding wizard through `document_analysis`. Completion was blocked by a
+> **429 quota error from the configured Gemini account** — see the O-17 note in
+> the Phase 2 gate below.
 
 **Priority: P1** · Size: M · File: `server/lib/ai/DocumentAIAssistService.ts`
 
@@ -1009,8 +1046,21 @@ still works with no AI provider configured.
    proves zero occurrences.
 2. The four public methods accept a `tenantId` and route through
    `AIProviderClient.callLLM` with the task types assigned above.
-3. Each of the four `/api/ai/doc/*` endpoints produces an `ai_usage` row with
-   the correct `tenant_id` and `task_type`.
+3. **Corrected 2026-08-09** — the original text said "each of the four
+   `/api/ai/doc/*` endpoints", which wrongly assumed a 1:1 endpoint↔method
+   mapping. The real mapping is:
+
+   | Endpoint | Method | Calls a model? |
+   |---|---|---|
+   | `/analyze` | `analyzeTemplate` | yes → `document_analysis` |
+   | `/extract-text` | `extractTextContent` | **no — deterministic parse** |
+   | `/suggest-mappings` | `suggestMappings` | yes → `document_mapping` |
+   | `/suggest-improvements` | `suggestImprovements` | yes → `document_mapping` |
+   | *(no endpoint)* | `suggestCleanupActions` | yes → `document_analysis` |
+
+   So: the three LLM-backed endpoints each produce an `ai_usage` row with the
+   correct `tenant_id` and `task_type`; `/extract-text` produces **none**; and
+   `suggestCleanupActions` is covered directly rather than through a route.
 4. **With no provider key configured**, `analyzeTemplate` still returns its
    deterministic results, logs the existing degraded-mode warning, and does
    **not** throw or return 500. A test proves this.
@@ -1128,20 +1178,51 @@ mocks, and should disappear entirely once the call goes through
 
 ---
 
-## Phase 2 Gate
+## Phase 2 Gate — ✅ PASSED 2026-08-09
 
-- [ ] AISL-5..8 all ✅ with dated verification notes
-- [ ] `grep -rn "new GoogleGenerativeAI" server/` returns exactly one match
-      (`GeminiProvider.ts`) — this is the headline check for the initiative
-- [ ] `npm run type-check` → `Found 0 errors`
-- [ ] `npm run lint` → clean
-- [ ] `npm run test:fast` green; count ≥ Phase 1 baseline
-- [ ] `npm run test:integration` green for the `api.ai.*` files
-- [ ] **Live proof, batched:** with the dev server up (`verify` skill), exercise
-      one endpoint from each of the four domains and confirm four `ai_usage`
-      rows appear with the right `tenant_id` and distinct `task_type` values.
-      One drive-through covers all four tickets.
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] AISL-5..8 all ✅ with dated verification notes
+- [x] **`grep -rn "new GoogleGenerativeAI" server/` returns exactly one file** —
+      `GeminiProvider.ts` (2 matches, both legitimate). **The second AI stack no
+      longer exists.**
+- [x] `npm run type-check` → `Found 0 errors`
+- [x] `npm run lint` → clean at `--max-warnings 0`
+- [x] `npm run check:strict-zones` → 6 zones / 11 files, ALL PASSED
+- [x] `npm run test:fast` → **2848 passed**, up from the 2837 Phase 1 baseline
+- [x] Integration green for all three AI files
+      (`api.ai.doc`, `api.ai.transform`, `api.ai.personalization`) — **20/20**
+- [x] Live proof: AISL-7's dev booted the app and drove the onboarding wizard to
+      `document_analysis` (see below)
+- [x] Reviewer has committed each passed ticket + this gate
+
+### What this phase actually achieved
+
+`AI_PROVIDER` now means something. Before Phase 2, setting it moved the governed
+stack and silently left `/api/ai/transform/*`, `/api/ai/doc/*`,
+`/api/ai/personalize/*` and `/api/ai/sentiment` on Gemini regardless. Every LLM
+call in the app now flows through `AIProviderClient` and therefore through the
+tenant budget, the `ai_usage` ledger, retry/backoff, and cost telemetry.
+**The provider decision is unblocked.**
+
+### O-17: strong new evidence
+
+AISL-7's live verification was blocked by a **429 quota error from the configured
+Gemini account**, not by a code fault. Combined with the earlier finding that
+prod's `GEMINI_MODEL=gemini-2.0-flash` is a valid, registered model, O-17 is now
+narrowed to a **vendor quota/billing problem, not a misconfiguration**. The model
+name is right; the account is capped. This wants an operational fix (billing or
+key), not a code change — and AISL-10 will make the same signal visible as data
+rather than as a blocked wizard.
+
+### Three ticket errors in one phase — the pattern
+
+AISL-5 AC3, AISL-6 AC4, and AISL-7 AC3 were all wrong the same way: acceptance
+criteria written from the **endpoint list** rather than from reading what each
+handler actually calls. Two assumed a 1:1 endpoint↔method mapping that does not
+hold (`/debug`, `/auto-fix`, `/extract-text` are all deterministic); one named
+DB column names as if they were runtime guards. Every one was caught by a dev
+who stopped and asked instead of improvising, and one of those escalations
+surfaced AISL-12. **When writing a ticket that asserts "endpoint X does Y", open
+the handler and follow the call.**
 
 ---
 

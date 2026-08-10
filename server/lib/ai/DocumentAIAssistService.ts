@@ -1,11 +1,12 @@
 import { createRequire } from 'module';
 
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import PizZip from 'pizzip';
 
 import { logger } from "../../logger"; // Adjust path if needed (../../logger)
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 
 const require = createRequire(import.meta.url);
 import { documentProcessingLimiter } from "../../services/processingLimiter";
@@ -49,30 +50,19 @@ export interface MappingSuggestion {
 }
 
 export class DocumentAIAssistService {
-    private genAI: GoogleGenerativeAI | null = null;
-    private model: GenerativeModel | null = null;
-
-    constructor() {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (apiKey && process.env.NODE_ENV !== 'test_without_mock') {
-            try {
-                this.genAI = new GoogleGenerativeAI(apiKey);
-                const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
-                this.model = this.genAI.getGenerativeModel({ model });
-            } catch (e) {
-                logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
-                this.genAI = null;
-                this.model = null;
-            }
-        } else {
+    private createAIClient(tenantId: string | undefined): AIProviderClient | null {
+        try {
+            return new AIProviderClient(resolveAiProviderConfig({ tenantId }));
+        } catch {
             logger.warn("GEMINI_API_KEY not found. AI Assist Service will run in degraded mode (deterministic only).");
+            return null;
         }
     }
 
     /**
      * Analyze a document template (DOCX/PDF/Text) to find variables and suggestions
      */
-    async analyzeTemplate(filePath: string, filename: string): Promise<AIAnalysisResult> {
+    async analyzeTemplate(filePath: string, filename: string, tenantId?: string): Promise<AIAnalysisResult> {
         // 1. Deterministic Extraction (Tags)
         const explicitVariables = await this.extractExplicitVariables(filePath, filename);
 
@@ -80,10 +70,11 @@ export class DocumentAIAssistService {
         let aiVariables: AnalyzedVariable[] = [];
         let aiSuggestions: string[] = [];
 
-        if (this.model) {
+        const client = this.createAIClient(tenantId);
+        if (client) {
             try {
                 const textContent = await this.extractTextContent(filePath, filename);
-                const aiResult = await this.performAIExtraction(textContent);
+                const aiResult = await this.performAIExtraction(textContent, client);
                 aiVariables = aiResult.variables;
                 aiSuggestions = aiResult.suggestions;
             } catch (err) {
@@ -112,8 +103,9 @@ export class DocumentAIAssistService {
     /**
      * Suggest mappings for a list of template variables against existing workflow variables
      */
-    async suggestMappings(templateVariables: Partial<AnalyzedVariable>[], workflowVariables: { id: string; name: string; label: string; type: string }[]): Promise<MappingSuggestion[]> {
-        if (!this.model) { return []; }
+    async suggestMappings(templateVariables: Partial<AnalyzedVariable>[], workflowVariables: { id: string; name: string; label: string; type: string }[], tenantId?: string): Promise<MappingSuggestion[]> {
+        const client = this.createAIClient(tenantId);
+        if (!client) { return []; }
 
         const prompt = `
         You are a Document Automation Expert.Match the Template Variables to the Workflow Variables.
@@ -130,8 +122,7 @@ ${fenceUntrusted(JSON.stringify(workflowVariables.map(v => ({ id: v.id, name: v.
         `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            const text = result.response.text();
+            const text = await client.callLLM(prompt, 'document_mapping');
             return (this.parseJSON(text) as MappingSuggestion[]) ?? [];
         } catch (err) {
             logger.error({ err }, "AI Mapping Suggestions failed");
@@ -142,8 +133,9 @@ ${fenceUntrusted(JSON.stringify(workflowVariables.map(v => ({ id: v.id, name: v.
     /**
      * Suggest aliases, formatting, and conditions
      */
-    async suggestImprovements(templateVariables: string[], _textSample?: string): Promise<ImprovementResult> {
-        if (!this.model) { return {}; }
+    async suggestImprovements(templateVariables: string[], tenantId?: string, _textSample?: string): Promise<ImprovementResult> {
+        const client = this.createAIClient(tenantId);
+        if (!client) { return {}; }
 
         const prompt = `
          Analyze these template variables and suggest improvements.
@@ -158,8 +150,8 @@ Requirements:
 `;
 
         try {
-            const result = await this.model.generateContent(prompt);
-            return (this.parseJSON(result.response.text()) as ImprovementResult) ?? {};
+            const text = await client.callLLM(prompt, 'document_mapping');
+            return (this.parseJSON(text) as ImprovementResult) ?? {};
         } catch (err) {
             return {};
         }
@@ -170,7 +162,7 @@ Requirements:
      * For now, this returns a list of *actions* rather than rewriting the file directly via AI, 
      * as modifying binaries via LLM is risky.
      */
-    async suggestCleanupActions(filePath: string, filename: string): Promise<CleanupAction[]> {
+    async suggestCleanupActions(filePath: string, filename: string, tenantId?: string): Promise<CleanupAction[]> {
         // Implement logic to detect split tags (using TemplateScanner logic usually)
         // and identifying "dead" fields.
         const actions: CleanupAction[] = [];
@@ -179,6 +171,27 @@ Requirements:
         const text = await this.extractTextContent(filePath, filename);
         if (text.includes("{{ ")) { // Space inside
             actions.push({ type: 'syntax', description: "Found spaces in placeholders '{{ '", fix: "Normalize to '{{'" });
+        }
+
+        const client = this.createAIClient(tenantId);
+        if (!client) { return actions; }
+
+        const prompt = `
+        Review this document text for placeholder syntax, formatting, or dead-field cleanup opportunities.
+        Return a JSON array using this shape:
+        [{ "type": "syntax", "description": "...", "fix": "..." }]
+
+        Text Sample (first 2000 chars):
+${fenceUntrusted(text.substring(0, 2000))}
+`;
+
+        try {
+            const response = await client.callLLM(prompt, 'document_analysis');
+            const parsed = this.parseJSON(response);
+            const aiActions = Array.isArray(parsed) ? parsed as CleanupAction[] : [];
+            return [...actions, ...aiActions];
+        } catch (err) {
+            logger.error({ err }, "AI Cleanup Suggestions failed");
         }
 
         return actions;
@@ -258,10 +271,7 @@ Requirements:
         return fs.readFile(filePath, 'utf-8');
     }
 
-    private async performAIExtraction(text: string): Promise<{ variables: AnalyzedVariable[], suggestions: string[] }> {
-        if (!this.model) {
-            return { variables: [], suggestions: [] };
-        }
+    private async performAIExtraction(text: string, client: AIProviderClient): Promise<{ variables: AnalyzedVariable[], suggestions: string[] }> {
         const prompt = `
         Extract potential document variables from this text.Look for:
     1. Explicit placeholders({{ ...}})
@@ -274,9 +284,9 @@ Requirements:
 ${fenceUntrusted(text.substring(0, 2000))}
 `;
 
-        const result = await this.model.generateContent(prompt);
+        const result = await client.callLLM(prompt, 'document_analysis');
         // Cast the unknown result to the expected shape or null-ish
-        const json = this.parseJSON(result.response.text()) as { variables: AnalyzedVariable[], suggestions: string[] } | null;
+        const json = this.parseJSON(result) as { variables: AnalyzedVariable[], suggestions: string[] } | null;
         return {
             variables: json?.variables ?? [],
             suggestions: json?.suggestions ?? []

@@ -1,14 +1,23 @@
 process.env.GEMINI_API_KEY = 'test-key';
+import { eq } from "drizzle-orm";
+import fs from "fs/promises";
 import { type Server } from "http";
+import os from "os";
+import path from "path";
 
 import express, { type Express } from "express";
 import _multer from "multer";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 
+import { db } from "../../server/db";
+import { documentAIAssistService } from "../../server/lib/ai/DocumentAIAssistService";
+import { logger } from "../../server/logger";
 import { registerRoutes } from "../../server/routes";
+import { aiUsage, tenants } from "../../shared/schema";
 // Mock Google Generative AI
-const { mockGenerateContent, multerState } = vi.hoisted(() => ({
+const { authState, mockGenerateContent, multerState } = vi.hoisted(() => ({
+    authState: { tenantId: "11111111-1111-4111-8111-111111111111" },
     mockGenerateContent: vi.fn(),
     multerState: { hasFile: true }
 }));
@@ -83,7 +92,11 @@ vi.mock("multer", () => {
 
 const mockAIResponse = (data: any) => ({
     response: {
-        text: () => JSON.stringify(data)
+        text: () => JSON.stringify(data),
+        usageMetadata: {
+            promptTokenCount: 25,
+            candidatesTokenCount: 10
+        }
     }
 });
 // Mock Auth Middleware to bypass login
@@ -99,6 +112,7 @@ vi.mock('../../server/middleware/auth', () => ({
 
     hybridAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user', email: 'test@example.com' };
+        req.tenantId = authState.tenantId;
         next();
     },
 
@@ -111,6 +125,10 @@ describe("AI Document Assistant API Integration Tests", () => {
     let server: Server;
     let baseURL: string;
     beforeAll(async () => {
+        await db.insert(tenants).values({
+            id: authState.tenantId,
+            name: "AI Document Assistant Test Tenant"
+        });
         app = express();
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
@@ -125,13 +143,16 @@ describe("AI Document Assistant API Integration Tests", () => {
         baseURL = `http://localhost:${port}`;
     });
     afterAll(async () => {
+        await db.delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
+        await db.delete(tenants).where(eq(tenants.id, authState.tenantId));
         if (server) {
             server.close();
         }
     });
-    afterEach(() => {
-        vi.resetAllMocks();
+    afterEach(async () => {
+        vi.clearAllMocks();
         multerState.hasFile = true;
+        await db.delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
     });
     describe("POST /api/ai/doc/analyze", () => {
         it("should analyze a DOCX file and return variables", async () => {
@@ -223,5 +244,91 @@ describe("AI Document Assistant API Integration Tests", () => {
             expect(response.body.data).toHaveProperty("aliases");
             expect(response.body.data.aliases).toHaveProperty("c_name", "clientName");
         });
+    });
+
+    it("records tenant-scoped usage for all four document-assist AI operations", async () => {
+        mockGenerateContent
+            .mockResolvedValueOnce(mockAIResponse({ variables: [], suggestions: [] }))
+            .mockResolvedValueOnce(mockAIResponse([]))
+            .mockResolvedValueOnce(mockAIResponse({ aliases: {}, formatting: {} }))
+            .mockResolvedValueOnce(mockAIResponse([]));
+
+        const dummyDocx = Buffer.from("PK\x03\x04\x14\x00\x08\x00\x08\x00");
+        await request(baseURL)
+            .post("/api/ai/doc/analyze")
+            .attach("file", dummyDocx, "test.docx")
+            .expect(200);
+        await request(baseURL)
+            .post("/api/ai/doc/suggest-mappings")
+            .send({
+                templateVariables: [{ name: "clientName", type: "string" }],
+                workflowVariables: [{ id: "var_1", name: "Client Name", type: "string" }]
+            })
+            .expect(200);
+        await request(baseURL)
+            .post("/api/ai/doc/suggest-improvements")
+            .send({ variables: [{ name: "client_name" }] })
+            .expect(200);
+
+        const cleanupPath = path.join(os.tmpdir(), `ai-doc-cleanup-${Date.now()}.txt`);
+        await fs.writeFile(cleanupPath, "Client name: {{ clientName }}");
+        try {
+            await documentAIAssistService.suggestCleanupActions(
+                cleanupPath,
+                "cleanup.txt",
+                authState.tenantId
+            );
+        } finally {
+            await fs.unlink(cleanupPath);
+        }
+
+        const usageRows = await db
+            .select()
+            .from(aiUsage)
+            .where(eq(aiUsage.tenantId, authState.tenantId));
+
+        expect(usageRows).toHaveLength(4);
+        expect(usageRows.map(row => row.taskType).sort()).toEqual([
+            "document_analysis",
+            "document_analysis",
+            "document_mapping",
+            "document_mapping"
+        ]);
+    });
+
+    it("keeps deterministic analysis available when no provider key is configured", async () => {
+        const geminiKey = process.env.GEMINI_API_KEY;
+        const providerKey = process.env.AI_API_KEY;
+        delete process.env.GEMINI_API_KEY;
+        delete process.env.AI_API_KEY;
+        const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+
+        try {
+            const dummyDocx = Buffer.from("PK\x03\x04\x14\x00\x08\x00\x08\x00");
+            const response = await request(baseURL)
+                .post("/api/ai/doc/analyze")
+                .attach("file", dummyDocx, "test.docx")
+                .expect(200);
+
+            expect(response.body.data).toEqual({ variables: [], suggestions: [] });
+            expect(warnSpy).toHaveBeenCalledWith(
+                "GEMINI_API_KEY not found. AI Assist Service will run in degraded mode (deterministic only)."
+            );
+            expect(mockGenerateContent).not.toHaveBeenCalled();
+
+            const usageRows = await db
+                .select()
+                .from(aiUsage)
+                .where(eq(aiUsage.tenantId, authState.tenantId));
+            expect(usageRows).toHaveLength(0);
+        } finally {
+            process.env.GEMINI_API_KEY = geminiKey;
+            if (providerKey === undefined) {
+                delete process.env.AI_API_KEY;
+            } else {
+                process.env.AI_API_KEY = providerKey;
+            }
+            warnSpy.mockRestore();
+        }
     });
 });
