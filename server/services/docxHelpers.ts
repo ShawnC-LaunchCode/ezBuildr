@@ -252,6 +252,35 @@ export function formatCurrency(
 }
 
 /**
+ * TPL-3 (D3's "named presets over format strings"): a closed, quote-free
+ * filter vocabulary an author can write with no arguments and no quotes for
+ * Word to mangle -- `{{ signing_date | longdate }}` rather than
+ * `{{ signing_date | formatDate:"MMMM D, YYYY" }}`. Each wraps an existing
+ * helper with a fixed argument; the argument form stays available as an
+ * escape hatch (`formatDate`/`formatCurrency` still take one).
+ */
+
+/** "January 5, 2026" -- long-form date, no arguments. */
+export function longdate(iso: string | Date | null | undefined): string {
+  return formatDate(iso, 'MMMM D, YYYY');
+}
+
+/** "01/05/2026" -- named alias of formatDate's own default format. */
+export function shortdate(iso: string | Date | null | undefined): string {
+  return formatDate(iso);
+}
+
+/** "$1,234.50" -- USD with symbol; the common case needs no currency-code argument. */
+export function usd(amount: number | null | undefined): string {
+  return formatCurrency(amount);
+}
+
+/** "Hello World" -- lowercase-filter-name alias of formatters.titleCase for the preset vocabulary. */
+export function titlecase(s: string | null | undefined): string {
+  return formatters.titleCase(s);
+}
+
+/**
  * Format number with custom decimals
  */
 export function formatNumber(
@@ -439,11 +468,20 @@ export const docxHelpers = {
   isEmpty,
   isNotEmpty,
   defaultValue,
+  // TPL-3: the documented filter name (`{{ x | default:"N/A" }}`) -- same
+  // function as defaultValue, registered under the shorter preset name.
+  default: defaultValue,
 
   // Enhanced formatting
   formatDate,
   formatCurrency,
   formatNumber,
+
+  // TPL-3 named preset vocabulary (see TEMPLATE_FILTER_VOCABULARY below)
+  longdate,
+  shortdate,
+  usd,
+  titlecase,
 
   // Math helpers
   add,
@@ -458,4 +496,32 @@ export const docxHelpers = {
   daysBetween,
   round,
   percentage,
+};
+
+/**
+ * TPL-3 (D3, "named presets over format strings"): the closed, documented
+ * filter vocabulary template authors are expected to write -- one line per
+ * preset, covering date, currency, number and case transforms plus the
+ * strict-undefined escape hatch. TPL-5 imports this constant to validate an
+ * uploaded template's filters rather than re-listing them.
+ *
+ * This is deliberately a curated subset of `docxHelpers`, not every key in
+ * it: helpers like `add`/`round`/`replace` remain usable as the quoted
+ * argument-form escape hatch (Preferred fix), but are not part of the
+ * documented preset path.
+ */
+export const TEMPLATE_FILTER_VOCABULARY: Record<string, string> = {
+  longdate: 'Long-form date, e.g. "January 5, 2026" -- {{ x | longdate }}',
+  shortdate: 'Numeric date, e.g. "01/05/2026" -- {{ x | shortdate }}',
+  usd: 'US dollar currency, e.g. "$1,234.50" -- {{ x | usd }}',
+  currency: 'Currency in a given code (defaults USD) -- {{ x | currency }}',
+  number: 'Thousands-separated number -- {{ x | number }}',
+  percent: 'Percentage with a "%" suffix -- {{ x | percent }}',
+  upper: 'UPPERCASE -- {{ x | upper }}',
+  lower: 'lowercase -- {{ x | lower }}',
+  titlecase: 'Title Case Each Word -- {{ x | titlecase }}',
+  yesno: 'Boolean to "Yes"/"No" -- {{ x | yesno }}',
+  trim: 'Strip leading/trailing whitespace -- {{ x | trim }}',
+  default:
+    'Fallback when the value is unknown or empty (D3 strict-undefined escape hatch) -- {{ x | default:"N/A" }}',
 };
