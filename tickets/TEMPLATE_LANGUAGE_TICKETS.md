@@ -53,7 +53,7 @@ drifted line is not a broken ticket.
 | Phase | Theme | Tickets | Notes |
 |---|---|---|---|
 | 0 | Decide the parser | TPL-1 ✅ | Closed 2026-08-09 — **adopt `angular-expressions`** |
-| 1 | Grammar & engine | TPL-2, TPL-3, TPL-9 | Strictly sequential — all three touch `docxHelpers.ts` |
+| 1 | Grammar & engine | TPL-2 ✅, TPL-3, TPL-9 | Strictly sequential — all three touch `docxHelpers.ts` |
 | 2 | Authoring safety | TPL-4, TPL-5, TPL-6 | TPL-4 parallel; TPL-5 → TPL-6 sequential |
 | 3 | Consumers | TPL-7, TPL-8 | Parallel |
 
@@ -275,7 +275,48 @@ Three tickets, all in `RenderCore.ts` + `docxHelpers.ts`. **Dispatch strictly
 sequentially** — they fight over the same two files, and TPL-3 assumes TPL-2's parser
 exists. Out of scope for this phase: the template card, the runner, and docs.
 
-## TPL-2 — Expression layer: pipe filters, chaining, comparisons, indexing, counters 🔲
+## TPL-2 — Expression layer: pipe filters, chaining, comparisons, indexing, counters ✅
+
+> **Verified 2026-08-09 (reviewer).** All 11 ACs met. Gates re-run by the reviewer, not
+> taken from the dev's report: `type-check` exit 0 · `lint` exit 0 repo-wide
+> (`--max-warnings 0`) · `test:fast` **262 files / 2911 passed / 14 skipped** (+50 over the
+> 2861 worktree baseline, zero regressions). The four affected suites re-run in the main
+> checkout after the port: 145/145.
+>
+> **Deviation accepted, and it is an improvement.** The ticket specified reusing TPL-1's
+> hand-rolled `scopeList` merge and a manual `context.scopePathItem` mapping for `$index`.
+> The dev used **`docxtemplater/expressions.js`** instead — docxtemplater's own shipped
+> angular-expressions wrapper, which already implements the parent-scope walk, `$index`
+> via `scopePathItem`, `.`-to-`this` rewriting, and smart-quote normalisation. That is
+> three of the four traps TPL-2 budgeted for, handled by code docxtemplater maintains.
+> AC6 consequently passes with no manual mapping at all. The fourth trap — registering
+> filters from the `docxHelpers` **object**, never the module namespace — still applied
+> and was handled correctly, with a comment recording why.
+>
+> Reviewer probes (independent of the dev's tests): all 31 helpers in pipe form,
+> chaining, `{{ fee | currency }}` → `$250.00`, `Children[9]` indexing, out-of-range index
+> → empty rather than a crash, `{{$index}}` → `0:A 1:B`, `{{.}}` self-reference, and
+> reserved `{%`/`{#` rejection.
+>
+> **First submission FAILED review on a live regression.** AC7's reserved-syntax check
+> scanned **raw XML**, so a valid `{{#items}}` that Word had split between its two braces
+> read as `>{#items}`, the negative lookbehind missed, and the render hard-failed telling
+> the author they had used reserved Jinja syntax. Two facts established during this
+> initiative made it real rather than theoretical: docxtemplater renders delimiter-split
+> tags correctly today, and `TemplateScanner.repairXml` does **not** repair delimiter
+> splits — so those templates reach the renderer still split and currently work. The same
+> root cause also let a genuinely reserved `{%` split across runs evade the scan entirely.
+> Fixed by stripping markup before scanning; the dev confirmed both regression tests fail
+> before the fix and pass after.
+>
+> **Two test-rot defences added at review request:** AC1's parity assertion could pass
+> vacuously when a helper returned `""` in both forms (now also asserts non-empty), and its
+> 31 cases were a hardcoded list that already missed the dev's own new `trim` helper — it
+> now diffs every function key of the live `docxHelpers` object against the covered set, so
+> TPL-9's four new date helpers will fail loudly until covered rather than slipping through.
+>
+> **One helper added:** `trim`, required by AC2's chaining example, which had no
+> old-grammar equivalent.
 
 **Priority: P1** · Size: M (**L if TPL-1 recommends hand-rolling — escalate to the repo owner before dispatch if so**) · Files: `server/services/document/RenderCore.ts`, `server/services/docxHelpers.ts`
 

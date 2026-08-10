@@ -23,6 +23,15 @@ export function capitalize(s: string | null | undefined): string {
 }
 
 /**
+ * Trim leading/trailing whitespace. Exists mainly as a filter for chaining
+ * (`{{ name | trim | upper }}`) -- the old helper-prefix grammar had no
+ * equivalent since a value was always resolved straight from scope.
+ */
+export function trim(s: string | null | undefined): string {
+  return s?.trim?.() ?? '';
+}
+
+/**
  * Join array elements with separator
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array can contain any template data types
@@ -416,6 +425,7 @@ export const docxHelpers = {
 
   // String helpers
   capitalize,
+  trim,
   truncate,
   replace,
 
