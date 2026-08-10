@@ -24,6 +24,14 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > likewise closed and retired. Check this index before auditing anything, so a settled
 > question is not re-filed as a new finding.
 >
+> **The AI Service Layer initiative (AISL-1..12) closed and retired into
+> `backlog/AI_SERVICE_LAYER.md` on 2026-08-10.** All twelve tickets and all three
+> phase gates passed; it parks eleven entries, `AISL-B1..B11`. Before auditing
+> anything in `server/services/ai/`, `server/lib/ai/`, or the `/api/ai/*` routes,
+> read that file — **`AISL-B7` in particular**, because
+> `WorkflowOptimizationService` looks like an AI service, is served at
+> `/api/ai/workflows/optimize/*`, and makes no model call at all.
+>
 > **Read `LU-B1` first if you are about to run a migration.** Local development and
 > production share one Neon database; a local `db:migrate` hits production immediately.
 
@@ -79,6 +87,17 @@ IDs are stable, heading anchors are not.
 | DEBT-OPS1 | `operational` | **`STORAGE_DRIVER=s3` unset in Railway — live 404s** | `backlog/TECH_DEBT.md` |
 | DEBT-OPS2 | `operational` | Branch protection is off | `backlog/TECH_DEBT.md` |
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
+| AISL-B1 | `needs-initiative` | Structured outputs would *delete* the JSON-parse/truncation subsystem; provider-coupled, Size L | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B2 | `needs-initiative` | Model tiering by `TaskType`; unevaluable until `/usage` has real data, and **conflicts with AISL-B3** | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B3 | `needs-initiative` | Enable provider prompt caching — **measured: prefix is only ~1,168 tokens, below several model floors; value far smaller than the audit claimed** | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B4 | `enhancement` | Three duplicated definitions in the AI layer (step types, truncation, default-model resolution) — re-verified 2026-08-10 | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B5 | `enhancement` | `__qualityScore` passed as an `as any` side channel then deleted by the caller | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B6 | `enhancement` | `callLLM` retry loop has no wall-clock deadline and no circuit breaker | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B7 | `informational` | `WorkflowOptimizationService` makes **no LLM call** despite its name/path — do not "fix" | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B8 | `product-decision` | `ai_settings.scope` supports org/user but only global is implemented | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
 
 ---
 

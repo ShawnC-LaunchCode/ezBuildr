@@ -186,7 +186,7 @@ const MODEL_CONFIGS: ModelConfig[] = [
   //   - gemini-1.5-pro is hardcoded in transformGenerator/transformRevision;
   //     AISL-5 removes those, after which this row may be reconsidered.
   // Do not delete either while any code path can still select it — see the
-  // AISL-1 review notes in tickets/AI_SERVICE_LAYER_TICKETS.md.
+  // AISL-1 review notes in tickets/backlog/AI_SERVICE_LAYER.md.
   {
     provider: 'gemini',
     model: 'gemini-2.0-flash',
