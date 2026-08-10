@@ -15,7 +15,12 @@
    🔲 to ✅, flip the matching node in the Roadmap Progress graphic below, bump that
    phase's count and the overall bar, and add a row to the Completed table.
 7. **Line numbers are advisory.** Every Finding quotes the code and names its enclosing symbol — that quote plus symbol is the real locator. If a line number has drifted, grep for the quoted text; a drifted line is not a broken ticket.
-8. **Deferred tickets are not dispatchable.** Anything under “Deferred — parked” is off the board: no phase owns it, no phase gate blocks on it, and it is not counted in the progress bar. Do not pick one up unless the repo owner promotes it back into a phase.
+8. **Three Phase 4 tickets are gated on a sibling initiative.** GH-161, GH-171 and
+   GH-173 all consume the DOCX/runner template grammar, which is being built in
+   `tickets/TEMPLATE_LANGUAGE_TICKETS.md` (TPL-1..8). Do not dispatch them until the
+   TPL Phase 1 Gate has passed; GH-161 is not separately dispatchable at all (TPL-7
+   delivers it). Every other Phase 4/5 ticket is unaffected.
+9. **Deferred tickets are not dispatchable.** Anything under “Deferred — parked” is off the board: no phase owns it, no phase gate blocks on it, and it is not counted in the progress bar. Do not pick one up unless the repo owner promotes it back into a phase.
 
 ---
 
@@ -59,7 +64,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**17 of 27 tickets complete (63%)** — updated 2026-08-09 · 1 deferred (GH-148)
+**18 of 27 tickets complete (67%)** — updated 2026-08-09 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -67,7 +72,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   █████████████████░░░░░░░░░░   17 / 27   (63%)
+OVERALL   ██████████████████░░░░░░░░░   18 / 27   (67%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -96,7 +101,9 @@ OVERALL   █████████████████░░░░░░�
         │      └── ✅ GH-167   Document-to-interview AI onboarding
         │
         ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ███░░░░░░░  2/7
-        │      ├── 🔲 GH-161   Answer piping & dynamic recall
+        │      │   ⚠ GH-161 / GH-171 / GH-173 are gated on the template-language
+        │      │     initiative — tickets/TEMPLATE_LANGUAGE_TICKETS.md (TPL-1..8)
+        │      ├── 🔲 GH-161   Answer piping & dynamic recall  → delivered by TPL-7
         │      ├── ✅ GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
@@ -128,6 +135,9 @@ OVERALL   █████████████████░░░░░░�
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 | ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
 | ✅ GH-156 | Document mapping workbench with persisted bindings | 2026-08-06 |
+| ✅ GH-154 | Unified conditional logic editor | 2026-08-08 |
+| ✅ GH-153 | Visual workflow map & path simulation | 2026-08-09 |
+| ✅ GH-167 | Document-to-interview AI onboarding | 2026-08-09 |
 | ✅ GH-162 | Review step structured values and conditional visibility | 2026-08-09 |
 | ✅ GH-155 | Final-document authoring configurability | 2026-08-09 |
 
@@ -1461,15 +1471,40 @@ Build in this order; each step should leave the tree gate-clean.
 
 ## GH-161 — Add answer piping and dynamic content throughout interviews 🔲
 
-**Priority: P2** · Size: M · Files: `client/src/components/runner/`, `shared/conditionEvaluator.ts`
-**Ties:** Preceded by GH-154
+> **Re-scoped 2026-08-09. DO NOT DISPATCH THIS TICKET DIRECTLY.** The work is delivered by
+> **TPL-7** in `tickets/TEMPLATE_LANGUAGE_TICKETS.md`; this entry closes when TPL-7 closes.
+> It is kept on the board so the Phase 4 count stays honest, not as dispatchable work.
+>
+> **Why it moved.** Investigation on 2026-08-09 found that answer recall is not a runner
+> feature with a formatter bolted on — it is a *consumer of a template language the repo
+> does not yet have*. The DOCX engine already owns a grammar (`{{ }}` with one helper per
+> tag), the runner owns a second, partial one (`interpolateVariables()` in
+> `client/src/components/runner/blocks/DisplayBlock.tsx`, display blocks only), and neither
+> supports filter chaining. Shipping AC3's formatters inside this ticket would have created
+> a third syntax. TPL-1..3 define one grammar; TPL-7 consumes it here.
+>
+> **Two ACs changed on the repo owner's instruction:**
+> - **AC1 — `@alias` is dropped.** `{{alias}}` only. It is already shipped in display
+>   blocks and in every DOCX template, and the industry-standard form the repo owner
+>   picked. Two syntaxes for one concept was the thing to avoid.
+> - **AC3 — pipe filters, from a named-preset vocabulary** (`{{ fee | usd }}`), shared
+>   with documents rather than runner-local. See Decision D4 in the TPL file.
+>
+> **`shared/conditionEvaluator.ts` was never in scope** and is removed from the Files
+> line — piping is a rendering concern; the evaluator is the condition language. The real
+> shared surface is the TPL grammar plus `formatAnswerValue`/`normalizeRunnerStepType`,
+> which GH-162 made canonical.
+
+**Priority: P2** · Size: M · Files: `client/src/components/runner/`
+**Ties:** Preceded by GH-154. **Blocked by TPL-2 and TPL-3**; delivered by **TPL-7** in `tickets/TEMPLATE_LANGUAGE_TICKETS.md`.
 
 ### Acceptance Criteria
-1. Question titles, descriptions, and static text blocks support `@alias` or `{{alias}}` answer recall syntax.
+1. Question titles, descriptions, and static text blocks support `{{alias}}` answer recall syntax.
 2. Runner updates piped text reactively as preceding answers change.
-3. Formatter modifiers supported (e.g. `@client_name | uppercase`, `@fee | currency`).
+3. Filter modifiers supported using the shared template grammar and preset vocabulary (e.g. `{{ client_name | upper }}`, `{{ fee | usd }}`).
 4. Missing or unfilled references render configurable fallback or blank.
-5. Tests verify reactivity, formatting, and XSS sanitization.
+5. Structured values (address, choice, list) render human-readable labels, not raw JSON.
+6. Tests verify reactivity, formatting, and XSS sanitization.
 
 ---
 
@@ -1540,8 +1575,15 @@ Build in this order; each step should leave the tree gate-clean.
 
 ## GH-171 — Add document template versioning and dependency impact analysis 🔲
 
+> **Gated 2026-08-09.** Do not start before the template-language initiative
+> (`tickets/TEMPLATE_LANGUAGE_TICKETS.md`, TPL-2/TPL-3) has landed. Immutable versions are
+> exactly what makes a grammar change unaffordable: once a version is frozen it must keep
+> rendering as authored forever, so any template written in the old grammar becomes a
+> permanent second system. Note `template_versions` already exists in `shared/schema/workflow.ts`
+> with `versionNumber`, `notes` and `isActive` — this ticket is closer to done than it reads.
+
 **Priority: P2** · Size: M · Files: `server/services/TemplateVersionService.ts`, `client/src/components/builder/templates/`
-**Ties:** Preceded by GH-156
+**Ties:** Preceded by GH-156. **Blocked by TPL-2/TPL-3** (`tickets/TEMPLATE_LANGUAGE_TICKETS.md`).
 
 ### Acceptance Criteria
 1. Template uploads create immutable versions with commit notes and timestamps.
@@ -1553,8 +1595,15 @@ Build in this order; each step should leave the tree gate-clean.
 
 ## GH-173 — Add legal drafting primitives and curated workflow templates 🔲
 
+> **Gated 2026-08-09.** Do not start before the template-language initiative
+> (`tickets/TEMPLATE_LANGUAGE_TICKETS.md`, TPL-2/TPL-3) has landed. This ticket ships the
+> first curated templates (NDA, retainer, intake); written in the old grammar they would all
+> need rewriting, and every customer template descends from them. The drafting primitives in
+> AC1 (legal numbering, party plurality, pronoun agreement) should be implemented as filters
+> in TPL-3's vocabulary, not as a separate mechanism — see observation TPL-O4.
+
 **Priority: P2** · Size: M · Files: `server/services/document/`, `client/src/templates/`
-**Ties:** Preceded by GH-156
+**Ties:** Preceded by GH-156. **Blocked by TPL-2/TPL-3** (`tickets/TEMPLATE_LANGUAGE_TICKETS.md`).
 
 ### Acceptance Criteria
 1. Pre-built legal drafting helpers: legal hierarchical numbering, party singular/plural agreements, pronoun agreement, date calculation helpers.
@@ -1975,5 +2024,9 @@ Found during the 2026-08-05 GH-158 branding audit:
 - [ ] Builder map and logic test suites green
 
 ### Phase 4 & 5 Gate (P2 Advanced Blocks, Mobile & Docs)
+- [ ] Template-language initiative (`tickets/TEMPLATE_LANGUAGE_TICKETS.md`) closed — TPL-1..8 ✅
+- [ ] GH-161 flipped to ✅ referencing TPL-7; GH-171 and GH-173 unblocked and verified
 - [ ] All P2 tickets verified and docs aligned
 - [ ] Full regression suite green
+- [ ] Phase counts **recounted from the ticket headings**, not incremented — the OVERALL
+      line drifted to 17/27 against 18 ✅ headings and was corrected 2026-08-09
