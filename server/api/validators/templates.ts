@@ -9,11 +9,13 @@ import { paginationQuerySchema } from '../../utils/pagination';
 
 export const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
+  notes: z.string().max(1000).optional(),
   // File upload handled separately via multipart/form-data
 });
 
 export const updateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
+  notes: z.string().max(1000).optional(),
   // Document Mapping Workbench (GH-156): the persisted default field mapping
   // for this template. `updateTemplateSchema.parse` previously stripped this
   // field silently (it wasn't declared here at all), so the mapping editor's

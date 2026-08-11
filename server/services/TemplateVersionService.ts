@@ -183,6 +183,24 @@ export class TemplateVersionService {
   }
 
   /**
+   * Get a specific version by its ID and template ID (scoped)
+   */
+  async getVersionForTemplate(templateId: string, versionId: string): Promise<TemplateVersion | null> {
+    const [version] = await db
+      .select()
+      .from(templateVersions)
+      .where(
+        and(
+          eq(templateVersions.id, versionId),
+          eq(templateVersions.templateId, templateId)
+        )
+      )
+      .limit(1);
+
+    return (version as TemplateVersion) ?? null;
+  }
+
+  /**
    * Restore a template to a previous version
    */
   async restoreVersion(

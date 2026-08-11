@@ -26,6 +26,8 @@ import { validateTemplateWithData } from '../TemplateAnalysisService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
 import { storageProvider } from '../storage/index.js';
+import { documentTemplateRepository } from '../../repositories/index.js';
+import { templateVersionService } from '../TemplateVersionService.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
 import type { PdfConversionNotice, PdfStrategyName } from './PdfConverter.js';
@@ -322,7 +324,7 @@ export class FinalBlockRenderer {
    */
   private async resolveTemplatePaths(
     documents: FinalBlockConfig['documents'],
-    resolveTemplate: (documentId: string) => Promise<string>
+    resolveTemplate: (documentId: string, pinnedVersionId?: string | null) => Promise<string>
   ): Promise<Array<{
     documentId: string;
     templatePath: string;
@@ -334,7 +336,7 @@ export class FinalBlockRenderer {
 
     for (const doc of documents) {
       try {
-        const templatePath = await resolveTemplate(doc.documentId);
+        const templatePath = await resolveTemplate(doc.documentId, doc.pinnedVersionId);
 
         // Verify template file exists
         await fs.access(templatePath);
@@ -518,19 +520,29 @@ export async function renderFinalBlock(
 // ============================================================================
 
 /**
- * Create a simple template resolver from template repository
+ * Create a project-scoped template resolver
  *
- * @param getTemplateById - Function to fetch template by ID
+ * @param projectId - The project ID to scope lookups to
  * @returns Template resolver function
  */
-export function createTemplateResolver(
-  getTemplateById: (id: string) => Promise<{ fileRef: string } | null>
-): (documentId: string) => Promise<string> {
-  return async (documentId: string) => {
-    const template = await getTemplateById(documentId);
-
+export function createProjectTemplateResolver(
+  projectId: string
+): (documentId: string, pinnedVersionId?: string | null) => Promise<string> {
+  return async (documentId: string, pinnedVersionId?: string | null) => {
+    const template = await documentTemplateRepository.findByIdAndProjectId(
+      documentId,
+      projectId
+    );
     if (!template) {
       throw createError.notFound('Template', documentId);
+    }
+
+    if (pinnedVersionId) {
+      const version = await templateVersionService.getVersionForTemplate(template.id, pinnedVersionId);
+      if (!version) {
+        throw createError.notFound('TemplateVersion', pinnedVersionId);
+      }
+      return getTemplateFilePath(version.fileRef);
     }
 
     // Resolve through the configured storage provider rather than assuming the
@@ -551,5 +563,5 @@ export default {
   FinalBlockRenderer,
   finalBlockRenderer,
   renderFinalBlock,
-  createTemplateResolver,
+  createProjectTemplateResolver,
 };

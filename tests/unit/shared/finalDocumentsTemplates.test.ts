@@ -15,6 +15,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
       templateId: 'template-123',
       title: null,
       conditions: null,
+      pinnedVersionId: null,
     });
   });
 
@@ -23,6 +24,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
       templateId: 'template-123',
       title: null,
       conditions: null,
+      pinnedVersionId: null,
     });
   });
 
@@ -40,6 +42,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
       templateId: 'template-123',
       title: null,
       conditions,
+      pinnedVersionId: null,
     });
   });
 
@@ -48,6 +51,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
       templateId: 'template-123',
       title: null,
       conditions: null,
+      pinnedVersionId: null,
     });
   });
 
@@ -56,6 +60,7 @@ describe('normalizeFinalDocumentsTemplateEntry', () => {
       templateId: 'template-123',
       title: 'Client Contract',
       conditions: null,
+      pinnedVersionId: null,
     });
   });
 

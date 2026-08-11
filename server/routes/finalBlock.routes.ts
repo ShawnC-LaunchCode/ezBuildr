@@ -23,8 +23,8 @@ import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
-import { documentTemplateRepository, runGeneratedDocumentsRepository } from '../repositories/index.js';
-import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
+import { runGeneratedDocumentsRepository } from '../repositories/index.js';
+import { finalBlockRenderer, createProjectTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from '../services/document/VariableNormalizer.js';
 import { runService } from '../services/RunService.js';
 import { storageProvider } from '../services/storage/index.js';
@@ -55,6 +55,7 @@ const previewGenerateSchema = z.object({
         id: z.string(),
         documentId: z.string(),
         alias: z.string(),
+        pinnedVersionId: z.string().uuid().nullable().optional(),
         conditions: z.any().optional().nullable(),
         mapping: z.record(z.any()).optional(),
       })
@@ -217,16 +218,7 @@ export function registerFinalBlockRoutes(app: Express): void {
         const workflowSteps = await stepService.getWorkflowSteps(workflowId);
 
         // Step 2: Create template resolver
-        const resolveTemplate = createTemplateResolver(async (documentId: string) => {
-          const template = await documentTemplateRepository.findByIdAndProjectId(
-            documentId,
-            workflow.projectId!
-          );
-          if (!template) {
-            throw createError.notFound('Template', documentId);
-          }
-          return template;
-        });
+        const resolveTemplate = createProjectTemplateResolver(workflow.projectId!);
 
         // Step 3: Generate documents
         const result = await finalBlockRenderer.render({
