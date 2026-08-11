@@ -37,6 +37,10 @@ import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRout
 import { TextBlockRenderer } from "./TextBlock";
 import { TimeBlockRenderer } from "./TimeBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
+import {
+  interpolateRunnerText,
+  type RunnerAnswerDefinitions,
+} from "../runnerInterpolation";
 
 // ============================================================================
 // TYPES
@@ -67,8 +71,11 @@ export interface BlockRendererProps {
   /** Full context for resolving variables (e.g. dynamic lists) */
   context?: Record<string, unknown>;
 
-  /** Maps a step's alias to its step id, for alias-aware `{{variable}}` interpolation in display blocks */
+  /** Maps a step's alias to its answer key for alias-aware `{{variable}}` interpolation. */
   aliasMap?: Record<string, string>;
+
+  /** Answer type/config keyed like `context`, used for human-readable structured interpolation. */
+  answerDefinitions?: RunnerAnswerDefinitions;
 
   /** Active run credentials used by controls with run-scoped side effects. */
   runId?: string;
@@ -126,6 +133,25 @@ export function BlockRenderer(props: BlockRendererProps) {
   const { step, value, onChange, required, error, readOnly, showValidation } = props;
   const normalizedType = normalizeRunnerStepType(step.type);
   const typeStatus = getRunnerStepTypeStatus(step.type);
+  const renderedStep = normalizedType === "display" ? step : {
+    ...step,
+    title: interpolateRunnerText(
+      step.title,
+      props.context,
+      props.aliasMap,
+      props.answerDefinitions,
+      { output: "text" }
+    ),
+    description: step.description
+      ? interpolateRunnerText(
+        step.description,
+        props.context,
+        props.aliasMap,
+        props.answerDefinitions,
+        { output: "text" }
+      )
+      : step.description,
+  };
   // Unsupported/unknown types are never required (RUN2-3) — don't mark them
   // required in the label when there's no control to answer with.
   const showRequiredIndicator = required && typeStatus !== "unsupported" && typeStatus !== "unknown";
@@ -139,7 +165,7 @@ export function BlockRenderer(props: BlockRendererProps) {
   }
 
   // Generate ARIA IDs
-  const descriptionId = step.description ? `${step.id}-description` : undefined;
+  const descriptionId = renderedStep.description ? `${step.id}-description` : undefined;
   const errorId = showValidation && error ? `${step.id}-error` : undefined;
 
   // Combine IDs for aria-describedby
@@ -160,69 +186,69 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "long_text":
       case "text":
 
-        return <TextBlockRenderer step={step} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <TextBlockRenderer step={renderedStep} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
       case "boolean":
-        return <BooleanBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <BooleanBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Validated inputs
       case "phone":
-        return <PhoneBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <PhoneBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "email":
-        return <EmailBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <EmailBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "website":
-        return <WebsiteBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <WebsiteBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
       case "date":
-        return <DateBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <DateBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "time":
-        return <TimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <TimeBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "date_time":
-        return <DateTimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <DateTimeBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Numeric inputs
       case "number":
-        return <NumberBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <NumberBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "currency":
-        return <CurrencyBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <CurrencyBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "scale":
-        return <ScaleBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <ScaleBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Choice inputs
       case "choice":
-        return <ChoiceBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} />;
+        return <ChoiceBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} />;
 
       // Complex blocks
       case "address":
-        return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <AddressBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "multi_field":
-        return <MultiFieldBlockRenderer step={step} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <MultiFieldBlockRenderer step={renderedStep} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "file_upload":
-        return <FileUploadBlockRenderer step={step} value={value} onChange={onChange} runId={props.runId} runToken={props.runToken} runStepId={props.runStepId} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <FileUploadBlockRenderer step={renderedStep} value={value} onChange={onChange} runId={props.runId} runToken={props.runToken} runStepId={props.runStepId} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Nestable, repeating question (LIST-8)
       case "list":
-        return <ListBlockRenderer step={step} value={isListValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <ListBlockRenderer step={renderedStep} value={isListValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":
-        return <DisplayBlockRenderer step={step} context={props.context} aliasMap={props.aliasMap} />;
+        return <DisplayBlockRenderer step={step} context={props.context} aliasMap={props.aliasMap} answerDefinitions={props.answerDefinitions} />;
 
       // Signature block (e-signature integration)
       case "signature_block":
         return (
           <SignatureBlockRenderer
-            step={step}
+            step={renderedStep}
             stepValues={props.context}
             runId={props.runId}
             runToken={props.runToken}
@@ -249,13 +275,13 @@ export function BlockRenderer(props: BlockRendererProps) {
     <div id={`block-container-${step.id}`} className="space-y-2">
       {/* Label */}
       <Label htmlFor={step.id}>
-        {step.title}
+        {renderedStep.title}
         {showRequiredIndicator && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
       </Label>
 
       {/* Description/Help Text */}
-      {step.description && (
-        <p id={descriptionId} className="text-sm text-muted-foreground">{step.description}</p>
+      {renderedStep.description && (
+        <p id={descriptionId} className="text-sm text-muted-foreground">{renderedStep.description}</p>
       )}
 
       {/* Input */}

@@ -42,7 +42,7 @@ drifted line is not a broken ticket.
 | **TPL-9** | ✅ | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
 | **TPL-4** | ✅ | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
 | **TPL-5** | ✅ | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
-| **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
+| **TPL-7** | ✅ | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
 | **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
 | **TPL-6** | ✅ | P2 · M | Variable health on the template card | — | `client/…/templates/` |
 
@@ -1340,7 +1340,34 @@ identically re-creates the problem this initiative exists to fix.
 
 # Phase 3 — Consumers
 
-## TPL-7 — Answer piping in the runner (delivers roadmap GH-161) 🔲
+## TPL-7 — Answer piping in the runner (delivers roadmap GH-161) ✅
+
+> **Verified 2026-08-10 (reviewer). Closes roadmap GH-161.** All 9 ACs met. Gates re-run by
+> the reviewer: `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **2995
+> passed / 14 skipped** (+6 over the 2989 baseline).
+>
+> Piping now covers question titles, descriptions, display blocks and List-nested questions,
+> on the **same grammar and filter vocabulary as documents** — the whole point of the
+> initiative. Structured values go through the canonical `formatAnswerValue` /
+> `normalizeRunnerStepType` path, so a List-nested address and a legacy option-id choice both
+> render human-readable, which is precisely where GH-162's first submission failed.
+>
+> AC6 escaping is structural rather than per-site: interpolated answers reach the DOM as
+> React text nodes, there is no `dangerouslySetInnerHTML` anywhere under `runner/`, and
+> `rehype-raw` remains disabled. A test drives a `<script>`-shaped answer through the
+> markdown boundary.
+>
+> Live proof supplied: a real run where a later question title recalled `ada lovelace` as
+> **Ada Lovelace**, then updated to **Grace Hopper** immediately on editing the earlier
+> answer — no navigation or reload — plus a mobile pass and a clean console.
+>
+> **Deviation accepted, and it is a genuine browser constraint.** The shared
+> `docxtemplater/expressions.js` parser is run with `csp: true` in the browser: its
+> generated-function mode references Node's `global` and throws in the client. CSP mode
+> swaps codegen for an interpreter and changes execution mode only — the syntax and the
+> filter vocabulary still come from the same document parser and `docxHelpers`, so the one
+> grammar is preserved. The existing exact raw step-id fallback was kept for legacy ids
+> containing hyphens.
 
 **Priority: P2** · Size: M · Files: `client/src/components/runner/`
 
