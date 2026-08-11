@@ -6,6 +6,7 @@ import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import type { ApiStep } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
 import type { Step } from "@/types";
+import type { RunnerAnswerDefinitions } from "@/components/runner/runnerInterpolation";
 
 import type { LogicRule } from "@shared/schema";
 
@@ -15,8 +16,8 @@ interface SectionStepsProps {
     steps?: ApiStep[];
     /**
      * Every step in the workflow (not just this section's), used only to
-     * build the alias->step id map for display-block `{{alias}}`
-     * interpolation. Aliases are workflow-wide, but rendering (visibility,
+     * build the alias->step id map for runner `{{alias}}` interpolation.
+     * Aliases are workflow-wide, but rendering (visibility,
      * ordering) stays scoped to `steps`. Falls back to `steps` when the
      * caller doesn't have the full-workflow list on hand.
      */
@@ -83,6 +84,13 @@ export function SectionSteps({
         }
         return map;
     }, [aliasSourceSteps]);
+    const answerDefinitions = useMemo<RunnerAnswerDefinitions>(() => {
+        const definitions: RunnerAnswerDefinitions = {};
+        for (const step of aliasSourceSteps) {
+            definitions[step.id] = { type: step.type, config: step.config };
+        }
+        return definitions;
+    }, [aliasSourceSteps]);
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
@@ -109,6 +117,7 @@ export function SectionSteps({
                         error={errors?.[step.id]?.[0]} // Pass first error message
                         context={values}
                         aliasMap={aliasMap}
+                        answerDefinitions={answerDefinitions}
                         runId={runId}
                         runToken={runToken}
                         preview={preview}
@@ -138,12 +147,13 @@ interface StepFieldProps {
     error?: string;
     context: Record<string, unknown>;
     aliasMap?: Record<string, string>;
+    answerDefinitions?: RunnerAnswerDefinitions;
     runId?: string;
     runToken?: string | null;
     preview?: boolean;
 }
 
-function StepField({ step, value, onChange, error, context, aliasMap, runId, runToken, preview }: StepFieldProps) {
+function StepField({ step, value, onChange, error, context, aliasMap, answerDefinitions, runId, runToken, preview }: StepFieldProps) {
     return (
         <div className="space-y-1 relative group">
             {/* 
@@ -160,6 +170,7 @@ function StepField({ step, value, onChange, error, context, aliasMap, runId, run
                 showValidation={!!error}
                 context={context}
                 aliasMap={aliasMap}
+                answerDefinitions={answerDefinitions}
                 runId={runId}
                 runToken={runToken}
                 preview={preview}

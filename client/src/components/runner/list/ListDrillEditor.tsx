@@ -12,6 +12,7 @@ import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
 import { BlockRenderer } from "@/components/runner/blocks/BlockRenderer";
 import { Button } from "@/components/ui/button";
 import type { ApiStep } from "@/lib/vault-api";
+import type { RunnerAnswerDefinitions } from "@/components/runner/runnerInterpolation";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import { validateListValue } from "@shared/validation/BlockValidation";
@@ -130,6 +131,14 @@ export function ListDrillEditor({ step, value, onChange, drill, aliasMap, runId,
   const breadcrumb = [step.title, ...liveLabels].join(" › ");
 
   const fields = [...scope.config.fields].sort((a, b) => a.order - b.order);
+  const localAliasMap = { ...aliasMap };
+  const localAnswerDefinitions: RunnerAnswerDefinitions = {};
+  for (const field of fields) {
+    localAliasMap[field.alias] = field.alias;
+    if (field.kind === "question") {
+      localAnswerDefinitions[field.alias] = { type: field.type, config: field.config };
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -176,7 +185,8 @@ export function ListDrillEditor({ step, value, onChange, drill, aliasMap, runId,
                   error={fieldMessages?.[0]}
                   showValidation={Boolean(fieldMessages?.length)}
                   context={scope.item.values}
-                  aliasMap={aliasMap}
+                  aliasMap={localAliasMap}
+                  answerDefinitions={localAnswerDefinitions}
                   runId={runId}
                   runToken={runToken}
                   runStepId={step.id}
