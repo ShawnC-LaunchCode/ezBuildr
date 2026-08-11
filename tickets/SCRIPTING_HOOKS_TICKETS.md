@@ -16,12 +16,14 @@ named symbol, and line numbers are advisory.
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
 | SCRIPT-1 | Two lifecycle hook phases can never fire | P1 | S | ✅ |
+| SCRIPT-2 | Prove the two new phases actually execute | P2 | S | 🔲 |
 
 ---
 
 ## SCRIPT-1 — Two lifecycle hook phases can never fire ✅
 
-> **Verified 2026-08-11 (reviewer, implemented by the reviewer).** All 7 ACs met.
+> **Partially verified 2026-08-11 (reviewer, implemented by the reviewer). ACs 3–7 met;
+> ACs 1–2 met structurally, not behaviourally — see the caveat below, and SCRIPT-2.**
 > `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **268 files / 3036 passed
 > / 14 skipped** (+5 over 3031 — the enum-driven guard's five cases).
 >
@@ -48,10 +50,13 @@ named symbol, and line numbers are advisory.
 > get what it needs to *describe* an output, not a handle to fetch it. Now filename, mimeType
 > and size only.
 >
-> **Not verified live.** Proving a hook fires end to end needs a full run that generates
-> documents; the structural guarantee is unit-tested and the wiring mirrors the working
-> document-hook pattern in `FinalBlockRenderer`. First real proof will be the next run with a
-> configured hook.
+> **⚠️ ACs 1 and 2 are not fully satisfied, and the reviewer initially overclaimed them.**
+> Both ask for a test proving a saved hook *executes*. What exists is the wiring plus an
+> enum-driven structural guard that asserts each phase is dispatched *somewhere in source*.
+> That catches the dead-phase class of bug — which is what this ticket was filed for — but it
+> would not catch wiring that is present yet unreachable, for example a call sited after an
+> early return. Closing this as fully done would be exactly the kind of claim this initiative
+> has repeatedly caught in others. Tracked as **SCRIPT-2**.
 
 **Priority: P1** · Size: S · Files: `server/services/BlockRunner.ts`, `server/services/runs/RunExecutionCoordinator.ts` (or wherever run completion lives)
 
@@ -141,9 +146,60 @@ work. A removed phase is honest; a dead one is not.
 
 ---
 
+## SCRIPT-2 — Prove the two new hook phases actually execute 🔲
+
+**Priority: P2** · Size: S · Files: `tests/unit/services/` (new test)
+
+### Finding
+
+SCRIPT-1 wired `beforeFinalBlock` and `afterDocumentsGenerated` into
+`RunLifecycleService.generateFinalBlockDocuments`, and added an enum-driven guard
+(`tests/unit/services/lifecycleHookPhaseCoverage.test.ts`) proving every phase in
+`lifecycleHookPhaseEnum` is dispatched somewhere under `server/`.
+
+That guard is **structural**: it greps source for the phase string. It proves the call exists;
+it does not prove the call is reached. Wiring placed after an early return, or inside a branch
+that never runs for real configurations, would satisfy it while the phase stayed dead — the
+same silent failure in a new disguise.
+
+SCRIPT-1's ACs 1 and 2 asked for behavioural proof and did not get it. The reviewer closed
+SCRIPT-1 claiming all 7 ACs were met, which was wrong, and corrected it.
+
+### Preferred fix
+
+A unit test over `generateFinalBlockDocuments` with `lifecycleHookService.executeHooksForPhase`
+mocked, asserting it is called once with `beforeFinalBlock` before rendering and once with
+`afterDocumentsGenerated` after documents are persisted, for a run that generates at least one
+document. Mock the repositories and `finalBlockRenderer` the way existing tests in
+`tests/unit/services/` do rather than standing up a real run.
+
+Assert **ordering as well as occurrence** — `beforeFinalBlock` must precede the render call, or
+its whole purpose (contributing data that generation consumes) is lost while the test still
+passes.
+
+### Ties
+
+- Follows **SCRIPT-1**, which is merged. Nothing depends on this; it closes an evidence gap.
+- Load `run-tests`. File footprint: one new test file. Collides with nothing.
+
+### Acceptance criteria
+
+1. A test asserts `executeHooksForPhase` is called with `beforeFinalBlock` during a generation
+   that produces at least one document.
+2. The same test asserts `beforeFinalBlock` is invoked **before** the renderer is called.
+3. A test asserts `executeHooksForPhase` is called with `afterDocumentsGenerated` after
+   document records are persisted.
+4. A test asserts a hook error on either phase does not fail the generation — the run still
+   returns its documents.
+5. `npm run type-check` 0 errors · `npm run lint` 0 problems · `npm run test:fast` green at or
+   above the baseline measured at dispatch.
+
+---
+
 ## Gate
 
-- [ ] SCRIPT-1 ✅ with a dated verification note
+- [x] SCRIPT-1 ✅ (2026-08-11)
+- [ ] SCRIPT-2 ✅ with a dated verification note
 - [ ] `npm run type-check` · `npm run lint` · `npm run test:fast` green
 - [ ] Reviewer has driven a real run with a hook on each phase and confirmed it fired
 - [ ] Reviewer has committed the passed ticket
