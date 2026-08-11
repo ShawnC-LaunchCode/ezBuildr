@@ -1591,6 +1591,12 @@ Build in this order; each step should leave the tree gate-clean.
 
 ## GH-171 — Add document template versioning and dependency impact analysis 🔲
 
+> **⚠️ IN FLIGHT — handoff doc: `tickets/GH171_FOLLOWUP_TICKETS.md` (2026-08-11).**
+> Three review rounds done. The pinning + cross-tenant security work is built and
+> verified but sits **UNCOMMITTED** in `.claude/worktrees/gh-171`. AC3
+> (renamed-placeholder detection) is the one unmet criterion. Do not close this
+> ticket, and do not remove that worktree, before reading the handoff doc.
+
 > **Gate cleared 2026-08-10.** This was blocked on the template-language initiative
 > (TPL-2/TPL-3) has landed — it did, 2026-08-10; detail in `tickets/backlog/TEMPLATE_LANGUAGE.md`. Immutable versions are
 > exactly what makes a grammar change unaffordable: once a version is frozen it must keep
