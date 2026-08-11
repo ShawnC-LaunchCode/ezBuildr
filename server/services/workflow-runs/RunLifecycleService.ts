@@ -13,6 +13,7 @@ import { logger } from "../../logger";
 import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
+import { lifecycleHookService } from "../scripting/LifecycleHookService";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
 import { normalizeFinalDocumentsTemplateEntry } from "../../../shared/finalDocumentsTemplates";
@@ -489,6 +490,36 @@ export class RunLifecycleService {
         return template;
       });
 
+      // 4.5 SCRIPT-1: beforeFinalBlock lifecycle hooks. This phase existed in
+      // `lifecycleHookPhaseEnum` and in the builder since the scripting system
+      // shipped, but nothing ever invoked it -- a hook saved here silently never
+      // ran. It fires now at the last point where a hook's output can still
+      // affect what the documents contain: after the alias-keyed run data is
+      // built, before the first template renders.
+      //
+      // Output merging, the mutationMode gate and the outputKeys whitelist all
+      // live inside executeHooksForPhase; do not re-implement them here. Errors
+      // are non-breaking, matching beforePage/afterPage in BlockRunner -- a
+      // failing hook must not lose a completed run's documents.
+      let hookedStepValues = stepValues;
+      try {
+        const beforeFinalBlockResult = await lifecycleHookService.executeHooksForPhase({
+          workflowId,
+          runId,
+          phase: 'beforeFinalBlock',
+          data: stepValues,
+        });
+        hookedStepValues = beforeFinalBlockResult.data ?? stepValues;
+        if (beforeFinalBlockResult.errors && beforeFinalBlockResult.errors.length > 0) {
+          logger.warn(
+            { runId, errors: beforeFinalBlockResult.errors },
+            'beforeFinalBlock lifecycle hooks reported errors; continuing generation'
+          );
+        }
+      } catch (error) {
+        logger.error({ runId, error }, 'Failed to execute beforeFinalBlock lifecycle hooks');
+      }
+
       // 5. Generate documents for each config (hooks run inside the renderer)
       let totalGenerated = 0;
       const documents: NonNullable<DocumentGenerationResult['documents']> = [];
@@ -500,7 +531,7 @@ export class RunLifecycleService {
       for (const finalBlockConfig of finalBlockConfigs) {
         const generationResult = await finalBlockRenderer.render({
           finalBlockConfig,
-          stepValues,
+          stepValues: hookedStepValues,
           workflowId: run.workflowId,
           runId: run.id,
           resolveTemplate,
@@ -545,6 +576,43 @@ export class RunLifecycleService {
       }
 
       logger.info({ runId, totalGenerated }, 'Documents generated successfully');
+
+      // SCRIPT-1: afterDocumentsGenerated lifecycle hooks. Like beforeFinalBlock,
+      // this phase was selectable in the builder but never invoked. It fires once
+      // per run after every document exists and its record is persisted, and
+      // before deliveries are dispatched -- so a hook can react to the finished
+      // documents (notify, push to an external system, record a reference) while
+      // delivery still happens afterwards.
+      //
+      // The script sees the generated documents under `documents`, alongside the
+      // run's answers. Errors are non-breaking: a failing notification hook must
+      // not fail a run whose documents were produced successfully. Output is not
+      // merged back -- generation is finished, so there is nothing left to affect.
+      try {
+        const afterDocsResult = await lifecycleHookService.executeHooksForPhase({
+          workflowId,
+          runId,
+          phase: 'afterDocumentsGenerated',
+          data: {
+            ...hookedStepValues,
+            // Deliberately no storage path: a sandboxed script gets what it
+            // needs to describe the output, not a handle to fetch it.
+            documents: documents.map((doc) => ({
+              filename: doc.filename,
+              mimeType: doc.mimeType,
+              size: doc.size,
+            })),
+          },
+        });
+        if (afterDocsResult.errors && afterDocsResult.errors.length > 0) {
+          logger.warn(
+            { runId, errors: afterDocsResult.errors },
+            'afterDocumentsGenerated lifecycle hooks reported errors; run is unaffected'
+          );
+        }
+      } catch (error) {
+        logger.error({ runId, error }, 'Failed to execute afterDocumentsGenerated lifecycle hooks');
+      }
 
       // Dispatch document deliveries if configured
       if (totalGenerated > 0) {

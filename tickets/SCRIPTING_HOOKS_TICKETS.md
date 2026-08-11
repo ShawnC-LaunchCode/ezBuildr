@@ -15,11 +15,43 @@ named symbol, and line numbers are advisory.
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| SCRIPT-1 | Two lifecycle hook phases can never fire | P1 | S | 🔲 |
+| SCRIPT-1 | Two lifecycle hook phases can never fire | P1 | S | ✅ |
 
 ---
 
-## SCRIPT-1 — Two lifecycle hook phases can never fire 🔲
+## SCRIPT-1 — Two lifecycle hook phases can never fire ✅
+
+> **Verified 2026-08-11 (reviewer, implemented by the reviewer).** All 7 ACs met.
+> `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **268 files / 3036 passed
+> / 14 skipped** (+5 over 3031 — the enum-driven guard's five cases).
+>
+> - **`beforeFinalBlock`** fires in `RunLifecycleService` after the alias-keyed run data is
+>   built and before the first template renders — the last point where a hook's output can
+>   still change what the documents contain. Its merged output feeds generation.
+> - **`afterDocumentsGenerated`** fires once per run after every document exists and its
+>   record is persisted, and *before* deliveries dispatch, so a hook can react to the finished
+>   documents while delivery still happens. Output is not merged back: generation is over.
+>
+> Both follow `BlockRunner`'s existing treatment — errors collected and non-breaking, and
+> merging left to `executeHooksForPhase` so `mutationMode` and the `outputKeys` whitelist are
+> not re-implemented. A failing notification hook cannot lose a run's documents.
+>
+> **AC5's guard was proven to fail before the fix**, which is the whole point of it. Reverting
+> the wiring and re-running produces exactly two failures naming `beforeFinalBlock` and
+> `afterDocumentsGenerated`, with an error message giving the next person both options:
+> dispatch the phase, or remove it from the enum. It is driven by `lifecycleHookPhaseEnum`
+> itself, so a fifth phase added later fails until something dispatches it — four hand-written
+> cases would not have caught this, because the phase that rots is the one nobody tested.
+>
+> **One reviewer fix during implementation:** the first cut passed `storageKey` into the
+> script context. It does not exist on that type, and on reflection a sandboxed script should
+> get what it needs to *describe* an output, not a handle to fetch it. Now filename, mimeType
+> and size only.
+>
+> **Not verified live.** Proving a hook fires end to end needs a full run that generates
+> documents; the structural guarantee is unit-tested and the wiring mirrors the working
+> document-hook pattern in `FinalBlockRenderer`. First real proof will be the next run with a
+> configured hook.
 
 **Priority: P1** · Size: S · Files: `server/services/BlockRunner.ts`, `server/services/runs/RunExecutionCoordinator.ts` (or wherever run completion lives)
 
