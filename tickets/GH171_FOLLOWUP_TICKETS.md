@@ -6,21 +6,29 @@
 
 ---
 
-## ✅ RESOLVED — the work is now committed
+## ✅ RESOLVED — the work is committed and merged to `main`
 
-All GH-171 implementation is preserved as **one commit on the `gh-171` branch**:
+All GH-171 implementation is on **`main`**. Base your work on `main`; there is no
+branch or worktree to hunt for.
 
 ```
-.claude/worktrees/gh-171     branch: gh-171     commit: 3ac6747d
-21 files changed, 1083 insertions(+), 117 deletions(-)     working tree clean
+3ac6747d  wip(templates): preserve GH-171 work (G171-0)   21 files, +1083/-117
+24491c3e  merge(gh-171): land template version pinning and impact analysis
 ```
 
-Committed 2026-08-11. **All four pre-commit gates passed on that tree** — ESLint,
-`tsc --noEmit`, strict-zones, related unit tests — which is a real signal, not a
-pasted claim: the commit would not exist otherwise.
+The `gh-171` branch and its worktree were **deleted after the merge** — they were
+redundant, and a stale side branch is how devs end up building against code that
+is not on `main`. Both commits remain reachable from `main`.
 
-Still **unpushed**, and the branch is not merged to `main`. GH-171 stays 🔲
-because AC3 is unmet; the branch is a preservation point, not a passed review.
+Verified on merged `main`, by the reviewer rather than from a turn-in report:
+`tsc --noEmit` 0 errors, `test:fast` **3039 passed**. (One run showed a single
+failure in `tests/unit/external/ExternalSendRunner.test.ts` — a 5s timeout in an
+unrelated file that passes 3/3 in 560ms in isolation. That is this repo's known
+order-dependent flake, not a regression. Re-verify in isolation before blaming
+your own change.)
+
+**`main` is unpushed.** GH-171 stays 🔲 because AC3 is unmet — the merge preserved
+the work and unblocked dispatch; it is not a claim the ticket passed review.
 
 Tear the worktree down **only** with `pwsh scripts/new-worktree.ps1 -Name gh-171 -Remove`,
 never a bare `git worktree remove` (CLAUDE.md explains why).
@@ -117,10 +125,10 @@ concern is coverage, not the feature, and it is folded into G171-2 AC6.
 ## G171-0 — Preserve the uncommitted work ✅ DONE 2026-08-11
 
 **Priority: P0** · Size: S · Files: none (git only)
-**Closed by:** commit `3ac6747d` on branch `gh-171` (unpushed). All 21 paths
-staged individually by path, nothing else swept in, working tree left clean.
-Pre-commit gates ESLint / `tsc` / strict-zones all passed. Nothing below needs
-doing — kept for the record.
+**Closed by:** commit `3ac6747d`, merged to `main` as `24491c3e` (both unpushed).
+All 21 paths were staged individually by path, nothing else swept in, working tree
+left clean. Pre-commit gates ESLint / `tsc` / strict-zones all passed. Nothing
+below needs doing — kept for the record.
 
 ### Finding
 Three rounds of GH-171 work exist only as uncommitted changes in
