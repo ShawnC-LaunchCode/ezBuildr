@@ -2,6 +2,8 @@
 
 The `helpers` object is globally available in all scripts. It provides safe, utility functions for common operations.
 
+> **Not sure which system you need? See [Scripts vs template filters](../guides/SCRIPTING_VS_TEMPLATE_FILTERS.md).**
+>
 > **These are script helpers, not document template filters.** They are injected into
 > sandboxed lifecycle and document-hook scripts only. Word templates use a separate
 > vocabulary with pipe syntax — `{{ fee | usd }}` — documented in

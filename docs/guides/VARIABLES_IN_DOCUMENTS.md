@@ -5,6 +5,8 @@ this guide are rendered through the production DOCX engine by
 `tests/unit/services/document/docSamples.test.ts`; their sample IDs match the
 test names.
 
+> **Not sure which system you need? See [Scripts vs template filters](./SCRIPTING_VS_TEMPLATE_FILTERS.md).**
+>
 > **Not the same as script helpers.** The `helpers.*` functions in
 > [the Helper Library](../scripting/helper-library.md) are for sandboxed lifecycle and
 > document-hook *scripts*, and are not available as template filters. Some names overlap with

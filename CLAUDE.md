@@ -201,6 +201,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 | [E-Signature](./docs/guides/ESIGNATURE_INTEGRATION.md) | DocuSign integration |
 | [Legal Integrations](./docs/guides/LEGAL_INTEGRATIONS.md) | Clio Manage, Stripe Payments, and DocuSign setup |
 | [Variables in Documents](./docs/guides/VARIABLES_IN_DOCUMENTS.md) | Template variables |
+| [Scripts vs Template Filters](./docs/guides/SCRIPTING_VS_TEMPLATE_FILTERS.md) | Which of the two utility systems applies, and why page logic cannot call helpers |
 
 ### Architecture
 | Document | Contents |
