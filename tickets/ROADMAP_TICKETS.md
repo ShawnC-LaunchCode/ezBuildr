@@ -64,7 +64,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**18 of 27 tickets complete (67%)** — updated 2026-08-09 · 1 deferred (GH-148)
+**19 of 27 tickets complete (70%)** — updated 2026-08-10 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -72,7 +72,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ██████████████████░░░░░░░░░   18 / 27   (67%)
+OVERALL   ███████████████████░░░░░░░░   19 / 27   (70%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -100,10 +100,10 @@ OVERALL   ██████████████████░░░░░�
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── ✅ GH-167   Document-to-interview AI onboarding
         │
-        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ███░░░░░░░  2/7
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ████░░░░░░  3/7
         │      │   ⚠ GH-161 / GH-171 / GH-173 are gated on the template-language
         │      │     initiative — tickets/TEMPLATE_LANGUAGE_TICKETS.md (TPL-1..8)
-        │      ├── 🔲 GH-161   Answer piping & dynamic recall  → delivered by TPL-7
+        │      ├── ✅ GH-161   Answer piping & dynamic recall  (delivered by TPL-7)
         │      ├── ✅ GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
@@ -140,6 +140,7 @@ OVERALL   ██████████████████░░░░░�
 | ✅ GH-167 | Document-to-interview AI onboarding | 2026-08-09 |
 | ✅ GH-162 | Review step structured values and conditional visibility | 2026-08-09 |
 | ✅ GH-155 | Final-document authoring configurability | 2026-08-09 |
+| ✅ GH-161 | Answer piping & dynamic recall (via TPL-7) | 2026-08-10 |
 
 ---
 
@@ -1469,7 +1470,22 @@ Build in this order; each step should leave the tree gate-clean.
 
 # Phase 4: P2 Advanced Blocks, Authoring & Templates
 
-## GH-161 — Add answer piping and dynamic content throughout interviews 🔲
+## GH-161 — Add answer piping and dynamic content throughout interviews ✅
+
+> **Closed 2026-08-10 — delivered by TPL-7** in the template-language initiative, exactly as
+> the 2026-08-09 re-scope specified. All 6 ACs met, verified by the reviewer on the merged
+> tree: `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **267 files / 3031
+> passed / 14 skipped**.
+>
+> Piping covers question titles, descriptions, display blocks and List-nested questions, using
+> the same grammar and filter vocabulary as document templates rather than a runner-local
+> syntax — which is why this ticket was re-scoped to wait for TPL-2/TPL-3 instead of inventing
+> a third syntax. Structured values render through `formatAnswerValue` /
+> `normalizeRunnerStepType`, escaping is structural at the interpolation boundary, and a
+> missing reference renders blank rather than throwing mid-interview.
+>
+> Live proof: a real run recalled an earlier answer in a later question title and updated it
+> immediately on edit, with no reload. Full detail in TPL-7's verification note.
 
 > **Re-scoped 2026-08-09. DO NOT DISPATCH THIS TICKET DIRECTLY.** The work is delivered by
 > **TPL-7** in `tickets/TEMPLATE_LANGUAGE_TICKETS.md`; this entry closes when TPL-7 closes.
