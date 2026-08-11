@@ -2,6 +2,15 @@
 
 The `helpers` object is globally available in all scripts. It provides safe, utility functions for common operations.
 
+> **These are script helpers, not document template filters.** They are injected into
+> sandboxed lifecycle and document-hook scripts only. Word templates use a separate
+> vocabulary with pipe syntax — `{{ fee | usd }}` — documented in
+> [Variables in Documents](../guides/VARIABLES_IN_DOCUMENTS.md). Several names appear in both
+> (`upper`, `trim`, `round`, `add`) but the signatures differ: `helpers.date.add(date, n, unit)`
+> is date arithmetic, while the template's `add` is numeric. Names that exist **only** here —
+> `now`, `format`, `diff`, `slug`, `clamp`, `sum`, `avg` — are not template filters, and an
+> unknown filter now **rejects the template upload** rather than rendering blank.
+
 ## Date (`helpers.date`)
 Utilities for querying and manipulating dates. Uses `date-fns` under the hood.
 

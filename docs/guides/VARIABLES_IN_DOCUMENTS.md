@@ -5,6 +5,13 @@ this guide are rendered through the production DOCX engine by
 `tests/unit/services/document/docSamples.test.ts`; their sample IDs match the
 test names.
 
+> **Not the same as script helpers.** The `helpers.*` functions in
+> [the Helper Library](../scripting/helper-library.md) are for sandboxed lifecycle and
+> document-hook *scripts*, and are not available as template filters. Some names overlap with
+> different meanings, and several — `now`, `format`, `diff`, `slug`, `clamp`, `sum`, `avg` —
+> have no filter equivalent. An unknown filter name **rejects the upload**, so a wrong guess
+> fails loudly at authoring time rather than quietly at render time.
+
 ## Quick rules
 
 - Insert tags as ordinary text in Microsoft Word. Tags use double braces.
