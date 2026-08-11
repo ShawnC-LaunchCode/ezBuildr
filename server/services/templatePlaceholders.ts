@@ -230,24 +230,16 @@ function processValueTag(state: ExtractionState, content: string): void {
 }
 
 /**
- * Extract placeholders from a DOCX template, tracking loop nesting so
+ * Extract placeholders from a DOCX template buffer, tracking loop nesting so
  * fields that resolve against loop items are not reported as missing
  * workflow variables.
  *
- * @param templatePath - Absolute path to the .docx file
+ * @param fileContent - Buffer containing the .docx file
  * @throws TemplateSyntaxError when the template is malformed
  */
-export async function extractPlaceholdersDetailed(
-  templatePath: string
+export async function extractPlaceholdersDetailedFromBuffer(
+  fileContent: Buffer
 ): Promise<PlaceholderInfo[]> {
-  try {
-    await fs.access(templatePath);
-  } catch {
-    throw createError.notFound('Template file', templatePath);
-  }
-
-
-  const fileContent = await fs.readFile(templatePath, 'binary');
   const zip = new PizZip(fileContent);
 
   let doc: Docxtemplater;
@@ -277,4 +269,25 @@ export async function extractPlaceholdersDetailed(
   }
 
   return state.placeholders;
+}
+
+/**
+ * Extract placeholders from a DOCX template, tracking loop nesting so
+ * fields that resolve against loop items are not reported as missing
+ * workflow variables.
+ *
+ * @param templatePath - Absolute path to the .docx file
+ * @throws TemplateSyntaxError when the template is malformed
+ */
+export async function extractPlaceholdersDetailed(
+  templatePath: string
+): Promise<PlaceholderInfo[]> {
+  try {
+    await fs.access(templatePath);
+  } catch {
+    throw createError.notFound('Template file', templatePath);
+  }
+
+  const fileContent = await fs.readFile(templatePath);
+  return extractPlaceholdersDetailedFromBuffer(fileContent);
 }

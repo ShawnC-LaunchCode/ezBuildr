@@ -49,6 +49,7 @@ import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
 import type { AuthRequest } from '../middleware/auth';
+import type { PlaceholderInfo } from '../services/templatePlaceholders';
 import type { PdfMetadata } from '../services/document/PdfService';
 import type { NormalizationOptions } from '../services/document/VariableNormalizer';
 
@@ -154,20 +155,7 @@ function rethrowProcessingTimeout(error: unknown): void {
   );
 }
 
-async function collectDocxPlaceholderWarnings(fileBuffer: Buffer): Promise<string[]> {
-  const { extractPlaceholdersDetailed } = await import('../services/templatePlaceholders');
-  const tempPath = path.join(os.tmpdir(), `validate-${crypto.randomBytes(4).toString('hex')}.docx`);
 
-  await fs.writeFile(tempPath, fileBuffer);
-  try {
-    const placeholders = await extractPlaceholdersDetailed(tempPath);
-    return placeholders
-      .filter((placeholder) => placeholder.kind === 'unknown_helper')
-      .map((placeholder) => `Warning: Template references an unknown helper function "${placeholder.helper ?? placeholder.name}".`);
-  } finally {
-    await fs.unlink(tempPath).catch(() => {});
-  }
-}
 
 /**
  * GET /templates/:id/download
@@ -340,6 +328,8 @@ router.post(
       );
       let warnings: string[] = [];
       let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
+      let docxPlaceholders: PlaceholderInfo[] | undefined;
+      
       if (!isPdf) {
         try {
           const docxScanResult = await documentProcessingLimiter.run(() =>
@@ -354,17 +344,20 @@ router.post(
               `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
             );
           }
-            if (docxScanResult.fixed) {
-              fileBuffer = docxScanResult.buffer;
-              warnings = docxScanResult.repairs;
-            }
-            // DOC-109: Validate helpers during upload
-            try {
-              warnings.push(...await collectDocxPlaceholderWarnings(fileBuffer));
-            } catch (e) {
-              logger.warn({ error: e }, "Failed to extract placeholders during template upload");
-            }
-          } catch (error: unknown) {
+          if (docxScanResult.fixed) {
+            fileBuffer = docxScanResult.buffer;
+            warnings = docxScanResult.repairs;
+          }
+          
+          // TPL-5: Extract placeholders once at upload and validate filters
+          const { extractPlaceholdersDetailedFromBuffer } = await import('../services/templatePlaceholders');
+          docxPlaceholders = await extractPlaceholdersDetailedFromBuffer(fileBuffer);
+          const unknownHelpers = docxPlaceholders.filter((p) => p.kind === 'unknown_helper');
+          if (unknownHelpers.length > 0) {
+            const names = unknownHelpers.map((p) => p.helper ?? p.name).join(', ');
+            throw createError.validation(`Invalid template: unknown filter name(s): ${names}`);
+          }
+        } catch (error: unknown) {
           await cleanupFile(req.file.path);
           rethrowProcessingTimeout(error);
           if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
@@ -398,7 +391,8 @@ router.post(
           helpersVersion: 1,
           metadata: {
             ...(isPdf ? pdfMetadata : {}),
-            size: fileBuffer.length
+            size: fileBuffer.length,
+            ...(docxPlaceholders ? { placeholders: docxPlaceholders } : {})
           },
         })
         .returning();
@@ -515,6 +509,8 @@ router.patch(
           'Virus scan passed (PATCH)'
         );
         let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
+        let docxPlaceholders: PlaceholderInfo[] | undefined;
+        
         if (!isPdf) {
           try {
             const docxScanResult = await documentProcessingLimiter.run(() =>
@@ -533,6 +529,15 @@ router.patch(
             if (docxScanResult.fixed) {
               fileBuffer = docxScanResult.buffer;
               warnings = docxScanResult.repairs;
+            }
+
+            // TPL-5: Extract placeholders once at upload and validate filters
+            const { extractPlaceholdersDetailedFromBuffer } = await import('../services/templatePlaceholders');
+            docxPlaceholders = await extractPlaceholdersDetailedFromBuffer(fileBuffer);
+            const unknownHelpers = docxPlaceholders.filter((p) => p.kind === 'unknown_helper');
+            if (unknownHelpers.length > 0) {
+              const names = unknownHelpers.map((p) => p.helper ?? p.name).join(', ');
+              throw createError.validation(`Invalid template: unknown filter name(s): ${names}`);
             }
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
@@ -561,7 +566,8 @@ router.patch(
         updateType = isPdf ? 'pdf' : 'docx';
         updateMetadata = {
           ...(isPdf ? pdfMetadata : {}),
-          size: fileBuffer.length
+          size: fileBuffer.length,
+          ...(docxPlaceholders ? { placeholders: docxPlaceholders } : {})
         };
         oldFileRef = template.fileRef;
       }
@@ -711,28 +717,18 @@ router.get(
       const params = templateParamsSchema.parse(req.params);
       const query = z.object({ workflowId: z.string().uuid() }).parse(req.query);
 
-      const template = await db.query.templates.findFirst({
-        where: eq(schema.templates.id, params.id),
-        with: { project: true },
-      });
-      if (!template) {
-        throw createError.notFound('Template', params.id);
-      }
-      if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden(ACCESS_DENIED_MSG);
-      }
-
       const { templateValidationService } = await import('../services/TemplateValidationService');
       const report = await templateValidationService.validate(
-        template.id,
-        template.fileRef,
+        params.id,
         query.workflowId,
+        tenantId,
         userId
       );
       res.json(report);
     } catch (error) {
-      const formatted = formatErrorResponse(error);
-      res.status(formatted.status).json(formatted.body);
+      const { classifyRouteError } = await import('../utils/routeErrors');
+      const { status, message } = classifyRouteError(error, 'Failed to validate template');
+      res.status(status).json({ message });
     }
   })
 );

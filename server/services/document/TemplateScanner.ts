@@ -3,6 +3,7 @@ import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 
+import { assertNoReservedStatementSyntax } from './RenderCore';
 import { TemplateParser } from './TemplateParser';
 
 export interface ScanResult {
@@ -283,6 +284,12 @@ export class TemplateScanner {
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     private validateBuffer(buffer: Buffer) {
         const zip = new PizZip(buffer);
+
+        // D4: reject reserved {%/{# statement syntax at upload. Delegated to
+        // RenderCore's single implementation rather than copied -- see the note
+        // on assertNoReservedStatementSyntax for why one copy matters.
+        assertNoReservedStatementSyntax(zip);
+
         const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,

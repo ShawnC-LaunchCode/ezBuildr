@@ -10,6 +10,11 @@
  * fuzzy alias suggestions.
  */
 
+import { eq } from 'drizzle-orm';
+
+import * as schema from '@shared/schema';
+import { db } from '../db';
+import { createError } from '../utils/errors';
 import { getTemplateFilePath } from './templates';
 import {
   extractPlaceholdersDetailed,
@@ -60,6 +65,8 @@ export interface TemplateValidationReport {
   syntaxErrors: string[];
   /** Helpers referenced in tags but not defined in docxHelpers */
   unknownHelpers: string[];
+  /** Total number of unique placeholders of kind 'variable' */
+  totalVariableCount: number;
   /** True when the template parses and every top-level placeholder resolves */
   valid: boolean;
 }
@@ -129,27 +136,44 @@ export class TemplateValidationService {
    * Validate a template's placeholders against a workflow's variables.
    *
    * @param templateId - Template row id (for the report)
-   * @param fileRef - Template file reference (templates.fileRef)
    * @param workflowId - Workflow whose variables to check against
+   * @param tenantId - For ownership verification
    * @param userId - User for workflow access verification
    */
   async validate(
     templateId: string,
-    fileRef: string,
     workflowId: string,
+    tenantId: string,
     userId: string
   ): Promise<TemplateValidationReport> {
+    const template = await db.query.templates.findFirst({
+      where: eq(schema.templates.id, templateId),
+      with: { project: true },
+    });
+    if (!template) {
+      throw createError.notFound('Template', templateId);
+    }
+    if (template.project.tenantId !== tenantId) {
+      throw createError.forbidden('Access denied to this template');
+    }
+
     const variables = await variableService.listVariables(workflowId, userId);
 
-    let placeholders: PlaceholderInfo[];
-    try {
-      placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(fileRef));
-    } catch (error) {
-      if (error instanceof TemplateSyntaxError) {
-        const report = this.buildReport(templateId, workflowId, [], variables);
-        return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
+    let placeholders: PlaceholderInfo[] = [];
+    const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;
+
+    if (metadata?.placeholders) {
+      placeholders = metadata.placeholders;
+    } else {
+      try {
+        placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(template.fileRef));
+      } catch (error) {
+        if (error instanceof TemplateSyntaxError) {
+          const report = this.buildReport(templateId, workflowId, [], variables);
+          return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
+        }
+        throw error;
       }
-      throw error;
     }
 
     return this.buildReport(templateId, workflowId, placeholders, variables);
@@ -218,6 +242,10 @@ export class TemplateValidationService {
       .map((v) => ({ stepId: v.stepId, label: v.label, sectionTitle: v.sectionTitle }));
 
     const unknownHelpers = Array.from(unknownHelpersSet).sort();
+    
+    const totalVariableCount = new Set(
+      placeholders.filter(p => p.kind === 'variable').map(p => p.name)
+    ).size;
 
     return {
       templateId,
@@ -230,6 +258,7 @@ export class TemplateValidationService {
       stepsWithoutAlias,
       syntaxErrors: [],
       unknownHelpers,
+      totalVariableCount,
       valid: missing.length === 0 && unknownHelpers.length === 0,
     };
   }

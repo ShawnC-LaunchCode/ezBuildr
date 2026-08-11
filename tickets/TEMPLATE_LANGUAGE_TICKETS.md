@@ -26,7 +26,7 @@ drifted line is not a broken ticket.
 
 ## Status board
 
-**7 of 11 closed** · updated 2026-08-10.
+**8 of 11 closed** · updated 2026-08-10.
 
 > **Recount, do not increment.** These counts are derived from the ticket headings below
 > (`grep -c "^## TPL-.*✅"`). The roadmap file's equivalent board drifted by hand-incrementing
@@ -41,10 +41,10 @@ drifted line is not a broken ticket.
 | **TPL-11** | ✅ | P1 · S | Teaches the static extractor the pipe grammar | — | `templatePlaceholders.ts` |
 | **TPL-9** | ✅ | P1 · S | Date filters: `addDays:"30"` silently wrong, two date formatters that disagree by a day, month/year arithmetic | — | `docxHelpers.ts`, `formatters.ts` |
 | **TPL-4** | ✅ | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
-| **TPL-5** | 🔲 ready | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
+| **TPL-5** | ✅ | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
 | **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
 | **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
-| **TPL-6** | 🔲 **blocked** | P2 · M | Variable health on the template card | **TPL-5** | `client/…/templates/` |
+| **TPL-6** | 🔲 ready | P2 · M | Variable health on the template card | — | `client/…/templates/` |
 
 ### Dependency chain — one open edge left
 
@@ -1121,7 +1121,47 @@ Only cell/row boundaries are the problem.
 
 ---
 
-## TPL-5 — Persist a template variable inventory and classify its problems 🔲
+## TPL-5 — Persist a template variable inventory and classify its problems ✅
+
+> **Verified 2026-08-10 (reviewer).** All 8 ACs met. Gates re-run by the reviewer:
+> `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **265 files / 2989
+> passed / 14 skipped** (+5 over the 2984 baseline).
+>
+> Inventory is parsed once at upload and written to `templates.metadata.placeholders` on
+> both POST and PATCH — no schema change, as specified. Validation then diffs the cached
+> inventory against the workflow's current aliases, so an alias rename costs a set
+> intersection rather than a zip parse.
+>
+> Reviewer probe of the upload path:
+> ```
+> reserved {%tr if x %}          isValid=false, 1 error
+> {{#items}} split across runs   isValid=true      (must not be mistaken for reserved syntax)
+> clean template                 isValid=true
+> ```
+>
+> **Reviewer corrections at review.** The submitting session reported `test:fast` as
+> "2984 tests passed" — that is the worktree's *baseline*, printed at creation before any
+> work existed. The real figure was 2986 at turn-in. Quoting a baseline as a result is
+> indistinguishable from a suite that never ran the new tests; always paste the number your
+> own run printed.
+>
+> Three things the reviewer finished:
+> - **AC3 had no test.** Added `TemplateValidationService.cachedInventory.test.ts`, which
+>   asserts the extractor is *not* called when the inventory is cached — plus a fallback
+>   case proving that assertion is not vacuous, and a cross-tenant case.
+> - **A duplicated reserved-syntax scan** had been copy-pasted into `TemplateScanner`, out
+>   of footprint, while `RenderCore` already owned one. That regex has needed one subtle
+>   correction already (stripping markup so a run-split tag is not misread); two copies
+>   means the next fix has to find both. `assertNoReservedStatementSyntax` is now exported
+>   and the scanner delegates to it.
+> - **Service errors bypassed the error contract** (`throw new Error('Template not found')`).
+>   Now `createError.notFound` / `createError.forbidden`, so `classifyRouteError` maps them.
+>
+> **A reviewer error worth recording:** the first review claimed AC2's did-you-mean
+> suggestions and unreferenced-alias list were missing. They were not — `suggestAliases()`
+> (Levenshtein-based) and `unusedVariables` already existed and the dev correctly reused
+> them. The reviewer had grepped for `didYouMean|levenshtein|suggestion` and missed the
+> actual symbol name. Grep for the behaviour, not for the name you would have chosen.
 
 **Priority: P1** · Size: M · Files: `server/services/templatePlaceholders.ts`, `server/services/document/TemplateValidationService.ts` (or a new sibling service), `server/routes/templates.routes.ts`
 

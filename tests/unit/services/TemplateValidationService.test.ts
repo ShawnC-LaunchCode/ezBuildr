@@ -9,6 +9,7 @@ import {
   TemplateValidationService,
   extractPlaceholdersDetailed,
   suggestAliases,
+  type TemplateValidationReport,
 } from '../../../server/services/TemplateValidationService';
 
 // TemplateSyntaxError is asserted via rejects.toMatchObject({ name })
@@ -225,7 +226,40 @@ describe('TemplateValidationService', () => {
         expect.arrayContaining(['billing.city', 'billing.zip'])
       );
       expect(report.missing).toHaveLength(0);
+      expect(report.totalVariableCount).toBe(2);
       expect(report.valid).toBe(true);
+    });
+
+    it('should assert empty problem lists and a non-zero variable count for a clean template (AC7)', async () => {
+      const file = await writeDocx('clean.docx', '{{var1}} {{var2}}');
+      const placeholders = await extractPlaceholdersDetailed(file);
+      const variables = [
+        variable({ key: 's1', alias: 'var1', label: 'Var 1' }),
+        variable({ key: 's2', alias: 'var2', label: 'Var 2' }),
+      ];
+
+      const report = service.buildReport('tpl-clean', 'wf-clean', placeholders, variables);
+
+      expect(report.missing).toHaveLength(0);
+      expect(report.unknownHelpers).toHaveLength(0);
+      expect(report.syntaxErrors).toHaveLength(0);
+      expect(report.totalVariableCount).toBeGreaterThan(0);
+      expect(report.totalVariableCount).toBe(2);
+      expect(report.valid).toBe(true);
+    });
+
+    it('should not throw on unresolved variables, but include them in missing list (AC5)', async () => {
+      const file = await writeDocx('unresolved.docx', '{{unresolvedVar}}');
+      const placeholders = await extractPlaceholdersDetailed(file);
+      const variables: WorkflowVariable[] = []; // empty, nothing matches
+
+      let report: TemplateValidationReport;
+      expect(() => {
+        report = service.buildReport('tpl-unresolved', 'wf-unresolved', placeholders, variables);
+      }).not.toThrow();
+
+      expect(report!.missing).toHaveLength(1);
+      expect(report!.missing[0].placeholder).toBe('unresolvedVar');
     });
 
     // TPL-11: rewritten from the old `{{mysteryHelper clientName}}` prefix form.
