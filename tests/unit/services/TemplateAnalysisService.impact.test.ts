@@ -91,6 +91,7 @@ describe('TemplateAnalysisService Impact', () => {
       expect(result.comparison.added).toEqual(['newVar']);
       expect(result.comparison.removed).toEqual(['oldVar']);
       expect(result.comparison.unchanged).toEqual(['keptVar']);
+      expect(result.comparison.renamed).toEqual([]);
       expect(result.impact.workflows).toEqual([{ id: 'wf-1', name: 'Active WF' }]);
       expect(result.impact.pinnedWorkflows).toEqual([]);
     });

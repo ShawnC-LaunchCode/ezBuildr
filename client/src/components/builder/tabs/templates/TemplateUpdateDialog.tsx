@@ -32,6 +32,13 @@ interface AnalysisImpact {
     requiresReview: boolean;
 }
 
+interface TemplateComparison {
+    added: string[];
+    removed: string[];
+    unchanged: string[];
+    renamed: Array<{ from: string; to: string }>;
+}
+
 export function TemplateUpdateDialog({
     open,
     onOpenChange,
@@ -45,6 +52,7 @@ export function TemplateUpdateDialog({
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [impact, setImpact] = useState<AnalysisImpact | null>(null);
+    const [comparison, setComparison] = useState<TemplateComparison | null>(null);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -52,19 +60,23 @@ export function TemplateUpdateDialog({
 
         setSelectedFile(file);
         setImpact(null);
+        setComparison(null);
         setIsAnalyzing(true);
 
         try {
             const formData = new FormData();
             formData.append("file", file);
 
-            const response = await axios.post<{ data: { impact: AnalysisImpact } }>(
+            const response = await axios.post<{
+                data: { impact: AnalysisImpact; comparison: TemplateComparison };
+            }>(
                 `/api/templates/${templateId}/analyze-update?projectId=${projectId}`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
             
             setImpact(response.data.data.impact);
+            setComparison(response.data.data.comparison);
         } catch (error) {
             console.error("Failed to analyze template update", error);
         } finally {
@@ -100,6 +112,7 @@ export function TemplateUpdateDialog({
         setSelectedFile(null);
         setNotes("");
         setImpact(null);
+        setComparison(null);
         onOpenChange(false);
     };
 
@@ -151,6 +164,11 @@ export function TemplateUpdateDialog({
                                                 Warning: Placeholders have been removed, which may break mappings in these workflows.
                                             </p>
                                         )}
+                                        {comparison != null && comparison.renamed.length > 0 && (
+                                            <p className="font-semibold text-xs mt-2">
+                                                Warning: Renamed placeholders may break existing mappings in these workflows.
+                                            </p>
+                                        )}
                                     </AlertDescription>
                                 </Alert>
                             ) : impact.workflowsAffected > 0 ? (
@@ -162,6 +180,56 @@ export function TemplateUpdateDialog({
                                     </AlertDescription>
                                 </Alert>
                             ) : null}
+
+                            {comparison != null && (
+                                comparison.added.length > 0 ||
+                                comparison.removed.length > 0 ||
+                                comparison.renamed.length > 0
+                            ) && (
+                                <div className="space-y-2 rounded-md border p-3 text-sm">
+                                    <p className="font-medium">Placeholder changes</p>
+                                    {comparison.renamed.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold">
+                                                {comparison.renamed.length} renamed
+                                            </p>
+                                            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                                {comparison.renamed.map((rename) => (
+                                                    <li key={`${rename.from}:${rename.to}`}>
+                                                        <code>{rename.from}</code>
+                                                        {' → '}
+                                                        <code>{rename.to}</code>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {comparison.added.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold">
+                                                {comparison.added.length} added
+                                            </p>
+                                            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                                {comparison.added.map((name) => (
+                                                    <li key={name}><code>{name}</code></li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {comparison.removed.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold">
+                                                {comparison.removed.length} removed
+                                            </p>
+                                            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                                {comparison.removed.map((name) => (
+                                                    <li key={name}><code>{name}</code></li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <Label htmlFor="notes">Commit Notes (Optional)</Label>

@@ -78,6 +78,25 @@ export interface ValidationWarning {
   severity: 'info' | 'warning' | 'error';
 }
 
+export interface TemplatePlaceholderRename {
+  from: string;
+  to: string;
+}
+
+export interface TemplateComparison {
+  added: string[];
+  removed: string[];
+  unchanged: string[];
+  renamed: TemplatePlaceholderRename[];
+}
+
+/**
+ * A shared meaningful token out of three total tokens is the minimum evidence
+ * for a rename. Short tokens are ignored below so generic fragments such as
+ * "id" or "var" cannot pair otherwise unrelated placeholders.
+ */
+const RENAMED_PLACEHOLDER_TOKEN_OVERLAP_THRESHOLD = 1 / 3;
+
 /**
  * Analyze a DOCX template.
  * Accepts either a storage fileRef or an absolute file path — callers are
@@ -373,11 +392,7 @@ function generateSampleValue(varName: string): any {
 export async function compareTemplates(
   fileRef1: string,
   fileRef2: string
-): Promise<{
-  added: string[];
-  removed: string[];
-  unchanged: string[];
-}> {
+): Promise<TemplateComparison> {
   const analysis1 = await analyzeTemplate(fileRef1);
   const analysis2 = await analyzeTemplate(fileRef2);
 
@@ -387,12 +402,80 @@ export async function compareTemplates(
   const added = Array.from(vars2).filter((v) => !vars1.has(v));
   const removed = Array.from(vars1).filter((v) => !vars2.has(v));
   const unchanged = Array.from(vars1).filter((v) => vars2.has(v));
+  const renamed = findPlaceholderRenames(removed, added);
+  const renamedFrom = new Set(renamed.map((rename) => rename.from));
+  const renamedTo = new Set(renamed.map((rename) => rename.to));
 
   return {
-    added: added.sort(),
-    removed: removed.sort(),
+    added: added.filter((name) => !renamedTo.has(name)).sort(),
+    removed: removed.filter((name) => !renamedFrom.has(name)).sort(),
     unchanged: unchanged.sort(),
+    renamed,
   };
+}
+
+function getMeaningfulPlaceholderTokens(name: string): Set<string> {
+  return new Set(
+    name
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 4)
+  );
+}
+
+function getPlaceholderTokenOverlap(from: string, to: string): number {
+  const fromTokens = getMeaningfulPlaceholderTokens(from);
+  const toTokens = getMeaningfulPlaceholderTokens(to);
+  const union = new Set([...fromTokens, ...toTokens]);
+
+  if (union.size === 0) {
+    return 0;
+  }
+
+  const sharedCount = [...fromTokens].filter((token) => toTokens.has(token)).length;
+  return sharedCount / union.size;
+}
+
+/**
+ * Pair rename candidates globally by strongest similarity so an early weak
+ * match cannot consume the best candidate for a later placeholder.
+ */
+function findPlaceholderRenames(
+  removed: string[],
+  added: string[]
+): TemplatePlaceholderRename[] {
+  const candidates = removed.flatMap((from) =>
+    added.map((to) => ({ from, to, score: getPlaceholderTokenOverlap(from, to) }))
+  );
+
+  candidates.sort(
+    (left, right) =>
+      right.score - left.score ||
+      left.from.localeCompare(right.from) ||
+      left.to.localeCompare(right.to)
+  );
+
+  const matchedFrom = new Set<string>();
+  const matchedTo = new Set<string>();
+  const renamed: TemplatePlaceholderRename[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.score < RENAMED_PLACEHOLDER_TOKEN_OVERLAP_THRESHOLD) {
+      break;
+    }
+    if (matchedFrom.has(candidate.from) || matchedTo.has(candidate.to)) {
+      continue;
+    }
+
+    renamed.push({ from: candidate.from, to: candidate.to });
+    matchedFrom.add(candidate.from);
+    matchedTo.add(candidate.to);
+  }
+
+  return renamed.sort(
+    (left, right) => left.from.localeCompare(right.from) || left.to.localeCompare(right.to)
+  );
 }
 
 /**
@@ -536,55 +619,13 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
 }
 
 /**
- * Compute renamed placeholders based on a string similarity heuristic.
- */
-function findRenames(removed: string[], added: string[]): { oldName: string; newName: string }[] {
-  const renames = [];
-  const remainingAdded = new Set(added);
-
-  for (const r of removed) {
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const a of remainingAdded) {
-      // Very simple heuristic: check if one contains the other, or if they share a significant prefix/suffix
-      if (a.includes(r) || r.includes(a) || r.toLowerCase() === a.toLowerCase()) {
-        bestMatch = a;
-        bestScore = 1;
-        break;
-      }
-      
-      // Calculate Levenshtein distance or simple character overlap
-      let overlap = 0;
-      const minLen = Math.min(r.length, a.length);
-      for (let i = 0; i < minLen; i++) {
-        if (r[i].toLowerCase() === a[i].toLowerCase()) {
-          overlap++;
-        }
-      }
-      const score = overlap / Math.max(r.length, a.length);
-      if (score > 0.7 && score > bestScore) {
-        bestScore = score;
-        bestMatch = a;
-      }
-    }
-
-    if (bestMatch && bestScore > 0.7) {
-      renames.push({ oldName: r, newName: bestMatch });
-      remainingAdded.delete(bestMatch);
-    }
-  }
-  return renames;
-}
-
-/**
  * Analyze an impending template update and return impact warning data
  */
 export async function analyzeTemplateUpdate(
   templateId: string,
   newFileRef: string
 ): Promise<{
-  comparison: { added: string[]; removed: string[]; unchanged: string[]; renamed?: Array<{oldName: string; newName: string}> };
+  comparison: TemplateComparison;
   impact: { workflowsAffected: number; workflows: Array<{ id: string; name: string }>; pinnedWorkflows: Array<{ id: string; name: string }>; hasRemovedPlaceholders: boolean; requiresReview: boolean };
 }> {
   const [template] = await db.select().from(templates).where(eq(templates.id, templateId));
@@ -595,24 +636,16 @@ export async function analyzeTemplateUpdate(
   const comparison = await compareTemplates(template.fileRef, newFileRef);
   const { active: activeWorkflows, pinned: pinnedWorkflows } = await getActiveWorkflowsForTemplate(templateId);
 
-  // Compute renames
-  const renames = findRenames(comparison.removed, comparison.added);
-  const actualRemoved = comparison.removed.filter(r => !renames.some(ren => ren.oldName === r));
-  const actualAdded = comparison.added.filter(a => !renames.some(ren => ren.newName === a));
-
   return {
-    comparison: {
-      added: actualAdded,
-      removed: actualRemoved,
-      unchanged: comparison.unchanged,
-      renamed: renames
-    },
+    comparison,
     impact: {
       workflowsAffected: activeWorkflows.length,
       workflows: activeWorkflows,
       pinnedWorkflows: pinnedWorkflows,
-      hasRemovedPlaceholders: actualRemoved.length > 0,
-      requiresReview: activeWorkflows.length > 0 && actualRemoved.length > 0,
+      hasRemovedPlaceholders: comparison.removed.length > 0,
+      requiresReview:
+        activeWorkflows.length > 0 &&
+        (comparison.removed.length > 0 || comparison.renamed.length > 0),
     }
   };
 }

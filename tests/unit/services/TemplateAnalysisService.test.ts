@@ -188,6 +188,53 @@ describe('TemplateAnalysisService', () => {
       expect(diff.added).toContain('phone');
       expect(diff.removed).toContain('email');
       expect(diff.unchanged).toContain('name');
+      expect(diff.renamed).toEqual([]);
+    });
+
+    it('reports a renamed placeholder once and removes it from added and removed', async () => {
+      const before = await writeDocx('rename-before.docx', '{{client_name}}');
+      const after = await writeDocx('rename-after.docx', '{{customer_name}}');
+      const diff = await compareTemplates(before, after);
+
+      expect(diff).toMatchObject({
+        added: [],
+        removed: [],
+        renamed: [{ from: 'client_name', to: 'customer_name' }],
+      });
+    });
+
+    it('leaves dissimilar additions and removals unmatched', async () => {
+      const before = await writeDocx('unrelated-before.docx', '{{billing_address}}');
+      const after = await writeDocx('unrelated-after.docx', '{{invoice_total}}');
+      const diff = await compareTemplates(before, after);
+
+      expect(diff.renamed).toEqual([]);
+      expect(diff.removed).toEqual(['billing_address']);
+      expect(diff.added).toEqual(['invoice_total']);
+    });
+
+    it('includes matches at the token-overlap threshold but rejects those below it', async () => {
+      const atBoundaryBefore = await writeDocx('boundary-before.docx', '{{billing_address}}');
+      const atBoundaryAfter = await writeDocx('boundary-after.docx', '{{shipping_address}}');
+      const atBoundary = await compareTemplates(atBoundaryBefore, atBoundaryAfter);
+
+      expect(atBoundary.renamed).toEqual([
+        { from: 'billing_address', to: 'shipping_address' },
+      ]);
+
+      const belowBoundaryBefore = await writeDocx(
+        'below-boundary-before.docx',
+        '{{primary_billing_address}}'
+      );
+      const belowBoundaryAfter = await writeDocx(
+        'below-boundary-after.docx',
+        '{{secondary_shipping_address}}'
+      );
+      const belowBoundary = await compareTemplates(belowBoundaryBefore, belowBoundaryAfter);
+
+      expect(belowBoundary.renamed).toEqual([]);
+      expect(belowBoundary.removed).toEqual(['primary_billing_address']);
+      expect(belowBoundary.added).toEqual(['secondary_shipping_address']);
     });
   });
 });
