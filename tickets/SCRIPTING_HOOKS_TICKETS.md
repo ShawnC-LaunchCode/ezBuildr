@@ -146,9 +146,16 @@ work. A removed phase is honest; a dead one is not.
 
 ---
 
-## SCRIPT-2 — Prove the two new hook phases actually execute 🔲
+## SCRIPT-2 — Prove the two new hook phases actually execute ✅ DONE 2026-08-11
 
 **Priority: P2** · Size: S · Files: `tests/unit/services/` (new test)
+**Closed by:** `2318db18`, merged to `main` as `b92a9281` (unpushed).
+**Reviewer verification** (gates re-run, not accepted from the turn-in):
+`type-check` 0 errors · `lint` 0 problems · `test:fast` **3042 passed / 0 failed**,
+271 files passed / 1 skipped — baseline 3039 plus exactly the 3 new tests.
+All 5 ACs met. The event-sequence assertion proves ordering rather than mere
+occurrence, which is what AC2 was actually after.
+**Follow-up raised:** [SCRIPT-3](#script-3--assert-beforefinalblock-output-reaches-the-renderer).
 
 ### Finding
 
@@ -196,10 +203,63 @@ passes.
 
 ---
 
+## SCRIPT-3 — Assert beforeFinalBlock output reaches the renderer 🔲
+
+**Priority: P2** · Size: S · Files: `tests/unit/services/RunLifecycleService.lifecycleHooks.test.ts`
+
+### Finding
+
+Found by the reviewer while verifying SCRIPT-2. Not a defect in SCRIPT-2 — its ACs
+never asked for this — and **not a defect in the production code**, which is correct:
+
+```ts
+hookedStepValues = beforeFinalBlockResult.data ?? stepValues;   // RunLifecycleService ~506
+...
+stepValues: hookedStepValues,                                   // passed to render ~528
+```
+
+The gap is in the guard. SCRIPT-2's test returns the hook's `data` **unchanged** and
+asserts only that the phases were called in the right order. So a regression that
+computed `hookedStepValues` and then passed plain `stepValues` to the renderer would
+pass all three tests.
+
+That is exactly SCRIPT-1's failure shape wearing a new disguise: a hook that runs,
+in the right order, with no effect on output. Ordering was the right thing for
+SCRIPT-2 to assert; it is not sufficient on its own.
+
+### Preferred fix
+
+Extend the existing test: have the mocked `beforeFinalBlock` return **mutated** data
+(e.g. add a key, or change `clientName`), then assert `finalBlockRenderer.render` was
+called with `stepValues` containing the mutation. One added assertion plus a changed
+mock return — no new file.
+
+Prove it is not vacuous: temporarily change the service to pass `stepValues` instead
+of `hookedStepValues`, confirm the new assertion fails, restore, confirm it passes.
+Paste both outputs.
+
+### Ties
+
+- Same file as SCRIPT-2 (now merged), so **no collision** — but do not start this in a
+  worktree based before `b92a9281`, or the file will not be there.
+- Load `run-tests`.
+
+### Acceptance Criteria
+
+1. The mocked `beforeFinalBlock` hook returns data differing from its input.
+2. An assertion proves `finalBlockRenderer.render` received the **mutated** data.
+3. Failing-then-passing evidence pasted, per the probe above.
+4. `type-check` 0 errors · `lint` 0 problems · `test:fast` at or above 3042 passed / 0 failed.
+
+---
+
 ## Gate
 
 - [x] SCRIPT-1 ✅ (2026-08-11)
-- [ ] SCRIPT-2 ✅ with a dated verification note
-- [ ] `npm run type-check` · `npm run lint` · `npm run test:fast` green
+- [x] SCRIPT-2 ✅ (2026-08-11) — dated verification note in its section above
+- [x] `npm run type-check` · `npm run lint` · `npm run test:fast` green — reviewer re-ran all three
 - [ ] Reviewer has driven a real run with a hook on each phase and confirmed it fired
-- [ ] Reviewer has committed the passed ticket
+      — **still outstanding.** Both closed tickets are unit-level; nothing has yet
+      exercised these phases against the live app. This is the one gate item that
+      SCRIPT-1 and SCRIPT-2 together do not satisfy.
+- [x] Reviewer has committed the passed ticket — `2318db18`, merged `b92a9281`
