@@ -253,7 +253,26 @@ distinct from added/removed.
 
 ---
 
-## G171-2 — Test the real-run pin path
+## G171-2 — Test the real-run pin path ✅ DONE 2026-08-11
+
+**Closed by:** `9b9e4bc2`, merged to `main` as `a986b2ed` (unpushed). All 6 ACs met,
+including the AC6 parity criterion added after this ticket was first written.
+
+**Reviewer verification** (gates re-run, and the probe re-done by the reviewer rather
+than accepted from the turn-in): `type-check` 0 errors · `lint` 0 problems · this file
+**5/5** · `test:integration` at exactly the documented baseline — 4 files / 10 tests
+failed, **1096 passed** (1093 + these 3), no new failures.
+
+**Non-vacuity, re-proven independently:** dropping `eq(templateVersions.templateId,
+templateId)` from `getVersionForTemplate` fails **4 of 5** tests (the dev reported 2).
+Both new real-run tests fail with `expected 'done' to match /^failed:/` — generation
+completed and rendered the foreign template. The mutation was confirmed present in the
+file *before* the run, so the probe proves something; the file was restored
+byte-identical after.
+
+⚠️ **Do not mistake AC6 for a security test.** The parity test **still passes** under
+the vulnerable lookup, because an unscoped lookup hands the same wrong row to both
+preview and the run. AC6 guards preview/run *divergence*; ACs 1–3 guard authorization.
 
 **Priority: P1** · Size: S · Files: `tests/integration/` (new or extend `finalBlock.pinSecurity.test.ts`)
 
