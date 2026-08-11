@@ -6,18 +6,21 @@
 
 ---
 
-## 🚨 READ THIS FIRST — the work is uncommitted
+## ✅ RESOLVED — the work is now committed
 
-All GH-171 implementation lives **uncommitted** in a git worktree:
+All GH-171 implementation is preserved as **one commit on the `gh-171` branch**:
 
 ```
-.claude/worktrees/gh-171     branch: gh-171     base: 713045dc (== main, 0 behind)
-21 dirty paths, 0 staged
+.claude/worktrees/gh-171     branch: gh-171     commit: 3ac6747d
+21 files changed, 1083 insertions(+), 117 deletions(-)     working tree clean
 ```
 
-Nothing has been committed. Nothing has been pushed. If that worktree is
-removed or reset, **three rounds of work are gone**. The first action of
-whoever picks this up should be to preserve it — see [G171-0](#g171-0--preserve-the-uncommitted-work-do-this-first).
+Committed 2026-08-11. **All four pre-commit gates passed on that tree** — ESLint,
+`tsc --noEmit`, strict-zones, related unit tests — which is a real signal, not a
+pasted claim: the commit would not exist otherwise.
+
+Still **unpushed**, and the branch is not merged to `main`. GH-171 stays 🔲
+because AC3 is unmet; the branch is a preservation point, not a passed review.
 
 Tear the worktree down **only** with `pwsh scripts/new-worktree.ps1 -Name gh-171 -Remove`,
 never a bare `git worktree remove` (CLAUDE.md explains why).
@@ -86,19 +89,38 @@ has one unmet acceptance criterion.
 
 ---
 
-## Decision needed from the repo owner
+## Decision made by the repo owner (2026-08-11) — KEEP the preview pin
 
-**Preview accepting a client-supplied pin is a scope expansion.** GH-171 as
-written says nothing about the preview endpoint. The implementation added
-`pinnedVersionId` to `previewGenerateSchema`, so a builder can now pin in
-preview. It is properly scoped, so it is safe — but it is a product choice,
-not a security fix. Confirm it is wanted, or revert that one schema line.
+**Preview accepting a client-supplied pin was a scope expansion; it is confirmed
+wanted and stays.** GH-171 as written says nothing about the preview endpoint,
+and the implementation added `pinnedVersionId` to `previewGenerateSchema`.
+
+Rationale, so nobody re-opens this: the preview payload *is* the unsaved builder
+draft, so the pin can only come from the client. If preview ignored the pin, it
+would render the latest version while the real run renders the pinned one — a
+silent preview/run divergence, invisible in the builder and discovered when a
+client receives the wrong document. Reverting the schema line would introduce
+that bug, not remove a risk.
+
+It is safe because resolution is scoped by two independent ownership hops, not
+one — verified by reading the code, not the turn-in:
+
+1. `createProjectTemplateResolver` → `documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId)`
+2. `templateVersionService.getVersionForTemplate(template.id, pinnedVersionId)`, whose
+   `where` is `and(eq(id, versionId), eq(templateId, templateId))`
+
+**Do not revert `pinnedVersionId` from `previewGenerateSchema`.** The residual
+concern is coverage, not the feature, and it is folded into G171-2 AC6.
 
 ---
 
-## G171-0 — Preserve the uncommitted work (DO THIS FIRST)
+## G171-0 — Preserve the uncommitted work ✅ DONE 2026-08-11
 
 **Priority: P0** · Size: S · Files: none (git only)
+**Closed by:** commit `3ac6747d` on branch `gh-171` (unpushed). All 21 paths
+staged individually by path, nothing else swept in, working tree left clean.
+Pre-commit gates ESLint / `tsc` / strict-zones all passed. Nothing below needs
+doing — kept for the record.
 
 ### Finding
 Three rounds of GH-171 work exist only as uncommitted changes in
@@ -248,6 +270,13 @@ Paste both outputs.
 3. A same-project-wrong-template pin is also covered on this path.
 4. Failing-then-passing evidence pasted, per the probe above.
 5. The test cleans up any files it writes (see G171-4 item 3).
+6. **Preview/run parity.** One test asserts that the *same* valid pin, supplied
+   to preview and to a real run, resolves to the **same** `template_versions`
+   row. This is the coverage the kept preview-pin scope expansion needs (see the
+   decision section above): the feature's whole justification is that preview
+   shows what the run will produce, and nothing currently proves the two paths
+   agree. A pin that preview honors and the run ignores — or vice versa — must
+   fail this test.
 6. `test:integration` run; no new failures beyond the 10 pre-existing.
 
 ---
