@@ -12,7 +12,8 @@ import { extractPlaceholdersDetailed } from '../../../server/services/templatePl
  *
  * `extractPlaceholdersDetailed()` predates TPL-2's `{{ x | filter }}`
  * grammar and mis-parsed it -- see the ticket's reproduction in
- * tickets/TEMPLATE_LANGUAGE_TICKETS.md. Every assertion here runs against a
+ * tickets/backlog/TEMPLATE_LANGUAGE.md (retired; git log -p the old
+ * tickets/TEMPLATE_LANGUAGE_TICKETS.md for the full ticket text). Every assertion here runs against a
  * real (in-memory) DOCX buffer built with PizZip, per AC7 -- no parser
  * function is unit-tested in isolation.
  */

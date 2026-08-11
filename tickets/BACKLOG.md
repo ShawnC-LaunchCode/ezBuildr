@@ -101,6 +101,36 @@ IDs are stable, heading anchors are not.
 
 ---
 
+## Template Language (TPL) — [detail](backlog/TEMPLATE_LANGUAGE.md) — retired 2026-08-10
+
+**11 of 11 tickets closed.** `test:fast` 2814 → 3031. One grammar now serves DOCX templates
+and runner answer-piping, parsed only in `server/services/document/RenderCore.ts`. Closed
+roadmap **GH-161** and unblocked **GH-171** and **GH-173**.
+
+One item needs a ruling before other work depends on it:
+
+- **TPL-O7 — business-day / holiday date math** · `product-decision`. "30 business days" and
+  weekend-rolling deadlines are unexpressible today. The arithmetic is trivial; the **holiday
+  calendar is the whole cost** and it is jurisdictional — weekends-only, a fixed US federal
+  list, or per-workspace. **Answer before GH-173 writes retainer and NDA templates.**
+
+Parked, not dispatchable:
+
+- **TPL-O1 — object key/value iteration** · `enhancement`. Needs a `VariableNormalizer`
+  transform to `[{key, value}]`, not a grammar change. No current template needs it.
+- **TPL-O3 — clause library** · `needs-initiative`. Reusable clause blocks; probably a builder
+  content feature rather than template inheritance (docxtemplater's subtemplate module is
+  commercial).
+- **TPL-O5 — no upload → store → generate integration test** · `enhancement`. Every test in
+  the initiative built buffers in memory; this gap is how the smart-quote bug survived.
+- **Filter vocabulary near-duplicates** · `informational`. `titleCase`/`titlecase`,
+  `default`/`defaultValue`, three currency and four date spellings all render. Documented in
+  `docs/guides/SCRIPTING_VS_TEMPLATE_FILTERS.md`; prefer the preset names.
+
+Open the detail file for the `Closed — do not re-file` table, the four settled decisions
+(D1–D4), and the seam lessons — **every defect in this initiative lived between tickets and
+passed its own ticket's gates**.
+
 ## Workflow Map (MAP) — [detail](backlog/WORKFLOW_MAP.md) — retired 2026-08-09
 
 Epic **GH-153**. Opened at grade **C**, closed with **all ten tickets and all eight
