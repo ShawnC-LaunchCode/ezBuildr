@@ -107,7 +107,7 @@ OVERALL   ███████████████████░░░░�
         │      ├── ✅ GH-162   Review step structured values & visibility
         │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
         │      ├── 🔲 GH-165   Guided Easy-Mode workflow
-        │      ├── 🔲 GH-171   Template versioning & impact analysis
+        │      ├── ✅ GH-171   Template versioning & impact analysis
         │      ├── 🔲 GH-173   Legal drafting primitives & templates
         │      └── ✅ GH-155   Final-document authoring config
         │
@@ -1589,13 +1589,28 @@ Build in this order; each step should leave the tree gate-clean.
 
 ---
 
-## GH-171 — Add document template versioning and dependency impact analysis 🔲
+## GH-171 — Add document template versioning and dependency impact analysis ✅ DONE 2026-08-11
 
-> **⚠️ IN FLIGHT — handoff doc: `tickets/GH171_FOLLOWUP_TICKETS.md` (2026-08-11).**
-> Three review rounds done. The pinning + cross-tenant security work is built and
-> verified but sits **UNCOMMITTED** in `.claude/worktrees/gh-171`. AC3
-> (renamed-placeholder detection) is the one unmet criterion. Do not close this
-> ticket, and do not remove that worktree, before reading the handoff doc.
+> **✅ CLOSED — all 4 ACs met.** Landed on `main` (unpushed) across two merges:
+> `24491c3e` (versioning, pinning, and the cross-tenant pin fix) and `36cd2fa7`
+> (AC3, renamed-placeholder detection, via G171-1).
+>
+> Reviewer-verified, every gate re-run rather than accepted from a turn-in:
+> `type-check` 0 errors · `lint` 0 problems · `test:fast` **3043 passed / 0 failed** ·
+> integration at exactly the documented baseline (4 files / 10 tests failed,
+> 108 files / 1093 passed) with no new failures.
+>
+> The cross-tenant pin fix was proven **non-vacuous** by the reviewer, not just by
+> the dev: breaking `getVersionForTemplate`'s `templateId` scoping makes 4 tests
+> fail, two of them completing a real run and rendering the foreign template.
+>
+> **Open follow-ups, none of them GH-171 ACs** — see `tickets/GH171_FOLLOWUP_TICKETS.md`:
+> G171-2 (real-run pin test + preview/run parity), G171-3 (test-count delta),
+> G171-4 (carry-over cleanups), G171-5 (stale `run-tests` doc).
+>
+> Behaviour change shipped beyond the ACs and deliberately kept: `requiresReview`
+> now trips on renames, which previously passed review silently despite breaking
+> every workflow piping to the old alias.
 
 > **Gate cleared 2026-08-10.** This was blocked on the template-language initiative
 > (TPL-2/TPL-3) has landed — it did, 2026-08-10; detail in `tickets/backlog/TEMPLATE_LANGUAGE.md`. Immutable versions are

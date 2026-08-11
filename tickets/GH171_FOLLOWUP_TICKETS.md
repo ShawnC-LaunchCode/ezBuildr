@@ -178,7 +178,28 @@ CLAUDE.md "Parallel work: use git worktrees"; memory note *parallel-IDE git coor
 
 ---
 
-## G171-1 — Implement renamed-placeholder detection (AC3)
+## G171-1 — Implement renamed-placeholder detection (AC3) ✅ DONE 2026-08-11
+
+**Closed by:** `6f28b585`, merged to `main` as `36cd2fa7` (unpushed). **This closed
+GH-171's last unmet AC, so GH-171 is now ✅ in `tickets/ROADMAP_TICKETS.md`.**
+
+**Reviewer verification** (all gates re-run, none accepted from the turn-in):
+`type-check` 0 errors · `lint` 0 problems · `test:fast` **3043 passed / 0 failed**
+(baseline 3039 + 4), 271 files + 1 skipped · `test:integration` **exactly** the
+documented baseline — 4 files / 10 tests failed, 108 files / 1093 tests passed.
+All 7 ACs met.
+
+**Notes for whoever touches this next:**
+- It *deleted* a pre-existing second rename heuristic (`findRenames`, used only by
+  `analyzeTemplateUpdate` and never surfaced by `compareTemplates`). One heuristic
+  in one place now — do not reintroduce a local one.
+- `requiresReview` now also trips on renames. No AC asked for this; it is correct
+  and was kept, because a rename previously passed review silently while breaking
+  every workflow piping to the old alias. It changes when users see the prompt.
+- The AC2 example (`client_name` → `customer_name`) scores **exactly** the
+  threshold (1/3), so it passes on float equality at the boundary. The
+  threshold-boundary test guards it, but retune the constant with care.
+- The route needed no change: it already forwards the whole comparison object.
 
 **Priority: P1** · Size: M · Files: `server/services/TemplateAnalysisService.ts`, `server/routes/templateAnalysis.routes.ts`, `client/src/components/builder/tabs/templates/TemplateUpdateDialog.tsx`
 
