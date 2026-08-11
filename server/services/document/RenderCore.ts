@@ -159,8 +159,18 @@ function findReservedStatementTag(text: string): string | undefined {
         : text.slice(earliestIndex, closeIdx + 1);
 }
 
-/** D4: hard-fail an upload containing reserved `{%`/`{#` statement syntax. */
-function assertNoReservedStatementSyntax(zip: PizZip): void {
+/**
+ * D4: hard-fail on reserved `{%`/`{#` statement syntax.
+ *
+ * Exported because the upload path needs the same check: docxtemplater's
+ * compile() never sees these tags (they sit outside the `{{ }}` delimiters), so
+ * without this a reserved tag would pass validation at upload and only fail
+ * later at render. `TemplateScanner.validateBuffer` calls it. Keep ONE copy --
+ * this regex has already needed one subtle correction (stripping markup before
+ * scanning, so a tag Word split across runs is not misread), and a second copy
+ * would have to be found and fixed alongside it.
+ */
+export function assertNoReservedStatementSyntax(zip: PizZip): void {
     for (const file of zip.file(RESERVED_STATEMENT_SCAN_PATTERN)) {
         const text = stripMarkupForReservedScan(file.asText());
         const reservedTag = findReservedStatementTag(text);
