@@ -456,6 +456,26 @@ Four small items surfaced across the three review rounds and were never closed:
 > **Independent of GH-171.** Filed here only because this review surfaced it.
 > Move it to its own initiative file if that is cleaner.
 
+> **⚠️ Raised in priority by an observation from the 2026-08-11 review.** The 10
+> failures are not merely undocumented noise — **they are actively masking the area
+> GH-171 just changed.** The 4 permanently-failing files are:
+>
+> ```
+> tests/integration/ai/documentOnboarding.test.ts
+> tests/integration/api.templates-runs.test.ts        <-- templates
+> tests/integration/docs.autogeneration.test.ts
+> tests/integration/templates.e2e.test.ts             <-- templates
+> ```
+>
+> Two of the four are template tests. So for the whole of GH-171 — versioning,
+> pinning, the cross-tenant fix, and now rename detection — the integration suite
+> was **partially blind to regressions in exactly the code under change**, and every
+> reviewer (including this one) accepted "matches the documented baseline" as proof
+> of no regression. That inference is weaker than it looks and will stay weak until
+> these are fixed.
+>
+> Fix the two template files first, ahead of the doc update.
+
 ### Finding
 `.claude/skills/run-tests/SKILL.md:41` states:
 
