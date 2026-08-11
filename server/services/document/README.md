@@ -1,6 +1,6 @@
 # Document Generation Engine - Architecture Documentation
 
-**Last Updated:** December 6, 2025
+**Last Updated:** August 10, 2026
 **Status:** Production - Extended for Final Block Integration
 **Purpose:** Reference documentation for document generation capabilities
 
@@ -12,12 +12,12 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 
 ### Core Capabilities
 
-✅ **DOCX Template Rendering** - Variable substitution with `{{ placeholder }}` syntax
+✅ **DOCX Template Rendering** - Variable substitution with `{{client_name}}` syntax
 ✅ **PDF Conversion** - DOCX → Mammoth HTML → Puppeteer PDF
-✅ **60+ Helper Functions** - Formatting, date, currency, math operations
+✅ **Pipe Filter Expressions** - Formatting, dates, currency, math, comparisons, and chaining
 ✅ **Template Analysis** - Extract variables, validate coverage
-✅ **Nested Variable Support** - Dot notation `{{ user.address.city }}`
-✅ **Loop & Conditionals** - `{#items}...{/items}`, `{#if}...{/if}`
+✅ **Nested Variable Support** - Dot notation `{{client.address.city}}`
+✅ **Loops & Conditionals** - `{{#Children}}...{{/Children}}` sections
 ✅ **Variable Mapping** - (NEW) Override field names for Final Block
 ✅ **Conditional Output** - (NEW) Logic-based document inclusion
 ✅ **Multi-Document ZIP** - (NEW) Bundle multiple outputs
@@ -28,9 +28,9 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 
 ### Layer 1: Template Parser (DOCX Rendering)
 
-**File:** `TemplateParser.ts`
-**Technology:** docxtemplater + pizzip
-**Syntax:** `{{ variable }}`
+**Files:** `RenderCore.ts` (production renderer), `TemplateParser.ts` (wrapper)
+**Technology:** docxtemplater + its angular-expression parser + PizZip
+**Syntax:** `{{variable}}`, `{{value | filter:argument}}`, and `{{#section}}...{{/section}}`
 
 **Responsibilities:**
 - Load DOCX template files (unzip → parse XML)
@@ -43,30 +43,37 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 **Variable Resolution:**
 ```typescript
 // Simple variable
-{{ firstName }} → resolves from data.firstName
+{{client_name}} → resolves from data.client_name
 
 // Nested object (dot notation)
-{{ user.address.city }} → resolves from data.user.address.city
+{{client.address.city}} → resolves from data.client.address.city
 
-// Helper function
-{{ upper firstName }} → applies uppercase transformation
+// Pipe filter; chains run left to right
+{{client_name | trim | upper}} → trims, then converts to uppercase
 
-// Loop
-{#items}
-  {{ name }}: {{ currency price USD }}
-{/items}
+// Array position
+{{Children[0].name}} → resolves the first child's name
 ```
 
 **Supported Placeholder Types:**
-- Text substitution: `{{ name }}`
-- Conditionals: `{#if approved}...{/if}`
-- Loops: `{#items}...{/items}`
-- Helpers: `{{ formatDate date "MM/DD/YYYY" }}`
+- Text substitution: `{{client_name}}`
+- Dot paths and array indexing: `{{client.address.city}}`, `{{Children[0].name}}`
+- Pipe filters and chaining: `{{client_name | trim | upper}}`
+- Colon-form filter arguments: `{{amount | add:tax}}`
+- Comparisons in sections: `{{#count > 9}}...{{/count > 9}}`
+- Loops and conditions: `{{#Children}}...{{/Children}}`
+- Zero-based loop index: `{{$index}}`
 
 **Error Handling:**
-- Missing variables → empty string (configurable)
+- Missing top-level variables → hard failure naming the undefined variable
+- Present but empty values → blank; `| default:"..."` provides an explicit fallback
 - Invalid syntax → detailed error extraction
+- Parenthesised filter arguments → compilation failure; arguments use colon form
+- `{%` and bare `{#` statement/comment delimiters → reserved-syntax failure
 - Template corruption → validation with repair suggestions
+
+For author-facing syntax and exact table-cell placement, see
+[`docs/guides/VARIABLES_IN_DOCUMENTS.md`](../../../docs/guides/VARIABLES_IN_DOCUMENTS.md).
 
 ---
 
@@ -431,59 +438,27 @@ const archive = await createZipArchive([
 
 ---
 
-## Helper Functions (60+)
+## Template filter registry
 
 **File:** `docxHelpers.ts`
-**Registered with docxtemplater expression parser**
 
-### Categories
+`RenderCore` registers every function in the exported `docxHelpers` object as
+an angular-expression pipe filter. Template authors should normally use the
+curated `TEMPLATE_FILTER_VOCABULARY`, which is kept in the same file:
 
-#### String Manipulation
-- `upper(text)` - Uppercase
-- `lower(text)` - Lowercase
-- `capitalize(text)` - First letter uppercase
-- `truncate(text, length)` - Trim to length
-- `replace(text, search, replacement)` - String replace
+- Dates: `longdate`, `shortdate`
+- Money and numbers: `usd`, `currency`, `number`, `percent`
+- Text and booleans: `upper`, `lower`, `titlecase`, `yesno`, `trim`
+- Missing-value fallback: `default`
 
-#### Date Formatting
-- `formatDate(date, format)` - Format with YYYY/MM/DD/HH/mm/ss tokens
-- `addDays(date, days)` - Date arithmetic
-- `daysBetween(date1, date2)` - Calculate difference
+Lower-level registered filters cover custom date formatting, date arithmetic,
+math, arrays, and string operations. They use the same pipe/colon grammar. For
+example, `{{amount | add:tax}}` passes `amount` as the input and `tax` as the
+second argument. `{{start_date | addMonths:1}}` uses month-end clamping, so one
+month after January 31, 2026 is February 28, 2026.
 
-#### Currency & Numbers
-- `currency(amount, code?, showSymbol?)` - Format as currency
-- `formatNumber(number, decimals?, thousands?)` - Number formatting
-- `round(number, decimals)` - Round to precision
-
-#### Math Operations
-- `add(a, b)` - Addition
-- `subtract(a, b)` - Subtraction
-- `multiply(a, b)` - Multiplication
-- `divide(a, b)` - Division
-- `percentage(value, total)` - Calculate percentage
-
-#### Array Operations
-- `join(array, delimiter)` - Join array to string
-- `length(array)` - Get count
-- `first(array)` - First element
-- `last(array)` - Last element
-
-#### Logic & Defaults
-- `defaultValue(value, fallback)` - Use fallback if empty
-- `isEmpty(value)` - Check if empty
-- `isNotEmpty(value)` - Check if not empty
-
-#### Utility
-- `pluralize(count, singular, plural)` - Pluralize words
-- `concat(...values)` - Concatenate strings
-
-**Usage in Templates:**
-```docx
-Total: {{ currency totalAmount "USD" }}
-Date: {{ formatDate createdAt "MM/DD/YYYY" }}
-Name: {{ capitalize firstName }}
-Items: {{ length items }}
-```
+The complete author-facing vocabulary and rendered outputs live in the guide,
+and `docSamples.test.ts` renders each documented example through `renderDocxBuffer`.
 
 ---
 
@@ -687,8 +662,11 @@ node, and the Bull queue worker — render through
 ### Issue: Template variables not rendering
 **Check:**
 1. Variable names match exactly (case-sensitive)
-2. Nested values are flattened with dot notation
-3. Arrays are converted to strings
+2. Filter arguments use colons, not parentheses
+3. The undefined-variable error names a path present in the template data contract
+4. Nested objects use dot paths and array items use bracket indexes
+5. Arrays remain arrays for section loops; a plain scalar tag joins an array for display
+6. Table section tags are wholly inside the content cells specified by the authoring guide
 
 ### Issue: PDF conversion fails
 **Check:**

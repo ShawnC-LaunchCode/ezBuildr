@@ -26,7 +26,7 @@ drifted line is not a broken ticket.
 
 ## Status board
 
-**8 of 11 closed** · updated 2026-08-10.
+**11 of 11 closed** · updated 2026-08-10.
 
 > **Recount, do not increment.** These counts are derived from the ticket headings below
 > (`grep -c "^## TPL-.*✅"`). The roadmap file's equivalent board drifted by hand-incrementing
@@ -43,7 +43,7 @@ drifted line is not a broken ticket.
 | **TPL-4** | ✅ | P1 · S | Scanner: cell-merging repair, quote normalisation, first tests this file has ever had | — | `TemplateScanner.ts` |
 | **TPL-5** | ✅ | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
 | **TPL-7** | ✅ | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
-| **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
+| **TPL-8** | ✅ | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
 | **TPL-6** | ✅ | P2 · M | Variable health on the template card | — | `client/…/templates/` |
 
 ### Dependency chain — one open edge left
@@ -1452,7 +1452,30 @@ does **not** apply, because the respondent has not answered yet by design.
 
 ---
 
-## TPL-8 — Document the template language, including what already worked 🔲
+## TPL-8 — Document the template language, including what already worked ✅
+
+> **Verified 2026-08-10 (reviewer).** All 9 ACs met. Gates re-run by the reviewer:
+> `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **3022 passed / 14
+> skipped** (+33 over the 2989 baseline — one per documented sample).
+>
+> AC1 confirmed independently: a reviewer grep for the prefix form across `docs/` returns
+> **0** matches.
+>
+> **AC7 is the part that will keep paying.** `tests/unit/services/document/docSamples.test.ts`
+> holds all 33 documented examples with their expected output and renders each through
+> `renderDocxBuffer`. A sample that stops working now fails the suite instead of rotting
+> silently in a guide nobody re-reads — which is exactly how the old guide came to carry 130
+> occurrences of a syntax that raises.
+>
+> The structural assertions inspect **rendered table rows**, not flattened text, so they
+> catch row-removal regressions precisely. AC8's marker-row trap is documented in both its
+> broken and supported forms and asserted both ways: dedicated marker rows leave two empty
+> rows when the condition is true, and disappear when false.
+>
+> Also documented: the seven structural Word recipes that already worked and were invisible
+> to authors, colon-form filter arguments (parenthesised do not parse), strict-undefined and
+> `| default(...)`, the month-end clamp, and the reserved `{%`/`{#` delimiters with the error
+> a docxtpl migrant will actually see.
 
 **Priority: P2** · Size: S · Files: `docs/guides/VARIABLES_IN_DOCUMENTS.md`, `server/services/document/README.md`
 
