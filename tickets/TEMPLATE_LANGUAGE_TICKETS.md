@@ -44,7 +44,7 @@ drifted line is not a broken ticket.
 | **TPL-5** | ✅ | P1 · M | Persists a variable inventory per template and classifies its problems | — | `templatePlaceholders.ts`, `templates.routes.ts` |
 | **TPL-7** | 🔲 ready | P2 · M | Answer piping in the runner on the document grammar, escape-by-default. **Closes GH-161** | — | `client/…/runner/` |
 | **TPL-8** | 🔲 ready | P2 · S | Rewrites the authoring guide; documents the structural features that already work | — | `docs/` |
-| **TPL-6** | 🔲 ready | P2 · M | Variable health on the template card | — | `client/…/templates/` |
+| **TPL-6** | ✅ | P2 · M | Variable health on the template card | — | `client/…/templates/` |
 
 ### Dependency chain — one open edge left
 
@@ -1244,7 +1244,35 @@ what makes the warning actionable rather than nagging.
 
 ---
 
-## TPL-6 — Surface variable health on the template card 🔲
+## TPL-6 — Surface variable health on the template card ✅
+
+> **Verified 2026-08-10 (reviewer).** All 8 ACs met. Gates re-run by the reviewer:
+> `type-check` 0 errors · `lint` 0 problems repo-wide · `test:fast` **2992 passed / 14
+> skipped** (+3 over the 2989 baseline).
+>
+> **AC4 is met properly, which is the criterion that mattered.** Hard errors use
+> `role="alert"` labelled "upload-blocking errors"; non-blocking warnings use `role="status"`
+> with explicit "these do not block upload" guidance; unused aliases use `role="note"`.
+> Distinct roles, icons and text — not colour alone, as GH-159's WCAG 2.2 AA baseline
+> requires. Rendering the two classes identically would have re-created the exact confusion
+> D2 exists to prevent.
+>
+> Consumes TPL-5's report rather than recomputing anything client-side, and refreshes via
+> `queryClient.invalidateQueries` on the validation query key. No zustand mirror — verified
+> by grep as well as by `store.deadSetters.test.ts` (convention 8).
+>
+> Live proof supplied: a clean card ("2 variables · All mapped"), a problem card
+> ("2 variables · 1 unmapped · 1 unused"), the expanded drill-in showing
+> `cleint_name` → "Did you mean **client_name**?", and a 389px mobile pass.
+>
+> **Three self-review fixes worth recording**, all of which prevented a misleading UI: a
+> "0 errors" accessible label was removed from clean cards, an empty drill-in after resolving
+> the last issue was prevented, and a request-failure state was added so a failed fetch can
+> no longer render as "All mapped".
+>
+> **Deviation accepted:** the existing card lives at `builder/tabs/templates/TemplateCard.tsx`,
+> not the `builder/templates/` path the ticket named, so that file was necessarily touched;
+> the new component went in the specified directory.
 
 **Priority: P2** · Size: M · Files: `client/src/components/builder/templates/`
 
