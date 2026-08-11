@@ -77,6 +77,36 @@ Earlier roadmap targets (enhanced versioning, integration marketplace, adaptive 
 
 ## Recent Architecture Changes
 
+### Template Language (August 2026)
+DOCX templates and the interview runner now share **one** grammar, parsed in a single place
+(`server/services/document/RenderCore.ts`) via docxtemplater's `angular-expressions` wrapper.
+It replaces a prefix form that allowed exactly one helper per tag and no chaining.
+
+- **Pipe filters with chaining and colon-form arguments** — `{{ fee | usd }}`,
+  `{{ name | trim | upper }}`, `{{ d | formatDate:"MM/DD/YYYY" }}`. Comparisons in section
+  tags (`{{#a == b}}`), array indexing (`Children[9].name`) and `{{$index}}` all work.
+- **Strict-undefined.** An unknown top-level variable raises and names itself instead of
+  rendering blank; a known-but-empty one still renders blank. `RunDataService.buildForRun`
+  seeds every aliased step as `null` so a skipped optional question is not read as a typo.
+- **`{%` and `{#` are reserved** for future statement/comment syntax and rejected with a
+  clear error, so templates migrated from `docxtpl` fail loudly rather than silently.
+- **Template health at authoring time.** The placeholder inventory is parsed once at upload
+  and stored on `templates.metadata`; the builder's template card shows variable counts,
+  unmapped names with did-you-mean suggestions, and unused aliases. Objectively broken
+  templates are refused at upload; an unresolved *variable* only warns, because uploading a
+  document before the interview exists is a supported flow.
+- **Date math is loud.** `addDays:"30"` no longer returns a date 18 months out, the two
+  disagreeing date formatters were reconciled, and `addMonths`/`addYears`/`startOfMonth`/
+  `endOfMonth` were added with a documented month-end clamp.
+
+Structural constructs that always worked but were undocumented — table row loops, conditional
+rows, multi-row spans, nested loops, mid-sentence conditionals — are now written up with Word
+recipes. The guide's examples are **executable**: `tests/unit/services/document/docSamples.test.ts`
+renders each one, so a sample that stops working fails the suite instead of rotting.
+
+Business-day and holiday arithmetic are deliberately out of scope pending a decision on which
+holiday calendar. See `docs/guides/VARIABLES_IN_DOCUMENTS.md`.
+
 ### Graph Builder Removal (June–July 2026)
 The visual/graph (React Flow) builder, its execution engine, its REST API, and the `runs`/`run_logs`/`run_outputs` tables were fully removed. `workflow_runs` + `step_values` are the only execution model. The `/runs` dashboard pages were removed with it.
 

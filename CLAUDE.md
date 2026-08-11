@@ -233,7 +233,20 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 6. **Secrets:** AES-256-GCM encrypted, accessed via the secrets service only; outbound HTTP to user URLs goes through `safeFetch`
 7. **Tenant Isolation:** service-layer `tenant_id` scoping, plus the `withTenant` helper and staged Postgres RLS (`migrations/0001_enable_rls.sql`, defined not-yet-enforced). New tenant tables need an RLS policy; never set the tenant GUC session-level — see `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051)
 8. **Client state vs server state:** anything persisted server-side is owned by its TanStack Query hook and must **never** be mirrored into a zustand store. The stores in `client/src/store/` hold ephemeral UI state only — "what am I looking at right now", discarded on reload. A mirrored copy drifts silently: builder `mode` lived in the global store with a `setMode` nobody called, so it sat at its `"easy"` default forever and every Advanced branch gating on it was unreachable for months (O-10). A global store also cannot represent a per-workflow setting, so syncing such a copy is not a fix. `tests/unit/client/store.deadSetters.test.ts` guards this — neither `tsc` nor ESLint can, because an uncalled store action is a *used property of an object literal*, not an unused export.
-9. **Parallel agents use worktrees, never the shared tree** — see below.
+9. **Template grammar: one language, `RenderCore` owns it.** DOCX templates and runner
+   answer-piping share a single grammar — `{{ alias | filter:"arg" }}` — parsed in exactly one
+   place, `server/services/document/RenderCore.ts`, via docxtemplater's `angular-expressions`
+   wrapper. Four rules that are easy to get wrong and were each paid for:
+   **(a)** register filters from the `docxHelpers` **object**, never `import * as` — the module
+   namespace misses the 8 merged in via `...formatters` (`currency`, `date`, `upper`, …);
+   **(b)** an unknown *top-level* variable **raises**, while a known-but-empty one renders blank
+   — `RunDataService` seeds every alias as `null` so a skipped optional question is not mistaken
+   for a typo; **(c)** `{%` and `{#` are reserved and rejected, and that scan must run on text
+   with markup stripped, because Word splits tags across runs; **(d)** filter arguments are
+   colon-form (`| default:"N/A"`) — parenthesised does not parse. Authoring guide:
+   `docs/guides/VARIABLES_IN_DOCUMENTS.md`, whose examples are executable in
+   `tests/unit/services/document/docSamples.test.ts` — update them together.
+10. **Parallel agents use worktrees, never the shared tree** — see below.
 
 ## Parallel work: use git worktrees
 

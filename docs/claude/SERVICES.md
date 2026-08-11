@@ -63,7 +63,9 @@ Conventions: services export a module-level singleton (`export const fooService 
 | DocumentEngine / EnhancedDocumentEngine | Document generation (the legacy `DocumentGenerationService`, `docxRenderer`, `docxRenderer2` are **deleted** — see `server/services/document/README.md`) |
 | DocumentTemplateService | Template management |
 | FinalBlockRenderer | Final block rendering |
-| TemplateParser / TemplateScanner / MappingInterpreter / VariableNormalizer | Template variable pipeline |
+| RenderCore | **The single template grammar + parser.** All DOCX rendering and the runner's answer piping go through it; do not add a second parser |
+| docxHelpers | Filter implementations (35) + `TEMPLATE_FILTER_VOCABULARY`, the curated preset list |
+| TemplateParser / TemplateScanner / MappingInterpreter / VariableNormalizer | Template variable pipeline (TemplateParser delegates to RenderCore; TemplateScanner repairs Word-split tags and rejects structurally broken ones) |
 | PdfConverter / ZipBundler | PDF conversion, bundling |
 | DocumentDeliveryService + `document/delivery/adapters/*` | Durable post-generation email, webhook, and S3-compatible delivery with exponential retries, audit history, stale-job recovery, tenant authorization, and credential redaction |
 
