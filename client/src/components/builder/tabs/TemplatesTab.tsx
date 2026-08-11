@@ -17,6 +17,7 @@ import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../lay
 import { PdfMappingEditor } from "../templates/PdfMappingEditor";
 
 import { Template, TemplateCard } from "./templates/TemplateCard";
+import { TemplateUpdateDialog } from "./templates/TemplateUpdateDialog";
 import { TemplateUploadDialog } from "./templates/TemplateUploadDialog";
 import { UnfiledWorkflowNotice } from "./templates/UnfiledWorkflowNotice";
 
@@ -33,6 +34,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [workflowProjectId, setWorkflowProjectId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [updatingTemplate, setUpdatingTemplate] = useState<Template | null>(null);
 
   // Fetch workflow for project context
   const { data: workflow } = useWorkflow(workflowId);
@@ -240,13 +242,12 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => (
           <TemplateCard
-
             key={template.id}
-
             template={template}
             workflowId={workflowId}
             workflowVariableAliases={workflowVariableAliases}
             onEdit={setEditingTemplate}
+            onUpdate={setUpdatingTemplate}
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onTest={handleTest}
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -394,6 +395,17 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
           onClose={() => setEditingTemplate(null)}
           workflowVariables={workflowVariables}
           projectId={workflowProjectId}
+        />
+      )}
+
+      {updatingTemplate != null && workflowProjectId != null && (
+        <TemplateUpdateDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) {setUpdatingTemplate(null);} }}
+          templateId={updatingTemplate.id}
+          templateName={updatingTemplate.name}
+          projectId={workflowProjectId}
+          onSuccess={() => { void fetchTemplates(); }}
         />
       )}
     </BuilderLayout>

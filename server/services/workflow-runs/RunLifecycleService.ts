@@ -12,7 +12,7 @@
 import { logger } from "../../logger";
 import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
-import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
+import { finalBlockRenderer, createProjectTemplateResolver } from "../document/FinalBlockRenderer";
 import { lifecycleHookService } from "../scripting/LifecycleHookService";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
@@ -482,13 +482,7 @@ export class RunLifecycleService {
       const tenantId = project?.tenantId ?? undefined;
 
       // 4. Create scoped Template Resolver
-      const resolveTemplate = createTemplateResolver(async (documentId: string) => {
-        const template = await documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId as string);
-        if (!template) {
-          throw createError.notFound('Template', documentId);
-        }
-        return template;
-      });
+      const resolveTemplate = createProjectTemplateResolver(workflow.projectId);
 
       // 4.5 SCRIPT-1: beforeFinalBlock lifecycle hooks. This phase existed in
       // `lifecycleHookPhaseEnum` and in the builder since the scripting system

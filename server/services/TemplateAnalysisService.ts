@@ -12,6 +12,10 @@
  */
 
 import path from 'path';
+import { eq } from 'drizzle-orm';
+
+import { db } from '../db';
+import { workflows, workflowTemplates, templates } from '../../shared/schema';
 
 import { createError } from '../utils/errors';
 
@@ -388,5 +392,227 @@ export async function compareTemplates(
     added: added.sort(),
     removed: removed.sort(),
     unchanged: unchanged.sort(),
+  };
+}
+
+/**
+ * Get all workflows that reference a specific template, categorized by whether they pin a version or follow latest.
+ */interface WorkflowPinState {
+  isPinned: boolean;
+  isUnpinned: boolean;
+}
+
+interface TemplateConfig {
+  templateId: string;
+  pinnedVersionId?: string | null;
+}
+
+function processTemplateRef(t: unknown, templateId: string, normalizeFn: (t: unknown) => TemplateConfig | null, result: WorkflowPinState): void {
+  const norm = normalizeFn(t);
+  if (norm && norm.templateId === templateId) {
+    if (norm.pinnedVersionId) {
+      result.isPinned = true;
+    } else {
+      result.isUnpinned = true;
+    }
+  }
+}
+
+function checkSectionPinState(sectionsData: unknown[], templateId: string, normalizeFn: (t: unknown) => TemplateConfig | null): WorkflowPinState {
+  const result: WorkflowPinState = { isPinned: false, isUnpinned: false };
+
+  for (const sec of sectionsData) {
+    if (!sec || typeof sec !== 'object' || !('config' in sec)) {
+      continue;
+    }
+    
+    const config = (sec as { config: unknown }).config;
+    if (!config || typeof config !== 'object' || !('finalBlock' in config) || !('templates' in config)) {
+      continue;
+    }
+    
+    const finalBlock = (config as { finalBlock?: boolean }).finalBlock;
+    const templates = (config as { templates?: unknown[] }).templates;
+    
+    if (finalBlock === true && Array.isArray(templates)) {
+      for (const t of templates) {
+        processTemplateRef(t, templateId, normalizeFn, result);
+      }
+    }
+  }
+
+  return result;
+}
+
+function processDocumentRef(doc: unknown, templateId: string, result: WorkflowPinState): void {
+  if (!doc || typeof doc !== 'object' || !('documentId' in doc)) {
+    return;
+  }
+  const typedDoc = doc as { documentId: string; pinnedVersionId?: string | null };
+  if (typedDoc.documentId === templateId) {
+    if (typedDoc.pinnedVersionId) {
+      result.isPinned = true;
+    } else {
+      result.isUnpinned = true;
+    }
+  }
+}
+
+function checkStepPinState(stepsData: unknown[], templateId: string): WorkflowPinState {
+  const result: WorkflowPinState = { isPinned: false, isUnpinned: false };
+
+  for (const st of stepsData) {
+    if (!st || typeof st !== 'object' || !('config' in st)) {
+      continue;
+    }
+    
+    const config = (st as { config: unknown }).config;
+    if (!config || typeof config !== 'object' || !('type' in config) || !('documents' in config)) {
+      continue;
+    }
+    
+    const type = (config as { type?: string }).type;
+    const documents = (config as { documents?: unknown[] }).documents;
+    
+    if (type === 'final_block' && Array.isArray(documents)) {
+      for (const doc of documents) {
+        processDocumentRef(doc, templateId, result);
+      }
+    }
+  }
+
+  return result;
+}
+
+export async function getActiveWorkflowsForTemplate(templateId: string): Promise<{
+  active: Array<{ id: string; name: string }>;
+  pinned: Array<{ id: string; name: string }>;
+}> {
+  const usages = await db
+    .select({
+      workflowId: workflows.id,
+      workflowName: workflows.name,
+      workflowTitle: workflows.title
+    })
+    .from(workflowTemplates)
+    .innerJoin(workflows, eq(workflows.currentVersionId, workflowTemplates.workflowVersionId))
+    .where(
+      eq(workflowTemplates.templateId, templateId)
+    );
+
+  const uniqueWorkflows = new Map<string, { id: string; name: string }>();
+  for (const row of usages) {
+    uniqueWorkflows.set(row.workflowId, { id: row.workflowId, name: row.workflowName ?? row.workflowTitle });
+  }
+
+  const active = [];
+  const pinned = [];
+
+  const { sections, steps } = await import('../../shared/schema');
+  const { normalizeFinalDocumentsTemplateEntry } = await import('../../shared/finalDocumentsTemplates');
+
+  for (const wf of uniqueWorkflows.values()) {
+    // Fetch sections (legacy final_documents)
+    const wfSections = await db.select({ config: sections.config }).from(sections).where(eq(sections.workflowId, wf.id));
+    const secState = checkSectionPinState(wfSections, templateId, normalizeFinalDocumentsTemplateEntry);
+
+    // Fetch steps (final_block)
+    const wfSteps = await db.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, wf.id));
+    const stState = checkStepPinState(wfSteps, templateId);
+
+    const isUnpinned = secState.isUnpinned || stState.isUnpinned;
+    const isPinned = secState.isPinned || stState.isPinned;
+
+    if (isUnpinned) {
+      active.push(wf);
+    } else if (isPinned) {
+      pinned.push(wf);
+    } else {
+      active.push(wf); // fallback to active if we can't find it (shouldn't happen)
+    }
+  }
+
+  return { active, pinned };
+}
+
+/**
+ * Compute renamed placeholders based on a string similarity heuristic.
+ */
+function findRenames(removed: string[], added: string[]): { oldName: string; newName: string }[] {
+  const renames = [];
+  const remainingAdded = new Set(added);
+
+  for (const r of removed) {
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const a of remainingAdded) {
+      // Very simple heuristic: check if one contains the other, or if they share a significant prefix/suffix
+      if (a.includes(r) || r.includes(a) || r.toLowerCase() === a.toLowerCase()) {
+        bestMatch = a;
+        bestScore = 1;
+        break;
+      }
+      
+      // Calculate Levenshtein distance or simple character overlap
+      let overlap = 0;
+      const minLen = Math.min(r.length, a.length);
+      for (let i = 0; i < minLen; i++) {
+        if (r[i].toLowerCase() === a[i].toLowerCase()) {
+          overlap++;
+        }
+      }
+      const score = overlap / Math.max(r.length, a.length);
+      if (score > 0.7 && score > bestScore) {
+        bestScore = score;
+        bestMatch = a;
+      }
+    }
+
+    if (bestMatch && bestScore > 0.7) {
+      renames.push({ oldName: r, newName: bestMatch });
+      remainingAdded.delete(bestMatch);
+    }
+  }
+  return renames;
+}
+
+/**
+ * Analyze an impending template update and return impact warning data
+ */
+export async function analyzeTemplateUpdate(
+  templateId: string,
+  newFileRef: string
+): Promise<{
+  comparison: { added: string[]; removed: string[]; unchanged: string[]; renamed?: Array<{oldName: string; newName: string}> };
+  impact: { workflowsAffected: number; workflows: Array<{ id: string; name: string }>; pinnedWorkflows: Array<{ id: string; name: string }>; hasRemovedPlaceholders: boolean; requiresReview: boolean };
+}> {
+  const [template] = await db.select().from(templates).where(eq(templates.id, templateId));
+  if (template === undefined) {
+    throw createError.notFound('Template not found');
+  }
+
+  const comparison = await compareTemplates(template.fileRef, newFileRef);
+  const { active: activeWorkflows, pinned: pinnedWorkflows } = await getActiveWorkflowsForTemplate(templateId);
+
+  // Compute renames
+  const renames = findRenames(comparison.removed, comparison.added);
+  const actualRemoved = comparison.removed.filter(r => !renames.some(ren => ren.oldName === r));
+  const actualAdded = comparison.added.filter(a => !renames.some(ren => ren.newName === a));
+
+  return {
+    comparison: {
+      added: actualAdded,
+      removed: actualRemoved,
+      unchanged: comparison.unchanged,
+      renamed: renames
+    },
+    impact: {
+      workflowsAffected: activeWorkflows.length,
+      workflows: activeWorkflows,
+      pinnedWorkflows: pinnedWorkflows,
+      hasRemovedPlaceholders: actualRemoved.length > 0,
+      requiresReview: activeWorkflows.length > 0 && actualRemoved.length > 0,
+    }
   };
 }

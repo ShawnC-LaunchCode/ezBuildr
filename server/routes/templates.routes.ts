@@ -43,6 +43,7 @@ import {
   deleteTemplateFile,
   extractPlaceholders,
 } from '../services/templates';
+import { templateVersionService } from '../services/TemplateVersionService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { isProcessingTimeoutError, withTimeout } from '../utils/concurrency';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -396,6 +397,22 @@ router.post(
           },
         })
         .returning();
+
+      // Create initial version snapshot
+      try {
+        if (!authReq.userId) {
+          throw new Error('User ID required to create version');
+        }
+        await templateVersionService.createVersion({
+          templateId: template.id,
+          userId: authReq.userId,
+          notes: data.notes ?? 'Initial version',
+          force: true
+        });
+      } catch (versionError) {
+        logger.warn({ versionError, templateId: template.id }, 'Failed to record initial template version');
+      }
+
       res.status(201).json({
         ...template,
         warnings: warnings.length > 0 ? warnings : undefined
@@ -592,20 +609,26 @@ router.patch(
           logger.warn({ oldFileRef, error: cleanupError }, 'Failed to delete old template file (orphaned)');
         }
       }
-      // Document Mapping Workbench (GH-156): a mapping save is a meaningful
-      // change worth its own version history, same as a file replacement.
+      // Document Mapping Workbench (GH-156) & GH-171 Versioning:
+      // A mapping save or a file replacement is a meaningful change worth its own version history.
       // Best-effort — a version-history failure must not fail the save that
       // already committed above.
-      if (data.mapping !== undefined && authReq.userId) {
+      if ((data.mapping !== undefined || req.file) && authReq.userId) {
         try {
-          const { templateVersionService } = await import('../services/TemplateVersionService');
+          let notes = data.notes;
+          if (!notes) {
+              if (req.file) {notes = 'Template file replaced';}
+              else if (data.mapping !== undefined) {notes = 'Field mapping updated via Document Mapping Workbench';}
+          }
+
           await templateVersionService.createVersion({
             templateId: params.id,
-            userId: authReq.userId,
-            notes: 'Field mapping updated via Document Mapping Workbench',
+            userId: authReq.userId ?? 'system',
+            notes: notes ?? 'Template updated',
+            force: true // Force version creation on upload/mapping change
           });
         } catch (versionError) {
-          logger.warn({ versionError, templateId: params.id }, 'Failed to record template version after mapping save');
+          logger.warn({ versionError, templateId: params.id }, 'Failed to record template version after update');
         }
       }
       res.json({
@@ -623,6 +646,8 @@ router.patch(
     }
   })
 );
+
+
 
 /**
  * DELETE /templates/:id
@@ -934,7 +959,10 @@ router.post(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-      const userId = authReq.userId!;
+      const userId = authReq.userId;
+      if (!userId) {
+        throw createError.unauthorized('User ID required to create version');
+      }
       const params = templateParamsSchema.parse(req.params);
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
@@ -948,13 +976,11 @@ router.post(
       }
       const body = req.body as Record<string, unknown>;
       const notes = body.notes as string | undefined;
-      const force = body.force as boolean | undefined;
       const { templateVersionService } = await import('../services/TemplateVersionService');
       const version = await templateVersionService.createVersion({
         templateId: params.id,
         userId,
         notes,
-        force,
       });
       res.status(201).json(version);
     } catch (error) {

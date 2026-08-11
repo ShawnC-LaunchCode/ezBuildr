@@ -170,6 +170,7 @@ workflowVersionTemplatesRouter.post(
 const updateSchema = z.object({
   key: z.string().min(1).max(100).optional(),
   isPrimary: z.boolean().optional(),
+  pinnedVersionId: z.string().uuid().nullable().optional(),
 });
 
 workflowTemplateMappingsRouter.patch(

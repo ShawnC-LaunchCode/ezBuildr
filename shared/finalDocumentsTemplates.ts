@@ -24,12 +24,14 @@ export type FinalDocumentsTemplateEntry =
       templateId: string;
       title?: string;
       conditions?: ConditionExpression | null;
+      pinnedVersionId?: string | null;
     };
 
 export interface NormalizedFinalDocumentsTemplateEntry {
   templateId: string;
   title: string | null;
   conditions: ConditionExpression | null;
+  pinnedVersionId: string | null;
 }
 
 /**
@@ -43,16 +45,17 @@ export function normalizeFinalDocumentsTemplateEntry(
   entry: unknown
 ): NormalizedFinalDocumentsTemplateEntry | null {
   if (typeof entry === "string") {
-    return { templateId: entry, title: null, conditions: null };
+    return { templateId: entry, title: null, conditions: null, pinnedVersionId: null };
   }
 
   if (typeof entry === "object" && entry !== null) {
-    const raw = entry as { templateId?: unknown; title?: unknown; conditions?: unknown };
+    const raw = entry as { templateId?: unknown; title?: unknown; conditions?: unknown; pinnedVersionId?: unknown };
     if (typeof raw.templateId === "string") {
       return {
         templateId: raw.templateId,
         title: typeof raw.title === "string" && raw.title.trim() !== "" ? raw.title.trim() : null,
         conditions: (raw.conditions ?? null) as ConditionExpression | null,
+        pinnedVersionId: typeof raw.pinnedVersionId === "string" ? raw.pinnedVersionId : null,
       };
     }
   }

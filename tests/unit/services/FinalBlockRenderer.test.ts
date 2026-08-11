@@ -28,6 +28,7 @@ vi.mock("../../../server/services/document/EnhancedDocumentEngine.js", () => ({
 vi.mock("../../../server/services/storage/index.js", () => ({
   storageProvider: {
     uploadFile: vi.fn().mockResolvedValue(undefined),
+    getLocalPath: vi.fn().mockImplementation((ref) => `/local/${ref}`),
   },
 }));
 
@@ -186,3 +187,4 @@ describe("FinalBlockRenderer", () => {
     );
   });
 });
+

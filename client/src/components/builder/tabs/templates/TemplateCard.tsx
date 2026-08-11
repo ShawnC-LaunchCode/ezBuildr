@@ -1,5 +1,5 @@
 
-import { Edit, TestTube, Trash2 } from "lucide-react";
+import { Edit, TestTube, Trash2, RefreshCw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ interface TemplateCardProps {
     workflowVariableAliases: Set<string>;
     onEdit: (template: Template) => void;
     onTest: (id: string) => void;
+    onUpdate: (template: Template) => void;
     onDelete: (id: string, name: string) => void;
 }
 
@@ -31,6 +32,7 @@ export function TemplateCard({
     workflowVariableAliases,
     onEdit,
     onTest,
+    onUpdate,
     onDelete
 }: TemplateCardProps) {
     return (
@@ -63,6 +65,9 @@ export function TemplateCard({
                 <Button size="sm" variant="default" className="h-7 text-xs px-3 shadow-sm" onClick={() => onEdit(template)}>
                     <Edit className="w-3 h-3 mr-1.5" />
                     {template.type === 'pdf' ? 'Map Fields' : 'Preview'}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onUpdate(template)} title="Update Template">
+                    <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onTest(template.id)} title="Test Generation">
                     <TestTube className="w-3.5 h-3.5 text-slate-500" />

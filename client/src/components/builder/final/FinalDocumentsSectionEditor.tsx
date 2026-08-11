@@ -19,12 +19,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection, useWorkflowMode } from "@/lib/vault-hooks";
 
 import {
   normalizeFinalDocumentsTemplateEntry,
   type FinalDocumentsTemplateEntry,
+  type NormalizedFinalDocumentsTemplateEntry,
 } from "@shared/finalDocumentsTemplates";
 import { countConditions } from "@shared/types/conditions";
 import type { ConditionExpression } from "@shared/types/conditions";
@@ -44,6 +46,7 @@ interface DocumentEntry {
   templateId: string;
   title: string | null;
   conditions: ConditionExpression | null;
+  pinnedVersionId?: string | null;
 }
 
 /** Collapsed-by-default per-document condition editor, built on the shared
@@ -93,6 +96,49 @@ function DocumentConditionRow({
         />
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+export function TemplateVersionSelector({
+  templateId,
+  value,
+  onChange
+}: {
+  templateId: string;
+  value: string | null;
+  onChange: (val: string | null) => void;
+}) {
+  const { data: versions, isLoading } = useQuery({
+    queryKey: ['template', templateId, 'versions'],
+    queryFn: async () => {
+      const res = await axios.get<{ versions: Array<{ id: string, versionNumber: number, createdAt: string, notes: string | null }> }>(`/api/templates/${templateId}/versions`);
+      return res.data.versions;
+    }
+  });
+
+  return (
+    <div className="space-y-1.5 pt-2 border-t mt-2">
+      <Label className="text-xs text-muted-foreground flex items-center justify-between">
+        Version Pinning
+      </Label>
+      <Select
+        value={value ?? "latest"}
+        onValueChange={(val) => onChange(val === "latest" ? null : val)}
+        disabled={isLoading || !versions?.length}
+      >
+        <SelectTrigger className="h-8 text-xs">
+          <SelectValue placeholder="Follow Latest" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="latest">Follow Latest</SelectItem>
+          {versions?.map((v) => (
+            <SelectItem key={v.id} value={v.id}>
+              v{v.versionNumber} ({new Date(v.createdAt).toLocaleDateString()})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -266,6 +312,92 @@ function resolveTitleUpdate(
   return { normalized, changed: persisted !== normalized };
 }
 
+
+function TemplateSelectionList({
+  templates,
+  documentEntries,
+  isEasyMode,
+  workflowId,
+  onTemplateToggle,
+  onDocumentTitleChange,
+  onDocumentTitleBlur,
+  onConditionChange,
+  onVersionPinChange,
+}: {
+  templates: WorkflowTemplate[];
+  documentEntries: DocumentEntry[];
+  isEasyMode: boolean;
+  workflowId: string;
+  onTemplateToggle: (templateId: string) => void;
+  onDocumentTitleChange: (templateId: string, title: string) => void;
+  onDocumentTitleBlur: (templateId: string, title: string) => void;
+  onConditionChange: (templateId: string, conditions: ConditionExpression) => void;
+  onVersionPinChange: (templateId: string, versionId: string | null) => void;
+}) {
+  return (
+    <div className="border rounded-md p-4 space-y-3">
+      {templates.map((template) => {
+        const entry = documentEntries.find((e) => e.templateId === template.id);
+        const isSelected = entry !== undefined;
+        return (
+          <div key={template.id} className="space-y-2">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id={`template-${template.id}`}
+                checked={isSelected}
+                onCheckedChange={() => onTemplateToggle(template.id)}
+              />
+              <div className="flex-1">
+                <label
+                  htmlFor={`template-${template.id}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  {template.name}
+                </label>
+                {(!isEasyMode && template.description) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {template.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            {isSelected && (
+              <div className="ml-7 space-y-2 rounded-md border bg-muted/10 p-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`document-title-${template.id}`} className="text-xs">
+                    Output title
+                  </Label>
+                  <Input
+                    id={`document-title-${template.id}`}
+                    value={entry.title ?? ''}
+                    onChange={(event) => onDocumentTitleChange(template.id, event.target.value)}
+                    onBlur={(event) => onDocumentTitleBlur(template.id, event.target.value)}
+                    placeholder={template.name}
+                    className="h-9"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used in the generated file name.
+                  </p>
+                </div>
+                <DocumentConditionRow
+                  workflowId={workflowId}
+                  conditions={entry.conditions}
+                  onChange={(conditions) => onConditionChange(template.id, conditions)}
+                />
+                <TemplateVersionSelector
+                  templateId={template.id}
+                  value={entry.pinnedVersionId ?? null}
+                  onChange={(val) => onVersionPinChange(template.id, val)}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
   // O-10: mode is server-owned and per-workflow. This used to read a global
@@ -300,9 +432,9 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   // or the widened `{ templateId, conditions? }` object; normalize once on
   // read so the rest of this component only deals with one shape.
   const [documentEntries, setDocumentEntries] = useState<DocumentEntry[]>(() =>
-    (config.templates ?? [])
+    ((config.templates as unknown[]) ?? [])
       .map(normalizeFinalDocumentsTemplateEntry)
-      .filter((entry): entry is DocumentEntry => entry !== null)
+      .filter((entry): entry is NormalizedFinalDocumentsTemplateEntry => entry !== null)
   );
   const [screenTitle, setScreenTitle] = useState(config.screenTitle ?? "Your Completed Documents");
   const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage ?? "# Thank You!\n\nYour documents are ready for download below.");
@@ -367,8 +499,15 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     const isSelected = documentEntries.some((entry) => entry.templateId === templateId);
     const next = isSelected
       ? documentEntries.filter((entry) => entry.templateId !== templateId)
-      : [...documentEntries, { templateId, title: null, conditions: null }];
-    commitDocumentEntries(next);
+      : [...documentEntries, { templateId, title: null, conditions: null, pinnedVersionId: null }];
+    handleUpdate('templates', next as FinalDocumentsTemplateEntry[]);
+  };
+  const handleVersionPinChange = (templateId: string, versionId: string | null) => {
+    const next = documentEntries.map(e => 
+      e.templateId === templateId ? { ...e, pinnedVersionId: versionId } : e
+    );
+    setDraftConfig({ ...draftConfig, templates: next as FinalDocumentsTemplateEntry[] });
+    handleUpdate('templates', next as FinalDocumentsTemplateEntry[]);
   };
   const handleDocumentTitleChange = (templateId: string, title: string) => {
     setDocumentEntries((entries) =>
@@ -458,69 +597,17 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
                 </p>
               </div>
             ) : (
-              <div className="border rounded-md p-4 space-y-3">
-                {templates.map((template: WorkflowTemplate) => {
-                  const entry = documentEntries.find((e) => e.templateId === template.id);
-                  const isSelected = entry !== undefined;
-                  return (
-                    <div key={template.id} className="space-y-2">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id={`template-${template.id}`}
-                          checked={isSelected}
-                          onCheckedChange={() => handleTemplateToggle(template.id)}
-                        />
-                        <div className="flex-1">
-                          <label
-                            htmlFor={`template-${template.id}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {template.name}
-                          </label>
-                          {(!isEasyMode && template.description) && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {template.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {/* Per-document condition. Deliberately NOT gated on
-                          isEasyMode: unlike this file's pre-existing
-                          easy/advanced split (screenTitle, Advanced
-                          Options), conditional generation mirrors
-                          VisibilityField.tsx's step-level "Conditional
-                          Visibility", which is always available regardless
-                          of mode -- the same LogicBuilder-based feature
-                          should not be reachable only in one mode. */}
-                      {isSelected && (
-                        <div className="ml-7 space-y-2 rounded-md border bg-muted/10 p-3">
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`document-title-${template.id}`} className="text-xs">
-                              Output title
-                            </Label>
-                            <Input
-                              id={`document-title-${template.id}`}
-                              value={entry.title ?? ''}
-                              onChange={(event) => handleDocumentTitleChange(template.id, event.target.value)}
-                              onBlur={(event) => handleDocumentTitleBlur(template.id, event.target.value)}
-                              placeholder={template.name}
-                              className="h-9"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Used in the generated file name.
-                            </p>
-                          </div>
-                          <DocumentConditionRow
-                            workflowId={workflowId}
-                            conditions={entry.conditions}
-                            onChange={(conditions) => handleConditionChange(template.id, conditions)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <TemplateSelectionList
+                templates={templates}
+                documentEntries={documentEntries}
+                isEasyMode={isEasyMode}
+                workflowId={workflowId}
+                onTemplateToggle={handleTemplateToggle}
+                onDocumentTitleChange={handleDocumentTitleChange}
+                onDocumentTitleBlur={handleDocumentTitleBlur}
+                onConditionChange={handleConditionChange}
+                onVersionPinChange={handleVersionPinChange}
+              />
             )}
             <p className="text-xs text-muted-foreground">
               Select which document templates to generate. Optionally add a condition to generate a document only when it applies.

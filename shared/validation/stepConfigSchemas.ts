@@ -422,6 +422,7 @@ export const FinalBlockConfigSchema = z.object({
     id: z.string(),
     documentId: z.string(),
     alias: z.string().min(1, 'Document alias is required'),
+    pinnedVersionId: z.string().uuid().nullable().optional(),
     conditions: conditionExpressionSchema.optional(),
     mapping: z.record(z.object({
       type: z.literal('variable'),

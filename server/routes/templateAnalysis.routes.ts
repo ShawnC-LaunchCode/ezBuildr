@@ -9,16 +9,24 @@ import { z } from 'zod';
 
 import { hybridAuth, asyncHandler } from '../middleware';
 import { documentTemplateService } from '../services/DocumentTemplateService';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import crypto from 'crypto';
+import multer from 'multer';
+
 import {
   analyzeTemplate,
   validateTemplateWithData,
   generateSampleData,
   compareTemplates,
+  analyzeTemplateUpdate,
 } from '../services/TemplateAnalysisService';
 import { aclService } from '../services/AclService';
 import { createError } from '../utils/errors';
 import type { AuthRequest } from '../middleware/auth';
 
+const ACCESS_DENIED_ERROR = 'Access denied to project';
 const router = express.Router();
 
 interface RequestWithOptionalUser extends AuthRequest {
@@ -60,7 +68,7 @@ router.get(
     const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
-      throw createError.forbidden('Access denied to project');
+      throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
 
     // Verify template exists and user has access
@@ -95,7 +103,7 @@ router.post(
     const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
-      throw createError.forbidden('Access denied to project');
+      throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
 
     // Validate request body
@@ -127,7 +135,7 @@ router.post(
     const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
-      throw createError.forbidden('Access denied to project');
+      throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
 
     // Verify template exists and user has access
@@ -161,7 +169,7 @@ router.post(
     const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
-      throw createError.forbidden('Access denied to project');
+      throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
 
     // Validate request body
@@ -178,6 +186,57 @@ router.post(
       success: true,
       data: comparison,
     });
+  })
+);
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+      cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+  }),
+});
+
+/**
+ * Analyze an impending template update for impact
+ * POST /api/templates/:templateId/analyze-update?projectId=xxx
+ */
+router.post(
+  '/:templateId/analyze-update',
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const { templateId } = req.params;
+    const projectId = requireProjectId(req);
+
+    const userId = requireAuthenticatedUserId(req);
+    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'edit');
+    if (!hasAccess) {
+      if (req.file) {await fs.unlink(req.file.path).catch(() => {});}
+      throw createError.forbidden(ACCESS_DENIED_ERROR);
+    }
+
+    if (!req.file) {
+      throw createError.validation('File upload required');
+    }
+
+    try {
+      // Verify template exists and user has access
+      await documentTemplateService.getTemplate(templateId, projectId);
+
+      // Pass the temporary uploaded file path for analysis
+      const analysis = await analyzeTemplateUpdate(templateId, req.file.path);
+
+      res.json({
+        success: true,
+        data: analysis,
+      });
+    } finally {
+      // Clean up the temporary file
+      await fs.unlink(req.file.path).catch(() => {});
+    }
   })
 );
 
