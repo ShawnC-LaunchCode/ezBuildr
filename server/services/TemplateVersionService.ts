@@ -309,32 +309,27 @@ export class TemplateVersionService {
   }
 
   /**
-   * NOTE: a `pruneOldVersions(templateId, keepCount)` helper was removed on 2026-08-12.
-   * It had zero callers and deleted the oldest N `template_versions` rows by recency
-   * alone, with no awareness of `pinnedVersionId`. Runs pin a specific version
-   * (see `FinalBlockRenderer.resolveTemplate`), so pruning by age would have broken
-   * every run pinned to a pruned version — `resolveTemplate` throws `notFound` on a
-   * missing pin, so the failure surfaces at render time, not at prune time.
-   * If retention is needed later, exclude any version referenced by a pinned run
-   * before deleting, and cover it with a DB-backed test that pins then prunes.
+   * NOTE: two ways to un-publish a version were removed here, on 2026-08-12.
+   *
+   * `pruneOldVersions(templateId, keepCount)` deleted the oldest N
+   * `template_versions` rows by recency alone, with no awareness of
+   * `pinnedVersionId`. Runs pin a specific version (see
+   * `FinalBlockRenderer.resolveTemplate`), so pruning by age would have broken
+   * every run pinned to a pruned version — `resolveTemplate` throws `notFound`
+   * on a missing pin, so the failure surfaces at render time, not at prune time.
+   *
+   * `deactivateVersion(templateId, versionNumber)` set `isActive: false`. It
+   * also had zero callers, and it did not do what its name implies:
+   * `getVersionForTemplate` — the pinned lookup — does not filter on
+   * `isActive`, so a "deactivated" version kept rendering. Both together were
+   * the whole of GH-171 AC1's "immutable versions" being unenforced (G171-B3);
+   * with them gone, immutability holds because there is no mutation path.
+   *
+   * If retention or deactivation is wanted later: exclude any version
+   * referenced by a pinned run before deleting, decide whether the pinned
+   * lookup should honour `isActive`, and cover it with a DB-backed test that
+   * pins then prunes.
    */
-
-  /**
-   * Mark a version as inactive (soft delete)
-   */
-  async deactivateVersion(templateId: string, versionNumber: number): Promise<void> {
-    await db
-      .update(templateVersions)
-      .set({ isActive: false })
-      .where(
-        and(
-          eq(templateVersions.templateId, templateId),
-          eq(templateVersions.versionNumber, versionNumber)
-        )
-      );
-
-    logger.info({ templateId, versionNumber }, 'Version deactivated');
-  }
 
   /**
    * Get version statistics

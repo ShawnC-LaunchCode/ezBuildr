@@ -205,18 +205,24 @@ Output:
 }
 ```
 
-#### Arrays → Comma-Separated Strings
+#### Arrays → preserved, so templates can loop over them
 ```typescript
 Input:
 {
   hobbies: ["biking", "hiking", "reading"]
 }
 
-Output:
+Output (unchanged — still an array):
 {
-  "hobbies": "biking, hiking, reading"
+  "hobbies": ["biking", "hiking", "reading"]
 }
 ```
+
+Joining is opt-in (`joinArrays: true`). A section tag iterates the array —
+`{{#hobbies}}{{.}}{{/hobbies}}` — and a plain scalar tag `{{hobbies}}` joins it
+for display at render time. This section previously documented the join as the
+normalizer's behavior, which would have told an author that loops were
+impossible.
 
 #### Multi-Field Values → Flat Structure
 ```typescript
