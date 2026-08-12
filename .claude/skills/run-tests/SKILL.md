@@ -21,6 +21,32 @@ description: Run, write, or debug tests in ezBuildr. Running npm test or vitest 
 - **Everything:** `npm test` (runs with `VITEST_SINGLE_FORK=true` + coverage — slow but 100% reliable; this is what CI uses).
 - Also run `npx tsc --noEmit` for type safety — tests passing does not imply the build compiles.
 
+## ⚠️ `test:docker:up` starts more than Postgres — re-run it after every pull
+
+`docker-compose.test.yml` defines **two** services: `postgres` (host port **5434**) and
+**`gotenberg`** (`gotenberg/gotenberg:8`, host port **3009**), the latter required by the
+real PDF-fidelity tests. `npm run test:docker:up` starts what the compose file defines *at
+the moment you run it* — a container set from earlier keeps running and never tells you a
+service was added.
+
+Getting this wrong cost real time on 2026-08-12: with only Postgres up, `test:integration`
+reported **10 failed files / 5 failed tests / 35 skipped**, and only two failures mentioned
+PDFs. Seven unrelated suites (`analytics_service`, `api.runs.first-next`,
+`api.runs.resume-handoff`, `api.portal.run-access`, `dynamic_options_workflow`,
+`organizations-workflow`, `transferOwnership`) failed with a bare
+`AssertionError: expected 500 to be 200`, because run completion calls document generation,
+which could not reach the converter. With `gotenberg` up, the same commit is 112/112 green.
+
+**So: read the port in `ECONNREFUSED`, don't assume.** `5434` is Postgres; **`3009` is
+Gotenberg**. The Postgres container can be `Up (healthy)` the whole time, so the usual
+container check passes and proves nothing.
+
+```bash
+git diff <base>..HEAD -- docker-compose.test.yml    # after any merge or pull
+npm run test:docker:up                              # adds services you are missing
+docker compose -f docker-compose.test.yml ps        # confirm BOTH, not just PG
+```
+
 ## Database for unit-db / integration tests
 
 Tests honor `TEST_DATABASE_URL` (overrides `DATABASE_URL`, see `tests/setup.ts:37`). Local Docker PG (tmpfs, fast):
@@ -38,9 +64,11 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- **There are no known integration failures.** As of 2026-08-12, `npm run test:integration`
-  against Docker PG on 5434 is green — **112 passed files, 0 failed**. **Treat any
-  integration failure as your regression.**
+- **There are no known integration failures, and no skipped tests.** Measured 2026-08-12 on
+  `main` (`0d8d7254`) with **both** compose services up: `Test Files 112 passed (112)` ·
+  `Tests 1115 passed (1115)` — zero failed, zero skipped. **Treat any integration failure
+  as your regression** — but first confirm `gotenberg` is running (see the compose warning
+  above), because a missing service produces failures that read like code defects.
 
   This is a change in kind, not just in number. For months the suite carried 10 failures
   and reviewers certified work with "matches the documented baseline" — weak evidence,
