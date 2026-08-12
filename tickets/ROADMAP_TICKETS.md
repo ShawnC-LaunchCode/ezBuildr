@@ -1607,7 +1607,7 @@ Build in this order; each step should leave the tree gate-clean.
 >
 > **All follow-ups G171-0..6 are closed** (2026-08-12). The initiative is retired; its
 > settled rulings and three parked `informational` observations live in
-> [`tickets/backlog/GH171_TEMPLATE_VERSIONING.md`](backlog/GH171_TEMPLATE_VERSIONING.md), and
+> [`tickets/backlog/TEMPLATE_VERSIONING.md`](backlog/TEMPLATE_VERSIONING.md), and
 > the full ticket text is recoverable with
 > `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`.
 >

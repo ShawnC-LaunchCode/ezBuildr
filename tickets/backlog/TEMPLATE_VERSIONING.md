@@ -1,5 +1,23 @@
 # GH-171 template versioning & impact analysis (G171) — retired 2026-08-12
 
+> ### ⚠️ RETIRED TWICE, IN PARALLEL — reconcile before trusting either copy
+>
+> On 2026-08-12 this initiative was retired **independently by two sessions**, which did not
+> see each other's work. A concurrent session in the `brave-herschel-b266ab` worktree wrote
+> its own retirement of the same initiative at this same path, using **`G171-B*`** entry IDs
+> (matching the repo's existing `LIST-B12` / `AISL-B1..B11` convention). This copy uses
+> **`G171-O*`**, which does not.
+>
+> This file was deliberately renamed onto their path so the two collide as a **visible merge
+> conflict** rather than merging cleanly into two rival files both claiming to be the GH-171
+> retirement — which is what would have happened otherwise.
+>
+> **When resolving: prefer their IDs and filename** (convention-matching), and merge the
+> content below into theirs rather than the reverse. Their entry `G171-B1` appears to cover
+> the same dead-`unresolved_variables` defect as `G171-O1` here — **check before keeping
+> both.** Anything in this copy not present in theirs (the narrowed immutability finding, the
+> reviewer process notes, the closed-ticket commit table) is worth carrying over.
+
 **GH-171 closed with all 4 ACs met; follow-up tickets G171-0..6 all closed.** Document
 templates now create immutable versions with notes, workflows pin a version or follow
 latest, the dependency analyser lists affected workflows, and the impact warning reports

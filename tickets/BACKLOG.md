@@ -98,10 +98,14 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
+| G171-O1 | `informational` | **`unresolved_variables` is structurally always `[]`** and its test was removed — a green suite does not mean it works; a fix was in flight elsewhere and is **unconfirmed** | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-O2 | `informational` | Version immutability nearly enforced: hard delete removed; `deactivateVersion` remains with **zero callers** and the same pinned-run hazard | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-O3 | `informational` | Reviewer process: verify gates yourself; a test count moving **down** is a stop condition; check a worktree's base before calling its numbers wrong | `backlog/TEMPLATE_VERSIONING.md` |
+| BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 
 ---
 
-## GH-171 template versioning (G171) — [detail](backlog/GH171_TEMPLATE_VERSIONING.md) — retired 2026-08-12
+## GH-171 template versioning (G171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
 
 **GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed.** Parks three
 `informational` entries. Read the detail before touching template versioning, pinning, or
