@@ -189,6 +189,60 @@ describe('Entity Graph Portability', () => {
       }
     }
   });
+
+  // BIZ-2: fieldSchemas overrides the drizzle-zod schema for a column in
+  // ImportService.getZodSchema, which only visits columns in `fields`. An
+  // override on an unexported column would look like validation and do nothing.
+  describe('fieldSchemas', () => {
+    it('every fieldSchemas column is also declared in that entity fields list', () => {
+      for (const entity of ENTITY_GRAPH) {
+        for (const col of Object.keys(entity.fieldSchemas ?? {})) {
+          expect(
+            entity.fields,
+            `${entity.name}.fieldSchemas declares "${col}", which is missing from its fields allowlist`
+          ).toContain(col);
+        }
+      }
+    });
+
+    // The seam this closes: `settings` is jsonb, so drizzle-zod accepts anything,
+    // and an invalid businessDayCalendar used to surface only as a DOCX render
+    // failure after the run had finished.
+    it('workflows.settings rejects an unrecognised businessDayCalendar, naming the field and the allowed values', () => {
+      const workflows = ENTITY_GRAPH.find(e => e.name === 'workflows');
+      const settingsSchema = workflows?.fieldSchemas?.settings;
+      expect(settingsSchema, 'workflows must validate its settings blob on import').toBeDefined();
+
+      const result = settingsSchema!.safeParse({ businessDayCalendar: 'garbage' });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const [issue] = result.error.issues;
+        expect(issue.path).toEqual(['businessDayCalendar']);
+        expect(issue.message).toMatch(/businessDayCalendar/);
+        expect(issue.message).toMatch(/weekends-only/);
+        expect(issue.message).toMatch(/us-federal/);
+      }
+    });
+
+    it('workflows.settings accepts both calendars, an absent calendar, and unrelated keys', () => {
+      const settingsSchema = ENTITY_GRAPH.find(e => e.name === 'workflows')!.fieldSchemas!.settings;
+
+      for (const calendar of ['weekends-only', 'us-federal']) {
+        expect(settingsSchema.safeParse({ businessDayCalendar: calendar }).success).toBe(true);
+      }
+      // Absent is the weekends-only default, not an error — every workflow
+      // predating BIZ-1 has an empty settings blob.
+      expect(settingsSchema.safeParse({}).success).toBe(true);
+      // `settings` is shared with branding/completion/redirect keys, so unknown
+      // keys must round-trip rather than be rejected or stripped.
+      const branded = { completionMessage: 'Thanks', primaryColor: '#abc', businessDayCalendar: 'us-federal' };
+      const parsed = settingsSchema.safeParse(branded);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data).toEqual(branded);
+      }
+    });
+  });
 });
 
 

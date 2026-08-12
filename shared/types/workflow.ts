@@ -1,3 +1,4 @@
+import { z } from 'zod';
 
 // Defining types locally to avoid circular dependency hell or schema import issues for now
 export type BlockType =
@@ -81,6 +82,38 @@ export function resolveBusinessDayCalendar(settings: unknown): BusinessDayCalend
         `businessDayCalendar setting must be one of "weekends-only" or "us-federal"; received ${JSON.stringify(calendar)}`
     );
 }
+
+/**
+ * The same rule as `resolveBusinessDayCalendar`, for boundaries that must
+ * *report* an invalid `workflows.settings` blob instead of throwing.
+ *
+ * The portability import is that boundary (BIZ-2): `settings` is in the import
+ * field list and was written verbatim from a user-supplied bundle, so a garbage
+ * calendar value survived the import and only surfaced later as a
+ * document-generation failure at render time — after a run had completed, where
+ * the user could no longer correct it. Validating here moves the failure to the
+ * import, which is the one place it is actionable.
+ *
+ * Deliberately permissive about every other key. `settings` is a shared jsonb
+ * blob (branding, completionMessage, redirectUrl, ...) so rejecting unknown keys
+ * would break the round-trip of settings this schema knows nothing about; it
+ * also accepts a non-object or absent blob, matching
+ * `resolveBusinessDayCalendar`'s own treatment of those as "use the default".
+ *
+ * The rule is *not restated* here — it delegates, so the import-time message and
+ * the render-time message are the same sentence and cannot drift apart.
+ */
+export const businessDaySettingsSchema = z.unknown().superRefine((settings, ctx) => {
+    try {
+        resolveBusinessDayCalendar(settings);
+    } catch (err) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['businessDayCalendar'],
+            message: err instanceof Error ? err.message : String(err),
+        });
+    }
+});
 
 export interface WorkflowJSON {
     id: string;

@@ -305,7 +305,11 @@ export class ImportService {
     const pickedShape: Record<string, z.ZodTypeAny> = {};
     for (const f of desc.fields) {
       if (f in shape) {
-        pickedShape[f] = this.wrapDateField(shape[f]);
+        // A descriptor override wins over the column's drizzle-zod schema, for
+        // jsonb columns whose contents carry meaning the column type cannot
+        // express (`workflows.settings`, BIZ-2). Applies to preview and apply
+        // alike, because both parse through here.
+        pickedShape[f] = desc.fieldSchemas?.[f] ?? this.wrapDateField(shape[f]);
       }
     }
     return z.object(pickedShape).strip();
