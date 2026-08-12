@@ -7,7 +7,7 @@
  * not exist published cleanly and then failed for every respondent:
  * `RunLifecycleService` resolves each `documentId` through
  * `documentTemplateRepository.findByIdAndProjectId(documentId, projectId)` and
- * `createTemplateResolver` throws `notFound` when it misses.
+ * `createProjectTemplateResolver` throws `notFound` when it misses.
  *
  * This exercises the real `publishVersion` path against a real database, so it
  * covers `buildReadinessContext`'s query as well as the pure rules — the pure

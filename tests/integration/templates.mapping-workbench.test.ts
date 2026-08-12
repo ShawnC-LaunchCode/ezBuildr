@@ -32,6 +32,7 @@ vi.mock('../../server/services/TemplatePreviewService', () => ({
 describe.sequential('Document Mapping Workbench (GH-156)', () => {
   let ctx: IntegrationTestContext;
   let otherCtx: IntegrationTestContext;
+  let factory: TestFactory;
   let templateId: string;
 
   beforeAll(async () => {
@@ -52,7 +53,7 @@ describe.sequential('Document Mapping Workbench (GH-156)', () => {
       throw new Error('Mapping Workbench tests require a project');
     }
 
-    const factory = new TestFactory();
+    factory = new TestFactory();
     const { template } = await factory.createTemplate(ctx.projectId, ctx.userId);
     templateId = template.id;
   });
@@ -82,35 +83,50 @@ describe.sequential('Document Mapping Workbench (GH-156)', () => {
     expect(getResponse.body.mapping).toEqual(mapping);
   });
 
-  it('round-trip editing: a second save overwrites the first and both are recorded as versions', async () => {
+  it('deduplicates identical mapping saves and versions a genuine mapping change', async () => {
+    const { template } = await factory.createTemplate(ctx.projectId!, ctx.userId);
     const v1 = { firm_name: { type: 'constant', value: 'First Save' } };
     const v2 = { firm_name: { type: 'constant', value: 'Second Save' } };
 
     await request(ctx.baseURL)
-      .patch(`/api/templates/${templateId}`)
+      .patch(`/api/templates/${template.id}`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
       .send({ mapping: v1 })
       .expect(200);
 
     await request(ctx.baseURL)
-      .patch(`/api/templates/${templateId}`)
+      .patch(`/api/templates/${template.id}`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({ mapping: v1 })
+      .expect(200);
+
+    const unchangedVersionsResponse = await request(ctx.baseURL)
+      .get(`/api/templates/${template.id}/versions`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .expect(200);
+    const unchangedVersions = Array.isArray(unchangedVersionsResponse.body)
+      ? unchangedVersionsResponse.body
+      : unchangedVersionsResponse.body.versions;
+    expect(unchangedVersions).toHaveLength(1);
+
+    await request(ctx.baseURL)
+      .patch(`/api/templates/${template.id}`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
       .send({ mapping: v2 })
       .expect(200);
 
     const getResponse = await request(ctx.baseURL)
-      .get(`/api/templates/${templateId}`)
+      .get(`/api/templates/${template.id}`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
       .expect(200);
     expect(getResponse.body.mapping).toEqual(v2);
 
     const versionsResponse = await request(ctx.baseURL)
-      .get(`/api/templates/${templateId}/versions`)
+      .get(`/api/templates/${template.id}/versions`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
       .expect(200);
     const versions = Array.isArray(versionsResponse.body) ? versionsResponse.body : versionsResponse.body.versions;
-    // At least the two mapping saves above recorded their own version each.
-    expect(versions.length).toBeGreaterThanOrEqual(2);
+    expect(versions).toHaveLength(2);
   });
 
   it('denies a mapping save from a different tenant and leaves the mapping unchanged', async () => {
