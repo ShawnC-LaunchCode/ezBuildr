@@ -86,7 +86,8 @@ Pick one and follow it. The common failure is reaching Shape-A's ceremony,
 deciding phases are overkill for one bug, and improvising a bug-report layout
 instead — which quietly drops **Ties** and **Preferred fix**, the two sections
 an isolated dev most needs. Shape B exists precisely so there is a correct
-small answer to copy. The four sections below are required in both.
+small answer to copy. The sections below are required in both (Vertical proof
+only when the ticket spans more than one layer).
 
 The bar for every ticket: **a lower-level dev with zero context on this
 codebase can complete it in isolation.** That means each ticket carries:
@@ -102,10 +103,20 @@ codebase can complete it in isolation.** That means each ticket carries:
    (test-running skills, API-pattern skills, etc.). If the repo has skills or
    a CLAUDE.md convention that governs this area, cite it by name — this is
    what keeps isolated devs on-pattern.
-4. **Acceptance criteria** — a numbered, exhaustive, objectively checkable
+4. **Vertical proof** — *required whenever the ticket touches two or more of:
+   route, service, repository/DB, worker/lifecycle hook, renderer, client.*
+   One real end-to-end path — entry point, every hop, observable end state —
+   naming which hops must be unmocked, the cross-tenant denial case, and the
+   suite that runs it. Components pass in isolation while the seam between them
+   is broken; that is this repo's most expensive recurring defect, so the path
+   is written at generation time rather than left to the dev. See
+   `references/ticket-template.md`.
+5. **Acceptance criteria** — a numbered, exhaustive, objectively checkable
    list. Always include: new tests covering the new behavior, existing tests
    still green, and the repo's standard gates (type-check, lint) where they
-   exist. Vague criteria ("works correctly") are not acceptance criteria.
+   exist. Vague criteria ("works correctly") are not acceptance criteria. For a
+   multi-layer ticket, name the suite that actually exercises the path — a green
+   fast/unit suite cannot close route, persistence, rendering, or lifecycle work.
 
 Also stamp each ticket with **Priority** (P0 bug / P1 / P2 / enhancement) and
 **Size** (S / M / L). Group tickets into **phases** ordered by risk and

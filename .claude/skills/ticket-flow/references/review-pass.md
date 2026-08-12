@@ -20,6 +20,22 @@ Work through these in order; stop at the first failure and triage.
    New tests must exist, actually assert the new behavior (read them — a test
    that can't fail is not a test), and pass. Existing suites, type-check, and
    lint must be green.
+
+   Three ways this step has passed a broken ticket:
+
+   - **The suite that proves it was never run.** Select the mandatory suites
+     from the *changed paths*, not from what the dev chose to run. A green
+     unit/fast suite closes nothing that crosses a route, the database, a
+     renderer, or a lifecycle worker.
+   - **The test mocks the thing being changed.** If the ticket changed a
+     composition and the test stubs the composer, the headline behavior is
+     untested no matter how green it is. Check the mock boundary against the
+     ticket's **Vertical proof**.
+   - **"Matches baseline" accepted as proof.** A run with known failures is only
+     evidence if every failure is on a checked-in allowlist with a reason, and
+     the count is unchanged *and* explained. A lower test count is a failed
+     gate, not an improvement — it usually means files failed to load. Never
+     accept a baseline that includes a suite covering the area being changed.
 3. **Standards & efficiency.** Does the change match the repo's named
    patterns and the ticket's Preferred fix (or carry a stated reason for
    deviating)? Is there leftover scratch — debug logs, dead code, stray
@@ -83,7 +99,8 @@ Review discoveries accumulate as observations. At the gate, put every open
 backlog item into exactly one lane so the board drains as fast as it fills:
 
 - **Promote** — worth dispatching in this initiative; write it up as a full
-  ticket with the four sections and re-verify its evidence first.
+  ticket with the required sections (including **Vertical proof** if it spans
+  more than one layer) and re-verify its evidence first.
 - **Merge** — it belongs inside an existing open ticket; fold it in and delete
   the standalone entry.
 - **Close won't-fix** — record the one-line reason and drop it. This is a

@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 29 pages | 64 route files | ~190 service files | 106 DB tables | 37 step types | 40+ script helpers
+**Scale:** 64 page files (58 routes) | 65 API route files | 213 service files | 106 DB tables | 37 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -51,16 +51,16 @@ ezBuildr/
 │   ├── lib/                 # API clients, blockRegistry, utilities
 │   └── hooks/               # React hooks
 ├── server/
-│   ├── routes/              # API handlers (63 *.routes.ts incl. ai/, datavault/)
-│   ├── services/            # Business logic (~185 files incl. subdirs)
-│   ├── repositories/        # Data access (BaseRepository pattern, ~41 files)
+│   ├── routes/              # API handlers (65 *.routes.ts incl. ai/, datavault/)
+│   ├── services/            # Business logic (213 files incl. subdirs)
+│   ├── repositories/        # Data access (BaseRepository pattern, 48 files)
 │   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
 │   ├── schema/              # Drizzle schema, one file per domain (106 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
 │   ├── conditionEvaluator.ts # Logic engine
 │   └── workflowLogic.ts     # Workflow execution logic
-├── migrations/              # Single compacted baseline: 0000_init_baseline.sql
+├── migrations/              # 0000_init_baseline.sql + follow-ons through 0023 (24 files)
 ├── scripts/                 # Utility scripts (tsx)
 └── tests/                   # unit-fast / unit-db / integration (see run-tests skill)
 ```
@@ -160,7 +160,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 ### Quick Reference (Claude-optimized — update these when you change what they document)
 | Document | Contents |
 |----------|----------|
-| [Schema Reference](./docs/claude/SCHEMA.md) | All 104 database tables by domain file + enums |
+| [Schema Reference](./docs/claude/SCHEMA.md) | All 106 database tables by domain file + enums |
 | [API Endpoints](./docs/claude/API_ENDPOINTS.md) | API domains → route files + verified endpoints |
 | [Services Reference](./docs/claude/SERVICES.md) | Service classes by domain |
 | [Frontend Pages](./docs/claude/PAGES.md) | All client routes from Router.tsx |

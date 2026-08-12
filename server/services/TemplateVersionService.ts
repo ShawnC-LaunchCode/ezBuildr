@@ -309,42 +309,15 @@ export class TemplateVersionService {
   }
 
   /**
-   * Delete old versions (keep latest N versions)
+   * NOTE: a `pruneOldVersions(templateId, keepCount)` helper was removed on 2026-08-12.
+   * It had zero callers and deleted the oldest N `template_versions` rows by recency
+   * alone, with no awareness of `pinnedVersionId`. Runs pin a specific version
+   * (see `FinalBlockRenderer.resolveTemplate`), so pruning by age would have broken
+   * every run pinned to a pruned version — `resolveTemplate` throws `notFound` on a
+   * missing pin, so the failure surfaces at render time, not at prune time.
+   * If retention is needed later, exclude any version referenced by a pinned run
+   * before deleting, and cover it with a DB-backed test that pins then prunes.
    */
-  async pruneOldVersions(templateId: string, keepCount: number = 10): Promise<number> {
-    logger.info({ templateId, keepCount }, 'Pruning old template versions');
-
-    // Get all versions
-    const allVersions = await this.getVersionHistory(templateId);
-
-    if (allVersions.length <= keepCount) {
-      logger.info({ templateId, versionCount: allVersions.length }, 'No versions to prune');
-      return 0;
-    }
-
-    // Keep latest N versions
-    const _versionsToKeep = allVersions.slice(0, keepCount);
-    const versionsToDelete = allVersions.slice(keepCount);
-
-    // Delete old versions
-    for (const version of versionsToDelete) {
-      await db.delete(templateVersions).where(eq(templateVersions.id, version.id));
-
-      // Optionally delete the file (if not used by current template)
-      // Note: Be careful not to delete files still in use!
-      logger.debug({ versionId: version.id, versionNumber: version.versionNumber }, 'Version deleted');
-    }
-
-    logger.info(
-      {
-        templateId,
-        deletedCount: versionsToDelete.length,
-      },
-      'Old versions pruned'
-    );
-
-    return versionsToDelete.length;
-  }
 
   /**
    * Mark a version as inactive (soft delete)

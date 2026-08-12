@@ -64,7 +64,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**19 of 27 tickets complete (70%)** — updated 2026-08-10 · 1 deferred (GH-148)
+**20 of 27 tickets complete (74%)** — updated 2026-08-12 · 1 deferred (GH-148)
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -72,7 +72,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open      ⏸ deferred (off the board)
 
-OVERALL   ███████████████████░░░░░░░░   19 / 27   (70%)
+OVERALL   ████████████████████░░░░░░░   20 / 27   (74%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -100,7 +100,7 @@ OVERALL   ███████████████████░░░░�
         │      ├── ✅ GH-152   Publish gate review grouping
         │      └── ✅ GH-167   Document-to-interview AI onboarding
         │
-        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ████░░░░░░  3/7
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ██████░░░░  4/7
         │      │   ✔ template-language gate cleared 2026-08-10 (11/11, retired to
         │      │     tickets/backlog/TEMPLATE_LANGUAGE.md); GH-171 + GH-173 unblocked
         │      ├── ✅ GH-161   Answer piping & dynamic recall  (delivered by TPL-7)
@@ -141,6 +141,7 @@ OVERALL   ███████████████████░░░░�
 | ✅ GH-162 | Review step structured values and conditional visibility | 2026-08-09 |
 | ✅ GH-155 | Final-document authoring configurability | 2026-08-09 |
 | ✅ GH-161 | Answer piping & dynamic recall (via TPL-7) | 2026-08-10 |
+| ✅ GH-171 | Document template versioning & dependency impact analysis | 2026-08-11 |
 
 ---
 
