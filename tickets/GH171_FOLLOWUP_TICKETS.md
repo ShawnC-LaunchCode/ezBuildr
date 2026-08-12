@@ -333,6 +333,18 @@ Paste both outputs.
 
 **Priority: P2** · Size: S · Files: investigation only; fix depends on findings
 
+**Investigation result (2026-08-11): legitimate baseline correction; no coverage
+hole.** Vitest collection JSON at clean parent `713045dc` contains **3036 tests
+across 268 files**; the preserved GH-171 commit `3ac6747d` contains **3039 tests
+across 270 files**. The complete per-file delta is
+`TemplateVersionSelector.test.tsx` 0→1 and
+`TemplateAnalysisService.impact.test.ts` 0→2. None of the source-scanned or
+dynamically registered suites shrank. Therefore no suites account for a −2:
+the reported 3041 run was from transient/uncommitted tree state rather than the
+clean committed parent used for the comparison. Current `main` independently
+confirms the corrected arithmetic at 3046 (3039 + four G171-1 tests + three
+SCRIPT-2 tests). No production or test fix is warranted.
+
 ### Finding
 `npm run test:fast` on the worktree reports **3039 passed**. The reviewer's own
 verified baseline on the same tree, taken immediately after restoring

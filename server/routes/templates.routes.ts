@@ -623,9 +623,8 @@ router.patch(
 
           await templateVersionService.createVersion({
             templateId: params.id,
-            userId: authReq.userId ?? 'system',
-            notes: notes ?? 'Template updated',
-            force: true // Force version creation on upload/mapping change
+            userId: authReq.userId,
+            notes: notes ?? 'Template updated'
           });
         } catch (versionError) {
           logger.warn({ versionError, templateId: params.id }, 'Failed to record template version after update');

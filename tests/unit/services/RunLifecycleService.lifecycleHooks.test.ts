@@ -133,6 +133,9 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
     mocks.buildRunData.mockResolvedValue({ byAlias: { clientName: 'Ada' } });
     mocks.executeHooksForPhase.mockImplementation(async ({ phase, data }) => {
       mocks.events.push(`hook:${phase}`);
+      if (phase === 'beforeFinalBlock') {
+        return { data: { ...data, hookAdded: 'from beforeFinalBlock' }, errors: [] };
+      }
       return { data, errors: [] };
     });
     mocks.render.mockImplementation(async () => {
@@ -171,6 +174,7 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
       phase: 'afterDocumentsGenerated',
       data: {
         clientName: 'Ada',
+        hookAdded: 'from beforeFinalBlock',
         documents: [{
           filename: generatedDocument.filename,
           mimeType: generatedDocument.mimeType,
@@ -178,6 +182,12 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
         }],
       },
     });
+    expect(mocks.render).toHaveBeenCalledWith(expect.objectContaining({
+      stepValues: {
+        clientName: 'Ada',
+        hookAdded: 'from beforeFinalBlock',
+      },
+    }));
     expect(mocks.events).toEqual([
       'hook:beforeFinalBlock',
       'render',
