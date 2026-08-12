@@ -1,5 +1,7 @@
 import { PgTable } from 'drizzle-orm/pg-core';
+import { z } from 'zod';
 import * as schema from '@shared/schema';
+import { businessDaySettingsSchema } from '@shared/types/workflow';
 
 export interface EntityDescriptor {
   table: PgTable;
@@ -49,6 +51,25 @@ export interface EntityDescriptor {
    * `manifest.requiresReentry` already tells the user to re-enter it.
    */
   withheldColumns?: string[];
+  /**
+   * Per-column schemas replacing the drizzle-zod one in
+   * `ImportService.getZodSchema`, for columns whose *contents* carry meaning the
+   * column type cannot express.
+   *
+   * `workflows.settings` is the case (BIZ-2): a `jsonb` column, so drizzle-zod
+   * accepts any shape, and it is written verbatim from a user-supplied bundle.
+   * `jsonRefs` only says "remap ids in here" and says nothing about values, so
+   * `settings.businessDayCalendar: "garbage"` imported cleanly and then threw at
+   * DOCX render time — after a run had completed. The render-time throw is
+   * correct and stays (a silently substituted calendar puts a wrong date on a
+   * legal deadline); this moves the *first* failure to the import, where the user
+   * can still fix the bundle.
+   *
+   * Keys must be listed in `fields`, or the override is silently dead — the pick
+   * loop never reaches a column that is not exported. Enforced by
+   * `tests/unit/portability/entityGraph.test.ts`.
+   */
+  fieldSchemas?: Record<string, z.ZodTypeAny>;
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -91,6 +112,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","title","name","description","creatorId","ownerId","modeOverride","publicLink","projectId","currentVersionId","isPublic","slug","requireLogin","intakeConfig","settings","pinnedVersionId","status","ownerType","ownerUuid","sourceBlueprintId"],
     refs: ["projectId", "currentVersionId", "pinnedVersionId", "sourceBlueprintId"],
     jsonRefs: ["intakeConfig"],
+    fieldSchemas: { settings: businessDaySettingsSchema },
   },
   {
     table: schema.sections,

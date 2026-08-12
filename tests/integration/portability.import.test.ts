@@ -8,6 +8,7 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import * as schema from "@shared/schema";
+import { resolveBusinessDayCalendar } from "@shared/types/workflow";
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
 import {
@@ -623,6 +624,108 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     expect(applied.body.warnings.map((w: { column?: string }) => w.column))
       .toContain("config.fields[0].config.dynamicOptions.tableId");
+  });
+
+  // BIZ-2: `workflows.settings` is a jsonb column written verbatim from the
+  // bundle, and `resolveBusinessDayCalendar` throws on an unrecognised calendar
+  // during DOCX rendering. Before this, a bundle carrying
+  // `businessDayCalendar: "garbage"` imported cleanly and failed as a
+  // document-generation error after a run had already completed. The render-time
+  // throw is deliberately unchanged — substituting a calendar silently would put
+  // a wrong date on a legal deadline — so the fix is to fail at the import,
+  // which is the only point where the user can still correct the bundle.
+  describe("BIZ-2: workflows.settings is validated at import", () => {
+    /** Rewrite every workflow row's `settings` in a bundle, keeping it valid zip-wise. */
+    function withWorkflowSettings(source: Buffer, settings: Record<string, unknown>): Buffer {
+      const zip = new AdmZip(source);
+      const lines = zip.getEntry("entities/workflows.jsonl")!.getData()
+        .toString("utf8").split(/\r?\n/).filter(Boolean);
+      const rewritten = lines.map((line) => JSON.stringify({ ...JSON.parse(line), settings }));
+      zip.updateFile("entities/workflows.jsonl", Buffer.from(`${rewritten.join("\n")}\n`));
+
+      const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+      recomputeChecksum(zip, manifest);
+      zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+      return zip.toBuffer();
+    }
+
+    it("AC 1: an invalid businessDayCalendar is a 400 at import naming the field and the allowed values", async () => {
+      const tampered = withWorkflowSettings(bundle, { businessDayCalendar: "garbage" });
+      const workflowsBefore = await db.select().from(schema.workflows);
+
+      const apply = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", tampered, "bundle.ezb");
+
+      expect(apply.status).toBe(400);
+      expect(apply.status).not.toBe(500);
+      expect(apply.body.message).toMatch(/businessDayCalendar/);
+      expect(apply.body.message).toMatch(/weekends-only/);
+      expect(apply.body.message).toMatch(/us-federal/);
+
+      // Rejected before anything was written, so there is no half-imported
+      // workflow carrying a calendar that will explode at render time.
+      const workflowsAfter = await db.select().from(schema.workflows);
+      expect(workflowsAfter.length).toBe(workflowsBefore.length);
+
+      // Preview refuses it up front rather than only at apply.
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", tampered, "bundle.ezb")
+        .expect(200);
+      expect(preview.body.canProceed).toBe(false);
+      expect(preview.body.errors.some((e: string) => e.includes("businessDayCalendar"))).toBe(true);
+    });
+
+    it("AC 2: a valid us-federal calendar still round-trips", async () => {
+      await db.update(schema.workflows)
+        .set({ settings: { businessDayCalendar: "us-federal", completionMessage: "Done" } })
+        .where(eq(schema.workflows.id, workflowId));
+
+      const exported = await downloadBundle("workflow", workflowId, authToken);
+
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", exported, "wf.ezb")
+        .expect(200);
+      expect(preview.body.errors).toEqual([]);
+      expect(preview.body.canProceed).toBe(true);
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", exported, "wf.ezb")
+        .expect(201);
+
+      const [imported] = await db.select().from(schema.workflows)
+        .where(eq(schema.workflows.id, applied.body.rootId));
+      const settings = imported.settings as Record<string, unknown>;
+      expect(settings.businessDayCalendar).toBe("us-federal");
+      // Unrelated settings keys survive the added validation.
+      expect(settings.completionMessage).toBe("Done");
+      expect(resolveBusinessDayCalendar(imported.settings)).toBe("us-federal");
+    });
+
+    it("AC 3: a bundle with no businessDayCalendar round-trips and resolves to the weekends-only default", async () => {
+      // The seeded workflow never sets the key, so this is the absent case
+      // explicitly rather than a fixture that happens to omit it.
+      const exported = await downloadBundle("workflow", workflowId, authToken);
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", exported, "wf.ezb")
+        .expect(201);
+
+      const [imported] = await db.select().from(schema.workflows)
+        .where(eq(schema.workflows.id, applied.body.rootId));
+      expect((imported.settings as Record<string, unknown>).businessDayCalendar).toBeUndefined();
+      // The function the DOCX render path calls, on the imported row.
+      expect(resolveBusinessDayCalendar(imported.settings)).toBe("weekends-only");
+    });
   });
 
   it("AC 7: a bundle claiming a newer migrationHead is rejected with a 400", async () => {
