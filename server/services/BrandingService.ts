@@ -3,7 +3,7 @@ import dns from 'dns/promises';
 
 import { and, eq } from 'drizzle-orm';
 
-import { projects, tenants, tenantDomains, users, workflows } from '@shared/schema';
+import { tenants, tenantDomains } from '@shared/schema';
 import { resolveBranding } from '@shared/types/branding';
 import type {
   ResolvedBranding,
@@ -13,6 +13,8 @@ import type {
 
 import { db } from '../db';
 import { createLogger } from '../logger';
+
+import { workflowTenantResolver } from './WorkflowTenantResolver';
 
 type TenantDomain = typeof tenantDomains.$inferSelect;
 
@@ -92,9 +94,8 @@ export class BrandingService {
    * Resolve the branding a participant should see for one workflow (GH-158).
    *
    * This is the only entry point participant surfaces should use. It resolves
-   * the workflow's tenant with the established project-then-creator fallback
-   * (mirroring `WriteBlockRunner.resolveTenantId`) and merges tenant branding
-   * under the workflow's own branding settings.
+   * the workflow's tenant via the shared `WorkflowTenantResolver` and merges
+   * tenant branding under the workflow's own branding settings.
    *
    * Never throws: this runs on the anonymous participant read path, so a
    * branding lookup failure degrades to the product default rather than
@@ -134,26 +135,16 @@ export class BrandingService {
    * Resolve a workflow's tenant: its project's tenant first, falling back to
    * the creator's tenant for unfiled workflows.
    */
+  /**
+   * Resolve the tenant whose branding applies to this workflow.
+   *
+   * Delegates to {@link WorkflowTenantResolver} — this used to be a private
+   * copy that resolved only `project -> creator` and ignored
+   * `ownerType`/`ownerUuid`, so a transferred workflow rendered the original
+   * creator's branding rather than the new owner's.
+   */
   private async resolveTenantIdForWorkflow(workflowId: string): Promise<string | null> {
-    const [viaProject] = await db
-      .select({ tenantId: projects.tenantId })
-      .from(workflows)
-      .innerJoin(projects, eq(workflows.projectId, projects.id))
-      .where(eq(workflows.id, workflowId))
-      .limit(1);
-
-    if (viaProject?.tenantId != null) {
-      return viaProject.tenantId;
-    }
-
-    const [viaCreator] = await db
-      .select({ tenantId: users.tenantId })
-      .from(workflows)
-      .innerJoin(users, eq(workflows.creatorId, users.id))
-      .where(eq(workflows.id, workflowId))
-      .limit(1);
-
-    return viaCreator?.tenantId ?? null;
+    return workflowTenantResolver.resolveForWorkflowId(workflowId);
   }
 
   /**

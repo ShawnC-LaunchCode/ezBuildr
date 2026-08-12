@@ -94,33 +94,18 @@ export class WriteBlockRunner extends BaseBlockRunner {
   /**
    * Resolve Tenant ID from Workflow ID
    */
+  /**
+   * Resolve the tenant that scopes the DataVault write.
+   *
+   * Delegates to {@link WorkflowTenantResolver} — this used to be a private
+   * copy that resolved only `project -> creator` and ignored
+   * `ownerType`/`ownerUuid`, so a transferred workflow wrote into the original
+   * creator's tenant while its DataVault data had moved to the new owner.
+   */
   private async resolveTenantId(workflowId: string): Promise<string | null> {
     try {
-      const { db } = await import("../../db");
-      const { workflows, projects, users } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-
-      // 1. Try Project linkage (Standard)
-      const [projectResult] = await db
-        .select({ tenantId: projects.tenantId })
-        .from(workflows)
-        .innerJoin(projects, eq(workflows.projectId, projects.id))
-        .where(eq(workflows.id, workflowId))
-        .limit(1);
-
-      if (projectResult?.tenantId) {
-        return projectResult.tenantId;
-      }
-
-      // 2. Fallback: Workflow Creator's Tenant (Unfiled)
-      const [creatorResult] = await db
-        .select({ tenantId: users.tenantId })
-        .from(workflows)
-        .innerJoin(users, eq(workflows.creatorId, users.id))
-        .where(eq(workflows.id, workflowId))
-        .limit(1);
-
-      return creatorResult?.tenantId ?? null;
+      const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
+      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
     } catch (e) {
       logger.error({ error: e, workflowId }, "Failed to resolve tenant ID");
       return null;

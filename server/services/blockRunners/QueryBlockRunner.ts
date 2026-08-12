@@ -81,47 +81,19 @@ export class QueryBlockRunner extends BaseBlockRunner {
   /**
    * Helper: Get tenantId from workflowId
    */
+  /**
+   * Resolve the tenant that scopes DataVault access for this workflow.
+   *
+   * Delegates to {@link WorkflowTenantResolver} — this used to be a private
+   * copy that resolved only `project -> creator` and ignored
+   * `ownerType`/`ownerUuid`, so a transferred workflow resolved the original
+   * creator's tenant while its DataVault data had moved to the new owner.
+   */
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
-      const { workflowRepository } = await import("../../repositories");
-      const workflow = await workflowRepository.findById(workflowId);
-
-      if (!workflow) {
-        logger.warn({ workflowId }, "Workflow not found");
-        return null;
-      }
-
-      // 1. Try Project linkage
-      if (workflow.projectId) {
-        const { projectRepository } = await import("../../repositories");
-        const project = await projectRepository.findById(workflow.projectId);
-        if (project) {
-          return project.tenantId;
-        }
-        logger.warn(
-          { projectId: workflow.projectId, workflowId },
-          "Project not found for workflow, falling back to creator"
-        );
-      }
-
-      // 2. Fallback: Creator's Tenant
-      if (workflow.creatorId) {
-        const { userRepository } = await import("../../repositories");
-        const creator = await userRepository.findById(workflow.creatorId);
-
-        if (creator?.tenantId) {
-          return creator.tenantId;
-        }
-      }
-
-
-
-      logger.warn(
-        { workflowId, creatorId: workflow.creatorId },
-        "Could not resolve tenantId from project or creator"
-      );
-      return null;
-    } catch (error) {
+      const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
+      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
+    } catch (error: unknown) {
       logger.error({ error, workflowId }, "Error fetching tenantId from workflow");
       return null;
     }

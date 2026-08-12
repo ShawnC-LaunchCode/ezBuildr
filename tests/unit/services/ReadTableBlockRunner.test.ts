@@ -20,10 +20,20 @@ vi.mock('../../../server/logger', () => ({
     info: vi.fn(),
     warn: mocks.warn,
   },
+  // WorkflowTenantResolver (reached via the runner's tenant lookup) builds its
+  // own child logger. Without this the module import throws, the delegator
+  // swallows it, and tenant resolution silently returns null.
+  createLogger: () => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  }),
 }));
 
 vi.mock('../../../server/repositories', () => ({
   datavaultColumnsRepository: { findByTableId: mocks.findColumns },
+  organizationRepository: { findById: vi.fn() },
   projectRepository: { findById: mocks.findProject },
   stepValueRepository: { upsert: vi.fn() },
   userRepository: { findById: vi.fn() },
@@ -37,6 +47,10 @@ vi.mock('../../../server/services/DatavaultTablesService', () => ({
 import { ReadTableBlockRunner } from '../../../server/services/blockRunners/ReadTableBlockRunner';
 
 describe('ReadTableBlockRunner', () => {
+  // Must be a real UUID: tenant_id is a Postgres `uuid` column, and
+  // WorkflowTenantResolver fails closed on anything that isn't one.
+  const TENANT_ID = '11111111-1111-1111-1111-111111111111';
+
   const knownColumn = {
     id: 'known-column',
     tableId: 'table-1',
@@ -47,7 +61,7 @@ describe('ReadTableBlockRunner', () => {
 
   beforeEach(() => {
     mocks.findWorkflow.mockResolvedValue({ id: 'workflow-1', projectId: 'project-1' });
-    mocks.findProject.mockResolvedValue({ id: 'project-1', tenantId: 'tenant-1' });
+    mocks.findProject.mockResolvedValue({ id: 'project-1', tenantId: TENANT_ID });
     mocks.verifyTable.mockResolvedValue({ id: 'table-1', name: 'Test table' });
     mocks.findColumns.mockResolvedValue([knownColumn]);
   });

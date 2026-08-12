@@ -5,11 +5,8 @@ import type { FinalBlockConfig } from '@shared/types/stepConfigs';
 import { createLogger } from '../../../logger';
 import {
   type DbTransaction,
-  organizationRepository,
-  projectRepository,
   runDocumentDeliveryRepository,
   runGeneratedDocumentsRepository,
-  userRepository,
   workflowRepository,
   workflowRunRepository,
 } from '../../../repositories';
@@ -18,6 +15,7 @@ import {
   redactDeliveryConfig,
 } from '../../../utils/documentDeliverySecrets';
 import { storageProvider } from '../../storage';
+import { workflowTenantResolver } from '../../WorkflowTenantResolver';
 import { runDataService } from '../../workflow-runs/RunDataService';
 
 import {
@@ -32,14 +30,6 @@ const logger = createLogger({ module: 'document-delivery-service' });
 
 const BASE_RETRY_DELAY_MS = 5_000; // 5 seconds
 const MAX_RETRY_DELAY_MS = 600_000; // 10 minutes
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidUuid(val?: string | null): boolean {
-  if (!val) {
-    return false;
-  }
-  return UUID_REGEX.test(val);
-}
 
 /**
  * Sanitizes a RunDocumentDelivery entity for client responses,
@@ -62,9 +52,6 @@ interface DocumentDeliveryDependencies {
   deliveryRepo: typeof runDocumentDeliveryRepository;
   runRepo: typeof workflowRunRepository;
   workflowRepo: typeof workflowRepository;
-  projectRepo: typeof projectRepository;
-  userRepo: typeof userRepository;
-  organizationRepo: typeof organizationRepository;
   generatedDocumentRepo: typeof runGeneratedDocumentsRepository;
 }
 
@@ -74,18 +61,12 @@ export class DocumentDeliveryService {
   private readonly deliveryRepo: typeof runDocumentDeliveryRepository;
   private readonly runRepo: typeof workflowRunRepository;
   private readonly workflowRepo: typeof workflowRepository;
-  private readonly projectRepo: typeof projectRepository;
-  private readonly userRepo: typeof userRepository;
-  private readonly organizationRepo: typeof organizationRepository;
   private readonly generatedDocumentRepo: typeof runGeneratedDocumentsRepository;
 
   constructor(dependencies: Partial<DocumentDeliveryDependencies> = {}) {
     this.deliveryRepo = dependencies.deliveryRepo ?? runDocumentDeliveryRepository;
     this.runRepo = dependencies.runRepo ?? workflowRunRepository;
     this.workflowRepo = dependencies.workflowRepo ?? workflowRepository;
-    this.projectRepo = dependencies.projectRepo ?? projectRepository;
-    this.userRepo = dependencies.userRepo ?? userRepository;
-    this.organizationRepo = dependencies.organizationRepo ?? organizationRepository;
     this.generatedDocumentRepo = dependencies.generatedDocumentRepo ?? runGeneratedDocumentsRepository;
   }
 
@@ -100,80 +81,19 @@ export class DocumentDeliveryService {
     return Math.floor(delay + jitter);
   }
 
-  private async resolvePrincipalTenantId(
-    ownerType: string | null,
-    ownerUuid: string | null,
-    tx?: DbTransaction
-  ): Promise<string | null> {
-    if (!ownerUuid) {
-      return null;
-    }
-    if (ownerType === 'user') {
-      const user = await this.userRepo.findById(ownerUuid, tx);
-      return user?.tenantId && isValidUuid(user.tenantId) ? user.tenantId : null;
-    }
-    if (ownerType === 'org') {
-      const organization = await this.organizationRepo.findById(ownerUuid, tx);
-      return organization?.tenantId && isValidUuid(organization.tenantId)
-        ? organization.tenantId
-        : null;
-    }
-    return null;
-  }
-
-  /** Resolve user/org ownership to the tenant that authorizes delivery access. */
+  /**
+   * Resolve user/org ownership to the tenant that authorizes delivery access.
+   *
+   * The precedence this method established in GH-170 now lives in
+   * {@link WorkflowTenantResolver}, which is shared with the block runners and
+   * branding — they previously carried copies that ignored ownership entirely.
+   */
   private async resolveTenantId(
     run: WorkflowRun,
     workflow: Workflow | null | undefined,
     tx?: DbTransaction
   ): Promise<string | null> {
-    // 1. Runs inherit the workflow's real principal after ownership transfers.
-    const runOwnerTenantId = await this.resolvePrincipalTenantId(
-      run.ownerType,
-      run.ownerUuid,
-      tx
-    );
-    if (runOwnerTenantId) {
-      return runOwnerTenantId;
-    }
-
-    // 2. Project tenant
-    if (workflow?.projectId) {
-      const project = await this.projectRepo.findById(workflow.projectId, tx);
-      if (project && isValidUuid(project.tenantId)) {
-        return project.tenantId;
-      }
-    }
-
-    // 3. Unfiled workflows are owned by a user or organization principal.
-    const workflowOwnerTenantId = await this.resolvePrincipalTenantId(
-      workflow?.ownerType ?? null,
-      workflow?.ownerUuid ?? null,
-      tx
-    );
-    if (workflowOwnerTenantId) {
-      return workflowOwnerTenantId;
-    }
-
-    // 4. Legacy workflow user fields.
-    const userId = workflow?.creatorId ?? workflow?.ownerId;
-    if (userId) {
-      const user = await this.userRepo.findById(userId, tx);
-      if (user && isValidUuid(user.tenantId)) {
-        return user.tenantId;
-      }
-    }
-
-    // 5. Authenticated respondent who created the run.
-    if (run.createdBy?.startsWith('creator:')) {
-      const runUserId = run.createdBy.replace('creator:', '');
-      const user = await this.userRepo.findById(runUserId, tx);
-      if (user && isValidUuid(user.tenantId)) {
-        return user.tenantId;
-      }
-    }
-
-    return null;
+    return workflowTenantResolver.resolveForRun(run, workflow, tx);
   }
 
   /**
