@@ -463,7 +463,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(0);
   });
 
-  it('reports missing variables when a template contains an unknown tag (DOC-104)', async () => {
+  it('reports an unknown top-level tag as a per-document generation failure (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {
@@ -493,20 +493,28 @@ describe('Automatic document generation on run completion', () => {
 
     const result = await runLifecycleService.generateDocuments(runId);
 
-    // Generation succeeds
+    // TPL-3 deliberately superseded DOC-104's blank-and-record behavior with
+    // strict-undefined rendering: one bad template fails without preventing
+    // other documents in the Final Block from being attempted.
     expect(result.success).toBe(true);
-    expect(result.documentsGenerated).toBe(1);
+    expect(result.documentsGenerated).toBe(0);
+    expect(result.failed).toEqual([
+      expect.objectContaining({
+        alias: 'contract',
+        details: expect.objectContaining({
+          originalError: expect.objectContaining({
+            message: expect.stringContaining('undefined variable "unknownTag"'),
+          }),
+        }),
+      }),
+    ]);
 
-    // Record persisted with unresolved variables
+    // A failed render must not persist a downloadable document record.
     const records = await db
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
-    expect(records).toHaveLength(1);
-    
-    // The unresolved variables list should contain 'unknownTag'
-    expect(records[0].unresolvedVariables).toContain('unknownTag');
-    expect(records[0].unresolvedVariables).not.toContain('clientName');
+    expect(records).toHaveLength(0);
   });
 
   it('marks generation status as failed if template resolver throws (DOC-104)', async () => {
