@@ -498,18 +498,18 @@ Four small items surfaced across the three review rounds and were never closed:
 
 **Closed by:** `cc427d65`, merged to `main` as `e0eb69fe` (unpushed).
 
-> ### 🔻 THE INTEGRATION BASELINE CHANGED. Read this before grading any ticket.
+> ### 🔻 THERE IS NO INTEGRATION BASELINE ANYMORE. It is zero.
 >
-> **`main`'s integration baseline is now 2 failed files / 2 failed tests / 1104 passed**
-> — it was 4 files / 10 tests. Every ticket written before 2026-08-11 says "10
-> pre-existing failures are expected"; that text is **stale**.
+> **As of 2026-08-12 (`46848ba4`), `test:integration` is fully green: 112 files passed,
+> 1111 passed / 3 skipped, 0 failed.** It went 10 failures → 2 (G171-5) → 0 (G171-6).
 >
-> Remaining known failures, both dated and root-caused in the `run-tests` skill:
-> `docs.autogeneration.test.ts` and `ai/documentOnboarding.test.ts`.
+> Every ticket written before 2026-08-11 says "10 pre-existing failures are expected."
+> That is **stale — do not accept it.** **Treat any integration failure as a regression.**
 >
-> **Exception:** a worktree based at or before `cc9c342b` predates this fix and will
-> legitimately still report 10. Check the worktree's base commit before calling a
-> 10-failure report wrong.
+> **Exceptions when grading:** a worktree based at or before `cc9c342b` legitimately
+> reports 10; one based at or before `01a3ff3a` legitimately reports 2. **Check the
+> worktree's base commit before calling a report wrong** — that check is the only reason
+> the G171-SMALLS turn-in was graded correctly.
 
 **Reviewer verification:** `type-check` 0 errors · `lint` 0 problems · `test:fast`
 **3046 passed / 0 failed** (correctly unchanged — only integration tests and a doc
@@ -600,7 +600,37 @@ they broke something. That is exactly what happened during this review.
 
 ---
 
-## G171-6 — Fix the last two integration failures 🔲
+## G171-6 — Fix the last two integration failures ✅ DONE 2026-08-12
+
+**Closed by:** `150e3148`, merged as `46848ba4`, plus the reviewer's `SKILL.md` rewrite.
+
+**`test:integration` is now fully green: 112 files passed (112) · 1111 passed / 3 skipped
+/ 0 failed.** From 10 failures → 2 (G171-5) → **0**. There is no baseline to hide in
+anymore; treat any integration failure as a regression.
+
+`documentOnboarding` was the same stale-fixture cause as G171-5 — a bare ZIP with stub
+XML where the upload route does real OOXML validation. Fixed with a valid package; no
+assertion weakened.
+
+**`docs.autogeneration` was a REAL PRODUCT DEFECT and was reported, not papered over** —
+the outcome AC2 was written to force. `run_generated_documents.unresolved_variables` is
+*structurally* always `[]`: `VariableNormalizer` turns null into `''` (`includeEmpty`
+defaults true, `VariableNormalizer.ts:131`), both engines normalize unconditionally, and
+`RenderCore`'s `nullGetter` (`RenderCore.ts:290-307`) only fires for null/undefined. So
+the whole DOC-104 reporting feature — DB column, service plumbing, and the behaviour
+`workflowStructureRules.ts` documents as designed — can never fire. **The reviewer
+confirmed this chain independently by reading the source.** The test is `it.skip` with the
+evidence in its header comment; do not "fix" it by asserting `[]`.
+
+Also caught: `tests/unit/services/FinalBlockRenderer.test.ts:58` hardcodes
+`unresolvedVariables: ["missingField"]` inside a mock of the engine, so it asserts its own
+fixture and could never detect the defect. A separate session is fixing the defect.
+
+**Reviewer excluded one file from the dev's commit:** `SKILL.md` still contained the
+literal `INTEGRATION_BASELINE_PLACEHOLDER` when the dev was killed mid-run by an org
+spend limit. Shipping a placeholder into a doc other sessions treat as authoritative
+would have been worse than the stale numbers it replaced, so the reviewer wrote it from a
+measured post-merge run instead.
 
 **Priority: P2** · Size: S · Files: `tests/integration/ai/documentOnboarding.test.ts`, `tests/integration/docs.autogeneration.test.ts`
 

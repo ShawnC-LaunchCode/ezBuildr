@@ -10,7 +10,7 @@ description: Run, write, or debug tests in ezBuildr. Running npm test or vitest 
 | Project | Files | DB? | Setup file | Time | Command |
 |---|---|---|---|---|---|
 | `unit-fast` | ~85 files in `tests/unit/` | No (mocked) | `tests/setup-fast.ts` | ~13s | `npm run test:fast` |
-| `unit-db` | 4 files listed in `dbUnitTests` in vitest.config.ts | Real PG | `tests/setup.ts` | ~75s | `npm run test:unit:db` |
+| `unit-db` | the files listed in `dbUnitTests` in vitest.config.ts — **17** as of 2026-08-12, not 4; read the array, don't trust a count here | Real PG | `tests/setup.ts` | ~75s | `npm run test:unit:db` |
 | `integration` | `tests/integration/` | Real PG | `tests/setup.ts` | minutes | `npm run test:integration` |
 
 ## Which command to run
@@ -38,10 +38,32 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- As of 2026-08-11, `npm run test:integration` against Docker PG on 5434 has this documented baseline: **2 failed / 110 passed files; 2 failed / 1104 passed / 4 skipped tests**. The known failures are:
-  - `tests/integration/docs.autogeneration.test.ts` — DOC-104 unknown-tag reporting expects one generated document but receives zero.
-  - `tests/integration/ai/documentOnboarding.test.ts` — GH-167 workflow persistence cannot upload its stale minimal-DOCX fixture (`POST /api/projects/:id/templates` returns 400).
-  Both template integration files (`api.templates-runs.test.ts` and `templates.e2e.test.ts`) are green; treat a failure in either as a regression. Treat any failure beyond the two dated cases above as a regression.
+- **There are no known integration failures. Measured 2026-08-12 on `main` (`46848ba4`)
+  against Docker PG on 5434: `Test Files 112 passed (112)` · `Tests 1111 passed | 3
+  skipped (1114)` — zero failures.**
+
+  **So treat *any* integration failure as your regression.** This is a change in kind,
+  not just in number: for months the suite carried 10 failures and reviewers certified
+  work with "matches the documented baseline", which was weak evidence because two of the
+  red files were *template* suites — blind to regressions in the area then under active
+  change. There is no baseline to hide in now. Fixed across G171-5 (`cc427d65`, stale
+  DOCX fixtures) and G171-6 (`150e3148`).
+
+  Baselines for the other projects on the same commit: `test:fast` **3113 passed / 0
+  failed**, 272 files + 1 skipped · `test:unit:db` **17 files / 158 passed**.
+
+  **One deliberately skipped test, not a failure:** the DOC-104 reporting case in
+  `tests/integration/docs.autogeneration.test.ts` is `it.skip` pending a real product
+  defect — `run_generated_documents.unresolved_variables` is *structurally* always `[]`,
+  because `VariableNormalizer` turns null into `''` (`includeEmpty` defaults true) before
+  `RenderCore`'s `nullGetter` — which only fires for null/undefined — could record it. The
+  header comment on that test has the full file:line chain. **Do not "fix" it by asserting
+  `[]`.** Un-skip it when the defect is fixed.
+
+  Related trap while you are here: `tests/unit/services/FinalBlockRenderer.test.ts:58`
+  hardcodes `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it
+  asserts its own fixture and cannot detect the defect above. Treat any test that mocks
+  the thing it claims to verify with the same suspicion.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas

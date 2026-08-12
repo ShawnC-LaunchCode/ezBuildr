@@ -55,7 +55,26 @@ or the doc test fails.
 
 ---
 
-## LD-1 — Legal drafting primitive filters 🔲
+## LD-1 — Legal drafting primitive filters ✅ DONE 2026-08-12
+
+**Closed by:** `0f1531f6`, merged as `cf59fa36`. **LD-2 is now UNBLOCKED.**
+
+**Gates were run by the reviewer, not the implementer** — the dev session was terminated
+by an org spend limit immediately before its gate run, so the code arrived complete but
+unverified. Verified here: `type-check` 0 errors · `lint` 0 problems · `test:fast`
+**3113 passed / 0 failed** (baseline 3066 + 47 new tests).
+
+All 7 ACs met. Notes for LD-2 and beyond:
+- Filters live in `server/services/draftingPrimitives.ts`, spread onto the `docxHelpers`
+  object (`...draftingPrimitives`) exactly as `formatters` is.
+- **Numbering is a pure function of explicit ordinals** — no hidden counter, so a skipped
+  conditional section cannot silently renumber a contract. Do not add statefulness.
+- **Pronouns: explicit values only, `they/them` default.** Verified by reading the source,
+  not just the test: no gendered-name list, no honorific table, no first-name guess
+  anywhere. AC3's proof holds the name constant and varies only the explicit value.
+  **Do not add an inference path in LD-2 or later.**
+- Reachability through `RenderCore` is proven with real pipe tags
+  (`v | legalNumber:b:c` → `1.1.1`), not direct function calls.
 
 **Priority: P2** · Size: M · Files: `server/services/docxHelpers.ts`, `server/utils/formatters.ts` (if shared), `docs/guides/VARIABLES_IN_DOCUMENTS.md`, `tests/unit/services/docxHelpers.test.ts`, `tests/unit/services/document/docSamples.test.ts`
 

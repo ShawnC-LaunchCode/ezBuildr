@@ -170,7 +170,24 @@ is added to its table; extend the table, do not weaken the test.
 
 ---
 
-## BIZ-2 — Validate `workflows.settings` on portability import 🔲
+## BIZ-2 — Validate `workflows.settings` on portability import ✅ DONE 2026-08-12
+
+**Closed by:** `611ef23e`, merged as `1ff20d4e`. All 5 ACs met.
+
+**Reviewer-verified:** `type-check` 0 errors · `lint` 0 problems · `test:fast` **3069
+passed / 0 failed** (3066 + 3) · focused portability integration **2 files / 22 passed**
+(19 + 3). **AC4 confirmed by diff** — `resolveBusinessDayCalendar`'s throw and default
+branches are untouched.
+
+Better than specified: rather than a third copy of the rule, `businessDaySettingsSchema`
+delegates to `resolveBusinessDayCalendar` inside a `superRefine` and converts the throw
+into a Zod issue, so import-time and render-time messages are byte-identical and cannot
+drift. Added as a declarative `fieldSchemas` descriptor on the entity graph — which is now
+the hook if other jsonb blobs (`sections.config`, `steps.config`, `graphJson`) turn out to
+have per-key semantics that throw downstream. That audit was **not** done.
+
+Non-vacuity proven: with `fieldSchemas` removed, the AC1 test fails `expected 201 to be
+400` — the garbage calendar imported silently.
 
 **Priority: P2** · Size: S · Files: `server/services/portability/entityGraph.ts` (or the import validation layer), `shared/types/workflow.ts`
 
