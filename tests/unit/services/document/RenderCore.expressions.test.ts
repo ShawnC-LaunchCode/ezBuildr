@@ -61,11 +61,16 @@ function splitRunParagraph(...segments: string[]): string {
 }
 
 /** Render `bodyXml` against `data` and return the plain text of the result. */
-async function render(bodyXml: string, data: Record<string, unknown>): Promise<string> {
+async function render(
+  bodyXml: string,
+  data: Record<string, unknown>,
+  workflowSettings?: unknown
+): Promise<string> {
   const buffer = await renderDocxBuffer({
     templatePath: 'in-memory.docx',
     templateBuffer: createDocxBuffer(bodyXml),
     data,
+    workflowSettings,
   });
   const zip = new PizZip(buffer);
   const xml = zip.file('word/document.xml')?.asText() ?? '';
@@ -73,8 +78,12 @@ async function render(bodyXml: string, data: Record<string, unknown>): Promise<s
 }
 
 /** Render a single-tag paragraph against `data`. */
-async function renderTag(tag: string, data: Record<string, unknown>): Promise<string> {
-  return render(paragraph(`{{${tag}}}`), data);
+async function renderTag(
+  tag: string,
+  data: Record<string, unknown>,
+  workflowSettings?: unknown
+): Promise<string> {
+  return render(paragraph(`{{${tag}}}`), data, workflowSettings);
 }
 
 describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
@@ -153,11 +162,20 @@ describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
       { helper: 'pluralize', scope: { v: 2 }, pipeTag: 'v | pluralize:"item"', expected: 'items' },
       { helper: 'concat', scope: { v: 'x', b: 'y', c: 'z' }, pipeTag: 'v | concat:b:c', expected: 'xyz' },
       { helper: 'addDays', scope: { v: '2026-01-05', n: 30 }, pipeTag: 'v | addDays:n', expected: '02/04/2026' },
+      { helper: 'addBusinessDays', scope: { v: '2026-01-02', n: 1 }, pipeTag: 'v | addBusinessDays:n', expected: '01/05/2026' },
+      { helper: 'addWeekdays', scope: { v: '2026-01-02', n: 1 }, pipeTag: 'v | addWeekdays:n', expected: '01/05/2026' },
+      { helper: 'nextBusinessDay', scope: { v: '2026-01-04' }, pipeTag: 'v | nextBusinessDay', expected: '01/05/2026' },
       {
         helper: 'daysBetween',
         scope: { v: '2026-01-01', d2: '2026-01-10' },
         pipeTag: 'v | daysBetween:d2',
         expected: '9',
+      },
+      {
+        helper: 'businessDaysBetween',
+        scope: { v: '2026-01-03', d2: '2026-01-11' },
+        pipeTag: 'v | businessDaysBetween:d2',
+        expected: '5',
       },
       {
         helper: 'percentage',
@@ -207,6 +225,32 @@ describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
       // surrounding XML template's own whitespace (newlines/indentation from
       // createDocxBuffer's wrapper), which isn't part of what this case checks.
       expect(newOutput).toContain(expected);
+    });
+  });
+
+  describe('BIZ-1 workflow calendar binding', () => {
+    it('uses weekends-only when businessDayCalendar is absent', async () => {
+      await expect(
+        renderTag('signing | addBusinessDays:1', { signing: '2026-01-02' }, {})
+      ).resolves.toContain('01/05/2026');
+    });
+
+    it('uses the configured US-federal calendar without a filter argument', async () => {
+      await expect(
+        renderTag(
+          'signing | addBusinessDays:1',
+          { signing: '2026-01-16' },
+          { businessDayCalendar: 'us-federal' }
+        )
+      ).resolves.toContain('01/20/2026');
+    });
+
+    it('rejects an invalid calendar before rendering', async () => {
+      await expect(
+        renderTag('signing | addBusinessDays:1', { signing: '2026-01-16' }, {
+          businessDayCalendar: 'court-days',
+        })
+      ).rejects.toThrow(/businessDayCalendar.*weekends-only.*us-federal/);
     });
   });
 

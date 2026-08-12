@@ -148,6 +148,9 @@ export interface FinalBlockRenderOptions {
    * DataVault row lookup must be tenant-scoped.
    */
   tenantId?: string;
+
+  /** Existing `workflows.settings` JSON for configuration-bound filters. */
+  workflowSettings?: unknown;
 }
 
 /**
@@ -219,6 +222,7 @@ export class EnhancedDocumentEngine {
       templateId,
       runId,
       tenantId,
+      workflowSettings,
       ...baseOptions
     } = options;
     // Metrics columns are uuids; preview runs use synthetic "preview-*" ids
@@ -302,6 +306,7 @@ export class EnhancedDocumentEngine {
         result = await this.engine.generate({
           ...baseOptions,
           data: finalData,
+          workflowSettings,
         });
 
         const duration = Date.now() - startTime;
@@ -415,6 +420,7 @@ export class EnhancedDocumentEngine {
       toPdf = false,
       normalizationOptions = {},
       tenantId,
+      workflowSettings,
     } = options;
 
     logger.info({
@@ -468,6 +474,7 @@ export class EnhancedDocumentEngine {
           // and Final Block runIds are workflow_runs ids
           templateId: doc.documentId,
           tenantId,
+          workflowSettings,
         });
 
         results.push({

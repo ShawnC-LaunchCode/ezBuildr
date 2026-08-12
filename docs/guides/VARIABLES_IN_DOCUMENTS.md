@@ -95,6 +95,10 @@ covered by the executable documentation test.
 | `yesno` | `{{value | yesno}}` | `true` | Yes |
 | `trim` | `{{value | trim}}` | `"  signed  "` | signed |
 | `default` | `{{value | default:"N/A"}}` | empty string | N/A |
+| `addBusinessDays` | `{{value | addBusinessDays:1}}` | `2026-01-16` | 01/20/2026 with the US-federal calendar |
+| `nextBusinessDay` | `{{value | nextBusinessDay}}` | `2026-01-04` | 01/05/2026 |
+| `businessDaysBetween` | `{{value | businessDaysBetween:end}}` | `2026-01-03`, with `end` = `2026-01-11` | 5 |
+| `addWeekdays` | `{{value | addWeekdays:1}}` | `2026-07-02` | 07/03/2026 |
 
 The renderer also exposes lower-level filters for calculations and custom
 formatting. Their arguments follow the same colon form. Prefer the named
@@ -113,6 +117,26 @@ month:
 This clamp is the convention for shorter destination months. Date filters
 return formatted calendar dates and reject non-date inputs instead of silently
 producing a wrong date.
+
+Business-day filters use the workflow's `businessDayCalendar` setting. When the
+setting is absent, the calendar is `weekends-only`. Authors can select
+`us-federal` to use weekends plus US federal holidays, with weekend observation:
+a Saturday holiday is observed on Friday and a Sunday holiday on Monday.
+
+- D2: `{{signing | addBusinessDays:1}}` renders `01/20/2026` from
+  `2026-01-16` under `us-federal`, skipping Martin Luther King Jr. Day.
+- D3: `{{deadline | nextBusinessDay}}` renders `01/05/2026` from the Sunday
+  `2026-01-04`, and leaves a date unchanged when it is already a business day.
+- D4: `{{start | businessDaysBetween:end}}` renders `5` from Saturday
+  `2026-01-03` through Sunday `2026-01-11`; non-business dates at either end
+  are not counted.
+- D5: `{{signing | addWeekdays:1}}` renders `07/03/2026` from `2026-07-02`
+  even under `us-federal`. This escape hatch always ignores holidays and skips
+  weekends only.
+
+The `us-federal` preset means exactly **weekends plus US federal holidays, with
+weekend observation**. It does not mean court days, bank days, or a
+jurisdiction-specific deadline rule such as FRCP 6(a).
 
 ## Missing values: strict-undefined
 

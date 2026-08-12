@@ -22,7 +22,7 @@ import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 import { ApiError, createError } from '../../utils/errors';
-import { docxHelpers, formatArrayForDisplay } from '../docxHelpers';
+import { createDocxHelpers, docxHelpers, formatArrayForDisplay } from '../docxHelpers';
 
 const TEMPLATE_SYNTAX_ERROR_PREFIX = 'Template syntax error: ';
 const ERROR_SEPARATOR = ' | ';
@@ -94,6 +94,8 @@ interface TagParser {
     get(scope: Record<string, unknown>, context: unknown): unknown;
 }
 
+type ExpressionParserFactory = (tag: string) => TagParser;
+
 /**
  * The expression parser. D1: one grammar, no compatibility shim -- the old
  * `{{helperName value arg1 arg2}}` prefix form (fixed positions, no slot for
@@ -110,8 +112,11 @@ interface TagParser {
  * Arrays used as a scalar {{tag}} render as joined text; loop tags
  * ({{#tag}}) receive the raw array for iteration.
  */
-export function createExpressionParser(tag: string): TagParser {
-    const parser = angularExpressionParser(tag) as TagParser;
+export function createExpressionParser(
+    tag: string,
+    parserFactory: ExpressionParserFactory = angularExpressionParser as ExpressionParserFactory
+): TagParser {
+    const parser = parserFactory(tag);
 
     return {
         get(scope: Record<string, unknown>, context: unknown): unknown {
@@ -273,8 +278,11 @@ interface NullGetterScopeManager {
 export function createDocxRenderer(
     zip: PizZip,
     templateData: Record<string, unknown>,
-    unresolvedVariables?: string[]
+    unresolvedVariables?: string[],
+    helperRegistry: typeof docxHelpers = docxHelpers
 ): Docxtemplater {
+    const configuredParser = angularExpressionParser.configure({ filters: helperRegistry });
+
     return new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
@@ -299,7 +307,7 @@ export function createDocxRenderer(
             return '';
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- docxtemplater parser type is not publicly exported
-        parser: ((tag: string) => createExpressionParser(tag)) as any,
+        parser: ((tag: string) => createExpressionParser(tag, configuredParser)) as any,
     });
 }
 
@@ -308,6 +316,8 @@ export interface RenderDocxBufferOptions {
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
     unresolvedVariables?: string[];
+    /** Existing `workflows.settings` JSON for configuration-bound filters. */
+    workflowSettings?: unknown;
 }
 
 /**
@@ -319,6 +329,7 @@ export async function renderDocxBuffer({
     templateBuffer,
     data,
     unresolvedVariables,
+    workflowSettings,
 }: RenderDocxBufferOptions): Promise<Buffer> {
     try {
 
@@ -326,10 +337,12 @@ export async function renderDocxBuffer({
         const zip = new PizZip(content);
         assertNoReservedStatementSyntax(zip);
 
+        const helpers = createDocxHelpers(workflowSettings);
+
         // Merge data with helpers for template use (top-level access)
         const templateData = {
             ...data,
-            ...docxHelpers,
+            ...helpers,
         };
 
         // Construction (tag compilation) and render() share one try/catch so
@@ -339,7 +352,7 @@ export async function renderDocxBuffer({
         // render error, instead of the generic fallback below.
         let doc: Docxtemplater;
         try {
-            doc = createDocxRenderer(zip, templateData, unresolvedVariables);
+            doc = createDocxRenderer(zip, templateData, unresolvedVariables, helpers);
             doc.render(templateData);
         } catch (error: unknown) {
             handleRenderError(error as RenderError);

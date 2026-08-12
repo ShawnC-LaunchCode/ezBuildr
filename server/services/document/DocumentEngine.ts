@@ -20,6 +20,7 @@ export interface DocumentGenerationOptions {
     outputDir?: string;
     toPdf?: boolean;
     unresolvedVariables?: string[];
+    workflowSettings?: unknown;
 }
 export interface DocumentGenerationResult {
     docxPath: string;
@@ -71,12 +72,19 @@ export class DocumentEngine {
             outputDir = path.join(process.cwd(), 'server', 'files', 'outputs'),
             toPdf = false,
             unresolvedVariables = [],
+            workflowSettings,
         } = options;
         logger.info({ templatePath, outputName, toPdf }, 'Starting document generation');
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true });
         // 1. Render DOCX
-        const buffer = await this.parser.render({ templatePath, templateBuffer, data, unresolvedVariables });
+        const buffer = await this.parser.render({
+            templatePath,
+            templateBuffer,
+            data,
+            unresolvedVariables,
+            workflowSettings,
+        });
         // Generate output filename
         const uniqueId = crypto.randomUUID();
         const safeOutputName = sanitizeDocumentOutputName(outputName);

@@ -90,11 +90,16 @@ function extractElements(xml: string, tagName: string): string[] {
   return elements;
 }
 
-async function render(bodyXml: string, data: Record<string, unknown>): Promise<RenderedDocx> {
+async function render(
+  bodyXml: string,
+  data: Record<string, unknown>,
+  workflowSettings?: unknown
+): Promise<RenderedDocx> {
   const buffer = await renderDocxBuffer({
     templatePath: 'documented-sample.docx',
     templateBuffer: createDocxBuffer(bodyXml),
     data,
+    workflowSettings,
   });
   const zip = new PizZip(buffer);
   const xml = zip.file('word/document.xml')?.asText() ?? '';
@@ -107,8 +112,12 @@ async function render(bodyXml: string, data: Record<string, unknown>): Promise<R
   return { text: plainText(xml), rowCells };
 }
 
-async function renderTag(tag: string, data: Record<string, unknown>): Promise<string> {
-  return (await render(paragraph(tag), data)).text;
+async function renderTag(
+  tag: string,
+  data: Record<string, unknown>,
+  workflowSettings?: unknown
+): Promise<string> {
+  return (await render(paragraph(tag), data, workflowSettings)).text;
 }
 
 describe('documented template-language samples', () => {
@@ -190,6 +199,38 @@ describe('documented template-language samples', () => {
       await expect(renderTag('{{start_date | addMonths:1}}', { start_date: '2026-01-31' })).resolves.toBe(
         '02/28/2026'
       );
+    });
+
+    it('D2 addBusinessDays uses the workflow calendar', async () => {
+      await expect(
+        renderTag(
+          '{{signing | addBusinessDays:1}}',
+          { signing: '2026-01-16' },
+          { businessDayCalendar: 'us-federal' }
+        )
+      ).resolves.toBe('01/20/2026');
+    });
+
+    it('D3 nextBusinessDay rolls forward over non-business days', async () => {
+      await expect(renderTag('{{deadline | nextBusinessDay}}', { deadline: '2026-01-04' })).resolves.toBe(
+        '01/05/2026'
+      );
+    });
+
+    it('D4 businessDaysBetween excludes non-business dates', async () => {
+      await expect(
+        renderTag('{{start | businessDaysBetween:end}}', { start: '2026-01-03', end: '2026-01-11' })
+      ).resolves.toBe('5');
+    });
+
+    it('D5 addWeekdays is the weekends-only escape hatch', async () => {
+      await expect(
+        renderTag(
+          '{{signing | addWeekdays:1}}',
+          { signing: '2026-07-02' },
+          { businessDayCalendar: 'us-federal' }
+        )
+      ).resolves.toBe('07/03/2026');
     });
 
     it('U1 a present but empty value renders blank', async () => {

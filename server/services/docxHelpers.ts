@@ -22,7 +22,17 @@ import {
   isValid,
 } from 'date-fns';
 
-import { formatters } from '../utils/formatters';
+import {
+  addBusinessDaysForCalendar,
+  businessDaysBetweenForCalendar,
+  formatters,
+  nextBusinessDayForCalendar,
+} from '../utils/formatters';
+import {
+  DEFAULT_BUSINESS_DAY_CALENDAR,
+  resolveBusinessDayCalendar,
+  type BusinessDayCalendar,
+} from '../../shared/types/workflow';
 
 /**
  * Capitalize first letter of string
@@ -360,6 +370,83 @@ export function daysBetween(
   return Math.abs(differenceInDays(d1, d2));
 }
 
+function addBusinessDaysUsingCalendar(
+  filterName: string,
+  iso: string | Date | null | undefined,
+  days: number | string,
+  format: string,
+  calendar: BusinessDayCalendar
+): string {
+  const d = parseDateArg(filterName, iso);
+  if (d === undefined) { return ''; }
+
+  const amount = coerceAmount(filterName, days);
+  const updated = addBusinessDaysForCalendar(d, amount, calendar);
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/** Add business days using the workflow calendar (weekends-only by default). */
+export function addBusinessDays(
+  iso: string | Date | null | undefined,
+  days: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  return addBusinessDaysUsingCalendar(
+    'addBusinessDays',
+    iso,
+    days,
+    format,
+    DEFAULT_BUSINESS_DAY_CALENDAR
+  );
+}
+
+/** Escape hatch that always skips weekends only, regardless of workflow configuration. */
+export function addWeekdays(
+  iso: string | Date | null | undefined,
+  days: number | string = 0,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  return addBusinessDaysUsingCalendar('addWeekdays', iso, days, format, 'weekends-only');
+}
+
+function nextBusinessDayUsingCalendar(
+  iso: string | Date | null | undefined,
+  format: string,
+  calendar: BusinessDayCalendar
+): string {
+  const d = parseDateArg('nextBusinessDay', iso);
+  if (d === undefined) { return ''; }
+
+  const updated = nextBusinessDayForCalendar(d, calendar);
+  return formatDateFns(updated, translateDateFormat(format));
+}
+
+/** Return an existing business day unchanged, or roll forward to the next one. */
+export function nextBusinessDay(
+  iso: string | Date | null | undefined,
+  format: string = DEFAULT_DATE_FORMAT
+): string {
+  return nextBusinessDayUsingCalendar(iso, format, DEFAULT_BUSINESS_DAY_CALENDAR);
+}
+
+function businessDaysBetweenUsingCalendar(
+  date1: string | Date | null | undefined,
+  date2: string | Date | null | undefined,
+  calendar: BusinessDayCalendar
+): number {
+  const d1 = requireDateArg('businessDaysBetween', date1, 'date1');
+  const d2 = requireDateArg('businessDaysBetween', date2, 'date2');
+  return businessDaysBetweenForCalendar(d1, d2, calendar);
+}
+
+/** Count business-day boundaries between two dates, excluding non-business endpoints. */
+export function businessDaysBetween(
+  date1: string | Date | null | undefined,
+  date2: string | Date | null | undefined
+): number {
+  return businessDaysBetweenUsingCalendar(date1, date2, DEFAULT_BUSINESS_DAY_CALENDAR);
+}
+
 /**
  * Format currency with symbol
  */
@@ -633,14 +720,36 @@ export const docxHelpers = {
   pluralize,
   concat,
   addDays,
+  addBusinessDays,
+  addWeekdays,
   addMonths,
   addYears,
   startOfMonth,
   endOfMonth,
   daysBetween,
+  nextBusinessDay,
+  businessDaysBetween,
   round,
   percentage,
 };
+
+/**
+ * Build the helper registry for one document render. Configuration-bound
+ * wrappers keep the template syntax quote-free without mutable global state.
+ */
+export function createDocxHelpers(workflowSettings?: unknown): typeof docxHelpers {
+  const calendar = resolveBusinessDayCalendar(workflowSettings);
+
+  return {
+    ...docxHelpers,
+    addBusinessDays: (iso, days = 0, format = DEFAULT_DATE_FORMAT) =>
+      addBusinessDaysUsingCalendar('addBusinessDays', iso, days, format, calendar),
+    nextBusinessDay: (iso, format = DEFAULT_DATE_FORMAT) =>
+      nextBusinessDayUsingCalendar(iso, format, calendar),
+    businessDaysBetween: (date1, date2) =>
+      businessDaysBetweenUsingCalendar(date1, date2, calendar),
+  };
+}
 
 /**
  * TPL-3 (D3, "named presets over format strings"): the closed, documented
@@ -668,4 +777,12 @@ export const TEMPLATE_FILTER_VOCABULARY: Record<string, string> = {
   trim: 'Strip leading/trailing whitespace -- {{ x | trim }}',
   default:
     'Fallback when the value is unknown or empty (D3 strict-undefined escape hatch) -- {{ x | default:"N/A" }}',
+  addBusinessDays:
+    'Add business days using the workflow calendar -- {{ x | addBusinessDays:30 }}',
+  nextBusinessDay:
+    'Keep a business day or roll forward to the next one -- {{ x | nextBusinessDay }}',
+  businessDaysBetween:
+    'Count business days between dates using the workflow calendar -- {{ x | businessDaysBetween:y }}',
+  addWeekdays:
+    'Add weekdays while always ignoring holidays -- {{ x | addWeekdays:30 }}',
 };

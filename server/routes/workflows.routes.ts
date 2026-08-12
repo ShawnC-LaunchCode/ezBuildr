@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
 import { workflowBrandingSettingsSchema } from "@shared/types/branding";
+import { BUSINESS_DAY_CALENDARS } from "@shared/types/workflow";
 import { IntakeConfigSchema } from "@shared/zod-schemas";
 
 import { conditionExpressionSchema } from "@shared/types/conditions";
@@ -208,7 +209,10 @@ export function registerWorkflowRoutes(app: Express): void {
       // Branding keys are validated (safe image URLs, hex colors) because they
       // are rendered onto participant surfaces; `.passthrough()` keeps the
       // other settings keys (completionMessage, redirectUrl, ...) untouched.
-      settings: workflowBrandingSettingsSchema.passthrough().optional(),
+      settings: workflowBrandingSettingsSchema
+        .extend({ businessDayCalendar: z.enum(BUSINESS_DAY_CALENDARS).optional() })
+        .passthrough()
+        .optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),

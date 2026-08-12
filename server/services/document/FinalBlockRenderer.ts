@@ -71,6 +71,9 @@ export interface FinalBlockRenderRequest {
 
   /** Tenant scope for resolving `datavault` mapping bindings (GH-156). */
   tenantId?: string;
+
+  /** Existing `workflows.settings` JSON for configuration-bound filters. */
+  workflowSettings?: unknown;
 }
 
 /**
@@ -154,6 +157,7 @@ export class FinalBlockRenderer {
       toPdf = false,
       normalizationOptions,
       tenantId,
+      workflowSettings,
       // DEBT-15: intentionally ephemeral. This is only the scratch directory the
       // renderer writes into while building a document; the bytes are uploaded to
       // storageProvider in prepareResponseDocuments and unlinked from here before
@@ -236,6 +240,7 @@ export class FinalBlockRenderer {
       runId,
       normalizationOptions,
       tenantId,
+      workflowSettings,
     });
 
     logger.info({
