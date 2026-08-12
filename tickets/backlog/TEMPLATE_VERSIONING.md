@@ -13,10 +13,19 @@
 > retirement — which is what would have happened otherwise.
 >
 > **When resolving: prefer their IDs and filename** (convention-matching), and merge the
-> content below into theirs rather than the reverse. Their entry `G171-B1` appears to cover
-> the same dead-`unresolved_variables` defect as `G171-O1` here — **check before keeping
-> both.** Anything in this copy not present in theirs (the narrowed immutability finding, the
-> reviewer process notes, the closed-ticket commit table) is worth carrying over.
+> content below into theirs rather than the reverse. Anything in this copy not present in
+> theirs (the narrowed immutability finding, the reviewer process notes, the closed-ticket
+> commit table) is worth carrying over.
+>
+> **`G171-B1` and `G171-O1` are NOT duplicates — keep both.** An earlier draft of this note
+> guessed they were, which would have led to deleting a live finding. Checked
+> 2026-08-12 against `claude/brave-herschel-b266ab`:
+> `G171-B1` is a **percent-filter defect** (`48201b74` — "stop the percent filter failing
+> documents on string values"), unrelated to variable reporting.
+> `G171-O1` (dead `unresolved_variables`) was **fixed** on that same branch by
+> `f99110d4` — "make unresolved-variable reporting actually fire (DOC-104)". **Close
+> `G171-O1` when that branch merges**, and restore an integration assertion with it so the
+> feature cannot rot again silently.
 
 **GH-171 closed with all 4 ACs met; follow-up tickets G171-0..6 all closed.** Document
 templates now create immutable versions with notes, workflows pin a version or follow
