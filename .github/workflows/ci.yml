@@ -110,6 +110,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      gotenberg:
+        image: gotenberg/gotenberg:8
+        ports:
+          - 3009:3000
+        options: >-
+          --health-cmd "curl --fail http://localhost:3000/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
     - uses: actions/checkout@v7
@@ -153,6 +162,7 @@ jobs:
         # so the integration suite never actually ran in CI. Point it at the
         # CI postgres service.
         TEST_DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        PDF_CONVERTER_API_URL: "http://localhost:3009"
         # Must be >=32 chars — env.ts rejects shorter secrets and, in test mode,
         # only injects a fallback when the var is UNSET (not when set too short).
         SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"

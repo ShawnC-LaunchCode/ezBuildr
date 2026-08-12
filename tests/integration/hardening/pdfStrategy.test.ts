@@ -14,9 +14,9 @@
  * by the low-fidelity fallback, and the row said `puppeteer` either way, so the
  * degradation was invisible.
  *
- * Requires a reachable Gotenberg (docker run --rm -p 3009:3000 gotenberg/gotenberg:8).
- * Skips itself when there isn't one, so CI without the service stays green
- * rather than failing on an absent dependency.
+ * Requires the Gotenberg service supplied by docker-compose.test.yml and CI.
+ * An unavailable converter is a failed test environment, not a reason to
+ * silently skip production-critical fidelity coverage.
  */
 import fs from 'fs/promises';
 import path from 'path';
@@ -80,15 +80,19 @@ function createDocxBuffer(content: string): Buffer {
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
-/** Is a real Gotenberg listening? Never fail the suite over its absence. */
-async function gotenbergReachable(): Promise<boolean> {
+async function requireGotenberg(): Promise<void> {
   try {
     const response = await fetch(`${converterUrl.replace(/\/$/, '')}/health`, {
       signal: AbortSignal.timeout(3000),
     });
-    return response.ok;
-  } catch {
-    return false;
+    if (!response.ok) {
+      throw new Error(`health endpoint returned ${response.status}`);
+    }
+  } catch (error) {
+    throw new Error(
+      `Gotenberg is required at ${converterUrl}; start it with npm run test:docker:up`,
+      { cause: error }
+    );
   }
 }
 
@@ -97,12 +101,11 @@ describe('Hardening: generated documents record the real converter', () => {
   let tenantId: string;
   let userId: string;
   let projectId: string;
-  let converterUp = false;
   const templateFileRefs: string[] = [];
   const generatedStorageKeys: string[] = [];
 
   beforeAll(async () => {
-    converterUp = await gotenbergReachable();
+    await requireGotenberg();
     const setup = await factory.createTenant();
     tenantId = setup.tenant.id;
     userId = setup.user.id;
@@ -129,12 +132,7 @@ describe('Hardening: generated documents record the real converter', () => {
     }
   });
 
-  it('records pdf_strategy=gotenberg for a PDF produced by a real Gotenberg', async (ctx) => {
-    if (!converterUp) {
-      ctx.skip(`No Gotenberg at ${converterUrl}`);
-      return;
-    }
-
+  it('records pdf_strategy=gotenberg for a PDF produced by a real Gotenberg', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {

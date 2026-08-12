@@ -2,7 +2,7 @@ import type { IncomingMessage } from "http";
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 
-import { authenticateConnection } from "../../../server/realtime/auth";
+import { authenticateConnection, canMutate } from "../../../server/realtime/auth";
 import { authService } from "../../../server/services/AuthService";
 import { workflowService } from "../../../server/services/WorkflowService";
 
@@ -29,9 +29,9 @@ vi.mock("../../../server/services/WorkflowService", () => ({
   },
 }));
 
-function makeRequest(): IncomingMessage {
+function makeRequest(authorization = "Bearer test-token"): IncomingMessage {
   return {
-    headers: { authorization: "Bearer test-token", host: "localhost" },
+    headers: { authorization, host: "localhost" },
     url: "/collab",
   } as unknown as IncomingMessage;
 }
@@ -51,6 +51,38 @@ describe("authenticateConnection (MAP-B5)", () => {
       role: "creator",
       tenantRole: "builder",
     });
+  });
+
+  it("rejects a connection without a JWT", async () => {
+    await expect(authenticateConnection(makeRequest(""), ROOM_KEY)).rejects.toThrow(
+      "Missing authentication token"
+    );
+    expect(mockVerifyToken).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid JWT", async () => {
+    mockVerifyToken.mockImplementation(() => {
+      throw new Error("Invalid or malformed token");
+    });
+
+    await expect(authenticateConnection(makeRequest(), ROOM_KEY)).rejects.toThrow(
+      "Invalid authentication token"
+    );
+  });
+
+  it("rejects a token from a different tenant", async () => {
+    mockVerifyToken.mockReturnValue({
+      userId: "user-1",
+      email: "user@example.com",
+      tenantId: "tenant-2",
+      role: "creator",
+      tenantRole: "owner",
+    });
+
+    await expect(authenticateConnection(makeRequest(), ROOM_KEY)).rejects.toThrow(
+      "Access denied: tenant mismatch"
+    );
+    expect(mockVerifyAccess).not.toHaveBeenCalled();
   });
 
   it("admits the workflow's creator", async () => {
@@ -115,5 +147,24 @@ describe("authenticateConnection (MAP-B5)", () => {
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).not.toMatch(/is not the creator/);
     }
+  });
+});
+
+describe("canMutate", () => {
+  const user = {
+    userId: "user-1",
+    email: "user@example.com",
+    tenantId: "tenant-1",
+    displayName: "user",
+    color: "#000000",
+  };
+
+  it.each([
+    ["owner", true],
+    ["builder", true],
+    ["runner", false],
+    ["viewer", false],
+  ] as const)("allows mutation=%s for the %s role", (role, expected) => {
+    expect(canMutate({ ...user, role })).toBe(expected);
   });
 });
