@@ -38,7 +38,10 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- `excludedIntegrationTests` in `vitest.config.ts` now only excludes `*.real.test.ts` (needs real external credentials). The full integration project runs 744/744 locally against Docker PG on 5434.
+- As of 2026-08-11, `npm run test:integration` against Docker PG on 5434 has this documented baseline: **2 failed / 110 passed files; 2 failed / 1104 passed / 4 skipped tests**. The known failures are:
+  - `tests/integration/docs.autogeneration.test.ts` — DOC-104 unknown-tag reporting expects one generated document but receives zero.
+  - `tests/integration/ai/documentOnboarding.test.ts` — GH-167 workflow persistence cannot upload its stale minimal-DOCX fixture (`POST /api/projects/:id/templates` returns 400).
+  Both template integration files (`api.templates-runs.test.ts` and `templates.e2e.test.ts`) are green; treat a failure in either as a regression. Treat any failure beyond the two dated cases above as a regression.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas
