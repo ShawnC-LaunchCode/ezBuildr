@@ -449,7 +449,33 @@ Four small items surfaced across the three review rounds and were never closed:
 
 ---
 
-## G171-5 — Stale known-failure doc + 10 undocumented integration failures on main
+## G171-5 — Stale known-failure doc + 10 undocumented integration failures on main ✅ DONE 2026-08-11
+
+**Closed by:** `cc427d65`, merged to `main` as `e0eb69fe` (unpushed).
+
+> ### 🔻 THE INTEGRATION BASELINE CHANGED. Read this before grading any ticket.
+>
+> **`main`'s integration baseline is now 2 failed files / 2 failed tests / 1104 passed**
+> — it was 4 files / 10 tests. Every ticket written before 2026-08-11 says "10
+> pre-existing failures are expected"; that text is **stale**.
+>
+> Remaining known failures, both dated and root-caused in the `run-tests` skill:
+> `docs.autogeneration.test.ts` and `ai/documentOnboarding.test.ts`.
+>
+> **Exception:** a worktree based at or before `cc9c342b` predates this fix and will
+> legitimately still report 10. Check the worktree's base commit before calling a
+> 10-failure report wrong.
+
+**Reviewer verification:** `type-check` 0 errors · `lint` 0 problems · `test:fast`
+**3046 passed / 0 failed** (correctly unchanged — only integration tests and a doc
+changed) · `test:integration` **2 files / 2 tests failed, 1104 passed**, no new
+failures. Both template files verified green independently (2 files, 11 tests).
+
+**Root cause was a stale test-fixture contract, not a product bug.** The suites built
+ZIPs with empty OOXML metadata; real placeholder extraction validates the DOCX after
+the mocked scanner and correctly returned 400. **No route or service file changed** —
+so the escalation below was right that coverage was compromised, and wrong to suspect
+the product. Nothing was broken in production.
 
 **Priority: P1** · Size: M · Files: `.claude/skills/run-tests/SKILL.md`, plus whatever the root cause turns out to be
 
@@ -529,9 +555,59 @@ they broke something. That is exactly what happened during this review.
 
 ---
 
+## G171-6 — Fix the last two integration failures 🔲
+
+**Priority: P2** · Size: S · Files: `tests/integration/ai/documentOnboarding.test.ts`, `tests/integration/docs.autogeneration.test.ts`
+
+### Finding
+
+G171-5 took integration from 10 failures to 2. These are the 2, and **one of them is
+almost certainly the same bug G171-5 just fixed twice.**
+
+`ai/documentOnboarding.test.ts` fails because its stale minimal-DOCX fixture cannot be
+uploaded — `POST /api/projects/:id/templates` returns 400. That is the *identical*
+stale-fixture contract G171-5 repaired in `api.templates-runs.test.ts` and
+`templates.e2e.test.ts`: a ZIP with empty OOXML metadata that real DOCX validation
+correctly rejects. Apply the same fix and it should go green.
+
+`docs.autogeneration.test.ts` is different and may be a genuine product bug: DOC-104
+unknown-tag reporting expects one generated document and receives zero. **Diagnose
+before assuming it is another fixture problem.** If it is a product defect, stop and
+file it rather than editing the test to match current behaviour.
+
+### Why bother
+
+A permanently-red suite is an instrument nobody trusts. G171-5 proved the cost
+concretely: for all of GH-171, two *template* suites were red, so integration was
+blind to regressions in the exact code under change, and every reviewer read "matches
+the baseline" as proof of safety. Zero known failures makes "integration is green" mean
+something again.
+
+### Ties
+
+- Read G171-5's diff (`cc427d65`) first — it is the worked example for the fixture fix.
+- Load `run-tests`.
+- **Base your worktree on `e0eb69fe` or later**, or you will inherit the old fixtures
+  and be unable to tell your 2 failures from the previous 10.
+
+### Acceptance Criteria
+
+1. `ai/documentOnboarding.test.ts` passes, with a note saying whether it was the same
+   fixture cause.
+2. `docs.autogeneration.test.ts` either passes, or its failure is diagnosed as a
+   product bug and filed as its own ticket with file:line evidence — **do not** edit
+   the assertion to match current behaviour to make it green.
+3. `test:integration` reports **0 failures**, or a shorter dated known-failure list.
+4. `run-tests/SKILL.md` updated to match whatever the new reality is.
+5. `type-check` 0 errors · `lint` 0 problems · `test:fast` at or above 3046 passed / 0 failed.
+
+---
+
 ## Backlog / observations
 
-- **Preview scope expansion** — see *Decision needed* above. Not a defect; needs a product ruling.
+- **Preview scope expansion** — **RESOLVED 2026-08-11.** The repo owner confirmed the
+  preview pin stays; rationale and the two ownership hops are recorded in the decision
+  section above, and the coverage half became G171-2 AC6 (now closed).
 - **`templateVersions` immutability is not enforced.** AC1 says "immutable
   versions", but `TemplateVersionService` still exposes a delete and an update
   on version rows. Nothing in GH-171 relied on it, and it predates this work —
