@@ -51,6 +51,26 @@ export interface NormalizationOptions {
   /** Whether to include null/undefined values as empty strings (default: true) */
   includeEmpty?: boolean;
 
+  /**
+   * Whether an included null/undefined value stays `null` instead of
+   * collapsing to `''` (default: false). Only meaningful with `includeEmpty`.
+   *
+   * DOC-104: `''` is normalization's answer to two different questions --
+   * "nobody answered this" (`RunDataService.buildForRun` seeds every alias, so
+   * an unanswered step arrives as `null`) and "the answer was empty" -- and
+   * collapsing both is why `run_generated_documents.unresolved_variables` was
+   * structurally always `[]`: nothing downstream could tell them apart.
+   *
+   * The option exists so that ONE caller,
+   * `EnhancedDocumentEngine.normalizeForRender`, can read the distinction off
+   * and report the names. It re-collapses to `''` immediately, and nothing
+   * else should switch this on: a `null` reaching `applyMapping` counts as a
+   * *missing* source and drops the mapped target field, and a `null` reaching
+   * the renderer changes what several filters produce (`{{ n | number }}` is
+   * `0` for null and `''` for empty string).
+   */
+  preserveNull?: boolean;
+
   /** Maximum depth for nested object flattening (default: 10) */
   maxDepth?: number;
 
@@ -84,8 +104,10 @@ export interface ChoiceListBinding {
 /**
  * Normalized data structure (flat key-value pairs; arrays are preserved
  * so document templates can loop over them)
+ *
+ * `null` only ever appears when `preserveNull` is set -- see that option.
  */
-export type NormalizedData = Record<string, string | number | boolean | unknown[]>;
+export type NormalizedData = Record<string, string | number | boolean | null | unknown[]>;
 
 // ============================================================================
 // MAIN FUNCTION
@@ -129,6 +151,7 @@ export function normalizeVariables(
     joinArrays: options.joinArrays ?? false,
     arrayDelimiter: options.arrayDelimiter ?? ', ',
     includeEmpty: options.includeEmpty ?? true,
+    preserveNull: options.preserveNull ?? false,
     maxDepth: options.maxDepth ?? 10,
     listConfigs: options.listConfigs ?? {},
     listBoundChoices: options.listBoundChoices ?? {},
@@ -285,10 +308,11 @@ function processValue(
     return;
   }
 
-  // Handle null/undefined
+  // Handle null/undefined. `preserveNull` keeps "there is no value" distinct
+  // from "the value is an empty string" for the render path (DOC-104).
   if (value === null || value === undefined) {
     if (opts.includeEmpty) {
-      result[key] = '';
+      result[key] = opts.preserveNull ? null : '';
     }
     return;
   }

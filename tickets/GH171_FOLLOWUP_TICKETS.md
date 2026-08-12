@@ -1,6 +1,7 @@
 # GH-171 Follow-up — Template Versioning & Impact Analysis
 
-**Status:** GH-171 ✅ closed 2026-08-12 · G171-6 is the only ticket still open
+**Status:** GH-171 ✅ closed 2026-08-12 · G171-0..6 all ✅ closed, and the DOC-104 product
+defect G171-6 surfaced is fixed — **nothing here is open; this file is ready to retire**
 **Written:** 2026-08-11 · **Last updated:** 2026-08-12
 **Parent ticket:** GH-171 in `tickets/ROADMAP_TICKETS.md` — **✅ closed**, all 4 ACs met
 **Ticket prefix:** `G171-0..6`
@@ -9,8 +10,8 @@
 > kept for the record. Where the header of a ticket says ✅ DONE, that closure note is
 > authoritative and any older prose in the same section describing it as outstanding is
 > historical. The two facts most often out of date elsewhere in this file:
-> **AC3 is met** (G171-1), and **the integration baseline is now 2 failed files /
-> 2 failed tests**, not 10 (G171-5).
+> **AC3 is met** (G171-1), and **the integration suite is now fully green — 0 failures**,
+> not the 10 or the 2 that older prose below quotes (G171-5, then G171-6).
 
 ---
 
@@ -624,7 +625,26 @@ evidence in its header comment; do not "fix" it by asserting `[]`.
 
 Also caught: `tests/unit/services/FinalBlockRenderer.test.ts:58` hardcodes
 `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it asserts its own
-fixture and could never detect the defect. A separate session is fixing the defect.
+fixture and could never detect the defect.
+
+> **✅ The defect is fixed (2026-08-12, separate session).** The skipped test is un-skipped
+> and passing. The fix carries the *names* of unanswered variables to the renderer rather
+> than their nulls — `normalizeForRender` in `EnhancedDocumentEngine.ts` reads them off a
+> `preserveNull` normalization and re-collapses to `''`, and `recordEmptyVariable` in
+> `RenderCore.ts` records a tag that resolves one of them.
+>
+> **Passing the nulls through — the obvious fix, and the one the defect report
+> suggested — would have changed generated documents.** Probed against
+> `renderDocxBuffer`: `{{ n | number }}` renders `0` for null and `''` for empty string,
+> `{{ n | percent }}` throws on empty string but renders `0%` for null, and `applyMapping`
+> counts a null source as *missing* and omits the mapped target field entirely — which
+> `RenderCore`'s own strict-undefined check would then raise on, failing the document over
+> the author's own field name. Reporting a gap must not move a character of any document.
+>
+> Guards added: `tests/unit/services/EnhancedDocumentEngine.unresolvedVariables.test.ts`
+> (7 tests through the real engine and renderer — no mock of the thing under test) plus the
+> un-skipped integration case. `FinalBlockRenderer.test.ts:58` is left as-is: it tests
+> forwarding, which is all it ever tested.
 
 **Reviewer excluded one file from the dev's commit:** `SKILL.md` still contained the
 literal `INTEGRATION_BASELINE_PLACEHOLDER` when the dev was killed mid-run by an org

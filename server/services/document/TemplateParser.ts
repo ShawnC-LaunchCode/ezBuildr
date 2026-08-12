@@ -13,6 +13,7 @@ export interface TemplateParserOptions {
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
     unresolvedVariables?: string[];
+    emptyVariables?: readonly string[];
     workflowSettings?: unknown;
 }
 

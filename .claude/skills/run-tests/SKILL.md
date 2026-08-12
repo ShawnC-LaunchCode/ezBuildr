@@ -38,9 +38,10 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- **There are no known integration failures. Measured 2026-08-12 on `main` (`46848ba4`)
-  against Docker PG on 5434: `Test Files 112 passed (112)` · `Tests 1111 passed | 3
-  skipped (1114)` — zero failures.**
+- **There are no known integration failures. Measured 2026-08-12 against Docker PG on
+  5434, after the DOC-104 fix: `Test Files 112 passed (112)` · `Tests 1112 passed | 2
+  skipped (1114)` — zero failures.** (Was 1111 passed / 3 skipped on `46848ba4`; the
+  DOC-104 case below is now un-skipped and passing.)
 
   **So treat *any* integration failure as your regression.** This is a change in kind,
   not just in number: for months the suite carried 10 failures and reviewers certified
@@ -49,21 +50,26 @@ Check these before debugging:
   change. There is no baseline to hide in now. Fixed across G171-5 (`cc427d65`, stale
   DOCX fixtures) and G171-6 (`150e3148`).
 
-  Baselines for the other projects on the same commit: `test:fast` **3113 passed / 0
-  failed**, 272 files + 1 skipped · `test:unit:db` **17 files / 158 passed**.
+  Baselines for the other projects, measured the same day: `test:fast` **3125 passed / 0
+  failed**, 273 files + 1 skipped · `test:unit:db` **17 files / 158 passed**. (An earlier
+  revision of this file recorded `test:fast` as 3113; a re-measurement on `ec0f7116` gave
+  **3116**, so treat these as ±a few and re-measure your own base before blaming a
+  change. A count that moves *down* is still a stop condition.)
 
-  **One deliberately skipped test, not a failure:** the DOC-104 reporting case in
-  `tests/integration/docs.autogeneration.test.ts` is `it.skip` pending a real product
-  defect — `run_generated_documents.unresolved_variables` is *structurally* always `[]`,
-  because `VariableNormalizer` turns null into `''` (`includeEmpty` defaults true) before
-  `RenderCore`'s `nullGetter` — which only fires for null/undefined — could record it. The
-  header comment on that test has the full file:line chain. **Do not "fix" it by asserting
-  `[]`.** Un-skip it when the defect is fixed.
+  **The DOC-104 skip is gone — the product defect behind it is fixed (2026-08-12).**
+  `run_generated_documents.unresolved_variables` used to be structurally always `[]`;
+  `tests/integration/docs.autogeneration.test.ts` now asserts it for real, with a
+  no-DB companion at
+  `tests/unit/services/EnhancedDocumentEngine.unresolvedVariables.test.ts`. If either
+  starts failing, read `normalizeForRender` (`EnhancedDocumentEngine.ts`) and
+  `recordEmptyVariable` (`RenderCore.ts`) — and note that making the report work by
+  passing nulls to the renderer instead **changes generated documents**, which is why it
+  is not built that way.
 
-  Related trap while you are here: `tests/unit/services/FinalBlockRenderer.test.ts:58`
+  The lesson that outlived it: `tests/unit/services/FinalBlockRenderer.test.ts:58`
   hardcodes `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it
-  asserts its own fixture and cannot detect the defect above. Treat any test that mocks
-  the thing it claims to verify with the same suspicion.
+  asserted its own fixture and could not detect a feature that never worked. Treat any
+  test that mocks the thing it claims to verify with the same suspicion.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas

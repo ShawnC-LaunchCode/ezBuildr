@@ -681,6 +681,24 @@ node, and the Bull queue worker — render through
 5. Arrays remain arrays for section loops; a plain scalar tag joins an array for display
 6. Table section tags are wholly inside the content cells specified by the authoring guide
 
+### Issue: the "Missing Variables" list on a generated document looks wrong
+**How it is produced (DOC-104):** `run_generated_documents.unresolved_variables`
+names the variables a template referenced that the run had no value for. Two
+different things write it, and both are needed:
+
+1. `RenderCore`'s `nullGetter` — for a path genuinely absent from the data.
+   Except at the top level, where absence is a typo and raises instead.
+2. `RenderCore`'s `recordEmptyVariable` — for a variable that *is* in the data
+   contract but unanswered. `RunDataService` seeds every alias, so those arrive
+   as `null` and normalization renders them `''`; the names travel separately as
+   `emptyVariables` (`EnhancedDocumentEngine.normalizeForRender`) because
+   changing the value would change the document.
+
+**Check:** the value reaches the render as `''` — the report says a question was
+unanswered, not that rendering failed. A variable the template never mentions is
+never listed. Fields inside a `{{#loop}}` are not judged (`scopeList.length > 1`).
+Before this existed the column was always `[]`, so an old record proves nothing.
+
 ### Issue: PDF conversion fails
 **Check:**
 1. Puppeteer dependencies installed

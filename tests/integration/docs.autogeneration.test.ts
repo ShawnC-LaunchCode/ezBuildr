@@ -482,26 +482,17 @@ describe('Automatic document generation on run completion', () => {
    * undefined existed. Matching unit samples: U1/U2 in
    * `tests/unit/services/document/docSamples.test.ts`.
    */
-  // SKIPPED — this asserts the DOC-104 contract as designed, and it fails because
-  // of a REAL PRODUCT DEFECT, not a stale fixture. `unresolved_variables` is
-  // structurally always `[]` for every generated run document:
-  //
-  //   VariableNormalizer.ts:289-294  null/undefined -> '' when includeEmpty (default true)
-  //   EnhancedDocumentEngine.ts:432  renderFinalBlock normalizes unconditionally
-  //   EnhancedDocumentEngine.ts:242  generateWithMapping normalizes again (normalize: true)
-  //   RenderCore.ts:290-307          nullGetter only fires for null/undefined, never for ''
-  //
-  // Probed directly: raw `{matterNumber: null}` records ["matterNumber"], but the
-  // normalized `{matterNumber: ''}` the run path actually passes records []. So the
-  // whole reporting feature — DB column, service plumbing, and the behaviour
-  // workflowStructureRules.ts:389 documents as designed — can never fire.
-  // The existing unit coverage misses it because
-  // tests/unit/services/FinalBlockRenderer.test.ts:58 hardcodes
-  // `unresolvedVariables: ["missingField"]` inside a mock of the engine.
-  //
-  // Per G171-6 AC2 this is reported, NOT papered over by asserting []. Un-skip
-  // when the defect is fixed.
-  it.skip('records an aliased-but-unanswered variable as unresolved and still generates the document (DOC-104)', async () => {
+  // This test was filed skipped by G171-6 against a real product defect:
+  // `unresolved_variables` was structurally always `[]`, because normalization
+  // collapsed the seeded `null` to `''` and nothing downstream could tell
+  // "unanswered" from "answered empty". Fixed by carrying the *names* through
+  // to the renderer instead of the nulls — see `normalizeForRender` in
+  // `EnhancedDocumentEngine.ts` and `recordEmptyVariable` in `RenderCore.ts`.
+  // It is the only end-to-end guard that the recorder actually fires: the unit
+  // coverage that missed the defect (`FinalBlockRenderer.test.ts`) hardcodes
+  // `unresolvedVariables` inside a mock of the engine. The fast-project
+  // companion is `EnhancedDocumentEngine.unresolvedVariables.test.ts`.
+  it('records an aliased-but-unanswered variable as unresolved and still generates the document (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {
