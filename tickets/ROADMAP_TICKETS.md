@@ -1605,9 +1605,12 @@ Build in this order; each step should leave the tree gate-clean.
 > the dev: breaking `getVersionForTemplate`'s `templateId` scoping makes 4 tests
 > fail, two of them completing a real run and rendering the foreign template.
 >
-> **Open follow-ups, none of them GH-171 ACs** — see `tickets/GH171_FOLLOWUP_TICKETS.md`:
-> G171-2 (real-run pin test + preview/run parity), G171-3 (test-count delta),
-> G171-4 (carry-over cleanups), G171-5 (stale `run-tests` doc).
+> **The follow-ups G171-0..6 all closed 2026-08-12**, along with the DOC-104 reporting
+> defect G171-6 surfaced (`f99110d4`). Their file was retired into
+> `tickets/backlog/TEMPLATE_VERSIONING.md`; recover the full detail with
+> `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`. **`G171-B1` in that backlog is a live
+> bug worth promoting:** `{{ x | percent }}` fails the whole document when the value is an
+> unanswered field.
 >
 > Behaviour change shipped beyond the ACs and deliberately kept: `requiresReview`
 > now trips on renames, which previously passed review silently despite breaking

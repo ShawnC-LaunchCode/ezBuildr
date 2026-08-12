@@ -32,6 +32,13 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > `WorkflowOptimizationService` looks like an AI service, is served at
 > `/api/ai/workflows/optimize/*`, and makes no model call at all.
 >
+> **GH-171 (template versioning) and its G171-0..6 follow-ups closed and retired into
+> `backlog/TEMPLATE_VERSIONING.md` on 2026-08-12**, together with the DOC-104 reporting
+> defect they surfaced. It parks four entries; **`G171-B1` is a live bug, not a parked
+> idea** — a documented filter (`percent`, `daysBetween`) fails the entire document when
+> its value is an unanswered question. That initiative also took `test:integration` to
+> **0 known failures**, so treat any integration failure as your regression.
+>
 > **Read `LU-B1` first if you are about to run a migration.** Local development and
 > production share one Neon database; a local `db:migrate` hits production immediately.
 
@@ -98,8 +105,45 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
+| G171-B1 | `bug` | **`{{ x \| percent }}` and `{{ a \| daysBetween:b }}` fail the whole document when the value is an unanswered field** — promote this one | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-B2 | `product-decision` | `{{ fee \| currency }}` renders **`$0.00`** for a fee nobody entered; the filter family disagrees on empty input | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-B3 | `informational` | `template_versions` immutability holds by absence of a mutation path, not a constraint — original evidence for this was stale | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-B4 | `enhancement` | Document README still documents arrays as comma-joined; they are preserved for loops | `backlog/TEMPLATE_VERSIONING.md` |
 
 ---
+
+## Template versioning & impact analysis (GH-171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
+
+Epic **GH-171** plus follow-ups **G171-0..6** — all closed, all 4 ACs met, and the one
+product defect the follow-ups surfaced (DOC-104 reporting) fixed in `f99110d4`. This
+initiative is also what took `test:integration` from 10 known failures to **0**, so there
+is no baseline to hide in anymore.
+
+One entry deserves promotion rather than parking:
+
+- **G171-B1 — `percent` and `daysBetween` fail the whole document on an empty input** ·
+  `bug`. Probed: `{{ rate | percent }}` where `rate` is an unanswered question throws
+  `ScopeParserError` and the document is never produced (the run still reports success with
+  one fewer document). `percent` guards null but not `''`, and `isNaN('')` is `false`.
+  Fix the family, not the one filter — and settle G171-B2 first, since it is the same
+  decision.
+
+Parked, not dispatchable:
+
+- **G171-B2 — numeric filters fabricate values for unanswered fields** ·
+  `product-decision`. `{{ fee | currency }}` renders `$0.00` today for a fee nobody
+  entered; `number` renders blank for `''` and `0` for null, by accident rather than
+  design. Needs a ruling on what "no value" renders before anyone sweeps it.
+- **G171-B3 — `template_versions` immutability is not enforced** · `informational`. Kept
+  because the original finding is now **wrong**: the hard delete was removed 2026-08-12,
+  and the remaining soft delete has zero callers and is ignored by the pinned lookup.
+- **G171-B4 — stale array-normalization docs** · `enhancement`. One section of
+  `server/services/document/README.md` predates arrays being preserved for loops.
+
+Open the detail file for the `Closed — do not re-file` table, the ruling that **preview's
+client-supplied pin is deliberate** (do not "harden" it away), and the lesson that the
+DOC-104 defect survived because its only unit test mocked the engine and asserted its own
+fixture.
 
 ## Template Language (TPL) — [detail](backlog/TEMPLATE_LANGUAGE.md) — retired 2026-08-10
 
