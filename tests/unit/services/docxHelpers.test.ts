@@ -263,6 +263,41 @@ describe('DOCX Helpers', () => {
       });
     });
 
+    describe('percent (G171-B1)', () => {
+      // `percent` threw `n.toFixed is not a function` for EVERY string input
+      // that had a number in it, and for the empty string too. Template values
+      // are routinely strings — a runner answer, a DataVault cell, a JSON
+      // import — so `{{ rate | percent }}` failed the whole document for real
+      // answers, not just missing ones. The filter is registered from the
+      // `docxHelpers` object, so drive it through there rather than the raw
+      // export: that is the object `RenderCore` registers.
+      it('formats a numeric string exactly like the equivalent number', () => {
+        expect(docxHelpers.percent('42.345')).toBe(docxHelpers.percent(42.345));
+        expect(docxHelpers.percent('42.345')).toBe('42%');
+        // Coupled to the number path rather than a literal: `(42.345).toFixed(2)`
+        // is "42.34", not "42.35" — 42.345 has no exact float. The point of this
+        // assertion is that a string and a number take the same path, not what
+        // toFixed does at the boundary.
+        expect(docxHelpers.percent('42.345', 2)).toBe(docxHelpers.percent(42.345, 2));
+        expect(docxHelpers.percent('12.5', 1)).toBe('12.5%');
+        expect(docxHelpers.percent('0')).toBe('0%');
+      });
+
+      it('renders blank — never a fabricated 0% — when there is no number to format', () => {
+        // 0% is a plausible agreed rate; a term nobody stated must not be
+        // manufactured (the TPL-9 Finding (c) reasoning). An empty % cannot be
+        // read as a rate, and DOC-104 reports the variable either way.
+        for (const missing of ['', '   ', null, undefined, 'abc', NaN]) {
+          expect(docxHelpers.percent(missing as never)).toBe('');
+        }
+      });
+
+      it('keeps a real zero distinct from a missing value', () => {
+        expect(docxHelpers.percent(0)).toBe('0%');
+        expect(docxHelpers.percent('')).toBe('');
+      });
+    });
+
     describe('date (formatters) agrees with formatDate', () => {
       // TPL-9 Finding (b), reproduced before the fix: `docxHelpers.date` used
       // `new Date('2026-01-05')`, which the ECMA-262 Date Time String Format

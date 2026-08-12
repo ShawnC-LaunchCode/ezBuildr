@@ -64,12 +64,12 @@ async function resolveDatavaultBindingValue(
  *
  * The collapse itself stays. Passing `null` through to the renderer instead
  * would change generated documents: `{{ n | number }}` renders `0` for null
- * and `''` for empty string, `{{ n | percent }}` throws on empty string and
- * renders `0%` for null, and `applyMapping` counts a null source as *missing*
- * and omits the target field — which `RenderCore`'s strict-undefined check
- * would then treat as a typo and fail the whole document over. Reporting a gap
- * must not move a single character of any document, so the value never
- * changes; only the name travels, via `emptyVariables`.
+ * and `''` for empty string (G171-B2 — the numeric filters disagree about
+ * missing values), and `applyMapping` counts a null source as *missing* and
+ * omits the target field — which `RenderCore`'s strict-undefined check would
+ * then treat as a typo and fail the whole document over. Reporting a gap must
+ * not move a single character of any document, so the value never changes;
+ * only the name travels, via `emptyVariables`.
  */
 function normalizeForRender(
   rawData: Record<string, unknown>,

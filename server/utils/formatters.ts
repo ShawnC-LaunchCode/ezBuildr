@@ -259,14 +259,51 @@ export function number(n: number | null | undefined, decimals: number = 0): stri
 }
 
 /**
- * Format percentage
+ * The number inside a template value, or `undefined` when there isn't one.
+ *
+ * G171-B1: template values arrive as **strings** — a runner answer, a DataVault
+ * cell, a JSON import — and `isNaN` coerces while number methods do not, which
+ * is the whole bug. `isNaN('42.3')` is `false`, so `'42.3'` sailed past
+ * `percent`'s guard into `'42.3'.toFixed(0)`, and `String` has no `toFixed`:
+ * every real answer threw `n.toFixed is not a function` and took the whole
+ * document down with it. `isNaN('')` is also `false`, so an unanswered question
+ * threw the same way.
+ *
+ * `''` and whitespace deliberately do NOT coerce to 0 here, even though
+ * `Number('')` is 0 — an unanswered question is not an answer of zero.
  */
-export function percent(n: number | null | undefined, decimals: number = 0): string {
-  if (n === null || n === undefined || isNaN(n)) {
-    return '0%';
+function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') { return undefined; }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Format percentage. Accepts the numeric strings templates actually carry.
+ *
+ * A value with no number in it renders **blank**, not `0%` (G171-B1). Two
+ * reasons, and the first is the one that matters: `0%` is a plausible agreed
+ * term in a signed document, and a term nobody stated must never be
+ * manufactured — the same reasoning TPL-9 Finding (c) used to make
+ * `daysBetween` raise rather than render `0` days. An empty `%` cannot be
+ * mistaken for a rate. Second, blank is what a bare `{{ rate }}` renders for an
+ * unanswered question, and DOC-104 lists the variable in the document's
+ * unresolved-variable report either way, so the gap is reported, not hidden.
+ */
+export function percent(n: number | string | null | undefined, decimals: number = 0): string {
+  const value = toFiniteNumber(n);
+  if (value === undefined) {
+    return '';
   }
 
-  return `${n.toFixed(decimals)}%`;
+  return `${value.toFixed(decimals)}%`;
 }
 
 /**

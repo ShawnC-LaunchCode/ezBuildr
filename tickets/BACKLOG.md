@@ -34,10 +34,13 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 >
 > **GH-171 (template versioning) and its G171-0..6 follow-ups closed and retired into
 > `backlog/TEMPLATE_VERSIONING.md` on 2026-08-12**, together with the DOC-104 reporting
-> defect they surfaced. It parks four entries; **`G171-B1` is a live bug, not a parked
-> idea** — a documented filter (`percent`, `daysBetween`) fails the entire document when
-> its value is an unanswered question. That initiative also took `test:integration` to
-> **0 known failures**, so treat any integration failure as your regression.
+> defect they surfaced. **`G171-B1` was fixed 2026-08-12** — `percent` crashed on every
+> string value with a number in it, so `{{ rate | percent }}` failed the document for real
+> answers, not just missing ones. What is left is `G171-B2` (a ruling: does the numeric
+> filter family follow the guide's own blank-on-empty rule?) and `G171-B5` (the rest of
+> the family mishandling string values — sweep it with B2). That initiative also took
+> `test:integration` to **0 known failures**, so treat any integration failure as your
+> regression.
 >
 > **Read `LU-B1` first if you are about to run a migration.** Local development and
 > production share one Neon database; a local `db:migrate` hits production immediately.
@@ -105,8 +108,9 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
-| G171-B1 | `bug` | **`{{ x \| percent }}` and `{{ a \| daysBetween:b }}` fail the whole document when the value is an unanswered field** — promote this one | `backlog/TEMPLATE_VERSIONING.md` |
-| G171-B2 | `product-decision` | `{{ fee \| currency }}` renders **`$0.00`** for a fee nobody entered; the filter family disagrees on empty input | `backlog/TEMPLATE_VERSIONING.md` |
+| ~~G171-B1~~ | ✅ fixed | `percent` crashed for every string value with a number in it, failing the document for real answers; `daysBetween`'s raise turned out to be deliberate | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-B2 | `product-decision` | `{{ fee \| currency }}` renders **`$0.00`** for a fee nobody entered — and the authoring guide's own blank-on-empty rule says it shouldn't | `backlog/TEMPLATE_VERSIONING.md` |
+| G171-B5 | `bug` | `number('1234.5')` skips formatting, `add('1200','300')` concatenates — the numeric filters mishandle the string values templates actually carry; sweep with B2 | `backlog/TEMPLATE_VERSIONING.md` |
 | G171-B3 | `informational` | `template_versions` immutability holds by absence of a mutation path, not a constraint — original evidence for this was stale | `backlog/TEMPLATE_VERSIONING.md` |
 | G171-B4 | `enhancement` | Document README still documents arrays as comma-joined; they are preserved for loops | `backlog/TEMPLATE_VERSIONING.md` |
 
@@ -119,21 +123,25 @@ product defect the follow-ups surfaced (DOC-104 reporting) fixed in `f99110d4`. 
 initiative is also what took `test:integration` from 10 known failures to **0**, so there
 is no baseline to hide in anymore.
 
-One entry deserves promotion rather than parking:
+- **~~G171-B1 — `percent` fails the whole document~~** · ✅ **fixed 2026-08-12.** Both
+  halves of the original entry were wrong in opposite directions: the crash was far wider
+  than "empty input" (**every** string containing a number threw, so real answers failed
+  documents), and `daysBetween`'s raise was **deliberate** (TPL-9 Finding (c) — `0` days
+  reads as a stated deadline) and was left alone.
 
-- **G171-B1 — `percent` and `daysBetween` fail the whole document on an empty input** ·
-  `bug`. Probed: `{{ rate | percent }}` where `rate` is an unanswered question throws
-  `ScopeParserError` and the document is never produced (the run still reports success with
-  one fewer document). `percent` guards null but not `''`, and `isNaN('')` is `false`.
-  Fix the family, not the one filter — and settle G171-B2 first, since it is the same
-  decision.
-
-Parked, not dispatchable:
+Still open — one ruling and one sweep, and they go together:
 
 - **G171-B2 — numeric filters fabricate values for unanswered fields** ·
   `product-decision`. `{{ fee | currency }}` renders `$0.00` today for a fee nobody
   entered; `number` renders blank for `''` and `0` for null, by accident rather than
-  design. Needs a ruling on what "no value" renders before anyone sweeps it.
+  design. **The authoring guide already states the answer** — "A known variable whose
+  value is empty renders blank", with pronouns as the only declared exception — so this is
+  either a contract violation to fix or a second exception to document.
+- **G171-B5 — the numeric filters mishandle string values** · `bug`. `number('1234.5')`
+  → `'1234.5'` (formatting skipped entirely), `formatNumber('42.345', 2)` → `'42.345'`
+  (decimals ignored), `add('1200','300')` → `'1200300'` (concatenation). Template values
+  are strings, so these are the everyday path. Not fixed with B1 because unlike a crash
+  they produce output, and changing output needs B2's ruling.
 - **G171-B3 — `template_versions` immutability is not enforced** · `informational`. Kept
   because the original finding is now **wrong**: the hard delete was removed 2026-08-12,
   and the remaining soft delete has zero callers and is ignored by the pinned lookup.

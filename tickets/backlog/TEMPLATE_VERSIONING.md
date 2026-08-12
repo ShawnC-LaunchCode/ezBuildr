@@ -20,11 +20,39 @@ and proven non-vacuous. Integration went from 10 known failures to **0** along t
 
 ---
 
-## G171-B1 — the `percent` and `daysBetween` filters fail the whole document when their input is empty · `bug`
+## ~~G171-B1 — `percent` fails the whole document~~ · ✅ FIXED 2026-08-12
 
-**This is the one entry here worth promoting to a ticket.** It is not a versioning
-finding — it was found while fixing DOC-104, by enumerating what every registered filter
-does with a missing value.
+**Worse than filed, and narrower than filed.** Both corrections matter, so the original
+text is kept below.
+
+Worse: `percent` did not only crash on an *empty* value. `isNaN` coerces and `toFixed`
+does not exist on `String`, so **every string with a number in it** crashed —
+`percent('42.345')` threw `n.toFixed is not a function`. Template values are routinely
+strings (runner answers, DataVault cells, JSON imports), so `{{ rate | percent }}` was
+failing documents for *real answers*, not just missing ones. That makes it a plain P1
+bug with no policy component.
+
+Narrower: **`daysBetween` / `businessDaysBetween` raising on a missing operand is
+deliberate**, not an oversight — `requireDateArg` in `server/services/docxHelpers.ts`
+carries TPL-9 Finding (c)'s reasoning: `0` is a plausible real answer ("payment due 0
+days after signing" reads as a stated deadline), so a missing operand must raise rather
+than render a number that looks like a term. Filing them as part of this bug was wrong.
+They were **not** changed.
+
+Fixed by coercing through a `toFiniteNumber` helper in `server/utils/formatters.ts`:
+numeric strings now format, and a value with no number in it renders **blank** rather
+than the old fabricated `0%`. Blank is not a new invention — `docs/guides/
+VARIABLES_IN_DOCUMENTS.md` already states the rule ("A known variable whose value is
+empty renders blank") and calls it "the blank-on-empty rule"; `percent` was violating its
+own documented contract, and `0%` is exactly the plausible-looking fabricated term TPL-9
+refused for `daysBetween`.
+
+Guards: a `percent` table in `tests/unit/services/docxHelpers.test.ts` (numeric string ≡
+number, every missing form → blank, real `0` still `0%`) and two render-level rows in
+`RenderCore.expressions.test.ts` that prove a document is produced at all. Reverting the
+fix fails 5 of them.
+
+<details><summary>Original entry, as filed</summary>
 
 A documented filter crashes document generation whenever the value it is given is an
 empty string, which is exactly what an unanswered question supplies:
@@ -36,20 +64,33 @@ percent, answered (7)    -> RENDERED: Rate: 7%.
 daysBetween, unanswered  -> FAILED: same
 ```
 
-Probed through `renderDocxBuffer` on 2026-08-12 (`server/utils/formatters.ts`, `percent`;
-`server/services/docxHelpers.ts`, `daysBetween` / `businessDaysBetween`). The cause is
-that `percent` guards `null`/`undefined`/`NaN` and returns `'0%'`, but `isNaN('')` is
-`false` — so `''` falls through to `''.toFixed(decimals)`, which does not exist.
-`daysBetween` throws its own `"date1" is required` for an empty string.
-
 Consequence: the document is not produced at all. The per-document error is caught by
 `renderFinalBlock`, so the *run* still reports success with one fewer document — the
 failure mode that motivated the whole DOC-104 reporting feature.
 
-**Next step:** decide the empty-input contract once for the numeric/date filter family
-(see G171-B2 — it is the same decision), then guard every filter to it and add a table
-test covering `null`, `undefined`, `''` and a valid value for each. Do not fix `percent`
-alone; the point is that the family disagrees.
+</details>
+
+## G171-B5 — the other numeric filters mishandle the string values templates actually carry · `bug`
+
+Same root cause as B1, found by the same sweep, **not fixed** — because unlike B1's crash
+these produce output, so changing them changes existing documents and that is B2's
+ruling to make. Measured 2026-08-12 by calling each filter directly:
+
+| call | today | should be |
+|---|---|---|
+| `number('1234.5')` | `'1234.5'` | `'1,235'` — the filter's entire purpose is skipped for string input |
+| `formatNumber('42.345', 2)` | `'42.345'` | `'42.35'` — the `decimals` argument is ignored |
+| `add('1200', '300')` | `'1200300'` | `1500` — `+` concatenates; `-`, `*`, `/` coerce, so only `add` is affected |
+| `currency('1234.5')` | `'$1,234.50'` | ✅ already correct (`Intl.NumberFormat` coerces) |
+
+So `{{ total | number }}` renders unformatted for every answer typed into a question, and
+`{{ fee | add:tax }}` silently concatenates two amounts. Both are invisible in a template
+preview that uses numeric sample data.
+
+**Next step:** settle G171-B2 (what a *missing* value renders), then sweep the family in
+one commit — reuse `toFiniteNumber` from B1's fix, and put every filter's `null` /
+`undefined` / `''` / whitespace / `'abc'` / numeric-string / real-number behavior in one
+table test so the next disagreement is visible.
 
 ## G171-B2 — numeric filters fabricate `0` and `$0.00` for a value nobody supplied · `product-decision`
 
@@ -74,8 +115,16 @@ field render `$0.00`, blank, or a visible placeholder like `[not provided]`? DOC
 reporting (`unresolved_variables`) now names the variable either way, which lowers the
 urgency but does not settle it.
 
-**Next step:** the repo owner rules on the empty-input rendering. Then G171-B1 becomes a
-mechanical sweep with a test table.
+**One input to the ruling, found after this was filed:** the authoring guide already
+answers it. `docs/guides/VARIABLES_IN_DOCUMENTS.md` states "A known variable whose value
+is empty renders blank" and later calls it "the blank-on-empty rule", with exactly one
+declared exception (pronoun filters default to they/them, because a blank would break the
+sentence). By that rule `currency`'s `$0.00` and `number`'s `0` are contract violations,
+not preferences — which is how B1's `percent` was settled.
+
+**Next step:** the repo owner rules — confirm blank-on-empty for the numeric family, or
+declare `currency`/`number` a second documented exception and say why in the guide. Then
+G171-B5 becomes a mechanical sweep with one table test.
 
 ## G171-B3 — `template_versions` immutability is not *enforced*, but nothing mutates them either · `informational`
 
@@ -157,6 +206,7 @@ display at render time. A template author reading this doc would not know loops 
 | G171-5 | Integration 10 failures → 2. Root cause was **stale DOCX test fixtures**, not a product bug — no route or service changed | `cc427d65` → `e0eb69fe` |
 | G171-6 | Integration 2 → **0**. `documentOnboarding` was the same stale-fixture cause; `docs.autogeneration` was a real product defect and was reported, not papered over | `150e3148` → `46848ba4` |
 | DOC-104 reporting defect | `unresolved_variables` actually fires: names of unanswered variables travel to the renderer (`normalizeForRender`, `recordEmptyVariable`) instead of their nulls, so no document changes. Integration case un-skipped; 7-test no-DB guard added | `f99110d4` |
+| G171-B1 | `percent` crashed on **every** string value with a number in it, not just empty ones — `{{ rate \| percent }}` failed the document for real answers. Now coerces numeric strings and renders blank for a missing value, per the guide's blank-on-empty rule. `daysBetween`'s raise was **deliberate** (TPL-9 (c)) and left alone | see G171-B1 above |
 | Cross-tenant pin vulnerability | `getVersionForTemplate` scoped on both `id` and `templateId`; unscoped `getVersionById` removed repo-wide; proven non-vacuous by mutation (4 of 5 tests fail without it) | in `24491c3e` |
 | Duplicate `GET /templates/:id/versions` | Removed; registrations back to 2 | in `24491c3e` |
 | `workflow_templates.pinned_version_id` | Reverted — dead schema; migration `0024` deleted | in `24491c3e` |
