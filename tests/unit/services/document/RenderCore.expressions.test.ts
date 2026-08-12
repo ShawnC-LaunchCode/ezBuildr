@@ -199,6 +199,44 @@ describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
       },
       { helper: 'usd', scope: { v: 1234.5 }, pipeTag: 'v | usd', expected: '$1,234.50' },
       { helper: 'titlecase', scope: { v: 'hello world' }, pipeTag: 'v | titlecase', expected: 'Hello World' },
+      // LD-1 legal drafting primitives. Numbering takes explicit ordinals
+      // (pure -- no hidden counter); pronouns take an explicit pronoun value
+      // and never a name.
+      { helper: 'legalNumber', scope: { v: 1, b: 2, c: 3 }, pipeTag: 'v | legalNumber:b:c', expected: '1.2.3' },
+      { helper: 'legalLetter', scope: { v: 1 }, pipeTag: 'v | legalLetter', expected: '(a)' },
+      { helper: 'legalUpperLetter', scope: { v: 2 }, pipeTag: 'v | legalUpperLetter', expected: '(B)' },
+      { helper: 'legalRoman', scope: { v: 4 }, pipeTag: 'v | legalRoman', expected: '(iv)' },
+      { helper: 'legalUpperRoman', scope: { v: 4 }, pipeTag: 'v | legalUpperRoman', expected: '(IV)' },
+      {
+        helper: 'plural',
+        scope: { v: 2 },
+        pipeTag: 'v | plural:"party":"parties"',
+        expected: 'parties',
+      },
+      { helper: 'partyParties', scope: { v: 1 }, pipeTag: 'v | partyParties', expected: 'party' },
+      { helper: 'isAre', scope: { v: 2 }, pipeTag: 'v | isAre', expected: 'are' },
+      { helper: 'hasHave', scope: { v: 2 }, pipeTag: 'v | hasHave', expected: 'have' },
+      { helper: 'itsTheir', scope: { v: 1 }, pipeTag: 'v | itsTheir', expected: 'its' },
+      { helper: 'pronounSubject', scope: { v: 'she/her' }, pipeTag: 'v | pronounSubject', expected: 'she' },
+      { helper: 'pronounObject', scope: { v: 'he/him' }, pipeTag: 'v | pronounObject', expected: 'him' },
+      {
+        helper: 'pronounPossessive',
+        scope: { v: 'they/them' },
+        pipeTag: 'v | pronounPossessive',
+        expected: 'their',
+      },
+      {
+        helper: 'pronounReflexive',
+        scope: { v: 'she/her' },
+        pipeTag: 'v | pronounReflexive',
+        expected: 'herself',
+      },
+      {
+        helper: 'pronounVerb',
+        scope: { v: 'they/them' },
+        pipeTag: 'v | pronounVerb:"is"',
+        expected: 'are',
+      },
     ];
 
     // Helpers deliberately not covered by HELPER_CASES, with the reason.

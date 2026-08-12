@@ -26,6 +26,8 @@ test names.
   empty renders blank.
 - The statement and comment delimiters `{%` and `{#` are reserved. They are not
   ezBuildr section tags.
+- Outline numbers are computed from ordinals you pass in, never from a hidden
+  counter. Pronouns come from an explicit pronoun value, never from a name.
 
 ## Variables and expressions
 
@@ -137,6 +139,152 @@ a Saturday holiday is observed on Friday and a Sunday holiday on Monday.
 The `us-federal` preset means exactly **weekends plus US federal holidays, with
 weekend observation**. It does not mean court days, bank days, or a
 jurisdiction-specific deadline rule such as FRCP 6(a).
+
+## Legal drafting primitives
+
+Three filter families cover the agreement and numbering work that legal
+drafting needs. They are ordinary filters in the vocabulary above: same pipe,
+same colon-form arguments, same upload validation. There is no separate
+drafting mechanism to learn.
+
+### Hierarchical numbering
+
+| Filter | Copy-paste example | Example input | Output |
+|---|---|---|---|
+| `legalNumber` | `{{article | legalNumber:clause}}` | `article` = 2, `clause` = 3 | 2.3 |
+| `legalLetter` | `{{n | legalLetter}}` | `1` | (a) |
+| `legalUpperLetter` | `{{n | legalUpperLetter}}` | `1` | (A) |
+| `legalRoman` | `{{n | legalRoman}}` | `4` | (iv) |
+| `legalUpperRoman` | `{{n | legalUpperRoman}}` | `4` | (IV) |
+
+- L1: `{{article | legalNumber:clause}}` renders `2.3`, and
+  `{{article | legalNumber:clause:item}}` renders `1.1.1`. The value on the
+  left of the pipe is the outermost level; each colon argument adds one deeper
+  level. An array value supplies every level at once, so a value of
+  `[1, 2, 3]` renders `1.2.3`.
+- L2: the lettered and roman styles bake in their parentheses. Letters
+  continue past `(z)` as `(aa)`, `(ab)`.
+
+`legalNumber` renders no trailing period. Type the period in Word when the
+house style wants `1.` at the top level: `{{article | legalNumber}}.`
+
+**Numbering is pure, not stateful.** Every numbering filter is a function of
+the ordinals you pass it and nothing else. There is no hidden counter that
+advances as the document renders. This is a deliberate decision: a hidden
+counter is invisible in the Word document, so an author cannot see why a
+clause became `4.`, and it miscounts silently the moment a conditional section
+is skipped or a table row repeats — which is what legal templates do
+constantly. The cost is that you supply the ordinal. Inside a loop that is the
+loop index plus one:
+
+| Word row | Cell A | Cell B |
+|---|---|---|
+| 1 | Clause | Text |
+| 2 | `{{#clauses}}{{$index | add:1 | legalNumber}}` | `{{text}}{{/clauses}}` |
+
+With three clauses this renders `1`, `2`, `3` (L3). `$index` is zero-based, so
+`add:1` converts it to a 1-based legal ordinal.
+
+Ordinals start at 1. A level that is empty, zero, negative, or not a number
+renders blank, and a number is only as deep as its known levels: with an
+unanswered middle level, `{{article | legalNumber:clause:item}}` renders just
+the article rather than promoting the item to the clause position (L4).
+
+### Party plurality agreement
+
+| Filter | Copy-paste example | One party | Two parties |
+|---|---|---|---|
+| `partyParties` | `{{parties | partyParties}}` | party | parties |
+| `isAre` | `{{parties | isAre}}` | is | are |
+| `hasHave` | `{{parties | hasHave}}` | has | have |
+| `itsTheir` | `{{parties | itsTheir}}` | its | their |
+| `plural` | `{{count | plural:"exhibit":"exhibits"}}` | exhibit | exhibits |
+
+L5: `The {{parties | partyParties}} {{parties | isAre}} bound by
+{{parties | itsTheir}} covenants and {{parties | hasHave}} signed.` renders
+`The party is bound by its covenants and has signed.` for one party and
+`The parties are bound by their covenants and have signed.` for two.
+
+The count comes from the value on the left of the pipe:
+
+- A list counts its items.
+- A number, or a numeric string, is the count itself — so a "number of
+  signatories" question can drive agreement directly.
+- Any other non-empty value — a single name, a single party record — counts as
+  one party.
+- An empty or unanswered value renders blank.
+
+Zero takes the plural form, as English does ("0 parties are named"). Supply a
+third argument when the drafting convention differs at zero:
+`{{count | plural:"exhibit":"exhibits":"no exhibit"}}` renders `no exhibit`
+for a count of 0 (L6).
+
+`itsTheir` is about how many parties there are. For one person's pronouns, use
+`pronounPossessive` below.
+
+### Pronoun agreement
+
+| Filter | Copy-paste example | she/her | they/them |
+|---|---|---|---|
+| `pronounSubject` | `{{p | pronounSubject}}` | she | they |
+| `pronounObject` | `{{p | pronounObject}}` | her | them |
+| `pronounPossessive` | `{{p | pronounPossessive}}` | her | their |
+| `pronounReflexive` | `{{p | pronounReflexive}}` | herself | themselves |
+| `pronounVerb` | `{{p | pronounVerb:"is"}}` | is | are |
+
+L7: `{{p | pronounSubject | capitalize}} {{p | pronounVerb:"is"}} responsible
+for {{p | pronounPossessive}} fees, and shall indemnify {{p | pronounObject}}
+and {{p | pronounReflexive}}.` renders
+
+- `She is responsible for her fees, and shall indemnify her and herself.`
+- `They are responsible for their fees, and shall indemnify them and themselves.`
+
+Chain `capitalize` for a sentence-initial pronoun, as above.
+
+`pronounVerb` supplies verb agreement, which is the reason these are filters
+and not a lookup table: they/them takes plural agreement, so `pronounVerb:"is"`
+renders `are`, `pronounVerb:"has"` renders `have`, and
+`pronounVerb:"agrees"` renders `agree`. Pass the plural form explicitly as a
+second argument if the derived one is wrong: `{{p | pronounVerb:"is":"are"}}`.
+
+**Pronouns are never inferred.** ezBuildr does not guess pronouns from a name,
+a title, or an honorific, and there is no fallback that does. A name does not
+indicate anyone's pronouns, and a wrong guess misgenders a real client in a
+document that gets signed. Pronouns come from an explicit value only.
+
+L9: with the same `client.name` of `Ada Lovelace`, the sentence
+`{{client.name}}: {{client | pronounSubject}} {{client | pronounVerb:"agrees"}}.`
+renders `he agrees` with an explicit `he/him`, `she agrees` with an explicit
+`she/her`, and `they agree` when no pronoun value is present.
+
+**The default is they/them.** An absent, empty, or unrecognised pronoun value
+resolves to they/them with plural verb agreement (L8). This is the one
+deliberate exception to the blank-on-empty rule elsewhere in this guide: a
+blank pronoun would break the sentence around it, and they/them is correct and
+safe when the data is missing. Because a pronoun filter always produces a
+word, it never triggers the strict-undefined error described below.
+
+Accepted explicit values:
+
+- A pronoun string in any usual spelling: `she/her`, `She / Her`, `hers`,
+  `he/him/his`, `they/them`, `themself`, `it/its`.
+- A stated set outside the built-ins, in slash form:
+  `xe/xem/xyr/xyrs/xemself` (subject/object/possessive/possessive
+  pronoun/reflexive). A four-part value reads as
+  subject/object/possessive/reflexive. Forms you do not state are derived from
+  the object form you did state.
+- A forms object: `{ "subject": "she", "object": "her", "possessive": "her",
+  "reflexive": "herself" }`.
+- A party record carrying either of the above under a `pronouns` key, so the
+  whole record can be piped: `{{client | pronounSubject}}`.
+
+**How to capture pronouns.** There is no dedicated pronoun question type and
+none is needed. Use an ordinary choice question (`multiple_choice` or
+`choice`) whose stored option values are the pronoun strings above —
+`they/them`, `she/her`, `he/him` — plus a `short_text` follow-up for anyone
+who wants to state a set the options do not cover, and pipe whichever alias
+holds a value. Ask; never derive. Make the question optional: an unanswered
+pronoun question renders they/them, which is the intended outcome.
 
 ## Missing values: strict-undefined
 

@@ -34,6 +34,8 @@ import {
   type BusinessDayCalendar,
 } from '../../shared/types/workflow';
 
+import { draftingPrimitives } from './draftingPrimitives';
+
 /**
  * Capitalize first letter of string
  */
@@ -679,6 +681,12 @@ export const docxHelpers = {
   // From formatters.ts
   ...formatters,
 
+  // LD-1 legal drafting primitives: hierarchical numbering, party plurality
+  // agreement, pronoun agreement (see draftingPrimitives.ts). Spread in the
+  // same way as `formatters` -- which is exactly why RenderCore must iterate
+  // this object and never the module namespace (rule 1).
+  ...draftingPrimitives,
+
   // String helpers
   capitalize,
   trim,
@@ -785,4 +793,29 @@ export const TEMPLATE_FILTER_VOCABULARY: Record<string, string> = {
     'Count business days between dates using the workflow calendar -- {{ x | businessDaysBetween:y }}',
   addWeekdays:
     'Add weekdays while always ignoring holidays -- {{ x | addWeekdays:30 }}',
+
+  // LD-1 drafting primitives. Numbering is a pure function of the ordinals
+  // the author passes -- no hidden counter (see draftingPrimitives.ts).
+  legalNumber:
+    'Dotted outline number from explicit ordinals -- {{ article | legalNumber:clause }} renders "1.1"',
+  legalLetter: 'Parenthesised lowercase letter -- {{ n | legalLetter }} renders "(a)"',
+  legalUpperLetter: 'Parenthesised uppercase letter -- {{ n | legalUpperLetter }} renders "(A)"',
+  legalRoman: 'Parenthesised lowercase roman numeral -- {{ n | legalRoman }} renders "(i)"',
+  legalUpperRoman: 'Parenthesised uppercase roman numeral -- {{ n | legalUpperRoman }} renders "(I)"',
+  plural:
+    'Party-count agreement for any word pair -- {{ parties | plural:"party":"parties" }}',
+  partyParties: 'Party-count agreement for party/parties -- {{ parties | partyParties }}',
+  isAre: 'Party-count verb agreement for is/are -- {{ parties | isAre }}',
+  hasHave: 'Party-count verb agreement for has/have -- {{ parties | hasHave }}',
+  itsTheir: 'Party-count possessive for its/their -- {{ parties | itsTheir }}',
+  pronounSubject:
+    'Subject pronoun from an explicit pronoun value, they/them by default -- {{ client_pronouns | pronounSubject }}',
+  pronounObject:
+    'Object pronoun from an explicit pronoun value -- {{ client_pronouns | pronounObject }}',
+  pronounPossessive:
+    'Possessive determiner from an explicit pronoun value -- {{ client_pronouns | pronounPossessive }}',
+  pronounReflexive:
+    'Reflexive pronoun from an explicit pronoun value -- {{ client_pronouns | pronounReflexive }}',
+  pronounVerb:
+    'Verb agreeing with an explicit pronoun value -- {{ client_pronouns | pronounVerb:"is" }} renders "are" for they/them',
 };

@@ -367,12 +367,113 @@ describe('documented template-language samples', () => {
       await expect(renderTag(template, { has_children: false })).resolves.toBe('Contingent Gift.');
     });
 
+    it('L3 numbers loop rows from the loop index, with no hidden counter', async () => {
+      // The numbering filters are pure functions of the ordinal the author
+      // passes. Inside a loop that ordinal is `$index | add:1`, so the same
+      // template renders 1, 2, 3 without the filter holding any state.
+      const template = table(
+        row('Clause', 'Text'),
+        row('{{#clauses}}{{$index | add:1 | legalNumber}}', '{{text}}{{/clauses}}')
+      );
+      const result = await render(template, {
+        clauses: [{ text: 'Definitions' }, { text: 'Term' }, { text: 'Fees' }],
+      });
+
+      expect(result.rowCells).toEqual([
+        ['Clause', 'Text'],
+        ['1', 'Definitions'],
+        ['2', 'Term'],
+        ['3', 'Fees'],
+      ]);
+    });
+
     it('S7 an object section pushes that object into scope', async () => {
       const template = table(row('{{#fees}}Filing fee', '{{filing | usd}}{{/fees}}'));
 
       await expect(render(template, { fees: { filing: 350 } })).resolves.toMatchObject({
         rowCells: [['Filing fee', '$350.00']],
       });
+    });
+  });
+
+  describe('legal drafting primitives', () => {
+    it('L1 legalNumber builds a dotted outline number from explicit ordinals', async () => {
+      await expect(
+        renderTag('{{article | legalNumber:clause}}', { article: 2, clause: 3 })
+      ).resolves.toBe('2.3');
+      await expect(
+        renderTag('{{article | legalNumber:clause:item}}', { article: 1, clause: 1, item: 1 })
+      ).resolves.toBe('1.1.1');
+    });
+
+    it('L2 the numbering styles render lettered and roman labels', async () => {
+      await expect(renderTag('{{n | legalLetter}}', { n: 1 })).resolves.toBe('(a)');
+      await expect(renderTag('{{n | legalUpperLetter}}', { n: 1 })).resolves.toBe('(A)');
+      await expect(renderTag('{{n | legalRoman}}', { n: 4 })).resolves.toBe('(iv)');
+      await expect(renderTag('{{n | legalUpperRoman}}', { n: 4 })).resolves.toBe('(IV)');
+    });
+
+    it('L4 an unanswered numbering level renders blank', async () => {
+      await expect(
+        renderTag('Clause [{{clause_number | legalNumber}}]', { clause_number: '' })
+      ).resolves.toBe('Clause []');
+    });
+
+    it('L5 plurality filters agree with the party count', async () => {
+      const sentence =
+        'The {{parties | partyParties}} {{parties | isAre}} bound by {{parties | itsTheir}} covenants and {{parties | hasHave}} signed.';
+
+      await expect(renderTag(sentence, { parties: ['Acme'] })).resolves.toBe(
+        'The party is bound by its covenants and has signed.'
+      );
+      await expect(renderTag(sentence, { parties: ['Acme', 'Globex'] })).resolves.toBe(
+        'The parties are bound by their covenants and have signed.'
+      );
+    });
+
+    it('L6 plural takes any word pair, and an explicit zero form', async () => {
+      await expect(
+        renderTag('{{count | plural:"exhibit":"exhibits"}}', { count: 3 })
+      ).resolves.toBe('exhibits');
+      await expect(
+        renderTag('{{count | plural:"exhibit":"exhibits":"no exhibit"}}', { count: 0 })
+      ).resolves.toBe('no exhibit');
+    });
+
+    it('L7 pronoun filters use the explicit pronoun value', async () => {
+      const sentence =
+        '{{p | pronounSubject | capitalize}} {{p | pronounVerb:"is"}} responsible for {{p | pronounPossessive}} fees, and shall indemnify {{p | pronounObject}} and {{p | pronounReflexive}}.';
+
+      await expect(renderTag(sentence, { p: 'she/her' })).resolves.toBe(
+        'She is responsible for her fees, and shall indemnify her and herself.'
+      );
+      await expect(renderTag(sentence, { p: 'they/them' })).resolves.toBe(
+        'They are responsible for their fees, and shall indemnify them and themselves.'
+      );
+    });
+
+    it('L8 an absent or empty pronoun value defaults to they/them', async () => {
+      await expect(
+        renderTag('{{p | pronounSubject}} {{p | pronounVerb:"is"}}', { p: '' })
+      ).resolves.toBe('they are');
+      await expect(
+        renderTag('{{p | pronounSubject}} {{p | pronounVerb:"is"}}', { p: null })
+      ).resolves.toBe('they are');
+    });
+
+    it('L9 pronouns come only from the pronoun value, never from the name', async () => {
+      const sentence = '{{client.name}}: {{client | pronounSubject}} {{client | pronounVerb:"agrees"}}.';
+      const name = 'Ada Lovelace';
+
+      await expect(
+        renderTag(sentence, { client: { name, pronouns: 'he/him' } })
+      ).resolves.toBe('Ada Lovelace: he agrees.');
+      await expect(
+        renderTag(sentence, { client: { name, pronouns: 'she/her' } })
+      ).resolves.toBe('Ada Lovelace: she agrees.');
+      await expect(renderTag(sentence, { client: { name } })).resolves.toBe(
+        'Ada Lovelace: they agree.'
+      );
     });
   });
 });
