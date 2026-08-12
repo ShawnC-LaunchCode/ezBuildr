@@ -64,7 +64,8 @@ Conventions: services export a module-level singleton (`export const fooService 
 | DocumentTemplateService | Template management |
 | FinalBlockRenderer | Final block rendering |
 | RenderCore | **The single template grammar + parser.** All DOCX rendering and the runner's answer piping go through it; do not add a second parser |
-| docxHelpers | Filter implementations (35) + `TEMPLATE_FILTER_VOCABULARY`, the curated preset list |
+| docxHelpers | Filter implementations (60) + `TEMPLATE_FILTER_VOCABULARY`, the curated preset list. Register on the exported **object**, never the module namespace |
+| draftingPrimitives | LD-1 legal drafting filters — hierarchical numbering (pure, no hidden counter), party plurality agreement, pronoun agreement (explicit values only, they/them default, **no name inference**). Merged into `docxHelpers` |
 | TemplateParser / TemplateScanner / MappingInterpreter / VariableNormalizer | Template variable pipeline (TemplateParser delegates to RenderCore; TemplateScanner repairs Word-split tags and rejects structurally broken ones) |
 | PdfConverter / ZipBundler | PDF conversion, bundling |
 | DocumentDeliveryService + `document/delivery/adapters/*` | Durable post-generation email, webhook, and S3-compatible delivery with exponential retries, audit history, stale-job recovery, tenant authorization, and credential redaction |

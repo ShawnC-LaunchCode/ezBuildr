@@ -450,6 +450,19 @@ curated `TEMPLATE_FILTER_VOCABULARY`, which is kept in the same file:
 - Money and numbers: `usd`, `currency`, `number`, `percent`
 - Text and booleans: `upper`, `lower`, `titlecase`, `yesno`, `trim`
 - Missing-value fallback: `default`
+- Legal drafting primitives (LD-1, implemented in `../draftingPrimitives.ts`
+  and merged into the same object): `legalNumber`, `legalLetter`,
+  `legalUpperLetter`, `legalRoman`, `legalUpperRoman`; `plural`,
+  `partyParties`, `isAre`, `hasHave`, `itsTheir`; `pronounSubject`,
+  `pronounObject`, `pronounPossessive`, `pronounReflexive`, `pronounVerb`
+
+Two invariants in that family are load-bearing, not stylistic. Numbering is a
+**pure** function of the ordinals the author passes — no hidden counter, which
+would be invisible in the Word document and would miscount whenever a
+conditional section is skipped or a row loop repeats. Pronouns are resolved
+from an **explicit** value only and default to they/them; there is no
+name, title, or honorific inference path anywhere, because a wrong guess
+misgenders a real client in a document that gets signed.
 
 Lower-level registered filters cover custom date formatting, date arithmetic,
 math, arrays, and string operations. They use the same pipe/colon grammar. For

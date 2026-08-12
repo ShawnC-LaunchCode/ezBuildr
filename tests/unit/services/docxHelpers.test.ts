@@ -37,7 +37,25 @@ import {
   tokenizeTag,
   parseHelperArg,
   resolveHelperArg,
+  TEMPLATE_FILTER_VOCABULARY,
 } from '../../../server/services/docxHelpers';
+import {
+  legalNumber,
+  legalLetter,
+  legalUpperLetter,
+  legalRoman,
+  legalUpperRoman,
+  plural,
+  partyParties,
+  isAre,
+  hasHave,
+  itsTheir,
+  pronounSubject,
+  pronounObject,
+  pronounPossessive,
+  pronounReflexive,
+  pronounVerb,
+} from '../../../server/services/draftingPrimitives';
 
 /**
  * Stage 21 PR 3: DOCX Helpers Tests
@@ -666,6 +684,291 @@ describe('DOCX Helpers', () => {
         expect(resolveHelperArg(scope, 'MM/DD/YYYY')).toBe('MM/DD/YYYY');
         expect(resolveHelperArg(scope, 'EUR')).toBe('EUR');
       });
+    });
+  });
+});
+
+/**
+ * LD-1: legal drafting primitives.
+ *
+ * The render-path proof (AC5) lives in
+ * `tests/unit/services/document/docSamples.test.ts`, which renders each
+ * documented example through `renderDocxBuffer`. These are the unit-level
+ * edge cases that would bloat the documentation samples.
+ */
+describe('LD-1 legal drafting primitives', () => {
+  describe('hierarchical numbering (pure, no hidden counter)', () => {
+    it('AC1: renders the dotted decimal style at every depth', () => {
+      expect(legalNumber(1)).toBe('1');
+      expect(legalNumber(1, 1)).toBe('1.1');
+      expect(legalNumber(1, 1, 1)).toBe('1.1.1');
+      expect(legalNumber(2, 13, 4)).toBe('2.13.4');
+    });
+
+    it('AC1: renders the lettered and roman styles', () => {
+      expect(legalLetter(1)).toBe('(a)');
+      expect(legalLetter(26)).toBe('(z)');
+      expect(legalLetter(27)).toBe('(aa)');
+      expect(legalUpperLetter(1)).toBe('(A)');
+      expect(legalUpperLetter(28)).toBe('(AB)');
+      expect(legalRoman(1)).toBe('(i)');
+      expect(legalRoman(4)).toBe('(iv)');
+      expect(legalRoman(9)).toBe('(ix)');
+      expect(legalRoman(14)).toBe('(xiv)');
+      expect(legalUpperRoman(4)).toBe('(IV)');
+      expect(legalUpperRoman(1990)).toBe('(MCMXC)');
+    });
+
+    it('accepts an array of levels and numeric strings from step values', () => {
+      expect(legalNumber([1, 2, 3])).toBe('1.2.3');
+      expect(legalNumber(['2', '4'])).toBe('2.4');
+      expect(legalNumber('3', '1')).toBe('3.1');
+      expect(legalLetter('3')).toBe('(c)');
+    });
+
+    it('is pure: the same ordinals always render the same label, in any order', () => {
+      // A stateful counter would make the second call to the same ordinal
+      // return a different label. Interleave calls to prove there is no
+      // shared state between filters either.
+      expect(legalNumber(3)).toBe('3');
+      expect(legalLetter(1)).toBe('(a)');
+      expect(legalNumber(3)).toBe('3');
+      expect(legalNumber(1)).toBe('1');
+      expect(legalLetter(1)).toBe('(a)');
+    });
+
+    it('ends the number at the first unknown level rather than promoting a level', () => {
+      expect(legalNumber(1, null, 3)).toBe('1');
+      expect(legalNumber(1, '', 3)).toBe('1');
+      expect(legalNumber([2, undefined, 9])).toBe('2');
+    });
+
+    it('truncates fractional ordinals and rejects zero, negatives and non-numbers', () => {
+      expect(legalNumber(2.7)).toBe('2');
+      expect(legalNumber(0)).toBe('');
+      expect(legalNumber(-1)).toBe('');
+      expect(legalLetter(0)).toBe('');
+      expect(legalRoman('not a number')).toBe('');
+      expect(legalLetter(true)).toBe('');
+      expect(legalRoman(4000)).toBe('');
+    });
+
+    it('AC4: renders blank rather than throwing on null/undefined', () => {
+      expect(legalNumber(null)).toBe('');
+      expect(legalNumber(undefined)).toBe('');
+      expect(legalLetter(null)).toBe('');
+      expect(legalLetter(undefined)).toBe('');
+      expect(legalUpperLetter(null)).toBe('');
+      expect(legalRoman(null)).toBe('');
+      expect(legalUpperRoman(undefined)).toBe('');
+    });
+  });
+
+  describe('party plurality agreement', () => {
+    it('AC2: agrees party/parties across 0, 1 and many', () => {
+      expect(partyParties(0)).toBe('parties');
+      expect(partyParties(1)).toBe('party');
+      expect(partyParties(2)).toBe('parties');
+      expect(partyParties([])).toBe('parties');
+      expect(partyParties(['Acme'])).toBe('party');
+      expect(partyParties(['Acme', 'Globex'])).toBe('parties');
+    });
+
+    it('AC2: agrees is/are, its/their and has/have across 0, 1 and many', () => {
+      expect([isAre(0), isAre(1), isAre(2)]).toEqual(['are', 'is', 'are']);
+      expect([itsTheir(0), itsTheir(1), itsTheir(2)]).toEqual(['their', 'its', 'their']);
+      expect([hasHave(0), hasHave(1), hasHave(2)]).toEqual(['have', 'has', 'have']);
+    });
+
+    it('takes an explicit zero form when the drafting convention differs at 0', () => {
+      expect(plural(0, 'party', 'parties', 'no party')).toBe('no party');
+      expect(plural(1, 'party', 'parties', 'no party')).toBe('party');
+      expect(plural(3, 'party', 'parties', 'no party')).toBe('parties');
+    });
+
+    it('counts a single non-list value as one party', () => {
+      expect(partyParties('Acme Corporation')).toBe('party');
+      expect(partyParties({ name: 'Acme Corporation' })).toBe('party');
+      expect(partyParties('2')).toBe('parties');
+      expect(partyParties(' 1 ')).toBe('party');
+    });
+
+    it('AC4: renders blank rather than throwing on null/undefined', () => {
+      expect(plural(null, 'party', 'parties')).toBe('');
+      expect(plural(undefined, 'party', 'parties')).toBe('');
+      expect(partyParties(null)).toBe('');
+      expect(isAre(undefined)).toBe('');
+      expect(hasHave(null)).toBe('');
+      expect(itsTheir('')).toBe('');
+      expect(plural(2, null, undefined)).toBe('');
+    });
+  });
+
+  describe('pronoun agreement', () => {
+    it('AC3: defaults to they/them when the pronoun value is absent or empty', () => {
+      for (const absent of [null, undefined, '', '   ', {}]) {
+        expect(pronounSubject(absent)).toBe('they');
+        expect(pronounObject(absent)).toBe('them');
+        expect(pronounPossessive(absent)).toBe('their');
+        expect(pronounReflexive(absent)).toBe('themselves');
+      }
+    });
+
+    it('AC3: takes the pronoun set from an explicit value', () => {
+      expect([
+        pronounSubject('she/her'),
+        pronounObject('she/her'),
+        pronounPossessive('she/her'),
+        pronounReflexive('she/her'),
+      ]).toEqual(['she', 'her', 'her', 'herself']);
+
+      expect([
+        pronounSubject('he/him'),
+        pronounObject('he/him'),
+        pronounPossessive('he/him'),
+        pronounReflexive('he/him'),
+      ]).toEqual(['he', 'him', 'his', 'himself']);
+
+      expect([
+        pronounSubject('they/them'),
+        pronounObject('they/them'),
+        pronounPossessive('they/them'),
+        pronounReflexive('they/them'),
+      ]).toEqual(['they', 'them', 'their', 'themselves']);
+    });
+
+    it('accepts the spellings a pronoun question actually stores', () => {
+      expect(pronounSubject('She/Her')).toBe('she');
+      expect(pronounSubject('she / her')).toBe('she');
+      expect(pronounSubject('hers')).toBe('she');
+      expect(pronounSubject('him')).toBe('he');
+      expect(pronounSubject('he/him/his')).toBe('he');
+      expect(pronounSubject('themself')).toBe('they');
+      expect(pronounPossessive('it/its')).toBe('its');
+    });
+
+    it('honours an explicitly stated set outside the built-ins', () => {
+      expect([
+        pronounSubject('xe/xem/xyr/xyrs/xemself'),
+        pronounObject('xe/xem/xyr/xyrs/xemself'),
+        pronounPossessive('xe/xem/xyr/xyrs/xemself'),
+        pronounReflexive('xe/xem/xyr/xyrs/xemself'),
+      ]).toEqual(['xe', 'xem', 'xyr', 'xemself']);
+
+      // Four-part form: the last position is the reflexive.
+      expect(pronounReflexive('ze/hir/hir/hirself')).toBe('hirself');
+      // Two-part form: unstated forms derive from the stated object form,
+      // never from anything else about the person.
+      expect(pronounPossessive('ey/em')).toBe('ems');
+      expect(pronounReflexive('ey/em')).toBe('emself');
+    });
+
+    it('reads an explicit forms object and a party record that carries one', () => {
+      const forms = { subject: 'she', object: 'her', possessive: 'her', reflexive: 'herself' };
+      expect(pronounSubject(forms)).toBe('she');
+      expect(pronounReflexive(forms)).toBe('herself');
+
+      expect(pronounSubject({ name: 'A. Client', pronouns: 'he/him' })).toBe('he');
+      expect(pronounSubject({ name: 'A. Client', pronouns: forms })).toBe('she');
+      expect(pronounSubject({ subject: 'they' })).toBe('they');
+      expect(pronounVerb({ subject: 'they' }, 'is')).toBe('are');
+    });
+
+    /**
+     * AC3's no-inference proof. The name is held constant and only the
+     * explicit pronoun value changes, so the output can only be coming from
+     * the pronoun value. The second half is the converse: names (and
+     * honorifics) that a gendered-name list would classify confidently all
+     * resolve to the safe default, because nothing reads them.
+     */
+    it('AC3: never infers pronouns from a name, title or honorific', () => {
+      const sameName = 'Ada Lovelace';
+
+      expect(pronounSubject({ name: sameName, pronouns: 'he/him' })).toBe('he');
+      expect(pronounSubject({ name: sameName, pronouns: 'she/her' })).toBe('she');
+      expect(pronounSubject({ name: sameName, pronouns: 'they/them' })).toBe('they');
+
+      // Same name, two different explicit values, two different outputs --
+      // in a full sentence, not just a single form.
+      const sentence = (pronouns: unknown): string =>
+        `${pronounSubject({ name: sameName, pronouns })} ${pronounVerb({ name: sameName, pronouns }, 'is')} bound by ${pronounPossessive({ name: sameName, pronouns })} covenant.`;
+
+      expect(sentence('he/him')).toBe('he is bound by his covenant.');
+      expect(sentence('she/her')).toBe('she is bound by her covenant.');
+      expect(sentence('he/him')).not.toBe(sentence('she/her'));
+
+      for (const nameOnly of [
+        'Ada Lovelace',
+        'Alan Turing',
+        'Mrs. Ada Lovelace',
+        'Mr. Alan Turing',
+        'Ms. Grace Hopper',
+        'Sir Isaac Newton',
+      ]) {
+        expect(pronounSubject(nameOnly)).toBe('they');
+        expect(pronounPossessive({ name: nameOnly })).toBe('their');
+        expect(pronounVerb(nameOnly, 'is')).toBe('are');
+      }
+    });
+
+    it('agrees the verb with the pronoun set, including they/them', () => {
+      expect(pronounVerb('they/them', 'is')).toBe('are');
+      expect(pronounVerb('she/her', 'is')).toBe('is');
+      expect(pronounVerb('he/him', 'is')).toBe('is');
+      expect(pronounVerb('they/them', 'has')).toBe('have');
+      expect(pronounVerb('they/them', 'was')).toBe('were');
+      expect(pronounVerb('they/them', 'does')).toBe('do');
+      expect(pronounVerb('they/them', 'agrees')).toBe('agree');
+      expect(pronounVerb('they/them', 'certifies')).toBe('certify');
+      expect(pronounVerb('they/them', 'waives')).toBe('waive');
+      expect(pronounVerb('they/them', 'possesses')).toBe('possess');
+      expect(pronounVerb('she/her', 'agrees')).toBe('agrees');
+    });
+
+    it('takes an explicit plural verb form and keeps a leading capital', () => {
+      expect(pronounVerb('they/them', 'is', 'ARE')).toBe('ARE');
+      expect(pronounVerb('she/her', 'is', 'are')).toBe('is');
+      expect(pronounVerb('they/them', 'Is')).toBe('Are');
+      expect(pronounVerb('they/them', 'Has')).toBe('Have');
+    });
+
+    it('AC4: does not throw on null/undefined, resolving to the they/them default', () => {
+      // Deliberate divergence from AC4's blank rule, documented in the guide:
+      // a blank pronoun would break the sentence it sits in, so the pronoun
+      // family falls back to the safe default instead of rendering nothing.
+      // The requirement AC4 is protecting -- never throw -- still holds.
+      expect(() => pronounSubject(null)).not.toThrow();
+      expect(pronounSubject(null)).toBe('they');
+      expect(pronounObject(undefined)).toBe('them');
+      expect(pronounPossessive(null)).toBe('their');
+      expect(pronounReflexive(undefined)).toBe('themselves');
+      expect(pronounVerb(null, 'is')).toBe('are');
+      // A missing verb argument is the one blank case: there is no word to agree.
+      expect(pronounVerb('they/them', null)).toBe('');
+      expect(pronounVerb(null, undefined)).toBe('');
+    });
+  });
+
+  describe('AC5: registration on the docxHelpers object', () => {
+    it('registers every drafting primitive as a filter', () => {
+      const expected = [
+        'legalNumber', 'legalLetter', 'legalUpperLetter', 'legalRoman', 'legalUpperRoman',
+        'plural', 'partyParties', 'isAre', 'hasHave', 'itsTheir',
+        'pronounSubject', 'pronounObject', 'pronounPossessive', 'pronounReflexive', 'pronounVerb',
+      ];
+
+      for (const filterName of expected) {
+        expect(typeof (docxHelpers as Record<string, unknown>)[filterName]).toBe('function');
+        // AC6: each one is documented in the author-facing vocabulary.
+        expect(TEMPLATE_FILTER_VOCABULARY[filterName]).toBeDefined();
+      }
+    });
+
+    it('keeps the drafting primitives through the per-render helper registry', () => {
+      const helpers = createDocxHelpers({ businessDayCalendar: 'us-federal' });
+      expect(helpers.legalNumber(1, 2)).toBe('1.2');
+      expect(helpers.pronounSubject('she/her')).toBe('she');
+      expect(helpers.partyParties(2)).toBe('parties');
     });
   });
 });
