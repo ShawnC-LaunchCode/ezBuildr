@@ -268,8 +268,21 @@ Paste both outputs.
 - [x] SCRIPT-2 ✅ (2026-08-11) — dated verification note in its section above
 - [x] SCRIPT-3 ✅ (2026-08-12) — hook output is now proven to reach the renderer
 - [x] `npm run type-check` · `npm run lint` · `npm run test:fast` green — reviewer re-ran all three
-- [ ] Reviewer has driven a real run with a hook on each phase and confirmed it fired
-      — **still outstanding.** Both closed tickets are unit-level; nothing has yet
-      exercised these phases against the live app. This is the one gate item that
-      SCRIPT-1 and SCRIPT-2 together do not satisfy.
+- [x] Reviewer has driven a real run with a hook on each phase and confirmed it fired
+      — **DONE 2026-08-12.** A live probe inserted real `lifecycle_hooks` rows on both
+      phases and called `runLifecycleService.generateDocuments(runId)` — the same path
+      `RunCompletionJobWorker` drives — against the dev database.
+
+      Evidence: `script_execution_log` recorded
+      `["afterDocumentsGenerated:success","beforeFinalBlock:success"]`, no hook errored,
+      and the run generated 1 document. **JS executed in the real sandbox** —
+      `isolated-vm` is installed on this machine, contrary to a stale note in the
+      `verify` skill (now corrected), so this was not a fallback or a mock.
+
+      Stronger than the gate asked for: the `beforeFinalBlock` hook emitted
+      `hookRan: 'BEFORE-FIRED'` and the **rendered DOCX contained `BEFORE-FIRED`**, so
+      the hook's output demonstrably reached the renderer. That confirms SCRIPT-3's
+      unit-level assertion in a live run as well.
+
+      Probe fixtures fully torn down: 0 leftover tenants, 0 leftover workflows.
 - [x] Reviewer has committed the passed ticket — `2318db18`, merged `b92a9281`

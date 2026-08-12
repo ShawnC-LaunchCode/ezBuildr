@@ -246,9 +246,20 @@ validator for the same field.
 
 - [x] BIZ-1 ✅ (2026-08-11) — dated verification note in its section above
 - [x] `npm run type-check` · `npm run lint` · `npm run test:fast` green — reviewer re-ran all three
-- [ ] Reviewer has rendered a real DOCX with a business-day deadline across a federal holiday
-      and checked the date by hand — **still outstanding.** The reviewer verified the
-      holiday *math* directly (8 cases, including both observed-date edge cases) but has
-      **not** rendered a DOCX end to end. The dev flagged this same gap honestly. Treat
-      the math as proven and the render path as unproven.
+- [x] Reviewer has rendered a real DOCX with a business-day deadline across a federal holiday
+      and checked the date by hand — **DONE 2026-08-12.** A live probe created a workflow with
+      `settings.businessDayCalendar = 'us-federal'`, a DOCX containing
+      `{{ startDate | addBusinessDays:1 }}`, and a real run with `startDate = 2026-07-02`
+      (a Thursday). July 4 2026 is a Saturday, so the holiday is observed Friday July 3.
+
+      **The rendered document read `Deadline: 07/06/2026`** — Monday, skipping both the
+      observed holiday and the weekend. Correct by hand.
+
+      The assertion was made **discriminating**, not merely correct: the weekends-only
+      answer for the same input is `07/03/2026`, and the probe asserted the output matched
+      the federal answer **and did not match** the weekends-only one. So this proves the
+      workflow *setting* actually threads through `EnhancedDocumentEngine` → `RenderCore` →
+      `createDocxHelpers` — not just that the date math is right in isolation.
+
+      Probe fixtures fully torn down: 0 leftover tenants, 0 leftover workflows.
 - [x] Reviewer has committed the passed ticket — `c7410d12`, merged `a246a876`
