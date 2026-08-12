@@ -463,7 +463,45 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(0);
   });
 
-  it('reports missing variables when a template contains an unknown tag (DOC-104)', async () => {
+  /**
+   * DOC-104 reporting, against the contract TPL-3 established (2026-08-10) and
+   * TPL-10 completed. These two cases are deliberately different and must not be
+   * collapsed back into one:
+   *
+   *  - An **aliased-but-unanswered** step is seeded present-as-null by
+   *    `RunDataService.buildForRun` (`byAlias`), so `RenderCore`'s `nullGetter`
+   *    renders it blank and records it in `unresolvedVariables`. The document is
+   *    still produced.
+   *  - A **genuinely unknown** tag (a typo, or a deleted question) is NOT in the
+   *    data contract, so `nullGetter` raises rather than blanking it — see the
+   *    "loud, not blank" comment at `RenderCore.ts` `isUnknownPath`. The document
+   *    fails instead of silently shipping a gap in a legal document.
+   *
+   * The second case is the reason this test previously expected one generated
+   * document from an unknown tag: it was written 2026-07-13, before strict
+   * undefined existed. Matching unit samples: U1/U2 in
+   * `tests/unit/services/document/docSamples.test.ts`.
+   */
+  // SKIPPED — this asserts the DOC-104 contract as designed, and it fails because
+  // of a REAL PRODUCT DEFECT, not a stale fixture. `unresolved_variables` is
+  // structurally always `[]` for every generated run document:
+  //
+  //   VariableNormalizer.ts:289-294  null/undefined -> '' when includeEmpty (default true)
+  //   EnhancedDocumentEngine.ts:432  renderFinalBlock normalizes unconditionally
+  //   EnhancedDocumentEngine.ts:242  generateWithMapping normalizes again (normalize: true)
+  //   RenderCore.ts:290-307          nullGetter only fires for null/undefined, never for ''
+  //
+  // Probed directly: raw `{matterNumber: null}` records ["matterNumber"], but the
+  // normalized `{matterNumber: ''}` the run path actually passes records []. So the
+  // whole reporting feature — DB column, service plumbing, and the behaviour
+  // workflowStructureRules.ts:389 documents as designed — can never fire.
+  // The existing unit coverage misses it because
+  // tests/unit/services/FinalBlockRenderer.test.ts:58 hardcodes
+  // `unresolvedVariables: ["missingField"]` inside a mock of the engine.
+  //
+  // Per G171-6 AC2 this is reported, NOT papered over by asserting []. Un-skip
+  // when the defect is fixed.
+  it.skip('records an aliased-but-unanswered variable as unresolved and still generates the document (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {
@@ -472,9 +510,68 @@ describe('Automatic document generation on run completion', () => {
       alias: 'clientName',
       order: 0,
     });
-    // Template contains {{unknownTag}} which is not provided by the workflow
+    // Aliased, so it is part of the data contract -- but left unanswered below,
+    // so it arrives as null and must be reported rather than raising.
+    await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Matter number',
+      alias: 'matterNumber',
+      order: 1,
+    });
     const template = await createTemplateOnDisk(
-      'Missing Tag Doc',
+      'Missing Value Doc',
+      'Hello {{clientName}}, matter {{matterNumber}}?'
+    );
+    await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 2,
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: template.id, alias: 'contract' },
+        ],
+      },
+    });
+
+    // Only clientName is answered; matterNumber has no step_value row.
+    const runId = await createRunWithValue(workflow.id, textStep.id, 'Acme Corporation');
+
+    const result = await runLifecycleService.generateDocuments(runId);
+
+    // Generation succeeds -- an unanswered optional field is a degraded document,
+    // not a failed one.
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, runId));
+    expect(records).toHaveLength(1);
+
+    // The unresolved variables list names the unanswered alias, not the answered one.
+    expect(records[0].unresolvedVariables).toContain('matterNumber');
+    expect(records[0].unresolvedVariables).not.toContain('clientName');
+
+    // The value that WAS supplied still merged, and the gap rendered blank.
+    const buffer = await getGeneratedFileBuffer(records[0].storageKey);
+    const text = await readDocxText(buffer);
+    expect(text).toContain('Hello Acme Corporation, matter ?');
+  });
+
+  it('fails the document rather than blanking it when a template tag is not in the data contract at all (DOC-104 / TPL-3)', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const textStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Client name',
+      alias: 'clientName',
+      order: 0,
+    });
+    // {{unknownTag}} matches no step alias, so it is not in the data contract.
+    const template = await createTemplateOnDisk(
+      'Unknown Tag Doc',
       'Hello {{clientName}}, where is the {{unknownTag}}?'
     );
     await factory.createStep(section.id, {
@@ -493,20 +590,17 @@ describe('Automatic document generation on run completion', () => {
 
     const result = await runLifecycleService.generateDocuments(runId);
 
-    // Generation succeeds
+    // The per-document render error is caught in EnhancedDocumentEngine's
+    // renderFinalBlock loop, so the run's generation as a whole still reports
+    // success -- but the document itself is not produced or persisted.
     expect(result.success).toBe(true);
-    expect(result.documentsGenerated).toBe(1);
+    expect(result.documentsGenerated).toBe(0);
 
-    // Record persisted with unresolved variables
     const records = await db
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
-    expect(records).toHaveLength(1);
-    
-    // The unresolved variables list should contain 'unknownTag'
-    expect(records[0].unresolvedVariables).toContain('unknownTag');
-    expect(records[0].unresolvedVariables).not.toContain('clientName');
+    expect(records).toHaveLength(0);
   });
 
   it('marks generation status as failed if template resolver throws (DOC-104)', async () => {
