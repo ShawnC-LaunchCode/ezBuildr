@@ -101,6 +101,50 @@ IDs are stable, heading anchors are not.
 
 ---
 
+## GH-171 template versioning (G171) — [detail](backlog/GH171_TEMPLATE_VERSIONING.md) — retired 2026-08-12
+
+**GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed.** Parks three
+`informational` entries. Read the detail before touching template versioning, pinning, or
+the document-generation reporting path.
+
+- **G171-O1 — `unresolved_variables` reporting is dead, and now untested** · `informational`.
+  `run_generated_documents.unresolved_variables` is *structurally* always `[]`: normalization
+  turns null into `''` before `RenderCore`'s `nullGetter`, which only fires for
+  null/undefined, could record it. The test that would catch it was removed upstream when
+  skipped tests were eliminated. **A fix was in flight in a separate session on 2026-08-12 and
+  its outcome was never confirmed** — check that first; if it did not land, this is real open
+  work to promote, not an observation. Never "fix" it by asserting `[]`.
+- **G171-O2 — template version immutability is nearly enforced** · `informational`. The hard
+  delete (`pruneOldVersions`) was removed 2026-08-12. What remains is `deactivateVersion` —
+  **zero callers**, does not alter version content, but carries the same pinned-run hazard the
+  pruner did. Cheapest resolution is to delete it as dead code.
+- **G171-O3 — process note for reviewers** · `informational`. Verify every gate yourself; a
+  test count that moves *downward* is a stop condition; and check a worktree's base commit
+  before calling its numbers wrong.
+
+## Business-day date math (BIZ) — [detail](backlog/BUSINESS_DAYS.md) — retired 2026-08-12
+
+**2 of 2 tickets closed**, gate fully satisfied including a live real-DOCX render across a
+federal holiday. Parks one entry. Carries the settled ruling that **the holiday calendar is
+configuration, not a filter argument**, and that the render-time throw on an invalid calendar
+**stays** (a wrong date on a legal deadline is worse than a loud failure).
+
+- **BIZ-O1 — the other import-side jsonb blobs are unvalidated** · `enhancement`. BIZ-2 added
+  a `fieldSchemas` hook to the portability entity graph and used it only for
+  `workflows.settings`. `sections.config`, `steps.config`, `blocks.config` and
+  `workflow_versions.graphJson` still pass with nothing but a shape check. Nothing is known
+  to be broken — this records that the same class of bug may exist next door.
+
+## Scripting hooks (SCRIPT) — [detail](backlog/SCRIPTING_HOOKS.md) — retired 2026-08-12
+
+**3 of 3 tickets closed and it parks nothing.** Two document-generation lifecycle phases
+(`beforeFinalBlock`, `afterDocumentsGenerated`) could never fire; they now fire, in order,
+with their output provably reaching the renderer. The detail file is kept for the
+`Closed — do not re-file` table and one reusable lesson: **for any hook, ask whether a test
+proves existence, ordering, or effect** — those were SCRIPT-1, -2 and -3 respectively, and
+only the third is worth much. Also records that **`isolated-vm` is installed locally**, so
+hook paths are verifiable live.
+
 ## Template Language (TPL) — [detail](backlog/TEMPLATE_LANGUAGE.md) — retired 2026-08-10
 
 **11 of 11 tickets closed.** `test:fast` 2814 → 3031. One grammar now serves DOCX templates
@@ -109,10 +153,13 @@ roadmap **GH-161** and unblocked **GH-171** and **GH-173**.
 
 One item needs a ruling before other work depends on it:
 
-- **TPL-O7 — business-day / holiday date math** · `product-decision`. "30 business days" and
-  weekend-rolling deadlines are unexpressible today. The arithmetic is trivial; the **holiday
-  calendar is the whole cost** and it is jurisdictional — weekends-only, a fixed US federal
-  list, or per-workspace. **Answer before GH-173 writes retainer and NDA templates.**
+- ~~**TPL-O7 — business-day / holiday date math**~~ · **RESOLVED 2026-08-12 — do not
+  re-promote.** The ruling it was waiting for was given on 2026-08-11 (the calendar is
+  *configuration*, selectable between `weekends-only` and `us-federal`) and shipped as the
+  **BIZ** initiative — `addBusinessDays`, `nextBusinessDay`, `businessDaysBetween` and
+  `addWeekdays`, with algorithmic federal-holiday observation. "30 business days" and
+  weekend-rolling deadlines are now expressible. Detail: [backlog/BUSINESS_DAYS.md](backlog/BUSINESS_DAYS.md).
+  Per-workspace calendars were **not** built and nobody has asked for them.
 
 Parked, not dispatchable:
 

@@ -1605,9 +1605,15 @@ Build in this order; each step should leave the tree gate-clean.
 > the dev: breaking `getVersionForTemplate`'s `templateId` scoping makes 4 tests
 > fail, two of them completing a real run and rendering the foreign template.
 >
-> **Open follow-ups, none of them GH-171 ACs** — see `tickets/GH171_FOLLOWUP_TICKETS.md`:
-> G171-2 (real-run pin test + preview/run parity), G171-3 (test-count delta),
-> G171-4 (carry-over cleanups), G171-5 (stale `run-tests` doc).
+> **All follow-ups G171-0..6 are closed** (2026-08-12). The initiative is retired; its
+> settled rulings and three parked `informational` observations live in
+> [`tickets/backlog/GH171_TEMPLATE_VERSIONING.md`](backlog/GH171_TEMPLATE_VERSIONING.md), and
+> the full ticket text is recoverable with
+> `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`.
+>
+> ⚠️ One of those observations matters before anyone trusts document-generation reporting:
+> `run_generated_documents.unresolved_variables` is **structurally always `[]`** and its
+> test was removed upstream. A green integration suite does not mean it works.
 >
 > Behaviour change shipped beyond the ACs and deliberately kept: `requiresReview`
 > now trips on renames, which previously passed review silently despite breaking

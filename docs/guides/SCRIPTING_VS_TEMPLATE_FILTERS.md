@@ -34,9 +34,17 @@ This page is the decision rule. Full references:
 | Document hooks | `beforeGeneration`, `afterGeneration` (per document) |
 | Transform blocks | when that step executes |
 
-> ⚠️ Two lifecycle phases exist in the builder and the database enum but are **never
-> invoked**: `beforeFinalBlock` and `afterDocumentsGenerated`. A hook saved on either will
-> silently never run. Tracked as **SCRIPT-1** in `tickets/SCRIPTING_HOOKS_TICKETS.md`.
+> ✅ **Fixed 2026-08-12.** `beforeFinalBlock` and `afterDocumentsGenerated` used to exist in
+> the builder and the database enum while **never being invoked** — a hook saved on either
+> silently never ran. Both now fire: `beforeFinalBlock` after the alias-keyed run data is
+> built and before the first template renders (so its output can still affect document
+> contents), and `afterDocumentsGenerated` once every document exists and its record is
+> persisted. Errors on either phase are non-breaking, matching `beforePage`/`afterPage`.
+>
+> Verified live on 2026-08-12 with a real run: both phases recorded `success` in
+> `script_execution_log`, and the `beforeFinalBlock` hook's emitted value appeared in the
+> rendered DOCX. Shipped as SCRIPT-1..3; detail in
+> [`tickets/backlog/SCRIPTING_HOOKS.md`](../../tickets/backlog/SCRIPTING_HOOKS.md).
 
 **Template filters** run wherever a `{{ }}` tag is rendered — in a generated DOCX, and in
 runner question titles and descriptions.

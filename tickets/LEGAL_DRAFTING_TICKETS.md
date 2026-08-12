@@ -25,8 +25,8 @@ vocabulary LD-1 adds; authoring them first means rewriting them.
 `addBusinessDays`, `nextBusinessDay`, `businessDaysBetween` and `addWeekdays` are
 registered filters, with a workflow-level `businessDayCalendar` setting
 (`weekends-only` default, `us-federal` option) and algorithmic federal-holiday
-observation. See `tickets/BUSINESS_DAYS_TICKETS.md`. **Use them; do not write new date
-math.**
+observation. Detail: [`tickets/backlog/BUSINESS_DAYS.md`](backlog/BUSINESS_DAYS.md) (the BIZ
+initiative retired 2026-08-12). **Use them; do not write new date math.**
 
 Outstanding on that work: no one has rendered a real DOCX with a business-day deadline
 across a federal holiday. If LD-2 builds a retainer template with a deadline, that
