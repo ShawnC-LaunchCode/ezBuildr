@@ -13,6 +13,7 @@ export interface TemplateParserOptions {
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
     unresolvedVariables?: string[];
+    workflowSettings?: unknown;
 }
 
 export class TemplateParser {

@@ -532,6 +532,7 @@ export class RunLifecycleService {
           toPdf: options.toPdf ?? false,
           normalizationOptions: { listConfigs, listBoundChoices },
           tenantId,
+          workflowSettings: workflow.settings,
         });
         totalGenerated += generationResult.totalGenerated;
         documents.push(...generationResult.documents);

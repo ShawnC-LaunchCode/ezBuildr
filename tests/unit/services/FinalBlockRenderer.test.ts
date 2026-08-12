@@ -66,7 +66,10 @@ describe("FinalBlockRenderer", () => {
     });
   }
 
-  function render(toPdf = true): ReturnType<FinalBlockRenderer["render"]> {
+  function render(
+    toPdf = true,
+    workflowSettings?: unknown
+  ): ReturnType<FinalBlockRenderer["render"]> {
     return new FinalBlockRenderer().render({
       workflowId: "wf-1",
       runId: "run-1",
@@ -80,6 +83,7 @@ describe("FinalBlockRenderer", () => {
           { id: "doc-1", documentId: "template-1", alias: "contract" },
         ],
       },
+      workflowSettings,
     });
   }
 
@@ -150,6 +154,16 @@ describe("FinalBlockRenderer", () => {
     const request = vi.mocked(enhancedDocumentEngine.renderFinalBlock).mock.calls[0][0];
     expect(request).toEqual(expect.objectContaining({ toPdf: true }));
     expect(request).not.toHaveProperty("pdfStrategy");
+  });
+
+  it("passes workflow settings to the document engine", async () => {
+    const workflowSettings = { businessDayCalendar: "us-federal" };
+
+    await render(true, workflowSettings);
+
+    expect(enhancedDocumentEngine.renderFinalBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowSettings })
+    );
   });
 
   it("omits conversion metadata when no PDF was requested", async () => {

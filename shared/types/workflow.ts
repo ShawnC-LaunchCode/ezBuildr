@@ -48,6 +48,40 @@ export type StepType =
     | "final"
     | "list";
 
+/** Calendars supported by the workflow-level business-day date filters. */
+export const BUSINESS_DAY_CALENDARS = ['weekends-only', 'us-federal'] as const;
+
+export type BusinessDayCalendar = typeof BUSINESS_DAY_CALENDARS[number];
+
+/** Date-math configuration stored in the existing `workflows.settings` JSON blob. */
+export interface BusinessDayWorkflowSettings {
+    businessDayCalendar?: BusinessDayCalendar;
+}
+
+export const DEFAULT_BUSINESS_DAY_CALENDAR: BusinessDayCalendar = 'weekends-only';
+
+/**
+ * Resolve and validate the workflow calendar at the dynamic JSON boundary.
+ * Absence is intentionally weekends-only for existing workflows.
+ */
+export function resolveBusinessDayCalendar(settings: unknown): BusinessDayCalendar {
+    if (settings === null || settings === undefined || typeof settings !== 'object') {
+        return DEFAULT_BUSINESS_DAY_CALENDAR;
+    }
+
+    const calendar = (settings as Record<string, unknown>).businessDayCalendar;
+    if (calendar === undefined) {
+        return DEFAULT_BUSINESS_DAY_CALENDAR;
+    }
+    if (calendar === 'weekends-only' || calendar === 'us-federal') {
+        return calendar;
+    }
+
+    throw new Error(
+        `businessDayCalendar setting must be one of "weekends-only" or "us-federal"; received ${JSON.stringify(calendar)}`
+    );
+}
+
 export interface WorkflowJSON {
     id: string;
     title: string;

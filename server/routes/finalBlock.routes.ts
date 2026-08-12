@@ -232,6 +232,7 @@ export function registerFinalBlockRoutes(app: Express): void {
             listConfigs: getListConfigsByAlias(workflowSteps),
             listBoundChoices: getChoiceListBindingsByAlias(workflowSteps),
           },
+          workflowSettings: workflow.settings,
         });
 
         logger.info({

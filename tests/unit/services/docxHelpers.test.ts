@@ -11,11 +11,15 @@ import {
   defaultValue,
   formatDate,
   addDays,
+  addBusinessDays,
+  addWeekdays,
   addMonths,
   addYears,
   startOfMonth,
   endOfMonth,
   daysBetween,
+  nextBusinessDay,
+  businessDaysBetween,
   formatCurrency,
   formatNumber,
   add,
@@ -29,6 +33,7 @@ import {
   replace,
   concat,
   docxHelpers,
+  createDocxHelpers,
   tokenizeTag,
   parseHelperArg,
   resolveHelperArg,
@@ -295,6 +300,58 @@ describe('DOCX Helpers', () => {
       it('AC4: an unparseable date input raises rather than returning blank', () => {
         expect(() => addDays('not a date', 30)).toThrow(/addDays/);
         expect(() => addDays('not a date', 30)).toThrow(/not a date/);
+      });
+    });
+
+    describe('business-day arithmetic (BIZ-1)', () => {
+      it('AC1/AC8: absent settings default to weekends-only and skip a weekend from Friday', () => {
+        expect(addBusinessDays('2026-01-02', 1, 'YYYY-MM-DD')).toBe('2026-01-05');
+        expect(createDocxHelpers({}).addBusinessDays('2026-01-02', 1, 'YYYY-MM-DD')).toBe(
+          '2026-01-05'
+        );
+      });
+
+      it('AC2: the US-federal calendar also skips a federal holiday', () => {
+        const helpers = createDocxHelpers({ businessDayCalendar: 'us-federal' });
+        expect(helpers.addBusinessDays('2026-01-16', 1, 'YYYY-MM-DD')).toBe('2026-01-20');
+      });
+
+      it('AC3/AC4: computes Saturday observation in 2026 and Sunday observation in 2027', () => {
+        const helpers = createDocxHelpers({ businessDayCalendar: 'us-federal' });
+
+        // Independence Day is Saturday in 2026, so Friday July 3 is observed.
+        expect(helpers.addBusinessDays('2026-07-02', 1, 'YYYY-MM-DD')).toBe('2026-07-06');
+        // Independence Day is Sunday in 2027, so Monday July 5 is observed.
+        expect(helpers.addBusinessDays('2027-07-02', 1, 'YYYY-MM-DD')).toBe('2027-07-06');
+      });
+
+      it('AC5: nextBusinessDay preserves a business day and rolls a non-business day forward', () => {
+        expect(nextBusinessDay('2026-01-07', 'YYYY-MM-DD')).toBe('2026-01-07');
+        expect(nextBusinessDay('2026-01-04', 'YYYY-MM-DD')).toBe('2026-01-05');
+      });
+
+      it('AC6: businessDaysBetween excludes weekend dates at both endpoints', () => {
+        expect(businessDaysBetween('2026-01-03', '2026-01-11')).toBe(5);
+        expect(businessDaysBetween('2026-01-11', '2026-01-03')).toBe(5);
+      });
+
+      it('AC7: addWeekdays ignores holidays under a US-federal workflow', () => {
+        const helpers = createDocxHelpers({ businessDayCalendar: 'us-federal' });
+        expect(helpers.addWeekdays('2026-07-02', 1, 'YYYY-MM-DD')).toBe('2026-07-03');
+        expect(addWeekdays('2026-07-02', 1, 'YYYY-MM-DD')).toBe('2026-07-03');
+      });
+
+      it('AC9: an invalid setting names the setting and accepted values', () => {
+        expect(() => createDocxHelpers({ businessDayCalendar: 'court-days' })).toThrow(
+          /businessDayCalendar.*weekends-only.*us-federal.*court-days/
+        );
+      });
+
+      it('coerces quoted numeric amounts and rejects invalid dates and amounts', () => {
+        expect(addBusinessDays('2026-01-02', '1', 'YYYY-MM-DD')).toBe('2026-01-05');
+        expect(addBusinessDays(null, 1)).toBe('');
+        expect(() => addBusinessDays('2026-01-02', 'soon')).toThrow(/addBusinessDays.*soon/);
+        expect(() => businessDaysBetween('not a date', '2026-01-02')).toThrow(/businessDaysBetween/);
       });
     });
 
