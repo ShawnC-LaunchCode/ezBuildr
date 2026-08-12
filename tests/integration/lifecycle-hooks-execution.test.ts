@@ -319,7 +319,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(result.data.normalizedName).toBe('JOHN DOE');
     });
 
-    it.skipIf(process.platform === 'win32')('should execute Python afterPage hook', async () => {
+    it('should execute Python afterPage hook', async () => {
       // Create Python hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)

@@ -7,12 +7,16 @@ import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
 
 import { db } from '../../server/db';
-import { shutdown } from '../../server/realtime/collabServer';
+import { getRoomStats, shutdown } from '../../server/realtime/collabServer';
 import { authService } from '../../server/services/AuthService';
-import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+import {
+  createTestUser,
+  setupIntegrationTest,
+  type IntegrationTestContext,
+} from '../helpers/integrationTestHelper';
 
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { collabDocs, collabUpdates, users, workflowAccess } from '@shared/schema';
+import { and, eq } from 'drizzle-orm';
 
 /**
  * DEBT-3b: real-time collaboration sync had no test at all.
@@ -108,13 +112,13 @@ async function connectClient(wsUrl: string): Promise<CollabClient> {
  * nothing.
  */
 async function waitForCondition(
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   description: string,
   timeoutMs = 10000
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (predicate()) {
+    if (await predicate()) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -126,6 +130,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
   let ctx: IntegrationTestContext;
   let wsBase: string;
   let roomKey: string;
+  let workflowId: string;
   let collabToken: string;
   const clients: CollabClient[] = [];
 
@@ -138,7 +143,8 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
       .send({ projectId: ctx.projectId, title: 'Collab Sync WF', name: 'collab_sync_wf' })
       .expect(201);
 
-    roomKey = `tenant:${ctx.tenantId}:workflow:${workflowResponse.body.id}`;
+    workflowId = workflowResponse.body.id as string;
+    roomKey = `tenant:${ctx.tenantId}:workflow:${workflowId}`;
 
     // ctx.authToken is minted at registration, before the harness assigns the
     // tenant, so its tenantId claim is null and the collab server rejects it as
@@ -163,9 +169,39 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     await ctx.cleanup();
   }, 60000);
 
-  function url(): string {
-    return `${wsBase}?room=${encodeURIComponent(roomKey)}&token=${collabToken}`;
+  function url(token = collabToken): string {
+    return `${wsBase}?room=${encodeURIComponent(roomKey)}&token=${token}`;
   }
+
+  it('creates a room and tracks two authorized active users', async () => {
+    const builder = await createTestUser(ctx, 'builder');
+    await db.insert(workflowAccess).values({
+      workflowId,
+      principalType: 'user',
+      principalId: builder.userId,
+      role: 'edit',
+    });
+
+    const ownerClient = await connectClient(url());
+    const builderClient = await connectClient(url(builder.token));
+    clients.push(ownerClient, builderClient);
+
+    await waitForCondition(() => {
+      const stats = getRoomStats(roomKey);
+      return Boolean(
+        stats &&
+        stats.users.some((user) => user.userId === ctx.userId) &&
+        stats.users.some((user) => user.userId === builder.userId)
+      );
+    }, 'the collaboration room to report both users as present');
+
+    const stats = getRoomStats(roomKey);
+    expect(stats?.name).toBe(roomKey);
+    expect(stats?.users.map((user) => user.userId)).toEqual(
+      expect.arrayContaining([ctx.userId, builder.userId])
+    );
+    expect(stats?.activeUsers).toBe(2);
+  }, 30000);
 
   it('propagates an edit from one client to another as a converged Y.Doc value', async () => {
     const clientA = await connectClient(url());
@@ -182,6 +218,39 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     );
 
     expect(clientB.doc.getMap('yGraph').get('testKey')).toBe('testValue');
+  }, 30000);
+
+  it('persists a client update to the collaboration update log', async () => {
+    const client = await connectClient(url());
+    clients.push(client);
+
+    const [collabDoc] = await db
+      .select({ id: collabDocs.id })
+      .from(collabDocs)
+      .where(and(eq(collabDocs.workflowId, workflowId), eq(collabDocs.tenantId, ctx.tenantId)))
+      .limit(1);
+    expect(collabDoc).toBeDefined();
+
+    const before = await db
+      .select({ id: collabUpdates.id })
+      .from(collabUpdates)
+      .where(eq(collabUpdates.docId, collabDoc.id));
+
+    client.doc.transact(() => {
+      client.doc.getMap('yGraph').set('persistedKey', 'persistedValue');
+    });
+
+    let persistedCount = before.length;
+    await waitForCondition(async () => {
+      const rows = await db
+        .select({ id: collabUpdates.id })
+        .from(collabUpdates)
+        .where(eq(collabUpdates.docId, collabDoc.id));
+      persistedCount = rows.length;
+      return persistedCount > before.length;
+    }, 'the collaboration update to be written to the database');
+
+    expect(persistedCount).toBeGreaterThan(before.length);
   }, 30000);
 
   it('converges concurrent edits from both clients rather than losing one', async () => {

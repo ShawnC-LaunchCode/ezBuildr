@@ -342,8 +342,7 @@ describe('ScriptEngine', () => {
         expect(result.error).toContain('Test error');
       });
 
-      it.skip('should enforce timeout for Python', async () => {
-        // Skip if Python is not installed
+      it('should enforce timeout for Python', async () => {
         const params: ExecuteScriptParams = {
           language: 'python',
           code: 'import time\nwhile True:\n    time.sleep(0.1)',

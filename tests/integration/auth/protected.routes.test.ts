@@ -5,6 +5,8 @@
  * Covers bearer token validation, role-based access, and edge cases.
  */
 
+import { validateHeaderValue } from "node:http";
+
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import request from "supertest";
@@ -224,11 +226,10 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(401); // Extra space makes it invalid
         });
 
-        it.skip("should handle token with newlines", async () => {
-            await request(ctx.baseURL)
-                .get("/api/auth/me")
-                .set("Authorization", `Bearer ${userToken}\n`)
-                .expect(401);
+        it("should reject a newline in the Authorization header before sending it", () => {
+            expect(() => {
+                validateHeaderValue("Authorization", `Bearer ${userToken}\n`);
+            }).toThrow(/Invalid character in header content/);
         });
 
         it("should handle very long invalid token", async () => {

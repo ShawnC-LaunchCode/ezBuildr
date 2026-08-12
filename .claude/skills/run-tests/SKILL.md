@@ -38,7 +38,7 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- As of 2026-08-12, `npm run test:integration` against Docker PG on 5434 is green: **112 passed files; 1106 passed / 4 skipped tests**. There are no documented integration failures; treat any failure as a regression.
+- As of 2026-08-12, `npm run test:integration` against Docker PG on 5434 is green: **112 passed files; 1112 passed / 0 skipped tests**. There are no documented integration failures; treat any failure as a regression.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas
