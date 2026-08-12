@@ -1,8 +1,16 @@
 # GH-171 Follow-up — Template Versioning & Impact Analysis
 
-**Status:** handoff to a new senior reviewer · **Written:** 2026-08-11
-**Parent ticket:** GH-171 in `tickets/ROADMAP_TICKETS.md` (still 🔲 — do **not** mark it ✅ yet)
-**Ticket prefix:** `G171-1..5`
+**Status:** GH-171 ✅ closed 2026-08-12 · G171-6 is the only ticket still open
+**Written:** 2026-08-11 · **Last updated:** 2026-08-12
+**Parent ticket:** GH-171 in `tickets/ROADMAP_TICKETS.md` — **✅ closed**, all 4 ACs met
+**Ticket prefix:** `G171-0..6`
+
+> **Reading order.** Sections below were written while GH-171 was still open and are
+> kept for the record. Where the header of a ticket says ✅ DONE, that closure note is
+> authoritative and any older prose in the same section describing it as outstanding is
+> historical. The two facts most often out of date elsewhere in this file:
+> **AC3 is met** (G171-1), and **the integration baseline is now 2 failed files /
+> 2 failed tests**, not 10 (G171-5).
 
 ---
 
@@ -27,11 +35,9 @@ unrelated file that passes 3/3 in 560ms in isolation. That is this repo's known
 order-dependent flake, not a regression. Re-verify in isolation before blaming
 your own change.)
 
-**`main` is unpushed.** GH-171 stays 🔲 because AC3 is unmet — the merge preserved
-the work and unblocked dispatch; it is not a claim the ticket passed review.
-
-Tear the worktree down **only** with `pwsh scripts/new-worktree.ps1 -Name gh-171 -Remove`,
-never a bare `git worktree remove` (CLAUDE.md explains why).
+**Superseded 2026-08-12: GH-171 is now ✅ closed.** AC3 was met by G171-1
+(`6f28b585`, merged `36cd2fa7`). The `gh-171` worktree and branch no longer exist —
+there is nothing to tear down. Base any remaining work on `main`.
 
 ---
 
@@ -79,14 +85,18 @@ has one unmet acceptance criterion.
 |---|---|
 | 1. Uploads create immutable versions with notes + timestamps | ✅ wired on POST and PATCH |
 | 2. Dependency analyzer lists workflows referencing a template | ✅ reads section-config JSON |
-| 3. Impact warning highlights added, removed, **or renamed** placeholders | ❌ **renamed not implemented** → [G171-1](#g171-1--implement-renamed-placeholder-detection-ac3) |
+| 3. Impact warning highlights added, removed, **or renamed** placeholders | ✅ **done 2026-08-11** by [G171-1](#g171-1--implement-renamed-placeholder-detection-ac3) (`6f28b585` → `36cd2fa7`) |
 | 4. Workflows can pin to a version or follow latest | ✅ works end to end |
 
 ### ⚠️ Do not re-derive these — they cost real time to establish
 
-1. **The 10 integration failures are pre-existing on `main`, not GH-171's doing.**
-   Verified by running the same files on the clean main checkout — identical
-   failures. See [G171-5](#g171-5--stale-known-failure-doc--10-undocumented-integration-failures-on-main); it is **independent of GH-171**.
+1. **The 10 integration failures were pre-existing on `main`, not GH-171's doing** —
+   and **8 of them are now fixed.** G171-5 traced them to a stale test-fixture
+   contract (ZIPs with empty OOXML metadata that real DOCX validation correctly
+   rejected), not a product bug; no route or service file changed.
+   **The baseline is now 2 failed files / 2 failed tests / 1104 passed.** The two
+   remaining are named and root-caused in `.claude/skills/run-tests/SKILL.md`, and
+   [G171-6](#g171-6--fix-the-last-two-integration-failures) is open to finish them.
 2. **The preview route was never vulnerable.** `previewGenerateSchema` stripped
    `pinnedVersionId` (Zod drops unknown keys), so no pin ever reached the
    resolver there. The dev **added** that field, creating the vector, then
@@ -329,7 +339,19 @@ Paste both outputs.
 
 ---
 
-## G171-3 — Account for the 2 missing unit tests
+## G171-3 — Account for the 2 missing unit tests ✅ DONE 2026-08-12
+
+**Closed by:** `50bfd24a`, merged to `main` as part of the G171-SMALLS merge (unpushed).
+**Outcome: there was no coverage hole.** The −2 was a measurement error against a
+transient tree state, not a real deficit — full reasoning in the investigation note
+below.
+
+**Independently corroborated by the reviewer's own chain of measurements**, which is
+why this is accepted rather than taken on the dev's word: 3036 (clean parent
+`713045dc`) → 3039 (`3ac6747d`, = +1 `TemplateVersionSelector` +2
+`TemplateAnalysisService.impact`) → 3043 in the G171-1 worktree (+4) → **3046 on `main`
+after SCRIPT-2** (+3) → 3066 with BIZ-1 (+20). Every step matches a number the reviewer
+took independently. No suite shrank at any point.
 
 **Priority: P2** · Size: S · Files: investigation only; fix depends on findings
 
@@ -399,7 +421,18 @@ a file it should still see, that is a real coverage hole and needs a fix.
 
 ---
 
-## G171-4 — Cleanups carried over from review
+## G171-4 — Cleanups carried over from review ✅ DONE 2026-08-12
+
+**Closed by:** `faee6e8a`, merged to `main` as part of the G171-SMALLS merge (unpushed).
+
+Reviewer-verified: `force: true` dropped from the **PATCH** call so change-dedup
+applies, and the upload path at `templates.routes.ts:410` correctly **keeps** it — the
+reviewer checked that specifically, since removing both would have been the easy
+mistake. Dead `?? 'system'` fallback gone. Stale comment corrected. Integration
+coverage strengthened in `templates.mapping-workbench.test.ts`.
+
+Two items resolved as no-ops with reasons, not silently skipped: `TemplateAnalysisService.ts`
+needed no edit, and the pin-security file cleanup had already landed with G171-2.
 
 **Priority: P2** · Size: S · Files: `server/routes/templates.routes.ts`, `server/services/TemplateAnalysisService.ts`, `tests/integration/finalBlock.pinSecurity.test.ts`, `tests/integration/publish-document-readiness.test.ts`
 

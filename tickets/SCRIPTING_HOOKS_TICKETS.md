@@ -203,7 +203,16 @@ passes.
 
 ---
 
-## SCRIPT-3 — Assert beforeFinalBlock output reaches the renderer 🔲
+## SCRIPT-3 — Assert beforeFinalBlock output reaches the renderer ✅ DONE 2026-08-12
+
+**Closed by:** `74d29457`, merged to `main` as part of the G171-SMALLS merge (unpushed).
+All 4 ACs met. The mocked `beforeFinalBlock` now returns **mutated** data and the test
+asserts `finalBlockRenderer.render` received it — plus a bonus assertion that the
+mutation propagates on to `afterDocumentsGenerated`, which the ticket did not ask for.
+
+Non-vacuity proven: with the service changed to pass unmodified `stepValues`, one test
+fails; restored, 3/3 pass. So the regression this ticket exists to prevent — a hook that
+fires in the right order with no effect on output — can no longer pass the suite.
 
 **Priority: P2** · Size: S · Files: `tests/unit/services/RunLifecycleService.lifecycleHooks.test.ts`
 
@@ -257,6 +266,7 @@ Paste both outputs.
 
 - [x] SCRIPT-1 ✅ (2026-08-11)
 - [x] SCRIPT-2 ✅ (2026-08-11) — dated verification note in its section above
+- [x] SCRIPT-3 ✅ (2026-08-12) — hook output is now proven to reach the renderer
 - [x] `npm run type-check` · `npm run lint` · `npm run test:fast` green — reviewer re-ran all three
 - [ ] Reviewer has driven a real run with a hook on each phase and confirmed it fired
       — **still outstanding.** Both closed tickets are unit-level; nothing has yet
