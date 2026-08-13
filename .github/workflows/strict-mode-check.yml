@@ -1,14 +1,18 @@
 name: TypeScript Strict Mode Check
 
+# `develop` was listed here until 2026-08-13 but has never existed in this repo
+# — the branch is `dev` — so half of these triggers were dead and the strict-zone
+# gate only ever fired on main. Tracks the real promotion chain now.
 on:
   push:
     branches:
       - main
-      - develop
+      - test
+      - dev
   pull_request:
     branches:
       - main
-      - develop
+      - test
 
 # The strict-zones jobs post a PR summary/failure comment via github-script.
 # With the repo's default read-only GITHUB_TOKEN that call fails ("Resource not

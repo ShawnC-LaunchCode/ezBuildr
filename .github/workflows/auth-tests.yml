@@ -21,7 +21,7 @@ name: Auth Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test", "dev" ]
     paths:
       - 'server/services/AuthService.ts'
       - 'server/services/MfaService.ts'
@@ -33,7 +33,7 @@ on:
       - 'vitest.config.auth.ts'
       - '.github/workflows/auth-tests.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "test" ]
     paths:
       - 'server/services/AuthService.ts'
       - 'server/services/MfaService.ts'

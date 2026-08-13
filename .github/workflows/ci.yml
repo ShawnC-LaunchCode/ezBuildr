@@ -1,10 +1,18 @@
 name: Deployment Safety Check
 
+# Runs on every branch in the promotion chain (dev -> test -> main), not just
+# main. When this gated main alone, a break could sit undetected on dev and test
+# and only announce itself once it had already reached the branch that deploys:
+# the PdfConverter env-leak failed six consecutive main builds that way, having
+# passed nothing earlier because nothing earlier ran.
+#
+# The Slack header labels itself from GITHUB_REF_NAME (scripts/ci/build-slack-
+# payload.js), so dev and test builds identify themselves with no further change.
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "test" ]
 
 jobs:
   # Blocking quality gates. Keep type-check and lint green before deployment.

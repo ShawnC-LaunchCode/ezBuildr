@@ -246,6 +246,23 @@ than picking for them.
 - `tickets/BACKLOG.md` `DEBT-OPS3` (delete the stale `origin/debt9-typecheck-proof` branch) is
   a one-liner worth doing in the same pass.
 
+### Progress — 2026-08-13 (the repo-side half is done; GitHub settings remain)
+
+The branch workflow this ticket assumes now exists and is enforced locally:
+
+- `dev` → `test` → `main` is documented in CLAUDE.md ("Branch flow"), with `test` → `main`
+  specified as **PR-only** because that hop reaches production.
+- **CI runs on all three branches.** `ci.yml`, `strict-mode-check.yml` and `auth-tests.yml`
+  previously triggered on `main` alone (and `strict-mode-check.yml` on a `develop` branch that
+  has never existed), so there was no check available to require on a `test` → `main` PR.
+  There is now — which is criterion 2's dependency.
+- `.claude/hooks/guard-branch-push.mjs` blocks a direct push to `test`/`main`, overridable with
+  `EZB_DIRECT_PUSH=1` when the repo owner asks. This constrains **Claude**, not git — it is not
+  a substitute for protection, which is why this ticket stays open.
+
+Still open here: the GitHub-side settings, and the escalation above is unchanged — the repo
+owner has **not** yet chosen linear history / required reviewers / admin bypass.
+
 ### Acceptance criteria
 
 1. Branch protection is enabled on `main`; `gh api …/branches/main/protection` returns 200 and
