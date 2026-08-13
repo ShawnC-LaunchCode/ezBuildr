@@ -1881,10 +1881,26 @@ Filed 2026-08-09 during the GH-155 review pass:
   These are committed to a public repo, so anyone can forge a session or JWT for
   www.ezbuildr.com. Rotating them invalidates all existing sessions and refresh tokens.
   Not code work — no ticket — but this outranks everything else on this board.
-- **O-2 (operational) — `BASE_URL`/`VITE_BASE_URL` disagree with the public domain.** Both
-  point at `https://vaultlogic-production.up.railway.app/` while `RAILWAY_PUBLIC_DOMAIN` is
-  `www.ezbuildr.com`. Anything building an absolute URL (OAuth redirects, emailed
-  save-and-resume links in GH-147, webhook callbacks) emits the wrong host.
+- **O-2 ✅ CLOSED 2026-08-13 — `BASE_URL` now matches the public domain.** Both
+  `BASE_URL` and `VITE_BASE_URL` are `https://www.ezbuildr.com`, so absolute URLs (OAuth
+  callbacks, integration callbacks, emailed save-and-resume links, webhook callbacks) emit
+  the branded host. `ALLOWED_ORIGIN` is
+  `www.ezbuildr.com,ezbuildr.com,ezbuildr-production.up.railway.app`.
+
+  The Railway service domain was renamed in the same pass:
+  `vaultlogic-production.up.railway.app` → **`ezbuildr-production.up.railway.app`**, retiring
+  the legacy product name from the last customer-reachable surface. Safe because nothing in
+  the codebase referenced that hostname (one mention, in this file), `connections` stores
+  per-row redirect URIs and had **0 rows**, and `run_resume_links` had 0 rows.
+
+  Verified after each of the three redeploys: `www.ezbuildr.com` 200 with
+  `database.connected: true` and Gotenberg reachable, apex 301, new subdomain 200, old
+  subdomain 404. Sequencing mattered — `BASE_URL` was repointed **before** the rename, so
+  there was never a window where it named a hostname that did not exist.
+
+  Note `server/services/emailService.ts:115` already hardcoded `https://www.ezbuildr.com`
+  for production, so emails were branded while callbacks were not; that inconsistency is
+  what made this worth fixing rather than cosmetic.
 - **O-3 ✅ CLOSED 2026-08-04 — S3 adopted, backfill deliberately skipped.** Production now
   runs `STORAGE_DRIVER=s3` against the Railway bucket `integrated-flask`
   (`integrated-flask-bf4igkar` on `https://t3.storageapi.dev`, region `iad`, Tigris-backed).
