@@ -268,10 +268,46 @@ database you can lock yourself out of.
 
 ## The current state, verified 2026-08-12
 
-| Fact | Evidence |
+> ### 🔴 CORRECTED 2026-08-13 — measured against production, not read from the migration
+>
+> An earlier version of this table described what `migrations/0001_enable_rls.sql` *says*
+> and presented it as the state of production. **A read-only snapshot of the production
+> database proves otherwise.** Reproduce with:
+>
+> ```bash
+> npx tsx scripts/schema-snapshot.ts > snapshot.txt   # read-only; safe on prod
+> ```
+>
+> | Measured on production (`billowing-base-67211686` / `production`) | Count |
+> |---|---|
+> | Tables | 107 |
+> | Tables with a `tenant_id` column | **26** |
+> | Of those, actually protected by RLS | **2** — `run_document_deliveries`, `run_resume_links` |
+> | **Tenant-bearing tables with NO RLS at all** | **24** |
+> | Tables with `FORCE ROW LEVEL SECURITY` | **0** |
+> | RLS policies present in total | 9 (7 are DataVault children with no `tenant_id`, scoping via parent) |
+>
+> The 24 unprotected tables include `users`, `organizations`, `projects`, `connections`,
+> `audit_logs`, `teams`, `tenant_domains`, `signature_requests`, `records`.
+>
+> **Migration `0001` provably did nothing.** All 24 migrations are applied
+> (`__drizzle_migrations` has 24 rows), yet the 24 tables in `0001`'s array are *exactly*
+> the 24 that lack RLS. The loop's `to_regclass(quote_ident(t))` guard (line ~47) skips a
+> table it cannot resolve with `RAISE NOTICE` and continues — so it ran, matched nothing,
+> and succeeded. It has looked applied for months.
+>
+> **Two latent bugs in `0001` regardless:** it lists `files`, which has **no `tenant_id`
+> column** in production, so that entry could never have yielded a valid policy; and it
+> omits `ai_usage`, which does have one.
+>
+> **So the real position is worse than "policies exist but the owner bypasses them."**
+> Policies do not exist for 24 of 26 tenant tables, *and* the 9 that exist are bypassed.
+> Tenant isolation in production is service-layer discipline alone, everywhere.
+
+| Fact (about the migration source, not production) | Evidence |
 |---|---|
-| RLS is enabled and a `tenant_isolation` policy created on **24 tenant tables** | `migrations/0001_enable_rls.sql:51` `FOREACH` loop — `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` per table |
-| Plus ownership-based policies on `workflows`, `sections`, `steps` | same file, lines ~104, ~126, ~156, using `app_current_tenant()` (defined line 67) |
+| `0001` *intends* RLS + a `tenant_isolation` policy on 24 tenant tables | `migrations/0001_enable_rls.sql:51` `FOREACH` loop — `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` per table. **Not present in production — see above.** |
+| It also *intends* ownership-based policies on `workflows`, `sections`, `steps` | same file, lines ~104, ~126, ~156, using `app_current_tenant()` (line 67). **Also absent from production.** |
 | Policies key off a **transaction-local GUC** | `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)` |
 | **No `FORCE ROW LEVEL SECURITY` anywhere** | `grep -rn "FORCE ROW LEVEL" migrations/ server/` → no matches |
 | The app connects as the **table owner** | `.env` `DATABASE_URL` user is `neondb_owner` |
@@ -405,9 +441,26 @@ chosen, and writing them now would presume the answer.
 
 ---
 
-## RLS-3 — Audit policy coverage against the real tenant-table list 🔲
+## RLS-3 — Repair policy coverage: 24 of 26 tenant tables are unprotected 🔲
 
-**Priority: P1** · Size: M · Files: `migrations/0001_enable_rls.sql` (or a follow-on migration), `docs/architecture/TENANT_ISOLATION_RLS.md`
+**Priority: P0** (raised from P1 on 2026-08-13 — the coverage gap was measured, not theoretical)
+· Size: M · Files: a new migration, `docs/architecture/TENANT_ISOLATION_RLS.md`
+
+> **The measurement is already done — start from it, don't redo it.** Production has 26
+> tables with a `tenant_id` column and **2** of them are protected. Regenerate the evidence
+> any time with `npx tsx scripts/schema-snapshot.ts` (read-only). The unprotected 24 are
+> exactly `0001`'s array, because that migration's loop silently matched nothing.
+>
+> This ticket is therefore **repair**, not audit: write a migration that actually applies
+> RLS, and prove it applied by re-snapshotting rather than by the migration exiting 0 —
+> which is precisely what `0001` did wrong.
+>
+> Do **not** simply re-run `0001`'s approach. A loop that skips unresolvable tables with a
+> `RAISE NOTICE` is how this went unnoticed; the replacement must **fail loudly** if a table
+> it expects is absent.
+>
+> Two specific defects to fix while you are in there: `files` is in the array but has **no
+> `tenant_id` column**, and `ai_usage` has one but is **not** in the array.
 
 ### Finding
 
