@@ -181,6 +181,23 @@ describe('documented template-language samples', () => {
       await expect(renderTag('{{amount | add:tax}}', { amount: 100, tax: 8 })).resolves.toBe('108');
     });
 
+    // "Money and numbers when the question was not answered" (G171-B2). The
+    // guide promises three things about an unanswered amount; each is one line.
+    it('F15 an unanswered amount renders blank, not a fabricated $0.00', async () => {
+      await expect(renderTag('{{fee | currency}}', { fee: '' })).resolves.toBe('');
+      await expect(renderTag('{{fee | number}}', { fee: '' })).resolves.toBe('');
+      await expect(renderTag('{{fee | percent}}', { fee: '' })).resolves.toBe('');
+    });
+
+    it('F16 an author who means zero says so, and gets it', async () => {
+      await expect(renderTag('{{fee | default:"0" | currency}}', { fee: '' })).resolves.toBe('$0.00');
+      await expect(renderTag('{{fee | default:"0" | currency}}', { fee: '1200' })).resolves.toBe('$1,200.00');
+    });
+
+    it('F17 a real zero is an answer, and still renders', async () => {
+      await expect(renderTag('{{fee | currency}}', { fee: 0 })).resolves.toBe('$0.00');
+    });
+
     it('F14 parenthesised filter arguments do not parse', async () => {
       await expect(renderTag('{{name | default("N/A")}}', { name: '' })).rejects.toThrow(
         /Template syntax error/i

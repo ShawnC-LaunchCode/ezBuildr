@@ -515,9 +515,23 @@ describe('DOCX Helpers', () => {
         expect(result).toContain('1,234.56');
       });
 
-      it('should handle null/undefined', () => {
-        expect(formatCurrency(null)).toBe('$0.00');
-        expect(formatCurrency(undefined)).toBe('$0.00');
+      // G171-B2: was '$0.00'. An amount nobody entered is not zero — "Fee:
+      // $0.00" is a different agreement from "Fee: ___". A real 0 still renders
+      // $0.00 (asserted above), and `{{ fee | default:"0" | usd }}` is the
+      // explicit opt-in for authors who want the zero printed.
+      it('renders blank for a value with no number in it', () => {
+        expect(formatCurrency(null)).toBe('');
+        expect(formatCurrency(undefined)).toBe('');
+        expect(formatCurrency('')).toBe('');
+      });
+
+      it('agrees with the other currency implementation', () => {
+        // Two copies exist (`formatters.currency` backs the `currency` filter,
+        // this one backs `formatCurrency`/`usd`). They are both registered
+        // filters, so a template can reach either.
+        for (const value of [1234.5, '1234.5', 0, '', null]) {
+          expect(formatCurrency(value as never)).toBe(docxHelpers.currency(value as never));
+        }
       });
     });
 
@@ -531,9 +545,21 @@ describe('DOCX Helpers', () => {
         expect(formatNumber(1234.567, 2, false)).toBe('1234.57');
       });
 
-      it('should handle null/undefined', () => {
-        expect(formatNumber(null)).toBe('0');
-        expect(formatNumber(undefined)).toBe('0');
+      // G171-B2: was '0'. A number nobody supplied is not zero, and the
+      // authoring guide's blank-on-empty rule now governs the whole numeric
+      // family. `{{ n | default:"0" | formatNumber }}` is the explicit opt-in.
+      it('renders blank for a value with no number in it', () => {
+        expect(formatNumber(null)).toBe('');
+        expect(formatNumber(undefined)).toBe('');
+        expect(formatNumber('')).toBe('');
+      });
+
+      // G171-B5: `String.prototype.toLocaleString` accepts and discards the
+      // options object, so a string value silently came back unformatted with
+      // `decimals` ignored.
+      it('formats a numeric string, honouring decimals', () => {
+        expect(formatNumber('1234.567', 2)).toBe('1,234.57');
+        expect(formatNumber('1234.567', 2)).toBe(formatNumber(1234.567, 2));
       });
     });
   });
@@ -587,8 +613,12 @@ describe('DOCX Helpers', () => {
         expect(percentage(1, 3)).toBe('33%');
       });
 
-      it('should handle 0 total', () => {
-        expect(percentage(10, 0)).toBe('0%');
+      // G171-B2: was '0%'. A share of nothing is undefined, not zero percent —
+      // and "0%" in a signed document is a stated term.
+      it('renders blank for a zero or missing total', () => {
+        expect(percentage(10, 0)).toBe('');
+        expect(percentage(10, null)).toBe('');
+        expect(percentage(null, 200)).toBe('');
       });
     });
   });
@@ -1004,6 +1034,96 @@ describe('LD-1 legal drafting primitives', () => {
       expect(helpers.legalNumber(1, 2)).toBe('1.2');
       expect(helpers.pronounSubject('she/her')).toBe('she');
       expect(helpers.partyParties(2)).toBe('parties');
+    });
+  });
+});
+
+/**
+ * G171-B2 / G171-B5: one table for the whole numeric family.
+ *
+ * These filters disagreed with each other about every input shape that is not
+ * a plain number, and the disagreements were invisible because each filter had
+ * its own two-line test with its own idea of "missing". Every cell below was a
+ * separate small decision made in a different year; keeping them in one grid is
+ * the point, so the next divergence shows up as a diff rather than as a
+ * document that quietly says $0.00.
+ *
+ * The rule: a value with no number in it renders BLANK. It is the authoring
+ * guide's own blank-on-empty rule (`docs/guides/VARIABLES_IN_DOCUMENTS.md`),
+ * and it exists because a fabricated amount in a signed document is a stated
+ * term nobody agreed to. An author who wants a zero asks for one:
+ * `{{ fee | default:"0" | currency }}`.
+ */
+describe('numeric filter family — one contract for missing values (G171-B2/B5)', () => {
+  const MISSING = [null, undefined, '', '   ', 'abc', NaN];
+
+  // Every registered filter that renders a number, including BOTH currency
+  // implementations. `currency` is backed by `formatters.currency` and
+  // `formatCurrency`/`usd` by a second copy in docxHelpers -- the first sweep
+  // fixed one and left the other, so `{{ fee | currency }}` and
+  // `{{ fee | usd }}` disagreed about the same value. Enumerating them here is
+  // what makes that a failing test rather than a discovery.
+  const RENDERERS = ['currency', 'usd', 'formatCurrency', 'number', 'formatNumber', 'percent'] as const;
+
+  describe.each(RENDERERS)('%s', (name) => {
+    const filter = docxHelpers[name] as (v: unknown, ...rest: unknown[]) => string;
+
+    it.each(MISSING)('renders blank for %o', (value) => {
+      expect(filter(value)).toBe('');
+    });
+
+    it('renders a real zero, which is an answer and not a gap', () => {
+      expect(filter(0)).not.toBe('');
+      expect(filter('0')).toBe(filter(0));
+    });
+
+    it('treats a numeric string exactly like the number it spells', () => {
+      expect(filter('1234.5')).toBe(filter(1234.5));
+    });
+  });
+
+  // The renderers' actual output for a real value, pinned so the blank-on-empty
+  // change above cannot be mistaken for "the filter stopped working".
+  it('still formats real values', () => {
+    expect(docxHelpers.currency(1234.5)).toBe('$1,234.50');
+    expect(docxHelpers.usd(1234.5)).toBe('$1,234.50');
+    expect(docxHelpers.formatCurrency(1234.5, 'USD', false)).toBe('1,234.50');
+    expect(docxHelpers.number(1234.5)).toBe('1,235');
+    expect(docxHelpers.formatNumber(1234.5, 2)).toBe('1,234.50');
+    expect(docxHelpers.percent(42.345)).toBe('42%');
+    expect(docxHelpers.percentage(25, 200)).toBe('13%');
+  });
+
+  /**
+   * The math helpers deliberately do NOT follow the blank rule: they compute
+   * rather than render, and `{{ a | add:b | currency }}` needs a number to hand
+   * on. A missing operand contributes 0, as it always has -- what changed is
+   * that operands are coerced first, because `+` is the one operator that
+   * concatenates instead: `add('1200', '300')` used to be the string
+   * '1200300', two amounts from a run glued together instead of summed.
+   */
+  describe('math helpers coerce their operands', () => {
+    it('adds numeric strings instead of concatenating them', () => {
+      expect(add('1200', '300')).toBe(1500);
+      expect(add('1200', '300')).toBe(add(1200, 300));
+    });
+
+    it.each([
+      ['subtract', subtract, 900],
+      ['multiply', multiply, 360000],
+      ['divide', divide, 4],
+    ] as const)('%s coerces both operands', (_name, fn, expected) => {
+      expect(fn('1200', '300')).toBe(expected);
+    });
+
+    it('rounds a numeric string', () => {
+      expect(round('42.345', 1)).toBe(42.3);
+    });
+
+    it('keeps a missing operand worth zero, so a chained filter still gets a number', () => {
+      expect(add('', 300)).toBe(300);
+      expect(divide(300, '')).toBe(0);
+      expect(docxHelpers.currency(add('', 300))).toBe('$300.00');
     });
   });
 });

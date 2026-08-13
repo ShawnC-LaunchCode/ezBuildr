@@ -281,8 +281,7 @@ interface NullGetterScopeManager {
  * This cannot live in `nullGetter`, and that is why the whole reporting
  * feature was dead for as long as it existed. The render data represents "no
  * answer" as `''`, not `null` (see `EnhancedDocumentEngine` -- a null would
- * change what several filters render: `{{ n | number }}` produces `0` for null
- * and `''` for empty string, which is G171-B2's open question).
+ * drop mapped target fields out of the data contract entirely).
  * docxtemplater only consults `nullGetter` for `null`/`undefined`, so
  * an empty string never reaches it. Every tag passes through the parser, so the
  * recorder sits here instead, keyed off the caller-supplied `emptyVariables`

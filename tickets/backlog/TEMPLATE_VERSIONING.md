@@ -70,11 +70,16 @@ failure mode that motivated the whole DOC-104 reporting feature.
 
 </details>
 
-## G171-B5 — the other numeric filters mishandle the string values templates actually carry · `bug`
+## ~~G171-B5 — the other numeric filters mishandle the string values templates actually carry~~ · ✅ FIXED 2026-08-12
 
-Same root cause as B1, found by the same sweep, **not fixed** — because unlike B1's crash
-these produce output, so changing them changes existing documents and that is B2's
-ruling to make. Measured 2026-08-12 by calling each filter directly:
+Fixed with B2's ruling, in one sweep: every numeric filter now coerces through
+`toFiniteNumber` (exported from `server/utils/formatters.ts`), so a numeric string behaves
+exactly like the number it spells, and `add` sums instead of concatenating. The math
+helpers (`add`/`subtract`/`multiply`/`divide`/`round`) deliberately keep "missing operand
+= 0" rather than blank: they compute rather than render, and `{{ a | add:b | currency }}`
+has to hand `currency` a number.
+
+The measurements that motivated it, taken 2026-08-12:
 
 | call | today | should be |
 |---|---|---|
@@ -83,16 +88,35 @@ ruling to make. Measured 2026-08-12 by calling each filter directly:
 | `add('1200', '300')` | `'1200300'` | `1500` — `+` concatenates; `-`, `*`, `/` coerce, so only `add` is affected |
 | `currency('1234.5')` | `'$1,234.50'` | ✅ already correct (`Intl.NumberFormat` coerces) |
 
-So `{{ total | number }}` renders unformatted for every answer typed into a question, and
-`{{ fee | add:tax }}` silently concatenates two amounts. Both are invisible in a template
-preview that uses numeric sample data.
+So `{{ total | number }}` rendered unformatted for every answer typed into a question, and
+`{{ fee | add:tax }}` silently concatenated two amounts. Both were invisible in a template
+preview, which uses numeric sample data.
 
-**Next step:** settle G171-B2 (what a *missing* value renders), then sweep the family in
-one commit — reuse `toFiniteNumber` from B1's fix, and put every filter's `null` /
-`undefined` / `''` / whitespace / `'abc'` / numeric-string / real-number behavior in one
-table test so the next disagreement is visible.
+## ~~G171-B2 — numeric filters fabricate `0` and `$0.00` for a value nobody supplied~~ · ✅ RULED & FIXED 2026-08-12
 
-## G171-B2 — numeric filters fabricate `0` and `$0.00` for a value nobody supplied · `product-decision`
+**Ruling (repo owner, 2026-08-12): blank-on-empty applies to the numeric family.**
+`currency`, `usd`, `number`, `formatNumber`, `percent` and `percentage` now render blank
+when the value has no number in it. An author who means zero writes it —
+`{{ fee | default:"0" | currency }}` — so the intent sits in the template where a reviewer
+sees it, instead of in a silent default. A real `0` is still an answer and still renders
+`$0.00`.
+
+Shipped together with G171-B5 (below), since they are one sweep. The guide gained a
+"Money and numbers when the question was not answered" section, executable in
+`docSamples.test.ts` (F15–F17), and the whole family now has one table test in
+`docxHelpers.test.ts` rather than a per-filter idea of "missing".
+
+**There are two currency implementations, and the first pass swept only one.**
+`formatters.currency` backs the `currency` filter; `docxHelpers.formatCurrency` backs
+`formatCurrency` *and* `usd`. Both are registered filters, so a template can reach either,
+and for one commit `{{ fee | currency }}` rendered blank while `{{ fee | usd }}` still
+rendered `$0.00`. It was caught by re-reading the guide sentence that named `usd`, not by
+a test — so the family table now enumerates **both** copies plus `usd`, and one case
+asserts the two agree value-for-value. If a third copy ever appears, add it there.
+
+The original entry follows, because the *reason* is the durable part.
+
+---
 
 Filters disagree about what "no value" renders, and two of the answers put a number in a
 signed document that no human ever entered:
@@ -126,7 +150,15 @@ not preferences — which is how B1's `percent` was settled.
 declare `currency`/`number` a second documented exception and say why in the guide. Then
 G171-B5 becomes a mechanical sweep with one table test.
 
-## G171-B3 — `template_versions` immutability is not *enforced*, but nothing mutates them either · `informational`
+## ~~G171-B3 — `template_versions` immutability is not *enforced*~~ · ✅ CLOSED 2026-08-12
+
+The dead `deactivateVersion` was deleted, so there is now no mutation path at all and
+immutability holds by construction. A second thing surfaced while removing it, recorded in
+the note left in `TemplateVersionService.ts`: it did not do what its name implied either,
+because `getVersionForTemplate` does not filter on `isActive` — a "deactivated" version
+kept rendering. Original entry below.
+
+---
 
 AC1 says "immutable versions". Filed during review as "the service still exposes a delete
 and an update on version rows" — **that evidence is now stale, and the correction is the
@@ -148,14 +180,13 @@ or version deletion is ever wanted, the removed-prune note names the constraint 
 implementation must respect (exclude versions referenced by a pinned run, with a DB-backed
 test that pins then prunes).
 
-## G171-B4 — `server/services/document/README.md` documents array normalization that no longer happens · `enhancement`
+## ~~G171-B4 — `server/services/document/README.md` documents array normalization that no longer happens~~ · ✅ FIXED 2026-08-12
 
-Its "Layer 4: Variable Normalization" section shows `Arrays → Comma-Separated Strings` as
-the behavior. Arrays are **preserved** now so templates can loop over them
-(`{{#items}}...{{/items}}`); joining is opt-in via `joinArrays`, and a scalar tag joins for
-display at render time. A template author reading this doc would not know loops work.
-
-**Next step:** correct that one section. Cheap; batch it with the next edit to that file.
+Its "Layer 4" section showed `Arrays → Comma-Separated Strings` as the behavior. Arrays
+are **preserved** so templates can loop over them (`{{#items}}...{{/items}}`); joining is
+opt-in via `joinArrays`, and a scalar tag joins for display at render time. A template
+author reading the old text would have concluded loops were impossible. Section rewritten
+to show the array surviving, with the loop and scalar forms named.
 
 ---
 
@@ -206,7 +237,11 @@ display at render time. A template author reading this doc would not know loops 
 | G171-5 | Integration 10 failures → 2. Root cause was **stale DOCX test fixtures**, not a product bug — no route or service changed | `cc427d65` → `e0eb69fe` |
 | G171-6 | Integration 2 → **0**. `documentOnboarding` was the same stale-fixture cause; `docs.autogeneration` was a real product defect and was reported, not papered over | `150e3148` → `46848ba4` |
 | DOC-104 reporting defect | `unresolved_variables` actually fires: names of unanswered variables travel to the renderer (`normalizeForRender`, `recordEmptyVariable`) instead of their nulls, so no document changes. Integration case un-skipped; 7-test no-DB guard added | `f99110d4` |
-| G171-B1 | `percent` crashed on **every** string value with a number in it, not just empty ones — `{{ rate \| percent }}` failed the document for real answers. Now coerces numeric strings and renders blank for a missing value, per the guide's blank-on-empty rule. `daysBetween`'s raise was **deliberate** (TPL-9 (c)) and left alone | see G171-B1 above |
+| G171-B1 | `percent` crashed on **every** string value with a number in it, not just empty ones — `{{ rate \| percent }}` failed the document for real answers. Now coerces numeric strings and renders blank for a missing value, per the guide's blank-on-empty rule. `daysBetween`'s raise was **deliberate** (TPL-9 (c)) and left alone | `48201b74` |
+| G171-B2 | Ruled: blank-on-empty governs the numeric family. `currency`/`usd`/`number`/`formatNumber`/`percent`/`percentage` render blank rather than `$0.00`/`0`/`0%`; `{{ fee \| default:"0" \| currency }}` is the explicit opt-in and a real `0` still renders | see below |
+| G171-B3 | Dead `deactivateVersion` deleted — no mutation path remains, so version immutability holds by construction | see below |
+| G171-B4 | README's array section corrected: arrays are preserved for loops, not comma-joined | see below |
+| G171-B5 | Every numeric filter coerces through `toFiniteNumber`, so a numeric string behaves like the number it spells; `add` sums instead of concatenating. Math helpers keep "missing operand = 0" on purpose | see below |
 | Cross-tenant pin vulnerability | `getVersionForTemplate` scoped on both `id` and `templateId`; unscoped `getVersionById` removed repo-wide; proven non-vacuous by mutation (4 of 5 tests fail without it) | in `24491c3e` |
 | Duplicate `GET /templates/:id/versions` | Removed; registrations back to 2 | in `24491c3e` |
 | `workflow_templates.pinned_version_id` | Reverted — dead schema; migration `0024` deleted | in `24491c3e` |
