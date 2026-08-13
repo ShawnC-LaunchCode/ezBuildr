@@ -32,14 +32,6 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > `WorkflowOptimizationService` looks like an AI service, is served at
 > `/api/ai/workflows/optimize/*`, and makes no model call at all.
 >
-> **GH-171 (template versioning) and its G171-0..6 follow-ups closed and retired into
-> `backlog/TEMPLATE_VERSIONING.md` on 2026-08-12**, together with the DOC-104 reporting
-> defect they surfaced. **All five of its backlog entries were then fixed the same day**,
-> including the ruling that the numeric filters follow the authoring guide's own
-> blank-on-empty rule — `{{ fee | currency }}` no longer renders `$0.00` for a fee nobody
-> entered. It parks nothing. That initiative also took `test:integration` to **0 known
-> failures**, so treat any integration failure as your regression.
->
 > **Read `LU-B1` first if you are about to run a migration.** Local development and
 > production share one Neon database; a local `db:migrate` hits production immediately.
 
@@ -106,45 +98,57 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
-| ~~G171-B1..B5~~ | ✅ all fixed | Template filter family: `percent` crash, blank-on-empty ruling, string coercion, dead version mutator, stale README. **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
+| ~~G171-B1..B5~~ | ✅ all fixed | Template filter family + the dead `unresolved_variables` report (filed as G171-O1..O3 by a concurrent session). **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
+| BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 
 ---
 
-## Template versioning & impact analysis (GH-171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
+## GH-171 template versioning (G171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
 
-Epic **GH-171** plus follow-ups **G171-0..6** — all closed, all 4 ACs met, and the one
-product defect the follow-ups surfaced (DOC-104 reporting) fixed in `f99110d4`. This
-initiative is also what took `test:integration` from 10 known failures to **0**, so there
-is no baseline to hide in anymore.
+**GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed — and every parked
+entry has since been fixed too, so this parks nothing.**
 
-**All five entries closed 2026-08-12 — this initiative parks nothing.** The detail file is
-kept for the `Closed — do not re-file` table, the preview-pin ruling, and the reasoning
-below, which is the durable part:
+Two sessions retired this initiative in parallel on 2026-08-12 and filed the same
+observations under different IDs. **`G171-O1..O3` are the same findings as `G171-B*`;
+the detail file uses the `-B` IDs.** All are now closed:
 
-- **B1** — `percent` threw on **every** string containing a number, so `{{ rate | percent }}`
-  failed documents for real answers, not just missing ones. Both halves of the original
-  filing were wrong in opposite directions: wider than "empty input", and `daysBetween`'s
-  raise turned out to be **deliberate** (TPL-9 (c) — "0 days" reads as a stated deadline).
-- **B2** — ruled **blank-on-empty for the numeric family**. A fabricated `$0.00` is a
-  stated term nobody agreed to; the authoring guide already declared the rule, so
-  `currency`/`number` were violating their own contract. `{{ fee | default:"0" | currency }}`
-  is the explicit opt-in, and a real `0` still renders.
-- **B5** — every numeric filter now coerces through one `toFiniteNumber`, so a numeric
-  string behaves like the number it spells and `add` sums instead of concatenating. The
-  math helpers keep "missing operand = 0" deliberately: they compute rather than render.
-- **B3/B4** — the dead `deactivateVersion` is gone (it also never did what its name said:
-  the pinned lookup ignores `isActive`), and the README no longer tells authors that
-  arrays are comma-joined, which would have hidden loops from them.
-- **G171-B3 — `template_versions` immutability is not enforced** · `informational`. Kept
-  because the original finding is now **wrong**: the hard delete was removed 2026-08-12,
-  and the remaining soft delete has zero callers and is ignored by the pinned lookup.
-- **G171-B4 — stale array-normalization docs** · `enhancement`. One section of
-  `server/services/document/README.md` predates arrays being preserved for loops.
+- **G171-O1 / the dead `unresolved_variables` report** — fixed in `f99110d4`. It was
+  *structurally* always `[]`; the names of unanswered variables now travel to the renderer
+  instead of their nulls, so no generated document changed. Guarded by **two** DOC-104
+  integration cases that must not be collapsed into one (unanswered-but-known → blank and
+  recorded; unknown tag → raises) plus a no-DB companion suite.
+- **G171-O2 / immutability** — `deactivateVersion` deleted as dead code (`30f26d23`), so no
+  mutation path remains. It also never did what its name implied: the pinned lookup ignores
+  `isActive`.
+- **G171-B1/B2/B5 — the numeric filter family**, found while fixing the above. `percent`
+  threw on *every* string containing a number, failing whole documents for real answers
+  (`48201b74`); `{{ fee | currency }}` rendered `$0.00` for a fee nobody entered, against
+  the authoring guide's own blank-on-empty rule; and `add('1200','300')` concatenated to
+  `'1200300'` (`73c9e0b6`).
+- **G171-O3 / reviewer process** — kept in the detail file, not as work.
 
-Open the detail file for the `Closed — do not re-file` table, the ruling that **preview's
-client-supplied pin is deliberate** (do not "harden" it away), and the lesson that the
-DOC-104 defect survived because its only unit test mocked the engine and asserted its own
-fixture.
+## Business-day date math (BIZ) — [detail](backlog/BUSINESS_DAYS.md) — retired 2026-08-12
+
+**2 of 2 tickets closed**, gate fully satisfied including a live real-DOCX render across a
+federal holiday. Parks one entry. Carries the settled ruling that **the holiday calendar is
+configuration, not a filter argument**, and that the render-time throw on an invalid calendar
+**stays** (a wrong date on a legal deadline is worse than a loud failure).
+
+- **BIZ-O1 — the other import-side jsonb blobs are unvalidated** · `enhancement`. BIZ-2 added
+  a `fieldSchemas` hook to the portability entity graph and used it only for
+  `workflows.settings`. `sections.config`, `steps.config`, `blocks.config` and
+  `workflow_versions.graphJson` still pass with nothing but a shape check. Nothing is known
+  to be broken — this records that the same class of bug may exist next door.
+
+## Scripting hooks (SCRIPT) — [detail](backlog/SCRIPTING_HOOKS.md) — retired 2026-08-12
+
+**3 of 3 tickets closed and it parks nothing.** Two document-generation lifecycle phases
+(`beforeFinalBlock`, `afterDocumentsGenerated`) could never fire; they now fire, in order,
+with their output provably reaching the renderer. The detail file is kept for the
+`Closed — do not re-file` table and one reusable lesson: **for any hook, ask whether a test
+proves existence, ordering, or effect** — those were SCRIPT-1, -2 and -3 respectively, and
+only the third is worth much. Also records that **`isolated-vm` is installed locally**, so
+hook paths are verifiable live.
 
 ## Template Language (TPL) — [detail](backlog/TEMPLATE_LANGUAGE.md) — retired 2026-08-10
 
@@ -154,10 +158,13 @@ roadmap **GH-161** and unblocked **GH-171** and **GH-173**.
 
 One item needs a ruling before other work depends on it:
 
-- **TPL-O7 — business-day / holiday date math** · `product-decision`. "30 business days" and
-  weekend-rolling deadlines are unexpressible today. The arithmetic is trivial; the **holiday
-  calendar is the whole cost** and it is jurisdictional — weekends-only, a fixed US federal
-  list, or per-workspace. **Answer before GH-173 writes retainer and NDA templates.**
+- ~~**TPL-O7 — business-day / holiday date math**~~ · **RESOLVED 2026-08-12 — do not
+  re-promote.** The ruling it was waiting for was given on 2026-08-11 (the calendar is
+  *configuration*, selectable between `weekends-only` and `us-federal`) and shipped as the
+  **BIZ** initiative — `addBusinessDays`, `nextBusinessDay`, `businessDaysBetween` and
+  `addWeekdays`, with algorithmic federal-holiday observation. "30 business days" and
+  weekend-rolling deadlines are now expressible. Detail: [backlog/BUSINESS_DAYS.md](backlog/BUSINESS_DAYS.md).
+  Per-workspace calendars were **not** built and nobody has asked for them.
 
 Parked, not dispatchable:
 

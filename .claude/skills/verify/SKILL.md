@@ -145,8 +145,37 @@ console.log(`leftover: ${leftover.length}`);   // must be 0
   the fastest honest proof for filter/sort behaviour.
 - **UI change:** drive a real browser (below). Screenshot desktop **and** mobile,
   and read the console. UI changes also require the `design` skill (repo rule).
-- **Script/hook change:** `vm2`/`isolated-vm` are not installed locally, so
-  sandboxed JS paths cannot run on this machine. Verify by unit test and say so.
+- **Script/hook change:** **`isolated-vm` IS installed on this machine** (verified
+  2026-08-12 — `ls node_modules | grep isolated-vm`), so sandboxed JS runs for real
+  and lifecycle hooks are fully verifiable live. The previous text here claimed
+  neither sandbox module was present and told you to settle for unit tests; that
+  was stale and would have had you under-verify. `vm2` is absent, which is fine —
+  `enhancedSandboxExecutor` prefers `isolated-vm` and only falls back to node `vm`
+  (refused in production) when it is missing. **Check before assuming either way.**
+
+  Fastest honest proof, no browser and no HTTP server needed: insert
+  `lifecycle_hooks` rows and call `runLifecycleService.generateDocuments(runId)`
+  from a tsx probe against the live DB — that is the same path
+  `RunCompletionJobWorker` drives. Then assert on **`script_execution_log`**
+  (`run_id`, `phase`, `status`) for occurrence, and put the hook's emitted key in
+  the DOCX template (`{{ hookRan }}`, with the key listed in the hook's
+  `outputKeys`) so the rendered document proves the output actually reached the
+  renderer rather than merely that the hook ran.
+
+- **Template filter / document-rendering change:** render a real DOCX end to end
+  and check the value by hand. Build the fixture with `PizZip` — copy
+  `createDocxBuffer` from `tests/integration/docs.autogeneration.test.ts` — and read
+  the result back with `storageProvider.getFile(record.storageKey)` plus a
+  tag-stripping regex on `word/document.xml`.
+
+  **Make the assertion discriminating.** Workflow-configurable behaviour must be
+  proven to depend on the configuration: compute the expected value for *both*
+  settings up front, assert the rendered text matches the one you configured **and
+  does not match the other**. A date that happens to be right under either setting
+  proves nothing about the setting. Verified 2026-08-12: with
+  `settings.businessDayCalendar = 'us-federal'`, `{{ startDate | addBusinessDays:1 }}`
+  on Thu 2026-07-02 rendered `07/06/2026` (skipping the Fri Jul 3 observed holiday
+  and the weekend) and not the weekends-only answer `07/03/2026`.
 
 ## Running DB-backed tests from the main checkout
 

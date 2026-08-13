@@ -25,8 +25,8 @@ vocabulary LD-1 adds; authoring them first means rewriting them.
 `addBusinessDays`, `nextBusinessDay`, `businessDaysBetween` and `addWeekdays` are
 registered filters, with a workflow-level `businessDayCalendar` setting
 (`weekends-only` default, `us-federal` option) and algorithmic federal-holiday
-observation. See `tickets/BUSINESS_DAYS_TICKETS.md`. **Use them; do not write new date
-math.**
+observation. Detail: [`tickets/backlog/BUSINESS_DAYS.md`](backlog/BUSINESS_DAYS.md) (the BIZ
+initiative retired 2026-08-12). **Use them; do not write new date math.**
 
 Outstanding on that work: no one has rendered a real DOCX with a business-day deadline
 across a federal holiday. If LD-2 builds a retainer template with a deadline, that
@@ -151,6 +151,24 @@ Given an explicit pronoun set, the filter supplies the agreeing forms
 
 **Priority: P2** · Size: M · **BLOCKED until LD-1 lands.** · Files: `client/src/templates/` (or wherever curated content lands — decide and document), sample `.docx` fixtures, mapping config, tests
 
+### 🚫 Scope guard — "Intake Questionnaire" is CONTENT, not the old intake pipeline
+
+**Do not resurrect the `/intake/*` pipeline.** It was deliberately removed by O-12, and
+`intakeStateMachine` was deleted as dead code in LIST2-10. Neither comes back here, and a
+submission that reintroduces either fails this ticket.
+
+The "Intake Questionnaire" deliverable is a **curated starter workflow** — a set of
+questions plus a sample DOCX and variable mappings, authored in the existing template
+vocabulary. It is data, not a mechanism. It adds **no routes, no state machine, and no new
+runtime path**. Workflows already carry a live `intakeConfig` field; if the template needs
+intake behaviour, it uses that existing field.
+
+Related dead code you may trip over — **report, do not adopt**: `createAnonymousRun` in
+`RunService` is the removed pipeline's orphaned helper (filed as RM-2 in
+`tickets/BACKLOG.md`), and vestigial `/intake` rate-limiter registrations still sit at
+`server/index.ts:48` and `server/production.ts:56` pointing at a route tree that no longer
+exists.
+
 ### Finding
 
 GH-173 AC2/AC3: ship an NDA, a Retainer Agreement, and an Intake Questionnaire as
@@ -177,7 +195,9 @@ data, and burying it in a component is how it becomes uneditable.
 
 ### Acceptance Criteria
 
-1. Three curated templates exist: NDA, Retainer Agreement, Intake Questionnaire.
+1. Three curated templates exist: NDA, Retainer Agreement, Intake Questionnaire — as
+   authored content only. **No new route, state machine, or runtime path is added**, and
+   neither the removed `/intake/*` pipeline nor `intakeStateMachine` is reintroduced.
 2. Each ships a sample `.docx` with pre-configured variable mappings that resolve against
    a real run.
 3. Templates use only the shipped vocabulary — **no bespoke drafting mechanism**.

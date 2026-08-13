@@ -39,8 +39,8 @@ vi.mock('../../../server/services/document/TemplateScanner', () => ({
   },
 }));
 
-// The upload route performs real placeholder extraction after the scanner mock,
-// so this fixture must be a valid OOXML package rather than only a ZIP container.
+// Placeholder extraction still runs after the scanner mock, so this fixture
+// must contain enough OOXML metadata to identify it as a Word document.
 const createMinimalDocx = (): Buffer => {
   const zip = new PizZip();
   zip.file(

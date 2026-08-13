@@ -32,14 +32,19 @@ const pdfParse = pdfParseModule as (
   options?: PdfParseOptions
 ) => Promise<{ numpages: number; text: string }>;
 
-async function converterReachable(): Promise<boolean> {
+async function requireGotenberg(): Promise<void> {
   try {
     const response = await fetch(`${CONVERTER_URL.replace(/\/$/, '')}/health`, {
       signal: AbortSignal.timeout(3000),
     });
-    return response.ok;
-  } catch {
-    return false;
+    if (!response.ok) {
+      throw new Error(`health endpoint returned ${response.status}`);
+    }
+  } catch (error) {
+    throw new Error(
+      `Gotenberg is required at ${CONVERTER_URL}; start it with npm run test:docker:up`,
+      { cause: error }
+    );
   }
 }
 
@@ -63,10 +68,9 @@ describe('GH-168: real Gotenberg layout fidelity', () => {
   let tempDir: string;
   let docxPath: string;
   let pdfPath: string;
-  let converterUp = false;
 
   beforeAll(async () => {
-    converterUp = await converterReachable();
+    await requireGotenberg();
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gh168-fidelity-'));
     docxPath = path.join(tempDir, 'word-layout-fidelity.docx');
     pdfPath = path.join(tempDir, 'word-layout-fidelity.pdf');
@@ -77,12 +81,7 @@ describe('GH-168: real Gotenberg layout fidelity', () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('preserves Word pagination, headers, footers, page fields, fonts, and complex-table content', async (ctx) => {
-    if (!converterUp) {
-      ctx.skip(`No Gotenberg at ${CONVERTER_URL}`);
-      return;
-    }
-
+  it('preserves Word pagination, headers, footers, page fields, fonts, and complex-table content', async () => {
     await new ApiStrategy(CONVERTER_URL).convert({ docxPath, outputPath: pdfPath });
 
     const bytes = await fs.readFile(pdfPath);

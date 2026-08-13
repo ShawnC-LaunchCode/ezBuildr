@@ -551,7 +551,7 @@ describe('Automatic document generation on run completion', () => {
     expect(text).toContain('Hello Acme Corporation, matter ?');
   });
 
-  it('fails the document rather than blanking it when a template tag is not in the data contract at all (DOC-104 / TPL-3)', async () => {
+  it('reports an unknown top-level tag as a per-document generation failure (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {
@@ -560,9 +560,9 @@ describe('Automatic document generation on run completion', () => {
       alias: 'clientName',
       order: 0,
     });
-    // {{unknownTag}} matches no step alias, so it is not in the data contract.
+    // Template contains {{unknownTag}} which is not provided by the workflow
     const template = await createTemplateOnDisk(
-      'Unknown Tag Doc',
+      'Missing Tag Doc',
       'Hello {{clientName}}, where is the {{unknownTag}}?'
     );
     await factory.createStep(section.id, {
@@ -581,12 +581,23 @@ describe('Automatic document generation on run completion', () => {
 
     const result = await runLifecycleService.generateDocuments(runId);
 
-    // The per-document render error is caught in EnhancedDocumentEngine's
-    // renderFinalBlock loop, so the run's generation as a whole still reports
-    // success -- but the document itself is not produced or persisted.
+    // TPL-3 deliberately superseded DOC-104's blank-and-record behavior with
+    // strict-undefined rendering: one bad template fails without preventing
+    // other documents in the Final Block from being attempted.
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(0);
+    expect(result.failed).toEqual([
+      expect.objectContaining({
+        alias: 'contract',
+        details: expect.objectContaining({
+          originalError: expect.objectContaining({
+            message: expect.stringContaining('undefined variable "unknownTag"'),
+          }),
+        }),
+      }),
+    ]);
 
+    // A failed render must not persist a downloadable document record.
     const records = await db
       .select()
       .from(schema.runGeneratedDocuments)

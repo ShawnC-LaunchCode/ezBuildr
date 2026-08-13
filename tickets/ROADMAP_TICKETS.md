@@ -1605,12 +1605,16 @@ Build in this order; each step should leave the tree gate-clean.
 > the dev: breaking `getVersionForTemplate`'s `templateId` scoping makes 4 tests
 > fail, two of them completing a real run and rendering the foreign template.
 >
-> **The follow-ups G171-0..6 all closed 2026-08-12**, along with the DOC-104 reporting
-> defect G171-6 surfaced (`f99110d4`). Their file was retired into
-> `tickets/backlog/TEMPLATE_VERSIONING.md`; recover the full detail with
-> `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`. **`G171-B1` in that backlog is a live
-> bug worth promoting:** `{{ x | percent }}` fails the whole document when the value is an
-> unanswered field.
+> **All follow-ups G171-0..6 are closed** (2026-08-12). The initiative is retired; its
+> settled rulings and three parked `informational` observations live in
+> [`tickets/backlog/TEMPLATE_VERSIONING.md`](backlog/TEMPLATE_VERSIONING.md), and
+> the full ticket text is recoverable with
+> `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`.
+>
+> The one observation that mattered — `run_generated_documents.unresolved_variables` being
+> **structurally always `[]`** — was fixed on 2026-08-12 (`f99110d4`), along with three
+> template-filter defects found in the same area (`48201b74`, `73c9e0b6`). The report is now
+> guarded end to end and the retirement parks nothing.
 >
 > Behaviour change shipped beyond the ACs and deliberately kept: `requiresReview`
 > now trips on renames, which previously passed review silently despite breaking

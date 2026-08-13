@@ -14,3 +14,13 @@ services:
       interval: 2s
       timeout: 5s
       retries: 10
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports:
+      - "3009:3000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12

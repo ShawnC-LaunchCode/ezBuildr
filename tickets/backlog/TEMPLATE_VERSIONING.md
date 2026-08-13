@@ -5,6 +5,16 @@ Epic **GH-171** in `tickets/ROADMAP_TICKETS.md`, plus its follow-up file
 seven follow-up tickets closed, and the one product defect the follow-ups surfaced is
 fixed.
 
+> **Retired twice, in parallel.** Two sessions retired this initiative independently on
+> 2026-08-12 without seeing each other (`.claude/worktrees/` is gitignored, so a ripgrep
+> sweep misses it). The other copy used `G171-O*` IDs and was deliberately renamed onto this
+> path so the two would collide as a visible conflict instead of merging into two rival
+> files. Its content is merged in here under the `-B` IDs, which match the repo's existing
+> `LIST-B12` / `AISL-B1..B11` convention. **`G171-O1` = the dead `unresolved_variables`
+> report (fixed, `f99110d4`), `G171-O2` = immutability (fixed, `30f26d23`), `G171-O3` =
+> the reviewer process note (below).** `G171-B1` was never a duplicate of `G171-O1`; it is
+> the percent-filter defect.
+
 **Recover the full closed detail** — every Finding, acceptance criterion, dated
 verification note and the three review rounds' escalations:
 
@@ -191,6 +201,16 @@ to show the array surviving, with the loop and scalar forms named.
 ---
 
 ## Lessons worth keeping
+
+- **The AC2 rename example sits exactly on the threshold.** `client_name` →
+  `customer_name` scores precisely `1/3`, the configured minimum, so it passes on float
+  equality at the boundary. A boundary test guards it — retune
+  `RENAMED_PLACEHOLDER_TOKEN_OVERLAP_THRESHOLD` with care.
+- **`requiresReview` trips on renames**, which no AC asked for. Kept deliberately: a rename
+  previously passed review silently while breaking every workflow piping to the old alias.
+- **Check a worktree's base commit before calling its numbers wrong.** A dev reporting "10
+  pre-existing integration failures" was correct — their base predated the fixture fix that
+  took the suite to 2, then 0.
 
 - **The defect that outlived the initiative lived in a seam, and the test that should have
   caught it asserted its own fixture.** `run_generated_documents.unresolved_variables` was

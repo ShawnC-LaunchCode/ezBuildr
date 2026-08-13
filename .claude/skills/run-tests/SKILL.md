@@ -21,6 +21,32 @@ description: Run, write, or debug tests in ezBuildr. Running npm test or vitest 
 - **Everything:** `npm test` (runs with `VITEST_SINGLE_FORK=true` + coverage — slow but 100% reliable; this is what CI uses).
 - Also run `npx tsc --noEmit` for type safety — tests passing does not imply the build compiles.
 
+## ⚠️ `test:docker:up` starts more than Postgres — re-run it after every pull
+
+`docker-compose.test.yml` defines **two** services: `postgres` (host port **5434**) and
+**`gotenberg`** (`gotenberg/gotenberg:8`, host port **3009**), the latter required by the
+real PDF-fidelity tests. `npm run test:docker:up` starts what the compose file defines *at
+the moment you run it* — a container set from earlier keeps running and never tells you a
+service was added.
+
+Getting this wrong cost real time on 2026-08-12: with only Postgres up, `test:integration`
+reported **10 failed files / 5 failed tests / 35 skipped**, and only two failures mentioned
+PDFs. Seven unrelated suites (`analytics_service`, `api.runs.first-next`,
+`api.runs.resume-handoff`, `api.portal.run-access`, `dynamic_options_workflow`,
+`organizations-workflow`, `transferOwnership`) failed with a bare
+`AssertionError: expected 500 to be 200`, because run completion calls document generation,
+which could not reach the converter. With `gotenberg` up, the same commit is 112/112 green.
+
+**So: read the port in `ECONNREFUSED`, don't assume.** `5434` is Postgres; **`3009` is
+Gotenberg**. The Postgres container can be `Up (healthy)` the whole time, so the usual
+container check passes and proves nothing.
+
+```bash
+git diff <base>..HEAD -- docker-compose.test.yml    # after any merge or pull
+npm run test:docker:up                              # adds services you are missing
+docker compose -f docker-compose.test.yml ps        # confirm BOTH, not just PG
+```
+
 ## Database for unit-db / integration tests
 
 Tests honor `TEST_DATABASE_URL` (overrides `DATABASE_URL`, see `tests/setup.ts:37`). Local Docker PG (tmpfs, fast):
@@ -38,38 +64,39 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- **There are no known integration failures. Measured 2026-08-12 against Docker PG on
-  5434, after the DOC-104 fix: `Test Files 112 passed (112)` · `Tests 1112 passed | 2
-  skipped (1114)` — zero failures.** (Was 1111 passed / 3 skipped on `46848ba4`; the
-  DOC-104 case below is now un-skipped and passing.)
+- **There are no known integration failures, and no skipped tests.** Measured 2026-08-12
+  with **both** compose services up: `Test Files 112 passed (112)` · `Tests 1116 passed
+  (1116)` — zero failed, zero skipped. **Treat any integration failure as your regression**
+  — but first confirm `gotenberg` is running (see the compose warning above), because a
+  missing service produces failures that read like code defects.
 
-  **So treat *any* integration failure as your regression.** This is a change in kind,
-  not just in number: for months the suite carried 10 failures and reviewers certified
-  work with "matches the documented baseline", which was weak evidence because two of the
-  red files were *template* suites — blind to regressions in the area then under active
-  change. There is no baseline to hide in now. Fixed across G171-5 (`cc427d65`, stale
-  DOCX fixtures) and G171-6 (`150e3148`).
+  This is a change in kind, not just in number. For months the suite carried 10 failures
+  and reviewers certified work with "matches the documented baseline" — weak evidence,
+  because two of the red files were *template* suites, blind to regressions in the area
+  then under active change. There is no baseline to hide in now. Cleared across G171-5
+  (`cc427d65`), G171-6 (`150e3148`) and `0f70b6c6`/`af69bdea`.
 
-  Baselines for the other projects, measured the same day: `test:fast` **3125 passed / 0
-  failed**, 273 files + 1 skipped · `test:unit:db` **17 files / 158 passed**. (An earlier
-  revision of this file recorded `test:fast` as 3113; a re-measurement on `ec0f7116` gave
-  **3116**, so treat these as ±a few and re-measure your own base before blaming a
-  change. A count that moves *down* is still a stop condition.)
+  Other projects on the same commit: `test:fast` **3190 passed / 0 failed** (273 files +
+  1 skipped) · `test:unit:db` **17 files / 158 passed**. Recorded counts drift: this file
+  said `test:fast` was 3113 while a re-measurement on the same commit gave **3116**, so
+  re-measure your own base before blaming a change. A count that moves *down* is still a
+  stop condition.
 
-  **The DOC-104 skip is gone — the product defect behind it is fixed (2026-08-12).**
-  `run_generated_documents.unresolved_variables` used to be structurally always `[]`;
-  `tests/integration/docs.autogeneration.test.ts` now asserts it for real, with a
-  no-DB companion at
-  `tests/unit/services/EnhancedDocumentEngine.unresolvedVariables.test.ts`. If either
-  starts failing, read `normalizeForRender` (`EnhancedDocumentEngine.ts`) and
-  `recordEmptyVariable` (`RenderCore.ts`) — and note that making the report work by
-  passing nulls to the renderer instead **changes generated documents**, which is why it
-  is not built that way.
+- **`unresolved_variables` works now — the warning that used to sit here is resolved.**
+  It was *structurally* always `[]` (normalization collapsed the seeded null to `''`
+  before `nullGetter`, which only fires for null/undefined, could record it). Fixed
+  2026-08-12 in `f99110d4`: the *names* of unanswered variables travel to the renderer
+  instead of their nulls, so no generated document changed. Guarded end-to-end by
+  `tests/integration/docs.autogeneration.test.ts` — which holds **two** DOC-104 cases that
+  must not be collapsed into one, an unanswered-but-known variable (blank + recorded) and
+  an unknown tag (raises, document fails) — plus a no-DB companion at
+  `tests/unit/services/EnhancedDocumentEngine.unresolvedVariables.test.ts`.
 
   The lesson that outlived it: `tests/unit/services/FinalBlockRenderer.test.ts:58`
   hardcodes `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it
-  asserted its own fixture and could not detect a feature that never worked. Treat any
-  test that mocks the thing it claims to verify with the same suspicion.
+  asserted its own fixture and could not detect a feature that never worked. That is why
+  this went unnoticed for months. Treat any test that mocks the thing it claims to verify
+  with the same suspicion.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas
