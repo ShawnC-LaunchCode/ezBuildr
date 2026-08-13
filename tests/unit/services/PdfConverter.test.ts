@@ -41,11 +41,19 @@ beforeEach(async () => {
   outputPath = path.join(tmpDir, "out.pdf");
   await fs.writeFile(docxPath, "fake docx bytes");
   vi.restoreAllMocks();
+  // `PdfConverter`'s api url is a DEFAULT PARAMETER reading this var, so passing
+  // `undefined` explicitly does not mean "unconfigured" — it re-triggers the
+  // default and picks up whatever the ambient environment holds. CI sets this
+  // var (ci.yml, for the Gotenberg integration tests), which silently flipped
+  // three local-strategy cases to gotenberg and failed only there. Empty string
+  // reads as unconfigured, so every case below states its own configuration.
+  vi.stubEnv("PDF_CONVERTER_API_URL", "");
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -95,18 +103,9 @@ describe("PdfConverter strategy selection", () => {
   });
 
   it("uses the environment-configured Gotenberg service as the production primary", () => {
-    const originalUrl = process.env.PDF_CONVERTER_API_URL;
-    process.env.PDF_CONVERTER_API_URL = API_URL;
+    vi.stubEnv("PDF_CONVERTER_API_URL", API_URL);
 
-    try {
-      expect(new PdfConverter().primaryStrategy).toBe("gotenberg");
-    } finally {
-      if (originalUrl === undefined) {
-        delete process.env.PDF_CONVERTER_API_URL;
-      } else {
-        process.env.PDF_CONVERTER_API_URL = originalUrl;
-      }
-    }
+    expect(new PdfConverter().primaryStrategy).toBe("gotenberg");
   });
 
   it("posts to Gotenberg's LibreOffice route and keeps the .docx filename", async () => {
