@@ -1611,9 +1611,10 @@ Build in this order; each step should leave the tree gate-clean.
 > the full ticket text is recoverable with
 > `git log -p -- tickets/GH171_FOLLOWUP_TICKETS.md`.
 >
-> ⚠️ One of those observations matters before anyone trusts document-generation reporting:
-> `run_generated_documents.unresolved_variables` is **structurally always `[]`** and its
-> test was removed upstream. A green integration suite does not mean it works.
+> The one observation that mattered — `run_generated_documents.unresolved_variables` being
+> **structurally always `[]`** — was fixed on 2026-08-12 (`f99110d4`), along with three
+> template-filter defects found in the same area (`48201b74`, `73c9e0b6`). The report is now
+> guarded end to end and the retirement parks nothing.
 >
 > Behaviour change shipped beyond the ACs and deliberately kept: `requiresReview`
 > now trips on renames, which previously passed review silently despite breaking

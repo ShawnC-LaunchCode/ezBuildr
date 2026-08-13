@@ -20,6 +20,11 @@ export interface DocumentGenerationOptions {
     outputDir?: string;
     toPdf?: boolean;
     unresolvedVariables?: string[];
+    /**
+     * Variables the caller knows have no value for this run (DOC-104). The
+     * engine only forwards them; see `RenderCore.recordEmptyVariable`.
+     */
+    emptyVariables?: readonly string[];
     workflowSettings?: unknown;
 }
 export interface DocumentGenerationResult {
@@ -72,6 +77,7 @@ export class DocumentEngine {
             outputDir = path.join(process.cwd(), 'server', 'files', 'outputs'),
             toPdf = false,
             unresolvedVariables = [],
+            emptyVariables,
             workflowSettings,
         } = options;
         logger.info({ templatePath, outputName, toPdf }, 'Starting document generation');
@@ -83,6 +89,7 @@ export class DocumentEngine {
             templateBuffer,
             data,
             unresolvedVariables,
+            emptyVariables,
             workflowSettings,
         });
         // Generate output filename

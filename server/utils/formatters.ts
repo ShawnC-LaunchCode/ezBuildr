@@ -135,6 +135,35 @@ export function businessDaysBetweenForCalendar(
 }
 
 /**
+ * The number inside a template value, or `undefined` when there isn't one —
+ * the one place the numeric filters agree on what "no number" means.
+ *
+ * G171-B1/B5: template values arrive as **strings** (a runner answer, a
+ * DataVault cell, a JSON import), and `isNaN` coerces its argument while number
+ * methods do not. That mismatch was the whole bug family: `isNaN('42.3')` is
+ * `false`, so `'42.3'` sailed past `percent`'s guard into `'42.3'.toFixed(0)`
+ * — `String` has no `toFixed`, so every real answer threw and took the document
+ * with it — while `number('1234.5')` reached `String.prototype.toLocaleString`
+ * and silently returned the string unformatted.
+ *
+ * `''` and whitespace deliberately do NOT coerce to 0 here, even though
+ * `Number('')` is 0: an unanswered question is not an answer of zero, and every
+ * caller renders blank for `undefined`.
+ */
+export function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') { return undefined; }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Convert string to uppercase
  */
 export function upper(s: string | null | undefined): string {
@@ -150,22 +179,34 @@ export function lower(s: string | null | undefined): string {
 
 /**
  * Format number as currency
- * @param n - Number to format
+ * @param n - Number to format (accepts the numeric strings templates carry)
  * @param c - Currency code (default: USD)
+ *
+ * A value with no number in it renders **blank**, not `$0.00` (G171-B2). A
+ * money amount nobody entered must not be stated: "Fee: $0.00" is a different
+ * agreement from "Fee: ___", and this is a legal-document product. Blank is
+ * also the rule the authoring guide already declares
+ * (`docs/guides/VARIABLES_IN_DOCUMENTS.md`, "blank-on-empty"), with pronoun
+ * filters as its one exception.
+ *
+ * An author who genuinely wants a zero says so in the template —
+ * `{{ fee | default:"0" | currency }}` renders `$0.00` — which puts the intent
+ * somewhere a reviewer can see it instead of in a silent default.
  */
-export function currency(n: number | null | undefined, c: string = 'USD'): string {
-  if (n === null || n === undefined || isNaN(n)) {
-    return '$0.00';
+export function currency(n: number | string | null | undefined, c: string = 'USD'): string {
+  const value = toFiniteNumber(n);
+  if (value === undefined) {
+    return '';
   }
 
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: c,
-    }).format(n);
+    }).format(value);
   } catch (error) {
     // Fallback for invalid currency codes
-    return `${c} ${n.toFixed(2)}`;
+    return `${c} ${value.toFixed(2)}`;
   }
 }
 
@@ -245,28 +286,41 @@ export function titleCase(s: string | null | undefined): string {
 }
 
 /**
- * Format number with thousand separators
+ * Format number with thousand separators. Accepts the numeric strings
+ * templates carry; a value with no number in it renders blank (G171-B2 — see
+ * `currency` for the reasoning and the `default:"0"` opt-in).
  */
-export function number(n: number | null | undefined, decimals: number = 0): string {
-  if (n === null || n === undefined || isNaN(n)) {
-    return '0';
+export function number(n: number | string | null | undefined, decimals: number = 0): string {
+  const value = toFiniteNumber(n);
+  if (value === undefined) {
+    return '';
   }
 
-  return n.toLocaleString('en-US', {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
 }
 
 /**
- * Format percentage
+ * Format percentage. Accepts the numeric strings templates actually carry.
+ *
+ * A value with no number in it renders **blank**, not `0%` (G171-B1). Two
+ * reasons, and the first is the one that matters: `0%` is a plausible agreed
+ * term in a signed document, and a term nobody stated must never be
+ * manufactured — the same reasoning TPL-9 Finding (c) used to make
+ * `daysBetween` raise rather than render `0` days. An empty `%` cannot be
+ * mistaken for a rate. Second, blank is what a bare `{{ rate }}` renders for an
+ * unanswered question, and DOC-104 lists the variable in the document's
+ * unresolved-variable report either way, so the gap is reported, not hidden.
  */
-export function percent(n: number | null | undefined, decimals: number = 0): string {
-  if (n === null || n === undefined || isNaN(n)) {
-    return '0%';
+export function percent(n: number | string | null | undefined, decimals: number = 0): string {
+  const value = toFiniteNumber(n);
+  if (value === undefined) {
+    return '';
   }
 
-  return `${n.toFixed(decimals)}%`;
+  return `${value.toFixed(decimals)}%`;
 }
 
 /**

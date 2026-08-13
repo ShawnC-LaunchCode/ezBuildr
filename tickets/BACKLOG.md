@@ -98,33 +98,34 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
-| G171-O1 | `informational` | **`unresolved_variables` is structurally always `[]`** and its test was removed — a green suite does not mean it works; a fix was in flight elsewhere and is **unconfirmed** | `backlog/TEMPLATE_VERSIONING.md` |
-| G171-O2 | `informational` | Version immutability nearly enforced: hard delete removed; `deactivateVersion` remains with **zero callers** and the same pinned-run hazard | `backlog/TEMPLATE_VERSIONING.md` |
-| G171-O3 | `informational` | Reviewer process: verify gates yourself; a test count moving **down** is a stop condition; check a worktree's base before calling its numbers wrong | `backlog/TEMPLATE_VERSIONING.md` |
+| ~~G171-B1..B5~~ | ✅ all fixed | Template filter family + the dead `unresolved_variables` report (filed as G171-O1..O3 by a concurrent session). **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 
 ---
 
 ## GH-171 template versioning (G171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
 
-**GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed.** Parks three
-`informational` entries. Read the detail before touching template versioning, pinning, or
-the document-generation reporting path.
+**GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed — and every parked
+entry has since been fixed too, so this parks nothing.**
 
-- **G171-O1 — `unresolved_variables` reporting is dead, and now untested** · `informational`.
-  `run_generated_documents.unresolved_variables` is *structurally* always `[]`: normalization
-  turns null into `''` before `RenderCore`'s `nullGetter`, which only fires for
-  null/undefined, could record it. The test that would catch it was removed upstream when
-  skipped tests were eliminated. **A fix was in flight in a separate session on 2026-08-12 and
-  its outcome was never confirmed** — check that first; if it did not land, this is real open
-  work to promote, not an observation. Never "fix" it by asserting `[]`.
-- **G171-O2 — template version immutability is nearly enforced** · `informational`. The hard
-  delete (`pruneOldVersions`) was removed 2026-08-12. What remains is `deactivateVersion` —
-  **zero callers**, does not alter version content, but carries the same pinned-run hazard the
-  pruner did. Cheapest resolution is to delete it as dead code.
-- **G171-O3 — process note for reviewers** · `informational`. Verify every gate yourself; a
-  test count that moves *downward* is a stop condition; and check a worktree's base commit
-  before calling its numbers wrong.
+Two sessions retired this initiative in parallel on 2026-08-12 and filed the same
+observations under different IDs. **`G171-O1..O3` are the same findings as `G171-B*`;
+the detail file uses the `-B` IDs.** All are now closed:
+
+- **G171-O1 / the dead `unresolved_variables` report** — fixed in `f99110d4`. It was
+  *structurally* always `[]`; the names of unanswered variables now travel to the renderer
+  instead of their nulls, so no generated document changed. Guarded by **two** DOC-104
+  integration cases that must not be collapsed into one (unanswered-but-known → blank and
+  recorded; unknown tag → raises) plus a no-DB companion suite.
+- **G171-O2 / immutability** — `deactivateVersion` deleted as dead code (`30f26d23`), so no
+  mutation path remains. It also never did what its name implied: the pinned lookup ignores
+  `isActive`.
+- **G171-B1/B2/B5 — the numeric filter family**, found while fixing the above. `percent`
+  threw on *every* string containing a number, failing whole documents for real answers
+  (`48201b74`); `{{ fee | currency }}` rendered `$0.00` for a fee nobody entered, against
+  the authoring guide's own blank-on-empty rule; and `add('1200','300')` concatenated to
+  `'1200300'` (`73c9e0b6`).
+- **G171-O3 / reviewer process** — kept in the detail file, not as work.
 
 ## Business-day date math (BIZ) — [detail](backlog/BUSINESS_DAYS.md) — retired 2026-08-12
 

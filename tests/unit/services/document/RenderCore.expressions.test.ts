@@ -118,6 +118,14 @@ describe('RenderCore expression layer (TPL-2 / TPL-3)', () => {
       { helper: 'titleCase', scope: { v: 'hello world' }, pipeTag: 'v | titleCase', expected: 'Hello World' },
       { helper: 'number', scope: { v: 1234.5 }, pipeTag: 'v | number', expected: '1,235' },
       { helper: 'percent', scope: { v: 42.345 }, pipeTag: 'v | percent', expected: '42%' },
+      // G171-B1: a template value is routinely a STRING (runner answer,
+      // DataVault cell, JSON import). `percent` used to throw
+      // `n.toFixed is not a function` for every such value — `isNaN('42.345')`
+      // is false, so it reached `'42.345'.toFixed()` — which failed the entire
+      // document. These two render through the real pipeline, so they are the
+      // proof that a document is produced at all.
+      { helper: 'percent', scope: { v: '42.345' }, pipeTag: 'v | percent', expected: '42%' },
+      { helper: 'percent', scope: { v: '' }, pipeTag: 'v | percent', expected: '' },
       { helper: 'capitalize', scope: { v: 'hello' }, pipeTag: 'v | capitalize', expected: 'Hello' },
       { helper: 'join', scope: { v: ['a', 'b', 'c'] }, pipeTag: 'v | join', expected: 'a, b, c' },
       { helper: 'length', scope: { v: [1, 2, 3] }, pipeTag: 'v | length', expected: '3' },

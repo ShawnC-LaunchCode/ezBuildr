@@ -463,6 +463,94 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(0);
   });
 
+  /**
+   * DOC-104 reporting, against the contract TPL-3 established (2026-08-10) and
+   * TPL-10 completed. These two cases are deliberately different and must not be
+   * collapsed back into one:
+   *
+   *  - An **aliased-but-unanswered** step is seeded present-as-null by
+   *    `RunDataService.buildForRun` (`byAlias`), so `RenderCore`'s `nullGetter`
+   *    renders it blank and records it in `unresolvedVariables`. The document is
+   *    still produced.
+   *  - A **genuinely unknown** tag (a typo, or a deleted question) is NOT in the
+   *    data contract, so `nullGetter` raises rather than blanking it — see the
+   *    "loud, not blank" comment at `RenderCore.ts` `isUnknownPath`. The document
+   *    fails instead of silently shipping a gap in a legal document.
+   *
+   * The second case is the reason this test previously expected one generated
+   * document from an unknown tag: it was written 2026-07-13, before strict
+   * undefined existed. Matching unit samples: U1/U2 in
+   * `tests/unit/services/document/docSamples.test.ts`.
+   */
+  // This test was filed skipped by G171-6 against a real product defect:
+  // `unresolved_variables` was structurally always `[]`, because normalization
+  // collapsed the seeded `null` to `''` and nothing downstream could tell
+  // "unanswered" from "answered empty". Fixed by carrying the *names* through
+  // to the renderer instead of the nulls — see `normalizeForRender` in
+  // `EnhancedDocumentEngine.ts` and `recordEmptyVariable` in `RenderCore.ts`.
+  // It is the only end-to-end guard that the recorder actually fires: the unit
+  // coverage that missed the defect (`FinalBlockRenderer.test.ts`) hardcodes
+  // `unresolvedVariables` inside a mock of the engine. The fast-project
+  // companion is `EnhancedDocumentEngine.unresolvedVariables.test.ts`.
+  it('records an aliased-but-unanswered variable as unresolved and still generates the document (DOC-104)', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const textStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Client name',
+      alias: 'clientName',
+      order: 0,
+    });
+    // Aliased, so it is part of the data contract -- but left unanswered below,
+    // so it arrives as null and must be reported rather than raising.
+    await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Matter number',
+      alias: 'matterNumber',
+      order: 1,
+    });
+    const template = await createTemplateOnDisk(
+      'Missing Value Doc',
+      'Hello {{clientName}}, matter {{matterNumber}}?'
+    );
+    await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 2,
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: template.id, alias: 'contract' },
+        ],
+      },
+    });
+
+    // Only clientName is answered; matterNumber has no step_value row.
+    const runId = await createRunWithValue(workflow.id, textStep.id, 'Acme Corporation');
+
+    const result = await runLifecycleService.generateDocuments(runId);
+
+    // Generation succeeds -- an unanswered optional field is a degraded document,
+    // not a failed one.
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, runId));
+    expect(records).toHaveLength(1);
+
+    // The unresolved variables list names the unanswered alias, not the answered one.
+    expect(records[0].unresolvedVariables).toContain('matterNumber');
+    expect(records[0].unresolvedVariables).not.toContain('clientName');
+
+    // The value that WAS supplied still merged, and the gap rendered blank.
+    const buffer = await getGeneratedFileBuffer(records[0].storageKey);
+    const text = await readDocxText(buffer);
+    expect(text).toContain('Hello Acme Corporation, matter ?');
+  });
+
   it('reports an unknown top-level tag as a per-document generation failure (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const section = await factory.createSection(workflow.id);

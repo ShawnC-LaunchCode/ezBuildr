@@ -205,18 +205,24 @@ Output:
 }
 ```
 
-#### Arrays → Comma-Separated Strings
+#### Arrays → preserved, so templates can loop over them
 ```typescript
 Input:
 {
   hobbies: ["biking", "hiking", "reading"]
 }
 
-Output:
+Output (unchanged — still an array):
 {
-  "hobbies": "biking, hiking, reading"
+  "hobbies": ["biking", "hiking", "reading"]
 }
 ```
+
+Joining is opt-in (`joinArrays: true`). A section tag iterates the array —
+`{{#hobbies}}{{.}}{{/hobbies}}` — and a plain scalar tag `{{hobbies}}` joins it
+for display at render time. This section previously documented the join as the
+normalizer's behavior, which would have told an author that loops were
+impossible.
 
 #### Multi-Field Values → Flat Structure
 ```typescript
@@ -680,6 +686,24 @@ node, and the Bull queue worker — render through
 4. Nested objects use dot paths and array items use bracket indexes
 5. Arrays remain arrays for section loops; a plain scalar tag joins an array for display
 6. Table section tags are wholly inside the content cells specified by the authoring guide
+
+### Issue: the "Missing Variables" list on a generated document looks wrong
+**How it is produced (DOC-104):** `run_generated_documents.unresolved_variables`
+names the variables a template referenced that the run had no value for. Two
+different things write it, and both are needed:
+
+1. `RenderCore`'s `nullGetter` — for a path genuinely absent from the data.
+   Except at the top level, where absence is a typo and raises instead.
+2. `RenderCore`'s `recordEmptyVariable` — for a variable that *is* in the data
+   contract but unanswered. `RunDataService` seeds every alias, so those arrive
+   as `null` and normalization renders them `''`; the names travel separately as
+   `emptyVariables` (`EnhancedDocumentEngine.normalizeForRender`) because
+   changing the value would change the document.
+
+**Check:** the value reaches the render as `''` — the report says a question was
+unanswered, not that rendering failed. A variable the template never mentions is
+never listed. Fields inside a `{{#loop}}` are not judged (`scopeList.length > 1`).
+Before this existed the column was always `[]`, so an old record proves nothing.
 
 ### Issue: PDF conversion fails
 **Check:**

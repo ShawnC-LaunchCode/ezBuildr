@@ -27,6 +27,7 @@ import {
   businessDaysBetweenForCalendar,
   formatters,
   nextBusinessDayForCalendar,
+  toFiniteNumber,
 } from '../utils/formatters';
 import {
   DEFAULT_BUSINESS_DAY_CALENDAR,
@@ -450,22 +451,29 @@ export function businessDaysBetween(
 }
 
 /**
- * Format currency with symbol
+ * Format currency with symbol.
+ *
+ * The second of the two currency implementations — `formatters.currency` backs
+ * the `currency` filter, this one backs `formatCurrency` and `usd`. Both are
+ * registered filters, so they must agree: a value with no number in it renders
+ * blank rather than `$0.00` (G171-B2), and numeric strings format (G171-B5).
+ * They were found disagreeing precisely because only one of them was swept.
  */
 export function formatCurrency(
-  amount: number | null | undefined,
+  amount: number | string | null | undefined,
   currencyCode: string = 'USD',
   showSymbol: boolean = true
 ): string {
-  if (amount === null || amount === undefined || isNaN(amount)) {
-    return showSymbol ? '$0.00' : '0.00';
+  const value = toFiniteNumber(amount);
+  if (value === undefined) {
+    return '';
   }
 
   try {
     const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
-    }).format(amount);
+    }).format(value);
 
     if (!showSymbol) {
       // Remove currency symbol
@@ -476,7 +484,7 @@ export function formatCurrency(
     return formatted;
   } catch (error) {
     // Fallback
-    return showSymbol ? `${currencyCode} ${amount.toFixed(2)}` : amount.toFixed(2);
+    return showSymbol ? `${currencyCode} ${value.toFixed(2)}` : value.toFixed(2);
   }
 }
 
@@ -500,7 +508,7 @@ export function shortdate(iso: string | Date | null | undefined): string {
 }
 
 /** "$1,234.50" -- USD with symbol; the common case needs no currency-code argument. */
-export function usd(amount: number | null | undefined): string {
+export function usd(amount: number | string | null | undefined): string {
   return formatCurrency(amount);
 }
 
@@ -510,58 +518,85 @@ export function titlecase(s: string | null | undefined): string {
 }
 
 /**
- * Format number with custom decimals
+ * Format number with custom decimals. Accepts the numeric strings templates
+ * carry; a value with no number in it renders blank (G171-B2 — see `currency`
+ * in `server/utils/formatters.ts` for the reasoning and the `default:"0"`
+ * opt-in). `decimals` used to be silently ignored for string input, because
+ * `String.prototype.toLocaleString` accepts and discards the options object.
  */
 export function formatNumber(
-  n: number | null | undefined,
+  n: number | string | null | undefined,
   decimals: number = 0,
   thousandsSep: boolean = true
 ): string {
-  if (n === null || n === undefined || isNaN(n)) {
-    return '0';
+  const value = toFiniteNumber(n);
+  if (value === undefined) {
+    return '';
   }
 
   if (thousandsSep) {
-    return n.toLocaleString('en-US', {
+    return value.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
   }
 
-  return n.toFixed(decimals);
+  return value.toFixed(decimals);
 }
 
 /**
- * Math operations
+ * Math operations.
+ *
+ * These compute rather than render, so a missing operand contributes 0 (and
+ * `divide` by nothing is 0) — unchanged, and deliberately not the blank-on-empty
+ * rule that governs the *formatting* filters above: `{{ a | add:b | currency }}`
+ * has to hand `currency` a number for it to format.
+ *
+ * What did change (G171-B5): every operand is coerced through
+ * `toFiniteNumber` first. `+` is the only arithmetic operator that also
+ * concatenates, so `add('1200', '300')` produced the string `'1200300'` — two
+ * amounts from a run, silently glued together instead of summed. The others
+ * coerced by accident of `-`, `*`, `/`.
  */
-export function add(a: number, b: number): number {
-  return (a || 0) + (b || 0);
+export function add(a: number | string | null | undefined, b: number | string | null | undefined): number {
+  return (toFiniteNumber(a) ?? 0) + (toFiniteNumber(b) ?? 0);
 }
 
-export function subtract(a: number, b: number): number {
-  return (a || 0) - (b || 0);
+export function subtract(a: number | string | null | undefined, b: number | string | null | undefined): number {
+  return (toFiniteNumber(a) ?? 0) - (toFiniteNumber(b) ?? 0);
 }
 
-export function multiply(a: number, b: number): number {
-  return (a || 0) * (b || 0);
+export function multiply(a: number | string | null | undefined, b: number | string | null | undefined): number {
+  return (toFiniteNumber(a) ?? 0) * (toFiniteNumber(b) ?? 0);
 }
 
-export function divide(a: number, b: number): number {
-  if (!b || b === 0) {return 0;}
-  return (a || 0) / b;
+export function divide(a: number | string | null | undefined, b: number | string | null | undefined): number {
+  const divisor = toFiniteNumber(b);
+  if (divisor === undefined || divisor === 0) { return 0; }
+  return (toFiniteNumber(a) ?? 0) / divisor;
 }
 
-export function round(a: number, decimals: number = 0): number {
-  if (a === null || a === undefined || isNaN(a)) { return 0; }
+export function round(a: number | string | null | undefined, decimals: number = 0): number {
+  const value = toFiniteNumber(a);
+  if (value === undefined) { return 0; }
   const factor = Math.pow(10, decimals);
-  return Math.round((a || 0) * factor) / factor;
+  return Math.round(value * factor) / factor;
 }
 
-export function percentage(value: number, total: number): string {
-  if (value === null || value === undefined || isNaN(value)) { return '0%'; }
-  if (!total || total === 0 || isNaN(total)) { return '0%'; }
-  
-  const pct = (value / total) * 100;
+/**
+ * A share of a total, as a percentage. Renders blank when either operand has no
+ * number in it — including a zero total, where the ratio is undefined rather
+ * than 0% (G171-B2).
+ */
+export function percentage(
+  value: number | string | null | undefined,
+  total: number | string | null | undefined
+): string {
+  const amount = toFiniteNumber(value);
+  const divisor = toFiniteNumber(total);
+  if (amount === undefined || divisor === undefined || divisor === 0) { return ''; }
+
+  const pct = (amount / divisor) * 100;
   return `${Math.round(pct)}%`;
 }
 

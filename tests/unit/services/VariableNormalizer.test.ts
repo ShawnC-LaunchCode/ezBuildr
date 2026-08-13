@@ -59,6 +59,24 @@ describe('VariableNormalizer', () => {
       expect(result).toEqual({ missing: '', absent: '' });
     });
 
+    it('should keep null/undefined as null when preserveNull is set (DOC-104)', () => {
+      // The render path opts in only to read off which variables have no value
+      // (for unresolved_variables), then collapses them back to '' itself.
+      const result = normalizeVariables(
+        { missing: null, absent: undefined, blank: '', nested: { inner: null } },
+        { preserveNull: true }
+      );
+      expect(result).toEqual({ missing: null, absent: null, blank: '', 'nested.inner': null });
+    });
+
+    it('should still omit null/undefined entirely when includeEmpty is off, preserveNull or not', () => {
+      const result = normalizeVariables(
+        { missing: null, kept: 'x' },
+        { includeEmpty: false, preserveNull: true }
+      );
+      expect(result).toEqual({ kept: 'x' });
+    });
+
     it('should convert dates to ISO strings', () => {
       const d = new Date('2026-01-15T00:00:00Z');
       const result = normalizeVariables({ createdAt: d });

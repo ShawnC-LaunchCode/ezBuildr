@@ -50,6 +50,65 @@ async function resolveDatavaultBindingValue(
   return result?.values[binding.columnId] as unknown;
 }
 
+/**
+ * DOC-104. Split one normalization into the two things a render needs: the
+ * data, exactly as every consumer has always seen it, and the names of the
+ * variables that are only present because normalization fills unanswered
+ * questions in.
+ *
+ * The distinction exists solely upstream of here. `RunDataService.buildForRun`
+ * seeds every alias, so an unanswered question arrives as `null`, and
+ * normalization collapses that to `''` — at which point nothing downstream can
+ * tell "nobody answered" from "the answer was empty", which is why
+ * `run_generated_documents.unresolved_variables` was structurally always `[]`.
+ *
+ * The collapse itself stays, because the alternative is not equivalent:
+ * `applyMapping` counts a `null` source as *missing* and omits the target
+ * field, which `RenderCore`'s strict-undefined check would then treat as a typo
+ * and fail the whole document over. Reporting a gap must not move a single
+ * character of any document, so the value never changes; only the name travels,
+ * via `emptyVariables`. (The filters themselves no longer care either way —
+ * G171-B2 gave the numeric family one blank-on-empty contract.)
+ */
+function normalizeForRender(
+  rawData: Record<string, unknown>,
+  options: NormalizationOptions
+): { data: NormalizedData; emptyVariables: string[] } {
+  const withNulls = normalizeVariables(rawData, { ...options, preserveNull: true });
+  const data: NormalizedData = {};
+  const emptyVariables: string[] = [];
+
+  for (const [key, value] of Object.entries(withNulls)) {
+    if (value === null) {
+      emptyVariables.push(key);
+      data[key] = '';
+    } else {
+      data[key] = value;
+    }
+  }
+
+  return { data, emptyVariables };
+}
+
+/**
+ * Report a mapped target under the name the template actually uses.
+ *
+ * `{{client_name}}` fed by an unanswered `fullName` is a gap in the document,
+ * and the author is looking for their own field name in the report, not the
+ * source alias. Only `variable` bindings qualify: a `constant` or `formula`
+ * always produces a value of its own.
+ */
+function emptyMappingTargets(
+  mapping: DocumentMapping | undefined | null,
+  emptyVariables: readonly string[]
+): string[] {
+  if (!mapping) { return []; }
+
+  return Object.entries(mapping)
+    .filter(([, config]) => config?.type === 'variable' && emptyVariables.includes(config.source))
+    .map(([targetField]) => targetField);
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -237,10 +296,18 @@ export class EnhancedDocumentEngine {
     try {
       // Step 1: Normalize variables
       let normalizedData: NormalizedData;
+      // Variables the run has no value for, reported per document in
+      // `unresolved_variables` (DOC-104). Only derivable while normalizing --
+      // see `normalizeForRender`.
+      let emptyVariables: readonly string[] = [];
       try {
-        normalizedData = normalize
-          ? normalizeVariables(rawData, normalizationOptions)
-          : (rawData as NormalizedData);
+        if (normalize) {
+          const prepared = normalizeForRender(rawData, normalizationOptions);
+          normalizedData = prepared.data;
+          emptyVariables = prepared.emptyVariables;
+        } else {
+          normalizedData = rawData as NormalizedData;
+        }
 
         logger.debug({
           originalKeys: Object.keys(rawData).length,
@@ -273,6 +340,10 @@ export class EnhancedDocumentEngine {
           // unmapped {{variable}} in the template. Mapped names win on
           // key collisions.
           finalData = { ...normalizedData, ...mappingResult.data };
+          emptyVariables = [
+            ...emptyVariables,
+            ...emptyMappingTargets(resolved.mapping, emptyVariables),
+          ];
 
           logger.debug({
             mapped: mappingResult.mapped.length,
@@ -306,6 +377,7 @@ export class EnhancedDocumentEngine {
         result = await this.engine.generate({
           ...baseOptions,
           data: finalData,
+          emptyVariables,
           workflowSettings,
         });
 
@@ -398,14 +470,12 @@ export class EnhancedDocumentEngine {
    *
    * This is the main entry point for Final Block document generation.
    *
-   * Workflow:
-   * 1. Normalize step values once (reused for all documents)
-   * 2. For each document:
+   * Workflow, for each document:
    *    a. Evaluate conditions → skip if false
-   *    b. Apply mapping
+   *    b. Normalize step values and apply mapping
    *    c. Generate document
    *    d. Handle errors gracefully
-   * 3. Return results + metadata
+   * then return results + metadata.
    *
    * @param options - Final Block render options
    * @returns Render result with all documents
@@ -428,13 +498,11 @@ export class EnhancedDocumentEngine {
       toPdf,
     }, 'Rendering Final Block documents');
 
-    // Pre-normalize step values once (reused for all documents)
-    const normalizedStepValues = normalizeVariables(stepValues, normalizationOptions);
-
-    logger.debug({
-      originalKeys: Object.keys(stepValues).length,
-      normalizedKeys: Object.keys(normalizedStepValues).length,
-    }, 'Step values normalized');
+    // Normalization happens per document inside `generateWithMapping` (each
+    // one needs its own mapping applied over it). A pre-normalized copy used
+    // to be built here as well, claiming to be "reused for all documents"
+    // while only ever feeding a debug log — and it was the first thing anyone
+    // diagnosing DOC-104 found, one call too early to be the cause.
 
     const results: EnhancedGenerationResult[] = [];
     const skipped: FinalBlockRenderResult['skipped'] = [];

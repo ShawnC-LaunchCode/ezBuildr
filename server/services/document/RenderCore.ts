@@ -274,14 +274,67 @@ interface NullGetterScopeManager {
     scopeList?: readonly unknown[];
 }
 
+/**
+ * DOC-104: record a tag whose variable is in the data contract but has no
+ * value for this run.
+ *
+ * This cannot live in `nullGetter`, and that is why the whole reporting
+ * feature was dead for as long as it existed. The render data represents "no
+ * answer" as `''`, not `null` (see `EnhancedDocumentEngine` -- a null would
+ * drop mapped target fields out of the data contract entirely).
+ * docxtemplater only consults `nullGetter` for `null`/`undefined`, so
+ * an empty string never reaches it. Every tag passes through the parser, so the
+ * recorder sits here instead, keyed off the caller-supplied `emptyVariables`
+ * set rather than off the resolved value.
+ *
+ * Keying off the set rather than the value is also what covers a *filtered*
+ * tag: a filter turns the missing value into its own output (`{{ fee | number
+ * }}`), so nothing is null or empty by the time docxtemplater would ask, and
+ * `nullGetter` would have stayed silent for these even with null data.
+ *
+ * Top-level tags only (`scopeList.length === 1`), for the same reason
+ * `isUnknownPath` stops there: past the root, names belong to arbitrary
+ * per-item loop data, while `emptyVariables` describes the run's own
+ * variables.
+ */
+function recordEmptyVariable(
+    tag: string,
+    context: unknown,
+    emptyVariables: ReadonlySet<string>,
+    unresolvedVariables: string[]
+): void {
+    const scopeList = (context as { scopeList?: readonly unknown[] })?.scopeList;
+    if (scopeList !== undefined && scopeList.length !== 1) { return; }
+
+    const path = extractPrimaryPath(tag);
+    if (emptyVariables.has(path) && !unresolvedVariables.includes(path)) {
+        unresolvedVariables.push(path);
+    }
+}
+
 /** Shared docxtemplater construction — the one place render options live */
 export function createDocxRenderer(
     zip: PizZip,
     templateData: Record<string, unknown>,
     unresolvedVariables?: string[],
-    helperRegistry: typeof docxHelpers = docxHelpers
+    helperRegistry: typeof docxHelpers = docxHelpers,
+    emptyVariables: readonly string[] = []
 ): Docxtemplater {
     const configuredParser = angularExpressionParser.configure({ filters: helperRegistry });
+
+    const emptyVariableSet = new Set(emptyVariables);
+    const createTagParser = (tag: string): TagParser => {
+        const parser = createExpressionParser(tag, configuredParser);
+        if (unresolvedVariables === undefined || emptyVariableSet.size === 0) { return parser; }
+
+        return {
+            get(scope: Record<string, unknown>, context: unknown): unknown {
+                const value = parser.get(scope, context);
+                recordEmptyVariable(tag, context, emptyVariableSet, unresolvedVariables);
+                return value;
+            },
+        };
+    };
 
     return new Docxtemplater(zip, {
         paragraphLoop: true,
@@ -307,7 +360,7 @@ export function createDocxRenderer(
             return '';
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- docxtemplater parser type is not publicly exported
-        parser: ((tag: string) => createExpressionParser(tag, configuredParser)) as any,
+        parser: createTagParser as any,
     });
 }
 
@@ -316,6 +369,14 @@ export interface RenderDocxBufferOptions {
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
     unresolvedVariables?: string[];
+    /**
+     * Variables present in `data` that the run has no value for — the ones
+     * carrying `''` because nobody answered, as opposed to because the answer
+     * was empty. Only the caller can tell those apart, so it supplies the list;
+     * a tag resolving one of them is recorded in `unresolvedVariables`
+     * (DOC-104). See `recordEmptyVariable`.
+     */
+    emptyVariables?: readonly string[];
     /** Existing `workflows.settings` JSON for configuration-bound filters. */
     workflowSettings?: unknown;
 }
@@ -329,6 +390,7 @@ export async function renderDocxBuffer({
     templateBuffer,
     data,
     unresolvedVariables,
+    emptyVariables,
     workflowSettings,
 }: RenderDocxBufferOptions): Promise<Buffer> {
     try {
@@ -352,7 +414,7 @@ export async function renderDocxBuffer({
         // render error, instead of the generic fallback below.
         let doc: Docxtemplater;
         try {
-            doc = createDocxRenderer(zip, templateData, unresolvedVariables, helpers);
+            doc = createDocxRenderer(zip, templateData, unresolvedVariables, helpers, emptyVariables);
             doc.render(templateData);
         } catch (error: unknown) {
             handleRenderError(error as RenderError);

@@ -64,11 +64,11 @@ npm run test:docker:down
 Check these before debugging:
 
 - (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
-- **There are no known integration failures, and no skipped tests.** Measured 2026-08-12 on
-  `main` (`0d8d7254`) with **both** compose services up: `Test Files 112 passed (112)` ·
-  `Tests 1115 passed (1115)` — zero failed, zero skipped. **Treat any integration failure
-  as your regression** — but first confirm `gotenberg` is running (see the compose warning
-  above), because a missing service produces failures that read like code defects.
+- **There are no known integration failures, and no skipped tests.** Measured 2026-08-12
+  with **both** compose services up: `Test Files 112 passed (112)` · `Tests 1116 passed
+  (1116)` — zero failed, zero skipped. **Treat any integration failure as your regression**
+  — but first confirm `gotenberg` is running (see the compose warning above), because a
+  missing service produces failures that read like code defects.
 
   This is a change in kind, not just in number. For months the suite carried 10 failures
   and reviewers certified work with "matches the documented baseline" — weak evidence,
@@ -76,26 +76,27 @@ Check these before debugging:
   then under active change. There is no baseline to hide in now. Cleared across G171-5
   (`cc427d65`), G171-6 (`150e3148`) and `0f70b6c6`/`af69bdea`.
 
-  Other projects on the same commit: `test:fast` **3113 passed / 0 failed** (272 files +
-  1 skipped) · `test:unit:db` **17 files / 158 passed**.
+  Other projects on the same commit: `test:fast` **3190 passed / 0 failed** (273 files +
+  1 skipped) · `test:unit:db` **17 files / 158 passed**. Recorded counts drift: this file
+  said `test:fast` was 3113 while a re-measurement on the same commit gave **3116**, so
+  re-measure your own base before blaming a change. A count that moves *down* is still a
+  stop condition.
 
-- ⚠️ **A green integration suite does NOT mean `unresolved_variables` works. It is dead.**
-  `run_generated_documents.unresolved_variables` is *structurally* always `[]`:
-  `VariableNormalizer` converts null to `''` (`includeEmpty` defaults true,
-  `VariableNormalizer.ts:131`), both document engines normalize unconditionally, and
-  `RenderCore`'s `nullGetter` (`RenderCore.ts:290-307`) only fires for null/undefined — so
-  it can never record anything. The DB column, the service plumbing, and the behaviour
-  `workflowStructureRules.ts` documents as designed cannot fire.
+- **`unresolved_variables` works now — the warning that used to sit here is resolved.**
+  It was *structurally* always `[]` (normalization collapsed the seeded null to `''`
+  before `nullGetter`, which only fires for null/undefined, could record it). Fixed
+  2026-08-12 in `f99110d4`: the *names* of unanswered variables travel to the renderer
+  instead of their nulls, so no generated document changed. Guarded end-to-end by
+  `tests/integration/docs.autogeneration.test.ts` — which holds **two** DOC-104 cases that
+  must not be collapsed into one, an unanswered-but-known variable (blank + recorded) and
+  an unknown tag (raises, document fails) — plus a no-DB companion at
+  `tests/unit/services/EnhancedDocumentEngine.unresolvedVariables.test.ts`.
 
-  The integration test that would have caught this was **removed** when skipped tests were
-  eliminated, so **the defect is currently untested and invisible**. Verified by reading the
-  source (G171-6, 2026-08-12); a fix is in progress separately. Do not add a test that
-  asserts `[]` — that would lock the bug in.
-
-  Related trap: `tests/unit/services/FinalBlockRenderer.test.ts:58` hardcodes
-  `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it asserts its own
-  fixture. That is why this went unnoticed for months. Treat any test that mocks the thing
-  it claims to verify with the same suspicion.
+  The lesson that outlived it: `tests/unit/services/FinalBlockRenderer.test.ts:58`
+  hardcodes `unresolvedVariables: ["missingField"]` inside a mock of the engine, so it
+  asserted its own fixture and could not detect a feature that never worked. That is why
+  this went unnoticed for months. Treat any test that mocks the thing it claims to verify
+  with the same suspicion.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas

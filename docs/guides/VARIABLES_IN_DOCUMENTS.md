@@ -107,6 +107,24 @@ formatting. Their arguments follow the same colon form. Prefer the named
 filters above when one fits: they make templates consistent and easier to
 review.
 
+### Money and numbers when the question was not answered
+
+The blank-on-empty rule above applies to the numeric filters too: `currency`,
+`usd`, `number`, `percent` and `percentage` render **blank** when the value has
+no number in it, rather than `$0.00`, `0` or `0%`. An amount nobody entered is
+not zero, and "Fee: $0.00" is a different agreement from "Fee: ___".
+
+If a blank is genuinely meant to be zero, say so in the template and the
+document will show it:
+
+`{{ fee | default:"0" | currency }}` → `$0.00` when `fee` is unanswered, and
+`$1,200.00` when it is answered.
+
+A real `0` is an answer, not a gap: `{{ fee | currency }}` renders `$0.00` when
+someone actually entered 0. Either way the unanswered variable is listed on the
+generated document's **Missing Variables** report, so a gap is visible before
+the document goes out.
+
 ### Date arithmetic and month ends
 
 Date arithmetic accepts numeric colon arguments. Month addition uses the
