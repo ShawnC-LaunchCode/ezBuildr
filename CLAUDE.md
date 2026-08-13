@@ -276,7 +276,10 @@ listed a `develop` branch that has never existed here, so that gate was half dea
 ### The override
 
 `.claude/hooks/guard-branch-push.mjs` (wired in `.claude/settings.json`) blocks any
-`git push` to `test` or `main`. To push directly anyway:
+`git push` to `main`. `test` is deliberately unguarded: its promotion *is* a push,
+so guarding it would make the routine path need the override every time, which
+turns the override into a reflex and leaves it meaning nothing on `main`. To push
+to `main` anyway:
 
 ```bash
 EZB_DIRECT_PUSH=1 git push origin main            # bash

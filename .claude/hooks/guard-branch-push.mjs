@@ -5,8 +5,14 @@
  * Work lands on `dev`. `dev` is promoted to `test` once CI is green, and `test`
  * reaches `main` through a pull request, because `main` auto-deploys to
  * production on Railway with no staging step in between. This hook blocks a
- * direct push to `test` or `main` so the order cannot be skipped by a session
- * that has simply lost track of which branch it is on.
+ * direct push to `main` so that hop cannot be skipped by a session that has
+ * simply lost track of which branch it is on.
+ *
+ * `test` is deliberately NOT protected. The documented promotion is "merge and
+ * push", so guarding it would make the routine path require the override on
+ * every promotion — which trains the override into a reflex and leaves it
+ * meaning nothing on the one branch where it matters. `test` also deploys
+ * nowhere, so a wrong push there costs a reset, not an incident.
  *
  * The override is deliberate and greppable: prefix the command with
  * EZB_DIRECT_PUSH=1 (bash) or set $env:EZB_DIRECT_PUSH='1' first (PowerShell).
@@ -24,7 +30,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const PROTECTED_BRANCHES = new Set(["main", "test"]);
+const PROTECTED_BRANCHES = new Set(["main"]);
 const OVERRIDE_TOKEN = "EZB_DIRECT_PUSH";
 
 /** Split a command line into segments that each run as their own command. */
@@ -90,8 +96,7 @@ function blockedBranches(command) {
 
         for (const target of targetsOf(args)) {
             if (target === "*") {
-                blocked.add("main");
-                blocked.add("test");
+                for (const protectedBranch of PROTECTED_BRANCHES) { blocked.add(protectedBranch); }
             } else if (PROTECTED_BRANCHES.has(target)) {
                 blocked.add(target);
             }
