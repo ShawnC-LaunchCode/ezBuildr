@@ -1,0 +1,69 @@
+{
+  "title": "Mutual Non-Disclosure Agreement — Intake",
+  "description": "Curated starter workflow (LD-2). Collects the facts needed to render templates/curated/nda/template.docx, a mutual NDA. Authored content only — not wired to any importer or route; see templates/curated/README.md.",
+  "settings": {
+    "businessDayCalendar": "weekends-only"
+  },
+  "sections": [
+    {
+      "title": "Parties",
+      "steps": [
+        {
+          "alias": "disclosing_party",
+          "type": "short_text",
+          "title": "Disclosing Party — legal name",
+          "required": true
+        },
+        {
+          "alias": "receiving_party",
+          "type": "short_text",
+          "title": "Receiving Party — legal name",
+          "required": true
+        },
+        {
+          "alias": "receiving_party_signer_pronoun",
+          "type": "multiple_choice",
+          "title": "Receiving Party signer's pronouns (optional — leave blank to use they/them)",
+          "required": false,
+          "config": {
+            "options": [
+              { "id": "they", "label": "They / them", "alias": "they/them" },
+              { "id": "she", "label": "She / her", "alias": "she/her" },
+              { "id": "he", "label": "He / him", "alias": "he/him" }
+            ],
+            "allowMultiple": false
+          }
+        },
+        {
+          "alias": "bound_individual_count",
+          "type": "number",
+          "title": "How many individuals at the Receiving Party will have access to Confidential Information?",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "Terms",
+      "steps": [
+        {
+          "alias": "effective_date",
+          "type": "date",
+          "title": "Effective Date",
+          "required": true
+        },
+        {
+          "alias": "term_years",
+          "type": "number",
+          "title": "Confidentiality term (years)",
+          "required": true
+        },
+        {
+          "alias": "governing_law_state",
+          "type": "short_text",
+          "title": "Governing law — state",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "title": "New Client Intake Questionnaire",
+  "description": "Curated starter workflow (LD-2). A general new-matter intake for a law firm; renders templates/curated/intake-questionnaire/template.docx, an internal intake summary memo. Authored content only — data, not the removed /intake/* pipeline or intakeStateMachine (see templates/curated/README.md and the LD-2 ticket's scope guard). settings.intakeConfig uses the existing, still-live workflows.intakeConfig field (read by RunService.createRun / filterPrefillValues) purely to demonstrate the field's intended use, and adds no route or state machine.",
+  "settings": {
+    "businessDayCalendar": "weekends-only",
+    "intakeConfig": {
+      "allowPrefill": true,
+      "allowedPrefillKeys": ["client_full_name", "client_email"]
+    }
+  },
+  "sections": [
+    {
+      "title": "Contact",
+      "steps": [
+        {
+          "alias": "client_full_name",
+          "type": "short_text",
+          "title": "Full legal name",
+          "required": true
+        },
+        {
+          "alias": "client_email",
+          "type": "email",
+          "title": "Email",
+          "required": true
+        },
+        {
+          "alias": "client_phone",
+          "type": "phone",
+          "title": "Phone",
+          "required": false
+        },
+        {
+          "alias": "client_pronoun",
+          "type": "multiple_choice",
+          "title": "Pronouns (optional — leave blank to use they/them)",
+          "required": false,
+          "config": {
+            "options": [
+              { "id": "they", "label": "They / them", "alias": "they/them" },
+              { "id": "she", "label": "She / her", "alias": "she/her" },
+              { "id": "he", "label": "He / him", "alias": "he/him" }
+            ],
+            "allowMultiple": false
+          }
+        }
+      ]
+    },
+    {
+      "title": "Matter",
+      "steps": [
+        {
+          "alias": "matter_type",
+          "type": "multiple_choice",
+          "title": "Matter type",
+          "required": true,
+          "config": {
+            "options": [
+              { "id": "business", "label": "Business", "alias": "Business" },
+              { "id": "family", "label": "Family", "alias": "Family" },
+              { "id": "real_estate", "label": "Real Estate", "alias": "Real Estate" },
+              { "id": "estate_planning", "label": "Estate Planning", "alias": "Estate Planning" },
+              { "id": "other", "label": "Other", "alias": "Other" }
+            ],
+            "allowMultiple": false
+          }
+        },
+        {
+          "alias": "matter_summary",
+          "type": "long_text",
+          "title": "Briefly describe the matter",
+          "required": true
+        },
+        {
+          "alias": "co_clients_count",
+          "type": "number",
+          "title": "Additional individuals involved in this matter (co-owners, co-parties, etc.)",
+          "required": false
+        },
+        {
+          "alias": "referral_source",
+          "type": "short_text",
+          "title": "How did you hear about us?",
+          "required": false
+        },
+        {
+          "alias": "urgent_deadline",
+          "type": "true_false",
+          "title": "Is there an upcoming deadline or court date?",
+          "required": true
+        },
+        {
+          "alias": "urgent_deadline_date",
+          "type": "date",
+          "title": "Deadline date",
+          "required": false,
+          "visibleIf": {
+            "type": "condition",
+            "id": "urgent-deadline-date-visible",
+            "variable": "urgent_deadline",
+            "operator": "equals",
+            "value": true,
+            "valueType": "constant"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Intake Call",
+      "steps": [
+        {
+          "alias": "intake_date",
+          "type": "date",
+          "title": "Date of intake call",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

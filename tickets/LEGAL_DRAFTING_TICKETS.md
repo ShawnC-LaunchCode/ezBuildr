@@ -147,9 +147,56 @@ Given an explicit pronoun set, the filter supplies the agreeing forms
 
 ---
 
-## LD-2 — Curated starter templates with sample DOCX and mappings 🔲
+## LD-2 — Curated starter templates with sample DOCX and mappings ✅ DONE 2026-08-15
 
-**Priority: P2** · Size: M · **BLOCKED until LD-1 lands.** · Files: `client/src/templates/` (or wherever curated content lands — decide and document), sample `.docx` fixtures, mapping config, tests
+**Verified by the reviewer, independently of the dev's report.** The dev session stopped
+without turning in gates, so every gate below was re-run by the reviewer in the `ld-2`
+worktree, and the two most falsifiable criteria were checked from scratch rather than read
+off the submission.
+
+- `type-check` **0 errors** · `eslint --max-warnings 0` on the new test **exit 0**
+- `test:fast` **274 files / 3209 passed / 0 failed** (dispatch baseline 3198 → +11, exactly
+  the new tests)
+- `test:integration` **112 files / 1116 passed / 0 failed**
+
+⚠️ **Process note worth keeping.** The dev's integration run and the reviewer's overlapped
+on the *same* worktree database, which is the documented clobbering hazard — so neither
+result was authoritative. The number above is from a **third run, executed alone against a
+freshly recreated `ezbuildr_test_ld_2`**. Concurrent DB-backed suites manufacture failures
+rather than false greens, so the agreement between all three runs is reassuring, but only
+the isolated run is evidence.
+
+**Independently re-verified, not taken on trust:**
+- **AC4's holiday arithmetic.** 2026-09-04 is a Friday and 2026-09-07 is the Monday of Labor
+  Day — both confirmed by direct date computation. +2 business days on `us-federal` therefore
+  lands on Wednesday 2026-09-09, skipping the weekend *and* the holiday. The suite also
+  renders the same data under `weekends-only` and asserts Sep 8, a discriminating check that
+  the calendar setting drives the skip rather than the arithmetic.
+- **AC3's "shipped vocabulary only".** All ten filters used across the three templates
+  (`pronounSubject`, `pronounVerb`, `pronounPossessive`, `capitalize`, `longdate`,
+  `addBusinessDays`, `usd`, `plural`, `isAre`, `hasHave`) resolve to real registered helpers
+  in `draftingPrimitives.ts` / `docxHelpers.ts` / `formatters.ts`. No bespoke mechanism.
+- **Scope guard.** `git status` shows changes confined to `templates/` and one test file —
+  nothing under `server/` or `client/`, so no route, service or state machine was added.
+  `workflows.intakeConfig` was confirmed live: a `notNull` jsonb column with real route and
+  service consumers.
+- **A real rendered document was produced and read**, not just asserted in a test — output
+  includes the holiday-crossing deadline ("September 9, 2026"), `$450.00`/`$5,000.00`
+  currency, correct plural/has-have agreement, and the they/them default producing
+  "They acknowledge … their obligations" rather than "They acknowledges".
+
+This also closes the **BIZ board's outstanding gate item** — a real DOCX rendering a
+business-day deadline across a federal holiday.
+
+**Disclosed deviation (accepted):** the dev staged files with `git add` mid-flight, against
+the no-staging rule, then caught it and ran `git restore --staged`. Reviewer confirmed the
+tree was untracked-only before committing. No commit was made by the dev.
+
+**Follow-up observation, not a defect:** the retainer renders "2 additional attorneys" where
+legal drafting convention would spell small numbers ("Two"). A `spellNumber`-style filter is
+a reasonable future addition; filed as an observation rather than a send-back.
+
+**Priority: P2** · Size: M · **Unblocked — LD-1 landed `cf59fa36`.** · Files: `templates/curated/**` (location decided and documented in its README), `tests/unit/services/document/curatedTemplates.test.ts`
 
 ### 🚫 Scope guard — "Intake Questionnaire" is CONTENT, not the old intake pipeline
 
@@ -211,11 +258,21 @@ data, and burying it in a component is how it becomes uneditable.
 
 ## Gate
 
-- [ ] LD-1 ✅ with a dated verification note
-- [ ] LD-2 ✅ with a dated verification note
-- [ ] A human has opened at least one rendered curated document and read it
-- [ ] `pronoun` filters proven to have no name-inference path
+- [x] LD-1 ✅ with a dated verification note — 2026-08-12, `0f1531f6` / `cf59fa36`
+- [x] LD-2 ✅ with a dated verification note — 2026-08-15, gates re-run by the reviewer
+- [ ] **A human has opened at least one rendered curated document and read it** —
+      ⚠️ **the one item neither the dev nor the reviewer can satisfy.** Both read the
+      rendered *prose* (extracted from `word/document.xml`) and it is correct, but no
+      person has opened the file. A rendered retainer was produced for this purpose:
+      render it with `renderDocxBuffer` against
+      `templates/curated/retainer-agreement/template.docx` using the sample data in
+      `tests/unit/services/document/curatedTemplates.test.ts`
+- [x] `pronoun` filters proven to have no name-inference path — established at LD-1 by
+      reading the source, and re-evidenced here: the retainer holds the client name constant
+      (`Grace Hopper`) with `client_pronoun: null` and renders the they/them default
+      ("They acknowledge … their obligations"), so no name-derived inference occurs
 - [ ] GH-173 flipped to ✅ in `tickets/ROADMAP_TICKETS.md`, **and the phase/overall
       counters recounted** — recount the phase rows, do not increment (the counters have
-      drifted twice from per-ticket increments)
-- [ ] Reviewer has committed each passed ticket
+      drifted twice from per-ticket increments). **Deliberately not done yet:** the human-read
+      item above is still open, and GH-173 should not be closed before its own gate is
+- [x] Reviewer has committed each passed ticket
