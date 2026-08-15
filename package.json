@@ -112,7 +112,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/bull": "^3.15.9",
     "@types/cors": "^2.8.19",
-    "@types/google.maps": "^3.58.1",
+    "@types/google.maps": "^3.65.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/memoizee": "^0.4.12",
     "@types/multer": "^2.0.0",
