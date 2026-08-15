@@ -31,9 +31,12 @@ Three facts, each verified 2026-08-12:
 1. **Local development shares one database with production.** `.env` `DATABASE_URL` points at
    the Neon production instance. A local `npm run db:migrate` hits production. Already
    recorded as `LU-B1` in `tickets/BACKLOG.md` and never resolved.
-2. **`main` auto-deploys to production with no staging gate, and branch protection is off**
-   (confirmed via `gh api …/branches/main/protection` → 404 "Branch protection has been
-   disabled on this repository").
+2. ~~**`main` auto-deploys to production with no staging gate, and branch protection is off**~~
+   **WRONG — corrected 2026-08-15.** Protection is enforced by a *ruleset*, which the legacy
+   `…/branches/main/protection` endpoint cannot see; it returns 404 "Branch protection has
+   been disabled" regardless. Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`
+   instead. `main-protection` is active with deletion, non-fast-forward, PR-required and 4
+   required checks. See ENV-4.
 3. **Row-level security is defined but structurally inert.** Details in Phase 2.
 
 Phase 1 must land before Phase 2 starts. Making RLS real requires connecting as a
@@ -54,9 +57,38 @@ and worse — see RLS-2.
 
 # Phase 1 — Environment split (ENV)
 
-## ENV-1 — Create dev and test Railway environments, each with its own database 🔲
+## ENV-1 — Create dev and test Railway environments, each with its own database 🔄 mostly done
 
 **Priority: P0** · Size: M · Files: Railway configuration, `.env`, `.env.example`, `docs/deployment/CI_CD_SETUP.md`
+
+### Progress — 2026-08-15 (AC1–AC3 met and verified; AC4–AC6 remain)
+
+The environments were built on 2026-08-13 but never written up, so the board still read as
+untouched. Measured state:
+
+| | Neon endpoint | S3 bucket | `VL_MASTER_KEY` | `/health` |
+|---|---|---|---|---|
+| dev | `ep-frosty-firefly-ah3o6q52` | `clientexposedstorage-ec8pcl` | distinct | 200, `database.connected: true` |
+| test | `ep-fragrant-boat-ahn0lgc7` | `clientexposedstorage-crb-pk` | distinct | 200, `database.connected: true` |
+| production | `ep-gentle-leaf-ahsz38kq` | `integrated-flask-…` | distinct | 200, `database.connected: true` |
+
+- **AC1 ✅** Both environments exist, each with `ezBuildr - prod` + `gotenberg` +
+  `railway-clamav` all SUCCESS. Note they are **Neon branches of production**
+  (`init_source: parent-data`, parent LSN `4/FAE303E0`), so they are write-isolated —
+  a `db:push` against dev cannot reach production — but they were *cloned*, not built from
+  the migration chain. That is why ENV-2 remained necessary; see its result.
+- **AC2 ✅ 2026-08-15** Local `.env` `DATABASE_URL` repointed from `ep-gentle-leaf`
+  (production, byte-identical to production's Railway value) to `ep-frosty-firefly` (dev).
+  This closes `LU-B1`. Backup of the prior value taken before the edit.
+- **AC3 ✅** `dev`→dev, `test`→test, `main`→production. **Only verifiable in Railway's
+  Settings → Source pane** — neither the API nor `railway status` reports the connected
+  branch, so this rests on the 2026-08-15 owner verification recorded in CLAUDE.md.
+
+Still open: **AC4** (`.env.example` does not document `DATABASE_URL` per-environment;
+`TEST_DATABASE_URL` already is, at lines 18–24), **AC5**
+([`docs/deployment/CI_CD_SETUP.md:149`](../docs/deployment/CI_CD_SETUP.md) still says
+*"Only `main` deploys"*, now false, and the three environments are undocumented), and
+**AC6** (the `db:push` smoke check was never run).
 
 ### Finding
 
@@ -110,9 +142,85 @@ with one word. `.env.example` must document both, distinctly.
 
 ---
 
-## ENV-2 — Prove the migration chain reproduces production's schema 🔲
+## ENV-2 — Prove the migration chain reproduces production's schema ✅ DONE 2026-08-15
 
 **Priority: P0** · Size: M · Files: none expected; a written comparison plus whatever drift repair it turns up
+
+### Result — 2026-08-15 · measured, and it came back DIRTY in exactly one dimension
+
+Built a scratch database from the chain alone and diffed it against a live database.
+Commands, reproducible verbatim:
+
+```bash
+docker exec ezbuildr-test-db-1 psql -U postgres -c "CREATE DATABASE ezbuildr_env2_chain;"
+DATABASE_URL='postgresql://postgres:postgres@localhost:5434/ezbuildr_env2_chain' \
+  npx tsx scripts/runMigrations.ts                       # chain from empty -> "Migrations completed"
+npx tsx scripts/schema-snapshot.ts > snap_dev.txt        # .env now points at dev
+DATABASE_URL='postgresql://postgres:postgres@localhost:5434/ezbuildr_env2_chain' \
+  npx tsx scripts/schema-snapshot.ts > snap_chain.txt
+diff snap_dev.txt snap_chain.txt
+```
+
+**Compared against `dev`, not production** — `dev` is a Neon branch of production cut
+2026-08-13 from parent LSN `4/FAE303E0` with `init_source: parent-data`, so it is a
+byte-identical copy of production's schema. This kept the comparison strictly read-only
+with respect to production, satisfying "zero writes to production".
+
+| Dimension | dev (= production) | chain-built | Verdict |
+|---|---|---|---|
+| Tables | 107 | 107 | ✅ identical |
+| Columns | 1008 | 1008 | ✅ identical |
+| Enums | 43 | 43 | ✅ identical |
+| Indexes | 319 | 319 | ✅ identical |
+| Constraints | 326 | 326 | ✅ identical |
+| **RLS policies** | **9** | **36** | 🔴 **drift** |
+
+**So the chain reproduces production's schema exactly, except for RLS.** Every column
+type, nullability, default, index and constraint matches line-for-line — e.g. `public.users`
+is identical in all three of those sections and differs *only* by the `[RLS]` marker and a
+`tenant_isolation` policy present in the chain build and absent from production.
+
+**27 tables have a policy in the chain that production does not have:**
+
+```
+ai_usage audit_logs collab_docs collections connections datavault_api_tokens
+datavault_databases datavault_number_sequences datavault_row_notes datavault_tables
+external_destinations metrics_events metrics_rollups organizations projects records
+review_tasks sections signature_requests sli_configs sli_windows steps teams
+tenant_domains users workflow_blueprints workflows
+```
+
+### 🔴 This overturns the diagnosis in RLS-3 — read before working it
+
+The board (and commit `ee55f6ac`) concluded **"migration `0001` provably did nothing"** and
+inferred its `to_regclass` loop guard is broken. **The guard is not broken.** Run `0001` in
+chain order against an empty database and it produces all 24 tenant policies plus the
+ownership policies on `workflows`/`sections`/`steps` — 36 in total. `0001`'s recorded hash
+also **matches** production's, so the file was never edited.
+
+The real cause is sequencing, not the migration: production's tables were created out of
+band by `npm run db:push` (a documented workflow in CLAUDE.md), so when `0001` ran, the
+tables it names did not yet exist, `to_regclass` returned NULL, and it correctly skipped
+them and recorded itself applied. **Production is the drifted artifact; the chain is
+correct.** RLS-3 should therefore not rewrite `0001` — see the correction on that ticket.
+
+Two related board claims are also wrong: `0001` omitting `ai_usage` is **already fixed** by
+`0004_ai_usage_rls` (the chain build has an `ai_usage` policy), and `files` never appears in
+the chain's policy list, so that stale array entry is inert rather than harmful.
+
+### Second finding — 9 of 24 migration files were edited after production applied them
+
+Comparing `drizzle.__drizzle_migrations` hashes by `created_at` order:
+
+```
+0005_lying_amphibian  0006_remove_legacy_intake_reuse  0007_add_storage_key
+0011_datavault_rls_phase4  0014_outstanding_darkstar  0016_delivery_tenant_not_null
+0017_icy_siren  0018_magenta_chat  0019_run_resume_links_rls
+```
+
+Consistent with the 2026-07-19 chain regeneration. It has caused no schema divergence — the
+table above proves that — but it means production's ledger no longer matches the files on
+disk. Recorded as an observation; not blocking.
 
 ### Finding
 
@@ -161,9 +269,32 @@ silently "fix" production.
 
 ---
 
-## ENV-3 — Per-environment secrets, and fix the live storage misconfiguration 🔲
+## ENV-3 — Per-environment secrets, and fix the live storage misconfiguration 🔄 mostly done
 
 **Priority: P1** · Size: S · Files: Railway variables per environment, `.env.example`
+
+### Progress — 2026-08-15 (AC1–AC3 met; AC4–AC5 remain)
+
+- **AC1 ✅** All three environments carry a **distinct** `VL_MASTER_KEY`.
+- **AC2 ✅** `JWT_SECRET`, `SESSION_SECRET`, `BASE_URL`, `ALLOWED_ORIGIN` are set per
+  environment. Production's `JWT_SECRET`/`SESSION_SECRET` are the known deliberate
+  placeholders — **do not re-file them as findings.**
+- **AC3 ✅** `STORAGE_DRIVER=s3` set in production with `AWS_S3_*` wired, and each
+  environment has its **own bucket** (production `integrated-flask-…`, dev
+  `clientexposedstorage-ec8pcl`, test `clientexposedstorage-crb-pk`).
+- **The "dev must not decrypt production secrets" concern is void.** There are **zero**
+  `connections` rows and **zero** `secrets` rows in the database, so the key divergence
+  across the Neon branches breaks no stored data. Consistent with the standing finding that
+  the database holds only test data (2 users, 43 tenants, 86 workflows, 0 runs).
+
+Still open: **AC4** (a generated document downloading from production has still not been
+demonstrated — a set variable is not proof) and **AC5** (`.env.example` per-environment list).
+
+**New observation — shared secrets across environments.** `METRICS_API_KEY` is
+byte-identical in all three environments, as are `GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`
+and `GOOGLE_CLIENT_ID`. The metrics key is the one worth splitting: it authenticates the
+metrics endpoint, so one leaked value covers all three environments. The Google keys are
+arguably fine to share. Not blocking; folded into this ticket rather than filed separately.
 
 ### Finding
 
@@ -218,7 +349,7 @@ Ship the `STORAGE_DRIVER` change with `railway redeploy` (not the MCP `deploy`),
 
 ---
 
-## ENV-4 — Turn on branch protection and make the test environment mean something 🔲
+## ENV-4 — Turn on branch protection and make the test environment mean something ✅ DONE 2026-08-15
 
 **Priority: P1** · Size: S · Files: GitHub repository settings; possibly `.github/workflows/ci.yml`
 
@@ -295,21 +426,43 @@ in Railway → service → Settings → Source, and it is the repo owner's call.
 
 ### Acceptance criteria
 
-1. Branch protection is enabled on `main`; `gh api …/branches/main/protection` returns 200 and
-   its JSON is pasted.
-2. At least one status check is required, and it actually runs on a PR (evidenced by a test PR).
-3. The strictness settings were confirmed with the repo owner before enabling, and that
-   confirmation is noted.
+> **Rewritten 2026-08-15.** The original AC1 required
+> `gh api …/branches/main/protection` to return 200. **That is unsatisfiable** — this repo
+> protects `main` with a *ruleset*, and the legacy endpoint cannot see rulesets, so it
+> returns 404 no matter how strict the protection is. Chasing that criterion is what made
+> three separate audits conclude protection was off.
+
+1. ✅ `main` is protected, evidenced by `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`
+   — **not** the legacy endpoint. Verified 2026-08-15: `main-protection` (active) with
+   `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`; plus
+   `dev-protection` and `test-snapshot-protection` (active, deletion + non-fast-forward).
+2. ✅ Required checks on `main` are **Quality Gates, Validate Strict Zones, Tests (24.x),
+   Security Scan**, and all three branches run CI so they are actually produced.
+3. ✅ Strictness confirmed with the repo owner 2026-08-15: **0 required approvals**
+   (required *status checks* are CI jobs, not human reviewers — the owner can self-merge
+   once CI is green), **RepositoryRole bypass retained** so the owner is never locked out,
+   and **no linear-history rule** (it would force squash/rebase, rewriting SHAs and breaking
+   the fast-forward promotions this model depends on).
+4. ✅ `delete_branch_on_merge` is `false` and must stay so — it is what deleted `test` and
+   broke that Railway environment, since every ruleset grants RepositoryRole bypass.
 
 ---
 
 ## Phase 1 Gate
 
-- [ ] ENV-1..4 ✅ each with a dated verification note
-- [ ] Local `.env` demonstrably points away from production
-- [ ] A generated document downloads from production (404s gone)
-- [ ] `gh api …/branches/main/protection` returns 200
-- [ ] Schema-drift comparison written and, if drift exists, ruled on by the repo owner
+- [ ] ENV-1..4 ✅ each with a dated verification note — **ENV-2 ✅, ENV-4 ✅; ENV-1 and
+      ENV-3 are at AC-level partial (docs + the production document-download proof)**
+- [x] Local `.env` demonstrably points away from production — repointed to the dev Neon
+      endpoint 2026-08-15; `schema-snapshot.ts` reading `.env` connects to `ep-frosty-firefly`
+      and returns a full 107-table snapshot
+- [ ] A generated document downloads from production — **still unproven** (ENV-3 AC4).
+      Note the original premise was wrong: `STORAGE_DRIVER=s3` has been set since
+      2026-08-04, so there is no 404 incident to fix; this is now just missing evidence
+- [x] ~~`gh api …/branches/main/protection` returns 200~~ — **unsatisfiable by design.**
+      Replaced by `gh api …/rulesets`; `main-protection` verified active 2026-08-15
+- [x] Schema-drift comparison written — ENV-2 done. **Drift found: RLS policies only**
+      (9 in production vs 36 from the chain). Everything else identical. Needs an owner
+      ruling on the repair, which is now RLS-3's reframed scope
 - [ ] Reviewer has committed each passed ticket
 
 ---
@@ -499,6 +652,30 @@ chosen, and writing them now would presume the answer.
 **Priority: P0** (raised from P1 on 2026-08-13 — the coverage gap was measured, not theoretical)
 · Size: M · Files: a new migration, `docs/architecture/TENANT_ISOLATION_RLS.md`
 
+> ### 🔴 CORRECTED 2026-08-15 by ENV-2 — the preferred fix below is wrong
+>
+> ENV-2 built a database from the migration chain alone and got **36 policies**, covering
+> all 24 tenant tables plus `workflows`/`sections`/`steps`. Production has 9. So:
+>
+> - **`0001` is not broken and its loop guard is not the defect.** Its recorded hash matches
+>   production's, so the file was never edited, and it demonstrably works in chain order.
+> - **Do NOT "replace `0001` with a version that fails loudly".** That instruction below was
+>   written from a wrong diagnosis. Changing `0001` would alter an already-applied
+>   migration's hash for no gain — and 9 files are already in that state (ENV-2).
+> - The defect is that **production's tables were created by `db:push` out of band**, so they
+>   did not exist when `0001` ran; it skipped them and recorded itself applied.
+>
+> **The work is therefore a forward migration that applies the missing policies to existing
+> databases**, written to be idempotent and to fail loudly if a table it names is absent.
+> The chain build is the specification for what the end state must look like — diff against
+> it rather than re-deriving the list.
+>
+> Two sub-claims below are also void: `ai_usage` is already covered by `0004_ai_usage_rls`,
+> and `files` never yields a policy in the chain, so that array entry is inert.
+>
+> Note dev and test are **Neon branches of production**, so they carry the same 9-policy
+> gap. Fixing production alone will leave them drifted — apply to all three.
+
 > **The measurement is already done — start from it, don't redo it.** Production has 26
 > tables with a `tenant_id` column and **2** of them are protected. Regenerate the evidence
 > any time with `npx tsx scripts/schema-snapshot.ts` (read-only). The unprotected 24 are
@@ -665,6 +842,22 @@ query paths is the point.
 
 ## Backlog / observations
 
+- **`dev.ezbuildr.com` and `test.ezbuildr.com` do not resolve** (NXDOMAIN, verified
+  2026-08-15). Both are registered on the service in Railway with `sync_status: ACTIVE`,
+  but the registrar records were never created, so certificates sit at
+  `CERTIFICATE_STATUS_TYPE_VALIDATING_OWNERSHIP`. Records required:
+  `CNAME dev → t46dsnmf.up.railway.app` + `TXT _railway-verify.dev = railway-verify=4c13d8da…`,
+  and `CNAME test → aiq8x4lt.up.railway.app` + `TXT _railway-verify.test = railway-verify=0e402974…`.
+  Both environments are reachable meanwhile at their `.up.railway.app` hosts.
+  **Owner decision 2026-08-15: leave for now.** *Tag: operational.*
+- **If those subdomains are ever activated, `BASE_URL`/`ALLOWED_ORIGIN` must move with
+  them.** Both currently point at `ezbuildr-prod-{dev,test}.up.railway.app` while
+  `RAILWAY_PUBLIC_DOMAIN` is the branded host, so OAuth callbacks and CORS would reject the
+  branded host — the same class of defect as O-2. *Tag: operational.*
+- **`/health` cannot distinguish environments.** All three run `NODE_ENV=production`, so
+  every environment reports `"environment": "production"`. Anything that verifies "am I
+  hitting dev or prod?" must compare the host or the database, not `/health`.
+  *Tag: informational.*
 - **`records` is a parallel data model nobody has investigated** (`DV-B3` in
   `tickets/BACKLOG.md`). It is in the RLS array. RLS-3 should say whether it holds real tenant
   data or is vestigial.
