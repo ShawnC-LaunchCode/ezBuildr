@@ -1,0 +1,81 @@
+{
+  "title": "Retainer Agreement — Engagement Intake",
+  "description": "Curated starter workflow (LD-2). Collects the facts needed to render templates/curated/retainer-agreement/template.docx, a retainer/engagement agreement. Authored content only — not wired to any importer or route; see templates/curated/README.md. businessDayCalendar is 'us-federal' so the payment deadline in the rendered document is computed against real US federal holidays, closing the outstanding BIZ-1 proof (no real DOCX had exercised a business-day deadline across a federal holiday before this ticket).",
+  "settings": {
+    "businessDayCalendar": "us-federal"
+  },
+  "sections": [
+    {
+      "title": "Client & Firm",
+      "steps": [
+        {
+          "alias": "client_name",
+          "type": "short_text",
+          "title": "Client legal name",
+          "required": true
+        },
+        {
+          "alias": "client_pronoun",
+          "type": "multiple_choice",
+          "title": "Client's pronouns (optional — leave blank to use they/them)",
+          "required": false,
+          "config": {
+            "options": [
+              { "id": "they", "label": "They / them", "alias": "they/them" },
+              { "id": "she", "label": "She / her", "alias": "she/her" },
+              { "id": "he", "label": "He / him", "alias": "he/him" }
+            ],
+            "allowMultiple": false
+          }
+        },
+        {
+          "alias": "firm_name",
+          "type": "short_text",
+          "title": "Firm name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "Engagement",
+      "steps": [
+        {
+          "alias": "matter_description",
+          "type": "long_text",
+          "title": "Describe the matter",
+          "required": true
+        },
+        {
+          "alias": "engagement_date",
+          "type": "date",
+          "title": "Engagement (signing) date",
+          "required": true
+        },
+        {
+          "alias": "hourly_rate",
+          "type": "currency",
+          "title": "Hourly rate",
+          "required": true
+        },
+        {
+          "alias": "retainer_fee",
+          "type": "currency",
+          "title": "Initial retainer fee",
+          "required": true
+        },
+        {
+          "alias": "response_deadline_days",
+          "type": "number",
+          "title": "Business days Client has to remit the initial retainer after signing",
+          "required": true
+        },
+        {
+          "alias": "additional_attorneys_count",
+          "type": "number",
+          "title": "Additional attorneys staffed on this matter (beyond the attorney of record)",
+          "required": true
+        }
+      ]
+    }
+  ]
+}
