@@ -84,7 +84,7 @@ IDs are stable, heading anchors are not.
 | LU-B3 | `informational` | Dead-store-action guardrail tests references, not reachability | `backlog/LOGIC_UNIFICATION.md` |
 | LU-B4 | `informational` | Builder store is global but conceptually per-workflow — latent if tabs land | `backlog/LOGIC_UNIFICATION.md` |
 | DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
-| DEBT-OPS1 | `operational` | **`STORAGE_DRIVER=s3` unset in Railway — live 404s** | `backlog/TECH_DEBT.md` |
+| ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** in `ROADMAP_TICKETS.md`; this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
 | DEBT-OPS2 | `operational` | Branch protection is off | `backlog/TECH_DEBT.md` |
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
 | AISL-B1 | `needs-initiative` | Structured outputs would *delete* the JSON-parse/truncation subsystem; provider-coupled, Size L | `backlog/AI_SERVICE_LAYER.md` |

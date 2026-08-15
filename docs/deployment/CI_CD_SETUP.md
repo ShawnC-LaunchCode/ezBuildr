@@ -141,8 +141,15 @@ SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 ## 🔄 How the Pipeline Works
 
 ### Trigger Events:
-- **Push to `main` or `develop`**: Runs full test suite + deploys (main only)
-- **Pull Request to `main` or `develop`**: Runs full test suite (no deployment)
+
+Work promotes `dev` → `test` → `main` (see CLAUDE.md, "Branch flow"), and all
+three run the full suite. A `develop` branch was listed here and in
+`strict-mode-check.yml` until 2026-08-13 but has never existed in this repo.
+
+- **Push to `dev`, `test`, or `main`**: Runs full test suite. Only `main` deploys,
+  via Railway's own GitHub integration — no workflow here performs a deploy.
+- **Pull Request to `test` or `main`**: Runs full test suite before the merge.
+  `test` → `main` is PR-only, because that merge reaches production.
 
 ### Pipeline Stages:
 
@@ -309,7 +316,7 @@ jobs:
 
 After setup, verify everything works:
 
-- [ ] Push to `develop` branch triggers tests only
+- [ ] Push to `dev` or `test` branch triggers tests only
 - [ ] Push to `main` branch triggers tests + deployment
 - [ ] All test jobs pass successfully
 - [ ] Coverage report is generated

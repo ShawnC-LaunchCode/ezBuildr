@@ -176,9 +176,15 @@ secrets** — it breaks every stored secret irrecoverably. So each environment n
 stable key, and production's must not change. Do not copy production's key into dev; dev
 should not be able to decrypt production secrets even in principle.
 
-**(b) `STORAGE_DRIVER=s3` is unset in Railway and is causing live document 404s.** Recorded
-as `DEBT-OPS1` in `tickets/BACKLOG.md` and outstanding for weeks. Every deploy re-serves
-404s for generated documents.
+**(b) ~~`STORAGE_DRIVER=s3` is unset~~ — WRONG, and corrected 2026-08-13.** Production has
+`STORAGE_DRIVER=s3` with `AWS_S3_*` wired as Railway reference variables. It was closed as
+**O-3 on 2026-08-04** in `ROADMAP_TICKETS.md`; only the stale `DEBT-OPS1` index entry said
+otherwise, and I repeated it here without measuring. **There is no 404 incident.** Nothing
+to do for storage in this ticket.
+
+The general failure: a backlog index entry is a claim about a tree that has since moved.
+`tickets/BACKLOG.md`'s own header says exactly that — "Promoting one means re-verifying the
+finding first" — and I promoted it into a ticket without doing so.
 
 ### Preferred fix
 
@@ -239,6 +245,23 @@ than picking for them.
 - `DEBT-OPS2` in `tickets/BACKLOG.md` — close it here.
 - `tickets/BACKLOG.md` `DEBT-OPS3` (delete the stale `origin/debt9-typecheck-proof` branch) is
   a one-liner worth doing in the same pass.
+
+### Progress — 2026-08-13 (the repo-side half is done; GitHub settings remain)
+
+The branch workflow this ticket assumes now exists and is enforced locally:
+
+- `dev` → `test` → `main` is documented in CLAUDE.md ("Branch flow"), with `test` → `main`
+  specified as **PR-only** because that hop reaches production.
+- **CI runs on all three branches.** `ci.yml`, `strict-mode-check.yml` and `auth-tests.yml`
+  previously triggered on `main` alone (and `strict-mode-check.yml` on a `develop` branch that
+  has never existed), so there was no check available to require on a `test` → `main` PR.
+  There is now — which is criterion 2's dependency.
+- `.claude/hooks/guard-branch-push.mjs` blocks a direct push to `test`/`main`, overridable with
+  `EZB_DIRECT_PUSH=1` when the repo owner asks. This constrains **Claude**, not git — it is not
+  a substitute for protection, which is why this ticket stays open.
+
+Still open here: the GitHub-side settings, and the escalation above is unchanged — the repo
+owner has **not** yet chosen linear history / required reviewers / admin bypass.
 
 ### Acceptance criteria
 

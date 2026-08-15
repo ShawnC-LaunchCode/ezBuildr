@@ -79,9 +79,12 @@ reviewer and other agents run gates on the same tree.
 4. **No new lint suppressions.** If your change trips a rule, refactor until
    it's clean. Blanket file-level `eslint-disable` headers are banned in new
    code; the existing ones are debt, not a pattern to copy.
-5. **Do not commit or stage anything.** The reviewer controls commits. Never
-   `git add -A` — the repo owner works this tree from a second IDE, so
-   unrelated changes are routinely present.
+5. **Do not commit, stage, or push anything.** The reviewer controls commits.
+   Never `git add -A` — the repo owner works this tree from a second IDE, so
+   unrelated changes are routinely present. For the avoidance of doubt: work
+   promotes `dev` → `test` → `main` and `main` is live, so pushing to `test` or
+   `main` is never part of a ticket. Leave your work uncommitted on the branch
+   you were given.
 6. **Stay in scope.** Don't touch files outside your ticket, and don't work
    another ticket. If a criterion is impossible or wrong, or the scope
    explodes, **stop and report the blocker** — do not quietly reinterpret it.

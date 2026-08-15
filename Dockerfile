@@ -7,8 +7,15 @@ WORKDIR /app
 # Install dependencies needed for build
 COPY package*.json ./
 COPY .npmrc ./
-# Install python/make/g++ for potential native module builds (bcrypt, isolated-vm)
-RUN apt-get update && apt-get install -y python3 make g++
+# Install python/make/g++ for potential native module builds (bcrypt, isolated-vm).
+#
+# unzip is for Puppeteer's postinstall. Up to puppeteer 24 the Chromium download
+# was extracted by the bundled extract-zip; puppeteer 25 dropped that dependency
+# (it carried GHSA-jmr9-qjv8-65gv) and now shells out to a system unzip, falling
+# back to an optional yauzl. node:24-bookworm-slim ships neither, so `npm ci`
+# exits 1 with "no zip archiver is available" and the whole build fails. Caught
+# by the test environment on the first promotion after the upgrade.
+RUN apt-get update && apt-get install -y python3 make g++ unzip
 
 # Configure npm for better network reliability and performance
 RUN npm config set fetch-retries 5 \

@@ -206,9 +206,18 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
             const page = await browser.newPage();
 
             try {
-                // Set content
+                // Set content.
+                //
+                // 'load' rather than 'networkidle0': Puppeteer 25 dropped the
+                // networkidle values from setContent's waitUntil, which never
+                // described this call anyway — the HTML comes from Mammoth with
+                // images inlined as data URIs, so there is no network traffic to
+                // go idle. 'load' still waits for those images to decode, which
+                // is the property the PDF actually depends on;
+                // 'domcontentloaded' would fire too early and could paginate
+                // around images that have no dimensions yet.
                 await page.setContent(styledHtml, {
-                    waitUntil: 'networkidle0',
+                    waitUntil: 'load',
                     timeout: PUPPETEER_PAGE_TIMEOUT_MS,
                 });
 

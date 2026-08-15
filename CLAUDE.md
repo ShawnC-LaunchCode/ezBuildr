@@ -248,6 +248,54 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
    `docs/guides/VARIABLES_IN_DOCUMENTS.md`, whose examples are executable in
    `tests/unit/services/document/docSamples.test.ts` — update them together.
 10. **Parallel agents use worktrees, never the shared tree** — see below.
+11. **Work promotes `dev` → `test` → `main`** — never commit or push straight to `main`; see below.
+
+## Branch flow: dev → test → main
+
+Three branches, in one direction:
+
+| Branch | Role |
+|--------|------|
+| `dev` | Where work lands. Commit here by default. |
+| `test` | What CI has proven. Promoted from `dev` by merge once dev's build is green. |
+| `main` | What is **live**. Railway auto-deploys it to www.ezbuildr.com with no staging step. |
+
+- **Commit to `dev`.** If a task starts on `main` or `test`, branch to `dev` (or a
+  feature branch off it) first.
+- **`dev` → `test`: merge and push**, once CI is green on `dev`.
+- **`test` → `main`: pull request only.** This is the hop that reaches production,
+  so it gets the diff, the CI run before the merge, and the strict-zones summary
+  comment — none of which a direct push produces.
+
+**All three branches now run CI** (`ci.yml`, `strict-mode-check.yml`, `auth-tests.yml`).
+Until 2026-08-13 only `main` did, so a break first became visible on the branch that
+deploys: the `PdfConverter` env-leak failed six consecutive `main` builds, having
+passed nothing earlier because nothing earlier ran. `strict-mode-check.yml` also
+listed a `develop` branch that has never existed here, so that gate was half dead.
+
+### The override
+
+`.claude/hooks/guard-branch-push.mjs` (wired in `.claude/settings.json`) blocks any
+`git push` to `main`. `test` is deliberately unguarded: its promotion *is* a push,
+so guarding it would make the routine path need the override every time, which
+turns the override into a reflex and leaves it meaning nothing on `main`. To push
+to `main` anyway:
+
+```bash
+EZB_DIRECT_PUSH=1 git push origin main            # bash
+$env:EZB_DIRECT_PUSH='1'; git push origin main    # PowerShell
+```
+
+**Claude sets that only when the repo owner has asked for a direct push in that
+session** — never on its own initiative, and never to route around a red build.
+Say so plainly in the response when you use it.
+
+The guard resolves the real target (`HEAD:main`, `dev:main`, `--all`, and a bare
+`git push` while `main` is checked out all count), so it cannot be sidestepped by
+phrasing. It stops *forgetful* pushes, not determined ones — the assistant can type
+the override itself. The hard boundary is **GitHub branch protection on `main`,
+which is currently OFF**; turning it on is the repo owner's call and is the only
+thing that makes the `test` → `main` PR a real gate rather than a formality.
 
 ## Parallel work: use git worktrees
 
