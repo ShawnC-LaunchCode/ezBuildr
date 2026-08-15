@@ -224,6 +224,20 @@ Ship the `STORAGE_DRIVER` change with `railway redeploy` (not the MCP `deploy`),
 
 ### Finding
 
+> **⚠️ This finding was wrong, corrected 2026-08-15. Protection was never off.**
+>
+> The 404 below is what the **legacy** branch-protection API returns when a repo uses
+> **rulesets** instead — which this one does, and has since 2026-08-13. `main-protection`
+> was active the whole time: deletion, non-fast-forward, and PR-required with status checks.
+> Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`; the `…/branches/main/protection`
+> endpoint cannot see rulesets and its error message actively misleads.
+>
+> The real gap was narrower and is now closed: only *Quality Gates* and *Validate Strict
+> Zones* were required, so **`Tests (24.x)` and `Security Scan` were not** — a PR with a red
+> test suite or an unaddressed high-severity advisory could merge. Both were added to
+> `main-protection` on 2026-08-15. `dev-protection` was created the same day; `test` already
+> had `test-snapshot-protection`.
+
 `gh api repos/ShawnC-LaunchCode/ezBuildr/branches/main/protection` returns **404 — "Branch
 protection has been disabled on this repository."** Combined with `main` auto-deploying to
 production, any push reaches customers with no review and no required check. Recorded as
@@ -260,8 +274,24 @@ The branch workflow this ticket assumes now exists and is enforced locally:
   `EZB_DIRECT_PUSH=1` when the repo owner asks. This constrains **Claude**, not git — it is not
   a substitute for protection, which is why this ticket stays open.
 
-Still open here: the GitHub-side settings, and the escalation above is unchanged — the repo
-owner has **not** yet chosen linear history / required reviewers / admin bypass.
+### Progress — 2026-08-15 (done, bar one toggle)
+
+- `main-protection` now requires **Tests (24.x)** and **Security Scan** alongside the two it
+  already had. This is the substance of criteria 1–2.
+- `dev-protection` created (deletion + non-fast-forward), matching `test-snapshot-protection`.
+- `delete_branch_on_merge` set to **false**. It was `true`, and merging the first `test` →
+  `main` promotion PR deleted the `test` branch outright — the ruleset's `deletion` rule did
+  not stop it because all rulesets grant `RepositoryRole → bypass: always`. Railway's test
+  environment went to *"Connected branch does not exist"* until the branch was recreated.
+- Strictness, decided: **0 required approvals** (GitHub forbids self-approval, so any non-zero
+  count locks a solo maintainer out of their own repo) and **admin bypass kept** for
+  break-glass. **No linear-history rule** — it forces squash/rebase merges that break the
+  fast-forward promotions this branching model needs.
+
+Still open: **`Wait for CI` is OFF on all three Railway environments**, so a deploy starts the
+moment GitHub receives a push, regardless of whether Actions pass. Required checks gate the
+*merge*, not the *deploy*, so this is the last real gap on the production path. It is a toggle
+in Railway → service → Settings → Source, and it is the repo owner's call.
 
 ### Acceptance criteria
 
