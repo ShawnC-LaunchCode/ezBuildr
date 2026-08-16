@@ -14,8 +14,14 @@
   for the quote.
 - Load the project skills named in each ticket's **Ties** before touching code.
 - **Devs do not commit or stage.** The reviewer commits, one commit per passed ticket.
-- Baselines at authoring time (`dev` @ `b1511e30`): `test:fast` **274 files / 3209 passed /
-  0 failed**; `test:integration` **112 files / 1116 passed / 0 failed**. Any failure is new.
+- **Baselines — updated 2026-08-16 after TM-2** (measured, not carried forward):
+  `test:fast` **279 files / 3239 passed / 0 failed**; `test:integration` **113 files /
+  1123 passed / 0 failed**. Any failure is new. *(Authoring-time figures were 3209 / 1116;
+  they drifted as TM-1 and unrelated work landed, and a dev was once handed the stale number.
+  Re-measure rather than quoting this line if much has landed since.)*
+- **Confirm the worktree is quiescent before running verification.** A dev's "completed"
+  notification has twice arrived while it was still editing; two full integration runs were
+  burned on a half-applied tree and produced failures that were pure artefact.
 - `npm run test:docker:up` starts postgres (5434) **and** gotenberg (3009). Re-run after any
   pull. Never run two DB-backed suites at once — see the `run-tests` skill.
 - Clear the shared type-check cache before trusting `tsc`: `rm -f node_modules/typescript/tsbuildinfo`.
@@ -41,7 +47,7 @@ content is good and stays; only the packaging and the plumbing are in scope here
 | Layer | State | Evidence |
 |---|---|---|
 | Router registration | ✅ | `server/routes/index.ts:36,148` — `app.use("/api", marketplaceRouter)` |
-| Endpoints | ✅ list / detail / install / publish | `server/routes/marketplace.ts` |
+| Endpoints | ⚠️ list / detail / install / publish exist, but **detail was unreachable** — see TM-2's routing correction | `server/routes/marketplace.ts` |
 | Auth, tenancy, validation | ✅ | every route has `hybridAuth`, `requireTenant`, Zod schemas |
 | Client page | ✅ 185 lines: search, category filter, cards, install mutation, redirect to builder | `client/src/pages/Marketplace.tsx`, route at `client/src/Router.tsx:140` |
 | **`MarketplaceService`** | ❌ **every method a stub** | `server/lib/templates/MarketplaceService.ts` |
@@ -176,9 +182,64 @@ acceptable, since `dist/` is shipped. Reading from `templates/` is **not**.
 
 ---
 
-## TM-2 — Curated catalog provider behind `MarketplaceService` 🔲
+## TM-2 — Curated catalog provider behind `MarketplaceService` ✅ DONE 2026-08-16
 
-**Priority: P0** · Size: M · **Depends on TM-1** · Files: `server/lib/templates/`, tests
+**Gates re-run by the reviewer** against a settled tree and a freshly recreated
+`ezbuildr_test_tm_2`: `type-check` **0** · `eslint --max-warnings 0` **exit 0** ·
+`test:fast` **279 files / 3239 passed / 0 failed** (baseline 3226 → +13) ·
+`test:integration` **113 files / 1123 passed / 0 failed** (baseline 112/1116 → +1 file,
++7 tests).
+
+### 🔴 A routing collision this board got wrong — the dev found it, and its fix is better than the reviewer's
+
+This file claimed the marketplace routes were "✅ complete and correct". **They were not.**
+`GET /api/templates/:id` is *also* served by the Stage-4 document-templates router
+(`templates.routes.ts:434`), which was registered first (`index.ts:123`) and validates `:id`
+as a UUID. Curated slugs are not UUIDs, so every marketplace detail request was shadowed and
+**400'd before reaching `marketplace.ts`** — the endpoint was unreachable, and AC2 was
+literally impossible. The reviewer wrote that "complete and correct" claim after reading
+`marketplace.ts` in isolation without checking who else already owned the path; the list
+endpoint working is what made it look fine.
+
+The reviewer's first instinct was to move the marketplace to an `/api/marketplace/*` prefix.
+**The dev's narrower fix was adopted instead**: mount `marketplaceRouter` *before*
+`registerApiTemplateRoutes`, plus a `skipUuidIds` guard that `next('route')`s UUID-shaped ids
+so real document-template lookups fall through untouched. Verified safe — the document
+router's list route is `/projects/:projectId/templates`, there is **no bare `GET /templates`**,
+and every other route is `/templates/:id/<subpath>`, none of which marketplace defines. So the
+only shared path is `GET /templates/:id`, which the UUID discriminator resolves, and **no
+client change is needed** (the prefix move would have required one).
+
+⚠️ **The fix depends on registration order.** Reordering router mounts in `index.ts` will
+silently break it. The comment there says so; keep it.
+
+### Reviewer fix applied — search matched substrings, not words
+
+The dev made its failing search test pass by **changing the expectation** (searching
+"confidentiality" instead of "NDA"), noting in a comment that "cale**nda**r" contains "nda".
+Honest, but it left the defect: a user typing "NDA" got the retainer agreement back.
+
+Fixed here instead: `matchesWholeWord` anchors the query to a **word start**, so prefix
+search still works. Verified directly against the real catalog —
+
+| query | before | after |
+|---|---|---|
+| `NDA` | nda, retainer-agreement | **nda** |
+| `retain` | retainer-agreement | retainer-agreement |
+| `calendar` | retainer-agreement | retainer-agreement |
+| `zzz` | (none) | (none) |
+
+The meaningful assertion was restored, plus a prefix case and a tag case.
+
+### Reviewer process note — worth not repeating
+
+The dev's first "completed" notification arrived while it was **still editing**; the routing
+fix landed afterwards. Two full integration runs were burned on a half-applied tree, and the
+5 DataVault / 2 auth / 1 perf failures they showed were an artefact of that, **not** a
+regression and **not** the `beforeAll`-runs-the-generator hypothesis the reviewer floated.
+The settled tree is clean. Confirm a worktree is quiescent before starting a verification run.
+
+**Priority: P0** · Size: M · **Depends on TM-1** · Files: `server/lib/templates/{TemplateCatalog,CuratedCatalogProvider,MarketplaceService}.ts`, `server/routes/{marketplace,index}.ts`, `tests/unit/lib/templates/**`, `tests/integration/api.marketplace.test.ts`
 
 ### Finding
 

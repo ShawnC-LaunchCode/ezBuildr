@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { marketplaceService } from "../lib/templates/MarketplaceService";
@@ -7,6 +7,27 @@ import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { requireTenant } from "../middleware/tenant";
 
 const router = Router();
+
+// Matches the repo-wide inline UUID check (see WorkflowTenantResolver.ts,
+// sections.routes.ts, steps.routes.ts, ...).
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `GET /api/templates/:id` is also served by the Stage-4 document-templates
+ * router (`templates.routes.ts`), which is mounted right after this one and
+ * keys its templates by UUID. Curated marketplace ids are static slugs
+ * (`nda`, `retainer-agreement`, ...), never UUIDs, so a UUID-shaped `:id`
+ * cannot be a marketplace request — skip straight to the document-templates
+ * handler instead of answering with our own 404 (TM-2; see
+ * `server/routes/index.ts` for why registration order also matters here).
+ */
+function skipUuidIds(req: Request, res: Response, next: NextFunction): void {
+    if (UUID_REGEX.test(req.params.id)) {
+        next("route");
+        return;
+    }
+    next();
+}
 const templateIdParamsSchema = z.object({ id: z.string().min(1) });
 const listTemplatesQuerySchema = z.object({
     category: z.string().optional(),
@@ -44,11 +65,10 @@ router.get("/templates", hybridAuth, requireTenant, asyncHandler(async (req: Aut
     res.json(templates);
 }));
 // Get template details
-router.get("/templates/:id", hybridAuth, requireTenant, asyncHandler(async (req: AuthRequest, res) => {
+router.get("/templates/:id", skipUuidIds, hybridAuth, requireTenant, asyncHandler(async (req: AuthRequest, res) => {
     const { id } = templateIdParamsSchema.parse(req.params);
     const template = await marketplaceService.getTemplate(id);
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!template) {
+    if (template === null) {
         return res.status(404).json({ error: "Template not found" });
     }
     res.json(template);

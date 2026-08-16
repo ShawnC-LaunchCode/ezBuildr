@@ -7,32 +7,43 @@ import {
 import { db } from "../../db";
 import { logger } from "../../logger";
 
+import { curatedCatalogProvider } from "./CuratedCatalogProvider";
+import type { CatalogTemplate, TemplateCatalog } from "./TemplateCatalog";
 import type { TemplateManifest } from "./types";
 export class MarketplaceService {
+    private readonly catalog: TemplateCatalog;
+
+    constructor(catalog?: TemplateCatalog) {
+        this.catalog = catalog ?? curatedCatalogProvider;
+    }
+
     /**
-     * List available templates with filtering
-     * TODO: Implement once marketplaceTemplates table is added to schema
+     * List available templates with filtering.
+     *
+     * Delegates to a `TemplateCatalog` (today, `CuratedCatalogProvider` —
+     * TM-1's build-time generated curated bundles). `isPublic`,
+     * `organizationId`, `limit` and `offset` are accepted for route-shape
+     * compatibility but not meaningful for a code-shipped, tenant-less
+     * catalog; a future database-backed provider (user publishing, out of
+     * scope here) can honour them without this signature changing.
      */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async listTemplates(_params: {
+    async listTemplates(params: {
         category?: string;
         search?: string;
         isPublic?: boolean;
         organizationId?: string;
         limit?: number;
         offset?: number;
-    }) {
-        logger.warn('MarketplaceService.listTemplates: marketplaceTemplates table not yet implemented');
-        return [];
+    }): Promise<CatalogTemplate[]> {
+        return this.catalog.listTemplates({ category: params.category, search: params.search });
     }
+
     /**
-     * Get a specific template by ID
-     * TODO: Implement once marketplaceTemplates table is added to schema
+     * Get a specific template by ID. Returns `null` when not found — the
+     * route maps that to a 404.
      */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async getTemplate(_templateId: string) {
-        logger.warn('MarketplaceService.getTemplate: marketplaceTemplates table not yet implemented');
-        return null;
+    async getTemplate(templateId: string): Promise<CatalogTemplate | null> {
+        return this.catalog.getTemplate(templateId);
     }
     /**
      * Export a workflow as a template manifest
