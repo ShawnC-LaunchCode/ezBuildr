@@ -75,10 +75,44 @@ return `[]` / `null`; `installTemplate` and `publishTemplate` throw
 
 ---
 
-## TM-1 — Build-time generator: curated JSON → portability bundles in `dist/` 🔲
+## TM-1 — Build-time generator: curated JSON → portability bundles in `dist/` ✅ DONE 2026-08-16
 
-**Priority: P0** · Size: M · Files: `scripts/` (new generator), `package.json` build script,
-`templates/curated/**` (read-only), tests
+**Gates re-run by the reviewer**, not read off the dev's report: `type-check` **0 errors** ·
+`eslint --max-warnings 0` on all six touched files **exit 0** · `test:fast` **276 files /
+3219 passed / 0 failed** (baseline 3209 → +10, exactly the new tests) · `test:integration`
+run **alone** against a freshly recreated `ezbuildr_test_tm_1`.
+
+**Verified by inspection, not assertion:**
+- **The extraction is genuine.** `getMigrationHead` moved to
+  `server/services/portability/migrationHead.ts`; `ExportService` imports it and its private
+  copy is deleted, not commented out. The logic is byte-identical. This is what makes AC4
+  meaningful — two divergent copies would have defeated the anti-staleness property outright.
+  `fs`/`path` remain used in `ExportService` (`getAppVersion`, tmp paths), so no orphans.
+- **The generator was run and its output opened.** Three `.ezb` + `index.json` in
+  `dist/marketplace/`. Retainer bundle: `migrationHead: 0023_condemned_hannibal_king`,
+  independently confirmed equal to the current journal head; entities `workflows` 1,
+  `sections` 2, `steps` 9, `workflow_versions` 1, `templates` 1, `template_versions` 1,
+  `workflow_templates` 1 — the canonical `ENTITY_GRAPH` entities, not invented shapes.
+- **The DOCX blob is byte-identical to source in all three bundles**, and
+  `templates`/`template_versions` reference it by the same `fileRef` key the blob index uses.
+  (Reviewer note: the blob index is keyed by `fileRef`, not by sha256 — a first lookup by
+  sha256 reported "missing" and was the reviewer's error, not a defect.)
+- **AC6 holds:** nothing under `server/` or `client/` reads `templates/`. The generator is
+  `scripts/`-only, wired into `build` via `build:marketplace`, standalone-runnable.
+- **AC5 is tested with real fixtures** — missing required field, unknown top-level field, bad
+  step `type` — each asserting the thrown message names the file and the field.
+
+**The dev's disclosed deviation was correct, and it corrects this board.** It added a
+`workflow_versions` row carrying a real runtime-shaped snapshot rather than a stub `{}`,
+because `workflow_templates.workflowVersionId` is a NOT NULL FK. Reviewer verified the
+justification: `server/services/workflow-runs/RunDefinitionProvider.ts` parses
+`version.graphJson` through `VersionRuntimeSchema` to serve pinned run definitions, and
+`RunStateService.ts:165` reads it as `WorkflowContentData`. A stub would have produced a
+workflow that breaks the moment it is pinned. **See the correction on TM-5.**
+
+**Priority: P0** · Size: M · Files: `scripts/generateMarketplaceBundles.ts`,
+`scripts/curatedWorkflowSchema.ts`, `server/services/portability/migrationHead.ts`,
+`server/services/portability/ExportService.ts`, `package.json`, `tests/unit/scripts/**`
 
 ### Finding
 
@@ -335,10 +369,28 @@ workflow: unknown; // The exported workflow schema
 ```
 
 and `MarketplaceService.exportTemplate` populates it from
-`workflow.currentVersion.graphJson` — **the pre-graph-removal model**. `graphJson` still
-exists in the schema (`shared/schema/workflow.ts:147,220`, `notNull`), so this compiles, but
-the graph builder and graph run tables were removed and `sections`/`steps` are the source of
-truth. `exportTemplate` is not called by any route on this board.
+`workflow.currentVersion.graphJson`. `exportTemplate` is not called by any route on this board.
+
+> ### 🔴 CORRECTED 2026-08-16 — `graphJson` is NOT a dead graph-builder relic
+>
+> This ticket originally called `graphJson` "the pre-graph-removal model" and implied
+> anything reading it is stale. **That is wrong**, and it was the reviewer's error when
+> authoring this board. The column was **repurposed**: it now stores a serialized *runtime
+> snapshot* (sections / steps / logicRules), not graph-builder nodes and edges.
+>
+> Verified: `server/services/workflow-runs/RunDefinitionProvider.ts` parses
+> `version.graphJson` through `VersionRuntimeSchema` to serve **pinned run definitions**, and
+> `server/services/workflow-runs/RunStateService.ts:165` reads it as `WorkflowContentData`.
+> `TemplateService.ts:143` even documents the shift — "post-ICW2-6, blueprint snapshots are
+> ingest-shaped". So `graphJson` is load-bearing for running a published workflow.
+>
+> **Consequences for this ticket:** "it reads `graphJson`" is *not* by itself evidence that
+> `exportTemplate` is dead. Judge it purely on whether anything calls it. If it survives, it
+> may legitimately keep using `graphJson` — but it should use the runtime-snapshot shape
+> TM-1's generator now produces, not assume graph nodes/edges.
+>
+> `server/realtime/persistence.ts:324-350` *does* still handle `graphJson.nodes`/`.edges` —
+> that one is a genuine collab-era relic and is **out of scope here**; note it, do not fix it.
 
 `unknown` also means nothing type-checks the most important field in the manifest.
 
@@ -391,6 +443,17 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
   templates published in `dev`/`test` should ever be visible in `production` (they should
   not — that argues for per-environment publishing with an explicit promotion step, not one
   shared pool). *Tag: needs-initiative.*
+- 🔴 **The curated descriptions are developer notes, and they will render to end users.**
+  TM-1's generated `index.json` carries `title`/`description` verbatim from each
+  `workflow.json`, and LD-2 wrote those as internal documentation. The NDA's reads:
+  *"Curated starter workflow (LD-2). Collects the facts needed to render
+  templates/curated/nda/template.docx… Authored content only — not wired to any importer or
+  route; see templates/curated/README.md."* Ticket IDs, repo file paths, and a sentence
+  saying the thing is not wired up would all appear on the marketplace card. The same text is
+  also written into the `templates.description` entity row, so it follows the workflow after
+  install. **This is a content fix in `templates/curated/*/workflow.json`, not a generator
+  bug** — TM-1 faithfully passes through what it is given. Must be fixed before the gallery
+  is user-visible; sequence it with or before TM-2. *Tag: enhancement.*
 - **`Marketplace.tsx` renders `usageCount`, `rating` and `isOfficial`** which no curated
   template supplies. TM-4 reconciles the type; whether the product actually wants ratings is
   a separate product question. *Tag: product-decision.*
