@@ -3,6 +3,7 @@
 // For this implementation, we'll create a stub that logs the email details
 
 import { logger } from "../logger";
+import { getAppBaseUrl } from "../utils/appBaseUrl";
 
 const _FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
@@ -61,9 +62,7 @@ export async function sendRunResumeEmail(
 }
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
-  // In production, this should point to the actual frontend URL
-  const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');
-  const resetLink = `${baseUrl}/auth/reset-password?token=${token}`;
+  const resetLink = `${getAppBaseUrl()}/auth/reset-password?token=${token}`;
 
   const subject = 'Reset Your Password - ezBuildr';
   const html = `
@@ -85,8 +84,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');
-  const verifyLink = `${baseUrl}/auth/verify-email?token=${token}`;
+  const verifyLink = `${getAppBaseUrl()}/auth/verify-email?token=${token}`;
 
   const subject = 'Verify Your Email - ezBuildr';
   const html = `
@@ -112,8 +110,7 @@ export async function sendSystemInviteEmail(
   role: string,
   returnTo?: string
 ): Promise<void> {
-  let baseUrl = process.env.NODE_ENV === 'production' ? 'https://www.ezbuildr.com' : (process.env.VITE_BASE_URL ?? 'http://localhost:5000');
-  baseUrl = baseUrl.replace(/\/+$/, ''); // Strip trailing slashes
+  const baseUrl = getAppBaseUrl();
   const safeReturnTo = returnTo?.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\')
     ? `&returnTo=${encodeURIComponent(returnTo)}`
     : '';

@@ -39,4 +39,21 @@ describe('sendSystemInviteEmail', () => {
     const [, , html] = addToQueue.mock.calls[0] as [string, string, string];
     expect(html).not.toContain('returnTo=');
   });
+
+  // Regression: the link was built from `NODE_ENV === 'production' ?
+  // 'https://www.ezbuildr.com' : ...`. dev and test are production BUILDS on
+  // non-production Railway environments, so they satisfy that branch and mailed
+  // recipients of a dev invite to the live site, ignoring BASE_URL entirely.
+  it('links to the configured base URL, not the live domain, on a non-production deployment', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BASE_URL', 'https://ezbuildr-prod-dev.up.railway.app');
+
+    await sendSystemInviteEmail('invitee@example.com', 'setup-token', 'creator');
+
+    const [, , html] = addToQueue.mock.calls[0] as [string, string, string];
+    expect(html).toContain('https://ezbuildr-prod-dev.up.railway.app/auth/reset-password');
+    expect(html).not.toContain('www.ezbuildr.com');
+
+    vi.unstubAllEnvs();
+  });
 });

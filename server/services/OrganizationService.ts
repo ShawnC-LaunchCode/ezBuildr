@@ -13,6 +13,7 @@ import { db } from '../db';
 import { ConflictError, ForbiddenError } from '../errors/AppError';
 import { AuditLogger } from '../lib/audit/auditLogger';
 import { logger } from '../logger';
+import { getAppBaseUrl } from '../utils/appBaseUrl';
 import { hashToken } from '../utils/encryption';
 import {  requireOrgAdmin, isOrgMember } from '../utils/ownershipAccess';
 
@@ -561,9 +562,7 @@ export class OrganizationService {
     });
     const inviterName = inviter?.fullName ?? inviter?.email ?? 'A team member';
     // Build branded email
-    let baseUrl = process.env.NODE_ENV === 'production' ? 'https://www.ezbuildr.com' : (process.env.VITE_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:5000');
-    baseUrl = baseUrl.replace(/\/+$/, '');
-    const acceptUrl = `${baseUrl}/invites/${token}/accept`;
+    const acceptUrl = `${getAppBaseUrl()}/invites/${token}/accept`;
     const senderName = branding?.emailSenderName ?? 'ezBuildr';
     const primaryColor = branding?.primaryColor ?? '#3B82F6';
     const logoUrl = branding?.logoUrl ?? '';
