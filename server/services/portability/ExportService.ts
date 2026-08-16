@@ -10,6 +10,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
 import { BundleManifest, RequiresReentry, ExportWarning, FORMAT_VERSION, ExportRowLimitError } from './bundleFormat';
+import { getMigrationHead } from './migrationHead';
 import { applyRedaction, scanForSecrets } from './redaction';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
@@ -83,24 +84,6 @@ export class ExportService {
     return pkg.version;
   }
 
-  private getMigrationHead(): string | null {
-    const journalPath = path.resolve(process.cwd(), 'migrations/meta/_journal.json');
-    if (!fs.existsSync(journalPath)) {
-      throw new Error(`Migration journal not found at ${journalPath}`);
-    }
-    const content = fs.readFileSync(journalPath, 'utf8');
-    const journal = JSON.parse(content) as Record<string, unknown>;
-    const entries = journal.entries;
-    if (Array.isArray(entries) && entries.length > 0) {
-      const lastEntry = entries[entries.length - 1] as Record<string, unknown>;
-      if (typeof lastEntry.tag !== 'string') {
-        throw new Error('Migration journal contains invalid entry tag');
-      }
-      return lastEntry.tag;
-    }
-    return null;
-  }
-
   async exportToFile(root: RootParams, userId: string): Promise<{ tmpPath: string; manifest: BundleManifest; tenantId: string }> {
     const tenantId = await this.verifyAccessAndGetTenant(root, userId);
 
@@ -133,7 +116,7 @@ export class ExportService {
       const manifest: BundleManifest = {
         formatVersion: FORMAT_VERSION,
         appVersion: this.getAppVersion(),
-        migrationHead: this.getMigrationHead(),
+        migrationHead: getMigrationHead(),
         scope: root.scope,
         rootIds: [root.id],
         sourceSystem: 'ezBuildr',
