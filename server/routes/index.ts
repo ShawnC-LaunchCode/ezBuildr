@@ -119,6 +119,16 @@ export function registerAllRoutes(app: Express): void {
   registerBlockRoutes(app);
   registerTransformBlockRoutes(app);
 
+  // Template Marketplace (browse / install / publish) — MUST be registered
+  // before registerApiTemplateRoutes below. Both routers define a GET
+  // `/templates/:id`: this one for curated marketplace slugs (`nda`,
+  // `retainer-agreement`, ...), the Stage-4 one for document templates keyed
+  // by UUID. Express dispatches to whichever router was mounted first, so
+  // mounting order is what keeps the two from shadowing each other — the
+  // marketplace handler skips (`next('route')`) any UUID-shaped `:id`,
+  // letting a real document-template lookup fall through unchanged (TM-2).
+  app.use("/api", marketplaceRouter);
+
   // REST API Endpoints
   registerApiTemplateRoutes(app);
 
@@ -143,9 +153,6 @@ export function registerAllRoutes(app: Express): void {
   registerProjectRoutes(app);
   registerSnapshotRoutes(app);
   registerWorkflowTemplateRoutes(app);
-
-  // Template Marketplace (browse / install / publish)
-  app.use("/api", marketplaceRouter);
 
   app.use("/api", lifecycleHooksRoutes);
   app.use("/api", documentHooksRoutes);
