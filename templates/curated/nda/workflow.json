@@ -1,6 +1,6 @@
 {
   "title": "Mutual Non-Disclosure Agreement — Intake",
-  "description": "Curated starter workflow (LD-2). Collects the facts needed to render templates/curated/nda/template.docx, a mutual NDA. Authored content only — not wired to any importer or route; see templates/curated/README.md.",
+  "description": "Collect both parties’ legal names, the effective date, confidentiality term and governing law, then generate a signature-ready mutual NDA. Pronouns are optional and default to they/them.",
   "settings": {
     "businessDayCalendar": "weekends-only"
   },

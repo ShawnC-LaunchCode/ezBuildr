@@ -443,7 +443,15 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
   templates published in `dev`/`test` should ever be visible in `production` (they should
   not — that argues for per-environment publishing with an explicit promotion step, not one
   shared pool). *Tag: needs-initiative.*
-- 🔴 **The curated descriptions are developer notes, and they will render to end users.**
+- ✅ **RESOLVED 2026-08-16 by the reviewer** (a Stage-5 "reviewer fixes it" — the change was
+  three string literals and the context was already in hand). Each `workflow.json`
+  `description` is now user-facing copy describing what the template collects and produces;
+  the engineering rationale it replaced already lives in `README.md` and each `mapping.md`,
+  so nothing was lost. Regenerated the bundles and re-ran the affected suites (21 passed).
+  A first attempt rewrote the files with `JSON.stringify` and reflowed every compact array —
+  semantically identical but it destroyed the hand-formatting, so it was reverted and redone
+  as a literal string replacement: **1 line changed per file.** Original finding follows.
+- ~~🔴 **The curated descriptions are developer notes, and they will render to end users.**~~
   TM-1's generated `index.json` carries `title`/`description` verbatim from each
   `workflow.json`, and LD-2 wrote those as internal documentation. The NDA's reads:
   *"Curated starter workflow (LD-2). Collects the facts needed to render

@@ -1,6 +1,6 @@
 {
   "title": "Retainer Agreement — Engagement Intake",
-  "description": "Curated starter workflow (LD-2). Collects the facts needed to render templates/curated/retainer-agreement/template.docx, a retainer/engagement agreement. Authored content only — not wired to any importer or route; see templates/curated/README.md. businessDayCalendar is 'us-federal' so the payment deadline in the rendered document is computed against real US federal holidays, closing the outstanding BIZ-1 proof (no real DOCX had exercised a business-day deadline across a federal holiday before this ticket).",
+  "description": "Capture the client, the matter, your hourly rate and initial retainer, then generate a retainer agreement. The payment deadline is calculated in business days against the US federal holiday calendar, so it never lands on a holiday or weekend.",
   "settings": {
     "businessDayCalendar": "us-federal"
   },

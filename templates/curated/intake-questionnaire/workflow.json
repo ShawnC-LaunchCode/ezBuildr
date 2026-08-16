@@ -1,6 +1,6 @@
 {
   "title": "New Client Intake Questionnaire",
-  "description": "Curated starter workflow (LD-2). A general new-matter intake for a law firm; renders templates/curated/intake-questionnaire/template.docx, an internal intake summary memo. Authored content only — data, not the removed /intake/* pipeline or intakeStateMachine (see templates/curated/README.md and the LD-2 ticket's scope guard). settings.intakeConfig uses the existing, still-live workflows.intakeConfig field (read by RunService.createRun / filterPrefillValues) purely to demonstrate the field's intended use, and adds no route or state machine.",
+  "description": "A general new-matter intake for a law firm: contact details, matter type and description, any upcoming deadline, and the intake call date. Produces an internal intake summary memo.",
   "settings": {
     "businessDayCalendar": "weekends-only",
     "intakeConfig": {
