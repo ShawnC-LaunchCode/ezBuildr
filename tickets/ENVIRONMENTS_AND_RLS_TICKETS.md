@@ -644,14 +644,39 @@ request authenticated as tenant B never observes tenant A's id. Suite:
 
 ---
 
-## RLS-2 — Set the transaction-local GUC on the repository data path 🔲
+## RLS-2a — Establish the service-boundary tenant transaction, on one pilot service 🔲
 
-**Priority: P0** · Size: **L** · Files: `server/repositories/BaseRepository.ts`, `server/db.ts`, `server/utils/rlsContext.ts`, and the repository layer broadly
+**Priority: P0** · Size: M · **Depends on RLS-1 (landed `bc90cc3e`)** · Files: `server/services/CollectionService.ts`, `server/repositories/{Collection,CollectionField,Record}Repository.ts`, `server/utils/rlsContext.ts` (only if a gap appears), `docs/architecture/TENANT_ISOLATION_RLS.md`, tests
 
-> **⚠️ ESCALATED TO THE REPO OWNER AT GENERATION TIME — do not dispatch this as written.**
-> This is Size L, spans every data-access path, and the correct shape is an architectural
-> decision rather than a fix the ticket can prescribe. It is written up here so the decision
-> has a home, not because it is ready for a dev.
+> **Re-scoped 2026-08-18, after the owner's ruling.** The original RLS-2 was a single Size-L
+> ticket spanning every data-access path, escalated at generation time and explicitly marked
+> "do not dispatch as written". The owner has now ruled the shape — **service boundary,
+> incrementally** — and "incrementally" is what this split delivers. **RLS-2a establishes the
+> pattern on one service; `RLS-2b` rolls it out.** The original Files line described the
+> *repository*-base shape (option 1) and no longer matches the ruling.
+>
+> **Measured surface, 2026-08-18:** 99 service files, **35 reference `tenantId`**, **24 carry
+> explicit tenancy checks**. That is the RLS-2b rollout, and it is far too much for one ticket.
+
+### Why CollectionService is the pilot
+
+Two reasons, both deliberate. It **spans three repositories**
+(`collectionRepository`, `collectionFieldRepository`, `recordRepository`), so a single service
+operation genuinely exercises the shared-transaction property that motivated the ruling — a
+one-repository pilot would prove nothing about it. And the `add-api-endpoint` skill already
+names it as the reference implementation for `verifyTenantOwnership`, so the pattern
+established here becomes the example every future endpoint copies.
+
+`WorkflowService` was rejected as the pilot: it touches seven repositories, which makes it a
+rollout target, not a place to discover the pattern.
+
+### What RLS-1 already gave you
+
+`server/utils/rlsContext.ts` already exports **`withCurrentTenant`**, which reads the tenant
+from the `AsyncLocalStorage` and opens a transaction with the GUC set. Until RLS-1 that store
+was never populated, so the helper was unusable in a running app. **It is now populated on
+every authenticated request** (`bc90cc3e`). Do not write a second helper — check whether this
+one is sufficient first, and say so either way.
 
 ### Finding
 
@@ -731,10 +756,84 @@ missing.
 - Related hazard to read first: the `SystemStats` transaction deadlock — repository methods
   that run pool queries inside a caller's transaction deadlock the size-1 test pool.
 
+### Vertical proof
+
+Entry point: an authenticated request to a `CollectionService` route that touches more than
+one repository. Hops: route → `hybridAuth` (populates the async context, RLS-1) → service →
+`withCurrentTenant` opens ONE transaction → all three repositories run inside it → Postgres.
+Unmocked: the whole chain and the database.
+
+End state, asserted **inside** the transaction:
+`SELECT current_setting('app.current_tenant_id', true)` equals the caller's tenant.
+
+Two discriminating halves, both required — either alone proves nothing:
+1. **The GUC is set** during the operation, and it is the *caller's* tenant, not a constant.
+2. **It does not survive** the transaction: a query issued on the pool afterwards sees
+   empty/null. This is the pooled-connection leak the `is_local => true` flag exists to
+   prevent, and it is the failure that would silently cross tenants.
+
+Suite: `tests/integration/`.
+
 ### Acceptance criteria
 
-*Deliberately not written.* Escalated — the acceptance criteria depend on which shape is
-chosen, and writing them now would presume the answer.
+1. `CollectionService`'s tenant-scoped operations run inside a **single** transaction opened at
+   the service boundary, with the GUC set — not one transaction per repository call.
+2. The three repositories accept an optional `tx` and use it when given, matching the existing
+   `BaseRepository` optional-`tx` convention. No repository opens its own transaction when
+   handed one.
+3. **Service-layer `eq(tenantId, …)` predicates remain in place.** RLS is a backstop; removing
+   them is out of scope and would be a regression.
+4. An integration test proves both halves of the Vertical proof above.
+5. **A test proves the no-tenant path fails closed, not open** — a service call with no tenant
+   in the async context must not silently run an unscoped query. State and test whichever
+   behaviour is chosen (throw, or refuse), and say why in the ticket note.
+6. The pattern is documented in `docs/architecture/TENANT_ISOLATION_RLS.md` as the shape RLS-2b
+   will copy — including whether `withCurrentTenant` was sufficient as-is.
+7. `type-check` 0 · `lint` 0 · `test:fast` above baseline · `test:integration` no new failures.
+
+> **Watch for the `SystemStats` deadlock class.** A repository method that runs a *pool* query
+> while inside a caller's transaction deadlocks the size-1 test pool. If a repository you
+> thread `tx` through calls another repository, that inner call needs the `tx` too. This has
+> bitten this repo before and it presents as a hang, not an error.
+
+---
+
+## RLS-2b — Roll the service-boundary tenant transaction out across the remaining services 🔲
+
+**Priority: P0** · Size: **L** · **BLOCKED on RLS-2a** · Files: the tenant-scoped services and the repositories they call
+
+### Finding
+
+**35 of 99 service files reference `tenantId`; 24 carry explicit tenancy checks** (measured
+2026-08-18). RLS-2a converts one of them. Until the rest are converted, any query issued
+outside a tenant transaction will see **zero rows** the moment RLS-4 sets `FORCE` — so this is
+the ticket that decides whether enforcement is survivable.
+
+### Preferred fix
+
+Copy the pattern RLS-2a documents, service by service. **Do not re-derive it**, and do not
+introduce a second helper.
+
+**Size it and batch it after RLS-2a lands, not now.** The pilot will reveal the real per-service
+cost, and any estimate written before it is a guess. Services are largely disjoint files, so
+batches can be dispatched in parallel — but note the shared repositories underneath, and
+**sequence any two services that thread `tx` through the same repository**.
+
+Read-only repositories may use repository-base wrapping as the fallback (the owner's ruling),
+which is cheaper where there is nothing transactional to protect.
+
+### Ties
+
+- Depends on **RLS-2a**; **blocks RLS-4**.
+- `RLS-5` is the gate that proves the rollout is complete — a service missed here shows up
+  there as an integration failure under the restricted role, which is exactly what that gate
+  is for.
+
+### Acceptance criteria
+
+*To be written when RLS-2a lands*, from the pattern it establishes and the real cost it
+reveals. Writing them now would presume the pilot's findings — the same mistake the original
+RLS-2 made by prescribing a shape before the decision existed.
 
 ---
 
@@ -1069,7 +1168,7 @@ Suite: `tests/integration/`.
 
 ## Phase 2 Gate
 
-- [ ] RLS-1, RLS-3, RLS-4, RLS-5, **RLS-6** ✅ each with a dated verification note
+- [ ] RLS-1 ✅ (2026-08-18, `bc90cc3e`), RLS-2a, RLS-2b, RLS-3, RLS-4, RLS-5, RLS-6 ✅ each with a dated verification note
 - [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
       needs delivering
 - [ ] A cross-tenant read proven impossible at the database level, with fail-closed evidence
@@ -1080,8 +1179,22 @@ Suite: `tests/integration/`.
       `BYPASSRLS` role and why it exists**
 - [ ] Reviewer has committed each passed ticket
 
-**Dispatch order:** RLS-1 → RLS-2 → RLS-3 and RLS-6 (disjoint: policies vs admin path) →
-RLS-4 → RLS-5. RLS-6 blocks RLS-4, not RLS-3.
+**Dispatch order (updated 2026-08-18 after RLS-1 landed and RLS-2 was split):**
+
+```
+RLS-1  ✅ done bc90cc3e
+RLS-2a    pilot: the pattern, on CollectionService
+RLS-2b    rollout: the remaining ~35 tenant-scoped services  ─┐ parallel with
+RLS-3     policy coverage repair                              ├─ each other and
+RLS-6     admin cross-tenant read path                        ─┘ with RLS-2b
+RLS-4     FORCE + restricted role   (blocked on 2b, 3 and 6)
+RLS-5     gate: full integration as the restricted role
+```
+
+RLS-2b, RLS-3 and RLS-6 are mutually disjoint — services, migrations and the admin path
+respectively — so they can run concurrently once RLS-2a fixes the pattern. **RLS-4 needs all
+three**: without 2b it returns zero rows, without 3 the coverage is wrong, without 6 the admin
+console silently truncates.
 
 ---
 
