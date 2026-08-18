@@ -131,8 +131,91 @@ the open context**, because auth is resolved per-route and no global point has
 `req.tenantId` for every request. See the note in §2. The middleware is now
 registered in both entrypoints. Still outstanding: migrate tenant-scoped
 repository reads/writes to run inside `withTenant`/`withCurrentTenant` (that is
-RLS-2, ruled to happen at the **service boundary**). Until this adoption is
-complete, do NOT proceed to Phase 3.
+RLS-2, ruled to happen at the **service boundary**, piloted on `CollectionService`
+in RLS-2a — see §2b below — and rolled out to the remaining ~35 tenant-scoped
+services in RLS-2b). Until this adoption is complete, do NOT proceed to Phase 3.
+
+### 2b. The service-boundary transaction pattern (RLS-2a pilot, 2026-08-18)
+
+`CollectionService` (`server/services/CollectionService.ts`) is the pilot for how
+every tenant-scoped service should open its transaction. **`withCurrentTenant` —
+already shipped by RLS-1 — was sufficient as-is.** No second transaction-opening
+helper was written; RLS-2a only added a small *private, service-local* wrapper
+(`withTx`) around it, described below. Any service copying this pattern in RLS-2b
+should do the same: call the existing `withCurrentTenant`/`withTenant`, don't
+invent a parallel one.
+
+**The shape, in one method:**
+
+```ts
+private async withTx<T>(
+  expectedTenantId: string,
+  tx: DbTransaction | undefined,
+  fn: (tx: DbTransaction) => Promise<T>
+): Promise<T> {
+  if (tx) {
+    return fn(tx);               // caller already has a transaction — reuse it
+  }
+  const ambientTenantId = getCurrentTenantId();
+  if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+    throw new Error(`RLS: tenant mismatch — ...`);   // see below
+  }
+  return withCurrentTenant(fn);  // opens exactly one transaction, GUC = ambient tenant
+}
+```
+
+Every public method wraps its whole body in `withTx`, including methods that call
+more than one repository (`getCollectionWithFields` touches `collectionRepo` and
+`fieldRepo`; `listCollectionsWithStats` touches all three) — so a single logical
+service operation gets **one** transaction and **one** GUC `set_config`, not one
+per repository call. Internal helper calls (`verifyTenantOwnership`,
+`ensureUniqueSlug`, …) always receive the already-open `tx`, so they never open a
+second one. `server/repositories/{Collection,CollectionField,Record}Repository.ts`
+needed **no changes** — they already thread an optional `tx` through every method
+via `BaseRepository.getDb(tx)`, and none of them call a sibling repository, so
+there was no `SystemStats`-class deadlock risk to fix in this pilot. A repository
+being converted in RLS-2b that *does* call another repository must thread `tx`
+into that inner call too, or it will deadlock the pool the same way `SystemStats`
+did.
+
+**Fail-closed, two ways, both proven by disabling the check and watching a named
+test fail (not just asserted):**
+- No tenant at all in the async context → `withCurrentTenant` itself throws
+  (`RLS: no tenant in context.`). Nothing is queried.
+- A tenant **is** in context but disagrees with the `tenantId` argument the
+  caller passed for its own `eq(tenantId, ...)` predicate → `withTx` throws a
+  `tenant mismatch` error before opening a transaction at all.
+
+**Why the mismatch check exists — two sources of truth, on purpose.** Every
+method also takes an explicit `tenantId` argument, used for the `eq(tenantId,
+...)` predicates that AC3 requires to stay (RLS is a backstop, not a
+replacement). `withTx` opens the transaction against the **ambient** tenant from
+the async context, not the passed `tenantId` — deliberately. If it used the
+passed value instead, a bug that computed the wrong `tenantId` would corrupt the
+predicate and the GUC identically, and RLS would stop being an independent check
+at all. The cost of keeping them independent is that they *can* disagree; if they
+silently did, the predicate would scope to one tenant and the GUC to another, the
+row-set intersection would be empty, and the caller would see a silent "not
+found" instead of an error — exactly the failure class this phase exists to
+eliminate. The mismatch check turns that into a loud 500 instead. Today this can
+never fire for a real request: RLS-1 sets both the route's `tenantId` and the
+async context from the same `attachUserToRequest`/`cookieStrategy` resolution.
+It is a real guard for a future caller that doesn't go through that path — an
+admin cross-tenant path (`RLS-6`) or a batch job.
+
+**Known gap, inherited by RLS-2b:** the mismatch check only runs on the
+"we open the transaction ourselves" branch. A caller that supplies its own `tx`
+skips it — `withTx` trusts a caller-supplied transaction was opened for the
+right tenant and never re-reads its GUC. Nobody does that today (every call into
+`CollectionService` comes from its routes with no `tx`), so this is a documented
+limitation, not a fixed hole.
+
+Proof: [`tests/integration/rls2a-collectionService.test.ts`](../../tests/integration/rls2a-collectionService.test.ts)
+(the vertical proof — GUC = caller's tenant inside a real multi-repository
+transaction, does not survive it, single transaction shared by two repositories,
+fails closed with no context, and the mismatch guard) and
+[`tests/unit/services/CollectionService.test.ts`](../../tests/unit/services/CollectionService.test.ts)
+(the same two fail-closed branches, at the unit level with mocked repositories).
 
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
@@ -261,3 +344,5 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 | [`server/middleware/rlsContext.ts`](../../server/middleware/rlsContext.ts) | Binds `req.tenantId` into async context |
 | [`server/repositories/tenantWrapper.ts`](../../server/repositories/tenantWrapper.ts) | App-layer `withTenant` predicate helper (defense in depth) |
 | [`tests/integration/rls-context.test.ts`](../../tests/integration/rls-context.test.ts) | Proves the GUC is transaction-local and fails closed |
+| [`server/services/CollectionService.ts`](../../server/services/CollectionService.ts) | RLS-2a pilot: service-boundary transaction pattern (§2b) — `withTx` |
+| [`tests/integration/rls2a-collectionService.test.ts`](../../tests/integration/rls2a-collectionService.test.ts) | Proves the RLS-2a pattern end to end: GUC = caller's tenant, doesn't survive the transaction, one transaction shared across repositories, fail-closed, mismatch guard |
