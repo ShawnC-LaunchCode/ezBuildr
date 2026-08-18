@@ -508,7 +508,46 @@ letting install fail opaquely.
 
 ---
 
-## TM-5 — Re-type `TemplateManifest.workflow`, and rule on `exportTemplate` 🔲
+## TM-5 — Re-type `TemplateManifest.workflow`, and rule on `exportTemplate` ✅ DONE 2026-08-18
+
+**Gates re-run by the reviewer:** `type-check` **0 errors** (tsbuildinfo cleared first) ·
+`eslint --max-warnings 0` on both files **exit 0** · `test:fast` **280 files / 3246 passed /
+0 failed**.
+
+**The ruling: `exportTemplate` is deleted.** Zero callers — established twice, independently.
+The dev's `grep -rn "exportTemplate"` across source and tests returned only its own
+declaration, and the reviewer had run the same search before dispatch and got the same single
+hit. `server/routes/marketplace.ts` calls only `listTemplates` / `getTemplate` /
+`installTemplate` / `publishTemplate`. Per the ticket's own default ("if not called, deletion
+is the default"), it is gone, along with the `eq`, `workflows` and `db` imports it orphaned.
+`logger`, `importService`, `curatedCatalogProvider` and `TemplateManifest` all remain in use,
+so nothing else was disturbed.
+
+**`TemplateManifest` is not orphaned by that deletion** — reviewer checked, since deleting the
+only producer of a type is how a type quietly dies. It survives at `MarketplaceService.ts:49`
+in `publishTemplate`'s `_metadata: Partial<TemplateManifest>`. Thin (the method is a
+deliberate stub) but real; if user publishing is ever built, this is the type it builds on.
+
+**`workflow: unknown` → `WorkflowContentData`, and the shape was verified, not assumed.**
+The reviewer confirmed the generator actually writes it: `generateMarketplaceBundles.ts`
+builds `graphJson` as `{ title, description, projectId, intakeConfig, settings, sections,
+logicRules }`, every field of which exists on `WorkflowContentData`
+(`WorkflowContentIngestService.ts:132`), and `RunDefinitionProvider`'s `VersionRuntimeSchema`
+validates the same set at runtime. **This is the point of the ticket:** reusing the existing
+interface avoids leaving a fourth opinion about workflow shape in the tree, which is exactly
+the confusion that produced this board's own red `graphJson` correction.
+
+**Reviewer ruling on AC4 — `test:fast` is baseline-equal (3246), not above it, and that
+passes.** The dev disclosed this rather than dressing it up, which is the right instinct. The
+"above baseline" wording is boilerplate shared with TM-1/2/3, all of which added behaviour.
+TM-5 adds none: it deletes dead code and tightens a type. Both are compiler-enforced — `tsc`
+fails if `workflow` is ever assigned an incompatible value, and lint/`tsc` would catch any
+dangling reference to the deleted method. A test asserting that deleted code stays deleted
+would be theatre. No new test was required and none was written.
+
+**Correctly left alone:** `publishTemplate` still throws (TM-2's test guards it), and
+`server/realtime/persistence.ts`'s `graphJson.nodes`/`.edges` handling — the genuine collab-era
+relic — was noted and not touched, per the ticket's scope guard.
 
 **Priority: P1** · Size: S · Files: `server/lib/templates/types.ts`, `MarketplaceService.ts`
 

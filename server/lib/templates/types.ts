@@ -1,3 +1,5 @@
+import type { WorkflowContentData } from "../../services/WorkflowContentIngestService";
+
 export interface TemplateManifest {
     id?: string;
     title: string;
@@ -12,8 +14,12 @@ export interface TemplateManifest {
     requiredBlocks: string[]; // e.g. ['signature_block', 'multi_field']
     requiredFeatures: string[]; // e.g. ['email_integration']
 
-    // The workflow structure
-    workflow: unknown; // The exported workflow schema
+    // The workflow structure — the same sections/steps/logicRules runtime
+    // snapshot shape stored in `workflow_versions.graphJson` (see
+    // `WorkflowContentIngestService`, `RunDefinitionProvider`'s
+    // `VersionRuntimeSchema`, and TM-1's `generateMarketplaceBundles.ts`,
+    // which all agree on this shape).
+    workflow: WorkflowContentData;
 
     // Assets (base64 encoded for simplicity in v1)
     thumbnail?: string;
