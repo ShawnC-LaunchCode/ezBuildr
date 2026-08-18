@@ -36,7 +36,7 @@ type ExecutableTx = { execute: (query: SQL) => Promise<unknown> };
 const logger = createLogger({ module: "rls-context" });
 
 interface TenantStore {
-  tenantId: string;
+  tenantId?: string;
 }
 
 const storage = new AsyncLocalStorage<TenantStore>();
@@ -58,6 +58,36 @@ export function getCurrentTenantId(): string | undefined {
  */
 export function runWithTenantContext<T>(tenantId: string, fn: () => T): T {
   return storage.run({ tenantId }, fn);
+}
+
+/**
+ * Open an async context for a request WITHOUT a known tenant yet, and run `fn`
+ * inside it. Exists because ezBuildr resolves auth per-route (`hybridAuth` /
+ * `optionalHybridAuth` are declared inline on each route, not as a single
+ * global middleware that runs before dispatch) rather than once up front, so
+ * the request-level middleware that opens this context (`server/middleware/
+ * rlsContext.ts`) necessarily runs BEFORE the tenant id is known. Downstream
+ * auth resolution calls `setCurrentTenantId` once it has one; because
+ * AsyncLocalStorage propagates through the rest of the request's async call
+ * chain, that later write is visible to everything that runs after it
+ * (route handlers, repositories) even though the context itself opened
+ * earlier.
+ */
+export function runWithRequestContext<T>(fn: () => T): T {
+  return storage.run({}, fn);
+}
+
+/**
+ * Bind a tenant id into the CURRENT async context, if one is open. No-op if
+ * called outside of `runWithRequestContext`/`runWithTenantContext` (e.g. a
+ * background job that hasn't opened a context) — callers that need a
+ * guaranteed context should use `runWithTenantContext` instead.
+ */
+export function setCurrentTenantId(tenantId: string): void {
+  const store = storage.getStore();
+  if (store) {
+    store.tenantId = tenantId;
+  }
 }
 
 /**

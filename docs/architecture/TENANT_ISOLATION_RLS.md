@@ -46,8 +46,40 @@ service-layer scoping and the `withTenant` query helper
   (i.e. `SET LOCAL`), never a session-level `SET` — see §4.
 
 - **The middleware.** `server/middleware/rlsContext.ts` binds the request's
-  `req.tenantId` into an `AsyncLocalStorage` so `withCurrentTenant()` can open a
+  tenant into an `AsyncLocalStorage` so `withCurrentTenant()` can open a
   correctly-scoped transaction without threading the id everywhere.
+  **It is mounted globally *before* auth, not after** — see the note below.
+
+### Why the context middleware runs before auth (RLS-1, 2026-08-18)
+
+The obvious design — mount it after the middleware that resolves the tenant — is
+not available here. **ezBuildr resolves auth per-route:** `hybridAuth`,
+`optionalHybridAuth` and `requireAuth` are declared inline on each route
+(`app.get(path, hybridAuth, handler)`), never as one global middleware that runs
+before dispatch. There is therefore no point in the global stack where
+`req.tenantId` is known for every request.
+
+So the flow is two-part:
+
+1. `rlsContext` is mounted once, globally, near the top of both entrypoints. It
+   opens an **empty** `AsyncLocalStorage` store for the request.
+2. `server/middleware/auth.ts` calls `setCurrentTenantId(...)` from
+   `attachUserToRequest` (bearer) and `cookieStrategy` (refresh cookie), once
+   that route's own auth has resolved a tenant — and **after** the DB
+   re-hydration step, so the context always reflects the tenant that
+   authorization decisions actually used, not a stale JWT claim.
+
+The store is a mutable object, so that later write is visible to everything
+downstream in the request's async chain. If nothing ever sets a tenant (public
+and unauthenticated routes), `getCurrentTenantId()` simply returns `undefined`
+for the request's lifetime — it never throws.
+
+Registration is guarded by `tests/unit/middleware/rlsContextRegistration.test.ts`,
+which asserts both entrypoints mount it *before* `registerRoutes(app)`. That
+guard is source-level because neither `tsc` nor ESLint can see a deleted
+`app.use(...)`, and because the behavioural test necessarily mounts its own copy
+(the shared integration harness builds its app from `registerRoutes`, which does
+not mount entrypoint middleware — see `TM-B1` in `tickets/BACKLOG.md`).
 
 ---
 
@@ -93,9 +125,14 @@ Inert (owner/superuser bypass). Non-breaking.
 **Phase 2 — Runtime context. ✅ Landed, opt-in.**
 `server/utils/rlsContext.ts` (`withTenant`, `withCurrentTenant`,
 `runWithTenantContext`), `server/middleware/rlsContext.ts`, and the `RLS_ENFORCED`
-flag (default off). Mount the middleware after auth, and migrate tenant-scoped
-repository reads/writes to run inside `withTenant`/`withCurrentTenant`. Until this
-adoption is complete, do NOT proceed to Phase 3.
+flag (default off). ~~Mount the middleware after auth~~ — **corrected 2026-08-18
+(RLS-1): mount it globally *before* auth and let `auth.ts` write the tenant into
+the open context**, because auth is resolved per-route and no global point has
+`req.tenantId` for every request. See the note in §2. The middleware is now
+registered in both entrypoints. Still outstanding: migrate tenant-scoped
+repository reads/writes to run inside `withTenant`/`withCurrentTenant` (that is
+RLS-2, ruled to happen at the **service boundary**). Until this adoption is
+complete, do NOT proceed to Phase 3.
 
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
