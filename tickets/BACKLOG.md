@@ -15,11 +15,23 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
 > **As of 2026-08-18 the live boards are `tickets/SECTIONS_AND_PAGES_TICKETS.md`
-> (SECT-1..10), `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` (ENV-1/ENV-3 remainders +
-> RLS-1..5) and `tickets/TEMPLATE_MARKETPLACE_TICKETS.md` (TM-3..5).** The agreed order
-> is **RLS Phase 2 first, then TM-5, then the SECT rename**, because RLS-3 and SECT-2
-> both rewrite the `sections` RLS policies and SECT-3 adds a new tenant table that needs
-> one.
+> (SECT-1..10) and `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` (ENV-1/ENV-3 remainders +
+> RLS-1..5).** The agreed order is **RLS Phase 2 first, then the SECT rename**, because
+> RLS-3 and SECT-2 both rewrite the `sections` RLS policies and SECT-3 adds a new tenant
+> table that needs one.
+>
+> **The Template Marketplace board (TM-1..5) closed and retired into
+> `backlog/TEMPLATE_MARKETPLACE.md` on 2026-08-18** — all five tickets shipped and the gate
+> was proven against a real deployment. It parks six entries, `TM-B1..B6`. **Read `TM-B1`
+> before writing any integration test that asserts a 403/404**: the integration harness builds
+> its app from `registerRoutes`, which does **not** register the global `errorHandler` that
+> `server/index.ts` and `server/production.ts` do — so a route relying on the global handler
+> answers **500** to every denial under test and no test will say so.
+>
+> ⚠️ **Before adding any step to `npm run build`, check `.dockerignore` as well as the
+> Dockerfile.** TM-1 wired a build-time generator in; `scripts/**` was excluded from the build
+> context, and **every `dev` deploy failed for two days** while Railway kept serving the last
+> good build. See `TM-B2`.
 >
 > **The Roadmap epics board (GH-146..174) closed and retired into `backlog/ROADMAP.md`
 > on 2026-08-18** — 20 of 27 shipped. It parks six epics (**GH-163..173**) and twelve
@@ -116,6 +128,12 @@ IDs are stable, heading anchors are not.
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 | LD-O1 | `enhancement` | No `spellNumber` filter — retainer renders "2 additional attorneys" where drafting convention spells small numbers | `backlog/LEGAL_DRAFTING.md` |
 | LD-O2 | `informational` | Vestigial `/intake` rate-limiter registrations, and a security comment claiming to protect a route tree that no longer exists | `backlog/LEGAL_DRAFTING.md` |
+| TM-B1 | `needs-initiative` | **Integration harness omits the global `errorHandler`, so every route trusting it answers 500 to denials under test — untested denial paths, repo-wide** | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B2 | `operational` | A failed Railway build is invisible; `dev` failed for 2 days while serving stale code. Owner ruled: `Wait for CI` on for `production` only | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B3 | `enhancement` | Login page renders API errors as `[object Object]`, so the commonest signup failure tells the user nothing | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B4 | `needs-initiative` | User publishing (`POST /api/market/publish`) unbuilt — needs a data model, moderation, and a dev/test→prod visibility ruling | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B5 | `product-decision` | Does the product want `usageCount`/`rating`/`isOfficial` at all? Removed in TM-4 because the curated catalog supplies none | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B6 | `informational` | `workflow.json` stays the editable source of truth and is never itself installed; never add a second *install* path | `backlog/TEMPLATE_MARKETPLACE.md` |
 | GH-O4 | `enhancement` | **⚠️ Precondition has fired.** `outputFileExists()` does a raw `fs.access`, bypassing the storage provider — was harmless "until O-3 happens", and O-3 closed 2026-08-04 with prod on S3 | `backlog/ROADMAP.md` |
 | GH-O1 | `operational` | Production runs the `.env.example` placeholder `JWT_SECRET`/`SESSION_SECRET`. **Ruled deliberate by the repo owner — do not re-file as a finding** | `backlog/ROADMAP.md` |
 | GH-O11 | `product-decision` | `/intake/preview` previews a hardcoded fake form, not the real branded runner — (a) re-point and delete the ~1,040-line `Themed*` stack, (b) delete the route, or (c) leave | `backlog/ROADMAP.md` |
@@ -155,6 +173,29 @@ the detail file uses the `-B` IDs.** All are now closed:
   `'1200300'` (`73c9e0b6`).
 - **G171-O3 / reviewer process** — kept in the detail file, not as work.
 
+## Template Marketplace (TM) — [detail](backlog/TEMPLATE_MARKETPLACE.md) — retired 2026-08-18
+
+**5 of 5 tickets closed**, gate proven against deploy `cf12917f`: the deployed gallery returned
+all three curated templates and `POST /api/templates/retainer-agreement/install` created a real
+workflow in the caller's project. Parks six entries. Carries four settled decisions — curated
+templates are **code-shipped, never database rows**; bundles are **generated at build time**
+(a committed bundle rots as `migrationHead` moves); generated output lives in **`dist/`**,
+never read from `templates/` at runtime; and **user publishing stays out of scope** with
+`publishTemplate` still throwing behind a test.
+
+**The two findings worth reading before similar work:**
+
+- **TM-B1** (`needs-initiative`) — the integration harness omits the `errorHandler` that
+  production registers, so **denial paths are untested repo-wide** for any route that does not
+  call `classifyRouteError` itself. Security-shaped, not tidiness.
+- **TM-B2** (`operational`) — a red Railway build is invisible; `dev` failed for two days while
+  serving pre-TM-1 code, so the feature *looked* shipped. Owner ruled `Wait for CI` on for
+  `production` only, and a deploy-status check is still worth building.
+
+Its lesson for anyone adding a build step: **the gate criterion no test could satisfy is the
+one that found the real bug.** All suites were green while the product was not shipping,
+because `.dockerignore` excluded the generator from the build context.
+
 ## Legal drafting (LD) — [detail](backlog/LEGAL_DRAFTING.md) — retired 2026-08-18
 
 **2 of 2 tickets closed**, gate fully satisfied — the repo owner opened a rendered curated
@@ -164,10 +205,11 @@ default and no inference path ever**, legal numbering is a **pure function of ex
 ordinals** (no hidden counter, so a skipped conditional section cannot renumber a contract),
 and curated content lives at `templates/curated/<slug>/`.
 
-⚠️ **The parent epic GH-173 is NOT closed by this board** and must not be flipped from its
-evidence. LD delivered the *authoring*; the curated templates shipped **inert**, with no
-consumer in `server/` or `client/`. Delivery is the TM board
-(`tickets/TEMPLATE_MARKETPLACE_TICKETS.md`), which solely owns the GH-173 flip.
+⚠️ **The parent epic GH-173 is NOT closed by this board.** LD delivered the *authoring*; the
+curated templates shipped **inert**, with no consumer in `server/` or `client/`. Delivery was
+the TM board, which shipped and retired 2026-08-18 → `backlog/TEMPLATE_MARKETPLACE.md`.
+**GH-173 is never getting flipped** — the Roadmap board retired first, leaving no file or
+counter, and the owner ruled the item dropped. The epic stays parked as `needs-initiative`.
 
 - **LD-O1 — no number-spelling filter** · `enhancement`. "2 additional attorneys" where
   convention wants "Two". A `spellNumber` primitive is the same pure-function shape as the

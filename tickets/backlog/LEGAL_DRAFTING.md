@@ -8,10 +8,14 @@ spread onto the `docxHelpers` object) and three curated starter templates at
 `templates/curated/<slug>/{workflow.json,mapping.md,template.docx}`.
 
 **The parent epic GH-173 was deliberately NOT closed by this board.** Its remaining
-acceptance criteria are delivery, not authoring — the curated templates shipped inert, with
-no consumer in `server/` or `client/`. That work is the **TM board**
-(`tickets/TEMPLATE_MARKETPLACE_TICKETS.md`), which now solely owns the GH-173 flip and the
-counter recount. Do not flip GH-173 from this file's evidence alone.
+acceptance criteria were delivery, not authoring — the curated templates shipped inert, with
+no consumer in `server/` or `client/`. That work became the **TM board**, which shipped and
+**retired 2026-08-18** → [`TEMPLATE_MARKETPLACE.md`](TEMPLATE_MARKETPLACE.md).
+
+**Resolved 2026-08-18: GH-173 is never getting "flipped".** The Roadmap epics board retired
+into [`ROADMAP.md`](ROADMAP.md) before TM closed, so no file or counter remained; the repo
+owner ruled the item dropped. `BACKLOG.md` records GH-173 as *"substantially delivered by the
+LD and TM boards"*, and the epic stays parked as `needs-initiative` for anything beyond that.
 
 ## Closed — do not re-file
 

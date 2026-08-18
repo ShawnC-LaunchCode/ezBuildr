@@ -244,9 +244,11 @@ right here is what makes SECT-7 readable.
 - **Dispatch alone.** This ticket invalidates the quoted-code anchors of every
   other open ticket in the repo. As of 2026-08-18 that is
   `ENVIRONMENTS_AND_RLS_TICKETS.md` (RLS-2/3/4/5 touch the repository layer and
-  the `sections` RLS policies) and `TEMPLATE_MARKETPLACE_TICKETS.md` (TM-5 types
-  the `graph_json` shape this renames). **Both must be finished first — see the
-  ordering note in the Escalations section.** Confirm with the repo owner that no
+  the `sections` RLS policies). ~~and `TEMPLATE_MARKETPLACE_TICKETS.md` (TM-5)~~ —
+  **TM shipped and retired 2026-08-18**, so RLS Phase 2 is now the only board that
+  must finish first. Note TM-5 already typed the `graph_json` runtime snapshot as
+  `WorkflowContentData` (`WorkflowContentIngestService`), so that is the shape this
+  rename touches. **See the ordering note in the Escalations section.** Confirm with the repo owner that no
   other board is mid-dispatch, and that their second IDE has no uncommitted work,
   **before** starting.
 - Load `db-schema-change` (the Drizzle name-pinning above), `add-api-endpoint`
@@ -1465,11 +1467,16 @@ files, so the repo owner ruled on the order rather than leaving it to dispatch:
 
 ```
 1. RLS-1 → RLS-2 → RLS-3 → RLS-4 → RLS-5     ENVIRONMENTS_AND_RLS_TICKETS.md
-2. TM-5                                       TEMPLATE_MARKETPLACE_TICKETS.md
+2. ~~TM-5~~                                   ✅ DONE 2026-08-18, board retired
 3. SECT-1 → SECT-2                            the rename
 4. SECT-3..9                                  the feature
 5. SECT-10                                    docs, last
 ```
+
+**Step 2 is closed.** TM-1..5 all shipped and the board retired into
+`backlog/TEMPLATE_MARKETPLACE.md` on 2026-08-18, so **RLS Phase 2 is the only thing standing
+between here and the rename.** RLS Phase 2 is itself blocked on the repo owner ruling on
+RLS-2's transaction shape.
 
 **RLS Phase 2 goes first**, for three reasons:
 
