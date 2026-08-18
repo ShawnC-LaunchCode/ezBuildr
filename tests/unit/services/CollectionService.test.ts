@@ -1,6 +1,20 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 
 import { CollectionService } from '../../../server/services/CollectionService';
+import { getCurrentTenantId, runWithTenantContext } from '../../../server/utils/rlsContext';
+
+import type { DbTransaction } from '../../../server/repositories';
+
+// RLS-2a: every public CollectionService method now opens a tenant-scoped
+// transaction at the service boundary (via `withTx` -> `withCurrentTenant`)
+// when no `tx` is supplied, and `withCurrentTenant` requires a tenant in the
+// request's async context (RLS-1) — which a plain unit test never has. These
+// mocked-repo tests are exercising business logic, not the RLS transaction
+// itself (that is proven against a real database in
+// tests/integration/rls2a-collectionService.test.ts), so they pass an
+// explicit fake `tx` to take the "caller already has a transaction" branch
+// of `withTx`, which reuses it directly and never touches the async context.
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 describe('CollectionService', () => {
   let service: CollectionService;
@@ -76,21 +90,21 @@ describe('CollectionService', () => {
       mockCollectionRepo.slugExists.mockResolvedValue(false);
       mockCollectionRepo.create.mockResolvedValue(createdCollection);
 
-      const result = await service.createCollection(insertData);
+      const result = await service.createCollection(insertData, mockTx);
 
       expect(result).toEqual(createdCollection);
       expect(mockCollectionRepo.slugExists).toHaveBeenCalledWith(
         mockTenantId,
         'test-collection',
         undefined,
-        undefined
+        mockTx
       );
       expect(mockCollectionRepo.create).toHaveBeenCalledWith(
         {
           ...insertData,
           slug: 'test-collection',
         },
-        undefined
+        mockTx
       );
     });
 
@@ -116,7 +130,7 @@ describe('CollectionService', () => {
 
       mockCollectionRepo.create.mockResolvedValue(createdCollection);
 
-      const result = await service.createCollection(insertData);
+      const result = await service.createCollection(insertData, mockTx);
 
       expect(result.slug).toBe('test-collection-1');
       expect(mockCollectionRepo.slugExists).toHaveBeenCalledTimes(2);
@@ -140,7 +154,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.slugExists.mockResolvedValue(false);
       mockCollectionRepo.create.mockResolvedValue(createdCollection);
 
-      const result = await service.createCollection(insertData);
+      const result = await service.createCollection(insertData, mockTx);
 
       expect(result.slug).toBe('custom-slug');
     });
@@ -160,7 +174,7 @@ describe('CollectionService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue(collection);
 
-      const result = await service.verifyTenantOwnership(mockCollectionId, mockTenantId);
+      const result = await service.verifyTenantOwnership(mockCollectionId, mockTenantId, mockTx);
 
       expect(result).toEqual(collection);
     });
@@ -169,7 +183,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(undefined);
 
       await expect(
-        service.verifyTenantOwnership(mockCollectionId, mockTenantId)
+        service.verifyTenantOwnership(mockCollectionId, mockTenantId, mockTx)
       ).rejects.toThrow('Collection not found');
     });
 
@@ -187,7 +201,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection);
 
       await expect(
-        service.verifyTenantOwnership(mockCollectionId, mockTenantId)
+        service.verifyTenantOwnership(mockCollectionId, mockTenantId, mockTx)
       ).rejects.toThrow('Access denied - collection belongs to different tenant');
     });
   });
@@ -222,7 +236,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields);
 
-      const result = await service.getCollectionWithFields(mockCollectionId, mockTenantId);
+      const result = await service.getCollectionWithFields(mockCollectionId, mockTenantId, mockTx);
 
       expect(result).toEqual({
         ...collection,
@@ -266,7 +280,7 @@ describe('CollectionService', () => {
       mockFieldRepo.countByCollectionIds.mockResolvedValue(new Map([[mockCollectionId, 1]]));
       mockRecordRepo.countByCollectionIds.mockResolvedValue(new Map([[mockCollectionId, 5]]));
 
-      const result = await service.listCollectionsWithStats(mockTenantId);
+      const result = await service.listCollectionsWithStats(mockTenantId, mockTx);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
@@ -302,14 +316,15 @@ describe('CollectionService', () => {
       const result = await service.updateCollection(
         mockCollectionId,
         mockTenantId,
-        { name: 'New Name' }
+        { name: 'New Name' },
+        mockTx
       );
 
       expect(result).toEqual(updatedCollection);
       expect(mockCollectionRepo.update).toHaveBeenCalledWith(
         mockCollectionId,
         { name: 'New Name', slug: 'new-name' },
-        undefined
+        mockTx
       );
     });
 
@@ -327,7 +342,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection);
 
       await expect(
-        service.updateCollection(mockCollectionId, mockTenantId, { name: 'New Name' })
+        service.updateCollection(mockCollectionId, mockTenantId, { name: 'New Name' }, mockTx)
       ).rejects.toThrow('Access denied - collection belongs to different tenant');
     });
   });
@@ -347,9 +362,9 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection);
       mockCollectionRepo.delete.mockResolvedValue(undefined);
 
-      await service.deleteCollection(mockCollectionId, mockTenantId);
+      await service.deleteCollection(mockCollectionId, mockTenantId, mockTx);
 
-      expect(mockCollectionRepo.delete).toHaveBeenCalledWith(mockCollectionId, undefined);
+      expect(mockCollectionRepo.delete).toHaveBeenCalledWith(mockCollectionId, mockTx);
     });
 
     it('should throw error if tenant does not own collection', async () => {
@@ -366,7 +381,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection);
 
       await expect(
-        service.deleteCollection(mockCollectionId, mockTenantId)
+        service.deleteCollection(mockCollectionId, mockTenantId, mockTx)
       ).rejects.toThrow('Access denied - collection belongs to different tenant');
 
       expect(mockCollectionRepo.delete).not.toHaveBeenCalled();
@@ -393,7 +408,7 @@ describe('CollectionService', () => {
       mockCollectionRepo.slugExists.mockResolvedValue(false);
       mockCollectionRepo.create.mockResolvedValue(createdCollection);
 
-      const result = await service.createCollection(insertData);
+      const result = await service.createCollection(insertData, mockTx);
 
       expect(result.slug).toBe('test-collection-123');
     });
@@ -417,9 +432,46 @@ describe('CollectionService', () => {
       mockCollectionRepo.slugExists.mockResolvedValue(false);
       mockCollectionRepo.create.mockResolvedValue(createdCollection);
 
-      const result = await service.createCollection(insertData);
+      const result = await service.createCollection(insertData, mockTx);
 
       expect(result.slug).toBe('test-collection');
     });
+  });
+
+  // RLS-2a AC5 + the ambient-vs-argument mismatch guard (see CollectionService's
+  // class doc comment). These are pure business-logic assertions — both fail
+  // BEFORE any repository call, so they need no database and belong in
+  // unit-fast. The positive "GUC set to the caller's tenant inside a real
+  // transaction, and does not survive it" proof needs a real database and
+  // lives in tests/integration/rls2a-collectionService.test.ts.
+  describe('RLS-2a service-boundary transaction: fails closed', () => {
+    it('throws (and never calls the repository) when called with no tx and no tenant in the async context', async () => {
+      expect(getCurrentTenantId()).toBeUndefined();
+
+      await expect(
+        service.getCollection(mockCollectionId, mockTenantId)
+      ).rejects.toThrow(/no tenant in context/i);
+
+      expect(mockCollectionRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('throws (and never calls the repository) when the ambient tenant disagrees with the tenantId argument', async () => {
+      const ambientTenantId = 'ambient-tenant-does-not-match';
+
+      await runWithTenantContext(ambientTenantId, async () => {
+        await expect(
+          service.getCollection(mockCollectionId, mockTenantId)
+        ).rejects.toThrow(/tenant mismatch/i);
+      });
+
+      expect(mockCollectionRepo.findById).not.toHaveBeenCalled();
+    });
+
+    // The "ambient matches the argument, so the guard lets it through and
+    // opens a real transaction" case needs an actual database
+    // (`withCurrentTenant` calls `db.transaction`) and is proven in
+    // tests/integration/rls2a-collectionService.test.ts instead — that is
+    // also where both AC4 halves (GUC = caller's tenant, and does not
+    // survive the transaction) are proven end to end.
   });
 });

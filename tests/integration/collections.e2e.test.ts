@@ -13,6 +13,23 @@ import { db } from '../../server/db';
 import { collectionFieldService } from '../../server/services/CollectionFieldService';
 import { collectionService } from '../../server/services/CollectionService';
 import { recordService } from '../../server/services/RecordService';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
+
+// RLS-2a: collectionService now opens a tenant-scoped transaction at the
+// service boundary (via withCurrentTenant) whenever it isn't handed an
+// explicit `tx`, and this suite calls it directly rather than through an
+// HTTP request — so there is no `rlsContext` middleware around it to
+// populate the async tenant context the way a real request would. Every
+// `collectionService.*` call below is wrapped in `runWithTenantContext` to
+// stand in for that middleware, matching what RLS-1 already exercises at
+// the HTTP layer (tests/integration/rls-context.middleware.test.ts) and
+// what tests/integration/rls2a-collectionService.test.ts proves for the
+// transaction itself. collectionFieldService/recordService are untouched by
+// RLS-2a (their rollout is RLS-2b) and keep calling repositories directly,
+// with no context needed.
+function inTenantContext<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  return runWithTenantContext(tenantId, fn);
+}
 
 describe('Collections System E2E Tests', () => {
   let testTenantId: string;
@@ -71,12 +88,12 @@ describe('Collections System E2E Tests', () => {
 
   describe('Collection Lifecycle', () => {
     it('should create a collection', async () => {
-      const collection = await collectionService.createCollection({
+      const collection = await inTenantContext(testTenantId, () => collectionService.createCollection({
         tenantId: testTenantId,
         name: 'Customers',
         slug: 'customers',
         description: 'Customer database',
-      });
+      }));
 
       expect(collection).toBeDefined();
       expect(collection.name).toBe('Customers');
@@ -86,7 +103,7 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should list collections', async () => {
-      const collections = await collectionService.listCollections(testTenantId);
+      const collections = await inTenantContext(testTenantId, () => collectionService.listCollections(testTenantId));
 
       expect(collections).toBeDefined();
       expect(collections.length).toBeGreaterThan(0);
@@ -94,7 +111,7 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should get a collection by ID', async () => {
-      const collection = await collectionService.getCollection(testCollectionId, testTenantId);
+      const collection = await inTenantContext(testTenantId, () => collectionService.getCollection(testCollectionId, testTenantId));
 
       expect(collection).toBeDefined();
       expect(collection.id).toBe(testCollectionId);
@@ -102,9 +119,9 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should update a collection', async () => {
-      const updated = await collectionService.updateCollection(testCollectionId, testTenantId, {
+      const updated = await inTenantContext(testTenantId, () => collectionService.updateCollection(testCollectionId, testTenantId, {
         description: 'Updated customer database',
-      });
+      }));
 
       expect(updated.description).toBe('Updated customer database');
     });
@@ -317,7 +334,7 @@ describe('Collections System E2E Tests', () => {
 
   describe('Collection Stats', () => {
     it('should list collections with stats', async () => {
-      const collections = await collectionService.listCollectionsWithStats(testTenantId);
+      const collections = await inTenantContext(testTenantId, () => collectionService.listCollectionsWithStats(testTenantId));
 
       const customerCollection = collections.find(c => c.id === testCollectionId);
       expect(customerCollection).toBeDefined();
@@ -360,10 +377,10 @@ describe('Collections System E2E Tests', () => {
 
   describe('Cleanup', () => {
     it('should delete collection (cascade fields and records)', async () => {
-      await collectionService.deleteCollection(testCollectionId, testTenantId);
+      await inTenantContext(testTenantId, () => collectionService.deleteCollection(testCollectionId, testTenantId));
 
       try {
-        await collectionService.getCollection(testCollectionId, testTenantId);
+        await inTenantContext(testTenantId, () => collectionService.getCollection(testCollectionId, testTenantId));
         // Should throw or return null depending on implementation
       } catch (e) {
         expect(e).toBeDefined();

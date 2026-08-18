@@ -644,7 +644,73 @@ request authenticated as tenant B never observes tenant A's id. Suite:
 
 ---
 
-## RLS-2a — Establish the service-boundary tenant transaction, on one pilot service 🔲
+## RLS-2a — Establish the service-boundary tenant transaction, on one pilot service ✅ DONE 2026-08-18
+
+**Gates re-run by the reviewer**, not read off the report: `type-check` **0 errors** (the real
+`npm run type-check`; the dev used `npx tsc --noEmit -p .`) · `eslint --max-warnings 0` on all
+four touched files **exit 0** · `test:fast` **281 files / 3254 passed** (baseline 281/3252,
++2 new unit tests) · `test:integration` **116 files / 1141 passed / 0 failed** run alone
+against `ezbuildr_test_rls_2a` (baseline 115/1135 → +1 file, +6 tests). Every number matched
+the dev's report exactly.
+
+### The pattern RLS-2b copies
+
+`CollectionService.withTx(expectedTenantId, tx, fn)`:
+- a caller-supplied `tx` is reused, never nested;
+- otherwise the **ambient** tenant (`getCurrentTenantId()`, populated by RLS-1) is compared
+  against `expectedTenantId` — the same value that method's `eq(tenantId, …)` predicate uses;
+- mismatch **throws before any query runs**; absent ambient falls through to
+  `withCurrentTenant`'s existing "no tenant in context" throw;
+- on success exactly **one** transaction is opened and threaded to every repository call in
+  the method body, including the multi-repo ones.
+
+**`withCurrentTenant` was sufficient as-is (AC6).** No second helper was written. RLS-1 is what
+made it usable — the async store it reads was never populated before `bc90cc3e`.
+
+**Repositories needed zero changes.** All three already thread `tx` via
+`BaseRepository.getDb(tx)` and none call a sibling repository, so the `SystemStats` deadlock
+class does not arise here. Reviewer confirmed no repository file appears in `git status`.
+**Good omen for RLS-2b's cost — but re-check per service rather than assuming.**
+
+### The dev overruled the reviewer on the design, and was right
+
+The reviewer raised two sources of truth — the GUC set from the ambient context versus the
+`tenantId` argument the predicates use — and leaned toward feeding both from the passed value
+so they agree by construction. **The dev rejected that and it had the better argument:** two
+checks fed by one input are not two checks, so a miscomputed `tenantId` would defeat the
+predicate and the GUC identically and RLS would stop being an independent backstop, which is
+exactly what AC3 exists to protect. Its mismatch guard keeps them independent *and* removes
+the silent-zero-rows failure the reviewer was worried about, by throwing loudly instead. It
+dominates the reviewer's suggestion rather than trading against it.
+
+**Known gap, deliberately documented rather than fixed:** the mismatch check runs only on the
+branch where the service opens the transaction. A caller-supplied `tx` is trusted, so passing
+a tenant-A transaction into a tenant-B call is unwarned. That is a caller bug and out of the
+pilot's scope — **RLS-2b inherits it**; it is recorded in the class comment and §2b of
+`docs/architecture/TENANT_ISOLATION_RLS.md` so thirty-five services do not each rediscover it.
+
+### Reviewer verification beyond the gates
+
+- **Mutation re-run independently.** Disabling the mismatch guard fails **exactly one** test
+  (the mismatch test), 5 pass; restored. The dev's claim was accurate.
+- **Every changed assertion was audited**, because the dev promised to itemise them and its
+  final report did not. Result vindicates it: `collections.e2e.test.ts` changed **zero**
+  assertions — all edits wrap call sites in `runWithTenantContext` to stand in for the
+  middleware a direct service call does not get. `CollectionService.test.ts` changed exactly
+  **one**, `toHaveBeenCalledWith(mockCollectionId, undefined)` → `mockTx`, which is *stronger*
+  than what it replaced and is the behaviour this ticket creates. Nothing was loosened.
+- **The proof is discriminating, not decorative.** AC1 is proven by
+  `expect(seenTxs[0]).toBe(seenTxs[1])` — the *identical transaction object* observed in two
+  different repositories, not merely two transactions carrying the same tenant. AC4 asserts
+  both halves in one test (GUC equals tenant A inside; a pool query afterwards reads
+  null/empty), and a second test proves it is the *caller's* tenant rather than a constant.
+  Fail-closed and mismatch both assert the repository was **never called**.
+- **Fail-closed is safe in production**: all nine production callers of `collectionService`
+  live in `server/routes/collections.routes.ts` and are request-scoped, so RLS-1's middleware
+  always populates the context. There is no background-job caller for the throw to break.
+- The mismatch error embeds both tenant ids but contains neither `not found` nor
+  `Access denied`, so `classifyRouteError` returns the generic fallback and the ids never
+  reach a client.
 
 **Priority: P0** · Size: M · **Depends on RLS-1 (landed `bc90cc3e`)** · Files: `server/services/CollectionService.ts`, `server/repositories/{Collection,CollectionField,Record}Repository.ts`, `server/utils/rlsContext.ts` (only if a gap appears), `docs/architecture/TENANT_ISOLATION_RLS.md`, tests
 
