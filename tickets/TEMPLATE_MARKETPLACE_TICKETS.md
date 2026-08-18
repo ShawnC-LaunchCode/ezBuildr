@@ -641,12 +641,40 @@ Docker build context does not.
 generator reads no `.md` (so the blanket `*.md` ignore is harmless) and that `templates/` is
 not ignored, so the curated sources do reach the build.
 
-- [ ] TM-1..5 ✅ each with a dated verification note
-- [ ] **A curated template installs from the deployed `dev` environment**, not just locally —
-      this is the criterion that proves the `dist/` bundling actually shipped, and it is the
-      one thing no test can establish
-- [ ] The gallery is non-empty in a deployed environment
-- [ ] `publishTemplate` still throws (user publishing remains out of scope)
+- [x] TM-1..5 ✅ each with a dated verification note — all five closed 2026-08-16..18
+- [x] **A curated template installs from the deployed `dev` environment** — proven
+      2026-08-18 against `https://ezbuildr-prod-dev.up.railway.app` on deploy `cf12917f`
+      (commit `478331c5`). `POST /api/templates/retainer-agreement/install` → **200**
+      `{"id":"58feb22b-f0f1-475f-9be1-f1ad0dcef2bb"}`; `GET /api/workflows/58feb22b…` → **200**,
+      title *"Retainer Agreement — Engagement Intake"*, `projectId` equal to the project
+      created moments earlier. Real deployment, real database, no mocks.
+      Build-side corroboration: `Generated 3 marketplace bundle(s) in /app/dist/marketplace`
+      in the image build log — so `dist/` bundling demonstrably shipped.
+- [x] The gallery is non-empty in a deployed environment — `GET /api/templates` → **200**
+      returning all three (`intake-questionnaire`, `nda`, `retainer-agreement`), each with the
+      user-facing copy from `eba074d5` rather than the old developer notes.
+- [x] `publishTemplate` still throws (user publishing remains out of scope) — unchanged and
+      guarded by the TM-2 unit test.
+
+> ### ⚠️ What was NOT proven: the browser UI on the deployed environment
+>
+> TM-4's AC5 says install succeeds *"from the UI"*. The **server path** above is proven on
+> the real deployment, and TM-4's RTL suite proves the client sends the user-picked
+> `projectId` and redirects to `/workflows/<returned id>/builder`. **Nobody has clicked
+> through it on deployed `dev`.**
+>
+> The blocker is real and worth recording: deployed `dev` runs with `NODE_ENV=production`, so
+> email verification is enforced — a browser signup lands on `/auth/login` and sign-in returns
+> `AUTH_006 EmailNotVerifiedError` (403). The local `verify` recipe (`npm run dev:test`, which
+> opens the signup gate) does not apply to a deployed environment. Forcing a verified user
+> would mean writing to the deployed database, which was judged not worth it for the marginal
+> proof given the API path is already proven end to end.
+>
+> **Two auth facts for the next person verifying anything deployed**, both learned the hard
+> way here: (1) `POST /api/tenants` attaches a tenant in the *database* while the caller's JWT
+> still says `tenantId: null`; (2) `hybridAuth` re-hydrates tenant/role from the DB but behind
+> a **30-second TTL cache**, so a request issued immediately after tenant creation still 403s
+> with `no_tenant`. Wait ~35s, or mint a fresh token.
 - [x] ~~GH-173's entry in `tickets/backlog/ROADMAP.md` updated to record what this board
       delivered~~ — **struck 2026-08-18, repo owner's call: drop the item entirely.**
       `tickets/ROADMAP_TICKETS.md` retired into `backlog/ROADMAP.md` in `94fad9ef`, so there
@@ -660,6 +688,22 @@ not ignored, so the curated sources do reach the build.
 ---
 
 ## Backlog / observations
+
+- 🔴 **A failed Railway build is invisible, and one sat unnoticed for two days.** Found at the
+  gate: `dev` deploys failed continuously from 2026-08-16 to 2026-08-18 while the environment
+  kept serving the last good build, so TM-1 and TM-2 appeared shipped and were not. Railway
+  keeps the previous deployment alive on build failure and **`Wait for CI` is off on all three
+  environments**, so nothing surfaces it short of opening the deployments pane. CLAUDE.md
+  already names turning `Wait for CI` on for `production` as the highest-value remaining
+  control; this is the same gap one environment down, and it is now demonstrated rather than
+  theoretical. Worth a deploy-status notification or a CI job that fails when the latest
+  deployment for a branch is not SUCCESS. *Tag: operational.*
+- **The login page renders API errors as `[object Object]`.** Found incidentally while
+  attempting the browser proof. `POST /api/auth/login` returns a perfectly good body —
+  `{ error: { code: "AUTH_006", message: "Please verify your email before logging in…" } }` —
+  and the UI toast shows the literal string `[object Object]`, so a user hitting the most
+  common signup failure is told nothing at all. The fix is in the login page's error handling,
+  not the API. Not in TM's scope; small and user-visible. *Tag: enhancement.*
 
 - 🔴 **The integration harness does not mirror production's middleware stack, so no
   integration test can verify global error classification.** Found at TM-3.
