@@ -2,7 +2,11 @@
 
 **Status:** open · **Written:** 2026-08-16
 **Ticket prefix:** `TM-1..5`
-**Parent:** GH-173 in `tickets/ROADMAP_TICKETS.md` (🔲). The LD board that authored the
+**Parent:** GH-173, parked into [`backlog/ROADMAP.md`](backlog/ROADMAP.md) when the Roadmap
+epics board retired 2026-08-18 (full text: `git log -p -- tickets/ROADMAP_TICKETS.md`).
+**This board is what remains of that epic** — GH-173 was substantially delivered by the LD
+board (drafting primitives) and TM-1/TM-2 (curated catalog), so it is parked as delivered,
+not as pending. The LD board that authored the
 curated content **closed and retired 2026-08-18** → [`backlog/LEGAL_DRAFTING.md`](backlog/LEGAL_DRAFTING.md)
 (full ticket text: `git log -p -- tickets/LEGAL_DRAFTING_TICKETS.md`).
 
@@ -541,8 +545,9 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
       one thing no test can establish
 - [ ] The gallery is non-empty in a deployed environment
 - [ ] `publishTemplate` still throws (user publishing remains out of scope)
-- [ ] GH-173 flipped to ✅ in `tickets/ROADMAP_TICKETS.md`, **and the phase/overall counters
-      recounted** — recount the rows, do not increment
+- [ ] GH-173's entry in `tickets/backlog/ROADMAP.md` updated to record what this board
+      delivered (the Roadmap board itself retired 2026-08-18, so there is no counter left
+      to recount)
 - [ ] Reviewer has committed each passed ticket
 
 ---

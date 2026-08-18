@@ -105,6 +105,7 @@ Phases 1–4 legible.
 | 2 | Builder authoring | SECT-5..6 | ~2 days |
 | 3 | Section-level visibility logic | SECT-7 | ~1.5 days |
 | 4 | Runner navigation | SECT-8..9 | ~2.5 days |
+| 5 | Documentation alignment (carried from GH-174) | SECT-10 | ~2 hours |
 | Backlog | Not phase-gated | SECT-B1..B6 | |
 
 ### Ticket collision map (dispatch is a lookup against this)
@@ -120,6 +121,7 @@ Phases 1–4 legible.
 | SECT-7 | `shared/workflowLogic.ts`, `LogicService.ts`, map, simulator | none in-phase |
 | SECT-8 | `client/src/components/runner/ClientRunnerLayout.tsx` + new nav | SECT-9 |
 | SECT-9 | `client/src/hooks/runner/`, `WorkflowRunRepository`, `runs.routes.ts` | SECT-8 (must follow it) |
+| SECT-10 | `docs/`, `README.md`, `CLAUDE.md` | none — but must run last |
 
 ---
 
@@ -239,11 +241,14 @@ right here is what makes SECT-7 readable.
 
 - **Blocks the entire rest of this file.** Nothing else starts until SECT-1 and
   SECT-2 are committed.
-- **Dispatch alone.** This ticket collides with every open ticket in the repo
-  (`ROADMAP_TICKETS.md`, `TEMPLATE_MARKETPLACE_TICKETS.md`,
-  `ENVIRONMENTS_AND_RLS_TICKETS.md`) because it invalidates their quoted-code
-  anchors. Confirm with the repo owner that no other board is mid-dispatch, and
-  that their second IDE has no uncommitted work, **before** starting.
+- **Dispatch alone.** This ticket invalidates the quoted-code anchors of every
+  other open ticket in the repo. As of 2026-08-18 that is
+  `ENVIRONMENTS_AND_RLS_TICKETS.md` (RLS-2/3/4/5 touch the repository layer and
+  the `sections` RLS policies) and `TEMPLATE_MARKETPLACE_TICKETS.md` (TM-5 types
+  the `graph_json` shape this renames). **Both must be finished first — see the
+  ordering note in the Escalations section.** Confirm with the repo owner that no
+  other board is mid-dispatch, and that their second IDE has no uncommitted work,
+  **before** starting.
 - Load `db-schema-change` (the Drizzle name-pinning above), `add-api-endpoint`
   (route/service/repository conventions), and `run-tests`.
 - Work in a dedicated worktree: `pwsh scripts/new-worktree.ps1 -Name sect-1`.
@@ -1326,6 +1331,81 @@ the classic seam defect this repo keeps paying for.
 
 ---
 
+# Phase 5 — Documentation alignment
+
+## SECT-10 — Align feature documentation with executable product status 🔲
+
+**Priority: P2** · Size: S · File: `docs/claude/FEATURES.md`, `docs/INDEX.md`, `README.md`
+
+> **Carried from `GH-174`** when the Roadmap epics board retired on 2026-08-18
+> (`tickets/backlog/ROADMAP.md`). It was the only open roadmap item backed by
+> real evidence — its cited files all exist — so it was carried rather than
+> parked. It landed on *this* board because SECT-1 rewrites the vocabulary of
+> every document it touches; doing it first means doing it twice.
+
+### Finding
+
+The feature documentation describes capabilities that have since shipped,
+changed, or been deleted, and it is the surface a new dev and every foreign
+harness reads first. Two concrete classes of drift, both created by this
+initiative and by the boards that retired alongside it:
+
+- **Vocabulary.** After SECT-1/SECT-2, `sections` means the group layer and
+  `pages` means what the docs still call sections. `docs/claude/SCHEMA.md`,
+  `docs/claude/API_ENDPOINTS.md` and `docs/guides/` all carry the old meaning.
+  SECT-1 AC7 updates `CLAUDE.md` and `SCHEMA.md` only — the rest is this ticket.
+- **Status.** `docs/claude/FEATURES.md` records feature status and changelog, and
+  four initiatives closed between 2026-08-09 and 2026-08-18 (Template Language,
+  AI Service Layer, Legal Drafting, and the Roadmap epics themselves) without a
+  documentation pass.
+
+### Preferred fix
+
+Audit the documents against the tree rather than editing them from memory. The
+`Documentation Index` table in `CLAUDE.md` is the list of what exists; walk it.
+
+For each document, the test is whether a reader following it would be **wrong**,
+not whether it is stylistically stale. Fix the wrong; leave the rest.
+
+Do **not** expand scope into rewriting the guides. This is an alignment pass:
+correct vocabulary, correct status, correct file paths, remove references to
+deleted things. A guide that is merely thin stays thin.
+
+Where a document describes something that no longer exists at all, delete the
+section and note the deletion in `FEATURES.md`'s changelog rather than leaving a
+tombstone.
+
+### Ties
+
+- **Must run last** — after SECT-2 at minimum, and ideally after Phase 4, or the
+  vocabulary changes underneath it.
+- No project skill is required, but read `CLAUDE.md`'s Documentation Index and
+  the "Quick Reference (Claude-optimized — update these when you change what they
+  document)" note above it.
+- File footprint: `docs/`, `README.md`, `CLAUDE.md`. Collides with nothing in
+  this initiative, since every other ticket's docs edits are scoped to its own
+  acceptance criteria.
+
+### Acceptance criteria
+
+1. `docs/claude/SCHEMA.md` documents the `sections` (group) and `pages` tables
+   with their real post-rename column names, and the table count is recounted
+   from `shared/schema/`, not incremented.
+2. `docs/claude/API_ENDPOINTS.md` lists the post-rename page endpoints and the
+   new section endpoints, and every path in it resolves to a real route handler
+   — verified by grep, and the dev's report states how.
+3. `docs/claude/FEATURES.md` reflects the four initiatives that closed
+   2026-08-09..18, and its changelog names them.
+4. No document references a file path that does not exist. The dev's report
+   includes the command used to check this and its output.
+5. `README.md`'s quick start works end to end on a clean checkout — actually run
+   it, do not read it.
+6. `CLAUDE.md`'s Documentation Index has no dead links.
+7. Gates: `npm run lint` clean (markdown is not linted, but the repo-wide gate
+   must still pass), and no source file is modified by this ticket.
+
+---
+
 # Backlog / observations
 
 Not phase-gated. Promote to a ticket only if the repo owner asks — several of
@@ -1378,8 +1458,40 @@ Per the ticket-flow skill's Size-L rule, flagged to the repo owner before dispat
 | **SECT-7** | L | Four consumers must stay in parity (engine, server, client, simulator), and MAP-7's parity invariant makes partial delivery worse than none. Recommendation: keep whole. |
 | **SECT-8** | L | Restructures the runner's layout shell *and* adds a new component *and* carries responsive + branding + a11y obligations. Recommendation: keep whole — the layout change and the rail are one design problem, and splitting them ships a rail into a shell that cannot hold it. SECT-9 already carries the interactive half. |
 
-One further escalation, not ticket-sized: **Phase 0 blocks the three currently
-open boards** (`ROADMAP_TICKETS.md`, `TEMPLATE_MARKETPLACE_TICKETS.md`,
-`ENVIRONMENTS_AND_RLS_TICKETS.md`) by invalidating their quoted-code anchors.
-The repo owner should confirm those are quiescent before SECT-1 is dispatched,
-or accept re-anchoring them afterwards.
+## Ordering against the other open boards — settled 2026-08-18
+
+Phase 0 invalidates the quoted-code anchors of any board touching the same
+files, so the repo owner ruled on the order rather than leaving it to dispatch:
+
+```
+1. RLS-1 → RLS-2 → RLS-3 → RLS-4 → RLS-5     ENVIRONMENTS_AND_RLS_TICKETS.md
+2. TM-5                                       TEMPLATE_MARKETPLACE_TICKETS.md
+3. SECT-1 → SECT-2                            the rename
+4. SECT-3..9                                  the feature
+5. SECT-10                                    docs, last
+```
+
+**RLS Phase 2 goes first**, for three reasons:
+
+1. It is the more valuable work. Measured against production 2026-08-12: 24 of
+   26 tenant-bearing tables have no RLS at all, and the 9 policies that do exist
+   are bypassed because the app connects as the table owner with no `FORCE`.
+   Tenant isolation in production is service-layer discipline alone.
+2. **SECT-3 adds a new tenant-scoped table** (`sections`) that needs an RLS
+   policy — its AC3 says so. Writing that against an established, working pattern
+   is far easier than against the current half-state.
+3. **RLS-3 and SECT-2 both rewrite the `sections` RLS policies.** RLS first means
+   SECT-2 simply renames what RLS-3 established; SECT first means RLS-3 gets
+   re-authored mid-flight against renamed tables.
+
+**TM-5 goes second** because it re-types `TemplateManifest.workflow` as the
+`graph_json` shape, whose `sections` key SECT-1 renames. It is Size S; doing it
+before the rename is cheaper than re-anchoring it after.
+
+Unblocked at any point, colliding with nothing here: **ENV-1** and **ENV-3**
+remainders (`.env.example`, a `db:push` smoke check, one live prod-download
+proof) and **TM-3/TM-4** (marketplace install).
+
+The Roadmap epics board retired on 2026-08-18 → `tickets/backlog/ROADMAP.md`,
+so it is no longer a scheduling constraint. Its one evidence-backed open ticket
+came here as SECT-10.

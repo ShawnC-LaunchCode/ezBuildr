@@ -309,7 +309,9 @@ should not be able to decrypt production secrets even in principle.
 
 **(b) ~~`STORAGE_DRIVER=s3` is unset~~ — WRONG, and corrected 2026-08-13.** Production has
 `STORAGE_DRIVER=s3` with `AWS_S3_*` wired as Railway reference variables. It was closed as
-**O-3 on 2026-08-04** in `ROADMAP_TICKETS.md`; only the stale `DEBT-OPS1` index entry said
+**O-3 on 2026-08-04** in the Roadmap board (retired 2026-08-18 → `backlog/ROADMAP.md`,
+where O-3 is recorded in the `Closed — do not re-file` table); only the stale `DEBT-OPS1`
+index entry said
 otherwise, and I repeated it here without measuring. **There is no 404 incident.** Nothing
 to do for storage in this ticket.
 

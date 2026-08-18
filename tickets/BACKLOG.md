@@ -14,8 +14,22 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-09 the live board is `tickets/ROADMAP_TICKETS.md`** (the GH-146..174
-> epics). The Workflow Map initiative (MAP-1..10, epic **GH-153**) closed and retired into
+> **As of 2026-08-18 the live boards are `tickets/SECTIONS_AND_PAGES_TICKETS.md`
+> (SECT-1..10), `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` (ENV-1/ENV-3 remainders +
+> RLS-1..5) and `tickets/TEMPLATE_MARKETPLACE_TICKETS.md` (TM-3..5).** The agreed order
+> is **RLS Phase 2 first, then TM-5, then the SECT rename**, because RLS-3 and SECT-2
+> both rewrite the `sections` RLS policies and SECT-3 adds a new tenant table that needs
+> one.
+>
+> **The Roadmap epics board (GH-146..174) closed and retired into `backlog/ROADMAP.md`
+> on 2026-08-18** — 20 of 27 shipped. It parks six epics (**GH-163..173**) and twelve
+> observations (**GH-O1..GH-O19**). ⚠️ **Those six epics are not tickets.** They came
+> from a competitive audit written against the product's intended shape, and **5 of the
+> 6 file paths they cite do not exist**; promoting one requires a fresh audit, not a
+> re-read. **`GH-O4` is the one to look at first** — its stated precondition has since
+> fired. GH-174 was carried to `SECT-10` rather than parked.
+>
+> The Workflow Map initiative (MAP-1..10, epic **GH-153**) closed and retired into
 > `backlog/WORKFLOW_MAP.md` on 2026-08-09 — **all ten tickets and all eight of its backlog
 > observations shipped, so it parks nothing.** Its detail file is kept for the
 > `Closed — do not re-file` table, the six standing decisions D-1..D-6, and the process
@@ -84,8 +98,8 @@ IDs are stable, heading anchors are not.
 | LU-B3 | `informational` | Dead-store-action guardrail tests references, not reachability | `backlog/LOGIC_UNIFICATION.md` |
 | LU-B4 | `informational` | Builder store is global but conceptually per-workflow — latent if tabs land | `backlog/LOGIC_UNIFICATION.md` |
 | DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
-| ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** in `ROADMAP_TICKETS.md`; this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
-| DEBT-OPS2 | `operational` | Branch protection is off | `backlog/TECH_DEBT.md` |
+| ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** on the Roadmap board (retired → `backlog/ROADMAP.md`); this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
+| ~~DEBT-OPS2~~ | **RESOLVED** | ~~Branch protection is off~~ — **stale entry, do not re-file.** Branch protection was *never* off; it uses a **repository ruleset** (`main-protection`), and the legacy `repos/.../branches/main/protection` API returns 404 *"Branch protection has been disabled"* even while the ruleset is active. Several audits concluded protection was off from that 404 alone. Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets` instead — see `CLAUDE.md` "The real boundary: rulesets, not the legacy API" | `backlog/TECH_DEBT.md` |
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
 | AISL-B1 | `needs-initiative` | Structured outputs would *delete* the JSON-parse/truncation subsystem; provider-coupled, Size L | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B2 | `needs-initiative` | Model tiering by `TaskType`; unevaluable until `/usage` has real data, and **conflicts with AISL-B3** | `backlog/AI_SERVICE_LAYER.md` |
@@ -102,6 +116,18 @@ IDs are stable, heading anchors are not.
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 | LD-O1 | `enhancement` | No `spellNumber` filter — retainer renders "2 additional attorneys" where drafting convention spells small numbers | `backlog/LEGAL_DRAFTING.md` |
 | LD-O2 | `informational` | Vestigial `/intake` rate-limiter registrations, and a security comment claiming to protect a route tree that no longer exists | `backlog/LEGAL_DRAFTING.md` |
+| GH-O4 | `enhancement` | **⚠️ Precondition has fired.** `outputFileExists()` does a raw `fs.access`, bypassing the storage provider — was harmless "until O-3 happens", and O-3 closed 2026-08-04 with prod on S3 | `backlog/ROADMAP.md` |
+| GH-O1 | `operational` | Production runs the `.env.example` placeholder `JWT_SECRET`/`SESSION_SECRET`. **Ruled deliberate by the repo owner — do not re-file as a finding** | `backlog/ROADMAP.md` |
+| GH-O11 | `product-decision` | `/intake/preview` previews a hardcoded fake form, not the real branded runner — (a) re-point and delete the ~1,040-line `Themed*` stack, (b) delete the route, or (c) leave | `backlog/ROADMAP.md` |
+| GH-O7 | `needs-initiative` | White-label can't be plan-gated until `subscriptions` can key on a user; gating today permanently denies every user-owned workflow. `tenants.plan` is vestigial — don't build on it | `backlog/ROADMAP.md` |
+| GH-O8 | `product-decision` | No project-level branding; one tenant has many orgs, so where the tier sits is ambiguous | `backlog/ROADMAP.md` |
+| GH-O10 | `enhancement` | Email, custom domains and the signature-transition screen are still unbranded — the remaining GH-158 criteria | `backlog/ROADMAP.md` |
+| GH-O16 | `enhancement` | Two redirect paths, only one hardened — `FinalDocumentsSection` checks protocol only while `WorkflowRunner` uses `getSafeRedirectUrl` | `backlog/ROADMAP.md` |
+| GH-O18 | `enhancement` | No test exercises a real AI provider call; every suite `vi.mock`s `createAIServiceFromEnv`, so a provider-side break is invisible | `backlog/ROADMAP.md` |
+| GH-O19 | `enhancement` | Final Documents inspector's `draftConfig` never re-syncs, so a collaborator's concurrent edit is overwritten wholesale | `backlog/ROADMAP.md` |
+| GH-O5 | `enhancement` | `pingClamd` misreads a `PONG\0` split across TCP segments as an unhealthy scanner | `backlog/ROADMAP.md` |
+| GH-O15 | `informational` | `totalGenerated` counts output *files*, not documents — DOCX+PDF from one template reports 1 attempted, 2 generated | `backlog/ROADMAP.md` |
+| GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
 
