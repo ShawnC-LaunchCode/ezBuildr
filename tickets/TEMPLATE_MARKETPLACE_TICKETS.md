@@ -416,7 +416,44 @@ project the caller does not own is rejected. Suite: `tests/integration/`.
 
 ---
 
-## TM-4 — Fix the client's hardcoded `projectId` before install can work 🔲
+## TM-4 — Fix the client's hardcoded `projectId` before install can work ✅ DONE 2026-08-18
+
+**Gates re-run by the reviewer** against a settled tree: `type-check` **0 errors** (tsbuildinfo
+cleared first) · `eslint --max-warnings 0` on both files **exit 0** · `test:fast` **280 files
+/ 3246 passed / 0 failed** (baseline 279/3242 → +1 file, +4 tests, exactly the new suite).
+The dev's reported numbers matched the reviewer's re-run exactly.
+
+**Verified independently, not read off the submission:**
+- **AC2 by grep** — no `projectId = "default"` and no trace of the six-line "Wait, backend
+  `installTemplate` requires `projectId`…" scratch block anywhere in the file.
+- **AC4 by type comparison** — the page's `Template` interface is now field-for-field
+  identical to `CatalogTemplate` in `server/lib/templates/TemplateCatalog.ts`
+  (`id`/`title`/`description`/`category`/`tags`). The `usageCount`/`rating`/`isOfficial`
+  rendering is gone along with the orphaned `Download`/`Star` imports; the only surviving
+  mention is a comment explaining why they must not come back.
+- **The tests are discriminating, not vacuous.** AC1/AC5 asserts the install POST body
+  carries the **user-picked** `p-2` rather than any default, that the URL is
+  `/api/templates/nda/install`, and that the redirect target is built from the **server's
+  returned id** (`/workflows/new-workflow-1/builder`). AC3 asserts **no install request is
+  ever issued** when the user has no projects, rather than merely that a message renders.
+
+**Design:** the dev loaded the `design` skill and extended the existing R2 surface rather than
+inventing one — `Dialog`/`Select`/`Label` used exactly as `ImportWorkflow.tsx` (the closest
+precedent, being the other "pick a destination project" flow) already uses them, with its
+amber alert convention for the no-projects state. Reviewer confirms this is the right call:
+a second visual language for the same interaction would have been the worse outcome.
+
+**Disclosed deviations, all accepted:** a `data-testid` per card (class-based `closest()` was
+genuinely ambiguous once `CardHeader` carries `flex flex-col`); jsdom pointer-capture
+polyfills for Radix `Select`, following the existing precedent in
+`DocumentOnboardingWizard.test.tsx` and `VariableCombobox.test.tsx`; and mocking
+`Header`/`Sidebar` so `useAuth`'s token refresh does not pollute the fetch assertions.
+
+⚠️ **AC5's live proof is deliberately batched to the phase gate, not claimed here.** The
+end-to-end assertion above is React Testing Library with `fetch` mocked, which is *not* live
+proof. The gate already requires a real install from the deployed `dev` environment, and that
+single drive-through proves AC5 and both gate items at once. Do not read this ✅ as "a human
+watched it install."
 
 **Priority: P1** · Size: S · **Depends on TM-3** · Files: `client/src/pages/Marketplace.tsx`, tests
 
@@ -545,9 +582,14 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
       one thing no test can establish
 - [ ] The gallery is non-empty in a deployed environment
 - [ ] `publishTemplate` still throws (user publishing remains out of scope)
-- [ ] GH-173's entry in `tickets/backlog/ROADMAP.md` updated to record what this board
-      delivered (the Roadmap board itself retired 2026-08-18, so there is no counter left
-      to recount)
+- [x] ~~GH-173's entry in `tickets/backlog/ROADMAP.md` updated to record what this board
+      delivered~~ — **struck 2026-08-18, repo owner's call: drop the item entirely.**
+      `tickets/ROADMAP_TICKETS.md` retired into `backlog/ROADMAP.md` in `94fad9ef`, so there
+      was never a counter to recount, and `tickets/BACKLOG.md` already records GH-173 as
+      *"substantially delivered by the LD and TM boards"* — which the owner ruled is
+      sufficient. The epic stays parked as `needs-initiative`; per that index, promoting it
+      needs a **fresh audit, not a re-read**, since 5 of the 6 parked epics cite files that
+      do not exist.
 - [ ] Reviewer has committed each passed ticket
 
 ---
