@@ -1,10 +1,3 @@
-import { eq } from "drizzle-orm";
-
-import {
-    workflows,
-} from "@shared/schema";
-
-import { db } from "../../db";
 import { logger } from "../../logger";
 import { importService } from "../../services/portability/ImportService";
 
@@ -45,39 +38,6 @@ export class MarketplaceService {
      */
     async getTemplate(templateId: string): Promise<CatalogTemplate | null> {
         return this.catalog.getTemplate(templateId);
-    }
-    /**
-     * Export a workflow as a template manifest
-     */
-    async exportTemplate(workflowId: string): Promise<TemplateManifest> {
-        // 1. Fetch workflow and its current version
-        const workflow = await db.query.workflows.findFirst({
-            where: eq(workflows.id, workflowId),
-            with: {
-                currentVersion: true
-            }
-        });
-        if (!workflow?.currentVersion) {
-            throw new Error("Workflow not found or has no versions");
-        }
-        // 2. Fetch the graph definition
-        // In a real implementation, we might need to sanitize this (remove secrets, sensitive data)
-        const graphJson = workflow.currentVersion.graphJson;
-        // 3. Construct manifest
-        const manifest: TemplateManifest = {
-            title: workflow.title ?? "Untitled Workflow",
-            description: workflow.description ?? "",
-            category: "general",
-            tags: [],
-            version: "1.0.0",
-            author: workflow.creatorId ?? '',
-            minCompatibleVersion: "1.0.0",
-            requiredBlocks: [], // Would analyze graph to find types
-            requiredFeatures: [],
-            workflow: graphJson,
-            createdAt: new Date().toISOString()
-        };
-        return manifest;
     }
     /**
      * Publish a workflow as a new template
