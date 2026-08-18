@@ -805,9 +805,11 @@ without a policy fails CI rather than shipping.
 > including **running a workflow to replicate a reported problem** and **working inside the
 > user's account for testing**. That is a support-access feature, not a flag on this ticket.
 >
-> **Therefore: the admin-access path must land BEFORE or WITH this ticket.** Shipping `FORCE`
-> first breaks support at exactly the moment tenant isolation starts being enforced. See the
-> design note in the Escalations/Backlog section.
+> **Therefore: the admin-access path must land BEFORE this ticket — it is now `RLS-6`**, added
+> 2026-08-18 and scoped by the owner to the minimum that unblocks `FORCE` (cross-tenant read
+> path + audit). Tenant-switching support sessions and impersonation are a separate initiative
+> afterwards. Shipping `FORCE` first would break support at exactly the moment tenant
+> isolation starts being enforced.
 >
 > **Do not resolve this by giving the application role `BYPASSRLS`.** That would return the
 > system to "one connection sees everything" and delete the property this whole phase exists to
@@ -890,14 +892,133 @@ query paths is the point.
 
 ---
 
+## RLS-6 — Cross-tenant read path for the admin console, audited 🔲
+
+**Priority: P0** · Size: M · **BLOCKS RLS-4** · Depends on RLS-2 · Files: `server/db.ts`, a new `server/db/adminDb.ts`, `server/repositories/UserRepository.ts`, `server/routes/admin.routes.ts`, a new migration (audit table), tests
+
+### Repo owner decisions, 2026-08-18 — do not relitigate
+
+| # | Decision |
+|---|---|
+| A1 | **Admins keep the ability to see and help users**, including running a user's workflow to replicate a reported problem and working inside their account for testing. Enforcing RLS must not take this away. |
+| A2 | **Minimal scope now, full initiative later.** This ticket builds *only* the cross-tenant read path the admin console already needs, plus audit. Tenant-switching support sessions, impersonation and time-boxing are a separate initiative. |
+| A3 | **Replication runs land in the user's own tenant, unflagged.** Fidelity beats cleanliness: a cloned sandbox loses the tenant's DataVault rows, connections and settings, which is exactly where the reported bugs live. |
+| A4 | **Admin access is customer-visible from the start** — when the support-session initiative ships, the customer-facing access record ships with it, not bolted on later. |
+
+> **Consequence of A3 + A4 worth carrying into the later initiative, not a defect here.** A
+> customer told "an admin accessed your account" will look at their run list and find runs they
+> did not create, with nothing marking what they are. The mitigation is one boolean column
+> (`workflow_runs.is_support_run`) plus filtering it out of their analytics; the owner chose
+> fidelity over labelling for now. If the labelling is ever wanted, **add it before the first
+> support run exists** — retrofitting means guessing which historical rows were staff.
+
+### Finding
+
+`migrations/0001_enable_rls.sql` creates one policy shape,
+`USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`, with **no
+platform-admin clause**, and **`users` is in the covered table list**.
+
+The admin console reads globally:
+
+```ts
+const usersWithStats = await userRepository.findAllUsersWithWorkflowCounts(); // admin.routes.ts:60
+const allUsers      = await userRepository.findAllUsers();                    // admin.routes.ts:180
+const workflows     = await workflowRepository.findAttributedToUser(userId);  // admin.routes.ts:356
+```
+
+None of these is tenant-scoped, and none can be — listing every user is the feature. Once
+RLS-4 sets `FORCE` and the app connects as a non-owner role, each returns **only the admin's
+own tenant**, with no error raised. A truncated list that looks correct is worse than a
+failure.
+
+### Preferred fix
+
+**A second connection pool, on a dedicated role, reachable from exactly one module.**
+
+1. A new DB role with `BYPASSRLS`, distinct from both the table owner and RLS-4's restricted
+   application role. Its connection string is a **separate env var** (`ADMIN_DATABASE_URL`),
+   set per environment.
+2. `server/db/adminDb.ts` exports one Drizzle instance on that pool and **nothing else**. Every
+   query through it writes an audit row first.
+3. Admin repository methods that genuinely need cross-tenant reads take the admin instance
+   explicitly — the existing optional-`tx`/injection pattern, not a global switch.
+4. A new `admin_access_log` table: actor user id, action, target tenant id (nullable for
+   global lists), target user id, timestamp, request id. This is the table the customer-facing
+   view in the later initiative will read, so **design it for that reader now** (A4).
+
+**Why not the alternatives.** Adding `OR current_setting('app.is_platform_admin', true) = 'on'`
+to the policy turns a GUC into god mode, and GUCs are set by application code — the thing
+RLS-2 just spent a whole ticket making systematic. `SECURITY DEFINER` functions are tighter
+still but push query logic into SQL that Drizzle cannot see, and there are only ~4 call sites.
+**Do not give RLS-4's application role `BYPASSRLS`** — that returns the system to "one
+connection sees everything" and deletes the property Phase 2 exists to create.
+
+**Containment is the point.** A `BYPASSRLS` pool is a loaded weapon; the value is that exactly
+one module can reach it. Add a test asserting no file outside `server/routes/admin*` and the
+admin services imports `adminDb` — the same shape as
+`tests/unit/client/store.deadSetters.test.ts`, which exists because neither `tsc` nor ESLint
+can catch a *used* import that simply should not be there.
+
+### Ties
+
+- Load `add-api-endpoint` (service/repository conventions, error contract) and
+  `db-schema-change` (the audit table migration; migration index collisions are a known
+  hazard when boards run in parallel).
+- **Blocks RLS-4** — `FORCE` must not ship before this exists.
+- Depends on **RLS-2** (the GUC is set on the normal path) but not on RLS-3.
+- ⚠️ RLS-4 AC2 stays as written: the *application* role has no `BYPASSRLS`. This ticket adds a
+  **second** role, it does not weaken the first.
+- Related: `admin-role-vs-tenant-role` — `users.role` gates `/api/admin`; `tenant_role` gates
+  RBAC writes. This ticket concerns the former only.
+
+### Vertical proof
+
+Entry point: `GET /api/admin/users` as a platform admin whose own tenant is A, with at least
+one user in tenant B. Hops: route → `hybridAuth` → admin role check → admin service →
+`adminDb` → Postgres as the `BYPASSRLS` role. Unmocked: the route chain, both pools, the
+database. End state: **users from both tenant A and tenant B are returned**, and an
+`admin_access_log` row exists naming the actor and the action.
+
+**The discriminating case:** the same query issued through the *normal* application pool, with
+the GUC pinned to tenant A, returns **only tenant A** — proving the admin path is the only
+thing crossing the boundary, and that RLS is genuinely enforced everywhere else. Both halves
+must be asserted in one test, or the test proves nothing about isolation.
+
+Suite: `tests/integration/`.
+
+### Acceptance criteria
+
+1. A `BYPASSRLS` role exists, separate from the table owner and from RLS-4's application role,
+   with its own `ADMIN_DATABASE_URL` documented in `.env.example` per environment.
+2. `server/db/adminDb.ts` is the only module exposing it, and a test asserts no file outside
+   the admin routes/services imports it.
+3. The three admin reads above return cross-tenant results with `FORCE ROW LEVEL SECURITY`
+   enabled — proven by an integration test, not by inspection.
+4. The same queries on the normal pool with the GUC set to one tenant return **only** that
+   tenant — asserted in the same test as (3).
+5. Every cross-tenant read writes an `admin_access_log` row (actor, action, target tenant,
+   target user, timestamp, request id), and the schema is shaped for a future
+   customer-facing reader (A4).
+6. No policy gains an admin clause, and RLS-4's application role does not gain `BYPASSRLS`.
+7. `type-check` 0 · `lint` 0 · `test:fast` above baseline · `test:integration` no new failures.
+
+---
+
 ## Phase 2 Gate
 
-- [ ] RLS-1, RLS-3, RLS-4, RLS-5 ✅ each with a dated verification note
-- [ ] RLS-2's shape ruled on by the repo owner, ticketed properly, and delivered
+- [ ] RLS-1, RLS-3, RLS-4, RLS-5, **RLS-6** ✅ each with a dated verification note
+- [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
+      needs delivering
 - [ ] A cross-tenant read proven impossible at the database level, with fail-closed evidence
+- [ ] **The admin console still shows every tenant** after `FORCE` — the same test that proves
+      the line above must prove admin crosses it and nothing else does (RLS-6 AC3/AC4)
 - [ ] Full integration green as the restricted role in CI, and required by branch protection
-- [ ] `docs/architecture/TENANT_ISOLATION_RLS.md` matches reality
+- [ ] `docs/architecture/TENANT_ISOLATION_RLS.md` matches reality, **including the admin
+      `BYPASSRLS` role and why it exists**
 - [ ] Reviewer has committed each passed ticket
+
+**Dispatch order:** RLS-1 → RLS-2 → RLS-3 and RLS-6 (disjoint: policies vs admin path) →
+RLS-4 → RLS-5. RLS-6 blocks RLS-4, not RLS-3.
 
 ---
 
