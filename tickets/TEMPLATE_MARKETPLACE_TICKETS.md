@@ -615,6 +615,32 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
 
 ## Gate
 
+### 🔴 The gate earned its keep — the image build had been broken for two days
+
+Pushing `dev` on 2026-08-18 revealed that **every `dev` deploy since 2026-08-16 had FAILED**
+(`0650f3b2`, `eba074d5`, `355277b6`, then `d145ec7c`), and the environment had been quietly
+serving the last good build from before TM-1 landed. So TM-1 and TM-2 had **never actually
+shipped**, and nothing said so: Railway keeps the previous deployment alive on a failed
+build, and `Wait for CI` is off, so a red build is invisible unless someone opens the
+deployments pane.
+
+**Cause.** `npm run build` runs `build:marketplace` → `tsx scripts/generateMarketplaceBundles.ts`,
+but `.dockerignore` excluded `scripts/**` with a single negation for `runMigrations.ts`. The
+generator never reached the build context, and the image build died with
+`ERR_MODULE_NOT_FOUND: /app/scripts/generateMarketplaceBundles.ts`.
+
+**This is the exact failure class the board's own Decision 3 warned about** — it reasoned
+carefully about what the *runtime* stage copies and concluded `dist/` was safe, which was
+right, while missing that the *build* stage needs the generator and its schema module. TM-1's
+AC1 ("`npm run build` produces one bundle per curated template") was true locally and false in
+Docker, and **no test could have caught it**: the repo tree always has `scripts/`; only the
+Docker build context does not.
+
+**Fix (reviewer, at the gate):** negate the two files the generator actually needs —
+`generateMarketplaceBundles.ts` and its `curatedWorkflowSchema.ts` import. Verified the
+generator reads no `.md` (so the blanket `*.md` ignore is harmless) and that `templates/` is
+not ignored, so the curated sources do reach the build.
+
 - [ ] TM-1..5 ✅ each with a dated verification note
 - [ ] **A curated template installs from the deployed `dev` environment**, not just locally —
       this is the criterion that proves the `dist/` bundling actually shipped, and it is the
