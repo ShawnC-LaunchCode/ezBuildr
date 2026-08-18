@@ -2,8 +2,14 @@
 
 **Status:** open · **Written:** 2026-08-16
 **Ticket prefix:** `TM-1..5`
-**Parent:** GH-173 in `tickets/ROADMAP_TICKETS.md` (🔲) and the closed LD board
-(`tickets/LEGAL_DRAFTING_TICKETS.md`)
+**Parent:** GH-173 in `tickets/ROADMAP_TICKETS.md` (🔲). The LD board that authored the
+curated content **closed and retired 2026-08-18** → [`backlog/LEGAL_DRAFTING.md`](backlog/LEGAL_DRAFTING.md)
+(full ticket text: `git log -p -- tickets/LEGAL_DRAFTING_TICKETS.md`).
+
+⚠️ **This board now solely owns the GH-173 flip.** LD delivered the authoring and closed its
+own gate; GH-173's remaining criteria are delivery, which is TM-1..5. Read LD's settled
+rulings before touching curated content — in particular **pronouns are explicit-only with a
+they/them default and no inference path**, and legal numbering is stateless.
 
 ---
 

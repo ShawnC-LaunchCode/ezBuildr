@@ -100,6 +100,8 @@ IDs are stable, heading anchors are not.
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
 | ~~G171-B1..B5~~ | ✅ all fixed | Template filter family + the dead `unresolved_variables` report (filed as G171-O1..O3 by a concurrent session). **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
+| LD-O1 | `enhancement` | No `spellNumber` filter — retainer renders "2 additional attorneys" where drafting convention spells small numbers | `backlog/LEGAL_DRAFTING.md` |
+| LD-O2 | `informational` | Vestigial `/intake` rate-limiter registrations, and a security comment claiming to protect a route tree that no longer exists | `backlog/LEGAL_DRAFTING.md` |
 
 ---
 
@@ -126,6 +128,29 @@ the detail file uses the `-B` IDs.** All are now closed:
   the authoring guide's own blank-on-empty rule; and `add('1200','300')` concatenated to
   `'1200300'` (`73c9e0b6`).
 - **G171-O3 / reviewer process** — kept in the detail file, not as work.
+
+## Legal drafting (LD) — [detail](backlog/LEGAL_DRAFTING.md) — retired 2026-08-18
+
+**2 of 2 tickets closed**, gate fully satisfied — the repo owner opened a rendered curated
+document on 2026-08-18, the one criterion neither dev nor reviewer could meet. Parks two
+entries. Carries three settled rulings: **pronouns are explicit-only with a they/them
+default and no inference path ever**, legal numbering is a **pure function of explicit
+ordinals** (no hidden counter, so a skipped conditional section cannot renumber a contract),
+and curated content lives at `templates/curated/<slug>/`.
+
+⚠️ **The parent epic GH-173 is NOT closed by this board** and must not be flipped from its
+evidence. LD delivered the *authoring*; the curated templates shipped **inert**, with no
+consumer in `server/` or `client/`. Delivery is the TM board
+(`tickets/TEMPLATE_MARKETPLACE_TICKETS.md`), which solely owns the GH-173 flip.
+
+- **LD-O1 — no number-spelling filter** · `enhancement`. "2 additional attorneys" where
+  convention wants "Two". A `spellNumber` primitive is the same pure-function shape as the
+  existing ones; no grammar change.
+- **LD-O2 — vestigial `/intake` rate-limiter registrations** · `informational`, P3.
+  `server/index.ts:48` and `server/production.ts:56` still throttle a route tree O-12
+  removed. The registration is harmless; the **security comment above it is misleading**,
+  describing protection of a surface that does not exist. Distinct from `RM-2`, the same
+  pipeline's other orphan.
 
 ## Business-day date math (BIZ) — [detail](backlog/BUSINESS_DAYS.md) — retired 2026-08-12
 
