@@ -170,4 +170,19 @@ describe("CuratedCatalogProvider (TM-2)", () => {
         await expect(provider.listTemplates({})).resolves.toEqual([]);
         expect(errorSpy).toHaveBeenCalled();
     });
+
+    // TM-3: MarketplaceService.installTemplate feeds this straight to
+    // ImportService, so it must resolve to a real, absolute path next to
+    // the index - not one relative to process.cwd().
+    it("resolves a bundle's path relative to the index file's own directory, and null for an unknown id", async () => {
+        const dir = makeTmpDir();
+        const indexPath = writeIndex(dir, SAMPLE_ENTRIES);
+        const provider = new CuratedCatalogProvider(indexPath);
+
+        const bundlePath = await provider.getBundlePath("nda");
+        expect(bundlePath).toBe(path.resolve(dir, "nda.ezb"));
+
+        const missing = await provider.getBundlePath("does-not-exist");
+        expect(missing).toBeNull();
+    });
 });

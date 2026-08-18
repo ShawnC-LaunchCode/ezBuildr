@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { marketplaceService } from "../lib/templates/MarketplaceService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
+import { logger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { requireTenant } from "../middleware/tenant";
 
@@ -78,11 +80,24 @@ router.post("/templates/:id/install", hybridAuth, requireTenant, asyncHandler(as
     const { id } = templateIdParamsSchema.parse(req.params);
     const { projectId } = installTemplateSchema.parse(req.body);
     const userId = requireUserId(req);
-    const workflow = await marketplaceService.installTemplate(
-        id,
-        { userId, projectId }
-    );
-    res.json(workflow);
+    // Classify at the route, per CLAUDE.md convention 2 / the add-api-endpoint
+    // skill: `installTemplate` and the `ImportService` beneath it signal
+    // authorization and not-found through message phrasings ("Template not
+    // found", "Target project not found", "Access denied - ..."). Relying on
+    // the global `errorHandler` instead is not enough — `registerRoutes` does
+    // not install it (only `server/index.ts` and `server/production.ts` do),
+    // so anything built from `registerRoutes` alone answers 500 to a denial.
+    try {
+        const workflow = await marketplaceService.installTemplate(
+            id,
+            { userId, projectId }
+        );
+        res.json(workflow);
+    } catch (error) {
+        logger.error({ error, templateId: id, projectId }, 'Error installing template');
+        const { status, message } = classifyRouteError(error, 'Failed to install template');
+        res.status(status).json({ message });
+    }
 }));
 // Publish workflow as template
 router.post("/market/publish", hybridAuth, requireTenant, asyncHandler(async (req: AuthRequest, res) => {

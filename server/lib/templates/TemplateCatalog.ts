@@ -26,4 +26,12 @@ export interface TemplateCatalogListParams {
 export interface TemplateCatalog {
     listTemplates(params: TemplateCatalogListParams): Promise<CatalogTemplate[]>;
     getTemplate(id: string): Promise<CatalogTemplate | null>;
+    /**
+     * Absolute filesystem path to the installable portability bundle
+     * (`.ezb`) for `id`, or `null` when the id is unknown (TM-3). The
+     * catalog is the only layer that knows where bundles physically live —
+     * `MarketplaceService.installTemplate` feeds this straight to
+     * `ImportService.apply` without ever touching a path itself.
+     */
+    getBundlePath(id: string): Promise<string | null>;
 }

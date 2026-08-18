@@ -306,9 +306,53 @@ Suite: `tests/integration/`.
 
 ---
 
-## TM-3 — `installTemplate` creates a real workflow via `ImportService` 🔲
+## TM-3 — `installTemplate` creates a real workflow via `ImportService` ✅ DONE 2026-08-18
 
-**Priority: P0** · Size: M · **Depends on TM-1, TM-2** · Files: `server/lib/templates/MarketplaceService.ts`, tests
+**Found already implemented but never gated.** The work sat uncommitted in the `tm-3`
+worktree from an earlier session that stopped without running anything. Every gate below was
+run by the reviewer against the settled tree, and **the integration suite caught two real
+failures the dev never saw.**
+
+- `type-check` **0 errors** (tsbuildinfo cleared first) · `eslint --max-warnings 0` on all
+  seven touched files **exit 0**
+- `test:fast` **279 files / 3242 passed / 0 failed** (baseline 3239 → +3)
+- `test:integration` **114 files / 1129 passed / 0 failed**, run **alone** against a freshly
+  recreated `ezbuildr_test_tm_3` (baseline 113/1123 → +1 file, +6 tests, exactly this
+  ticket's new suite)
+
+### 🔴 Reviewer fix — the route trusted a global handler that its own test app never installs
+
+AC3 and the unknown-id case **both returned 500 instead of 403/404**. The diagnosis that
+looks right and is wrong: "production registers `errorHandler`, so the test is unrealistic."
+Production does register it (`server/index.ts:143`, `server/production.ts:97`) — but
+**`registerRoutes` does not**, and `tests/helpers/integrationTestHelper.ts` builds its app
+from `registerRoutes` alone. So the test app had no error middleware and Express defaulted
+to 500.
+
+Fixing the harness would have been the wrong lever. The repo's actual contract (CLAUDE.md
+convention 2, the `add-api-endpoint` skill) is that **the route classifies**, via
+`classifyRouteError` — and marketplace is not one of the documented exempt families
+(snapshots, secrets, esign, ai-workflowEdit). The route was non-conforming; the test was
+asserting the right thing. `classifyRouteError`'s own docstring describes this exact
+SEC-029 failure mode: statuses collapsing to 500 and masking 403/404.
+
+`POST /api/templates/:id/install` now wraps the service call in `try`/`catch` +
+`classifyRouteError`. **The Zod parses stay outside the `try`** so validation still yields
+400 rather than being swallowed into the classifier. Six of six install tests pass.
+
+**Verified by inspection, not assertion** — every load-bearing claim in the implementation's
+comments was checked against `ImportService` rather than read:
+- `apply(filePath, userId, { targetProjectId })` really returns `ImportApplyResult` with
+  `rootId`, so `{ id: result.rootId }` is correct.
+- `resolveTargetOwnerForProject` throws `'Target project not found'` / `'Access denied -
+  insufficient permissions for target project'` **before anything is written**, and
+  `enforceOwnership` / `resolveProjectIdOverride` are both genuinely invoked on the apply
+  path. This — not a database backstop — is the tenant boundary, as the ticket required.
+- `logger` is not orphaned in `MarketplaceService` (still used by `publishTemplate`).
+- The unit tests mock `ImportService` to keep `unit-fast` DB-free and defer real behavior to
+  the integration suite, which is the right split and is documented in the test itself.
+
+**Priority: P0** · Size: M · **Depends on TM-1, TM-2** · Files: `server/lib/templates/MarketplaceService.ts`, `server/lib/templates/{CuratedCatalogProvider,TemplateCatalog}.ts`, `server/routes/marketplace.ts`, tests
 
 ### Finding
 
@@ -505,6 +549,18 @@ If not, deletion is the default. Do not leave a third opinion about workflow sha
 
 ## Backlog / observations
 
+- 🔴 **The integration harness does not mirror production's middleware stack, so no
+  integration test can verify global error classification.** Found at TM-3.
+  `server/index.ts:143` and `server/production.ts:97` register `errorHandler` after routes;
+  `registerRoutes` does not, and `tests/helpers/integrationTestHelper.ts` builds its app from
+  `registerRoutes` alone. Consequence: **any route that relies on the global handler rather
+  than calling `classifyRouteError` itself will answer 500 to every denial under test, and no
+  test will ever say so.** Routes that classify at the route level (the documented
+  convention) are unaffected, which is why this went unnoticed. Two candidate fixes, and they
+  are not equivalent: registering `errorHandler` in the test helper makes the harness honest
+  but may flip existing assertions that currently expect 500; auditing routes for missing
+  `classifyRouteError` fixes the real defects but leaves the harness lying. Probably both, in
+  that order. **Do not fold this into TM — it is a repo-wide audit.** *Tag: needs-initiative.*
 - **User publishing** (`POST /api/market/publish`) is deliberately unbuilt. When it is picked
   up it needs a real data model, tenancy scoping, moderation, and a decision about whether
   templates published in `dev`/`test` should ever be visible in `production` (they should
