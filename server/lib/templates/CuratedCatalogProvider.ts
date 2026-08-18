@@ -154,6 +154,21 @@ export class CuratedCatalogProvider implements TemplateCatalog {
         const found = this.readIndex().find((entry) => entry.slug === id);
         return found ? this.toCatalogTemplate(found) : null;
     }
+
+    /**
+     * `entry.bundlePath` is relative to the directory `index.json` itself
+     * lives in (TM-1's `MarketplaceIndexEntry` doc comment), so it is
+     * resolved against `path.dirname(this.indexPath)`, not `process.cwd()`
+     * — the two coincide in the default case but must not be assumed equal
+     * when a test injects a custom `indexPath`.
+     */
+    async getBundlePath(id: string): Promise<string | null> {
+        const found = this.readIndex().find((entry) => entry.slug === id);
+        if (!found) {
+            return null;
+        }
+        return path.resolve(path.dirname(this.indexPath), found.bundlePath);
+    }
 }
 
 export const curatedCatalogProvider = new CuratedCatalogProvider();
