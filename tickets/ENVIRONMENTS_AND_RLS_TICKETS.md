@@ -531,9 +531,72 @@ application goes completely dark. The existing RLS tests pass because they conne
 non-owner role *and* set the GUC explicitly — they prove the policies are correct, not that
 the app can live under them.
 
-## RLS-1 — Register the tenant-context middleware 🔲
+## RLS-1 — Register the tenant-context middleware ✅ DONE 2026-08-18
 
-**Priority: P1** · Size: M · Files: `server/index.ts`, `server/production.ts`, `server/middleware/rlsContext.ts`
+**The dispatched dev was killed mid-ticket by a session limit**, having written the
+implementation and **no tests and no gates**. The reviewer finished it (tests, entrypoint
+guard, doc correction) and ran every gate. Implementation credit is the dev's; the design
+call below is its finding and it is a good one.
+
+- `type-check` **0 errors** (tsbuildinfo cleared first) · `eslint --max-warnings 0` on all
+  seven touched files **exit 0**
+- `test:fast` **281 files / 3252 passed**, 1 unrelated failure —
+  `captcha.service.test.ts > should generate unique tokens` — which **passes in isolation
+  (10/10)**. This is the documented order-dependent flake: adding a test file shifts
+  scheduling and surfaces one unrelated test. Baseline 280/3246 → +1 file, +6 tests, exactly
+  the new guard suite.
+- `test:integration` **115 files / 1135 passed / 0 failed**, run alone against
+  `ezbuildr_test_rls_1` (baseline 114/1129 → +1 file, +6 tests, exactly the new suite)
+
+### 🔴 The Preferred fix below was wrong — corrected by the dev, verified by the reviewer
+
+It said *"Register the middleware after authentication has resolved the tenant."* **There is
+no such point.** ezBuildr resolves auth **per route** — `hybridAuth`, `optionalHybridAuth` and
+`requireAuth` are declared inline on each route (`app.get(path, hybridAuth, handler)`) and are
+**never** mounted globally. Verified independently at review: `grep "app.use(hybridAuth"`
+across `server/` returns nothing, while `admin.routes.ts` alone uses it 22 times.
+
+The shipped design instead splits it in two: `rlsContext` mounts **globally, before auth**, and
+opens an *empty* `AsyncLocalStorage` store; `server/middleware/auth.ts` then calls
+`setCurrentTenantId(...)` from both `attachUserToRequest` (bearer) and `cookieStrategy`
+(refresh cookie) once that route's own auth resolves. The store is a mutable object, so the
+later write is visible to everything downstream in the request's async chain.
+
+**The detail that makes it correct rather than merely working:** the write is placed **after**
+the DB re-hydration block, so the context always carries the tenant that authorization
+decisions actually used — not a stale JWT claim. Getting this backwards would have made the
+context disagree with the tenancy checks it exists to back up.
+
+This is why the footprint grew beyond the ticket's stated files to include
+`server/middleware/auth.ts` and `server/utils/rlsContext.ts` (`runWithRequestContext`,
+`setCurrentTenantId`). `runWithTenantContext` is untouched, so existing callers are unaffected.
+
+### Reviewer's own errors, recorded because both are instructive
+
+1. **The first entrypoint guard reported a false violation** — its ordering regex matched
+   `registerRoutes()` inside a *comment* in `server/index.ts`. The code was correct; the test
+   was not. Now matches the call form `registerRoutes(app)`.
+2. **The guard was then vacuous.** Mutation-tested by commenting out `app.use(rlsContext)`:
+   **all six tests still passed**, because a plain regex matches `// app.use(rlsContext);` just
+   as happily — and commenting it out is the single most likely way it gets disabled. Fixed by
+   stripping comment lines before asserting; re-mutated, and **2 tests now fail**. The
+   integration proof was mutation-tested the same way: disabling the bearer-path
+   `setCurrentTenantId` fails **3** tests while the two no-op tests correctly still pass.
+
+### ⚠️ `TM-B1` bit again, immediately
+
+A conventional integration test here would have exercised **nothing**. The shared harness
+builds its app from `registerRoutes`, which does not mount entrypoint middleware, so
+`rlsContext` would never have run. The new integration test mounts it onto `ctx.app` exactly
+as the entrypoints do — but that means it **cannot** notice an entrypoint losing its
+registration, which is why `tests/unit/middleware/rlsContextRegistration.test.ts` exists and
+is source-level. Neither `tsc` nor ESLint can see a deleted `app.use(...)`.
+**Second initiative in a row this gap has cost real work.**
+
+`docs/architecture/TENANT_ISOLATION_RLS.md` updated: its "mount the middleware after auth"
+instruction is struck and replaced with the actual flow.
+
+**Priority: P1** · Size: M · Files: `server/index.ts`, `server/production.ts`, `server/middleware/rlsContext.ts`, `server/middleware/auth.ts`, `server/utils/rlsContext.ts`, `docs/architecture/TENANT_ISOLATION_RLS.md`, tests
 
 ### Finding
 
