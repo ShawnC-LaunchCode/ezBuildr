@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Search, Download, Star } from "lucide-react";
+import { Search } from "lucide-react";
 import { useState } from 'react';
 import { useLocation } from "wouter";
 
@@ -8,20 +8,30 @@ import Sidebar from "@/components/layout/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useProjects } from "@/lib/vault-hooks";
 
-
-// Types
+// Mirrors `CatalogTemplate` in `server/lib/templates/TemplateCatalog.ts` — the
+// curated catalog (TM-2) carries only these fields. No usageCount, rating or
+// isOfficial: rendering those would be inventing data the API never sends (TM-4).
 interface Template {
     id: string;
     title: string;
     description: string;
     category: string;
-    usageCount: number;
-    rating: number;
-    isOfficial: boolean;
-    tags?: string[];
+    tags: string[];
+}
+
+interface InstalledWorkflow {
+    id: string;
 }
 
 export default function Marketplace() {
@@ -29,6 +39,12 @@ export default function Marketplace() {
     const [category, setCategory] = useState('all');
     const { toast } = useToast();
     const [, setLocation] = useLocation();
+    const { data: projects = [] } = useProjects(true);
+
+    // Which template is mid-install — drives the destination-project dialog.
+    // There is no default project id to fall back to; the caller must choose.
+    const [installTarget, setInstallTarget] = useState<Template | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
 
     // Fetch templates
     const { data: templates = [], isLoading } = useQuery<Template[]>({
@@ -44,28 +60,32 @@ export default function Marketplace() {
         }
     });
 
+    const hasNoProjects = projects.length === 0;
+
+    function openInstallDialog(template: Template) {
+        // A single-project user never has to choose — pre-select it.
+        setSelectedProjectId(projects.length === 1 ? projects[0].id : '');
+        setInstallTarget(template);
+    }
+
+    function closeInstallDialog() {
+        setInstallTarget(null);
+        setSelectedProjectId('');
+    }
+
     // Install mutation
     const installMutation = useMutation({
-        mutationFn: async (templateId: string) => {
-            // For now, we need to know WHICH project to install to.
-            // In a real app, we'd prompt for project selection or use current project context.
-            // We'll hardcode a "default" or prompt via a simple window.prompt for v1 dev.
-            // const projectId = "default-project-id"; 
-            // Actually, let's just pass a dummy project ID; backend will likely ignore or we assume project exists.
-            // Wait, backend `installTemplate` requires `projectId`.
-            // We will rely on backend to handle user's default project if needed, or we should fetch projects.
-            // For MVP, passing a placeholder.
-            const projectId = "default";
-
+        mutationFn: async ({ templateId, projectId }: { templateId: string; projectId: string }) => {
             const res = await fetch(`/api/templates/${templateId}/install`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId })
             });
             if (!res.ok) {throw new Error('Failed to install template');}
-            return res.json();
+            return res.json() as Promise<InstalledWorkflow>;
         },
         onSuccess: (workflow) => {
+            closeInstallDialog();
             toast({
                 title: "Template Installed",
                 description: "Redirecting to workflow builder...",
@@ -73,7 +93,6 @@ export default function Marketplace() {
             });
             // Redirect to builder
             setTimeout(() => {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 setLocation(`/workflows/${workflow.id}/builder`);
             }, 1000);
         },
@@ -85,6 +104,13 @@ export default function Marketplace() {
             });
         }
     });
+
+    function confirmInstall() {
+        if (installTarget === null || selectedProjectId === '') {
+            return;
+        }
+        installMutation.mutate({ templateId: installTarget.id, projectId: selectedProjectId });
+    }
 
     const categories = ['all', 'legal', 'hr', 'finance', 'general', 'marketing'];
 
@@ -125,6 +151,16 @@ export default function Marketplace() {
                             </div>
                         </div>
 
+                        {hasNoProjects && (
+                            <div
+                                role="alert"
+                                className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-900 dark:text-amber-200"
+                            >
+                                You don&apos;t have a project yet. Create one before installing a
+                                template — every installed template becomes a workflow inside a project.
+                            </div>
+                        )}
+
                         {/* Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {isLoading ? (
@@ -133,44 +169,32 @@ export default function Marketplace() {
                                 <div className="col-span-full text-center py-20 text-muted-foreground">No templates found.</div>
                             ) : (
                                 templates.map((template) => (
-                                    <Card key={template.id} className="flex flex-col hover:shadow-lg transition-all">
+                                    <Card
+                                        key={template.id}
+                                        data-testid={`template-card-${template.id}`}
+                                        className="flex flex-col hover:shadow-lg transition-all"
+                                    >
                                         <CardHeader>
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <CardTitle className="text-xl">{template.title}</CardTitle>
-                                                    <CardDescription className="line-clamp-2 mt-2">{template.description}</CardDescription>
-                                                </div>
-                                                {template.isOfficial && (
-                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">Official</Badge>
-                                                )}
-                                            </div>
+                                            <CardTitle className="text-xl">{template.title}</CardTitle>
+                                            <CardDescription className="line-clamp-2 mt-2">{template.description}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="flex-1">
-                                            <div className="flex gap-4 text-sm text-muted-foreground">
-                                                <div className="flex items-center gap-1">
-                                                    <Download className="h-4 w-4" />
-                                                    <span>{template.usageCount} installs</span>
+                                            {template.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {template.tags.map(tag => (
+                                                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                                                    ))}
                                                 </div>
-                                                {template.rating > 0 && (
-                                                    <div className="flex items-center gap-1">
-                                                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                                        <span>{(template.rating / 100).toFixed(1)}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                {template.tags?.map(tag => (
-                                                    <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                                                ))}
-                                            </div>
+                                            )}
                                         </CardContent>
                                         <CardFooter>
                                             <Button
                                                 className="w-full"
-                                                onClick={() => installMutation.mutate(template.id)}
-                                                disabled={installMutation.isPending}
+                                                onClick={() => openInstallDialog(template)}
+                                                disabled={hasNoProjects}
+                                                title={hasNoProjects ? "Create a project first to install a template" : undefined}
                                             >
-                                                {installMutation.isPending ? "Installing..." : "Use Template"}
+                                                Use Template
                                             </Button>
                                         </CardFooter>
                                     </Card>
@@ -180,6 +204,46 @@ export default function Marketplace() {
                     </div>
                 </div>
             </main>
+
+            <Dialog
+                open={installTarget !== null}
+                onOpenChange={(open) => { if (!open) {closeInstallDialog();} }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Install &quot;{installTarget?.title}&quot;</DialogTitle>
+                        <DialogDescription>
+                            Choose which project this becomes a workflow in.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="install-project">Project</Label>
+                        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                            <SelectTrigger id="install-project">
+                                <SelectValue placeholder="Choose a project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {projects.map((project) => (
+                                    <SelectItem key={project.id} value={project.id}>
+                                        {project.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={closeInstallDialog}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={confirmInstall}
+                            disabled={selectedProjectId === '' || installMutation.isPending}
+                        >
+                            {installMutation.isPending ? "Installing..." : "Install"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
