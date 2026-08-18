@@ -610,7 +610,31 @@ with an explicit `eq(table.tenantId, tenantId)` predicate.
 So enforcing RLS requires that *every* tenant-scoped query run inside a transaction that has
 set the GUC. Today essentially none do.
 
-### The decision the repo owner needs to make
+### ✅ RULED 2026-08-18 by the repo owner — wrap at the **service boundary** (option 2)
+
+Build it incrementally, with option 1 (repository-base wrapping) as the fallback for
+**read-only** repositories.
+
+**Why this and not the others.** The deciding argument is boundary alignment, not transaction
+semantics: **the services are already the tenancy layer.** CLAUDE.md defines them as "business
+logic, authorization (tenancy checks)", and every `verifyTenantOwnership` lives there. Setting
+the GUC at that same boundary means one place owns tenancy. Options 1 and 3 create a *second*
+boundary for the same concern, and a split boundary is how this codebase has drifted before.
+Option 1 is also the wrong granularity — a service operation spanning repositories would get
+several separate transactions, so the GUC is set repeatedly and a partial failure is not
+atomic. Option 3's cleanliness is real, but background workers
+(`RunCompletionJobWorker`) are not requests, so it would mean maintaining two mechanisms
+anyway.
+
+**Known cost, accepted:** the `tx`-threading hazard is real — it already deadlocked
+`SystemStats` on a size-1 pool when a repository ran pool queries inside a caller's
+transaction. It is bounded, documented and a known fix, and was judged the better trade than a
+permanently split tenancy boundary.
+
+**Unchanged:** service-layer `eq(tenantId, …)` predicates **stay**. RLS is a backstop, not a
+replacement.
+
+<details><summary>Original three options, kept for the record</summary>
 
 Three shapes, with the trade-off that matters:
 
@@ -633,6 +657,8 @@ ruled on before anyone writes code.
 Whichever is chosen, **service-layer `eq(tenantId, …)` predicates stay.** RLS is a backstop,
 not a replacement — defence in depth, and it keeps the system working if the GUC is ever
 missing.
+
+</details>
 
 ### Ties
 
@@ -752,7 +778,40 @@ without a policy fails CI rather than shipping.
 
 ## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔲
 
-**Priority: P0** · Size: M · **BLOCKED on RLS-2 and RLS-3** · Files: a new migration, Railway/Neon role configuration, `.env.example`
+**Priority: P0** · Size: M · **BLOCKED on RLS-2, RLS-3, and now the admin-access path below** · Files: a new migration, Railway/Neon role configuration, `.env.example`
+
+> ### 🔴 DISCOVERED 2026-08-18 — this ticket silently breaks the admin console
+>
+> Measured, not theorised. Three facts that combine badly:
+>
+> - The policy is bare `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`
+>   with **no platform-admin clause** (`migrations/0001_enable_rls.sql`).
+> - **`users` is in the covered table list**, along with `projects`, `organizations`, `files`,
+>   `records` and the rest.
+> - Admin endpoints read **globally**: `userRepository.findAllUsers()`,
+>   `findAllUsersWithWorkflowCounts()`, and `workflowRepository.findAttributedToUser(userId)`
+>   for any user regardless of tenant (`server/routes/admin.routes.ts`).
+>
+> The moment `FORCE` lands and the app runs as a non-owner role, `/api/admin` returns **only
+> the admin's own tenant** — not an error, just a truncated list. **That is the worst failure
+> shape: a console that looks like it is working.**
+>
+> Note this also answers "does RLS stop admin seeing everything?" — **today it does not**,
+> because owners bypass RLS until `FORCE` is set, so admin access is gated purely by
+> `users.role` in the application layer. Enforcing RLS constrains admin *harder than intended*
+> unless an explicit path is built first.
+>
+> **Repo owner requirement, 2026-08-18:** admins must keep the ability to see and help users —
+> including **running a workflow to replicate a reported problem** and **working inside the
+> user's account for testing**. That is a support-access feature, not a flag on this ticket.
+>
+> **Therefore: the admin-access path must land BEFORE or WITH this ticket.** Shipping `FORCE`
+> first breaks support at exactly the moment tenant isolation starts being enforced. See the
+> design note in the Escalations/Backlog section.
+>
+> **Do not resolve this by giving the application role `BYPASSRLS`.** That would return the
+> system to "one connection sees everything" and delete the property this whole phase exists to
+> create. AC2 below stays as written.
 
 ### Finding
 
