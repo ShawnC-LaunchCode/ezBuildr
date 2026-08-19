@@ -957,7 +957,53 @@ real. A cluster-sized checkpoint makes partial work resumable by the next sessio
 
 ---
 
-## RLS-3 — Repair policy coverage: 24 of 26 tenant tables are unprotected 🔲
+## RLS-3 — Repair policy coverage: 24 of 26 tenant tables are unprotected ✅ DONE 2026-08-18
+
+**Gates re-run by the reviewer:** `type-check` **0 errors** · `eslint --max-warnings 0` on both
+touched files **exit 0** · `test:integration` **117 files / 1147 passed / 0 failed** run alone
+against `ezbuildr_test_rls_3` (baseline 116/1141 → +1 file, +6 tests, exactly
+`rls-coverage.test.ts`) · `test:fast` 281/3254, unchanged.
+
+### The root cause, which is better than the ticket's diagnosis
+
+Neither `0001` nor `0004` is broken, and the dev did not touch them. **The tables were created
+out of band by `npm run db:push` before those migrations first ran for real**, so every
+`to_regclass(...)` guard resolved NULL for a table that did not exist *at that moment*, the
+loop logged a NOTICE and continued — **and the migration still recorded itself applied.** That
+is the whole 9-vs-36 divergence, and it explains why a chain-built database gets 36 policies
+while production and its Neon-branch clones have 9.
+
+The repair is a **forward** migration, `0024_repair_rls_coverage.sql`, re-applying the 24
+direct-`tenant_id` policies plus the 3 ownership-derived ones on `workflows`/`sections`/`steps`.
+Unlike the originals it **fails loudly** (`RAISE EXCEPTION`) when an expected table is missing,
+so this class of silent skip cannot recur. It is idempotent, so a database already built
+correctly from the chain is unaffected.
+
+### Reviewer verification, measured independently
+
+- **Target database confirmed before anything else:** the worktree's `DATABASE_URL` is
+  `ep-frosty-firefly` — **dev**. Production is `ep-gentle-leaf`. Production was not touched.
+- **Ran my own read-only probe against dev after the migration:** **36 policies**, and
+  **zero** `tenant_id` tables without a policy. The dev's 9 → 36 claim is true.
+- **The coverage test is self-proving, not merely asserting.** It creates a real `tenant_id`
+  table with no policy and asserts the detector flags it, then creates one *with* RLS and a
+  policy and asserts it clears, dropping both. That discrimination is permanent, which is
+  stronger than a one-off mutation check.
+- `files` is confirmed **permanently inert** — the table does not exist at all, so the stale
+  entry in `0001`'s array was never a live gap.
+
+**Accepted deviation:** the migration was applied to **dev only**. The dev had no
+credentials for `test`/production in a dev worktree, and `railway.json` runs `db:migrate` as a
+pre-deploy step, so both receive it through the normal `dev` → `test` → `main` promotion.
+Reaching for production credentials from a dev worktree is precisely what Phase 1 exists to
+prevent, so this is the right call rather than a shortfall.
+
+⚠️ **`0024` is now applied to the dev database, which freezes its number.** RLS-6 also
+generated an `0024` in its own worktree — worktrees are isolated, so neither dev could see the
+other's journal. RLS-6 must regenerate as `0025`; renumbering *this* one would strand a
+`drizzle.__drizzle_migrations` row pointing at a file that no longer exists. Both also bumped
+the schema-cache token to `_v27`; RLS-6 takes `_v28` so its new table actually invalidates the
+cached test schema.
 
 **Priority: P0** (raised from P1 on 2026-08-13 — the coverage gap was measured, not theoretical)
 · Size: M · Files: a new migration, `docs/architecture/TENANT_ISOLATION_RLS.md`

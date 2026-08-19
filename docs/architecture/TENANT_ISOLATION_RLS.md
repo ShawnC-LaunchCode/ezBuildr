@@ -118,9 +118,40 @@ leak to a later query on the pool.
 
 ## 5. Rollout runbook
 
-**Phase 1 — Define policies. ✅ Done.**
-`0001_enable_rls.sql` — ENABLE + `tenant_isolation` on 24 direct-`tenant_id` tables.
-Inert (owner/superuser bypass). Non-breaking.
+**Phase 1 — Define policies. ✅ Done — but "done" needed a second migration (RLS-3, 2026-08-18).**
+`0001_enable_rls.sql` — ENABLE + `tenant_isolation` on 24 direct-`tenant_id` tables, plus
+`0004_ai_usage_rls.sql` for a 25th. Inert (owner/superuser bypass) once actually applied. Non-breaking.
+
+**RLS-3 finding: those migrations were not broken, but they never actually ran on production
+or its Neon-branch clones (`dev`/`test`).** A scratch database built from the migration chain
+alone gets all 36 policies the chain defines (ENV-2, 2026-08-15). A live measurement against
+`dev` (byte-identical to production) on 2026-08-18 found only **9**. Cause: production's
+tables were created out of band by `npm run db:push` before `0001`/`0004` first ran for real,
+so each migration's `to_regclass(...)` guard resolved NULL for a table that did not exist
+*yet* at that moment, logged a `NOTICE`, and moved on — the migration still recorded itself
+applied. The seven DataVault child tables (`0011`/`0012`) and `run_document_deliveries`/
+`run_resume_links` (`0015`/`0019`) were unaffected because their target tables already existed
+by the time those later migrations ran for real.
+
+**`migrations/0024_repair_rls_coverage.sql` closes the gap on an already-provisioned
+database.** It re-applies the exact same 24 direct-`tenant_id` policies (23 from `0001` minus
+`files`, which has no `tenant_id` column and was always an inert array entry — plus `ai_usage`
+from `0004`) and the 3 ownership-derived policies on `workflows`/`sections`/`steps`, byte-
+identical in shape to what `0001` already defines. Unlike `0001`/`0004`'s `RAISE NOTICE …
+CONTINUE` guard, `0024` **fails loudly** (`RAISE EXCEPTION`) if a table it expects is missing,
+because on any database this repair runs against, every named table is expected to already
+exist. Idempotent (`ENABLE ROW LEVEL SECURITY` + `DROP POLICY IF EXISTS` + `CREATE POLICY` are
+all safe to re-run), so it is also a no-op-equivalent re-application on a database the chain
+already built correctly from empty. Verified byte-identical to a fresh chain build after
+applying: same 36 `tenant_isolation` policies, same predicates, zero diff outside the `[RLS]`
+markers in a full schema snapshot. Applied directly to `dev` 2026-08-18; `test`/production
+receive it automatically via `railway.json`'s `preDeployCommand: npm run db:migrate` on their
+next deploy through the normal `dev` → `test` → `main` promotion.
+
+Coverage is now guarded by [`tests/integration/rls-coverage.test.ts`](../../tests/integration/rls-coverage.test.ts),
+a general assertion over every table with a `tenant_id` column (not a fixed list), so a future
+tenant-scoped table added without a policy fails this suite instead of becoming a 25th silent
+gap.
 
 **Phase 2 — Runtime context. ✅ Landed, opt-in.**
 `server/utils/rlsContext.ts` (`withTenant`, `withCurrentTenant`,
@@ -335,7 +366,9 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 
 | File | Role |
 |---|---|
-| [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) |
+| [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) — defines the policies; see `0024` for why that alone did not apply them on production/`dev`/`test` |
+| [`migrations/0024_repair_rls_coverage.sql`](../../migrations/0024_repair_rls_coverage.sql) | RLS-3: re-applies the 24 direct-`tenant_id` policies + 3 ownership-derived policies that `0001`/`0004` defined but never actually applied on a database whose tables were created by `db:push` out of band |
+| [`tests/integration/rls-coverage.test.ts`](../../tests/integration/rls-coverage.test.ts) | RLS-3: general coverage gate — every table with a `tenant_id` column must have RLS + a `tenant_isolation` policy; proven discriminating against a scratch probe table |
 | [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/sections/steps + `app_current_tenant()` / `app_owner_tenant()` helpers (now consolidated into `0001_enable_rls.sql` — this filename no longer exists on disk as a separate file post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth) |
 | [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts) | Proves Phase 4 cross-tenant isolation, fail-closed, and WITH CHECK |
 | [`migrations/0011_datavault_rls_phase4.sql`](../../migrations/0011_datavault_rls_phase4.sql) | DVH-3: policies + derivation helpers for `datavault_rows`/`datavault_values`/`datavault_columns`/`datavault_table_permissions`/`datavault_database_access`/`datavault_table_access` |
