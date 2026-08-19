@@ -297,6 +297,53 @@ same audit**, and it is easy to miss one, since it fails only when that
 specific code path runs with no ambient context — which passing tests may
 never exercise.
 
+### 2d. A fourth hazard: don't hold the transaction open across a network call (RLS-2d, Org/access cluster)
+
+`OrganizationService` has no repository layer — every method issues `db.*`/`tx.*`
+directly — so RLS-2d's `withTx` there wraps a whole method body the way §2b
+describes, no different in kind from the pilot. `createInvite` is the exception
+that mattered: its original (pre-RLS-2d) shape deliberately ran the outbound
+email send (`sendInviteEmail` → `EmailQueueService`, plus
+`authService.generateSystemInviteToken`) **outside** any transaction — the
+comment said so ("Queue invitation email (outside transaction -
+non-blocking)"). Wrapping the *whole* method in one `withTx` (matching every
+other method in the file) held a Postgres transaction open for the duration of
+those calls. In the test/dev environment that queue call does not resolve
+quickly, so the connection sat `idle in transaction` holding row locks on
+`organization_invites` — invisible until the *next* test's `TRUNCATE` blocked
+on it, so every subsequent test in the file hung, not failed. Measured
+directly: `pg_locks` showed an ungranted `AccessExclusiveLock` waiting behind a
+granted `RowShareLock` held by a backend stuck mid `INSERT INTO
+organization_invites`.
+
+**The fix is not "always wrap the whole method."** `createInvite` now opens a
+short transaction for the DB validation + insert, lets it commit, and only
+*then* makes the outbound calls — with each follow-up write (mark
+sent/failed, audit log) getting its own short `withTx` rather than reusing one
+long-held transaction across the slow call. This is the same shape the
+pre-RLS-2d code had, for the same reason; RLS-2d just gives each DB phase its
+own tenant-scoped transaction instead of leaving both unscoped. **Nesting a
+second `withTx` inside an already-open one is not the alternative fix** — the
+test pool is size 1, so the still-open outer transaction holds the only
+connection and a nested one deadlocks waiting for a second (the `SystemStats`
+class again, just via `withTx` this time instead of a bare repository call).
+
+A related, narrower version of the same principle: `acceptInvite` marks an
+invite `expired` and then throws — a side effect that must survive the
+rejection. Doing that write and the throw in the *same* transaction makes
+Postgres roll the write back when the throw aborts it, silently undoing the
+mark (caught by `organizationInvites.test.ts`'s "should reject expired
+invite": the row stayed `pending`). Fixed by splitting into a read-only
+decision phase (its own `withTx`) and, depending on the decision, a **separate**
+short write-then-throw call — never a write inside the same transaction whose
+error path is expected to keep it.
+
+**Anyone converting a service with an outbound network call inside a method
+being wrapped (email, webhook, AI provider, PDF conversion, ...) should check
+this first**, rather than reflexively wrapping the entire method body the way
+§2b's `CollectionService` does — that shape is correct when everything inside
+is a DB call, not when it isn't.
+
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
   DML on the tenant tables, and point the app's `DATABASE_URL` at it. Owner keeps
@@ -428,3 +475,6 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 | [`tests/integration/rls-context.test.ts`](../../tests/integration/rls-context.test.ts) | Proves the GUC is transaction-local and fails closed |
 | [`server/services/CollectionService.ts`](../../server/services/CollectionService.ts) | RLS-2a pilot: service-boundary transaction pattern (§2b) — `withTx` |
 | [`tests/integration/rls2a-collectionService.test.ts`](../../tests/integration/rls2a-collectionService.test.ts) | Proves the RLS-2a pattern end to end: GUC = caller's tenant, doesn't survive the transaction, one transaction shared across repositories, fail-closed, mismatch guard |
+| [`server/services/OrganizationService.ts`](../../server/services/OrganizationService.ts) / [`ProjectService.ts`](../../server/services/ProjectService.ts) / [`TeamService.ts`](../../server/services/TeamService.ts) | RLS-2d, Org/access cluster: variant-1 `withTx` (no `tenantId` cross-check). `OrganizationService` also documents §2d — don't hold the transaction open across an outbound network call |
+| [`tests/integration/rls2d-orgAccessCluster.test.ts`](../../tests/integration/rls2d-orgAccessCluster.test.ts) | RLS-2d Org/access cluster: fail-closed per service, identical-transaction-object proof spanning `projectRepository` + `workflowRepository`, GUC set/doesn't-survive proof for `OrganizationService` |
+| [`server/services/AdminOrgStatsService.ts`](../../server/services/AdminOrgStatsService.ts) | RLS-2d: deliberately unconverted — admin-only cross-tenant aggregate, same BYPASSRLS class as RLS-6's admin console read path |

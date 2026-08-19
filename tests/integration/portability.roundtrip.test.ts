@@ -10,6 +10,7 @@ import * as schema from "@shared/schema";
 import { stepTypeEnum } from "@shared/schema";
 import { LIST_FIELD_QUESTION_TYPES } from "@shared/types/stepConfigs";
 import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { seedTemplate } from "../helpers/bundleTestHelper";
 
@@ -247,6 +248,9 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — see the note in portability.export.test.ts.
+    app.use(rlsContext);
     server = await registerRoutes(app);
     const port = await new Promise<number>((resolve) => {
       const s = server.listen(0, () => {

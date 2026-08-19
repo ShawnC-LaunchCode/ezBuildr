@@ -8,6 +8,14 @@
  * 4. Transfer workflow to org
  * 5. Member can access workflow
  * 6. Non-member cannot access workflow
+ *
+ * RLS-2d: organizationService calls below go straight to the service with no
+ * HTTP request, so there's no rlsContext middleware to populate the async
+ * tenant context. testTenantId is a fixed constant known up front, so
+ * `enterTenantContextForTests(testTenantId)` is repeated at the top of every
+ * `it` body that touches organizationService — a hook's binding does not
+ * propagate into the test body (measured, not assumed). workflowService is
+ * untouched by RLS-2d (Workflow/template cluster, converted separately).
  */
 import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +25,7 @@ import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { workflowService } from '../../server/services/WorkflowService';
 import { hashToken } from '../../server/utils/encryption';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import {
   users,
   organizations,
@@ -82,6 +91,7 @@ describe('Organization Workflow Integration Tests', () => {
   });
   describe('Complete Organization Workflow', () => {
     it('Step 1: Create organization', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const org = await organizationService.createOrganization(
         {
           name: 'Test Organization',
@@ -102,6 +112,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(memberships[0].role).toBe('admin');
     });
     it('Step 2: Invite member via email', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const invite = await organizationService.createInvite(
         testOrgId,
         'org-member@test.com', // invitedEmail
@@ -121,6 +132,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(dbInvite?.invitedByUserId).toBe(user1Id);
     });
     it('Step 3: Accept invite', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const result = await organizationService.acceptInvite(inviteToken, user2Id);
       expect(result).toBeDefined();
       expect(result.orgId).toBe(testOrgId);
@@ -238,6 +250,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflows.some((w) => w.id === testWorkflowId)).toBe(false);
     });
     it('Step 14: Remove member from org', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       await organizationService.removeMember(testOrgId, user2Id, user1Id);
       // Verify membership was removed
       const membership = await db.query.organizationMemberships.findFirst({
@@ -255,6 +268,7 @@ describe('Organization Workflow Integration Tests', () => {
       ).rejects.toThrow(/Access denied|not found/i);
     });
     it('Step 16: Re-add member and verify access restored', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // Add user2 back as member
       await organizationService.addMember(testOrgId, user2Id, user1Id, 'member');
       // Should have access again
@@ -268,6 +282,7 @@ describe('Organization Workflow Integration Tests', () => {
   });
   describe('Edge Cases and Security', () => {
     it('Cannot invite same email twice (pending invite exists)', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // Create first invite
       const invite1 = await organizationService.createInvite(
         testOrgId,
@@ -298,6 +313,7 @@ describe('Organization Workflow Integration Tests', () => {
       // to someone who is not the invitee), which exposed the gap.
       // user3 rather than user2: user2 joined the org in an earlier step, so
       // createInvite rightly rejects a second invite for an existing member.
+      enterTenantContextForTests(testTenantId);
       const invite = await organizationService.createInvite(
         testOrgId,
         'non-member@test.com', // user3's email — owns it, and not yet a member
@@ -323,6 +339,7 @@ describe('Organization Workflow Integration Tests', () => {
         .where(eq(organizationInvites.id, invite.inviteId));
     });
     it('Cannot transfer workflow into an org the user does not administer', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // Create another org
       const org2 = await organizationService.createOrganization(
         {
@@ -347,24 +364,28 @@ describe('Organization Workflow Integration Tests', () => {
       await db.delete(organizations).where(eq(organizations.id, org2.id));
     });
     it('Member cannot promote themselves to admin', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User2 is a member, tries to promote themselves
       await expect(
         organizationService.promoteMember(testOrgId, user2Id, user2Id)
       ).rejects.toThrow(/admin only|not authorized|admin role required/i);
     });
     it('Member cannot remove admin', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User2 (member) tries to remove user1 (admin)
       await expect(
         organizationService.removeMember(testOrgId, user1Id, user2Id)
       ).rejects.toThrow(/admin only|not authorized|admin role required/i);
     });
     it('Only members can view organization details', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User3 (non-member) tries to view org
       await expect(
         organizationService.getOrganizationById(testOrgId, user3Id)
       ).rejects.toThrow(/Access denied|not found/i);
     });
     it('Only members can view organization members list', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User3 (non-member) tries to view members
       await expect(
         organizationService.getOrganizationMembers(testOrgId, user3Id)

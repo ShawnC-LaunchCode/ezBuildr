@@ -9,8 +9,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import * as schema from "@shared/schema";
 
 import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { projectService } from "../../server/services/ProjectService";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 /**
  * Projects API Integration Tests
  *
@@ -29,6 +31,12 @@ describe.sequential("Projects API Integration Tests", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — this suite builds its own app rather than using
+    // the shared integration harness, so it never got rlsContext for free.
+    // Without it, ProjectService's withCurrentTenant() has no tenant to
+    // read and every request 500s with "RLS: no tenant in context."
+    app.use(rlsContext);
     // Register all routes
     server = await registerRoutes(app);
     // Find available port
@@ -504,6 +512,11 @@ describe.sequential("Projects API Integration Tests", () => {
       });
     });
     it("rejects a direct service archive by a non-admin org member and allows an org admin", async () => {
+      // RLS-2d: this bypasses HTTP (calling projectService directly), so
+      // rlsContext never runs and there is no ambient tenant. beforeAll/
+      // beforeEach cannot bind it (AsyncLocalStorage.enterWith does not
+      // propagate across hooks) — must be inside the test body itself.
+      enterTenantContextForTests(tenantId);
       await expect(
         projectService.updateProject(projectId, memberUserId, { status: "archived" })
       ).rejects.toThrow(/Access denied/);
@@ -664,6 +677,9 @@ describe.sequential("Projects API Integration Tests", () => {
         },
       ];
 
+      // RLS-2d: direct service call, no HTTP request — bind the tenant
+      // in-body (see the note on the archive-gate test above).
+      enterTenantContextForTests(tenantId);
       await expect(
         projectService.grantProjectAccess(projectId, userId, entries)
       ).rejects.toThrow();
