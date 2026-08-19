@@ -7,7 +7,7 @@ import { datavaultDatabasesService } from '../../server/services/DatavaultDataba
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
 import { workflowService } from '../../server/services/WorkflowService';
-import { runWithTenantContext } from '../../server/utils/rlsContext';
+import { enterTenantContextForTests, runWithTenantContext } from '../../server/utils/rlsContext';
 import {
     projects,
     workflows,
@@ -38,8 +38,19 @@ describe('Transfer Ownership', () => {
     let testWorkflowId: string;
     let testDatabaseId: string;
 
-    // Setup test data
+    // Setup test data.
+    // RLS-2d: OrganizationService and ProjectService now open a
+    // service-boundary tenant transaction (withCurrentTenant), which reads
+    // the tenant from the request's async context. These tests call the
+    // services directly (no HTTP request, no hybridAuth) — exactly like the
+    // Database Transfer section below already handles for
+    // DatavaultDatabasesService (RLS-2b) — so they must open that context
+    // themselves. `enterTenantContextForTests` covers the rest of THIS hook;
+    // it does not propagate into the `it` bodies below (measured, not
+    // assumed — AsyncLocalStorage.enterWith is scoped per vitest hook/test),
+    // so each of those binds it again.
     beforeEach(async () => {
+        enterTenantContextForTests(testTenantId);
         // Create test tenant
         await db.insert(tenants).values({
             id: testTenantId,
@@ -89,6 +100,7 @@ describe('Transfer Ownership', () => {
 
     describe('Project Transfer', () => {
         it('should transfer user-owned project to org', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create user-owned project with workflow
             const project = await projectService.createProject(
                 { title: 'Test Project', creatorId: userId1, ownerId: userId1, tenantId: testTenantId },
@@ -123,6 +135,7 @@ describe('Transfer Ownership', () => {
         });
 
         it('should roll back the entire cascade if a failure occurs mid-transfer (atomicity)', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create user-owned project with a workflow, so the cascade has
             // more than one table to touch.
             const project = await projectService.createProject(
@@ -178,6 +191,7 @@ describe('Transfer Ownership', () => {
         });
 
         it('should prevent transfer into an org when the user is not an org admin', async () => {
+            enterTenantContextForTests(testTenantId);
             const project = await projectService.createProject(
                 { title: 'Test Project', creatorId: userId2, ownerId: userId2, tenantId: testTenantId },
                 userId2
@@ -201,6 +215,7 @@ describe('Transfer Ownership', () => {
         });
 
         it('should prevent org member without owner role from transferring org-owned project', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create org-owned project
             const project = await projectService.createProject(
                 { title: 'Org Project', creatorId: userId1, ownerId: userId1, ownerType: 'org', ownerUuid: testOrgId, tenantId: testTenantId },
@@ -233,6 +248,7 @@ describe('Transfer Ownership', () => {
 
     describe('Workflow Transfer', () => {
         it('should detach workflow from project when transferring to different owner', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create user-owned project
             const project = await projectService.createProject(
                 { title: 'User Project', creatorId: userId1, ownerId: userId1, tenantId: testTenantId },
@@ -261,6 +277,7 @@ describe('Transfer Ownership', () => {
         });
 
         it('should keep workflow in project when transferring to same owner', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create org-owned project
             const project = await projectService.createProject(
                 { title: 'Org Project', creatorId: userId1, ownerId: userId1, ownerType: 'org', ownerUuid: testOrgId, tenantId: testTenantId },
@@ -404,6 +421,7 @@ describe('Transfer Ownership', () => {
 
     describe('Transfer Validation', () => {
         it('should only allow transfer to self when targetOwnerType is user', async () => {
+            enterTenantContextForTests(testTenantId);
             const project = await projectService.createProject(
                 { title: 'Test Project', creatorId: userId1, ownerId: userId1, tenantId: testTenantId },
                 userId1
@@ -417,6 +435,7 @@ describe('Transfer Ownership', () => {
         });
 
         it('should prevent org member without owner role from transferring org asset to themselves', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create org-owned project
             const project = await projectService.createProject(
                 { title: 'Org Project', creatorId: userId1, ownerId: userId1, ownerType: 'org', ownerUuid: testOrgId, tenantId: testTenantId },

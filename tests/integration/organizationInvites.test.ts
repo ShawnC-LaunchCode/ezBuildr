@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { hashToken } from '../../server/utils/encryption';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs, passwordResetTokens } from '../../shared/schema';
 
 /**
@@ -14,6 +15,15 @@ import { organizations, organizationMemberships, organizationInvites, users, ten
  * - Placeholder user creation
  * - Invite acceptance
  * - Expiry enforcement
+ *
+ * RLS-2d: every call here goes straight to `organizationService`, with no
+ * HTTP request and therefore no `rlsContext` middleware. `testTenantId` is a
+ * fixed constant, so `enterTenantContextForTests(testTenantId)` covers the
+ * `beforeEach` hook's own `createOrganization` call (binding immediately
+ * after the tenant id is known covers the rest of that hook — see
+ * `enterTenantContextForTests`'s doc comment) and is repeated at the top of
+ * every `it` body, since a hook's binding does not propagate into the test
+ * (AsyncLocalStorage.enterWith is scoped per vitest hook/test execution).
  */
 
 describe('Organization Invites', () => {
@@ -27,6 +37,7 @@ describe('Organization Invites', () => {
 
     // Setup test data
     beforeEach(async () => {
+        enterTenantContextForTests(testTenantId);
         // ... (lines 28-32 same)
         // Create test tenant
         await db.insert(tenants).values({
@@ -79,6 +90,7 @@ describe('Organization Invites', () => {
 
     describe('createInvite', () => {
         it('should create placeholder user for non-existent email', async () => {
+            enterTenantContextForTests(testTenantId);
             const result = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             expect(result.inviteId).toBeDefined();
@@ -105,6 +117,7 @@ describe('Organization Invites', () => {
         });
 
         it('should create invite for existing user without creating placeholder', async () => {
+            enterTenantContextForTests(testTenantId);
             const result = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -124,6 +137,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent duplicate pending invites', async () => {
+            enterTenantContextForTests(testTenantId);
             await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             await expect(
@@ -132,6 +146,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent inviting existing members', async () => {
+            enterTenantContextForTests(testTenantId);
             // Add user as member first
             await organizationService.addMember(testOrgId, existingUserId, adminUserId, 'member');
 
@@ -141,12 +156,14 @@ describe('Organization Invites', () => {
         });
 
         it('should require admin access to create invite', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.createInvite(testOrgId, newUserEmail, existingUserId)
             ).rejects.toThrow('Access denied');
         });
 
         it('should set expiry to 7 days from now', async () => {
+            enterTenantContextForTests(testTenantId);
             const beforeCreate = new Date();
             const result = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
@@ -170,6 +187,7 @@ describe('Organization Invites', () => {
 
     describe('acceptInvite', () => {
         it('should accept invite and create membership', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -198,6 +216,7 @@ describe('Organization Invites', () => {
         });
 
         it('should convert placeholder user to real user on accept', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create invite for new user (creates placeholder)
             const inviteResult = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
@@ -221,6 +240,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reject expired invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -246,6 +266,7 @@ describe('Organization Invites', () => {
         });
 
         it('should handle an already accepted invite idempotently', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -270,6 +291,7 @@ describe('Organization Invites', () => {
         });
 
         it('should verify email matches invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -286,6 +308,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reconcile a pending invite when membership already exists', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -316,6 +339,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reject invalid token', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.acceptInvite('invalid-token', existingUserId)
             ).rejects.toThrow('not found');
@@ -324,6 +348,7 @@ describe('Organization Invites', () => {
 
     describe('getPendingInvitesForUser', () => {
         it('should return pending invites for user email', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -341,6 +366,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return expired invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -359,6 +385,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return accepted invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -375,6 +402,7 @@ describe('Organization Invites', () => {
 
     describe('revokeInvite', () => {
         it('should allow admin to revoke invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -391,6 +419,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent accepting revoked invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -407,6 +436,7 @@ describe('Organization Invites', () => {
 
     describe('getOrganizationInvites', () => {
         it('should return pending invites for organization', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -423,6 +453,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return accepted invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -437,6 +468,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return expired invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -454,6 +486,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return revoked invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -468,6 +501,7 @@ describe('Organization Invites', () => {
         });
 
         it('should require admin access to get organization invites', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.getOrganizationInvites(testOrgId, existingUserId)
             ).rejects.toThrow('Access denied');

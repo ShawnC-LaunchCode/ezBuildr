@@ -1020,7 +1020,106 @@ rediscover them.
 
 ---
 
-## RLS-2d — Roll out: org/access + workflow/template clusters 🔲
+## RLS-2d — Roll out: org/access cluster ✅ DONE 2026-08-19 (4 of 9 — remainder is RLS-2e)
+
+**Gates re-run by the reviewer independently:** `type-check` **0** ·
+`eslint --max-warnings 0` **exit 0** · `test:fast` **285 files / 3281 passed** ·
+`test:integration` **122 files / 1167 passed / 0 failed, 0 skipped** (baseline 121/1162 → +1
+file, +5 tests, exactly `rls2d-orgAccessCluster.test.ts`). The reviewer's run and the dev's
+agreed exactly.
+
+**Converted:** `OrganizationService`, `ProjectService`, `TeamService`.
+**Deliberately not converted:** `AdminOrgStatsService` (see below).
+Also fixed the five hand-rolled-app suites flagged in the dispatch — `api.projects` and the
+four `portability.*` — which now mount `rlsContext` before `registerRoutes`.
+
+`OrganizationService` was the risky one: ~927 lines, **no repository layer**, ~20 methods
+issuing `db.*` directly. Reviewer verified **zero bare `db.` calls remain**. It uses §2c's
+**ambient-only** `withTx` variant, and the reviewer checked the premise rather than accepting
+it: no method takes a `tenantId` argument (it derives the tenant internally), so there is
+nothing to cross-check and the mismatch guard would have nothing to compare. Correct variant.
+
+AC5 asserts the identical transaction object across **three** repositories
+(`seenTxs[0] === [1] === [2]`), stronger than the two required.
+
+### 🔴 Reviewer finding — `AdminOrgStatsService` will silently truncate under FORCE
+
+The dev correctly declined to convert it and documented why: it is an **admin-only,
+cross-tenant aggregate** reporting one row per organization across every tenant, so a
+tenant-scoped transaction would defeat its entire purpose. It even identified it as "the same
+class as RLS-6's BYPASSRLS path". That reasoning is right.
+
+**But it is not on that path.** `AdminOrgStatsRepository` imports the **normal** `db` pool, and
+it is **not** in RLS-6's `adminDb` allowlist — only `AdminAccessService` is. So the moment
+RLS-4 sets `FORCE`, `GET` on the admin org-stats route returns **only the acting admin's own
+tenant's organizations**: no error, just a short list that looks correct. That is precisely the
+failure RLS-6 was created to prevent, in a service RLS-6 did not cover.
+
+**This is now a third precondition on RLS-4** — see that ticket. The fix is small (route
+`AdminOrgStatsRepository`'s reads through `AdminAccessService`/`adminDb` and add it to the
+containment allowlist), but it must land before `FORCE`.
+
+The pattern is worth naming: the dev reasoned correctly all the way to *"cannot convert"* and
+stopped there, without asking *"then does it still work after RLS-4?"*. Nearly every real
+defect in this initiative has lived at exactly that seam.
+
+### Process note — the dev disclosed its own error rather than tidying it
+
+Believing its integration run had died, it launched a **second concurrent full suite** — the
+documented clobbering hazard. It then caught this itself, checked `pg_stat_activity` before
+trusting either result, killed the redundant run, and **reported the mistake explicitly rather
+than presenting a clean account**. The reviewer's independent run produced the identical
+number, so nothing was contaminated. Disclosing a process error you could have hidden is the
+behaviour this board wants; the underlying rule still stands — **never run two DB-backed suites
+at once**.
+
+**Priority: P0** · Size: L (delivered as M) · Files: 16
+
+---
+
+## RLS-2e — Roll out: workflow/template cluster 🔲
+
+**Priority: P0** · Size: **L** · **BLOCKS RLS-4** · Dispatchable now
+
+### Scope — the last 5 services
+
+`WorkflowService`, `WorkflowClonerService`, `VersionService`, `TemplateService`,
+`TemplateValidationService`.
+
+`WorkflowClonerService` is ~1752 lines. `VersionService` needs the same bare-call →
+`scopedTx.*` treatment `OrganizationService` needed. **Splitting again is acceptable** — every
+slice of this rollout has landed that way and each was accepted.
+
+### Everything already mapped — do not rediscover it
+
+1. **Read `docs/architecture/TENANT_ISOLATION_RLS.md` §2b and §2c.** Three service shapes are
+   documented; pick one. `OrganizationService` is the worked example for a service with no
+   repository layer.
+2. **The `getAccessibleOwnershipFilter` landmine is fixed** (six sites thread `tx`). If you add
+   a call, pass `tx` — omitting it **hangs rather than fails** against the `max: 1` test pool.
+3. **Two suites that build their own app remain unfixed** and are in your path: `api.ai.doc`
+   and `js_helpers`. Add `app.use(rlsContext)` before `registerRoutes`.
+4. **Direct-call suites** need `enterTenantContextForTests(tenantId)` **inside each test body** —
+   `beforeAll` and `beforeEach` both fail to propagate.
+5. **Audit callers before declaring a service done.** `WorkflowClonerService` and
+   `VersionService` are both reachable from non-request paths (background jobs, run-token
+   holders) where there is **no ambient tenant**. RLS-2c found two such regressions that no
+   failing test would have shown.
+6. **For anything you decline to convert, ask the second question**: does it still work once
+   `FORCE` is on? `AdminOrgStatsService` passed the first test and failed the second.
+
+### Acceptance criteria
+
+Same as RLS-2d, applied to the five services above — one transaction at the service boundary,
+repositories threading `tx`, predicates unchanged, a fail-closed test per service, an
+identical-transaction-object assertion, unconvertible services listed **with their post-FORCE
+behaviour stated**, and `type-check` 0 / `lint` 0 / `test:fast` above baseline /
+`test:integration` 0 failed and no new skips.
+
+### Reporting
+
+Report after each service or small group, not only at the end. **Five** devs on this board have
+now been killed mid-ticket by session limits.
 
 **Priority: P0** · Size: **L** · **BLOCKS RLS-4** · Dispatchable now
 
@@ -1408,6 +1507,28 @@ without a policy fails CI rather than shipping.
 > **Do not resolve this by giving the application role `BYPASSRLS`.** That would return the
 > system to "one connection sees everything" and delete the property this whole phase exists to
 > create. AC2 below stays as written.
+>
+> ### 🔴 Three preconditions, all discovered after this ticket was written
+>
+> **1. Ordering (from RLS-6).** Provision `ADMIN_DATABASE_URL` **first**, then set `FORCE` and
+> `RLS_ENFORCED` **together**. `AdminAccessService` throws if `RLS_ENFORCED` is on without the
+> admin pool — but `RLS_ENFORCED` is an application flag, **not** `FORCE` itself, so setting
+> FORCE while the flag is false leaves that guard blind and the admin console truncates
+> silently.
+>
+> **2. `AdminOrgStatsService` is not on the admin path (from RLS-2d).**
+> `AdminOrgStatsRepository` imports the **normal** `db` pool and is **not** in RLS-6's `adminDb`
+> allowlist. It is an admin-only cross-tenant aggregate, so under `FORCE` it returns only the
+> acting admin's own tenant's organizations — no error, just a short list. **Route it through
+> `AdminAccessService`/`adminDb` and add it to the containment allowlist before FORCE.**
+>
+> **3. Token-authenticated bootstrap lookups (from RLS-2c).**
+> `SignatureRequestService`'s `getSignatureRequestByToken` / `signDocument` /
+> `declineSignature` and the `markExpiredRequests` cron perform an **unscoped initial SELECT** —
+> the token is the authorization, and the row's own `tenantId` then drives every write. Under
+> `FORCE` that bootstrap runs with **no tenant GUC**. `RunFileUploadService` has the same shape
+> and was left unconverted for the same reason. Decide deliberately how these read under FORCE;
+> they are the public signing portal, so getting it wrong is a customer-visible outage.
 
 ### Finding
 

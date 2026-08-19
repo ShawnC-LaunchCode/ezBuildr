@@ -10,6 +10,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import * as schema from "@shared/schema";
 import { resolveBusinessDayCalendar } from "@shared/types/workflow";
 import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import {
   recomputeChecksum, seedWorkflow, seedTemplate, seedDatavault
@@ -49,6 +50,9 @@ describe.sequential("Portability Import API Integration Tests", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — see the note in portability.export.test.ts.
+    app.use(rlsContext);
     server = await registerRoutes(app);
 
     const port = await new Promise<number>((resolve) => {

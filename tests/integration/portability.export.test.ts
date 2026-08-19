@@ -11,6 +11,7 @@ import * as path from "path";
 
 import * as schema from "@shared/schema";
 import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { BundleReader } from "../../server/services/portability/bundleReader";
 import { seedWorkflow, seedTemplate, seedDatavault } from "../helpers/bundleTestHelper";
@@ -30,6 +31,12 @@ describe.sequential("Portability Export API Integration Tests", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — this suite builds its own app rather than using
+    // the shared integration harness, so it never got rlsContext for free.
+    // Without it, ProjectService's withCurrentTenant() has no tenant to
+    // read and every POST /api/projects 500s with "RLS: no tenant in context."
+    app.use(rlsContext);
     server = await registerRoutes(app);
 
     const port = await new Promise<number>((resolve) => {

@@ -158,13 +158,14 @@ export async function getAccessibleOwnershipFilter(userId: string, tx?: DbTransa
 export async function canCreateWithOwnership(
   userId: string,
   ownerType: string,
-  ownerUuid: string
+  ownerUuid: string,
+  tx?: DbTransaction
 ): Promise<boolean> {
   if (ownerType === 'user') {
     return ownerUuid === userId;
   }
   if (ownerType === 'org') {
-    return isOrgMember(userId, ownerUuid);
+    return isOrgMember(userId, ownerUuid, tx);
   }
   return false;
 }
@@ -178,9 +179,10 @@ export async function requireAssetAccess(
   userId: string,
   ownerType: 'user' | 'org' | null,
   ownerUuid: string | null,
-  resourceName: string = 'resource'
+  resourceName: string = 'resource',
+  tx?: DbTransaction
 ): Promise<void> {
-  const hasAccess = await canAccessAsset(userId, ownerType, ownerUuid);
+  const hasAccess = await canAccessAsset(userId, ownerType, ownerUuid, tx);
   if (!hasAccess) {
     throw new Error(`Access denied: You do not have permission to access this ${resourceName}`);
   }
@@ -192,9 +194,10 @@ export async function requireAssetAccess(
  */
 export async function requireOrgAdmin(
   userId: string,
-  orgId: string
+  orgId: string,
+  tx?: DbTransaction
 ): Promise<void> {
-  const isAdmin = await canManageOrg(userId, orgId);
+  const isAdmin = await canManageOrg(userId, orgId, tx);
   if (!isAdmin) {
     throw new Error('Access denied: Organization admin role required');
   }

@@ -231,6 +231,20 @@ function buildSummary(organizations: AdminOrgStatsItem[]): AdminOrgStatsSummary 
   return summary;
 }
 
+/**
+ * RLS-2d: deliberately NOT converted to the tenant-scoped-transaction
+ * pattern. This service is an admin-only, cross-tenant aggregate — it
+ * reports one row PER organization across every tenant in the system, which
+ * is the opposite of what a tenant-scoped transaction would allow it to see.
+ * There is no single `tenantId` to open a transaction for. Same class as the
+ * admin console's BYPASSRLS read path that RLS-6 established
+ * (`server/routes/admin.routes.ts`, gated on `adminUser.role === "admin"`,
+ * never on tenant membership). Its only production caller is
+ * `admin.routes.ts:773`, itself gated by `requireAdmin`, so this is the
+ * expected/legitimate "cannot convert" case AC6 asks to flag — not a gap for
+ * RLS-4 to protect against with a tenant GUC, but one it needs to keep
+ * bypassing deliberately (an admin-role bypass, same as RLS-6's).
+ */
 export class AdminOrgStatsService {
   constructor(private readonly repository: AdminOrgStatsReader = adminOrgStatsRepository) {}
 

@@ -12,6 +12,7 @@ import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import {
   users,
   organizations,
@@ -31,7 +32,18 @@ describe('Organization Audit Fixes', () => {
   const user2Id = uuidv4();
   let testOrgId: string;
 
+  // RLS-2d: organizationService/projectService calls below go straight to the
+  // service with no HTTP request, so there's no rlsContext middleware to
+  // populate the async tenant context. testTenantId is a fixed constant known
+  // up front, so `enterTenantContextForTests(testTenantId)` covers this
+  // beforeAll's own createOrganization call, and is repeated at the top of
+  // every `it` body that touches organizationService/projectService — a
+  // hook's binding does not propagate into the test body (measured, not
+  // assumed — AsyncLocalStorage.enterWith is scoped per vitest hook/test
+  // execution). workflowService is untouched by RLS-2d (Workflow/template
+  // cluster, converted separately), so its calls below need no such call.
   beforeAll(async () => {
+    enterTenantContextForTests(testTenantId);
     // Create test tenant
     await db.insert(tenants).values({
       id: testTenantId,
@@ -109,6 +121,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #1: Project transfer cascades runs ownership', () => {
     it('should cascade ownership to workflow runs when project is transferred', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create project with workflow
       const project = await projectService.createProject(
         {
@@ -160,6 +173,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #2: Invite acceptance race condition', () => {
     it('makes re-accepting an invite idempotent instead of creating a second membership', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create invite for user2's email
       const invite = await organizationService.createInvite(
         testOrgId,
@@ -203,6 +217,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #3: Invite email failure rollback', () => {
     it('should not create invite if email fails', async () => {
+      enterTenantContextForTests(testTenantId);
       // Note: This test would require mocking SendGrid to actually test the rollback
       // For now, we verify the invite was created successfully
       const invite = await organizationService.createInvite(
@@ -225,6 +240,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #5: Expired invites', () => {
     it('should allow re-invite after invite expires', async () => {
+      enterTenantContextForTests(testTenantId);
       const email = 'expired-test@example.com';
 
       // Create invite
@@ -256,6 +272,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #7: Delete organization', () => {
     it('should allow last admin to delete empty organization', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create new org
       const org = await organizationService.createOrganization(
         { name: 'Delete Test Org' },
@@ -274,6 +291,7 @@ describe('Organization Audit Fixes', () => {
     });
 
     it('should prevent deletion if org owns assets', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create org with workflow
       const org = await organizationService.createOrganization(
         { name: 'Has Assets Org' },
@@ -305,6 +323,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #8: Placeholder user cleanup', () => {
     it('should cleanup placeholder user when invite is revoked', async () => {
+      enterTenantContextForTests(testTenantId);
       const email = 'placeholder-test@example.com';
 
       // Create invite (creates placeholder user)

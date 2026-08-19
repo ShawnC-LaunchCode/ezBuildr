@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { organizations, organizationMemberships, users, tenants } from '../../shared/schema';
 /**
  * Tests for Organization Service (Integration)
@@ -12,11 +13,20 @@ import { organizations, organizationMemberships, users, tenants } from '../../sh
  * - Listing user organizations
  * - Updating organizations
  * - Managing memberships
+ *
+ * RLS-2d: every call here goes straight to `organizationService`, with no
+ * HTTP request and therefore no `rlsContext` middleware to populate the
+ * async tenant context. `beforeEach` creates a fresh tenant per test but
+ * cannot bind it — `AsyncLocalStorage.enterWith` does not propagate from a
+ * hook into the test body (measured, not assumed; see RLS-2b/2c). Each `it`
+ * therefore starts with `enterTenantContextForTests(currentTenantId)` before
+ * calling into the service.
  */
 describe('OrganizationService Integration', () => {
     const testUserId1 = '00000000-0000-0000-0000-000000000011';
     const testUserId2 = '00000000-0000-0000-0000-000000000012';
     let testOrgId: string;
+    let currentTenantId: string;
     // Setup test data
     beforeEach(async () => {
         // Determine a safe tenant name or ensure uniqueness if running parallel (though beforeEach runs per test)
@@ -25,6 +35,7 @@ describe('OrganizationService Integration', () => {
             name: 'Test Tenant Integration',
             plan: 'pro',
         }).returning();
+        currentTenantId = tenant.id;
         // Create test users with tenantId using upsert to guarantee state
         await db.insert(users).values([
             { id: testUserId1, email: 'orgtest1_int@test.com', fullName: 'Org Test User 1 Int', tenantId: tenant.id },
@@ -63,6 +74,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('createOrganization', () => {
         it('should create organization and auto-create admin membership', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Test Org Int', description: 'Test Description Int' },
                 testUserId1
@@ -84,6 +96,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('getUserOrganizations', () => {
         it('should return all organizations for user', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'User Org Test Int' },
                 testUserId1
@@ -96,12 +109,14 @@ describe('OrganizationService Integration', () => {
             expect(foundOrg?.role).toBe('admin');
         });
         it('should return empty array for user with no memberships', async () => {
+            enterTenantContextForTests(currentTenantId);
             const userOrgs = await organizationService.getUserOrganizations('non-existent-user');
             expect(userOrgs).toHaveLength(0);
         });
     });
     describe('updateOrganization', () => {
         it('should allow admin to update organization', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Original Name Int' },
                 testUserId1
@@ -116,6 +131,7 @@ describe('OrganizationService Integration', () => {
             expect(updated.description).toBe('New Description Int');
         });
         it('should deny non-admin from updating organization', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Test Org Int' },
                 testUserId1
@@ -134,6 +150,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('getOrganizationMembers', () => {
         it('should return all members of organization', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Members Test Org Int' },
                 testUserId1
@@ -149,6 +166,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('promoteMember', () => {
         it('should allow admin to promote member', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Promote Test Org Int' },
                 testUserId1
@@ -163,6 +181,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('demoteMember', () => {
         it('should allow admin to demote other admin', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Demote Test Org Int' },
                 testUserId1
@@ -175,6 +194,7 @@ describe('OrganizationService Integration', () => {
             expect(demotedMember?.role).toBe('member');
         });
         it('should prevent self-demotion', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Self Demote Test Int' },
                 testUserId1
@@ -187,6 +207,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('removeMember', () => {
         it('should allow admin to remove member', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Remove Test Org Int' },
                 testUserId1
@@ -199,6 +220,7 @@ describe('OrganizationService Integration', () => {
             expect(members.find(m => m.userId === testUserId2)).toBeUndefined();
         });
         it('should prevent self-removal', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Self Remove Test Int' },
                 testUserId1
@@ -211,6 +233,7 @@ describe('OrganizationService Integration', () => {
     });
     describe('leaveOrganization', () => {
         it('should allow member to leave organization', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Leave Test Org Int' },
                 testUserId1
@@ -222,6 +245,7 @@ describe('OrganizationService Integration', () => {
             expect(members.find(m => m.userId === testUserId2)).toBeUndefined();
         });
         it('should allow admin to leave organization', async () => {
+            enterTenantContextForTests(currentTenantId);
             const org = await organizationService.createOrganization(
                 { name: 'Admin Leave Test Int' },
                 testUserId1
