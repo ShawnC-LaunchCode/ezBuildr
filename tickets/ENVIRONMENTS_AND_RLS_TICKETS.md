@@ -1346,7 +1346,85 @@ query paths is the point.
 
 ---
 
-## RLS-6 — Cross-tenant read path for the admin console, audited 🔲
+## RLS-6 — Cross-tenant read path for the admin console, audited ✅ DONE 2026-08-19
+
+**Gates re-run by the reviewer** after the reviewer's own fixes: `type-check` **0** ·
+`eslint --max-warnings 0` on all touched files **exit 0** · `test:fast` **283 files / 3268
+passed** · `test:integration` **119 files / 1153 passed / 0 failed** (baseline 118/1150 →
++1 file, +3 tests, exactly the new admin suite).
+
+The dispatched dev was killed by a session limit before reporting, so the reviewer verified
+everything from the tree rather than from a turn-in.
+
+### What shipped
+
+`server/db/adminDb.ts` — a second pool on a dedicated `BYPASSRLS` role, behind
+`ADMIN_DATABASE_URL`, reachable only from `AdminAccessService`, which writes an
+`admin_access_log` row per cross-tenant read. All **four** global admin reads now route
+through it. The dev found one the board's own survey had missed: the **"prevent demoting the
+last admin"** check, which is cross-tenant by nature and would have silently mis-counted under
+`FORCE`, letting the final admin be demoted.
+
+`admin_access_log` (migration `0025`) indexes `target_tenant_id` and `created_at`, so A4's
+future customer-facing view ("admin access to *my* tenant, newest first") is a UI change
+rather than a migration. FKs are `ON DELETE set null` so deleting a user cannot erase the
+audit trail.
+
+### Reviewer verification
+
+- **The containment guard is non-vacuous** — proven by adding a disallowed file that imports
+  `adminDb`: it fails, and passes again once removed. It uses an explicit allowlist rather
+  than a directory prefix, so widening it is a deliberate edit.
+- **AC3/AC4 are proven in one test**, as required: admin crosses tenants and is audited, while
+  the same read on the restricted role with the GUC pinned sees only its own tenant. Plus a
+  fail-closed case under `FORCE` and an AC6 check that no policy gained an `is_platform_admin`
+  clause and the admin role is not the table owner.
+- **The four out-of-scope files are justified knock-ons**, and one is a genuine catch:
+  `admin_access_log` is added to `EXCLUDED_TABLES` in the portability entity graph. Without it,
+  a tenant's export would carry platform-admin audit data out of the system. Startup wiring in
+  both entrypoints is gated on `isAdminDbConfigured()`, so it is a no-op until an environment
+  provisions the URL.
+
+### 🔴 Reviewer fix 1 — the fallback relocated the failure instead of removing it
+
+`AdminAccessService` fell back to the normal pool when `ADMIN_DATABASE_URL` was unset. Correct
+*today* — nothing enforces RLS, so the normal pool still sees every tenant. But the moment
+RLS-4 sets `FORCE` in an environment that never got the variable, that fallback hands the
+admin console a **tenant-scoped view** — a short list that looks correct, which is the exact
+failure this ticket exists to prevent, merely moved from "no escape hatch" to "the escape
+hatch is silently inactive".
+
+It now **throws** when `RLS_ENFORCED` is on and the admin pool is unconfigured.
+
+⚠️ **Known limitation, and a hard precondition for RLS-4.** `RLS_ENFORCED` is an application
+flag and is **not** the same thing as `FORCE ROW LEVEL SECURITY` on the tables; setting FORCE
+while `RLS_ENFORCED` stays false leaves this guard blind. **RLS-4 must therefore provision
+`ADMIN_DATABASE_URL` FIRST, then set `FORCE` and `RLS_ENFORCED` together as one step.**
+
+### 🔴 Reviewer fix 2 — a false green the reviewer created, then caught
+
+Reconciling the `0024` collision, the reviewer deleted the dev's
+`0024_certain_nightcrawler.sql` and regenerated it as `0025` **without reading it first**. The
+regenerated migration contains only the table, while the test did
+`ALTER ROLE ezbuildr_admin_bypass …`, assuming a migration had created that role. Nothing in
+the tree did.
+
+**It passed anyway** — the dev's earlier `db:migrate` had left the role in the shared Docker
+container, and **Postgres roles are cluster-level, so they outlive the database**. Green here,
+red on any fresh cluster, i.e. CI.
+
+The fix is better than restoring what was deleted: **the test provisions the role itself,
+idempotently**, exactly as it already did for its restricted role. A `CREATE ROLE` in the
+migration chain is a whole-cluster side effect a managed Postgres may refuse outright, and
+**RLS-4 AC2 already owns production role provisioning** as Railway/Neon configuration.
+Verified by dropping the leftover role to simulate a fresh cluster and re-running: **3/3**.
+
+**Migration reconciliation:** RLS-3 and RLS-6 were worked concurrently in isolated worktrees,
+so both generated an `0024` and both bumped the schema token to `_v27` — neither could see the
+other. RLS-3 merged first and its `0024` was already applied to the dev database, freezing its
+number; RLS-6 was regenerated as `0025` and takes `_v28`.
+
+**Priority: P0** · Size: M · **BLOCKED RLS-4 — now unblocked**
 
 **Priority: P0** · Size: M · **BLOCKS RLS-4** · Depends on RLS-2 · Files: `server/db.ts`, a new `server/db/adminDb.ts`, `server/repositories/UserRepository.ts`, `server/routes/admin.routes.ts`, a new migration (audit table), tests
 

@@ -60,7 +60,7 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
       'datavault_table_access', 'datavault_table_permissions',
       'resource_permissions', 'user_preferences',
       'user_personalization_settings', 'workflow_personalization_settings',
-      'audit_logs',
+      'audit_logs', 'admin_access_log',
     ],
   },
   {

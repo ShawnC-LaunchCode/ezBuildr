@@ -346,6 +346,26 @@ export const auditLogs = pgTable("audit_logs", {
     index("audit_logs_action_idx").on(table.action),
     index("audit_logs_ts_entity_idx").on(table.timestamp, table.entityType, table.entityId),
 ]);
+// Admin Access Log (RLS-6 / A4) — audit trail for the admin console's
+// cross-tenant read path (server/db/adminDb.ts, a BYPASSRLS connection pool).
+// Shaped for the future customer-facing "who accessed my account" reader the
+// support-session initiative will build (A4), not just this ticket's own
+// queries: actor, action, target tenant (nullable — a global list like "all
+// users" has no single target tenant), target user, timestamp, and the
+// request id that correlates it back to a specific admin console request.
+export const adminAccessLog = pgTable("admin_access_log", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    actorUserId: varchar("actor_user_id").references(() => users.id, { onDelete: 'set null' }),
+    action: varchar("action").notNull(),
+    targetTenantId: uuid("target_tenant_id").references(() => tenants.id, { onDelete: 'set null' }),
+    targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: 'set null' }),
+    requestId: varchar("request_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+    index("admin_access_log_actor_idx").on(table.actorUserId),
+    index("admin_access_log_target_tenant_idx").on(table.targetTenantId),
+    index("admin_access_log_created_idx").on(table.createdAt),
+]);
 // Resource Permissions (for granular RBAC)
 export const resourcePermissions = pgTable("resource_permissions", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -405,6 +425,7 @@ export const insertWorkspaceSchema = createInsertSchema(workspaces);
 export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers);
 export const insertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations);
 export const insertAuditLogSchema = createInsertSchema(auditLogs);
+export const insertAdminAccessLogSchema = createInsertSchema(adminAccessLog);
 export const insertUserCredentialsSchema = createInsertSchema(userCredentials);
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
 export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPersonalizationSettings);
@@ -452,6 +473,8 @@ export type InsertUserPreferences = InferInsertModel<typeof userPreferences>;
 export type UserPersonalizationSettings = InferSelectModel<typeof userPersonalizationSettings>;
 export type AuditLog = InferSelectModel<typeof auditLogs>;
 export type InsertAuditLog = InferInsertModel<typeof auditLogs>;
+export type AdminAccessLogRow = InferSelectModel<typeof adminAccessLog>;
+export type InsertAdminAccessLog = InferInsertModel<typeof adminAccessLog>;
 export type Team = InferSelectModel<typeof teams>;
 export type InsertTeam = InferInsertModel<typeof teams>;
 export type TeamMember = InferSelectModel<typeof teamMembers>;

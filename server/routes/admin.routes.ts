@@ -10,6 +10,7 @@ import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
+import { adminAccessService } from "../services/AdminAccessService";
 import { adminUserService } from "../services/AdminUserService";
 import { adminOrgStatsService } from "../services/AdminOrgStatsService";
 import { mfaService } from "../services/MfaService";
@@ -56,8 +57,9 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Use optimized query to get users and workflow counts in one go
-      const usersWithStats = await userRepository.findAllUsersWithWorkflowCounts();
+      // RLS-6: cross-tenant by nature (listing every user IS the feature) —
+      // goes through the admin-only BYPASSRLS path, audited.
+      const usersWithStats = await adminAccessService.listAllUsersWithWorkflowCounts(req.adminUser.id, req.id);
 
       logger.info(
         { adminId: req.adminUser.id, userCount: usersWithStats.length },
@@ -175,9 +177,11 @@ export function registerAdminRoutes(app: Express): void {
         });
       }
 
-      // Critical: Prevent demoting the last admin
+      // Critical: Prevent demoting the last admin. Cross-tenant by nature —
+      // "the last admin" means across every tenant, not just the acting
+      // admin's own — so this goes through the admin-only BYPASSRLS path.
       if (role === 'creator') {
-        const allUsers = await userRepository.findAllUsers();
+        const allUsers = await adminAccessService.listAllUsers(req.adminUser.id, req.id);
         const adminCount = allUsers.filter(u => u.role === 'admin').length;
 
         // Check if the user being demoted is currently an admin
@@ -353,7 +357,9 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const workflows = await workflowRepository.findAttributedToUser(userId);
+      // RLS-6: the target user may be in a different tenant than the acting
+      // admin — goes through the admin-only BYPASSRLS path, audited.
+      const workflows = await adminAccessService.listWorkflowsForUser(req.adminUser.id, userId, req.id);
       const runCounts = await workflowRunRepository.countByWorkflowIds(workflows.map(w => w.id));
 
       logger.info(
@@ -510,8 +516,9 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Get all users first (for mapping creators)
-      const users = await userRepository.findAllUsers();
+      // Get all users first (for mapping creators). Cross-tenant by nature —
+      // goes through the admin-only BYPASSRLS path, audited.
+      const users = await adminAccessService.listAllUsers(req.adminUser.id, req.id);
       const userMap = new Map(users.map(u => [u.id, u]));
 
       // Get all workflows directly

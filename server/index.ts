@@ -132,6 +132,17 @@ void (async () => {
         // is idempotent, so this is a no-op in dev/prod. Vitest never runs this file.
         await initializeDatabase();
         logger.info('Database initialized.');
+        // RLS-6: the admin console's second, BYPASSRLS-role pool. Optional —
+        // unset (isAdminDbConfigured() false) until an environment actually
+        // provisions ADMIN_DATABASE_URL, which is not expected before RLS-4
+        // lands. AdminAccessService falls back to the normal pool when this
+        // was never initialized, so skipping it here is safe, not a gap.
+        const { initializeAdminDb, isAdminDbConfigured } = await import('./db/adminDb.js');
+        if (isAdminDbConfigured()) {
+            logger.info('Initializing admin DB (RLS-6)...');
+            await initializeAdminDb();
+            logger.info('Admin DB initialized.');
+        }
         // Register configured production e-signature providers only after
         // environment validation has completed. With no DocuSign credentials,
         // the initializer logs the integration as unavailable and boot continues.

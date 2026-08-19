@@ -85,6 +85,17 @@ app.use(rlsContext);
     // Using dynamic import to avoid DB connection side-effects before key check
     const { dbInitPromise } = await import("./db.js");
     await dbInitPromise;
+    // RLS-6: the admin console's second, BYPASSRLS-role pool. Optional —
+    // unset (isAdminDbConfigured() false) until an environment actually
+    // provisions ADMIN_DATABASE_URL, which is not expected before RLS-4
+    // lands. AdminAccessService falls back to the normal pool when this was
+    // never initialized, so skipping it here is safe, not a gap.
+    const { initializeAdminDb, isAdminDbConfigured } = await import('./db/adminDb.js');
+    if (isAdminDbConfigured()) {
+      logger.info('Initializing admin DB (RLS-6)...');
+      await initializeAdminDb();
+      logger.info('Admin DB initialized.');
+    }
     const { initializeEsignProviders } = await import('./services/esign/index.js');
     initializeEsignProviders();
     // Initialize routes and collaboration server

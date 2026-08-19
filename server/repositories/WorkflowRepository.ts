@@ -3,7 +3,7 @@ import { eq, and, desc, isNull, or, inArray, sql, getTableColumns } from "drizzl
 
 import { workflows, organizations, type Workflow, type InsertWorkflow } from "@shared/schema";
 
-import { db } from "../db";
+import { db, type DrizzleDB } from "../db";
 import { logger } from "../logger";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
@@ -116,12 +116,17 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    * Deliberately does NOT expand org memberships the way findByCreatorId
    * does. This backs the admin copy/delete UI, and a workflow the user can
    * merely reach through an org they belong to is not theirs to delete.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed explicitly by `AdminAccessService` — see `UserRepository.findAllUsers`'s
+   * doc comment for why this can't be a global switch.
    */
   async findAttributedToUser(
     userId: string,
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<Array<Workflow & { ownerName: string | null }>> {
-    const database = this.getDb(tx);
+    const database = adminDbOverride ?? this.getDb(tx);
     // ownerUuid holds a UUID; comparing a legacy non-UUID id against it in
     // Postgres is a wasted predicate at best.
     const ownedUnderNewModel = isUuid(userId)
