@@ -68,8 +68,16 @@ export class SchemaManager {
     // referenced it since 0021 dropped the column it backed).
     // Bumped to _v26 for MAP-2 (0023_condemned_hannibal_king), which drops
     // the dead `sections.skip_if` column — a stale _v25 schema still has it.
+    // Bumped to _v27 for RLS-3 (0024_repair_rls_coverage), which adds the 24
+    // direct-tenant_id policies plus the workflows/sections/steps
+    // ownership-derived policies that 0001/0004 defined but never actually
+    // applied in a real database (their `to_regclass` guard ran before those
+    // tables existed) — a stale _v26 schema still has only the 9 policies
+    // 0011/0012/0015/0019 managed to apply for real, and the new coverage
+    // test would fail against it for a reason that has nothing to do with
+    // the migration under test.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v26`;
+        return `test_schema_w${this.workerId}_v27`;
     }
 
     /**
