@@ -331,6 +331,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'user_personalization_settings': 'Personalization settings are user-bound.',
   'portal_tokens': 'Portal tokens are sensitive access grants.',
   'audit_logs': 'Audit logs are historical compliance data for the host.',
+  'admin_access_log': 'Platform-admin access audit trail (RLS-6) is host security data, not tenant content.',
   'resource_permissions': 'Permissions are evaluated locally based on roles.',
   'sessions': 'Active sessions are sensitive ephemeral state.',
   'invalidated_tokens': 'Token blacklists are local security state.',

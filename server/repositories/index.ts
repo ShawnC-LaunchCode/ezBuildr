@@ -12,6 +12,7 @@ export { BaseRepository, type DbTransaction } from "./BaseRepository";
 // Export domain repositories (user, analytics, system)
 // NOTE: Survey repositories removed (Nov 2025) - workflow-only platform
 export { UserRepository, userRepository } from "./UserRepository";
+export { AdminAccessLogRepository, adminAccessLogRepository } from "./AdminAccessLogRepository";
 export { OrganizationRepository, organizationRepository } from "./OrganizationRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";

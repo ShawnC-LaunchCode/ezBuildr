@@ -76,8 +76,21 @@ export class SchemaManager {
     // 0011/0012/0015/0019 managed to apply for real, and the new coverage
     // test would fail against it for a reason that has nothing to do with
     // the migration under test.
+    // Bumped to _v28 for RLS-6 (0025_admin_access_log), which adds the
+    // `admin_access_log` table. A stale _v27 schema does not have it, so the
+    // RLS-6 suite would fail with "relation does not exist" — a failure that
+    // reads like a broken migration and is really a cached schema.
+    //
+    // Reconciliation note: RLS-3 and RLS-6 were worked concurrently in
+    // isolated worktrees, so both independently generated an `0024` AND both
+    // bumped this token to `_v27` — neither could see the other's journal.
+    // RLS-3 merged first and its 0024 was already applied to the dev
+    // database, freezing its number; RLS-6 was therefore regenerated as 0025
+    // and takes _v28. If you are adding a migration while another board is in
+    // flight, expect this and renumber at merge rather than hand-editing the
+    // journal.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v27`;
+        return `test_schema_w${this.workerId}_v28`;
     }
 
     /**
