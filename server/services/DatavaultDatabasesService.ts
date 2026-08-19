@@ -6,6 +6,7 @@ import {
   type DbTransaction,
 } from '../repositories';
 import { canManageOrg, isOrgMember } from '../utils/ownershipAccess';
+import { withCurrentTenant, getCurrentTenantId } from '../utils/rlsContext';
 
 import { aclService } from './AclService';
 import { datavaultAclService } from './DatavaultAclService';
@@ -30,7 +31,31 @@ interface UpdateDatabaseInput {
   scopeId?: string;
 }
 
+/**
+ * RLS-2b: copies the service-boundary tenant transaction pattern from
+ * CollectionService (RLS-2a) — see docs/architecture/TENANT_ISOLATION_RLS.md §2b.
+ */
 export class DatavaultDatabasesService {
+  /** See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
+  }
+
   private hasMinimumRole(userRole: AccessRole, minRole: Exclude<AccessRole, 'none'>): boolean {
     const rolePrecedence: Record<AccessRole, number> = {
       owner: 4,
@@ -44,8 +69,9 @@ export class DatavaultDatabasesService {
   /**
    * Get all databases for a tenant (filtered by user access)
    */
-  async getDatabasesForTenant(tenantId: string, userId: string): Promise<DatavaultDatabase[]> {
-    return datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId);
+  async getDatabasesForTenant(tenantId: string, userId: string, tx?: DbTransaction): Promise<DatavaultDatabase[]> {
+    return this.withTx(tenantId, tx, (scopedTx) =>
+      datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId, scopedTx));
   }
 
   /**
@@ -55,13 +81,16 @@ export class DatavaultDatabasesService {
     tenantId: string,
     scopeType: DatavaultScopeType,
     scopeId?: string,
-    userId?: string
+    userId?: string,
+    tx?: DbTransaction
   ): Promise<DatavaultDatabase[]> {
-    if (scopeType === 'account' && userId) {
-      const visible = await datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId);
-      return visible.filter((database) => database.scopeType === 'account');
-    }
-    return datavaultDatabasesRepository.findByScope(tenantId, scopeType, scopeId);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      if (scopeType === 'account' && userId) {
+        const visible = await datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId, scopedTx);
+        return visible.filter((database) => database.scopeType === 'account');
+      }
+      return datavaultDatabasesRepository.findByScope(tenantId, scopeType, scopeId, scopedTx);
+    });
   }
 
   async verifyDatabaseAccess(
@@ -71,18 +100,20 @@ export class DatavaultDatabasesService {
     minRole: Exclude<AccessRole, 'none'> = 'view',
     tx?: DbTransaction
   ): Promise<DatavaultDatabase> {
-    const database = await datavaultDatabasesRepository.findById(databaseId, tx);
-    if (!database) {
-      throw new NotFoundError('Database not found');
-    }
-    if (database.tenantId !== tenantId) {
-      throw new UnauthorizedError('Access denied - database belongs to different tenant');
-    }
-    const userRole = await datavaultAclService.resolveRoleForDatabase(userId, databaseId, tx);
-    if (!this.hasMinimumRole(userRole, minRole)) {
-      throw new Error('Access denied - insufficient permissions for this database');
-    }
-    return database;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const database = await datavaultDatabasesRepository.findById(databaseId, scopedTx);
+      if (!database) {
+        throw new NotFoundError('Database not found');
+      }
+      if (database.tenantId !== tenantId) {
+        throw new UnauthorizedError('Access denied - database belongs to different tenant');
+      }
+      const userRole = await datavaultAclService.resolveRoleForDatabase(userId, databaseId, scopedTx);
+      if (!this.hasMinimumRole(userRole, minRole)) {
+        throw new Error('Access denied - insufficient permissions for this database');
+      }
+      return database;
+    });
   }
 
   /**
@@ -93,40 +124,46 @@ export class DatavaultDatabasesService {
     id: string,
     tenantId: string,
     userId?: string,
-    minRole: Exclude<AccessRole, 'none'> = 'view'
+    minRole: Exclude<AccessRole, 'none'> = 'view',
+    tx?: DbTransaction
   ) {
-    const database = await datavaultDatabasesRepository.findByIdWithStats(id);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const database = await datavaultDatabasesRepository.findByIdWithStats(id, scopedTx);
 
-    if (!database) {
-      throw new NotFoundError('Database not found');
-    }
-
-    if (database.tenantId !== tenantId) {
-      throw new UnauthorizedError('Database belongs to different tenant');
-    }
-
-    if (userId) {
-      const userRole = await datavaultAclService.resolveRoleForDatabase(userId, id);
-      if (!this.hasMinimumRole(userRole, minRole)) {
-        throw new Error('Access denied - insufficient permissions for this database');
+      if (!database) {
+        throw new NotFoundError('Database not found');
       }
-    }
 
-    return database;
+      if (database.tenantId !== tenantId) {
+        throw new UnauthorizedError('Database belongs to different tenant');
+      }
+
+      if (userId) {
+        const userRole = await datavaultAclService.resolveRoleForDatabase(userId, id, scopedTx);
+        if (!this.hasMinimumRole(userRole, minRole)) {
+          throw new Error('Access denied - insufficient permissions for this database');
+        }
+      }
+
+      return database;
+    });
   }
 
   // eslint-disable-next-line complexity
-  private async resolveCreateOwnership(input: CreateDatabaseInput): Promise<{ ownerType: 'user' | 'org'; ownerUuid: string }> {
+  private async resolveCreateOwnership(
+    input: CreateDatabaseInput,
+    tx?: DbTransaction
+  ): Promise<{ ownerType: 'user' | 'org'; ownerUuid: string }> {
     if (input.scopeType === 'project') {
       if (!input.scopeId) {
         throw new BadRequestError('Project scope requires a scope ID');
       }
-      const hasProjectAccess = await aclService.hasProjectRole(input.creatorId, input.scopeId, 'edit');
+      const hasProjectAccess = await aclService.hasProjectRole(input.creatorId, input.scopeId, 'edit', tx);
       if (!hasProjectAccess) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
       const { projectRepository } = await import('../repositories');
-      const project = await projectRepository.findById(input.scopeId);
+      const project = await projectRepository.findById(input.scopeId, tx);
       if (!project) {
         throw new NotFoundError('Project not found');
       }
@@ -140,12 +177,12 @@ export class DatavaultDatabasesService {
       if (!input.scopeId) {
         throw new BadRequestError('Workflow scope requires a scope ID');
       }
-      const hasWorkflowAccess = await aclService.hasWorkflowRole(input.creatorId, input.scopeId, 'edit');
+      const hasWorkflowAccess = await aclService.hasWorkflowRole(input.creatorId, input.scopeId, 'edit', tx);
       if (!hasWorkflowAccess) {
         throw new Error('Access denied - insufficient permissions for this workflow');
       }
       const { workflowRepository } = await import('../repositories');
-      const workflow = await workflowRepository.findById(input.scopeId);
+      const workflow = await workflowRepository.findById(input.scopeId, tx);
       if (!workflow) {
         throw new NotFoundError('Workflow not found');
       }
@@ -158,7 +195,7 @@ export class DatavaultDatabasesService {
     const ownerType = input.ownerType ?? 'user';
     const ownerUuid = input.ownerUuid ?? input.creatorId;
     if (ownerType === 'org') {
-      const canManage = await canManageOrg(input.creatorId, ownerUuid);
+      const canManage = await canManageOrg(input.creatorId, ownerUuid, tx);
       if (!canManage) {
         throw new Error('Access denied: Organization admin role required to create organization databases');
       }
@@ -171,20 +208,22 @@ export class DatavaultDatabasesService {
   /**
    * Create a new database
    */
-  async createDatabase(input: CreateDatabaseInput): Promise<DatavaultDatabase> {
-    // Validate scope
-    this.validateScope(input.scopeType, input.scopeId);
+  async createDatabase(input: CreateDatabaseInput, tx?: DbTransaction): Promise<DatavaultDatabase> {
+    return this.withTx(input.tenantId, tx, async (scopedTx) => {
+      // Validate scope
+      this.validateScope(input.scopeType, input.scopeId);
 
-    const { ownerType, ownerUuid } = await this.resolveCreateOwnership(input);
+      const { ownerType, ownerUuid } = await this.resolveCreateOwnership(input, scopedTx);
 
-    return datavaultDatabasesRepository.create({
-      tenantId: input.tenantId,
-      name: input.name,
-      description: input.description,
-      scopeType: input.scopeType,
-      scopeId: input.scopeId,
-      ownerType,
-      ownerUuid,
+      return datavaultDatabasesRepository.create({
+        tenantId: input.tenantId,
+        name: input.name,
+        description: input.description,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        ownerType,
+        ownerUuid,
+      }, scopedTx);
     });
   }
 
@@ -195,71 +234,80 @@ export class DatavaultDatabasesService {
     id: string,
     tenantId: string,
     input: UpdateDatabaseInput,
-    userId?: string
+    userId?: string,
+    tx?: DbTransaction
   ): Promise<DatavaultDatabase> {
-    if (userId) {
-      await this.verifyDatabaseAccess(id, tenantId, userId, 'edit');
-    } else {
-      const exists = await datavaultDatabasesRepository.existsForTenant(id, tenantId);
-      if (!exists) {
-        throw new NotFoundError('Database not found or unauthorized');
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      if (userId) {
+        await this.verifyDatabaseAccess(id, tenantId, userId, 'edit', scopedTx);
+      } else {
+        const exists = await datavaultDatabasesRepository.existsForTenant(id, tenantId, scopedTx);
+        if (!exists) {
+          throw new NotFoundError('Database not found or unauthorized');
+        }
       }
-    }
 
-    // Validate scope if being changed
-    if (input.scopeType !== undefined) {
-      this.validateScope(input.scopeType, input.scopeId);
-    }
+      // Validate scope if being changed
+      if (input.scopeType !== undefined) {
+        this.validateScope(input.scopeType, input.scopeId);
+      }
 
-    const updated = await datavaultDatabasesRepository.update(id, input);
+      const updated = await datavaultDatabasesRepository.update(id, input, scopedTx);
 
-    if (!updated) {
-      throw new Error('Failed to update database');
-    }
+      if (!updated) {
+        throw new Error('Failed to update database');
+      }
 
-    return updated;
+      return updated;
+    });
   }
 
   /**
    * Delete a database
    */
-  async deleteDatabase(id: string, tenantId: string): Promise<void> {
-    // Check ownership
-    const exists = await datavaultDatabasesRepository.existsForTenant(id, tenantId);
-    if (!exists) {
-      throw new NotFoundError('Database not found or unauthorized');
-    }
+  async deleteDatabase(id: string, tenantId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Check ownership
+      const exists = await datavaultDatabasesRepository.existsForTenant(id, tenantId, scopedTx);
+      if (!exists) {
+        throw new NotFoundError('Database not found or unauthorized');
+      }
 
-    const deleted = await datavaultDatabasesRepository.delete(id);
+      const deleted = await datavaultDatabasesRepository.delete(id, scopedTx);
 
-    if (!deleted) {
-      throw new Error('Failed to delete database');
-    }
+      if (!deleted) {
+        throw new Error('Failed to delete database');
+      }
+    });
   }
 
-  async deleteDatabaseForUser(id: string, tenantId: string, userId: string): Promise<void> {
-    await this.verifyDatabaseAccess(id, tenantId, userId, 'owner');
-    const deleted = await datavaultDatabasesRepository.delete(id);
-    if (!deleted) {
-      throw new Error('Failed to delete database');
-    }
+  async deleteDatabaseForUser(id: string, tenantId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyDatabaseAccess(id, tenantId, userId, 'owner', scopedTx);
+      const deleted = await datavaultDatabasesRepository.delete(id, scopedTx);
+      if (!deleted) {
+        throw new Error('Failed to delete database');
+      }
+    });
   }
 
   /**
    * Get tables in a database
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async getTablesInDatabase(databaseId: string, tenantId: string, userId?: string) {
-    if (userId) {
-      await this.verifyDatabaseAccess(databaseId, tenantId, userId, 'view');
-    } else {
-      const exists = await datavaultDatabasesRepository.existsForTenant(databaseId, tenantId);
-      if (!exists) {
-        throw new NotFoundError('Database not found or unauthorized');
+  async getTablesInDatabase(databaseId: string, tenantId: string, userId?: string, tx?: DbTransaction) {
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      if (userId) {
+        await this.verifyDatabaseAccess(databaseId, tenantId, userId, 'view', scopedTx);
+      } else {
+        const exists = await datavaultDatabasesRepository.existsForTenant(databaseId, tenantId, scopedTx);
+        if (!exists) {
+          throw new NotFoundError('Database not found or unauthorized');
+        }
       }
-    }
 
-    return datavaultDatabasesRepository.getTablesInDatabase(databaseId);
+      return datavaultDatabasesRepository.getTablesInDatabase(databaseId, scopedTx);
+    });
   }
 
   /**
@@ -290,88 +338,106 @@ export class DatavaultDatabasesService {
     databaseId: string,
     userId: string,
     targetOwnerType: 'user' | 'org',
-    targetOwnerUuid: string
+    targetOwnerUuid: string,
+    tx?: DbTransaction
   ) {
     const { transferService } = await import('./TransferService');
 
-    // Get database
-    const database = await datavaultDatabasesRepository.findById(databaseId);
-    if (!database) {
+    // No tenantId argument on this method (see file header) — the database's own
+    // tenantId IS the tenant boundary. Look it up first (unscoped by design: a
+    // primary-key lookup isn't itself tenant-filtered), then open the transaction
+    // scoped to what the row says, exactly like *VerifyOwnership helpers elsewhere
+    // in this cluster that discover tenant from the row rather than an argument.
+    const preliminary = await datavaultDatabasesRepository.findById(databaseId, tx);
+    if (!preliminary) {
       throw new NotFoundError('Database not found');
     }
 
-    // Source-side authorization: the direct owner, or any member of the org that
-    // owns the database (member-is-enough policy for transfers).
-    const hasOwnerAccess = await datavaultAclService.hasDatabaseRole(userId, databaseId, 'owner');
-    const isOrgOwnedMember =
-      database.ownerType === 'org' &&
-      database.ownerUuid != null &&
-      (await isOrgMember(userId, database.ownerUuid));
-    if (!hasOwnerAccess && !isOrgOwnedMember) {
-      throw new Error('Access denied: You do not have permission to transfer this database');
-    }
+    return this.withTx(preliminary.tenantId, tx, async (scopedTx) => {
+      const database = await datavaultDatabasesRepository.findById(databaseId, scopedTx) ?? preliminary;
 
-    // Transfer-into-org requires org membership (not admin); validateTransfer
-    // checks target existence first ("not found") then membership ("not a member").
-    await transferService.validateTransfer(
-      userId,
-      database.ownerType ?? 'user',
-      database.ownerUuid ?? userId,
-      targetOwnerType,
-      targetOwnerUuid
-    );
+      // Source-side authorization: the direct owner, or any member of the org that
+      // owns the database (member-is-enough policy for transfers).
+      const hasOwnerAccess = await datavaultAclService.hasDatabaseRole(userId, databaseId, 'owner', scopedTx);
+      const isOrgOwnedMember =
+        database.ownerType === 'org' &&
+        database.ownerUuid != null &&
+        (await isOrgMember(userId, database.ownerUuid, scopedTx));
+      if (!hasOwnerAccess && !isOrgOwnedMember) {
+        throw new Error('Access denied: You do not have permission to transfer this database');
+      }
 
-    const updated = await datavaultDatabasesRepository.update(databaseId, {
-      ownerType: targetOwnerType,
-      ownerUuid: targetOwnerUuid,
+      // Transfer-into-org requires org membership (not admin); validateTransfer
+      // checks target existence first ("not found") then membership ("not a member").
+      await transferService.validateTransfer(
+        userId,
+        database.ownerType ?? 'user',
+        database.ownerUuid ?? userId,
+        { ownerType: targetOwnerType, ownerUuid: targetOwnerUuid },
+        scopedTx
+      );
+
+      const updated = await datavaultDatabasesRepository.update(databaseId, {
+        ownerType: targetOwnerType,
+        ownerUuid: targetOwnerUuid,
+      }, scopedTx);
+      if (!updated) {
+        throw new Error('Failed to transfer database ownership');
+      }
+      await datavaultTablesRepository.updateOwnerByDatabaseId(databaseId, targetOwnerType, targetOwnerUuid, scopedTx);
+      return updated;
     });
-    if (!updated) {
-      throw new Error('Failed to transfer database ownership');
-    }
-    await datavaultTablesRepository.updateOwnerByDatabaseId(databaseId, targetOwnerType, targetOwnerUuid);
-    return updated;
   }
 
-  async getDatabaseAccess(databaseId: string, tenantId: string, userId: string): Promise<{
+  async getDatabaseAccess(databaseId: string, tenantId: string, userId: string, tx?: DbTransaction): Promise<{
     entries: DatavaultDatabaseAccess[];
     currentUserRole: AccessRole;
   }> {
-    await this.verifyDatabaseAccess(databaseId, tenantId, userId, 'view');
-    const [entries, currentUserRole] = await Promise.all([
-      datavaultDatabaseAccessRepository.findByDatabaseId(databaseId),
-      datavaultAclService.resolveRoleForDatabase(userId, databaseId),
-    ]);
-    return { entries, currentUserRole };
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyDatabaseAccess(databaseId, tenantId, userId, 'view', scopedTx);
+      const [entries, currentUserRole] = await Promise.all([
+        datavaultDatabaseAccessRepository.findByDatabaseId(databaseId, scopedTx),
+        datavaultAclService.resolveRoleForDatabase(userId, databaseId, scopedTx),
+      ]);
+      return { entries, currentUserRole };
+    });
   }
 
   async grantDatabaseAccess(
     databaseId: string,
     tenantId: string,
     requestorId: string,
-    entries: Array<{ principalType: PrincipalType; principalId: string; role: AccessRole }>
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: AccessRole }>,
+    tx?: DbTransaction
   ): Promise<DatavaultDatabaseAccess[]> {
-    await this.verifyDatabaseAccess(databaseId, tenantId, requestorId, 'owner');
-    const results: DatavaultDatabaseAccess[] = [];
-    for (const entry of entries) {
-      const acl = await datavaultDatabaseAccessRepository.upsert(
-        databaseId,
-        entry.principalType,
-        entry.principalId,
-        entry.role
-      );
-      results.push(acl);
-    }
-    return results;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyDatabaseAccess(databaseId, tenantId, requestorId, 'owner', scopedTx);
+      const results: DatavaultDatabaseAccess[] = [];
+      for (const entry of entries) {
+        const acl = await datavaultDatabaseAccessRepository.upsert(
+          databaseId,
+          entry.principalType,
+          entry.principalId,
+          entry.role,
+          scopedTx
+        );
+        results.push(acl);
+      }
+      return results;
+    });
   }
 
   async revokeDatabaseAccess(
     databaseId: string,
     tenantId: string,
     requestorId: string,
-    entries: Array<{ principalType: PrincipalType; principalId: string }>
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx?: DbTransaction
   ): Promise<void> {
-    await this.verifyDatabaseAccess(databaseId, tenantId, requestorId, 'owner');
-    await datavaultDatabaseAccessRepository.deleteManyByPrincipals(databaseId, entries);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyDatabaseAccess(databaseId, tenantId, requestorId, 'owner', scopedTx);
+      await datavaultDatabaseAccessRepository.deleteManyByPrincipals(databaseId, entries, scopedTx);
+    });
   }
 }
 

@@ -14,6 +14,7 @@ import { db } from '../../server/db';
 import { datavaultColumnsService } from '../../server/services/DatavaultColumnsService';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import {
   createAuthenticatedAgent,
   setupIntegrationTest,
@@ -32,6 +33,7 @@ describe('DataVault auto_number Integration Tests', () => {
 
   beforeAll(async () => {
     ctx = await setupIntegrationTest({ tenantName: 'DV-6 Autonumber' });
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: this suite calls converted services directly (no HTTP), so bind the tenant context the middleware would have set.
 
     const table = await datavaultTablesService.createTable({
       tenantId: ctx.tenantId,
@@ -107,6 +109,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('seeds prefix, padding, and the configured start value into the counter row', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const [sequence] = await db
       .select()
       .from(datavaultNumberSequences)
@@ -120,6 +123,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('formats successive, width-boundary, and custom-start values while preserving bare integers', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const row1 = await datavaultRowsService.createRow(tableId, ctx.tenantId, {});
     const row2 = await datavaultRowsService.createRow(tableId, ctx.tenantId, {});
 
@@ -135,6 +139,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('rejects a prefix with zero padding at the service layer', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     await expect(datavaultColumnsService.createColumn({
       tableId,
       name: 'Invalid Prefix',
@@ -146,6 +151,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('preserves a prefixed value and its counter across partial updates', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const created = await datavaultRowsService.createRow(tableId, ctx.tenantId, {
       [statusColumnId]: 'new',
     });
@@ -170,6 +176,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('generates distinct prefixed values under concurrent inserts', { timeout: 30000 }, async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const rows = await Promise.all(
       Array.from({ length: 10 }, () => datavaultRowsService.createRow(tableId, ctx.tenantId, {}))
     );
@@ -182,6 +189,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('self-heals a missing counter with the column prefix and padding', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     await db.delete(datavaultNumberSequences).where(and(
       eq(datavaultNumberSequences.tenantId, ctx.tenantId),
       eq(datavaultNumberSequences.tableId, tableId),
@@ -199,6 +207,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it("rejects the retired 'autonumber' type at the create-column API", async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const agent = createAuthenticatedAgent(ctx.baseURL, ctx.authToken);
     const response = await agent.post(`/api/datavault/tables/${tableId}/columns`).send({
       name: 'Retired Type',
@@ -212,6 +221,7 @@ describe('DataVault auto_number Integration Tests', () => {
   });
 
   it('removes the formatted counter row via CASCADE when its column is deleted', async () => {
+    enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
     const column = await datavaultColumnsService.createColumn({
       tableId,
       name: 'Temporary Auto Number',

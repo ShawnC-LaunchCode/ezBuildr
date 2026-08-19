@@ -83,6 +83,36 @@ export function runWithRequestContext<T>(fn: () => T): T {
  * background job that hasn't opened a context) — callers that need a
  * guaranteed context should use `runWithTenantContext` instead.
  */
+/**
+ * TEST ONLY — bind a tenant into the current async execution WITHOUT a callback.
+ *
+ * Exists for integration suites that call converted services **directly** rather
+ * than over HTTP: those get no `rlsContext` middleware, so `withCurrentTenant`
+ * throws "no tenant in context". `runWithTenantContext` is the right tool when
+ * you can wrap the call, but a `beforeAll` that creates its tenant partway
+ * through cannot be wrapped without re-indenting the whole block — one call to
+ * this immediately after the tenant id is known covers the rest of that hook.
+ *
+ * **Never call this from production code.** `enterWith` persists for the
+ * remainder of the current execution with no scope to exit, so in a request
+ * handler it would bleed one tenant's id into whatever ran next on that tick.
+ * `rlsContext` + `setCurrentTenantId` exist precisely so production never needs
+ * this — which is why the guard below is a throw, not a comment.
+ *
+ * Modelled on `_testOnly_setGoogleClient` (`server/googleAuth.ts`), but named
+ * in camelCase: that one needs an `eslint-disable` for the naming-convention
+ * rule, and a rename is better than a suppression.
+ */
+export function enterTenantContextForTests(tenantId: string): void {
+  if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
+    throw new Error(
+      'enterTenantContextForTests is test-only: it binds a tenant with no scope to exit, ' +
+      'which would leak across requests in production. Use rlsContext/withCurrentTenant instead.'
+    );
+  }
+  storage.enterWith({ tenantId });
+}
+
 export function setCurrentTenantId(tenantId: string): void {
   const store = storage.getStore();
   if (store) {

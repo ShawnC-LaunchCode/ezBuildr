@@ -16,6 +16,7 @@
 
 import { createNormalizationError, createMappingError, createRenderError, wrapAsDocumentGenerationError, isDocumentGenerationError } from '../../errors/DocumentGenerationError.js';
 import { createLogger } from '../../logger.js';
+import { runWithTenantContext } from '../../utils/rlsContext.js';
 import { datavaultRowsService } from '../DatavaultRowsService.js';
 import { templateAnalytics } from '../TemplateAnalyticsService.js';
 
@@ -46,7 +47,13 @@ async function resolveDatavaultBindingValue(
     logger.warn({ binding }, 'Cannot resolve DataVault mapping binding: no tenantId in this generation context');
     return undefined;
   }
-  const result = await datavaultRowsService.getRow(binding.rowId, tenantId);
+  // RLS-2b: DatavaultRowsService now opens a service-boundary tenant
+  // transaction reading from the request's async context. Document
+  // generation can run from an HTTP request or a background/PDF-conversion
+  // job with no ambient context, so open one explicitly with the `tenantId`
+  // this function already validated above.
+  const result = await runWithTenantContext(tenantId, () =>
+    datavaultRowsService.getRow(binding.rowId, tenantId));
   return result?.values[binding.columnId] as unknown;
 }
 

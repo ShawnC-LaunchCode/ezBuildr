@@ -423,8 +423,7 @@ export function registerDatavaultTableRoutes(app: Express): void {
         tableId,
         tenantId,
         userId,
-        targetOwnerType,
-        targetOwnerUuid
+        { ownerType: targetOwnerType, ownerUuid: targetOwnerUuid }
       );
       void AuditLogger.log({
         userId,

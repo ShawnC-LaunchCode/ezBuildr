@@ -8,6 +8,7 @@ import type { Block } from '@shared/schema';
 import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
 import { db } from '../../server/db';
+import { enterTenantContextForTests, runWithTenantContext } from '../../server/utils/rlsContext';
 import { WriteRunner } from '../../server/lib/writes/WriteRunner';
 import { stepValueRepository } from '../../server/repositories';
 import {
@@ -44,6 +45,10 @@ describe('Data Block Integration Tests', () => {
             slug: `datablock-tenant-${Date.now()}`,
         } as any).returning();
         tenantId = tenant.id;
+        // RLS-2b: this suite calls converted services directly (no HTTP), so no
+        // rlsContext middleware populates the async tenant context. Bind it here,
+        // right after the tenant exists, for the rest of this hook.
+        enterTenantContextForTests(tenantId);
 
         const [user] = await db.insert(users).values({
             id: uuidv4(),
@@ -315,7 +320,7 @@ describe('Data Block Integration Tests', () => {
         );
 
         // 4. Verify Data Written
-        const { rows } = await datavaultRowsService.getRowsWithOptions(tenantId, tableId, { limit: 1 });
+        const { rows } = await runWithTenantContext(tenantId, () => datavaultRowsService.getRowsWithOptions(tenantId, tableId, { limit: 1 }));
 
         expect(rows).toHaveLength(1);
         const row = rows[0];
@@ -357,7 +362,7 @@ describe('Data Block Integration Tests', () => {
         expect(results.map(result => result.success)).toEqual([true, true]);
         expect(results.map(result => result.operation).sort()).toEqual(['create', 'update']);
 
-        const { rows } = await datavaultRowsService.getRowsWithOptions(tenantId, tableId, { limit: 100 });
+        const { rows } = await runWithTenantContext(tenantId, () => datavaultRowsService.getRowsWithOptions(tenantId, tableId, { limit: 100 }));
         const matchingRows = rows.filter(row => row.values[upsertMatchColumnId] === matchValue);
         expect(matchingRows).toHaveLength(1);
         expect(results[0].rowId).toBe(matchingRows[0].row.id);

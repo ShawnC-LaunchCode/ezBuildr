@@ -18,7 +18,6 @@ const BLANK_COERCIBLE_TYPES = new Set<DatavaultColumn['type']>(['text', 'email',
 const isBlankString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() === '';
 
-import { db } from "../db";
 import { ConflictError } from "../errors/AppError";
 import { assertValueSizeWithinLimit } from "../utils/valueSizeLimit";
 import {
@@ -27,6 +26,7 @@ import {
   datavaultColumnsRepository,
   type DbTransaction,
 } from "../repositories";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 type RowValidationOptions = {
   mode: 'create' | 'update';
@@ -84,6 +84,30 @@ export class DatavaultRowsService {
   }
 
   /**
+   * See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b.
+   * Replaces this file's earlier `if (tx) {...} else { db.transaction(...) }`
+   * idiom, which opened a plain transaction with no tenant GUC set.
+   */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Verify table belongs to tenant
    */
   private async verifyTableOwnership(
@@ -110,16 +134,18 @@ export class DatavaultRowsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultRow> {
-    const row = await this.rowsRepo.findById(rowId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const row = await this.rowsRepo.findById(rowId, scopedTx);
 
-    if (!row) {
-      throw new Error("Row not found");
-    }
+      if (!row) {
+        throw new Error("Row not found");
+      }
 
-    // Verify the table belongs to the tenant
-    await this.verifyTableOwnership(row.tableId, tenantId, tx);
+      // Verify the table belongs to the tenant
+      await this.verifyTableOwnership(row.tableId, tenantId, scopedTx);
 
-    return row;
+      return row;
+    });
   }
 
   /**
@@ -408,14 +434,8 @@ export class DatavaultRowsService {
     createdBy?: string,
     tx?: DbTransaction
   ): Promise<{ row: DatavaultRow; values: Record<string, unknown> }> {
-    // If transaction provided, use it; otherwise create a new one
-    if (tx) {
-      return this._createRowImpl(tableId, tenantId, values, createdBy, tx);
-    }
-
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._createRowImpl(tableId, tenantId, values, createdBy, newTx);
-    });
+    return this.withTx(tenantId, tx, (scopedTx) =>
+      this._createRowImpl(tableId, tenantId, values, createdBy, scopedTx));
   }
 
   /**
@@ -473,22 +493,24 @@ export class DatavaultRowsService {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   async getRow(rowId: string, tenantId: string, tx?: DbTransaction): Promise<{ row: DatavaultRow; values: Record<string, any> } | null> {
-    const _row = await this.verifyRowOwnership(rowId, tenantId, tx);
-    const result = await this.rowsRepo.getRowWithValues(rowId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const _row = await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      const result = await this.rowsRepo.getRowWithValues(rowId, scopedTx);
 
-    if (!result) {return null;}
+      if (!result) {return null;}
 
-    // Transform values array into Record<columnId, value>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values are dynamically typed
-    const valuesRecord: Record<string, any> = {};
-    for (const valueObj of result.values) {
-      valuesRecord[valueObj.columnId] = valueObj.value;
-    }
+      // Transform values array into Record<columnId, value>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values are dynamically typed
+      const valuesRecord: Record<string, any> = {};
+      for (const valueObj of result.values) {
+        valuesRecord[valueObj.columnId] = valueObj.value;
+      }
 
-    return {
-      row: result.row,
-      values: valuesRecord,
-    };
+      return {
+        row: result.row,
+        values: valuesRecord,
+      };
+    });
   }
 
   /**
@@ -505,8 +527,10 @@ export class DatavaultRowsService {
     },
     tx?: DbTransaction
   ) {
-    await this.verifyTableOwnership(tableId, tenantId, tx);
-    return this.rowsRepo.getRowsWithValues(tableId, options, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      return this.rowsRepo.getRowsWithValues(tableId, options, scopedTx);
+    });
   }
 
   /**
@@ -519,8 +543,10 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   ): Promise<number> {
     const showArchived = typeof options === 'boolean' ? options : Boolean(options.showArchived);
-    await this.verifyTableOwnership(tableId, tenantId, tx);
-    return this.rowsRepo.countByTableId(tableId, showArchived, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      return this.rowsRepo.countByTableId(tableId, showArchived, scopedTx);
+    });
   }
 
   /**
@@ -535,14 +561,8 @@ export class DatavaultRowsService {
     updatedBy?: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // If transaction provided, use it; otherwise create a new one
-    if (tx) {
-      return this._updateRowImpl(rowId, tenantId, values, updatedBy, tx);
-    }
-
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._updateRowImpl(rowId, tenantId, values, updatedBy, newTx);
-    });
+    return this.withTx(tenantId, tx, (scopedTx) =>
+      this._updateRowImpl(rowId, tenantId, values, updatedBy, scopedTx));
   }
 
   /**
@@ -585,8 +605,10 @@ export class DatavaultRowsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<Array<{ referencingTableId: string; referencingColumnId: string; referenceCount: number }>> {
-    await this.verifyRowOwnership(rowId, tenantId, tx);
-    return this.rowsRepo.getRowReferences(rowId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      return this.rowsRepo.getRowReferences(rowId, scopedTx);
+    });
   }
 
   /**
@@ -594,8 +616,10 @@ export class DatavaultRowsService {
    * Note: References to this row will be automatically set to NULL by database trigger
    */
   async deleteRow(rowId: string, tenantId: string, tx?: DbTransaction): Promise<void> {
-    await this.verifyRowOwnership(rowId, tenantId, tx);
-    await this.rowsRepo.deleteRow(rowId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      await this.rowsRepo.deleteRow(rowId, scopedTx);
+    });
   }
 
   /**
@@ -610,14 +634,8 @@ export class DatavaultRowsService {
   ): Promise<void> {
     if (rowIds.length === 0) {return;}
 
-    // If transaction provided, use it; otherwise create a new one
-    if (tx) {
-      return this._bulkDeleteRowsImpl(rowIds, tenantId, tx);
-    }
-
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._bulkDeleteRowsImpl(rowIds, tenantId, newTx);
-    });
+    await this.withTx(tenantId, tx, (scopedTx) =>
+      this._bulkDeleteRowsImpl(rowIds, tenantId, scopedTx));
   }
 
   /**
@@ -655,52 +673,57 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
   ): Promise<Map<string, { displayValue: string; row: any }>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
-    const resultMap = new Map<string, { displayValue: string; row: any }>();
-
-    if (requests.length === 0) {return resultMap;}
-
-    // Verify all tables belong to tenant
-    const uniqueTableIds = [...new Set(requests.map(r => r.tableId))];
-    for (const tableId of uniqueTableIds) {
-      await this.verifyTableOwnership(tableId, tenantId, tx);
+    if (requests.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
+      return new Map<string, { displayValue: string; row: any }>();
     }
 
-    // Batch fetch all rows
-    const rowData = await this.rowsRepo.batchFindByIds(requests, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
+      const resultMap = new Map<string, { displayValue: string; row: any }>();
 
-    // Extract display values
-    requests.forEach(({ tableId: _tableId, rowIds, displayColumnSlug }) => {
-      rowIds.forEach(rowId => {
-        const data = rowData.get(rowId);
-        if (!data) {
-          // Row not found, create placeholder
-          resultMap.set(rowId, {
-            displayValue: 'Not found',
-            row: null
-          });
-          return;
-        }
+      // Verify all tables belong to tenant
+      const uniqueTableIds = [...new Set(requests.map(r => r.tableId))];
+      for (const tableId of uniqueTableIds) {
+        await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      }
 
-        let displayValue: string;
-        if (displayColumnSlug && data.values[displayColumnSlug] !== undefined) {
-          displayValue = String(data.values[displayColumnSlug]);
-        } else {
-          // Fallback to row ID if no display column specified
-          displayValue = `${rowId.substring(0, 8)  }...`;
-        }
+      // Batch fetch all rows
+      const rowData = await this.rowsRepo.batchFindByIds(requests, scopedTx);
 
-        resultMap.set(rowId, {
-          displayValue,
-          row: {
-            ...data.row,
-            values: data.values
+      // Extract display values
+      requests.forEach(({ tableId: _tableId, rowIds, displayColumnSlug }) => {
+        rowIds.forEach(rowId => {
+          const data = rowData.get(rowId);
+          if (!data) {
+            // Row not found, create placeholder
+            resultMap.set(rowId, {
+              displayValue: 'Not found',
+              row: null
+            });
+            return;
           }
+
+          let displayValue: string;
+          if (displayColumnSlug && data.values[displayColumnSlug] !== undefined) {
+            displayValue = String(data.values[displayColumnSlug]);
+          } else {
+            // Fallback to row ID if no display column specified
+            displayValue = `${rowId.substring(0, 8)  }...`;
+          }
+
+          resultMap.set(rowId, {
+            displayValue,
+            row: {
+              ...data.row,
+              values: data.values
+            }
+          });
         });
       });
-    });
 
-    return resultMap;
+      return resultMap;
+    });
   }
 
   /**
@@ -711,12 +734,8 @@ export class DatavaultRowsService {
     rowId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    if (tx) {
-      return this._archiveRowImpl(rowId, tenantId, tx);
-    }
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._archiveRowImpl(rowId, tenantId, newTx);
-    });
+    await this.withTx(tenantId, tx, (scopedTx) =>
+      this._archiveRowImpl(rowId, tenantId, scopedTx));
   }
 
   private async _archiveRowImpl(
@@ -736,12 +755,8 @@ export class DatavaultRowsService {
     rowId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    if (tx) {
-      return this._unarchiveRowImpl(rowId, tenantId, tx);
-    }
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._unarchiveRowImpl(rowId, tenantId, newTx);
-    });
+    await this.withTx(tenantId, tx, (scopedTx) =>
+      this._unarchiveRowImpl(rowId, tenantId, scopedTx));
   }
 
   private async _unarchiveRowImpl(
@@ -767,12 +782,8 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   ): Promise<void> {
     if (rowIds.length === 0) { return; }
-    if (tx) {
-      return this._bulkArchiveRowsImpl(rowIds, tenantId, tx);
-    }
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._bulkArchiveRowsImpl(rowIds, tenantId, newTx);
-    });
+    await this.withTx(tenantId, tx, (scopedTx) =>
+      this._bulkArchiveRowsImpl(rowIds, tenantId, scopedTx));
   }
 
   private async _bulkArchiveRowsImpl(
@@ -793,12 +804,8 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   ): Promise<void> {
     if (rowIds.length === 0) { return; }
-    if (tx) {
-      return this._bulkUnarchiveRowsImpl(rowIds, tenantId, tx);
-    }
-    return db.transaction(async (newTx: DbTransaction) => {
-      return this._bulkUnarchiveRowsImpl(rowIds, tenantId, newTx);
-    });
+    await this.withTx(tenantId, tx, (scopedTx) =>
+      this._bulkUnarchiveRowsImpl(rowIds, tenantId, scopedTx));
   }
 
   private async _bulkUnarchiveRowsImpl(
@@ -837,23 +844,25 @@ export class DatavaultRowsService {
     rows: Array<{ row: DatavaultRow; values: Record<string, unknown> }>;
     total: number;
   }> {
-    // Verify table ownership
-    await this.verifyTableOwnership(tableId, tenantId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify table ownership
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
 
-    // Get rows
-    const rows = await this.rowsRepo.getRowsWithValues(tableId, options, tx);
+      // Get rows
+      const rows = await this.rowsRepo.getRowsWithValues(tableId, options, scopedTx);
 
-    // Get total count
-    const total = await this.rowsRepo.countByTableIdWithFilter(
-      tableId,
-      {
-        showArchived: options.showArchived ?? false,
-        filters: options.filters,
-      },
-      tx
-    );
+      // Get total count
+      const total = await this.rowsRepo.countByTableIdWithFilter(
+        tableId,
+        {
+          showArchived: options.showArchived ?? false,
+          filters: options.filters,
+        },
+        scopedTx
+      );
 
-    return { rows, total };
+      return { rows, total };
+    });
   }
 }
 

@@ -20,6 +20,7 @@ import request from 'supertest';
 import * as schema from '@shared/schema';
 
 import { db, initializeDatabase } from '../../server/db';
+import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerRoutes } from '../../server/routes';
 
 export interface IntegrationTestContext {
@@ -81,6 +82,18 @@ export async function setupIntegrationTest(
       },
     }));
     app.use(express.urlencoded({ extended: false }));
+
+    // RLS-2b (TM-B1, flagged and deferred by RLS-1/RLS-2a): mount BEFORE
+    // registerRoutes, mirroring server/index.ts / server/production.ts —
+    // `rlsContext` opens the async context that `withCurrentTenant` (used by
+    // every service converted in RLS-2a/2b) reads from. Without this, every
+    // HTTP call through this shared harness has no ambient tenant, and any
+    // withTx-wrapped service call that opens its own transaction throws "RLS:
+    // no tenant in context" instead of the auth path populating it per
+    // request the way it does in the real app. It is a safe no-op for public/
+    // unauthenticated routes — rlsContext opens an EMPTY context; only the
+    // auth middleware populates it once a request resolves a tenant.
+    app.use(rlsContext);
 
     // Register all routes
     const server = await registerRoutes(app);

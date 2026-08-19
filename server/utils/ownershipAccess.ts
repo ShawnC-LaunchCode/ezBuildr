@@ -28,7 +28,8 @@ export interface OwnershipInfo {
 export async function canAccessAsset(
   userId: string,
   ownerType: 'user' | 'org' | null,
-  ownerUuid: string | null
+  ownerUuid: string | null,
+  tx?: DbTransaction
 ): Promise<boolean> {
   // Fail closed on missing ownership fields (M1 Fix)
   if (!ownerType || !ownerUuid) {
@@ -40,7 +41,10 @@ export async function canAccessAsset(
   }
 
   if (ownerType === 'org') {
-    return isOrgMember(userId, ownerUuid);
+    // RLS-2b: thread tx through — see isOrgMember's own comment on why an
+    // untransacted pool query here would deadlock a caller's transaction on
+    // a size-1 pool (the SystemStats class of bug).
+    return isOrgMember(userId, ownerUuid, tx);
   }
 
   return false;
@@ -94,8 +98,16 @@ export async function canManageOrg(userId: string, orgId: string, tx?: DbTransac
  * @param userId - The user ID
  * @returns Array of organization IDs
  */
-export async function getUserOrgIds(userId: string): Promise<string[]> {
-  const memberships = await db
+export async function getUserOrgIds(userId: string, tx?: DbTransaction): Promise<string[]> {
+  // RLS-2b (reviewer fix): MUST accept the caller's transaction. In test mode
+  // the pool is size 1 (`server/db.ts`, so schema isolation is reliable), so a
+  // query issued on the POOL from inside an open transaction waits forever for
+  // the connection that transaction is already holding. It hangs rather than
+  // erroring, which is why it reads as a 300s hook timeout and not a failure.
+  // This is the `SystemStats` deadlock class, and it is reachable from every
+  // service RLS-2a/2b converted, because the repositories below call this from
+  // inside `withCurrentTenant`.
+  const memberships = await (tx ?? db)
     .select({ orgId: organizationMemberships.orgId })
     .from(organizationMemberships)
     .where(eq(organizationMemberships.userId, userId));
@@ -116,11 +128,15 @@ export async function getUserOrgIds(userId: string): Promise<string[]> {
  * );
  * ```
  */
-export async function getAccessibleOwnershipFilter(userId: string): Promise<{
+export async function getAccessibleOwnershipFilter(userId: string, tx?: DbTransaction): Promise<{
   userId: string;
   orgIds: string[];
 }> {
-  const orgIds = await getUserOrgIds(userId);
+  // Pass `tx` whenever this is reached from inside a service transaction — see
+  // the deadlock note on `getUserOrgIds`. Repositories that call this from a
+  // `withTx`-wrapped service path (Datavault tables/databases, projects,
+  // workflows) must thread their own `tx` through.
+  const orgIds = await getUserOrgIds(userId, tx);
   return { userId, orgIds };
 }
 /**

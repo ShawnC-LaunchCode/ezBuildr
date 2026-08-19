@@ -23,8 +23,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Find all databases for a tenant (Legacy - admin only)
    */
-  async findByTenantId(tenantId: string): Promise<DatavaultDatabase[]> {
-    return db
+  async findByTenantId(tenantId: string, tx?: DbTransaction): Promise<DatavaultDatabase[]> {
+    const conn = tx ?? db;
+    return conn
       .select()
       .from(datavaultDatabases)
       .where(eq(datavaultDatabases.tenantId, tenantId))
@@ -34,9 +35,12 @@ export class DatavaultDatabasesRepository {
   /**
    * Find databases visible to user (Account scope OR Project scope with access OR Workflow scope with access)
    */
-  async findByTenantAndUser(tenantId: string, userId: string): Promise<DatavaultDatabase[]> {
+  async findByTenantAndUser(tenantId: string, userId: string, tx?: DbTransaction): Promise<DatavaultDatabase[]> {
+    const conn = tx ?? db;
     // Get user's org memberships for org-owned database access
-    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+    // RLS-2b (reviewer fix): thread `tx` — see DatavaultTablesRepository. A
+    // pool query inside the caller's transaction deadlocks the size-1 test pool.
+    const { orgIds } = await getAccessibleOwnershipFilter(userId, tx);
 
     // 1. Get projects user has access to
     const sharedProjectIds = db
@@ -129,7 +133,7 @@ export class DatavaultDatabasesRepository {
     }
 
     // Join with organizations to get owner name
-    const results = await db
+    const results = await conn
       .select({
         ...getTableColumns(datavaultDatabases),
         ownerName: organizations.name,
@@ -161,7 +165,8 @@ export class DatavaultDatabasesRepository {
   async findByScope(
     tenantId: string,
     scopeType: DatavaultScopeType,
-    scopeId?: string
+    scopeId?: string,
+    tx?: DbTransaction
   ): Promise<DatavaultDatabase[]> {
     const conditions = [eq(datavaultDatabases.tenantId, tenantId)];
 
@@ -174,7 +179,8 @@ export class DatavaultDatabasesRepository {
       );
     }
 
-    return db
+    const conn = tx ?? db;
+    return conn
       .select()
       .from(datavaultDatabases)
       .where(and(...conditions))
@@ -199,11 +205,12 @@ export class DatavaultDatabasesRepository {
    * Find database by ID with table count
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async findByIdWithStats(id: string) {
-    const database = await this.findById(id);
+  async findByIdWithStats(id: string, tx?: DbTransaction) {
+    const database = await this.findById(id, tx);
     if (!database) { return null; }
 
-    const tableCount = await db
+    const conn = tx ?? db;
+    const tableCount = await conn
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultTables)
       .where(eq(datavaultTables.databaseId, id));
@@ -217,8 +224,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Create a new database
    */
-  async create(data: InsertDatavaultDatabase): Promise<DatavaultDatabase> {
-    const results = await db
+  async create(data: InsertDatavaultDatabase, tx?: DbTransaction): Promise<DatavaultDatabase> {
+    const conn = tx ?? db;
+    const results = await conn
       .insert(datavaultDatabases)
       .values(data)
       .returning();
@@ -232,9 +240,11 @@ export class DatavaultDatabasesRepository {
    */
   async update(
     id: string,
-    data: Partial<Omit<DatavaultDatabase, 'id' | 'createdAt'>>
+    data: Partial<Omit<DatavaultDatabase, 'id' | 'createdAt'>>,
+    tx?: DbTransaction
   ): Promise<DatavaultDatabase | null> {
-    const results = await db
+    const conn = tx ?? db;
+    const results = await conn
       .update(datavaultDatabases)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(datavaultDatabases.id, id))
@@ -246,8 +256,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Delete database (tables will have database_id set to null via ON DELETE SET NULL)
    */
-  async delete(id: string): Promise<boolean> {
-    const results = await db
+  async delete(id: string, tx?: DbTransaction): Promise<boolean> {
+    const conn = tx ?? db;
+    const results = await conn
       .delete(datavaultDatabases)
       .where(eq(datavaultDatabases.id, id))
       .returning();
@@ -258,8 +269,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Check if database exists and belongs to tenant
    */
-  async existsForTenant(id: string, tenantId: string): Promise<boolean> {
-    const results = await db
+  async existsForTenant(id: string, tenantId: string, tx?: DbTransaction): Promise<boolean> {
+    const conn = tx ?? db;
+    const results = await conn
       .select({ id: datavaultDatabases.id })
       .from(datavaultDatabases)
       .where(
@@ -277,8 +289,9 @@ export class DatavaultDatabasesRepository {
    * Get tables in a database
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async getTablesInDatabase(databaseId: string) {
-    return db
+  async getTablesInDatabase(databaseId: string, tx?: DbTransaction) {
+    const conn = tx ?? db;
+    return conn
       .select()
       .from(datavaultTables)
       .where(eq(datavaultTables.databaseId, databaseId))
@@ -288,8 +301,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Count tables in database
    */
-  async countTables(databaseId: string): Promise<number> {
-    const result = await db
+  async countTables(databaseId: string, tx?: DbTransaction): Promise<number> {
+    const conn = tx ?? db;
+    const result = await conn
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultTables)
       .where(eq(datavaultTables.databaseId, databaseId));
@@ -299,8 +313,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Find data sources linked to a workflow
    */
-  async findByWorkflowId(workflowId: string): Promise<DatavaultDatabase[]> {
-    return db
+  async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<DatavaultDatabase[]> {
+    const conn = tx ?? db;
+    return conn
       .select({
         id: datavaultDatabases.id,
         tenantId: datavaultDatabases.tenantId,
@@ -324,8 +339,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Link a data source to a workflow
    */
-  async linkToWorkflow(workflowId: string, dataSourceId: string): Promise<void> {
-    await db
+  async linkToWorkflow(workflowId: string, dataSourceId: string, tx?: DbTransaction): Promise<void> {
+    const conn = tx ?? db;
+    await conn
       .insert(workflowDataSources)
       .values({ workflowId, dataSourceId })
       .onConflictDoNothing();
@@ -334,8 +350,9 @@ export class DatavaultDatabasesRepository {
   /**
    * Unlink a data source from a workflow
    */
-  async unlinkFromWorkflow(workflowId: string, dataSourceId: string): Promise<void> {
-    await db
+  async unlinkFromWorkflow(workflowId: string, dataSourceId: string, tx?: DbTransaction): Promise<void> {
+    const conn = tx ?? db;
+    await conn
       .delete(workflowDataSources)
       .where(
         and(

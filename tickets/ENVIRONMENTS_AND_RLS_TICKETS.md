@@ -864,7 +864,133 @@ Suite: `tests/integration/`.
 
 ---
 
-## RLS-2b — Roll the service-boundary tenant transaction out across the remaining services 🔲
+## RLS-2b — Roll out: DataVault cluster + TransferService ✅ DONE 2026-08-19 (8 of 23 — remainder is RLS-2c)
+
+**Scoped down at review, deliberately.** The dispatched dev was killed by a session limit
+partway through and reported "all clean" from a state that was not — the real suite showed
+**7 files / 30 tests failing plus a hang**. What it had genuinely completed is one coherent
+cluster, so this ticket now closes at that boundary and `RLS-2c` carries the other 15.
+
+**Converted (8):** the 7 DataVault services + `TransferService`, with their callers
+(`WriteRunner`, `ReadTableBlockRunner`, `EnhancedDocumentEngine`, two route files).
+
+**Gates, reviewer-run after the reviewer's own fixes:** `type-check` **0** ·
+`eslint --max-warnings 0` on all touched files **exit 0** · `test:fast` **282 files / 3266
+passed** · `test:integration` **118 files / 1150 passed / 0 failed, 0 skipped** (the failing
+run had 20 skipped; they now execute).
+
+### 🔴 Finding 1 — a deadlock that hangs instead of failing, and it is systemic
+
+`getAccessibleOwnershipFilter` and `getUserOrgIds` (`server/utils/ownershipAccess.ts`) took no
+`tx`, so repositories called them **on the pool** from inside the service's transaction. Test
+mode runs `max: 1` (`server/db.ts`, deliberately, for schema-isolation reliability), so the
+query waits forever on the connection its own transaction holds. **It presents as a 600s hang
+and a 300s hook timeout, never as an error** — which is why the dev's own runs did not catch it.
+
+The dev *had* threaded `tx` through `canAccessAsset`, `isOrgMember` and `canManageOrg` in that
+same file. It threaded the three helpers called directly and missed the two called a layer
+down, inside repositories.
+
+⚠️ **This is not DataVault-specific.** `getAccessibleOwnershipFilter` is also called without
+`tx` from **`ProjectRepository` (2 sites)** and **`WorkflowRepository` (2 sites)** — the exact
+services RLS-2c converts first. The helper now accepts `tx`; those four call sites still need
+it threaded. **See RLS-2c AC2.**
+
+### 🔴 Finding 2 — converted services need an ambient tenant, and three paths do not supply one
+
+This is `TM-B1` in three distinct shapes, all of which had to be fixed:
+
+1. **The shared harness** (`tests/helpers/integrationTestHelper.ts`) built its app from
+   `registerRoutes`, which does not mount `rlsContext`. **The dev fixed this correctly** — and
+   it is a genuine improvement beyond this ticket.
+2. **Tests that build their own app.** Eight integration suites call `registerRoutes`
+   themselves and therefore inherit nothing; `datavault-v4-regression` was returning **500 on
+   every route**. Fixed by mounting `rlsContext` there too. **The other seven will bite RLS-2c**
+   as it converts the services they exercise — `api.projects`, the four `portability.*` suites,
+   `api.ai.doc`, `js_helpers`.
+3. **Tests that call services directly**, bypassing HTTP entirely. These need the context bound
+   explicitly.
+
+**A measured detail worth keeping:** `AsyncLocalStorage.enterWith` binds only the *current*
+async execution. Binding in `beforeAll` does **not** reach test bodies, and **`beforeEach` does
+not either** — vitest runs each hook and test in its own context. Verified empirically, not
+assumed. So a suite calling services directly must bind inside each test body.
+
+`enterTenantContextForTests` was added to `server/utils/rlsContext.ts` for that. It **throws**
+outside test/development rather than merely documenting the hazard: `enterWith` has no scope
+to exit, so in a request handler it would bleed one tenant's id into whatever ran next on that
+tick — the precise leak this phase exists to prevent. It is named in camelCase rather than
+copying `_testOnly_setGoogleClient`'s prefix, because that prefix needs an `eslint-disable` and
+a rename beats a suppression.
+
+### Reviewer's judgement on the test edits
+
+Every test change is **setup only** — mounting middleware, or binding the tenant context the
+middleware would have set. **No assertion was weakened anywhere.** The one assertion that
+changed shape did so in RLS-2a, not here.
+
+**Priority: P0** · Size: L (delivered as M) · Files: `server/services/Datavault*.ts`, `TransferService.ts`, `server/utils/ownershipAccess.ts`, `server/utils/rlsContext.ts`, `server/repositories/Datavault{Databases,Tables}Repository.ts`, callers, and 6 test files
+
+---
+
+## RLS-2c — Roll out the remaining 15 tenant-scoped services 🔲
+
+**Priority: P0** · Size: L · **BLOCKED on nothing — dispatchable now** · **BLOCKS RLS-4**
+
+### Scope
+
+| Cluster | Services |
+|---|---|
+| Workflow / template (5) | `Workflow`, `WorkflowCloner`, `Version`, `Template`, `TemplateValidation` |
+| Org / access (4) | `Organization`, `Project`, `Team`, `AdminOrgStats` |
+| Collections / records (3) | `CollectionField`, `Record`, `Query` |
+| Misc (3) | `ReviewTask`, `SignatureRequest`, `RunFileUpload` |
+
+`CollectionService` (RLS-2a), the 7 DataVault services and `TransferService` (RLS-2b) are
+done — do not redo them.
+
+### Read this before starting — it will save you a day
+
+1. **Copy the pattern from `CollectionService.withTx`.** Do not re-derive it, do not write a
+   second helper, and do not relitigate the ambient-vs-argument independence — it was ruled on.
+2. **`getAccessibleOwnershipFilter` now takes `tx`, and four call sites still ignore it:**
+   `ProjectRepository` (2) and `WorkflowRepository` (2). **Thread it.** Miss one and the suite
+   **hangs rather than fails** — a pool query inside a transaction against a size-1 pool. This
+   cost RLS-2b real time; it should cost you ten minutes.
+3. **Seven integration suites build their own express app** and so never mount `rlsContext`:
+   `api.projects`, `portability.export`, `portability.import`, `portability.import.limits`,
+   `portability.roundtrip`, `api.ai.doc`, `js_helpers`. As you convert the services they
+   exercise, each needs `app.use(rlsContext)` before `registerRoutes`, exactly as
+   `datavault-v4-regression.test.ts` now does.
+4. **Suites calling services directly** need `enterTenantContextForTests(tenantId)` **inside
+   each test body** — `beforeAll` and `beforeEach` both fail to propagate.
+
+**Worth considering and reporting on:** mounting `rlsContext` inside `registerRoutes` would fix
+class (3) permanently for every consumer — entrypoints, shared harness and hand-rolled test
+apps alike. It was **not** done here because it contradicts RLS-1's shipped design and its
+entrypoint guard test, and that trade deserves a deliberate decision rather than a drive-by
+change mid-rollout. If you reach the same conclusion, say so and let the reviewer rule.
+
+### Acceptance criteria
+
+1. Every service in the table opens tenant-scoped work in **one** transaction at the service
+   boundary, following the pilot's `withTx` shape.
+2. **All four remaining `getAccessibleOwnershipFilter` call sites thread `tx`**, and any other
+   helper reached from inside a transaction does too.
+3. `eq(tenantId, …)` predicates stay everywhere.
+4. Each converted service has a test proving it **fails closed** with no tenant in context —
+   the repository must not be reached. Per-cluster parameterised tests are fine.
+5. At least one **multi-repository** service per cluster asserts the *identical* transaction
+   object reaches both repositories (`expect(txA).toBe(txB)`). Same-tenant is a weaker claim.
+6. Any service that cannot be converted is **listed with its reason** — a background/non-request
+   caller is the expected legitimate case, and it hits `FORCE` unprotected in RLS-4.
+7. `type-check` 0 · `lint` 0 · `test:fast` above baseline · `test:integration` **0 failed and
+   no new skips** — a suite that silently skips is not a suite that passes.
+
+### Reporting
+
+Report after each cluster. Two devs on this board were killed mid-ticket by session limits;
+a cluster-sized checkpoint is what makes partial work landable instead of discarded.
 
 **Priority: P0** · Size: **L** · **BLOCKED on RLS-2a** · Files: the tenant-scoped services and the repositories they call
 

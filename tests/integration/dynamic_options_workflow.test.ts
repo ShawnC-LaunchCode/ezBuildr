@@ -8,6 +8,7 @@ import * as schema from '@shared/schema';
 import type { ChoiceAdvancedConfig } from '@shared/types/stepConfigs';
 
 import { db } from '../../server/db';
+import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import {
   datavaultColumnsService,
@@ -16,6 +17,7 @@ import {
 } from '../../server/services';
 import { authService } from '../../server/services/AuthService';
 import { hashToken } from '../../server/utils/encryption';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
 import { TestFactory } from '../helpers/testFactory';
 
 import type { Server } from 'http';
@@ -58,6 +60,11 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
   beforeAll(async () => {
     const app = express();
     app.use(express.json());
+    // RLS-2b: mount BEFORE registerDatavaultRoutes, mirroring server/index.ts
+    // — DataVault services now open a service-boundary tenant transaction
+    // that reads from this context (see integrationTestHelper.ts for the
+    // same fix applied to the shared harness).
+    app.use(rlsContext);
     registerDatavaultRoutes(app);
     await new Promise<void>((resolve) => {
       server = app.listen(0, resolve);
@@ -91,46 +98,52 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     }).returning();
     sameTenantReaderToken = authService.createToken(sameTenantReader);
 
-    const table = await datavaultTablesService.createTable({
-      tenantId,
-      ownerUserId: userId,
-      name: 'Interview choices',
-      slug: `interview-choices-${randomUUID()}`,
+    // RLS-2b: these DataVault service calls open their own tenant transaction
+    // via the request's async context, and this is direct seeding (no HTTP
+    // request), so open that context explicitly — same reasoning as
+    // transferOwnership.test.ts and integrationTestHelper.ts.
+    await runWithTenantContext(tenantId, async () => {
+      const table = await datavaultTablesService.createTable({
+        tenantId,
+        ownerUserId: userId,
+        name: 'Interview choices',
+        slug: `interview-choices-${randomUUID()}`,
+      });
+      tableId = table.id;
+
+      const valueColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Choice code',
+        type: 'text',
+      }, tenantId);
+      valueColumnId = valueColumn.id;
+      const labelColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Choice label',
+        type: 'text',
+      }, tenantId);
+      labelColumnId = labelColumn.id;
+      const secretColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Internal note',
+        type: 'text',
+      }, tenantId);
+      secretColumnId = secretColumn.id;
+
+      const visibleRow = await datavaultRowsService.createRow(tableId, tenantId, {
+        [valueColumnId]: 'alpha',
+        [labelColumnId]: 'Alpha label',
+        [secretColumnId]: 'must-not-leak',
+      }, userId);
+      visibleRowId = visibleRow.row.id;
+      const archivedRow = await datavaultRowsService.createRow(tableId, tenantId, {
+        [valueColumnId]: 'archived',
+        [labelColumnId]: 'Archived label',
+        [secretColumnId]: 'archived-secret',
+      }, userId);
+      archivedRowId = archivedRow.row.id;
+      await datavaultRowsService.archiveRow(tenantId, archivedRowId);
     });
-    tableId = table.id;
-
-    const valueColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Choice code',
-      type: 'text',
-    }, tenantId);
-    valueColumnId = valueColumn.id;
-    const labelColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Choice label',
-      type: 'text',
-    }, tenantId);
-    labelColumnId = labelColumn.id;
-    const secretColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Internal note',
-      type: 'text',
-    }, tenantId);
-    secretColumnId = secretColumn.id;
-
-    const visibleRow = await datavaultRowsService.createRow(tableId, tenantId, {
-      [valueColumnId]: 'alpha',
-      [labelColumnId]: 'Alpha label',
-      [secretColumnId]: 'must-not-leak',
-    }, userId);
-    visibleRowId = visibleRow.row.id;
-    const archivedRow = await datavaultRowsService.createRow(tableId, tenantId, {
-      [valueColumnId]: 'archived',
-      [labelColumnId]: 'Archived label',
-      [secretColumnId]: 'archived-secret',
-    }, userId);
-    archivedRowId = archivedRow.row.id;
-    await datavaultRowsService.archiveRow(tenantId, archivedRowId);
 
     const { workflow } = await factory.createWorkflow(primary.project.id, userId, {
       workflow: { ownerType: 'user', ownerUuid: userId },

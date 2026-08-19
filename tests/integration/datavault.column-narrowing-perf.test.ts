@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { seedWideDatavaultTable, type SeedWideDatavaultResult } from '../helpers/datavaultSeeder';
 
 describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
@@ -13,6 +14,8 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
   });
 
   it('measures payload size and query time on a 50-column table (full vs narrowed fetch)', async () => {
+    // RLS-2b: calls the converted service directly (no HTTP), so bind the tenant
+    // context the rlsContext middleware would otherwise have set.
     console.log('\n===============================================================');
     console.log('   DVP-3: WIDE TABLE (50 COLUMNS) COLUMN NARROWING BENCHMARK   ');
     console.log('===============================================================\n');
@@ -20,6 +23,7 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
     // 1. Seed 50 columns x 1000 rows = 50,000 values
     const seedStart = Date.now();
     seededData = await seedWideDatavaultTable({ columnCount: 50, rowCount: 1000, batchSize: 500 });
+    enterTenantContextForTests(seededData.tenantId);
     const seedDurationMs = Date.now() - seedStart;
 
     console.log(`  [ok] Table ID: ${seededData.tableId}`);

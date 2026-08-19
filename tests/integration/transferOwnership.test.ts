@@ -7,6 +7,7 @@ import { datavaultDatabasesService } from '../../server/services/DatavaultDataba
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
 import {
     projects,
     workflows,
@@ -315,76 +316,89 @@ describe('Transfer Ownership', () => {
     });
 
     describe('Database Transfer', () => {
+        // RLS-2b: DatavaultDatabasesService now opens a service-boundary
+        // tenant transaction (withCurrentTenant), which reads the tenant from
+        // the request's async context. These tests call the service directly
+        // (no HTTP request, no hybridAuth), so — exactly like RLS-2a's
+        // collections.e2e.test.ts — they must open that context themselves
+        // via runWithTenantContext to stand in for the middleware a direct
+        // service call doesn't get.
         it('should transfer database ownership', async () => {
-            // Create user-owned database
-            const database = await datavaultDatabasesService.createDatabase({
-                name: 'Test Database',
-                scopeType: 'account',
-                ownerType: 'user',
-                ownerUuid: userId1,
-                creatorId: userId1,
-                tenantId: testTenantId,
+            await runWithTenantContext(testTenantId, async () => {
+                // Create user-owned database
+                const database = await datavaultDatabasesService.createDatabase({
+                    name: 'Test Database',
+                    scopeType: 'account',
+                    ownerType: 'user',
+                    ownerUuid: userId1,
+                    creatorId: userId1,
+                    tenantId: testTenantId,
+                });
+                testDatabaseId = database.id;
+
+                // Transfer to org
+                const transferred = await datavaultDatabasesService.transferOwnership(
+                    testDatabaseId,
+                    userId1,
+                    'org',
+                    testOrgId
+                );
+
+                if (transferred) {
+                    expect(transferred.ownerType).toBe('org');
+                    expect(transferred.ownerUuid).toBe(testOrgId);
+                }
             });
-            testDatabaseId = database.id;
-
-            // Transfer to org
-            const transferred = await datavaultDatabasesService.transferOwnership(
-                testDatabaseId,
-                userId1,
-                'org',
-                testOrgId
-            );
-
-            if (transferred) {
-                expect(transferred.ownerType).toBe('org');
-                expect(transferred.ownerUuid).toBe(testOrgId);
-            }
         });
 
         it('should allow an org admin to transfer an org database out', async () => {
-            // Create org-owned database
-            const database = await datavaultDatabasesService.createDatabase({
-                name: 'Org Database',
-                scopeType: 'account',
-                ownerType: 'org',
-                ownerUuid: testOrgId,
-                creatorId: userId1,
+            await runWithTenantContext(testTenantId, async () => {
+                // Create org-owned database
+                const database = await datavaultDatabasesService.createDatabase({
+                    name: 'Org Database',
+                    scopeType: 'account',
+                    ownerType: 'org',
+                    ownerUuid: testOrgId,
+                    creatorId: userId1,
 
-                tenantId: testTenantId,
+                    tenantId: testTenantId,
 
+                });
+                testDatabaseId = database.id;
+
+                // userId1 is the org admin; admins may transfer org assets out (to themselves).
+                const transferred = await datavaultDatabasesService.transferOwnership(
+                    testDatabaseId,
+                    userId1,
+                    'user',
+                    userId1
+                );
+
+                if (transferred) {
+                    expect(transferred.ownerType).toBe('user');
+                    expect(transferred.ownerUuid).toBe(userId1);
+                }
             });
-            testDatabaseId = database.id;
-
-            // userId1 is the org admin; admins may transfer org assets out (to themselves).
-            const transferred = await datavaultDatabasesService.transferOwnership(
-                testDatabaseId,
-                userId1,
-                'user',
-                userId1
-            );
-
-            if (transferred) {
-                expect(transferred.ownerType).toBe('user');
-                expect(transferred.ownerUuid).toBe(userId1);
-            }
         });
 
         it('should prevent an org member (non-admin) from transferring an org database out', async () => {
-            // Create org-owned database; userId2 is only a member.
-            const database = await datavaultDatabasesService.createDatabase({
-                name: 'Org Database (member)',
-                scopeType: 'account',
-                ownerType: 'org',
-                ownerUuid: testOrgId,
-                creatorId: userId1,
-                tenantId: testTenantId,
-            });
-            testDatabaseId = database.id;
+            await runWithTenantContext(testTenantId, async () => {
+                // Create org-owned database; userId2 is only a member.
+                const database = await datavaultDatabasesService.createDatabase({
+                    name: 'Org Database (member)',
+                    scopeType: 'account',
+                    ownerType: 'org',
+                    ownerUuid: testOrgId,
+                    creatorId: userId1,
+                    tenantId: testTenantId,
+                });
+                testDatabaseId = database.id;
 
-            // Transferring an org asset OUT requires org-admin; members must copy instead.
-            await expect(
-                datavaultDatabasesService.transferOwnership(testDatabaseId, userId2, 'user', userId2)
-            ).rejects.toThrow(/organization admin/i);
+                // Transferring an org asset OUT requires org-admin; members must copy instead.
+                await expect(
+                    datavaultDatabasesService.transferOwnership(testDatabaseId, userId2, 'user', userId2)
+                ).rejects.toThrow(/organization admin/i);
+            });
         });
     });
 

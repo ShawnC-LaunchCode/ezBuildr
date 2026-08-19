@@ -48,7 +48,10 @@ export class DatavaultTablesRepository extends BaseRepository<
    */
   async findByTenantAndUser(tenantId: string, userId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {
     const database = this.getDb(tx);
-    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+    // RLS-2b (reviewer fix): thread `tx`. Without it this issues a POOL query
+    // from inside the caller's transaction, and the test pool is size 1 — it
+    // deadlocks and hangs rather than failing.
+    const { orgIds } = await getAccessibleOwnershipFilter(userId, tx);
 
     const sharedLegacyTableIds = database
       .select({ tableId: datavaultTablePermissions.tableId })
