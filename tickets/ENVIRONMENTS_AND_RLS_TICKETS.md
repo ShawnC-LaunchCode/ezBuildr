@@ -84,11 +84,20 @@ untouched. Measured state:
   Settings → Source pane** — neither the API nor `railway status` reports the connected
   branch, so this rests on the 2026-08-15 owner verification recorded in CLAUDE.md.
 
-Still open: **AC4** (`.env.example` does not document `DATABASE_URL` per-environment;
-`TEST_DATABASE_URL` already is, at lines 18–24), **AC5**
-([`docs/deployment/CI_CD_SETUP.md:149`](../docs/deployment/CI_CD_SETUP.md) still says
-*"Only `main` deploys"*, now false, and the three environments are undocumented), and
-**AC6** (the `db:push` smoke check was never run).
+- **AC4 ✅ 2026-08-19** `.env.example` now documents `DATABASE_URL` as per-environment
+  (including that local points at the **dev** branch, never production) and distinguishes
+  `TEST_DATABASE_URL` — local Docker on 5434, Vitest only — from Railway's `test`
+  *environment*, which is the same word for a different thing.
+- **AC5 ✅ 2026-08-19** `docs/deployment/CI_CD_SETUP.md` no longer claims *"Only `main`
+  deploys"* — false since the dev/test environments were created 2026-08-13. It now carries the
+  branch → environment → database table, the `railway.json` pre-deploy migration step, the
+  warning that only Railway's Settings → Source pane reveals the connected branch, and the
+  `Wait for CI` hazard **with the evidence** (every `dev` deploy failed 2026-08-16 → 08-18
+  while the environment served stale code).
+
+Still open: **AC6** — the `db:push` smoke check has not been run. It is deliberately left: it
+mutates the dev database to prove it is not production, and is worth doing when someone can
+watch both `information_schema` probes rather than as a drive-by.
 
 ### Finding
 
@@ -287,8 +296,18 @@ silently "fix" production.
   across the Neon branches breaks no stored data. Consistent with the standing finding that
   the database holds only test data (2 users, 43 tenants, 86 workflows, 0 runs).
 
-Still open: **AC4** (a generated document downloading from production has still not been
-demonstrated — a set variable is not proof) and **AC5** (`.env.example` per-environment list).
+- **AC5 ✅ 2026-08-19** `.env.example` now carries an explicit *"must be set per environment"*
+  list — `DATABASE_URL`, `VL_MASTER_KEY`, `JWT_SECRET`, `SESSION_SECRET`, `BASE_URL`,
+  `ALLOWED_ORIGIN`, `STORAGE_DRIVER` + `AWS_S3_*`, and `ADMIN_DATABASE_URL` (RLS-6) — each with
+  the reason inheriting it would be a bug rather than a convenience. It also **records the
+  variables that are shared today** rather than hiding them: `METRICS_API_KEY` is
+  byte-identical across all three environments, so one leaked value covers all three; the
+  Google keys are shared and arguably fine.
+
+Still open: **AC4** — a generated document downloading from **production** has still not been
+demonstrated, and a set variable is not proof. This one needs the repo owner: proving it means
+generating a real document in the live environment, which is a production write and not
+something to do unsupervised.
 
 **New observation — shared secrets across environments.** `METRICS_API_KEY` is
 byte-identical in all three environments, as are `GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`

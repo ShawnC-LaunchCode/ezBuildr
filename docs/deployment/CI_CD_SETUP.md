@@ -146,10 +146,40 @@ Work promotes `dev` → `test` → `main` (see CLAUDE.md, "Branch flow"), and al
 three run the full suite. A `develop` branch was listed here and in
 `strict-mode-check.yml` until 2026-08-13 but has never existed in this repo.
 
-- **Push to `dev`, `test`, or `main`**: Runs full test suite. Only `main` deploys,
-  via Railway's own GitHub integration — no workflow here performs a deploy.
+- **Push to `dev`, `test`, or `main`**: Runs full test suite. **All three deploy**,
+  each to its own Railway environment (corrected 2026-08-19 — this previously said
+  "only `main` deploys", which stopped being true once the dev/test environments
+  were created on 2026-08-13). Deployment is Railway's own GitHub integration; no
+  workflow here performs a deploy.
 - **Pull Request to `test` or `main`**: Runs full test suite before the merge.
   `test` → `main` is PR-only, because that merge reaches production.
+
+### Environments (ENV-1)
+
+| Branch | Railway environment | URL | Database |
+|--------|--------------------|-----|----------|
+| `dev` | `dev` | ezbuildr-prod-dev.up.railway.app | own Neon branch (`ep-frosty-firefly-…`) |
+| `test` | `test` | ezbuildr-prod-test.up.railway.app | own Neon branch (`ep-fragrant-boat-…`) |
+| `main` | `production` | www.ezbuildr.com | production (`ep-gentle-leaf-…`) |
+
+Each environment has its **own** Neon database, S3 bucket and secrets — they are
+not sharing production's. `railway.json` runs `npm run db:migrate` as a pre-deploy
+step, so a merged migration applies to each environment on its next deploy.
+
+**Verify the branch → environment mapping in Railway's Settings → Source pane
+rather than assuming it.** Until 2026-08-15 all three environments were connected
+to the `test` branch, so `git push origin dev:test` deployed straight to
+www.ezbuildr.com. Neither the Railway API nor `railway status` reports the
+connected branch, so that pane is the only source of truth.
+
+> ⚠️ **`Wait for CI` is OFF on all three environments**, so Railway deploys the
+> moment GitHub receives the push — a red build still ships. This is not
+> theoretical: every `dev` deploy from 2026-08-16 to 2026-08-18 **failed** while
+> the environment kept serving the last good build, so a feature appeared shipped
+> and was not. Railway keeps the previous deployment alive on a failed build, and
+> nothing surfaces the failure short of opening the deployments pane. Turning
+> `Wait for CI` on for `production` is the single highest-value control still
+> available. See `TM-B2` in `tickets/BACKLOG.md`.
 
 ### Pipeline Stages:
 
