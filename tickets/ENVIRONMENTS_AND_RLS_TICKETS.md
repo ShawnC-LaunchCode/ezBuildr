@@ -895,11 +895,65 @@ which is cheaper where there is nothing transactional to protect.
   there as an integration failure under the restricted role, which is exactly what that gate
   is for.
 
+### Scope, measured 2026-08-18 after the pilot landed
+
+**23 services**, in five domain clusters. Work them cluster by cluster:
+
+| Cluster | Services |
+|---|---|
+| DataVault (7) | `DatavaultApiTokens`, `DatavaultColumns`, `DatavaultDatabases`, `DatavaultRowNotes`, `DatavaultRows`, `DatavaultTablePermissions`, `DatavaultTables` |
+| Workflow / template (5) | `Workflow`, `WorkflowCloner`, `Version`, `Template`, `TemplateValidation` |
+| Org / access (5) | `Organization`, `Project`, `Team`, `Transfer`, `AdminOrgStats` |
+| Collections / records (3) | `CollectionField`, `Record`, `Query` |
+| Misc (3) | `ReviewTask`, `SignatureRequest`, `RunFileUpload` |
+
+`CollectionService` is done (RLS-2a) — do not redo it. `QueryService` and `TransferService`
+are not directly route-reachable; convert them anyway if a converted service calls them, and
+say so if they turn out to be dead.
+
+### What the pilot established — copy it, do not re-derive it
+
+Read `server/services/CollectionService.ts` first. The shape is a private
+`withTx(expectedTenantId, tx, fn)`: reuse a caller-supplied `tx`, otherwise compare the
+ambient tenant against the `tenantId` the method's own `eq(tenantId, …)` predicate uses, throw
+on mismatch, and open exactly one transaction via `withCurrentTenant`. §2b of
+`docs/architecture/TENANT_ISOLATION_RLS.md` documents it.
+
+**The pilot needed zero repository changes** — all three already threaded `tx` through
+`BaseRepository.getDb(tx)`. **Do not assume that holds everywhere.** Check each repository a
+service touches, and where one is missing `tx` support, add it following the same convention.
+
+⚠️ **The `SystemStats` deadlock class is the real hazard at this scale.** A repository method
+that runs a *pool* query inside a caller's transaction deadlocks the size-1 test pool, and it
+presents as a **hang, not an error**. If a repository you thread `tx` through calls another
+repository, the inner call needs the `tx` too. With 23 services this will happen at least once.
+
 ### Acceptance criteria
 
-*To be written when RLS-2a lands*, from the pattern it establishes and the real cost it
-reveals. Writing them now would presume the pilot's findings — the same mistake the original
-RLS-2 made by prescribing a shape before the decision existed.
+1. Every service in the table above opens its tenant-scoped work inside **one** transaction at
+   the service boundary, following the pilot's `withTx` shape. No second helper, no per-repository
+   transactions.
+2. Any repository lacking optional-`tx` support gains it, matching the `BaseRepository`
+   convention. Repositories that already support it are left unchanged — **say which were
+   already correct**, as the pilot did, rather than editing files that need nothing.
+3. **`eq(tenantId, …)` predicates stay everywhere.** RLS is a backstop. Removing one is a
+   regression, not a cleanup.
+4. Each converted service has a test proving it **fails closed** with no tenant in context —
+   the repository must not be reached. A per-cluster parameterised test is fine; 23 near-identical
+   files are not required.
+5. At least one **multi-repository** service per cluster has a test asserting the *identical*
+   transaction object reaches both repositories (`expect(txA).toBe(txB)`), as RLS-2a did.
+   Same-tenant is not the same claim as same-transaction.
+6. Any service that cannot be converted is **listed with the reason**, not silently skipped.
+   A background/non-request caller is the expected reason — those have no ambient tenant, and
+   forcing one would be wrong. Flag them for RLS-4, since they will hit `FORCE` unprotected.
+7. `type-check` 0 · `lint` 0 · `test:fast` above baseline · `test:integration` no new failures.
+
+### Reporting
+
+**Report progress after each cluster**, not only at the end. A dev on this board was killed
+mid-ticket by a session limit and left no record of what it had decided; the recovery cost was
+real. A cluster-sized checkpoint makes partial work resumable by the next session.
 
 ---
 
