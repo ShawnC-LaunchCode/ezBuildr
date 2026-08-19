@@ -344,8 +344,7 @@ export class ProjectService {
       userId,
       project.ownerType ?? 'user',
       project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId,
-      targetOwnerType,
-      targetOwnerUuid
+      { ownerType: targetOwnerType, ownerUuid: targetOwnerUuid }
     );
     // Everything below is a single multi-table cascade — wrap it in one
     // transaction so a failure partway (network blip, constraint violation)

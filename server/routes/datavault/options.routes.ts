@@ -8,6 +8,7 @@ import { userRepository } from '../../repositories/UserRepository';
 import { workflowRepository } from '../../repositories/WorkflowRepository';
 import { datavaultColumnsService, datavaultRowsService, datavaultTablesService } from '../../services';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { runWithTenantContext } from '../../utils/rlsContext';
 import { classifyRouteError } from '../../utils/routeErrors';
 import { paginationSchema } from '../../utils/validation';
 
@@ -78,33 +79,48 @@ export function registerDatavaultOptionRoutes(app: Express): void {
           ? await resolveWorkflowTenantId(runAuth.workflowId)
           : getTenantId(req);
 
-        // Distinguish an unknown table (404) from an existing table without
-        // caller permission (403), while preserving cross-tenant denial.
-        await datavaultTablesService.verifyTenantOwnership(tableId, tenantId);
-        if (userId && !runAuth) {
-          await datavaultTablesService.requirePermission(userId, tableId, tenantId, 'read');
-        }
+        // RLS-2b: the DataVault services below now open a service-boundary
+        // tenant transaction that reads the AMBIENT tenant from the request's
+        // async context (RLS-1). That context is populated by hybridAuth's
+        // bearer/cookie resolution, but NOT by `creatorOrRunTokenAuth` — the
+        // run-token path resolves `tenantId` itself (above, via
+        // `resolveWorkflowTenantId`) through a different mechanism entirely.
+        // Wrap explicitly with the tenantId this route already computed
+        // rather than relying on ambient context, so both auth paths work.
+        // Harmless no-op on the hybridAuth path (same value, freshly nested).
+        const options = await runWithTenantContext(tenantId, async () => {
+          // Distinguish an unknown table (404) from an existing table without
+          // caller permission (403), while preserving cross-tenant denial.
+          await datavaultTablesService.verifyTenantOwnership(tableId, tenantId);
+          if (userId && !runAuth) {
+            await datavaultTablesService.requirePermission(userId, tableId, tenantId, 'read');
+          }
 
-        const columns = await datavaultColumnsService.listColumns(tableId, tenantId);
-        const tableColumnIds = new Set(columns.map((column) => column.id));
-        if (!tableColumnIds.has(columnId) || (labelColumnId && !tableColumnIds.has(labelColumnId))) {
+          const columns = await datavaultColumnsService.listColumns(tableId, tenantId);
+          const tableColumnIds = new Set(columns.map((column) => column.id));
+          if (!tableColumnIds.has(columnId) || (labelColumnId && !tableColumnIds.has(labelColumnId))) {
+            return null;
+          }
+
+          const labelId = labelColumnId ?? columnId;
+          const requestedColumnIds = labelId === columnId ? [columnId] : [columnId, labelId];
+          const { rows } = await datavaultRowsService.getRowsWithOptions(
+            tenantId,
+            tableId,
+            { limit, offset: 0, showArchived: false, columnIds: requestedColumnIds }
+          );
+          return rows.map(({ values }) => {
+            const value = values[columnId];
+            return {
+              value: toOptionString(value),
+              label: toOptionString(values[labelId] ?? value),
+            };
+          });
+        });
+
+        if (options === null) {
           return res.status(400).json({ message: 'Invalid column ID for table' });
         }
-
-        const labelId = labelColumnId ?? columnId;
-        const requestedColumnIds = labelId === columnId ? [columnId] : [columnId, labelId];
-        const { rows } = await datavaultRowsService.getRowsWithOptions(
-          tenantId,
-          tableId,
-          { limit, offset: 0, showArchived: false, columnIds: requestedColumnIds }
-        );
-        const options = rows.map(({ values }) => {
-          const value = values[columnId];
-          return {
-            value: toOptionString(value),
-            label: toOptionString(values[labelId] ?? value),
-          };
-        });
 
         res.json({ options });
       } catch (error) {

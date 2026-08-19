@@ -12,9 +12,13 @@ import {
   datavaultRowsRepository,
   type DbTransaction,
 } from "../repositories";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 /**
  * Service layer for DataVault column business logic
  * Handles column CRUD operations with validation and authorization
+ *
+ * RLS-2b: copies the service-boundary tenant transaction pattern from
+ * CollectionService (RLS-2a) — see docs/architecture/TENANT_ISOLATION_RLS.md §2b.
  */
 export class DatavaultColumnsService {
   private columnsRepo: typeof datavaultColumnsRepository;
@@ -28,6 +32,26 @@ export class DatavaultColumnsService {
     this.columnsRepo = columnsRepo ?? datavaultColumnsRepository;
     this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
     this.rowsRepo = rowsRepo ?? datavaultRowsRepository;
+  }
+
+  /** See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
   }
   /**
    * Generate URL-safe slug from name
@@ -82,13 +106,15 @@ export class DatavaultColumnsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
-    const column = await this.columnsRepo.findById(columnId, tx);
-    if (!column) {
-      throw new Error("Column not found");
-    }
-    // Verify the table belongs to the tenant
-    await this.verifyTableOwnership(column.tableId, tenantId, tx);
-    return column;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const column = await this.columnsRepo.findById(columnId, scopedTx);
+      if (!column) {
+        throw new Error("Column not found");
+      }
+      // Verify the table belongs to the tenant
+      await this.verifyTableOwnership(column.tableId, tenantId, scopedTx);
+      return column;
+    });
   }
   /**
    * Validate primary key constraints
@@ -258,94 +284,96 @@ export class DatavaultColumnsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
-    // Verify table ownership
-    await this.verifyTableOwnership(data.tableId, tenantId, tx);
-    if (data.type === 'autonumber') {
-      throw new BadRequestError("Column type 'autonumber' is deprecated; use 'auto_number' instead");
-    }
-    this.validateAutoNumberConfiguration(data.type, data.autonumberPrefix, data.autonumberPadding);
-    // Validate select/multiselect options
-    this.validateSelectOptions(data.type, data.options);
-    // Validate reference column configuration
-    await this.validateReferenceColumn(
-      data.type,
-      data.referenceTableId,
-      data.referenceDisplayColumnSlug,
-      tenantId,
-      tx
-    );
-    // Check for circular reference dependencies
-    if (data.type === 'reference' && data.referenceTableId) {
-      const hasCircularRef = await this.detectCircularReference(
-        data.tableId,
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify table ownership
+      await this.verifyTableOwnership(data.tableId, tenantId, scopedTx);
+      if (data.type === 'autonumber') {
+        throw new BadRequestError("Column type 'autonumber' is deprecated; use 'auto_number' instead");
+      }
+      this.validateAutoNumberConfiguration(data.type, data.autonumberPrefix, data.autonumberPadding);
+      // Validate select/multiselect options
+      this.validateSelectOptions(data.type, data.options);
+      // Validate reference column configuration
+      await this.validateReferenceColumn(
+        data.type,
         data.referenceTableId,
-        tx
+        data.referenceDisplayColumnSlug,
+        tenantId,
+        scopedTx
       );
-      if (hasCircularRef) {
-        throw new ConflictError(
-          `Cannot create reference column: would create circular dependency with table ${data.referenceTableId}`
+      // Check for circular reference dependencies
+      if (data.type === 'reference' && data.referenceTableId) {
+        const hasCircularRef = await this.detectCircularReference(
+          data.tableId,
+          data.referenceTableId,
+          scopedTx
+        );
+        if (hasCircularRef) {
+          throw new ConflictError(
+            `Cannot create reference column: would create circular dependency with table ${data.referenceTableId}`
+          );
+        }
+      }
+      // Clear reference fields if type is not 'reference'
+      let referenceTableId = data.referenceTableId;
+      let referenceDisplayColumnSlug = data.referenceDisplayColumnSlug;
+      if (data.type !== 'reference') {
+        referenceTableId = null;
+        referenceDisplayColumnSlug = null;
+      }
+      // Clear options if type is not 'select' or 'multiselect'
+      let options = data.options;
+      if (data.type !== 'select' && data.type !== 'multiselect') {
+        options = null;
+      }
+      // Validate primary key constraints
+      if (data.isPrimaryKey) {
+        await this.validatePrimaryKey(data.tableId, true, undefined, scopedTx);
+      }
+      // Generate slug if not provided
+      const baseSlug = data.slug ?? this.generateSlug(data.name);
+      const uniqueSlug = await this.ensureUniqueSlug(data.tableId, baseSlug, undefined, scopedTx);
+      // Get next order index if not provided
+      let orderIndex = data.orderIndex;
+      if (orderIndex === undefined || orderIndex === null) {
+        const maxOrder = await this.columnsRepo.getMaxOrderIndex(data.tableId, scopedTx);
+        orderIndex = maxOrder + 1;
+      }
+      // Primary key columns must be required and unique
+      const required = data.isPrimaryKey ? true : (data.required ?? false);
+      const isUnique = data.isPrimaryKey ? true : (data.isUnique ?? false);
+      const column = await this.columnsRepo.create(
+        {
+          ...data,
+          slug: uniqueSlug,
+          orderIndex,
+          required,
+          isUnique,
+          referenceTableId,
+          referenceDisplayColumnSlug,
+          options,
+        },
+        scopedTx
+      );
+      // Seed the counter row backing auto-number generation for this column.
+      // Generation also self-heals if this row is ever missing (e.g. columns
+      // created via a path that bypasses this service), so this is the normal
+      // case, not the only guarantee.
+      if (column.type === 'auto_number') {
+        await this.rowsRepo.createNumberSequence(
+          tenantId,
+          column.tableId,
+          column.id,
+          {
+            startValue: column.autoNumberStart ?? 1,
+            prefix: column.autonumberPrefix,
+            padding: column.autonumberPadding ?? 4,
+          },
+          scopedTx
         );
       }
-    }
-    // Clear reference fields if type is not 'reference'
-    let referenceTableId = data.referenceTableId;
-    let referenceDisplayColumnSlug = data.referenceDisplayColumnSlug;
-    if (data.type !== 'reference') {
-      referenceTableId = null;
-      referenceDisplayColumnSlug = null;
-    }
-    // Clear options if type is not 'select' or 'multiselect'
-    let options = data.options;
-    if (data.type !== 'select' && data.type !== 'multiselect') {
-      options = null;
-    }
-    // Validate primary key constraints
-    if (data.isPrimaryKey) {
-      await this.validatePrimaryKey(data.tableId, true, undefined, tx);
-    }
-    // Generate slug if not provided
-    const baseSlug = data.slug ?? this.generateSlug(data.name);
-    const uniqueSlug = await this.ensureUniqueSlug(data.tableId, baseSlug, undefined, tx);
-    // Get next order index if not provided
-    let orderIndex = data.orderIndex;
-    if (orderIndex === undefined || orderIndex === null) {
-      const maxOrder = await this.columnsRepo.getMaxOrderIndex(data.tableId, tx);
-      orderIndex = maxOrder + 1;
-    }
-    // Primary key columns must be required and unique
-    const required = data.isPrimaryKey ? true : (data.required ?? false);
-    const isUnique = data.isPrimaryKey ? true : (data.isUnique ?? false);
-    const column = await this.columnsRepo.create(
-      {
-        ...data,
-        slug: uniqueSlug,
-        orderIndex,
-        required,
-        isUnique,
-        referenceTableId,
-        referenceDisplayColumnSlug,
-        options,
-      },
-      tx
-    );
-    // Seed the counter row backing auto-number generation for this column.
-    // Generation also self-heals if this row is ever missing (e.g. columns
-    // created via a path that bypasses this service), so this is the normal
-    // case, not the only guarantee.
-    if (column.type === 'auto_number') {
-      await this.rowsRepo.createNumberSequence(
-        tenantId,
-        column.tableId,
-        column.id,
-        {
-          startValue: column.autoNumberStart ?? 1,
-          prefix: column.autonumberPrefix,
-          padding: column.autonumberPadding ?? 4,
-        },
-        tx
-      );
-    }
-    return column;
+      return column;
+    });
   }
   /**
    * Get column by ID with tenant verification
@@ -365,152 +393,158 @@ export class DatavaultColumnsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultColumn[]> {
-    await this.verifyTableOwnership(tableId, tenantId, tx);
-    return this.columnsRepo.findByTableId(tableId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      return this.columnsRepo.findByTableId(tableId, scopedTx);
+    });
   }
   /**
    * Update column (name only - type changes not allowed)
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   async updateColumn(
     columnId: string,
     tenantId: string,
     data: Partial<InsertDatavaultColumn>,
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
-    const column = await this.verifyColumnOwnership(columnId, tenantId, tx);
-    // Prevent type changes
-    if (data.type && data.type !== column.type) {
-      throw new Error("Cannot change column type after creation");
-    }
-    // If select/multiselect options are being updated, validate them
-    const typeToValidate = data.type ?? column.type;
-    const prefixToValidate = data.autonumberPrefix !== undefined
-      ? data.autonumberPrefix
-      : column.autonumberPrefix;
-    const paddingToValidate = data.autonumberPadding !== undefined
-      ? data.autonumberPadding
-      : column.autonumberPadding;
-    this.validateAutoNumberConfiguration(typeToValidate, prefixToValidate, paddingToValidate);
-    const optionsToValidate = data.options !== undefined ? data.options : column.options;
-    this.validateSelectOptions(typeToValidate, optionsToValidate);
-    // If reference-related fields are being updated, validate them
-    const refTableId = data.referenceTableId !== undefined ? data.referenceTableId : column.referenceTableId;
-    const refDisplaySlug = data.referenceDisplayColumnSlug !== undefined
-      ? data.referenceDisplayColumnSlug
-      : column.referenceDisplayColumnSlug;
-    await this.validateReferenceColumn(
-      typeToValidate,
-      refTableId,
-      refDisplaySlug,
-      tenantId,
-      tx
-    );
-    // Check for circular reference dependencies if referenceTableId is being changed
-    if (typeToValidate === 'reference' && refTableId && refTableId !== column.referenceTableId) {
-      const hasCircularRef = await this.detectCircularReference(
-        column.tableId,
-        refTableId,
-        tx
-      );
-      if (hasCircularRef) {
-        throw new ConflictError(
-          `Cannot update reference column: would create circular dependency with table ${refTableId}`
-        );
+    // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- pre-existing complexity (this body is unchanged from before RLS-2b's withTx wrap moved it into a nested arrow)
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const column = await this.verifyColumnOwnership(columnId, tenantId, scopedTx);
+      // Prevent type changes
+      if (data.type && data.type !== column.type) {
+        throw new Error("Cannot change column type after creation");
       }
-    }
-    // Clear reference fields if type is not 'reference'
-    if (typeToValidate !== 'reference') {
-      data.referenceTableId = null;
-      data.referenceDisplayColumnSlug = null;
-    }
-    // Clear options if type is not 'select' or 'multiselect'
-    if (typeToValidate !== 'select' && typeToValidate !== 'multiselect') {
-      data.options = null;
-    }
-    // Primary key and uniqueness semantics:
-    // A column is effectively unique if (isUnique === true || isPrimaryKey === true).
-    const currentIsPk = column.isPrimaryKey ?? false;
-    const currentIsUnique = (column.isUnique ?? false) || currentIsPk;
-
-    // Check invalid combination: trying to turn isUnique false on an existing primary key
-    // without simultaneously removing primary key status.
-    if (data.isUnique === false && currentIsPk && data.isPrimaryKey !== false) {
-      throw new BadRequestError(
-        'A primary key column must be unique. To remove uniqueness, remove primary key status first.'
+      // If select/multiselect options are being updated, validate them
+      const typeToValidate = data.type ?? column.type;
+      const prefixToValidate = data.autonumberPrefix !== undefined
+        ? data.autonumberPrefix
+        : column.autonumberPrefix;
+      const paddingToValidate = data.autonumberPadding !== undefined
+        ? data.autonumberPadding
+        : column.autonumberPadding;
+      this.validateAutoNumberConfiguration(typeToValidate, prefixToValidate, paddingToValidate);
+      const optionsToValidate = data.options !== undefined ? data.options : column.options;
+      this.validateSelectOptions(typeToValidate, optionsToValidate);
+      // If reference-related fields are being updated, validate them
+      const refTableId = data.referenceTableId !== undefined ? data.referenceTableId : column.referenceTableId;
+      const refDisplaySlug = data.referenceDisplayColumnSlug !== undefined
+        ? data.referenceDisplayColumnSlug
+        : column.referenceDisplayColumnSlug;
+      await this.validateReferenceColumn(
+        typeToValidate,
+        refTableId,
+        refDisplaySlug,
+        tenantId,
+        scopedTx
       );
-    }
-
-    // If setting as primary key, force required and unique
-    if (data.isPrimaryKey) {
-      data.required = true;
-      data.isUnique = true;
-    }
-
-    // Validate primary key changes
-    if (data.isPrimaryKey !== undefined && data.isPrimaryKey !== column.isPrimaryKey) {
-      if (data.isPrimaryKey) {
-        // Setting as primary key
-        await this.validatePrimaryKey(column.tableId, true, columnId, tx);
-      } else {
-        // Removing primary key - check if table has at least one other column
-        const allColumns = await this.columnsRepo.findByTableId(column.tableId, tx);
-        if (allColumns.length === 1) {
-          throw new BadRequestError(
-            'Cannot remove primary key from the only column in the table. ' +
-            'Tables must have at least one primary key column.'
+      // Check for circular reference dependencies if referenceTableId is being changed
+      if (typeToValidate === 'reference' && refTableId && refTableId !== column.referenceTableId) {
+        const hasCircularRef = await this.detectCircularReference(
+          column.tableId,
+          refTableId,
+          scopedTx
+        );
+        if (hasCircularRef) {
+          throw new ConflictError(
+            `Cannot update reference column: would create circular dependency with table ${refTableId}`
           );
         }
       }
-    }
+      // Clear reference fields if type is not 'reference'
+      if (typeToValidate !== 'reference') {
+        data.referenceTableId = null;
+        data.referenceDisplayColumnSlug = null;
+      }
+      // Clear options if type is not 'select' or 'multiselect'
+      if (typeToValidate !== 'select' && typeToValidate !== 'multiselect') {
+        data.options = null;
+      }
+      // Primary key and uniqueness semantics:
+      // A column is effectively unique if (isUnique === true || isPrimaryKey === true).
+      const currentIsPk = column.isPrimaryKey ?? false;
+      const currentIsUnique = (column.isUnique ?? false) || currentIsPk;
 
-    const newIsPk = data.isPrimaryKey ?? currentIsPk;
-    const newIsUnique = newIsPk ? true : (data.isUnique ?? column.isUnique ?? false);
+      // Check invalid combination: trying to turn isUnique false on an existing primary key
+      // without simultaneously removing primary key status.
+      if (data.isUnique === false && currentIsPk && data.isPrimaryKey !== false) {
+        throw new BadRequestError(
+          'A primary key column must be unique. To remove uniqueness, remove primary key status first.'
+        );
+      }
 
-    // Validate unique constraint changes and sync unique keys
-    if (!currentIsUnique && newIsUnique) {
-      await this.validateUniqueConstraint(columnId, true, tx);
-      await this.rowsRepo.populateUniqueKeysForColumn(columnId, tx);
-    } else if (currentIsUnique && !newIsUnique) {
-      await this.rowsRepo.removeUniqueKeysForColumn(columnId, tx);
-    }
+      // If setting as primary key, force required and unique
+      if (data.isPrimaryKey) {
+        data.required = true;
+        data.isUnique = true;
+      }
 
-    // If name changed, regenerate slug
-    if (data.name && !data.slug) {
-      const baseSlug = this.generateSlug(data.name);
-      data.slug = await this.ensureUniqueSlug(column.tableId, baseSlug, columnId, tx);
-    }
+      // Validate primary key changes
+      if (data.isPrimaryKey !== undefined && data.isPrimaryKey !== column.isPrimaryKey) {
+        if (data.isPrimaryKey) {
+          // Setting as primary key
+          await this.validatePrimaryKey(column.tableId, true, columnId, scopedTx);
+        } else {
+          // Removing primary key - check if table has at least one other column
+          const allColumns = await this.columnsRepo.findByTableId(column.tableId, scopedTx);
+          if (allColumns.length === 1) {
+            throw new BadRequestError(
+              'Cannot remove primary key from the only column in the table. ' +
+              'Tables must have at least one primary key column.'
+            );
+          }
+        }
+      }
 
-    // If slug provided, ensure it's unique
-    if (data.slug) {
-      data.slug = await this.ensureUniqueSlug(column.tableId, data.slug, columnId, tx);
-    }
+      const newIsPk = data.isPrimaryKey ?? currentIsPk;
+      const newIsUnique = newIsPk ? true : (data.isUnique ?? column.isUnique ?? false);
 
-    return this.columnsRepo.update(columnId, data, tx);
+      // Validate unique constraint changes and sync unique keys
+      if (!currentIsUnique && newIsUnique) {
+        await this.validateUniqueConstraint(columnId, true, scopedTx);
+        await this.rowsRepo.populateUniqueKeysForColumn(columnId, scopedTx);
+      } else if (currentIsUnique && !newIsUnique) {
+        await this.rowsRepo.removeUniqueKeysForColumn(columnId, scopedTx);
+      }
+
+      // If name changed, regenerate slug
+      if (data.name && !data.slug) {
+        const baseSlug = this.generateSlug(data.name);
+        data.slug = await this.ensureUniqueSlug(column.tableId, baseSlug, columnId, scopedTx);
+      }
+
+      // If slug provided, ensure it's unique
+      if (data.slug) {
+        data.slug = await this.ensureUniqueSlug(column.tableId, data.slug, columnId, scopedTx);
+      }
+
+      return this.columnsRepo.update(columnId, data, scopedTx);
+    });
   }
   /**
    * Delete column (also deletes all associated values)
    */
   async deleteColumn(columnId: string, tenantId: string, tx?: DbTransaction): Promise<void> {
-    const column = await this.verifyColumnOwnership(columnId, tenantId, tx);
-    // Guardrail: Check for references in workflows
-    await this.checkColumnUsage(columnId, tx);
-    // Prevent deleting the only primary key column
-    if (column.isPrimaryKey) {
-      const allColumns = await this.columnsRepo.findByTableId(column.tableId, tx);
-      const primaryKeyColumns = allColumns.filter(c => c.isPrimaryKey);
-      if (primaryKeyColumns.length === 1) {
-        throw new Error(
-          'Cannot delete the primary key column. Tables must have at least one primary key column. ' +
-          'Please designate another column as the primary key before deleting this one.'
-        );
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      const column = await this.verifyColumnOwnership(columnId, tenantId, scopedTx);
+      // Guardrail: Check for references in workflows
+      await this.checkColumnUsage(columnId, scopedTx);
+      // Prevent deleting the only primary key column
+      if (column.isPrimaryKey) {
+        const allColumns = await this.columnsRepo.findByTableId(column.tableId, scopedTx);
+        const primaryKeyColumns = allColumns.filter(c => c.isPrimaryKey);
+        if (primaryKeyColumns.length === 1) {
+          throw new Error(
+            'Cannot delete the primary key column. Tables must have at least one primary key column. ' +
+            'Please designate another column as the primary key before deleting this one.'
+          );
+        }
       }
-    }
-    // Delete all values for this column first (though CASCADE should handle it)
-    await this.rowsRepo.deleteValuesByColumnId(columnId, tx);
-    // Delete the column. Its datavault_number_sequences counter row (if any)
-    // is removed automatically via ON DELETE CASCADE on column_id.
-    await this.columnsRepo.delete(columnId, tx);
+      // Delete all values for this column first (though CASCADE should handle it)
+      await this.rowsRepo.deleteValuesByColumnId(columnId, scopedTx);
+      // Delete the column. Its datavault_number_sequences counter row (if any)
+      // is removed automatically via ON DELETE CASCADE on column_id.
+      await this.columnsRepo.delete(columnId, scopedTx);
+    });
   }
   /**
    * Reorder columns for a table
@@ -521,16 +555,18 @@ export class DatavaultColumnsService {
     columnIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    await this.verifyTableOwnership(tableId, tenantId, tx);
-    // Verify all columns belong to the table
-    const columns = await this.columnsRepo.findByTableId(tableId, tx);
-    const tableColumnIds = new Set(columns.map((c) => c.id));
-    for (const columnId of columnIds) {
-      if (!tableColumnIds.has(columnId)) {
-        throw new Error(`Column ${columnId} does not belong to table ${tableId}`);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      // Verify all columns belong to the table
+      const columns = await this.columnsRepo.findByTableId(tableId, scopedTx);
+      const tableColumnIds = new Set(columns.map((c) => c.id));
+      for (const columnId of columnIds) {
+        if (!tableColumnIds.has(columnId)) {
+          throw new Error(`Column ${columnId} does not belong to table ${tableId}`);
+        }
       }
-    }
-    await this.columnsRepo.reorderColumns(tableId, columnIds, tx);
+      await this.columnsRepo.reorderColumns(tableId, columnIds, scopedTx);
+    });
   }
   /**
    * Get column by slug
@@ -541,8 +577,10 @@ export class DatavaultColumnsService {
     slug: string,
     tx?: DbTransaction
   ): Promise<DatavaultColumn | undefined> {
-    await this.verifyTableOwnership(tableId, tenantId, tx);
-    return this.columnsRepo.findByTableAndSlug(tableId, slug, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyTableOwnership(tableId, tenantId, scopedTx);
+      return this.columnsRepo.findByTableAndSlug(tableId, slug, scopedTx);
+    });
   }
   /**
    * Check if column is used in any workflows (blocks or transforms)

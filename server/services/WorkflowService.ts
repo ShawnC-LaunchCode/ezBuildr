@@ -718,8 +718,7 @@ export class WorkflowService {
       userId,
       workflow.ownerType ?? 'user',
       workflow.ownerUuid ?? workflow.ownerId ?? workflow.creatorId ?? userId,
-      targetOwnerType,
-      targetOwnerUuid
+      { ownerType: targetOwnerType, ownerUuid: targetOwnerUuid }
     );
     // Check if workflow is in a project
     let shouldDetachFromProject = false;

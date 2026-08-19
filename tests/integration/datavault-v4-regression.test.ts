@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 
 import { db } from '../../server/db';
 import { setupAuth, _testOnly_setGoogleClient } from '../../server/googleAuth';
+import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerRoutes } from '../../server/routes';
 import { datavaultTables, datavaultRows, datavaultRowNotes, datavaultApiTokens, datavaultTablePermissions, tenants, datavaultDatabases, users } from '../../shared/schema';
 // Mock userRepository.upsert to prevent overwriting tenantId during login
@@ -68,6 +69,13 @@ describe('DataVault v4 Regression Tests', () => {
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     setupAuth(app);
+    // RLS-2b: this suite builds its own app instead of using
+    // `setupIntegrationTest`, so it does not inherit the harness's middleware.
+    // `registerRoutes` does not mount `rlsContext` — only the entrypoints and
+    // the shared harness do — so without this every converted service throws
+    // "RLS: no tenant in context" and the routes answer 500. Mount it before
+    // the routes, mirroring server/index.ts and server/production.ts.
+    app.use(rlsContext);
     await registerRoutes(app);
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({

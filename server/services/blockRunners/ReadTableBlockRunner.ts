@@ -12,6 +12,7 @@ import type { DatavaultColumn } from "@shared/schema";
 import { db } from "../../db";
 import { logger } from "../../logger";
 import { stepValueRepository, datavaultColumnsRepository } from "../../repositories";
+import { runWithTenantContext } from "../../utils/rlsContext";
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
@@ -179,10 +180,19 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       // Import services dynamically to avoid circular dependencies
       const { datavaultTablesService } = await import('../DatavaultTablesService');
 
-      // Verify table exists and belongs to tenant
+      // Verify table exists and belongs to tenant.
+      // RLS-2b: DatavaultTablesService now opens a service-boundary tenant
+      // transaction that reads the tenant from the request's async context.
+      // Block execution can run from an HTTP request (context already
+      // populated by RLS-1) OR a background job (no ambient context at all —
+      // run completion, scheduled workflows, etc.). This runner already
+      // resolves its own authoritative `tenantId` from the workflow above,
+      // independent of HTTP auth, so open the context explicitly with it
+      // rather than depending on an ambient value that may not exist.
       let table;
       try {
-        table = await datavaultTablesService.verifyTenantOwnership(tableConfig.tableId, tenantId);
+        table = await runWithTenantContext(tenantId, () =>
+          datavaultTablesService.verifyTenantOwnership(tableConfig.tableId, tenantId));
       } catch (error: unknown) {
         return {
           success: false,

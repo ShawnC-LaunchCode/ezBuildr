@@ -11,6 +11,7 @@ import { datavaultRowsRepository } from '../../server/repositories/DatavaultRows
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
 import {
   createTestUser,
   setupIntegrationTest,
@@ -479,10 +480,14 @@ describe('DataVault unique row constraints', () => {
     });
     expect(archivedResponse.status).toBe(201);
 
-    await datavaultRowsService.archiveRow(
+    // RLS-2b: this calls the service directly rather than over HTTP, so no
+    // `rlsContext` middleware has populated the async tenant context. Stand in
+    // for it, exactly as RLS-2a did in collections.e2e.test.ts. Setup only —
+    // no assertion changed.
+    await runWithTenantContext(ctx.tenantId, () => datavaultRowsService.archiveRow(
       ctx.tenantId,
       archivedResponse.body.row.id as string
-    );
+    ));
 
     const replacementResponse = await authenticatedRequest().send({
       values: { [uniqueColumnId]: 'archived@example.com' },
@@ -942,7 +947,8 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
     expect(table.rowCount).toBe(3);
 
     // Also assert directly against datavaultTablesService.listTablesWithStats
-    const serviceTables = await datavaultTablesService.listTablesWithStats(ctx.tenantId, ownerUserId);
+    const serviceTables = await runWithTenantContext(ctx.tenantId, () =>
+      datavaultTablesService.listTablesWithStats(ctx.tenantId, ownerUserId));
     const serviceTable = serviceTables.find((t: any) => t.id === tableId);
     expect(serviceTable?.rowCount).toBe(3);
   });
@@ -951,7 +957,8 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
     const repoCount = await datavaultRowsRepository.countByTableId(tableId);
     expect(repoCount).toBe(3);
 
-    const serviceCount = await datavaultRowsService.countRows(tableId, ctx.tenantId);
+    const serviceCount = await runWithTenantContext(ctx.tenantId, () =>
+      datavaultRowsService.countRows(tableId, ctx.tenantId));
     expect(serviceCount).toBe(3);
   });
 

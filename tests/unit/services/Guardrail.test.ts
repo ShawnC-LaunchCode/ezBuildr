@@ -8,6 +8,22 @@ import {
 } from "../../../server/repositories";
 import { db } from '../../../server/db';
 import type { DatavaultColumn, DatavaultTable } from "@shared/schema";
+import type { DbTransaction } from "../../../server/repositories";
+
+// RLS-2b: DatavaultColumnsService.deleteColumn now opens a tenant-scoped
+// transaction at the service boundary when no `tx` is supplied, which
+// requires a tenant in the request's async context (RLS-1) — unavailable to
+// a plain unit test. Pass an explicit fake `tx` to take the "caller already
+// has a transaction" branch, matching CollectionService.test.ts (RLS-2a).
+//
+// Unlike the other Datavault unit-test files, `mockTx` here must BE the
+// mocked `db` object rather than an unrelated fake: `checkColumnUsage`
+// (private, only reachable via deleteColumn) reads `tx ?? db` directly
+// rather than going through a repository's `getDb(tx)`, and this file's
+// mocked query chain (`mockQueryBuilder`) is wired onto `db.select`, not
+// onto some other object. An unrelated fake `tx` would make that lookup
+// resolve to the fake instead of the mocked `db`, breaking the chain.
+const mockTx = db as unknown as DbTransaction;
 
 // Mock modules
 vi.mock('../../../server/db', () => ({
@@ -107,7 +123,7 @@ describe('DatavaultGuardrails', () => {
             // We need to ensure the LAST method in the chain returns the desired value.
             mockQueryBuilder.limit.mockResolvedValueOnce([{ id: 'block-1', type: 'create_record', workflowId: 'wf-1' }]);
 
-            await expect(service.deleteColumn(columnId, tenantId)).rejects.toThrow(/referenced by a create_record block/);
+            await expect(service.deleteColumn(columnId, tenantId, mockTx)).rejects.toThrow(/referenced by a create_record block/);
         });
 
         it('should throw if column is referenced in a transform', async () => {
@@ -126,7 +142,7 @@ describe('DatavaultGuardrails', () => {
             // Second query (transforms) returns match
             mockQueryBuilder.limit.mockResolvedValueOnce([{ id: 'tf-1', name: 'My Transform', workflowId: 'wf-2' }]);
 
-            await expect(service.deleteColumn(columnId, tenantId)).rejects.toThrow(/referenced by transform block/);
+            await expect(service.deleteColumn(columnId, tenantId, mockTx)).rejects.toThrow(/referenced by transform block/);
         });
 
         it('should succeed if no references found', async () => {
@@ -140,9 +156,9 @@ describe('DatavaultGuardrails', () => {
             // No matches
             mockQueryBuilder.limit.mockResolvedValue([]);
 
-            await service.deleteColumn(columnId, tenantId);
+            await service.deleteColumn(columnId, tenantId, mockTx);
 
-            expect(mockColumnsRepo.delete).toHaveBeenCalledWith(columnId, undefined);
+            expect(mockColumnsRepo.delete).toHaveBeenCalledWith(columnId, mockTx);
         });
     });
 });

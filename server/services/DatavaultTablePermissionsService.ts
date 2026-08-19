@@ -10,6 +10,7 @@ import {
   datavaultTablesRepository,
   type DbTransaction,
 } from "../repositories";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 import { datavaultAclService } from "./DatavaultAclService";
 
@@ -25,6 +26,9 @@ export interface TablePermissionFlags {
 /**
  * Service layer for DataVault table permissions
  * Handles permission CRUD and authorization checks
+ *
+ * RLS-2b: copies the service-boundary tenant transaction pattern from
+ * CollectionService (RLS-2a) — see docs/architecture/TENANT_ISOLATION_RLS.md §2b.
  */
 export class DatavaultTablePermissionsService {
   private permissionsRepo: typeof datavaultTablePermissionsRepository;
@@ -36,6 +40,26 @@ export class DatavaultTablePermissionsService {
   ) {
     this.permissionsRepo = permissionsRepo ?? datavaultTablePermissionsRepository;
     this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
+  }
+
+  /** See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
   }
 
   /**
@@ -53,20 +77,22 @@ export class DatavaultTablePermissionsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<TablePermissionFlags> {
-    // Get the table to check if user is the owner
-    const table = await this.tablesRepo.findById(tableId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Get the table to check if user is the owner
+      const table = await this.tablesRepo.findById(tableId, scopedTx);
 
-    if (!table) {
-      return { read: false, write: false, owner: false };
-    }
+      if (!table) {
+        return { read: false, write: false, owner: false };
+      }
 
-    // Verify table belongs to tenant
-    if (table.tenantId !== tenantId) {
-      return { read: false, write: false, owner: false };
-    }
+      // Verify table belongs to tenant
+      if (table.tenantId !== tenantId) {
+        return { read: false, write: false, owner: false };
+      }
 
-    const role = await datavaultAclService.resolveRoleForTable(userId, tableId, tx);
-    return this.accessRoleToPermissionFlags(role);
+      const role = await datavaultAclService.resolveRoleForTable(userId, tableId, scopedTx);
+      return this.accessRoleToPermissionFlags(role);
+    });
   }
 
   /**
@@ -109,11 +135,13 @@ export class DatavaultTablePermissionsService {
     level: "read" | "write" | "owner",
     tx?: DbTransaction
   ): Promise<void> {
-    const permissions = await this.checkTablePermission(userId, tableId, tenantId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      const permissions = await this.checkTablePermission(userId, tableId, tenantId, scopedTx);
 
-    if (!permissions[level]) {
-      throw new Error(`Access denied - ${level} permission required`);
-    }
+      if (!permissions[level]) {
+        throw new Error(`Access denied - ${level} permission required`);
+      }
+    });
   }
 
   /**
@@ -125,9 +153,11 @@ export class DatavaultTablePermissionsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultTablePermission[]> {
-    // Only owners can view permissions
-    await this.requirePermission(userId, tableId, tenantId, "owner", tx);
-    return this.permissionsRepo.findByTableId(tableId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Only owners can view permissions
+      await this.requirePermission(userId, tableId, tenantId, "owner", scopedTx);
+      return this.permissionsRepo.findByTableId(tableId, scopedTx);
+    });
   }
 
   /**
@@ -141,21 +171,23 @@ export class DatavaultTablePermissionsService {
     data: InsertDatavaultTablePermission,
     tx?: DbTransaction
   ): Promise<DatavaultTablePermission> {
-    // Only owners can grant permissions
-    await this.requirePermission(actorUserId, tableId, tenantId, "owner", tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Only owners can grant permissions
+      await this.requirePermission(actorUserId, tableId, tenantId, "owner", scopedTx);
 
-    // Ensure tableId matches
-    if (data.tableId !== tableId) {
-      throw new Error("Table ID mismatch");
-    }
+      // Ensure tableId matches
+      if (data.tableId !== tableId) {
+        throw new Error("Table ID mismatch");
+      }
 
-    // Prevent user from modifying their own permissions (if they're the table owner)
-    const table = await this.tablesRepo.findById(tableId, tx);
-    if (table?.ownerUserId === data.userId) {
-      throw new Error("Cannot modify permissions for table owner");
-    }
+      // Prevent user from modifying their own permissions (if they're the table owner)
+      const table = await this.tablesRepo.findById(tableId, scopedTx);
+      if (table?.ownerUserId === data.userId) {
+        throw new Error("Cannot modify permissions for table owner");
+      }
 
-    return this.permissionsRepo.upsert(data, tx);
+      return this.permissionsRepo.upsert(data, scopedTx);
+    });
   }
 
   /**
@@ -168,27 +200,29 @@ export class DatavaultTablePermissionsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Only owners can revoke permissions
-    await this.requirePermission(actorUserId, tableId, tenantId, "owner", tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Only owners can revoke permissions
+      await this.requirePermission(actorUserId, tableId, tenantId, "owner", scopedTx);
 
-    // Get the permission to verify it exists and belongs to the table
-    const permission = await this.permissionsRepo.findById(permissionId, tx);
+      // Get the permission to verify it exists and belongs to the table
+      const permission = await this.permissionsRepo.findById(permissionId, scopedTx);
 
-    if (!permission) {
-      throw new Error("Permission not found");
-    }
+      if (!permission) {
+        throw new Error("Permission not found");
+      }
 
-    if (permission.tableId !== tableId) {
-      throw new Error("Permission does not belong to this table");
-    }
+      if (permission.tableId !== tableId) {
+        throw new Error("Permission does not belong to this table");
+      }
 
-    // Prevent revoking table owner's permission
-    const table = await this.tablesRepo.findById(tableId, tx);
-    if (table?.ownerUserId === permission.userId) {
-      throw new Error("Cannot revoke permissions for table owner");
-    }
+      // Prevent revoking table owner's permission
+      const table = await this.tablesRepo.findById(tableId, scopedTx);
+      if (table?.ownerUserId === permission.userId) {
+        throw new Error("Cannot revoke permissions for table owner");
+      }
 
-    await this.permissionsRepo.deleteById(permissionId, tx);
+      await this.permissionsRepo.deleteById(permissionId, scopedTx);
+    });
   }
 
   /**
@@ -199,27 +233,29 @@ export class DatavaultTablePermissionsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<Array<DatavaultTablePermission & { permissionFlags: TablePermissionFlags }>> {
-    const permissions = await this.permissionsRepo.findByUserId(userId, tx);
-    if (permissions.length === 0) {return [];}
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const permissions = await this.permissionsRepo.findByUserId(userId, scopedTx);
+      if (permissions.length === 0) {return [];}
 
-    // Batch fetch all relevant tables in one query instead of one per permission
-    const tableIds = permissions.map(p => p.tableId);
-    const tables = await this.tablesRepo.findByIds(tableIds, tx);
-    const tableMap = new Map(tables.map(t => [t.id, t]));
+      // Batch fetch all relevant tables in one query instead of one per permission
+      const tableIds = permissions.map(p => p.tableId);
+      const tables = await this.tablesRepo.findByIds(tableIds, scopedTx);
+      const tableMap = new Map(tables.map(t => [t.id, t]));
 
-    return permissions.map(permission => {
-      const table = tableMap.get(permission.tableId);
-      let flags: TablePermissionFlags;
+      return permissions.map(permission => {
+        const table = tableMap.get(permission.tableId);
+        let flags: TablePermissionFlags;
 
-      if (!table || table.tenantId !== tenantId) {
-        flags = { read: false, write: false, owner: false };
-      } else if (table.ownerUserId === userId) {
-        flags = { read: true, write: true, owner: true };
-      } else {
-        flags = this.roleToPermissionFlags(permission.role);
-      }
+        if (!table || table.tenantId !== tenantId) {
+          flags = { read: false, write: false, owner: false };
+        } else if (table.ownerUserId === userId) {
+          flags = { read: true, write: true, owner: true };
+        } else {
+          flags = this.roleToPermissionFlags(permission.role);
+        }
 
-      return { ...permission, permissionFlags: flags };
+        return { ...permission, permissionFlags: flags };
+      });
     });
   }
 }
