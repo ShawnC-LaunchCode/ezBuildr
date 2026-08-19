@@ -117,10 +117,14 @@ export async function getUserOrgIds(userId: string, tx?: DbTransaction): Promise
  * Build a SQL condition for "user owns OR user's org owns" filtering
  * Use this in list queries to show both user-owned and org-owned assets
  *
- * Example usage:
+ * Example usage — **pass `tx` whenever the caller has one.** Omitting it inside
+ * an open transaction issues a POOL query, and the test pool is size 1, so it
+ * waits forever on the connection that transaction holds: it hangs rather than
+ * failing. That cost RLS-2b a full review cycle; this example is written with
+ * `tx` so the next reader copies the safe form.
  * ```
- * const accessible = await getAccessibleOwnershipFilter(userId);
- * const results = await db.select().from(workflows).where(
+ * const accessible = await getAccessibleOwnershipFilter(userId, tx);
+ * const results = await (tx ?? db).select().from(workflows).where(
  *   or(
  *     and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId)),
  *     and(eq(workflows.ownerType, 'org'), inArray(workflows.ownerUuid, accessible.orgIds))

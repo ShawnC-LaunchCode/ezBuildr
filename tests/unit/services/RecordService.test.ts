@@ -1,8 +1,17 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 import { recordRepository, collectionRepository, collectionFieldRepository } from '../../../server/repositories';
 import type { Collection, CollectionRecord, CollectionField } from '@shared/schema';
+import type { DbTransaction } from '../../../server/repositories';
 
 import { RecordService } from '../../../server/services/RecordService';
+
+// RLS-2c: every service method now opens (or reuses) a tenant-scoped
+// transaction via `withTx`. Passing a truthy `mockTx` makes `withTx` reuse it
+// directly instead of falling through to `withCurrentTenant`, which would
+// throw "RLS: no tenant in context" outside a real request's async context —
+// exactly the fail-closed behaviour asserted separately below. Mirrors the
+// idiom `tests/unit/services/CollectionService.test.ts` established in RLS-2a.
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 describe('RecordService', () => {
   let service: RecordService;
@@ -76,16 +85,18 @@ describe('RecordService', () => {
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 
-      const result = await service.createRecord(insertData, mockUserId);
+      const result = await service.createRecord(insertData, mockUserId, mockTx);
 
       expect(result).toEqual(createdRecord);
+      // RLS-2c: was `..., undefined)` — now asserts the SAME transaction
+      // object reached the repository, the stronger claim `withTx` exists for.
       expect(mockRecordRepo.create).toHaveBeenCalledWith(
         {
           ...insertData,
           createdBy: mockUserId,
           updatedBy: mockUserId,
         },
-        undefined
+        mockTx
       );
     });
 
@@ -114,7 +125,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Required field 'Email' (email) is missing"
       );
     });
@@ -156,7 +167,7 @@ describe('RecordService', () => {
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 
-      const result = await service.createRecord(insertData, mockUserId);
+      const result = await service.createRecord(insertData, mockUserId, mockTx);
 
       expect(result.data).toEqual({ active: true });
     });
@@ -186,7 +197,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Unknown field 'unknownField' - field does not exist in collection"
       );
     });
@@ -216,7 +227,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Field 'Email' must be a string"
       );
     });
@@ -246,7 +257,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Field 'Age' must be a valid number"
       );
     });
@@ -276,7 +287,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Field 'Status' value 'InvalidStatus' is not a valid option"
       );
     });
@@ -306,7 +317,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
-      await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
+      await expect(service.createRecord(insertData, mockUserId, mockTx)).rejects.toThrow(
         "Field 'Tags' value 'InvalidTag' is not a valid option"
       );
     });
@@ -346,7 +357,7 @@ describe('RecordService', () => {
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 
-      const result = await service.createRecord(insertData, mockUserId);
+      const result = await service.createRecord(insertData, mockUserId, mockTx);
 
       expect(result).toBeDefined();
     });
@@ -367,7 +378,7 @@ describe('RecordService', () => {
 
       mockRecordRepo.findById.mockResolvedValue(record as unknown as CollectionRecord);
 
-      const result = await service.verifyRecordOwnership(mockRecordId, mockTenantId);
+      const result = await service.verifyRecordOwnership(mockRecordId, mockTenantId, undefined, mockTx);
 
       expect(result).toEqual(record);
     });
@@ -376,7 +387,7 @@ describe('RecordService', () => {
       mockRecordRepo.findById.mockResolvedValue(undefined);
 
       await expect(
-        service.verifyRecordOwnership(mockRecordId, mockTenantId)
+        service.verifyRecordOwnership(mockRecordId, mockTenantId, undefined, mockTx)
       ).rejects.toThrow('Record not found');
     });
 
@@ -395,7 +406,7 @@ describe('RecordService', () => {
       mockRecordRepo.findById.mockResolvedValue(record as unknown as CollectionRecord);
 
       await expect(
-        service.verifyRecordOwnership(mockRecordId, mockTenantId)
+        service.verifyRecordOwnership(mockRecordId, mockTenantId, undefined, mockTx)
       ).rejects.toThrow('Access denied - record belongs to different tenant');
     });
   });
@@ -443,7 +454,8 @@ describe('RecordService', () => {
         mockRecordId,
         mockTenantId,
         { email: 'new@example.com' },
-        mockUserId
+        mockUserId,
+        mockTx
       );
 
       const data = result.data as Record<string, unknown>;
@@ -502,7 +514,8 @@ describe('RecordService', () => {
         mockRecordId,
         mockTenantId,
         { email: 'new@example.com' }, // Only updating email
-        mockUserId
+        mockUserId,
+        mockTx
       );
 
       expect(result.data).toEqual({ email: 'new@example.com', name: 'John' });
@@ -540,14 +553,17 @@ describe('RecordService', () => {
       const result = await service.listRecords(
         mockCollectionId,
         mockTenantId,
-        { limit: 10, offset: 0 }
+        { limit: 10, offset: 0 },
+        mockTx
       );
 
       expect(result).toHaveLength(1);
+      // RLS-2c: was `..., undefined)` — now asserts the SAME transaction
+      // object reached the repository, the stronger claim `withTx` exists for.
       expect(mockRecordRepo.findByCollectionId).toHaveBeenCalledWith(
         mockCollectionId,
         { limit: 10, offset: 0 },
-        undefined
+        mockTx
       );
     });
 
@@ -565,7 +581,7 @@ describe('RecordService', () => {
       mockCollectionRepo.findById.mockResolvedValue(collection as unknown as Collection);
 
       await expect(
-        service.listRecords(mockCollectionId, mockTenantId)
+        service.listRecords(mockCollectionId, mockTenantId, undefined, mockTx)
       ).rejects.toThrow('Collection not found or access denied');
     });
   });
@@ -623,11 +639,32 @@ describe('RecordService', () => {
         mockCollectionId,
         mockTenantId,
         recordsData,
-        mockUserId
+        mockUserId,
+        mockTx
       );
 
       expect(result).toHaveLength(2);
       expect(mockRecordRepo.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('RLS-2c: fails closed with no tenant in context', () => {
+    it('rejects with no ambient tenant and no supplied tx, and never reaches the repository', async () => {
+      await expect(
+        service.getRecord(mockRecordId, mockTenantId)
+      ).rejects.toThrow('RLS: no tenant in context.');
+      expect(mockRecordRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('throws on an ambient tenant that disagrees with the requested tenantId', async () => {
+      // Mismatch guard only fires with a real ambient context — exercised in
+      // tests/integration/rls2c-collectionsCluster.test.ts, which can actually
+      // populate AsyncLocalStorage. This unit test documents the no-context
+      // half; the mismatch half needs a live async context to bind.
+      await expect(
+        service.listRecords(mockCollectionId, mockTenantId)
+      ).rejects.toThrow('RLS: no tenant in context.');
+      expect(mockCollectionRepo.findById).not.toHaveBeenCalled();
     });
   });
 });

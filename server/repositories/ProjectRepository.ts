@@ -127,7 +127,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
   ): Promise<ProjectWithOwnerName[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned project access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     const ownershipWhere = this.buildOwnershipWhere(database, creatorId, orgIds, false);
     const keysetCondition = buildKeysetCondition(options.cursor);
     const whereClause = keysetCondition ? and(ownershipWhere, keysetCondition) : ownershipWhere;
@@ -162,7 +162,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
   ): Promise<ProjectWithOwnerName[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned project access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     const ownershipWhere = this.buildOwnershipWhere(database, creatorId, orgIds, true);
     const keysetCondition = buildKeysetCondition(options.cursor);
     const whereClause = keysetCondition ? and(ownershipWhere, keysetCondition) : ownershipWhere;

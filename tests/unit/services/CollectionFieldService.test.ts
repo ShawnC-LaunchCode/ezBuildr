@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import type { CollectionField } from '@shared/schema';
+import type { DbTransaction } from '../../../server/repositories';
 
 import { CollectionFieldService } from '../../../server/services/CollectionFieldService';
+
+// RLS-2c: every service method now opens (or reuses) a tenant-scoped
+// transaction via `withTx`. Passing a truthy `mockTx` makes `withTx` reuse it
+// directly instead of falling through to `withCurrentTenant`, which would
+// throw "RLS: no tenant in context" outside a real request's async context —
+// exactly the fail-closed behaviour asserted separately below. Mirrors the
+// idiom `tests/unit/services/CollectionService.test.ts` established in RLS-2a.
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 describe('CollectionFieldService', () => {
   let service: CollectionFieldService;
@@ -72,7 +81,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.slugExists.mockResolvedValue(false);
       mockFieldRepo.create.mockResolvedValue(createdField);
 
-      const result = await service.createField(insertData);
+      const result = await service.createField(insertData, mockTx);
 
       expect(result).toEqual(createdField);
       expect(result.slug).toBe('email_address');
@@ -101,7 +110,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.slugExists.mockResolvedValue(false);
       mockFieldRepo.create.mockResolvedValue(createdField);
 
-      const result = await service.createField(insertData);
+      const result = await service.createField(insertData, mockTx);
 
       expect(result.options).toEqual(['Draft', 'Published', 'Archived']);
     });
@@ -117,7 +126,7 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
 
-      await expect(service.createField(insertData)).rejects.toThrow(
+      await expect(service.createField(insertData, mockTx)).rejects.toThrow(
         "Field type 'select' requires options array"
       );
     });
@@ -134,7 +143,7 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
 
-      await expect(service.createField(insertData)).rejects.toThrow(
+      await expect(service.createField(insertData, mockTx)).rejects.toThrow(
         'Options must be an array'
       );
     });
@@ -151,7 +160,7 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
 
-      await expect(service.createField(insertData)).rejects.toThrow(
+      await expect(service.createField(insertData, mockTx)).rejects.toThrow(
         'Options array cannot be empty for select/multi-select fields'
       );
     });
@@ -179,7 +188,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.slugExists.mockResolvedValue(false);
       mockFieldRepo.create.mockResolvedValue(createdField);
 
-      const result = await service.createField(insertData);
+      const result = await service.createField(insertData, mockTx);
 
       expect(result.defaultValue).toBe(true);
     });
@@ -196,7 +205,7 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
 
-      await expect(service.createField(insertData)).rejects.toThrow(
+      await expect(service.createField(insertData, mockTx)).rejects.toThrow(
         "Default value for 'number' field must be a number"
       );
     });
@@ -227,7 +236,7 @@ describe('CollectionFieldService', () => {
 
       mockFieldRepo.create.mockResolvedValue(createdField);
 
-      const result = await service.createField(insertData);
+      const result = await service.createField(insertData, mockTx);
 
       expect(result.slug).toBe('email_1');
       expect(mockFieldRepo.slugExists).toHaveBeenCalledTimes(2);
@@ -244,7 +253,7 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue(undefined);
 
-      await expect(service.createField(insertData)).rejects.toThrow(
+      await expect(service.createField(insertData, mockTx)).rejects.toThrow(
         'Collection not found'
       );
     });
@@ -267,7 +276,7 @@ describe('CollectionFieldService', () => {
 
       mockFieldRepo.findById.mockResolvedValue(field);
 
-      const result = await service.verifyFieldOwnership(mockFieldId, mockCollectionId);
+      const result = await service.verifyFieldOwnership(mockFieldId, mockCollectionId, mockTx);
 
       expect(result).toEqual(field);
     });
@@ -276,7 +285,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.findById.mockResolvedValue(undefined);
 
       await expect(
-        service.verifyFieldOwnership(mockFieldId, mockCollectionId)
+        service.verifyFieldOwnership(mockFieldId, mockCollectionId, mockTx)
       ).rejects.toThrow('Field not found');
     });
 
@@ -297,7 +306,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.findById.mockResolvedValue(field);
 
       await expect(
-        service.verifyFieldOwnership(mockFieldId, mockCollectionId)
+        service.verifyFieldOwnership(mockFieldId, mockCollectionId, mockTx)
       ).rejects.toThrow('Access denied - field belongs to different collection');
     });
   });
@@ -330,7 +339,8 @@ describe('CollectionFieldService', () => {
       const result = await service.updateField(
         mockFieldId,
         mockCollectionId,
-        { name: 'New Name' }
+        { name: 'New Name' },
+        mockTx
       );
 
       expect(result).toEqual(updatedField);
@@ -353,7 +363,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.findById.mockResolvedValue(field);
 
       await expect(
-        service.updateField(mockFieldId, mockCollectionId, { name: 'New Name' })
+        service.updateField(mockFieldId, mockCollectionId, { name: 'New Name' }, mockTx)
       ).rejects.toThrow('Access denied - field belongs to different collection');
     });
   });
@@ -376,9 +386,12 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.findById.mockResolvedValue(field);
       mockFieldRepo.delete.mockResolvedValue(undefined);
 
-      await service.deleteField(mockFieldId, mockCollectionId);
+      await service.deleteField(mockFieldId, mockCollectionId, mockTx);
 
-      expect(mockFieldRepo.delete).toHaveBeenCalledWith(mockFieldId, undefined);
+      // RLS-2c: was `toHaveBeenCalledWith(mockFieldId, undefined)` — now
+      // asserts the SAME transaction object reached the repository, which is
+      // the stronger claim `withTx` exists to guarantee.
+      expect(mockFieldRepo.delete).toHaveBeenCalledWith(mockFieldId, mockTx);
     });
   });
 
@@ -405,7 +418,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.findSlugsByCollectionId.mockResolvedValue([]);
       mockFieldRepo.createMany.mockResolvedValue(createdFields);
 
-      const result = await service.bulkCreateFields(mockCollectionId, fieldsData);
+      const result = await service.bulkCreateFields(mockCollectionId, fieldsData, mockTx);
 
       expect(result).toHaveLength(2);
       expect(mockFieldRepo.createMany).toHaveBeenCalledTimes(1);
@@ -436,7 +449,7 @@ describe('CollectionFieldService', () => {
       mockFieldRepo.slugExists.mockResolvedValue(false);
       mockFieldRepo.create.mockResolvedValue(createdField);
 
-      const result = await service.createField(insertData);
+      const result = await service.createField(insertData, mockTx);
 
       expect(result.slug).toBe('email_address');
     });
@@ -468,7 +481,7 @@ describe('CollectionFieldService', () => {
         mockFieldRepo.slugExists.mockResolvedValue(false);
         mockFieldRepo.create.mockResolvedValue({ ...validData, id: mockFieldId } as unknown as CollectionField);
 
-        await expect(service.createField(validData)).resolves.toBeDefined();
+        await expect(service.createField(validData, mockTx)).resolves.toBeDefined();
 
         // Test invalid value
         const invalidData = {
@@ -476,8 +489,26 @@ describe('CollectionFieldService', () => {
           defaultValue: invalidValue,
         };
 
-        await expect(service.createField(invalidData)).rejects.toThrow();
+        await expect(service.createField(invalidData, mockTx)).rejects.toThrow();
       });
+    });
+  });
+
+  describe('RLS-2c: fails closed with no tenant in context', () => {
+    it('rejects with no ambient tenant and no supplied tx, and never reaches the repository', async () => {
+      const insertData = {
+        collectionId: mockCollectionId,
+        name: 'Email',
+        type: 'text' as const,
+        slug: 'email',
+        isRequired: true,
+      };
+
+      await expect(service.createField(insertData)).rejects.toThrow(
+        'RLS: no tenant in context.'
+      );
+      expect(mockCollectionRepo.findById).not.toHaveBeenCalled();
+      expect(mockFieldRepo.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -6,10 +6,16 @@ import {
   collectionFieldRepository,
   type DbTransaction,
 } from "../repositories";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 /**
  * Service layer for record business logic
  * Records are rows in collections with validated JSONB data
+ *
+ * RLS-2c: copies the RLS-2a pilot's `withTx` shape (see CollectionService.ts)
+ * unmodified. Every public method already carries a `tenantId` argument used
+ * by its `eq`/equality predicates (AC3 — those stay), so the same
+ * ambient-vs-argument mismatch guard applies here.
  */
 export class RecordService {
   private recordRepo: typeof recordRepository;
@@ -24,6 +30,26 @@ export class RecordService {
     this.recordRepo = recordRepo ?? recordRepository;
     this.collectionRepo = collectionRepo ?? collectionRepository;
     this.fieldRepo = fieldRepo ?? collectionFieldRepository;
+  }
+
+  /** See CollectionService.withTx for the full rationale — copied unmodified. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
   }
 
   /**
@@ -45,21 +71,23 @@ export class RecordService {
     collectionId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {
-    const record = await this.recordRepo.findById(recordId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const record = await this.recordRepo.findById(recordId, scopedTx);
 
-    if (!record) {
-      throw new Error("Record not found");
-    }
+      if (!record) {
+        throw new Error("Record not found");
+      }
 
-    if (record.tenantId !== tenantId) {
-      throw new Error("Access denied - record belongs to different tenant");
-    }
+      if (record.tenantId !== tenantId) {
+        throw new Error("Access denied - record belongs to different tenant");
+      }
 
-    if (collectionId && record.collectionId !== collectionId) {
-      throw new Error("Access denied - record belongs to different collection");
-    }
+      if (collectionId && record.collectionId !== collectionId) {
+        throw new Error("Access denied - record belongs to different collection");
+      }
 
-    return record;
+      return record;
+    });
   }
 
   /**
@@ -218,29 +246,31 @@ export class RecordService {
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {
-    const collection = await this.collectionRepo.findById(data.collectionId, tx);
-    if (!collection) {
-      throw new Error("Collection not found");
-    }
-    if (collection.tenantId !== data.tenantId) {
-      throw new Error("Access denied - collection belongs to a different tenant");
-    }
+    return this.withTx(data.tenantId, tx, async (scopedTx) => {
+      const collection = await this.collectionRepo.findById(data.collectionId, scopedTx);
+      if (!collection) {
+        throw new Error("Collection not found");
+      }
+      if (collection.tenantId !== data.tenantId) {
+        throw new Error("Access denied - collection belongs to a different tenant");
+      }
 
-    // Apply default values
-    const recordData = (typeof data.data === 'object' && data.data !== null && !Array.isArray(data.data))
-      ? data.data as Record<string, unknown>
-      : {};
-    const enrichedData = await this.applyDefaults(data.collectionId, recordData, tx);
+      // Apply default values
+      const recordData = (typeof data.data === 'object' && data.data !== null && !Array.isArray(data.data))
+        ? data.data as Record<string, unknown>
+        : {};
+      const enrichedData = await this.applyDefaults(data.collectionId, recordData, scopedTx);
 
-    // Validate record data
-    await this.validateRecordData(data.collectionId, enrichedData, tx);
+      // Validate record data
+      await this.validateRecordData(data.collectionId, enrichedData, scopedTx);
 
-    return this.recordRepo.create({
-      ...data,
-      data: enrichedData,
-      createdBy: userId,
-      updatedBy: userId,
-    }, tx);
+      return this.recordRepo.create({
+        ...data,
+        data: enrichedData,
+        createdBy: userId,
+        updatedBy: userId,
+      }, scopedTx);
+    });
   }
 
   /**
@@ -264,14 +294,16 @@ export class RecordService {
     },
     tx?: DbTransaction
   ): Promise<CollectionRecord[]> {
-    // Verify collection belongs to tenant
-    const collection = await this.collectionRepo.findById(collectionId, tx);
-    if (!collection || collection.tenantId !== tenantId) {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      throw new Error("Collection not found or access denied");
-    }
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify collection belongs to tenant
+      const collection = await this.collectionRepo.findById(collectionId, scopedTx);
+      if (!collection || collection.tenantId !== tenantId) {
+        // eslint-disable-next-line sonarjs/no-duplicate-string
+        throw new Error("Collection not found or access denied");
+      }
 
-    return this.recordRepo.findByCollectionId(collectionId, options, tx);
+      return this.recordRepo.findByCollectionId(collectionId, options, scopedTx);
+    });
   }
 
   /**
@@ -284,45 +316,51 @@ export class RecordService {
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {
-    const record = await this.verifyRecordOwnership(recordId, tenantId, undefined, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const record = await this.verifyRecordOwnership(recordId, tenantId, undefined, scopedTx);
 
-    // Merge with existing data
-    const existingData = (typeof record.data === 'object' && record.data !== null && !Array.isArray(record.data))
-      ? record.data as Record<string, unknown>
-      : {};
-    const mergedData = { ...existingData, ...updates };
+      // Merge with existing data
+      const existingData = (typeof record.data === 'object' && record.data !== null && !Array.isArray(record.data))
+        ? record.data as Record<string, unknown>
+        : {};
+      const mergedData = { ...existingData, ...updates };
 
-    // Validate merged data
-    await this.validateRecordData(record.collectionId, mergedData, tx);
+      // Validate merged data
+      await this.validateRecordData(record.collectionId, mergedData, scopedTx);
 
-    return this.recordRepo.update(
-      recordId,
-      {
-        data: mergedData,
-        ...(userId && { updatedBy: userId }),
-      },
-      tx
-    );
+      return this.recordRepo.update(
+        recordId,
+        {
+          data: mergedData,
+          ...(userId && { updatedBy: userId }),
+        },
+        scopedTx
+      );
+    });
   }
 
   /**
    * Delete record
    */
   async deleteRecord(recordId: string, tenantId: string, tx?: DbTransaction): Promise<void> {
-    await this.verifyRecordOwnership(recordId, tenantId, undefined, tx);
-    await this.recordRepo.delete(recordId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      await this.verifyRecordOwnership(recordId, tenantId, undefined, scopedTx);
+      await this.recordRepo.delete(recordId, scopedTx);
+    });
   }
 
   /**
    * Count records in collection
    */
   async countRecords(collectionId: string, tenantId: string, tx?: DbTransaction): Promise<number> {
-    const collection = await this.collectionRepo.findById(collectionId, tx);
-    if (!collection || collection.tenantId !== tenantId) {
-      throw new Error("Collection not found or access denied");
-    }
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const collection = await this.collectionRepo.findById(collectionId, scopedTx);
+      if (!collection || collection.tenantId !== tenantId) {
+        throw new Error("Collection not found or access denied");
+      }
 
-    return this.recordRepo.countByCollectionId(collectionId, tx);
+      return this.recordRepo.countByCollectionId(collectionId, scopedTx);
+    });
   }
 
   /**
@@ -335,12 +373,14 @@ export class RecordService {
     filters: Record<string, any>,
     tx?: DbTransaction
   ): Promise<CollectionRecord[]> {
-    const collection = await this.collectionRepo.findById(collectionId, tx);
-    if (!collection || collection.tenantId !== tenantId) {
-      throw new Error("Collection not found or access denied");
-    }
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const collection = await this.collectionRepo.findById(collectionId, scopedTx);
+      if (!collection || collection.tenantId !== tenantId) {
+        throw new Error("Collection not found or access denied");
+      }
 
-    return this.recordRepo.findByFilters(collectionId, filters, tx);
+      return this.recordRepo.findByFilters(collectionId, filters, scopedTx);
+    });
   }
 
   /**
@@ -355,38 +395,40 @@ export class RecordService {
     options: { page?: number; limit?: number } = {},
     tx?: DbTransaction
   ): Promise<{ records: CollectionRecord[]; total: number }> {
-    const collection = await this.collectionRepo.findById(collectionId, tx);
-    if (!collection || collection.tenantId !== tenantId) {
-      throw new Error("Collection not found or access denied");
-    }
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const collection = await this.collectionRepo.findById(collectionId, scopedTx);
+      if (!collection || collection.tenantId !== tenantId) {
+        throw new Error("Collection not found or access denied");
+      }
 
-    // Convert array filters to object filters if simple equality
-    // OR if repo supports array filters, pass them.
-    // Assuming repo supports array queries for now or mapping specific logic.
-    // For MVP, handling simple equality from array filters:
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter object can contain any valid filter value
-    const filterObj: Record<string, any> = {};
-    if (Array.isArray(filters)) {
-      for (const f of filters) {
+      // Convert array filters to object filters if simple equality
+      // OR if repo supports array filters, pass them.
+      // Assuming repo supports array queries for now or mapping specific logic.
+      // For MVP, handling simple equality from array filters:
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter object can contain any valid filter value
+      const filterObj: Record<string, any> = {};
+      if (Array.isArray(filters)) {
+        for (const f of filters) {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
-        if (f.operator === 'equals') {
+          if (f.operator === 'equals') {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
-          filterObj[f.field] = f.value;
+            filterObj[f.field] = f.value;
+          }
         }
       }
-    }
 
-    const records = await this.recordRepo.findByFilters(collectionId, filterObj, tx);
-    // Simulate pagination if repo doesn't support it in findByFilters
-    const limit = options.limit ?? 100;
-    const page = options.page ?? 1;
-    const start = (page - 1) * limit;
-    const end = start + limit;
+      const records = await this.recordRepo.findByFilters(collectionId, filterObj, scopedTx);
+      // Simulate pagination if repo doesn't support it in findByFilters
+      const limit = options.limit ?? 100;
+      const page = options.page ?? 1;
+      const start = (page - 1) * limit;
+      const end = start + limit;
 
-    return {
-      records: records.slice(start, end),
-      total: records.length
-    };
+      return {
+        records: records.slice(start, end),
+        total: records.length
+      };
+    });
   }
 
   /**
@@ -400,27 +442,29 @@ export class RecordService {
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord[]> {
-    const collection = await this.collectionRepo.findById(collectionId, tx);
-    if (!collection || collection.tenantId !== tenantId) {
-      throw new Error("Collection not found or access denied");
-    }
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const collection = await this.collectionRepo.findById(collectionId, scopedTx);
+      if (!collection || collection.tenantId !== tenantId) {
+        throw new Error("Collection not found or access denied");
+      }
 
-    const createdRecords: CollectionRecord[] = [];
+      const createdRecords: CollectionRecord[] = [];
 
-    for (const data of recordsData) {
-      const record = await this.createRecord(
-        {
-          tenantId,
-          collectionId,
-          data,
-        },
-        userId,
-        tx
-      );
-      createdRecords.push(record);
-    }
+      for (const data of recordsData) {
+        const record = await this.createRecord(
+          {
+            tenantId,
+            collectionId,
+            data,
+          },
+          userId,
+          scopedTx
+        );
+        createdRecords.push(record);
+      }
 
-    return createdRecords;
+      return createdRecords;
+    });
   }
 }
 

@@ -248,6 +248,55 @@ fails closed with no context, and the mismatch guard) and
 [`tests/unit/services/CollectionService.test.ts`](../../tests/unit/services/CollectionService.test.ts)
 (the same two fail-closed branches, at the unit level with mocked repositories).
 
+### 2c. Three variants the rollout needed (RLS-2c, 2026-08-19)
+
+The pilot's `withTx(expectedTenantId, tx, fn)` assumes every method carries its
+own `tenantId` argument to cross-check against ambient. Rolling out past
+`CollectionService`/`RecordService` (which do) surfaced services that don't —
+same primitives throughout (`withCurrentTenant`/`getCurrentTenantId`/`withTenant`),
+no new central helper, just three per-service shapes:
+
+1. **No `tenantId` argument at all** (`CollectionFieldService`,
+   `ReviewTaskService`'s read/decision methods, `WorkflowService`,
+   `VersionService`, ...). Authorization is `userId` + ACL, or the table is
+   scoped via a parent row, so there is no second value to cross-check.
+   `withTx(tx, fn)` drops the mismatch branch entirely — reuse a supplied `tx`,
+   otherwise `withCurrentTenant(fn)`. Still fails closed (`withCurrentTenant`'s
+   own "no tenant in context" throw); it just can't also detect a mismatch,
+   because there is nothing to be mismatched against.
+2. **Mixed, per-method** (`SignatureRequestService`, `ReviewTaskService`'s
+   `create*`). Some methods carry an explicit `tenantId` (an insert whose
+   column is `NOT NULL`), others don't. One local `withTx<T>(tx, fn,
+   expectedTenantId?)` per service — the mismatch guard only runs when a
+   caller passes `expectedTenantId`.
+3. **Public/token-authenticated, no ambient tenant by design**
+   (`SignatureRequestService.getSignatureRequestByToken` / `signDocument` /
+   `declineSignature`, and `markExpiredRequests`, a cron caller). A run-token
+   holder is never a tenant user, so `rlsContext` never gets a tenant to set —
+   this is not a bug to guard against, it is the shape of the caller. The
+   initial lookup (`findByToken`, or `findExpired`'s cross-tenant scan) runs
+   unscoped, exactly as before RLS-2c; **once the row is found, its own
+   `tenantId` column is a concrete value**, so every write from that point opens
+   its own `withTenant(request.tenantId, ...)` rather than reading ambient.
+   The initial unscoped SELECT is the same cross-tenant bootstrapping gap
+   `RLS-6` solved for the admin console (a BYPASSRLS path) — not fixed here,
+   flagged for whichever ticket turns `FORCE` on.
+
+**A caller can have the identical problem as case 3 even over HTTP.** Any route
+mounting `optionalHybridAuth` + a run-token strategy (`creatorOrRunTokenAuth`,
+the intake/portal paths) can dispatch to a converted service with no ambient
+tenant, same as a background job. `CollectionBlockRunner` (called from both a
+live HTTP-driven run submission and `RunCompletionJobWorker`'s background poll
+loop) and `SignatureBlockService.executeSignatureBlock` (run-token-reachable)
+both now wrap their calls into a converted service in
+`runWithTenantContext(tenantId, ...)` at the call site, using a tenant they
+already have in hand (resolved from the workflow/project) — the same fix
+`ReadTableBlockRunner` applied in RLS-2b. **Converting a service is not enough
+by itself; every caller reachable without an authenticated tenant needs the
+same audit**, and it is easy to miss one, since it fails only when that
+specific code path runs with no ambient context — which passing tests may
+never exercise.
+
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
   DML on the tenant tables, and point the app's `DATABASE_URL` at it. Owner keeps

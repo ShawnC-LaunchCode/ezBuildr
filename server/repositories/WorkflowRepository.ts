@@ -64,7 +64,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
@@ -165,7 +165,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Import workflowAccess here to avoid circular dependencies if possible, or assume it's available
     const { workflowAccess } = await import("@shared/schema");
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+    const { orgIds } = await getAccessibleOwnershipFilter(userId, tx);
     // Subquery for shared workflows
     const sharedWorkflowIds = database
       .select({ workflowId: workflowAccess.workflowId })
@@ -235,7 +235,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     const conditions = [
       and(eq(workflows.creatorId, creatorId), eq(workflows.status, status)),
@@ -347,7 +347,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     const conditions = [
       and(eq(workflows.creatorId, creatorId), isNull(workflows.projectId)), // Legacy
