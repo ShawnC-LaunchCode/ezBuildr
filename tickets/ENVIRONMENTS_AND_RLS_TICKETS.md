@@ -952,7 +952,128 @@ changed shape did so in RLS-2a, not here.
 
 ---
 
-## RLS-2c — Roll out the remaining 15 tenant-scoped services 🔲
+## RLS-2c — Roll out: collections/records + misc clusters ✅ DONE 2026-08-19 (4 of 15 — remainder is RLS-2d)
+
+**Gates re-run by the reviewer, independently:** `type-check` **0** ·
+`eslint --max-warnings 0` on all touched files **exit 0** · `test:fast` **285 files / 3281
+passed** · `test:integration` **121 files / 1162 passed / 0 failed, 0 new skips** (baseline
+119/1153 → +2 files, +9 tests). Every number matched the dev's report exactly.
+
+**Converted:** `CollectionFieldService`, `RecordService` (collections/records) and
+`ReviewTaskService`, `SignatureRequestService` (misc). Stopped at a clean cluster boundary,
+disclosed rather than hidden — the remaining clusters are far larger than this ticket assumed
+(`OrganizationService` is 927 lines with **no repository layer at all**, direct `db.*` calls
+throughout; `WorkflowClonerService` is 1752). See `RLS-2d`.
+
+### The best turn-in of this initiative — two behaviours worth copying
+
+1. **It corrected the reviewer's own number.** This ticket said `WorkflowRepository` had **2**
+   un-threaded `getAccessibleOwnershipFilter` call sites. It has **4** (`findByCreatorId`,
+   `findByUserAccess`, `findByCreatorAndStatus`, `findUnfiledByCreatorId`). Reviewer verified
+   directly: six sites across both repositories, all now threaded. Trusting the ticket would
+   have left two live — and they **hang rather than fail**.
+2. **It refused to report a gate it had not seen.** Its second full integration run was still
+   completing at report time; it said so and offered interim evidence rather than projecting a
+   number, then followed up with the real result once it landed. That is the exact opposite of
+   RLS-2b's "all clean" from a state that was not.
+
+### It found two regressions its own conversion would have caused
+
+Neither would have shown up as a failing test — it audited callers. `CollectionBlockRunner`
+(background completion job) and `SignatureBlockService.executeSignatureBlock` (run-token
+holder) both run with **no ambient tenant**, so converting the services beneath them would have
+broken real paths. Both now wrap in `runWithTenantContext`, mirroring RLS-2b's
+`ReadTableBlockRunner` fix.
+
+### Unconvertible, with reasons (AC6)
+
+- **`RunFileUploadService`** — its one RLS-protected read (`projectRepository.findById` inside
+  `resolveContext`) is a **bootstrapping lookup**: the tenant is not known until that query
+  returns, so it structurally cannot sit inside a tenant-scoped transaction. Same class as
+  `WorkflowTenantResolver`. Its own table (`step_values`) has no `tenant_id` and no policy, so
+  wrapping it afterwards would gain nothing either.
+- **`QueryService`** — dead code. Reviewer confirmed independently: zero references anywhere in
+  `server/` outside its own definition. Left unconverted rather than speculatively converted.
+
+⚠️ **A gap it flagged and correctly did NOT fix — RLS-4 must account for it.**
+`SignatureRequestService`'s public token-authenticated methods (`getSignatureRequestByToken`,
+`signDocument`, `declineSignature`, plus the `markExpiredRequests` cron) perform an **unscoped
+initial SELECT**: the token *is* the authorization, and the row's own `tenantId` then drives a
+fresh `withTenant` for every write. Under `FORCE` that bootstrap lookup runs with no tenant
+GUC. Same shape RLS-6 solved for the admin console.
+
+### Reviewer verification
+
+- **All six landmine sites threaded** — checked directly, not read off the report.
+- `QueryService` dead-code claim confirmed by independent grep.
+- AC5's `expect(seenTxs[0]).toBe(seenTxs[1])` present in **both** cluster tests — the identical
+  transaction object, not merely the same tenant.
+- **Reviewer fix:** the usage example in `ownershipAccess.ts` still showed the **un-threaded**
+  call — the precise form that caused RLS-2b's deadlock. A doc comment that teaches the bug is
+  worse than none; it now passes `tx`.
+
+`docs/architecture/TENANT_ISOLATION_RLS.md` §2c documents the three service shapes this rollout
+needed (ambient-only, optional-`expectedTenantId`, token-authenticated), so RLS-2d does not
+rediscover them.
+
+**Priority: P0** · Size: L (delivered as M) · Files: 15
+
+---
+
+## RLS-2d — Roll out: org/access + workflow/template clusters 🔲
+
+**Priority: P0** · Size: **L** · **BLOCKS RLS-4** · Dispatchable now
+
+### Scope — 9 services, and they are the big ones
+
+| Cluster | Services |
+|---|---|
+| Org / access (4) | `Organization`, `Project`, `Team`, `AdminOrgStats` |
+| Workflow / template (5) | `Workflow`, `WorkflowCloner`, `Version`, `Template`, `TemplateValidation` |
+
+**Sized honestly:** `OrganizationService` ~927 lines with **no repository layer** — it calls
+`db.*` directly across ~20 methods, so every bare call becomes `scopedTx.*`.
+`WorkflowClonerService` ~1752 lines. `VersionService` needs the same treatment. **Expect this
+to split again**; stopping at a cluster boundary with a written record is a good outcome and is
+how RLS-2b and 2c both landed.
+
+### Everything already mapped — do not rediscover any of it
+
+1. **Read `docs/architecture/TENANT_ISOLATION_RLS.md` §2b and §2c first.** §2c documents the
+   three service shapes; pick the one that fits rather than inventing a fourth.
+2. **The `getAccessibleOwnershipFilter` landmine is FIXED** — all six sites thread `tx`, and the
+   doc comment now shows the safe form. If you add a call, pass `tx`, or the suite **hangs
+   rather than fails** (pool query inside a transaction against a `max: 1` pool).
+3. **Seven suites build their own express app** and never mount `rlsContext`. **Five are
+   squarely in your path**: `api.projects` and the four `portability.*` suites. Add
+   `app.use(rlsContext)` before `registerRoutes` — see
+   `tests/integration/datavault-v4-regression.test.ts`.
+4. **Suites calling services directly** need `enterTenantContextForTests(tenantId)` **inside
+   each test body** — `beforeAll` and `beforeEach` both fail to propagate. Measured, not
+   assumed.
+5. **Audit callers before declaring a service done.** RLS-2c found two real regressions no
+   failing test would have shown. `WorkflowClonerService` and `VersionService` are both
+   reachable from non-request paths — check them.
+
+### Acceptance criteria
+
+Same as RLS-2c, applied to the nine services above:
+
+1. One transaction at the service boundary per operation, following §2b/§2c.
+2. Any repository lacking optional-`tx` gains it; say which were already correct.
+3. `eq(tenantId, …)` predicates stay.
+4. A fail-closed test per converted service — the repository must not be reached.
+5. At least one multi-repository service per cluster asserts the **identical transaction
+   object** (`expect(txA).toBe(txB)`).
+6. Unconvertible services listed with reasons; **non-request callers flagged for RLS-4**.
+7. `type-check` 0 · `lint` 0 · `test:fast` above baseline · `test:integration` **0 failed and
+   no new skips**.
+
+### Reporting
+
+Report after each cluster. Four devs on this board have now been killed mid-ticket by session
+limits: the ones that checkpointed had their work landed, the ones that did not had it
+reconstructed by the reviewer at real cost.
 
 **Priority: P0** · Size: L · **BLOCKED on nothing — dispatchable now** · **BLOCKS RLS-4**
 

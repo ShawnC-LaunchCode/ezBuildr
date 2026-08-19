@@ -15,18 +15,17 @@ import { collectionService } from '../../server/services/CollectionService';
 import { recordService } from '../../server/services/RecordService';
 import { runWithTenantContext } from '../../server/utils/rlsContext';
 
-// RLS-2a: collectionService now opens a tenant-scoped transaction at the
-// service boundary (via withCurrentTenant) whenever it isn't handed an
-// explicit `tx`, and this suite calls it directly rather than through an
-// HTTP request — so there is no `rlsContext` middleware around it to
-// populate the async tenant context the way a real request would. Every
-// `collectionService.*` call below is wrapped in `runWithTenantContext` to
-// stand in for that middleware, matching what RLS-1 already exercises at
-// the HTTP layer (tests/integration/rls-context.middleware.test.ts) and
-// what tests/integration/rls2a-collectionService.test.ts proves for the
-// transaction itself. collectionFieldService/recordService are untouched by
-// RLS-2a (their rollout is RLS-2b) and keep calling repositories directly,
-// with no context needed.
+// RLS-2a/2c: collectionService, collectionFieldService and recordService all
+// now open a tenant-scoped transaction at the service boundary (via
+// withCurrentTenant) whenever they aren't handed an explicit `tx`, and this
+// suite calls them directly rather than through an HTTP request — so there
+// is no `rlsContext` middleware around it to populate the async tenant
+// context the way a real request would. Every `*Service.*` call below is
+// wrapped in `runWithTenantContext` to stand in for that middleware,
+// matching what RLS-1 already exercises at the HTTP layer
+// (tests/integration/rls-context.middleware.test.ts) and what
+// tests/integration/rls2a-collectionService.test.ts proves for the
+// transaction itself.
 function inTenantContext<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   return runWithTenantContext(tenantId, fn);
 }
@@ -129,13 +128,13 @@ describe('Collections System E2E Tests', () => {
 
   describe('Field Management', () => {
     it('should create text field', async () => {
-      const field = await collectionFieldService.createField({
+      const field = await inTenantContext(testTenantId, () => collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'First Name',
         slug: 'first_name',
         type: 'text',
         isRequired: true,
-      });
+      }));
 
       expect(field).toBeDefined();
       expect(field.name).toBe('First Name');
@@ -146,27 +145,27 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should create email field', async () => {
-      const field = await collectionFieldService.createField({
+      const field = await inTenantContext(testTenantId, () => collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Email Address',
         slug: 'email_address',
         type: 'text',
         isRequired: true,
-      });
+      }));
 
       expect(field.slug).toBe('email_address');
       testFieldIds.push(field.id);
     });
 
     it('should create number field', async () => {
-      const field = await collectionFieldService.createField({
+      const field = await inTenantContext(testTenantId, () => collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Age',
         slug: 'age',
         type: 'number',
         isRequired: false,
         defaultValue: 0,
-      });
+      }));
 
       expect(field.type).toBe('number');
       expect(field.defaultValue).toBe(0);
@@ -174,7 +173,7 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should create select field with options', async () => {
-      const field = await collectionFieldService.createField({
+      const field = await inTenantContext(testTenantId, () => collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Status',
         slug: 'status',
@@ -182,7 +181,7 @@ describe('Collections System E2E Tests', () => {
         isRequired: true,
         options: ['active', 'inactive', 'pending'],
         defaultValue: 'pending',
-      });
+      }));
 
       expect(field.type).toBe('select');
       expect(field.options).toEqual(['active', 'inactive', 'pending']);
@@ -191,14 +190,14 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should create boolean field', async () => {
-      const field = await collectionFieldService.createField({
+      const field = await inTenantContext(testTenantId, () => collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Is Premium',
         slug: 'is_premium',
         type: 'boolean',
         isRequired: false,
         defaultValue: false,
-      });
+      }));
 
       expect(field.type).toBe('boolean');
       expect(field.defaultValue).toBe(false);
@@ -206,7 +205,7 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should list all fields', async () => {
-      const fields = await collectionFieldService.listFields(testCollectionId);
+      const fields = await inTenantContext(testTenantId, () => collectionFieldService.listFields(testCollectionId));
 
       expect(fields.length).toBe(5);
       expect(fields.map(f => f.slug)).toEqual([
@@ -219,11 +218,11 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should update field', async () => {
-      const updated = await collectionFieldService.updateField(
+      const updated = await inTenantContext(testTenantId, () => collectionFieldService.updateField(
         testFieldIds[0],
         testCollectionId,
         { name: 'Full Name' }
-      );
+      ));
 
       expect(updated.name).toBe('Full Name');
       expect(updated.slug).toBe('first_name'); // Slug shouldn't change
@@ -232,7 +231,7 @@ describe('Collections System E2E Tests', () => {
 
   describe('Record CRUD Operations', () => {
     it('should create a record', async () => {
-      const record = await recordService.createRecord({
+      const record = await inTenantContext(testTenantId, () => recordService.createRecord({
         tenantId: testTenantId,
         collectionId: testCollectionId,
         data: {
@@ -242,7 +241,7 @@ describe('Collections System E2E Tests', () => {
           status: 'active',
           is_premium: true,
         }
-      }, testUserId);
+      }, testUserId));
 
       expect(record).toBeDefined();
       expect((record.data as any).first_name).toBe('John');
@@ -254,7 +253,7 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should create multiple records', async () => {
-      const record2 = await recordService.createRecord({
+      const record2 = await inTenantContext(testTenantId, () => recordService.createRecord({
         tenantId: testTenantId,
         collectionId: testCollectionId,
         data: {
@@ -264,9 +263,9 @@ describe('Collections System E2E Tests', () => {
           status: 'active',
           is_premium: false,
         }
-      }, testUserId);
+      }, testUserId));
 
-      const record3 = await recordService.createRecord({
+      const record3 = await inTenantContext(testTenantId, () => recordService.createRecord({
         tenantId: testTenantId,
         collectionId: testCollectionId,
         data: {
@@ -275,34 +274,34 @@ describe('Collections System E2E Tests', () => {
           status: 'pending',
           is_premium: false,
         }
-      }, testUserId);
+      }, testUserId));
 
       testRecordIds.push(record2.id, record3.id);
       expect(testRecordIds.length).toBe(3);
     });
 
     it('should list records with pagination', async () => {
-      const result = await recordService.listRecords(testCollectionId, testTenantId, {
+      const result = await inTenantContext(testTenantId, () => recordService.listRecords(testCollectionId, testTenantId, {
         limit: 10,
-      });
+      }));
 
       expect(result.length).toBe(3);
     });
 
     it('should get a single record', async () => {
-      const record = await recordService.getRecord(testRecordIds[0], testTenantId);
+      const record = await inTenantContext(testTenantId, () => recordService.getRecord(testRecordIds[0], testTenantId));
 
       expect(record).toBeDefined();
       expect((record.data as any).first_name).toBe('John');
     });
 
     it('should update a record', async () => {
-      const updated = await recordService.updateRecord(
+      const updated = await inTenantContext(testTenantId, () => recordService.updateRecord(
         testRecordIds[0],
         testTenantId,
         { age: 31, status: 'inactive' },
         testUserId
-      );
+      ));
 
       expect((updated.data as any).age).toBe(31);
       expect((updated.data as any).status).toBe('inactive');
@@ -310,22 +309,22 @@ describe('Collections System E2E Tests', () => {
     });
 
     it('should find records by filters', async () => {
-      const result = await recordService.findRecordsByFilters(
+      const result = await inTenantContext(testTenantId, () => recordService.findRecordsByFilters(
         testCollectionId,
         testTenantId,
         { status: 'active' }
-      );
+      ));
 
       expect(result.length).toBe(1);
       expect((result[0].data as any).first_name).toBe('Jane');
     });
 
     it('should delete a record', async () => {
-      await recordService.deleteRecord(testRecordIds[2], testTenantId);
+      await inTenantContext(testTenantId, () => recordService.deleteRecord(testRecordIds[2], testTenantId));
 
-      const result = await recordService.listRecords(testCollectionId, testTenantId, {
+      const result = await inTenantContext(testTenantId, () => recordService.listRecords(testCollectionId, testTenantId, {
         limit: 10,
-      });
+      }));
 
       expect(result.length).toBe(2);
       expect(result.some(r => r.id === testRecordIds[2])).toBe(false);
@@ -346,19 +345,19 @@ describe('Collections System E2E Tests', () => {
   describe('Data Validation', () => {
     it('should enforce required fields', async () => {
       await expect(
-        recordService.createRecord({
+        inTenantContext(testTenantId, () => recordService.createRecord({
           tenantId: testTenantId,
           collectionId: testCollectionId,
           data: {
             age: 40, // Missing required first_name, email_address, status
           }
-        }, testUserId)
+        }, testUserId))
       ).rejects.toThrow();
     });
 
     it('should validate field types', async () => {
       // This test depends on field type validation in the service
-      const record = await recordService.createRecord({
+      const record = await inTenantContext(testTenantId, () => recordService.createRecord({
         tenantId: testTenantId,
         collectionId: testCollectionId,
         data: {
@@ -368,7 +367,7 @@ describe('Collections System E2E Tests', () => {
           status: 'active',
           is_premium: true,
         }
-      }, testUserId);
+      }, testUserId));
 
       expect((record.data as any).age).toBe(25);
       expect((record.data as any).is_premium).toBe(true);
@@ -387,12 +386,13 @@ describe('Collections System E2E Tests', () => {
       }
 
       // Verify fields are also deleted
-      const fields = await collectionFieldService.listFields(testCollectionId);
+      const fields = await inTenantContext(testTenantId, () => collectionFieldService.listFields(testCollectionId));
       expect(fields.length).toBe(0);
 
       // Verify records are deleted (cascade) - listRecords throws if collection not found
-      await expect(recordService.listRecords(testCollectionId, testTenantId, { limit: 10 }))
-        .rejects.toThrow("Collection not found or access denied");
+      await expect(
+        inTenantContext(testTenantId, () => recordService.listRecords(testCollectionId, testTenantId, { limit: 10 }))
+      ).rejects.toThrow("Collection not found or access denied");
     });
   });
 });

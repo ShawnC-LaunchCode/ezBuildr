@@ -12,6 +12,7 @@ import {
 } from '../../repositories';
 import { createLogger } from '../../logger';
 import { createError } from '../../utils/errors';
+import { runWithTenantContext } from '../../utils/rlsContext';
 import { storageProvider } from '../storage';
 import { signatureRequestService } from '../SignatureRequestService';
 import { runDataService } from '../workflow-runs/RunDataService';
@@ -111,22 +112,35 @@ export class SignatureBlockService {
       throw createError.validation('Signature signer email is required');
     }
 
-    const signatureRequest = await signatureRequestService.createSignatureRequest({
-      runId,
-      workflowId: run.workflowId,
-      nodeId: stepId,
-      tenantId: project.tenantId,
-      projectId: workflow.projectId,
-      signerEmail,
-      signerName,
-      status: 'pending',
-      provider: providerName,
-      providerRequestId: envelopeResponse.envelopeId,
-      documentUrl: null,
-      redirectUrl: config.redirectUrl ?? returnUrl,
-      message: config.message ?? null,
-      expiresAt: new Date(Date.now() + (config.expiresInDays ?? 30) * 86_400_000),
-    });
+    // RLS-2c: this route accepts a run-token holder via
+    // optionalHybridAuth + creatorOrRunTokenAuth, who is never a tenant user
+    // and never gets an ambient tenant from auth resolution.
+    // signatureRequestService.createSignatureRequest now opens a tenant-scoped
+    // transaction and fails closed with no context, so this must supply one
+    // explicitly using the project's tenant already resolved above — same
+    // fix CollectionBlockRunner/ReadTableBlockRunner applied to their callers.
+    // (Locals, not `project.tenantId`/`workflow.projectId` inline: TS cannot
+    // carry the earlier null-guard's narrowing across a closure boundary.)
+    const tenantId = project.tenantId;
+    const projectId = workflow.projectId;
+    const signatureRequest = await runWithTenantContext(tenantId, () =>
+      signatureRequestService.createSignatureRequest({
+        runId,
+        workflowId: run.workflowId,
+        nodeId: stepId,
+        tenantId,
+        projectId,
+        signerEmail,
+        signerName,
+        status: 'pending',
+        provider: providerName,
+        providerRequestId: envelopeResponse.envelopeId,
+        documentUrl: null,
+        redirectUrl: config.redirectUrl ?? returnUrl,
+        message: config.message ?? null,
+        expiresAt: new Date(Date.now() + (config.expiresInDays ?? 30) * 86_400_000),
+      })
+    );
 
     logger.info({ runId, stepId, provider: providerName, envelopeId: envelopeResponse.envelopeId }, 'Signature envelope created');
     return {

@@ -6,16 +6,39 @@ import {
   signatureRequestRepository,
   workflowRepository,
   projectRepository,
+  type DbTransaction,
 } from "../repositories";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
-
+import { withCurrentTenant, withTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 import { aclService as defaultAclService } from "./AclService";
 
 /**
  * Service layer for signature request-related business logic
  * Stage 14: E-Signature Node + Document Review Portal
+ *
+ * RLS-2c: mixed shape, unlike the RLS-2a pilot. Authenticated methods
+ * (create/get/list) carry either an explicit `tenantId` (createSignatureRequest,
+ * whose `data` always includes one — signature_requests.tenant_id is NOT NULL)
+ * or only `userId` + ACL (get/list), so `withTx` takes an OPTIONAL
+ * `expectedTenantId` and only runs the ambient-vs-argument mismatch guard when
+ * one is supplied — still the same `withCurrentTenant`/`getCurrentTenantId`
+ * primitives as the pilot, just parameterised for both shapes in one service.
+ *
+ * The three token-based methods (getSignatureRequestByToken, signDocument,
+ * declineSignature) back the PUBLIC signing portal, reached with
+ * `optionalHybridAuth` + a run-token holder who is never a tenant user — there
+ * is no ambient tenant to read, ever, by design. The token IS the
+ * authorization; the initial `findByToken` lookup deliberately runs unscoped
+ * (matches today's behaviour). Once the row is found, `request.tenantId` is a
+ * concrete value, so subsequent writes on that request open their own
+ * `withTenant(request.tenantId, ...)` transaction rather than depending on
+ * `withCurrentTenant`'s ambient read. `markExpiredRequests` (cron/background,
+ * scans across ALL tenants) follows the same per-row shape for its writes —
+ * the cross-tenant SELECT itself has the same bootstrapping gap RLS-6 solved
+ * for the admin console and needs the equivalent BYPASSRLS path once FORCE is
+ * on; out of this ticket's scope, flagged for RLS-4/6-style follow-up.
  */
 export class SignatureRequestService {
   private signatureRequestRepo: typeof signatureRequestRepository;
@@ -36,6 +59,34 @@ export class SignatureRequestService {
   }
 
   /**
+   * Reuse a caller-supplied `tx`; otherwise open exactly one transaction via
+   * `withCurrentTenant`. When `expectedTenantId` is supplied, runs the same
+   * ambient-vs-argument mismatch guard `CollectionService.withTx` does before
+   * opening the transaction — see the class comment for why this service
+   * needs the check to be optional rather than always-on.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>,
+    expectedTenantId?: string
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    if (expectedTenantId !== undefined) {
+      const ambientTenantId = getCurrentTenantId();
+      if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+        throw new Error(
+          `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+          `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+          `silently scoping to the wrong tenant.`
+        );
+      }
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Generate a secure random token for signature links
    */
   private generateToken(): string {
@@ -46,73 +97,83 @@ export class SignatureRequestService {
    * Create a signature request
    */
   async createSignatureRequest(
-    data: Omit<InsertSignatureRequest, 'token'>
+    data: Omit<InsertSignatureRequest, 'token'>,
+    tx?: DbTransaction
   ): Promise<SignatureRequest> {
-    // Validate workflow exists
-    const workflow = await this.workflowRepo.findById(data.workflowId);
-    if (!workflow) {
-      throw createError.notFound("Workflow not found");
-    }
-
-    // Validate project exists
-    const project = await this.projectRepo.findById(data.projectId);
-    if (!project) {
-      throw createError.notFound("Project not found");
-    }
-
-    // Generate secure token
-    const token = this.generateToken();
-    const hashedToken = hashToken(token);
-
-    // Create the signature request
-    const request = await this.signatureRequestRepo.create({
-      ...data,
-      token: hashedToken,
-    });
-
-    // Create 'sent' event
-    await this.signatureRequestRepo.createEvent(
-      request.id,
-      'sent',
-      {
-        signerEmail: request.signerEmail,
-        signerName: request.signerName,
+    return this.withTx(tx, async (scopedTx) => {
+      // Validate workflow exists
+      const workflow = await this.workflowRepo.findById(data.workflowId, scopedTx);
+      if (!workflow) {
+        throw createError.notFound("Workflow not found");
       }
-    );
 
-    // TODO: Send email with signing link to signer
-    // This would integrate with the email service
+      // Validate project exists
+      const project = await this.projectRepo.findById(data.projectId, scopedTx);
+      if (!project) {
+        throw createError.notFound("Project not found");
+      }
 
-    return { ...request, token }; // Return plaintext token to caller
+      // Generate secure token
+      const token = this.generateToken();
+      const hashedToken = hashToken(token);
+
+      // Create the signature request
+      const request = await this.signatureRequestRepo.create({
+        ...data,
+        token: hashedToken,
+      }, scopedTx);
+
+      // Create 'sent' event
+      await this.signatureRequestRepo.createEvent(
+        request.id,
+        'sent',
+        {
+          signerEmail: request.signerEmail,
+          signerName: request.signerName,
+        },
+        scopedTx
+      );
+
+      // TODO: Send email with signing link to signer
+      // This would integrate with the email service
+
+      return { ...request, token }; // Return plaintext token to caller
+    }, data.tenantId);
   }
 
   /**
    * Get signature request by ID
    */
-  async getSignatureRequest(requestId: string, userId: string): Promise<SignatureRequest> {
-    const request = await this.signatureRequestRepo.findById(requestId);
-    if (!request) {
-      throw createError.notFound("Signature request not found");
-    }
+  async getSignatureRequest(requestId: string, userId: string, tx?: DbTransaction): Promise<SignatureRequest> {
+    return this.withTx(tx, async (scopedTx) => {
+      const request = await this.signatureRequestRepo.findById(requestId, scopedTx);
+      if (!request) {
+        throw createError.notFound("Signature request not found");
+      }
 
-    // Verify user has access to the project
-    const project = await this.projectRepo.findById(request.projectId);
-    if (!project) {
-      throw createError.notFound("Project not found");
-    }
+      // Verify user has access to the project
+      const project = await this.projectRepo.findById(request.projectId, scopedTx);
+      if (!project) {
+        throw createError.notFound("Project not found");
+      }
 
-    // Verify user has at least view access to the project (Dec 2025 - Security fix)
-    const hasAccess = await this.aclService.hasProjectRole(userId, request.projectId, 'view');
-    if (!hasAccess) {
-      throw createError.forbidden("Access denied - insufficient permissions for this project");
-    }
+      // Verify user has at least view access to the project (Dec 2025 - Security fix)
+      const hasAccess = await this.aclService.hasProjectRole(userId, request.projectId, 'view');
+      if (!hasAccess) {
+        throw createError.forbidden("Access denied - insufficient permissions for this project");
+      }
 
-    return request;
+      return request;
+    });
   }
 
   /**
    * Get signature request by token (for public signing portal)
-   * No authentication required
+   * No authentication required. See the class comment — there is no ambient
+   * tenant to read here (a run-token holder is never a tenant user), so the
+   * initial lookup is deliberately unscoped and the tenant only becomes known
+   * once the row is found, at which point every write below opens its own
+   * `withTenant(request.tenantId, ...)` transaction.
    */
   async getSignatureRequestByToken(token: string): Promise<SignatureRequest> {
     const hashedToken = hashToken(token);
@@ -125,17 +186,22 @@ export class SignatureRequestService {
     if (new Date() > new Date(request.expiresAt)) {
       // Mark as expired if not already
       if (request.status === 'pending') {
-        await this.signatureRequestRepo.updateStatus(request.id, 'expired');
+        await withTenant(request.tenantId, (scopedTx) =>
+          this.signatureRequestRepo.updateStatus(request.id, 'expired', undefined, scopedTx)
+        );
       }
       throw createError.validation("This signature link has expired");
     }
 
     // Create 'viewed' event if pending
     if (request.status === 'pending') {
-      await this.signatureRequestRepo.createEvent(
-        request.id,
-        'viewed',
-        { timestamp: new Date() }
+      await withTenant(request.tenantId, (scopedTx) =>
+        this.signatureRequestRepo.createEvent(
+          request.id,
+          'viewed',
+          { timestamp: new Date() },
+          scopedTx
+        )
       );
     }
 
@@ -155,27 +221,31 @@ export class SignatureRequestService {
       );
     }
 
-    // Update status to signed
-    const updated = await this.signatureRequestRepo.updateStatus(
-      request.id,
-      'signed'
-    );
-
-    // Create 'signed' event
-    await this.signatureRequestRepo.createEvent(
-      request.id,
-      'signed',
-      {
-        signedAt: updated.signedAt,
-        signerEmail: updated.signerEmail,
-        signerName: updated.signerName,
-      }
-    );
-
+    // Update status to signed, and log the event, in ONE transaction scoped
+    // to the request's own tenant (now known — see getSignatureRequestByToken).
     // TODO: Trigger workflow resume
     // This will be handled by the run resume mechanism
+    return withTenant(request.tenantId, async (scopedTx) => {
+      const signed = await this.signatureRequestRepo.updateStatus(
+        request.id,
+        'signed',
+        undefined,
+        scopedTx
+      );
 
-    return updated;
+      await this.signatureRequestRepo.createEvent(
+        request.id,
+        'signed',
+        {
+          signedAt: signed.signedAt,
+          signerEmail: signed.signerEmail,
+          signerName: signed.signerName,
+        },
+        scopedTx
+      );
+
+      return signed;
+    });
   }
 
   /**
@@ -191,36 +261,40 @@ export class SignatureRequestService {
       );
     }
 
-    // Update status to declined
-    const updated = await this.signatureRequestRepo.updateStatus(
-      request.id,
-      'declined'
-    );
-
-    // Create 'declined' event
-    await this.signatureRequestRepo.createEvent(
-      request.id,
-      'declined',
-      {
-        declinedAt: new Date(),
-        reason,
-      }
-    );
-
     // TODO: Mark workflow run as failed or trigger error handling
+    return withTenant(request.tenantId, async (scopedTx) => {
+      const declined = await this.signatureRequestRepo.updateStatus(
+        request.id,
+        'declined',
+        undefined,
+        scopedTx
+      );
 
-    return updated;
+      await this.signatureRequestRepo.createEvent(
+        request.id,
+        'declined',
+        {
+          declinedAt: new Date(),
+          reason,
+        },
+        scopedTx
+      );
+
+      return declined;
+    });
   }
 
   /**
    * Get signature events for a request
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async getSignatureEvents(requestId: string, userId: string) {
-    // Verify access to request
-    await this.getSignatureRequest(requestId, userId);
+  async getSignatureEvents(requestId: string, userId: string, tx?: DbTransaction) {
+    return this.withTx(tx, async (scopedTx) => {
+      // Verify access to request
+      await this.getSignatureRequest(requestId, userId, scopedTx);
 
-    return this.signatureRequestRepo.getEvents(requestId);
+      return this.signatureRequestRepo.getEvents(requestId, scopedTx);
+    });
   }
 
   /**
@@ -228,33 +302,43 @@ export class SignatureRequestService {
    */
   async getPendingRequestsByProject(
     projectId: string,
-    userId: string
+    userId: string,
+    tx?: DbTransaction
   ): Promise<SignatureRequest[]> {
-    // Verify user has access to the project
-    const project = await this.projectRepo.findById(projectId);
-    if (!project) {
-      throw createError.notFound("Project not found");
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Verify user has access to the project
+      const project = await this.projectRepo.findById(projectId, scopedTx);
+      if (!project) {
+        throw createError.notFound("Project not found");
+      }
 
-    // Verify user has at least view access to the project (Dec 2025 - Security fix)
-    const hasAccess = await this.aclService.hasProjectRole(userId, projectId, 'view');
-    if (!hasAccess) {
-      throw createError.forbidden("Access denied - insufficient permissions for this project");
-    }
+      // Verify user has at least view access to the project (Dec 2025 - Security fix)
+      const hasAccess = await this.aclService.hasProjectRole(userId, projectId, 'view');
+      if (!hasAccess) {
+        throw createError.forbidden("Access denied - insufficient permissions for this project");
+      }
 
-    return this.signatureRequestRepo.findPendingByProjectId(projectId);
+      return this.signatureRequestRepo.findPendingByProjectId(projectId, scopedTx);
+    });
   }
 
   /**
    * Mark expired signature requests as expired
-   * This should be run periodically (e.g., via cron job)
+   * This should be run periodically (e.g., via cron job) — a background,
+   * cross-tenant caller with no single tenant to scope the transaction to.
+   * See the class comment: the SELECT here is the same cross-tenant
+   * bootstrapping gap RLS-6 solved for the admin console (needs a BYPASSRLS
+   * connection once FORCE is on); each WRITE below is scoped to that row's
+   * own resolved tenant, which is the part this ticket can make correct now.
    */
   async markExpiredRequests(): Promise<number> {
     const expiredRequests = await this.signatureRequestRepo.findExpired();
 
     let count = 0;
     for (const request of expiredRequests) {
-      await this.signatureRequestRepo.updateStatus(request.id, 'expired');
+      await withTenant(request.tenantId, (scopedTx) =>
+        this.signatureRequestRepo.updateStatus(request.id, 'expired', undefined, scopedTx)
+      );
       count++;
     }
 
