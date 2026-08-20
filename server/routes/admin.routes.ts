@@ -770,7 +770,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const stats = await adminOrgStatsService.getOrgStats(req.adminUser);
+      const stats = await adminOrgStatsService.getOrgStats(req.adminUser, req.id);
 
       logger.info(
         { adminId: req.adminUser.id, orgCount: stats.organizations.length },

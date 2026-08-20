@@ -1,7 +1,5 @@
-import {
-  adminOrgStatsRepository,
-  type AdminOrgStatsQueryRow,
-} from "../repositories/AdminOrgStatsRepository";
+import { type AdminOrgStatsQueryRow } from "../repositories/AdminOrgStatsRepository";
+import { adminAccessService } from "./AdminAccessService";
 
 interface AdminUserContext {
   id: string;
@@ -9,7 +7,7 @@ interface AdminUserContext {
 }
 
 interface AdminOrgStatsReader {
-  listOrgStats(): Promise<AdminOrgStatsQueryRow[]>;
+  listOrgStats(actorUserId: string, requestId?: string): Promise<AdminOrgStatsQueryRow[]>;
 }
 
 export interface AdminOrgStatsItem {
@@ -233,7 +231,8 @@ function buildSummary(organizations: AdminOrgStatsItem[]): AdminOrgStatsSummary 
 
 /**
  * RLS-2d: deliberately NOT converted to the tenant-scoped-transaction
- * pattern. This service is an admin-only, cross-tenant aggregate — it
+ * pattern, and — closing RLS-4's precondition 2 (2026-08-19) — it now reads
+ * through `AdminAccessService` rather than the repository directly. This service is an admin-only, cross-tenant aggregate — it
  * reports one row PER organization across every tenant in the system, which
  * is the opposite of what a tenant-scoped transaction would allow it to see.
  * There is no single `tenantId` to open a transaction for. Same class as the
@@ -242,18 +241,31 @@ function buildSummary(organizations: AdminOrgStatsItem[]): AdminOrgStatsSummary 
  * never on tenant membership). Its only production caller is
  * `admin.routes.ts:773`, itself gated by `requireAdmin`, so this is the
  * expected/legitimate "cannot convert" case AC6 asks to flag — not a gap for
- * RLS-4 to protect against with a tenant GUC, but one it needs to keep
- * bypassing deliberately (an admin-role bypass, same as RLS-6's).
+ * RLS-4 to protect against with a tenant GUC, but one that must keep bypassing
+ * deliberately.
+ *
+ * That bypass was NOT actually in place when this comment was first written:
+ * the repository read via the NORMAL pool, so under `FORCE` this would have
+ * returned only the acting admin's own tenant's organizations — no error, just
+ * a short list. Declaring a service unconvertible answers only half the
+ * question; the other half is whether it still works once RLS is enforced.
  */
 export class AdminOrgStatsService {
-  constructor(private readonly repository: AdminOrgStatsReader = adminOrgStatsRepository) {}
+  constructor(private readonly repository: AdminOrgStatsReader = adminAccessService) {}
 
-  async getOrgStats(adminUser: AdminUserContext): Promise<AdminOrgStatsResponse> {
+  async getOrgStats(
+    adminUser: AdminUserContext,
+    requestId?: string
+  ): Promise<AdminOrgStatsResponse> {
     if (adminUser.role !== "admin") {
       throw new Error("Access denied - admin role required");
     }
 
-    const rows = await this.repository.listOrgStats();
+    // RLS-4 precondition 2 (2026-08-19): reads go through `AdminAccessService`,
+    // not the repository directly, so they use RLS-6's BYPASSRLS pool and are
+    // audited. Reading via the normal pool would silently return only the
+    // acting admin's own tenant's organizations once `FORCE` is set.
+    const rows = await this.repository.listOrgStats(adminUser.id, requestId);
     const organizations = rows.map(mapRow);
 
     return {

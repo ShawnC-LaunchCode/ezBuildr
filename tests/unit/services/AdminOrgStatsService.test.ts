@@ -49,7 +49,7 @@ function makeRow(overrides: Partial<AdminOrgStatsQueryRow> = {}): AdminOrgStatsQ
 
 describe("AdminOrgStatsService", () => {
   it("rejects non-admin callers before reading stats", async () => {
-    const listOrgStats = vi.fn<() => Promise<AdminOrgStatsQueryRow[]>>().mockResolvedValue([]);
+    const listOrgStats = vi.fn<(actorUserId: string, requestId?: string) => Promise<AdminOrgStatsQueryRow[]>>().mockResolvedValue([]);
     const repository = {
       listOrgStats,
     };
@@ -61,7 +61,7 @@ describe("AdminOrgStatsService", () => {
   });
 
   it("maps organization usage totals for admin callers", async () => {
-    const listOrgStats = vi.fn<() => Promise<AdminOrgStatsQueryRow[]>>()
+    const listOrgStats = vi.fn<(actorUserId: string, requestId?: string) => Promise<AdminOrgStatsQueryRow[]>>()
       .mockResolvedValue([makeRow(), makeRow({
         org_id: "org-2",
         org_name: "Beta Legal",
@@ -85,7 +85,14 @@ describe("AdminOrgStatsService", () => {
     };
     const service = new AdminOrgStatsService(repository);
 
-    const result = await service.getOrgStats({ id: "admin-1", role: "admin" });
+    const result = await service.getOrgStats({ id: "admin-1", role: "admin" }, "req-42");
+
+    // RLS-4 precondition 2: the acting admin and request id must reach the
+    // reader, because the real reader is AdminAccessService — it needs them to
+    // write the admin_access_log row and to select the BYPASSRLS pool. Passing
+    // no arguments here would still type-check and still pass every assertion
+    // below, while silently losing the audit trail.
+    expect(listOrgStats).toHaveBeenCalledWith("admin-1", "req-42");
 
     expect(result.summary.totalOrganizations).toBe(2);
     expect(result.summary.totalProjects).toBe(4);

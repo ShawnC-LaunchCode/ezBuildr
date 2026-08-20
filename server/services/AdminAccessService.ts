@@ -3,6 +3,11 @@ import {
   adminAccessLogRepository,
   type AdminAccessLogRepository,
 } from "../repositories/AdminAccessLogRepository";
+import {
+  adminOrgStatsRepository,
+  type AdminOrgStatsRepository,
+  type AdminOrgStatsQueryRow,
+} from "../repositories/AdminOrgStatsRepository";
 import { isRlsEnforced } from "../utils/rlsContext";
 import {
   userRepository,
@@ -34,15 +39,18 @@ export class AdminAccessService {
   private readonly userRepo: UserRepository;
   private readonly workflowRepo: WorkflowRepository;
   private readonly auditRepo: AdminAccessLogRepository;
+  private readonly orgStatsRepo: AdminOrgStatsRepository;
 
   constructor(
     userRepo?: UserRepository,
     workflowRepo?: WorkflowRepository,
-    auditRepo?: AdminAccessLogRepository
+    auditRepo?: AdminAccessLogRepository,
+    orgStatsRepo?: AdminOrgStatsRepository
   ) {
     this.userRepo = userRepo ?? userRepository;
     this.workflowRepo = workflowRepo ?? defaultWorkflowRepository;
     this.auditRepo = auditRepo ?? adminAccessLogRepository;
+    this.orgStatsRepo = orgStatsRepo ?? adminOrgStatsRepository;
   }
 
   /**
@@ -84,6 +92,28 @@ export class AdminAccessService {
       );
     }
     return undefined;
+  }
+
+  /**
+   * Per-organization stats across every tenant. Backs `GET /api/admin/org-stats`.
+   *
+   * Added 2026-08-19 closing RLS-4's precondition 2. `AdminOrgStatsService` is
+   * correctly *not* tenant-scoped — it is an admin cross-tenant aggregate, so a
+   * tenant transaction would defeat its purpose — but it was still reading via
+   * the **normal** pool, which under `FORCE` returns only the acting admin's own
+   * tenant's organizations. Declaring a service unconvertible is only half the
+   * question; the other half is whether it still works once RLS is enforced.
+   */
+  async listOrgStats(actorUserId: string, requestId: string | undefined): Promise<AdminOrgStatsQueryRow[]> {
+    const rows = await this.orgStatsRepo.listOrgStats(this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.orgStats.listAll",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return rows;
   }
 
   /** Every user across every tenant. Backs `GET /api/admin/users/:userId/role`'s
