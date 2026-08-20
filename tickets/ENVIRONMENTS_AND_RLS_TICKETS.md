@@ -1578,6 +1578,28 @@ without a policy fails CI rather than shipping.
 > system to "one connection sees everything" and delete the property this whole phase exists to
 > create. AC2 below stays as written.
 >
+> ### 🛑 BLOCKING (measured 2026-08-20): the policies raise instead of filtering
+>
+> **Do not set `FORCE` anywhere until this is fixed.** Proven by
+> `tests/integration/rls4-forceEnforcement.test.ts` against a real non-owner role:
+> with `FORCE` on and no tenant pinned, a query does **not** return zero rows — it
+> **raises** `invalid input syntax for type uuid: ""`.
+>
+> Once a custom GUC has been touched on a connection it reverts to **empty string**, not
+> unset, and every policy casts unguarded:
+> `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`.
+> `''::uuid` raises. **No policy in `0001` or `0024` wraps it in `NULLIF`** (verified).
+>
+> Fail-closed either way — nothing leaks — but the operational difference is large. The app
+> uses a **pooled** connection, so any query running outside a tenant transaction on a
+> connection that previously served one returns a hard **500** rather than an empty result.
+> That is most of the app, on day one of enforcement.
+>
+> **Fix before FORCE:** rewrite the policies as
+> `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`, which yields NULL,
+> filters the row, and does not raise. It needs a new migration recreating the policies —
+> `0001`/`0024` are applied and immutable.
+>
 > ### 🔴 Three preconditions, all discovered after this ticket was written
 >
 > **1. Ordering (from RLS-6).** Provision `ADMIN_DATABASE_URL` **first**, then set `FORCE` and
