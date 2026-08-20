@@ -299,3 +299,39 @@ export async function withTenantAsUser<T>(
     return fn(tx);
   });
 }
+
+/**
+ * The authentication front door's bootstrap read (RLS-5, migration 0032).
+ *
+ * Looking a user up BY EMAIL is what login, the registration duplicate check,
+ * password reset and the Google OAuth upsert all start with, and it runs with
+ * neither a tenant nor a user id available — the email is the only thing the
+ * caller has given us, and establishing who they are is the entire point.
+ * Under `users`' policy that read returns nothing for any user with a real
+ * tenant, so without this every password login fails as "Invalid credentials".
+ *
+ * ⚠️ This is the WEAKEST of the self-identification helpers and the difference
+ * is real, not pedantic. `withCurrentUserId` (0028) runs after a JWT signature
+ * is verified; `withVerifiedIdentifier` (0029/0030) pins a value that some
+ * prior check already proved. **Nothing is verified here** — the caller typed
+ * the email. It is justified only because a credential cannot be checked
+ * without first reading the row holding it, and it stays narrow because
+ * `users.email` is UNIQUE (exactly one row or none), the clause is read-only,
+ * and the GUC is transaction-local.
+ *
+ * **Call this ONLY from authentication paths.** Any code that can set this GUC
+ * can read that user's full row, password hash included — containment is the
+ * control, exactly as for `withVerifiedIdentifier`'s GUC name.
+ */
+export async function withLoginEmail<T>(
+  email: string,
+  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+): Promise<T> {
+  if (typeof email !== "string" || email.trim().length === 0) {
+    throw new Error("RLS: refusing to set an empty login email.");
+  }
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.current_login_email', ${email}, true)`);
+    return fn(tx);
+  });
+}

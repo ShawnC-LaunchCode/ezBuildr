@@ -225,6 +225,13 @@
       "when": 1787252562091,
       "tag": "0031_rls_public_workflow_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787260439301,
+      "tag": "0032_rls_login_email_bootstrap",
+      "breakpoints": true
     }
   ]
 }

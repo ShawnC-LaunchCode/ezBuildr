@@ -283,14 +283,22 @@ export async function createTestUser(
 
   const userId = registerRes.body.user.id;
 
-  // Update role/tenant
-  await db.update(schema.users)
-    .set({
-      tenantId: overrideTenantId || ctx.tenantId,
-      tenantRole: role,
-      emailVerified: true // Auto-verify for tests
-    })
-    .where(eq(schema.users.id, userId));
+  // Update role/tenant. RLS-5: registration deliberately leaves `tenant_id`
+  // NULL, so this is the UPDATE-moving-a-row-between-tenants shape — pinning
+  // the target tenant alone leaves the row invisible to `USING` and the write
+  // silently matches zero rows. `withTenantAsUser` pins the self-id GUC too
+  // (migration 0028) so the row is visible, while `WITH CHECK` still forces
+  // the written tenant to equal the pinned one.
+  const targetTenantId = overrideTenantId || ctx.tenantId;
+  await withTenantAsUser(targetTenantId, userId, (tx) =>
+    tx.update(schema.users)
+      .set({
+        tenantId: targetTenantId,
+        tenantRole: role,
+        emailVerified: true // Auto-verify for tests
+      })
+      .where(eq(schema.users.id, userId))
+  );
 
   // Login to get tokens
   const loginRes = await request(ctx.baseURL)

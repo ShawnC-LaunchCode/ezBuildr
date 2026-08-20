@@ -30,6 +30,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { parseCookies } from "../utils/cookies"; // Import parseCookies
 import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
 import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
+import { withLoginEmail } from "../utils/rlsContext";
 import { sendErrorResponse } from "../utils/responses";
 
 import type { Express, Request, Response } from "express";
@@ -43,7 +44,13 @@ const logger = createLogger({ module: 'auth-routes' });
  * @throws Custom error classes (InvalidCredentialsError, AccountLockedError, EmailNotVerifiedError)
  */
 async function validateCredentials(email: string, password: string, req: Request): Promise<User> {
-  const user = await userRepository.findByEmail(email);
+  // RLS-5: the login lookup runs with neither a tenant nor a user id known —
+  // resolving who this is IS the point — so `users`' ordinary policy hides
+  // every user who has a real tenant and login fails as "Invalid
+  // credentials". Pin the caller-supplied email for this one read (migration
+  // 0032); see `withLoginEmail` for why this variant is the weakest of the
+  // four and what keeps it narrow.
+  const user = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
   if (!user) {
     logger.debug({ email }, 'DEBUG: ValidateCredentials - User not found');
     // Record failed attempt even if user doesn't exist (prevents enumeration)
@@ -225,7 +232,8 @@ export function registerAuthRoutes(app: Express): void {
       const userInputs = [email, firstName, lastName].filter(Boolean) as string[];
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' }); }
-      const existingUser = await userRepository.findByEmail(email);
+      // RLS-5: pre-tenant duplicate check — see validateCredentials above.
+      const existingUser = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
       if (existingUser) {
         // Generic messaging for account enumeration prevention
         return res.status(201).json({
@@ -528,7 +536,8 @@ export function registerAuthRoutes(app: Express): void {
     const { email } = req.body as { email: string };
     if (!email) { return res.status(400).json({ message: "Email required" }); }
     try {
-      const user = await userRepository.findByEmail(email);
+      // RLS-5: pre-tenant lookup — see validateCredentials above.
+      const user = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
       if (user && !user.emailVerified) {
         // Generate and send new verification token
         await authService.generateEmailVerificationToken(user.id, user.email);
@@ -1131,7 +1140,9 @@ export function registerAuthRoutes(app: Express): void {
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     app.all('/api/auth/dev-login', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const user = await userRepository.findByEmail('dev@example.com');
+        // RLS-5: pre-tenant lookup — see validateCredentials above.
+        const user = await withLoginEmail('dev@example.com', (tx) =>
+          userRepository.findByEmail('dev@example.com', tx));
         // Create dev user if doesn't exist logic reduced for brevity as it was likely deleted
         // Assuming user exists or basic mock for this fix to pass compile first
         if (!user) {

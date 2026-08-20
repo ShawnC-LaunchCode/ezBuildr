@@ -131,8 +131,15 @@ export class SchemaManager {
     // so the fix is a declared-visibility clause (`is_public = true AND
     // status = 'active'`) on workflows/sections/steps instead. A stale _v33
     // schema lacks it and every public-link anonymous run would still 404.
+    // Bumped to _v35 for RLS-5 (0032_rls_login_email_bootstrap): the
+    // authentication front door looks a user up BY EMAIL — login, the
+    // registration duplicate check, password reset, the Google OAuth upsert —
+    // with neither a tenant nor a user id known, so `users`' policy hid every
+    // user who already had a real tenant and EVERY password login failed as
+    // "Invalid credentials". A stale _v34 schema lacks the clause and login
+    // stays broken under the restricted role.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v34`;
+        return `test_schema_w${this.workerId}_v35`;
     }
 
     /**

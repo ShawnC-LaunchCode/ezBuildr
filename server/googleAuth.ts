@@ -184,9 +184,18 @@ export async function setupAuth(app: Express): Promise<void> {
       }
       // Verify and Upsert
       const payload = await verifyGoogleToken(googleToken);
+      // RLS-5: these are pre-tenant identity lookups — nothing is
+      // authenticated yet, so `users`' ordinary policy hides any user who
+      // already has a real tenant and OAuth sign-in silently behaves as if
+      // every returning user were brand new. Note this case is STRONGER than
+      // password login's: `verifyGoogleToken` has already checked Google's
+      // signature, so `payload.email` is a verified claim rather than
+      // caller-typed input — it is `withVerifiedIdentifier`'s contract being
+      // met, using the `withLoginEmail` GUC (migration 0032).
+      const { withLoginEmail, withCurrentUserId } = await import('./utils/rlsContext');
       const existingUser = payload.email
-        ? await userRepository.findByEmail(payload.email)
-        : await userRepository.findById(payload.sub);
+        ? await withLoginEmail(payload.email, (tx) => userRepository.findByEmail(payload.email!, tx))
+        : await withCurrentUserId(payload.sub, (tx) => userRepository.findById(payload.sub, tx));
       if (!existingUser && !isPublicSignupEnabled(process.env)) {
         return res.status(403).json({
           message: SIGNUP_CLOSED_MESSAGE,
@@ -195,7 +204,10 @@ export async function setupAuth(app: Express): Promise<void> {
       }
       await upsertUser(payload);
 
-      const dbUser = payload.email ? await userRepository.findByEmail(payload.email) : await userRepository.findById(payload.sub);
+      // RLS-5: same pre-tenant lookup as above, re-read after the upsert.
+      const dbUser = payload.email
+        ? await withLoginEmail(payload.email, (tx) => userRepository.findByEmail(payload.email!, tx))
+        : await withCurrentUserId(payload.sub, (tx) => userRepository.findById(payload.sub, tx));
       if (!dbUser) { throw new Error('User not found after upsert'); }
 
       // CHECK ACTIVE STATUS
