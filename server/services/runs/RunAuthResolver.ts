@@ -3,6 +3,8 @@ import { WorkflowRun } from "@shared/schema";
 import { workflowRepository, workflowRunRepository, projectRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { workflowService } from "../WorkflowService";
+import { workflowTenantResolver } from "../WorkflowTenantResolver";
+import { getCurrentTenantId, setCurrentTenantId } from "../../utils/rlsContext";
 export interface RunAuthContext {
     run?: WorkflowRun;
     mode: 'live' | 'preview';
@@ -91,6 +93,30 @@ export class RunAuthResolver {
             ? await this.workflowRepo.findById(idOrSlug)
             : await this.workflowRepo.findByPublicLink(idOrSlug)
                 ?? await this.workflowRepo.findBySlug(idOrSlug);
+
+        // RLS-2e (reviewer fix): this is the earliest point at which the run's
+        // workflow — and therefore its tenant — is known, and it runs BEFORE
+        // any RLS-converted service. An anonymous public-link run has no
+        // authenticated user, and a run-token request is not a tenant JWT, so
+        // nothing upstream has populated the async tenant context; without this
+        // every converted service below throws "RLS: no tenant in context." and
+        // the public runner 500s. The lookups above use repositories directly,
+        // so they are safe to run before the context exists.
+        //
+        // Only fills an EMPTY context — never overrides a real authenticated
+        // tenant — and is best-effort: if resolution fails the context stays
+        // empty and the downstream service fails closed rather than running
+        // against an invented tenant.
+        if (workflow && getCurrentTenantId() === undefined) {
+            try {
+                const { tenantId } = await workflowTenantResolver.resolveForWorkflow(workflow);
+                if (tenantId) {
+                    setCurrentTenantId(tenantId);
+                }
+            } catch {
+                // fall through; downstream fails closed
+            }
+        }
 
         if (workflow?.status === 'active' && workflow.isPublic) {
             if (workflow.requireLogin && !userId) {

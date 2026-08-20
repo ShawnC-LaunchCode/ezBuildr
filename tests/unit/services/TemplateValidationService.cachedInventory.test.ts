@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // vi.mock calls below are hoisted above this import by vitest, so the service
 // resolves the mocked db / extractor / VariableService rather than the real ones.
 import { templateValidationService } from '../../../server/services/TemplateValidationService';
+import { enterTenantContextForTests } from '../../../server/utils/rlsContext';
 
 /**
  * TPL-5 AC3: the template's placeholder inventory is parsed ONCE at upload and
@@ -22,11 +23,21 @@ import { templateValidationService } from '../../../server/services/TemplateVali
 const findFirstMock = vi.fn();
 const extractMock = vi.fn();
 
-vi.mock('../../../server/db', () => ({
-  db: {
-    query: { templates: { findFirst: (...args: unknown[]): unknown => findFirstMock(...args) } },
-  },
-}));
+// RLS-2e: TemplateValidationService.validate now opens a tenant-scoped
+// transaction via withTx -> withCurrentTenant -> db.transaction, and reads
+// via `scopedTx.query...` rather than `db.query...`. The stub tx exposes the
+// same lazily-wrapped `findFirstMock` as `db.query.templates.findFirst`,
+// plus a no-op `execute` (applyTenantToTransaction's GUC set).
+vi.mock('../../../server/db', () => {
+  const query = { templates: { findFirst: (...args: unknown[]): unknown => findFirstMock(...args) } };
+  return {
+    db: {
+      query,
+      transaction: (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
+        callback({ query, execute: (): Promise<unknown> => Promise.resolve(undefined) }),
+    },
+  };
+});
 
 vi.mock('../../../server/services/templatePlaceholders', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../server/services/templatePlaceholders')>();
@@ -76,6 +87,7 @@ describe('TemplateValidationService cached inventory (TPL-5 AC3)', () => {
   });
 
   it('AC3: reads the stored inventory without re-parsing the DOCX', async () => {
+    enterTenantContextForTests('tenant-1');
     findFirstMock.mockResolvedValue(templateRow({ placeholders: CACHED_PLACEHOLDERS }));
 
     const report = await templateValidationService.validate('tpl-1', 'wf-1', 'tenant-1', 'user-1');
@@ -87,6 +99,7 @@ describe('TemplateValidationService cached inventory (TPL-5 AC3)', () => {
   });
 
   it('falls back to parsing when no inventory has been stored yet', async () => {
+    enterTenantContextForTests('tenant-1');
     findFirstMock.mockResolvedValue(templateRow({ size: 1234 }));
     extractMock.mockResolvedValue(CACHED_PLACEHOLDERS);
 
@@ -97,6 +110,16 @@ describe('TemplateValidationService cached inventory (TPL-5 AC3)', () => {
   });
 
   it('rejects a caller from another tenant before touching the inventory', async () => {
+    // The ambient tenant only has to be SOME real value for withTx to open
+    // its transaction — TemplateValidationService.withTx (Variant 1, no
+    // mismatch guard; see the pilot's known-gap note) doesn't cross-check it
+    // against the `tenantId` argument. What this test actually pins is the
+    // service's OWN ownership check (`template.project.tenantId !== tenantId`),
+    // which only runs once the transaction is open — set ambient to the
+    // CALLER's claimed tenant, exactly as a real request would (RLS-1 sets
+    // both from the same resolution), so the mismatch is on the business
+    // check, not on RLS.
+    enterTenantContextForTests('other-tenant');
     findFirstMock.mockResolvedValue(templateRow({ placeholders: CACHED_PLACEHOLDERS }));
 
     await expect(

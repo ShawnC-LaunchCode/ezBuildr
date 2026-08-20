@@ -8,11 +8,11 @@ import type { ConditionExpression } from "@shared/types/conditions";
 import type { WorkflowJSON } from "@shared/types/workflow";
 
 import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
-import { db } from "../db";
 import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
 import { createError } from "../utils/errors";
-import { documentTemplateRepository } from "../repositories";
+import { documentTemplateRepository, type DbTransaction } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 import {
   lintWorkflowContent,
   type LintableWorkflowContent,
@@ -76,35 +76,62 @@ function summarizeLintResults(results: LintResult[]): ValidationResult {
 /**
  * Service for workflow version management
  * Handles publishing, rollback, pinning, and diffing
+ *
+ * RLS-2e: `workflow_versions` has no `tenant_id` column of its own (scoped
+ * through its parent `workflows` row) and, like `WorkflowService`, no
+ * method here takes a `tenantId` argument to cross-check — Variant 1 from
+ * §2c of docs/architecture/TENANT_ISOLATION_RLS.md. This service has no
+ * repository layer (bare `db.*` calls throughout), so conversion follows
+ * `OrganizationService`'s treatment (§2d): every bare call becomes a
+ * `scopedTx.*` call inside `withTx`. No second helper.
  */
 export class VersionService {
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary. Reuses a caller-supplied `tx` if given (never nests);
+   * otherwise opens exactly one via `withCurrentTenant`.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * List all versions for a workflow
    */
-  async listVersions(workflowId: string, userId?: string): Promise<WorkflowVersion[]> {
-    // If userId is provided, verify user has access to the workflow
-    if (userId) {
-      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
-      if (!hasAccess) {
-        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+  async listVersions(workflowId: string, userId?: string, tx?: DbTransaction): Promise<WorkflowVersion[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // If userId is provided, verify user has access to the workflow
+      if (userId) {
+        const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view', scopedTx);
+        if (!hasAccess) {
+          throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+        }
       }
-    }
-    return db
-      .select()
-      .from(schema.workflowVersions)
-      .where(eq(schema.workflowVersions.workflowId, workflowId))
-      .orderBy(desc(schema.workflowVersions.createdAt));
+      return scopedTx
+        .select()
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.workflowId, workflowId))
+        .orderBy(desc(schema.workflowVersions.createdAt));
+    });
   }
   /**
    * Get a specific version
    */
-  async getVersion(versionId: string): Promise<WorkflowVersion | null> {
-    const [version] = await db
-      .select()
-      .from(schema.workflowVersions)
-      .where(eq(schema.workflowVersions.id, versionId))
-      .limit(1);
-    return version ?? null;
+  async getVersion(versionId: string, tx?: DbTransaction): Promise<WorkflowVersion | null> {
+    return this.withTx(tx, async (scopedTx) => {
+      const [version] = await scopedTx
+        .select()
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.id, versionId))
+        .limit(1);
+      return version ?? null;
+    });
   }
   /**
    * Fetch the most recently created version (draft or published) for a
@@ -113,14 +140,16 @@ export class VersionService {
    * i.e. nothing changed) to pin a run to the version that already exists
    * instead of treating "no changes" as a failure.
    */
-  async getLatestVersion(workflowId: string): Promise<WorkflowVersion | null> {
-    const [latestVersion] = await db
-      .select()
-      .from(schema.workflowVersions)
-      .where(eq(schema.workflowVersions.workflowId, workflowId))
-      .orderBy(desc(schema.workflowVersions.createdAt))
-      .limit(1);
-    return latestVersion ?? null;
+  async getLatestVersion(workflowId: string, tx?: DbTransaction): Promise<WorkflowVersion | null> {
+    return this.withTx(tx, async (scopedTx) => {
+      const [latestVersion] = await scopedTx
+        .select()
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.workflowId, workflowId))
+        .orderBy(desc(schema.workflowVersions.createdAt))
+        .limit(1);
+      return latestVersion ?? null;
+    });
   }
   /**
    * Validate workflow before publishing
@@ -130,12 +159,20 @@ export class VersionService {
    * - Template placeholders resolved
    * - Required collections exist
    */
-  async serializeWorkflow(workflowId: string, userId: string): Promise<WorkflowContentData> {
-    const fullData = await workflowService.getWorkflowWithDetails(workflowId, userId);
+  async serializeWorkflow(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowContentData> {
+    return this.withTx(tx, (scopedTx) => this.serializeWorkflowInTx(workflowId, userId, scopedTx));
+  }
+
+  private async serializeWorkflowInTx(
+    workflowId: string,
+    userId: string,
+    scopedTx: DbTransaction
+  ): Promise<WorkflowContentData> {
+    const fullData = await workflowService.getWorkflowWithDetails(workflowId, userId, scopedTx);
     const [blocks, documentHooks, lifecycleHooks] = await Promise.all([
-      db.query.blocks.findMany({ where: (block, { eq }) => eq(block.workflowId, workflowId), orderBy: (block, { asc }) => [asc(block.order)] }),
-      db.query.documentHooks.findMany({ where: (dh, { eq }) => eq(dh.workflowId, workflowId), orderBy: (dh, { asc }) => [asc(dh.order)] }),
-      db.query.lifecycleHooks.findMany({ where: (lh, { eq }) => eq(lh.workflowId, workflowId), orderBy: (lh, { asc }) => [asc(lh.order)] }),
+      scopedTx.query.blocks.findMany({ where: (block, { eq: eqOp }) => eqOp(block.workflowId, workflowId), orderBy: (block, { asc }) => [asc(block.order)] }),
+      scopedTx.query.documentHooks.findMany({ where: (dh, { eq: eqOp }) => eqOp(dh.workflowId, workflowId), orderBy: (dh, { asc }) => [asc(dh.order)] }),
+      scopedTx.query.lifecycleHooks.findMany({ where: (lh, { eq: eqOp }) => eqOp(lh.workflowId, workflowId), orderBy: (lh, { asc }) => [asc(lh.order)] }),
     ]);
 
     const stepIdToAlias = new Map<string, string>();
@@ -284,9 +321,11 @@ export class VersionService {
   }
 
   /** Return the exact categorized findings used by the publish gate. */
-  async lintSerializedWorkflow(content: LintableWorkflowContent): Promise<LintResult[]> {
-    const readiness = await this.buildReadinessContext(content);
-    return collectLintResults(content, readiness);
+  async lintSerializedWorkflow(content: LintableWorkflowContent, tx?: DbTransaction): Promise<LintResult[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      const readiness = await this.buildReadinessContext(content, scopedTx);
+      return collectLintResults(content, readiness);
+    });
   }
 
   /**
@@ -302,12 +341,15 @@ export class VersionService {
    * (`documentTemplateRepository.findByIdAndProjectId(documentId, projectId)`),
    * so a workflow that clears this gate resolves the same templates at run time.
    */
-  private async buildReadinessContext(graphJson: LintableWorkflowContent): Promise<WorkflowReadinessContext> {
+  private async buildReadinessContext(
+    graphJson: LintableWorkflowContent,
+    tx?: DbTransaction
+  ): Promise<WorkflowReadinessContext> {
     const projectId = (graphJson as LintableWorkflowContent & { projectId?: string | null }).projectId;
 
     let knownTemplateIds: Set<string> | undefined;
     if (typeof projectId === "string" && projectId.length > 0) {
-      const templates = await documentTemplateRepository.findByProjectId(projectId);
+      const templates = await documentTemplateRepository.findByProjectId(projectId, tx);
       knownTemplateIds = new Set(templates.map(template => template.id));
     }
 
@@ -325,65 +367,68 @@ export class VersionService {
       workflowId: string,
       userId: string,
       notes?: string,
-      metadata?: Record<string, unknown>
+      metadata?: Record<string, unknown>,
+      tx?: DbTransaction
     ): Promise<WorkflowVersion | null> {
-      const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
-    // Compute checksum
-    const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
-    // Fetch the LATEST version for this workflow.
-    const [latestVersion] = await db
-      .select()
-      .from(schema.workflowVersions)
-      .where(eq(schema.workflowVersions.workflowId, workflowId))
-      .orderBy(desc(schema.workflowVersions.createdAt))
-      .limit(1);
-    // If checksum matches latest, no changes - return null
-    if (latestVersion !== null && latestVersion !== undefined && latestVersion.checksum === checksum) {
-      logger.debug({ workflowId, checksum }, "No changes detected, skipping draft version creation");
-      return null;
-    }
-    // Compute diff against latest version for changelog
-    let changelog: WorkflowDiff | null = null;
-    if (latestVersion !== null && latestVersion !== undefined) {
-      changelog = workflowDiffService.diff(latestVersion.graphJson as WorkflowJSON, graphJson as unknown as WorkflowJSON);
-    }
-    // Determine version number
-    const versionNumber = latestVersion !== null && latestVersion !== undefined ? (latestVersion.versionNumber === 0 ? 1 : latestVersion.versionNumber) + 1 : 1;
-    const [newVersion] = await db
-      .insert(schema.workflowVersions)
-      .values({
-        workflowId,
-        graphJson,
-        createdBy: userId,
-        isDraft: true,
-        published: false,
-        versionNumber,
-        notes,
-        checksum,
-        changelog,
-        // metadata field is actually migration_info in the schema
-        migrationInfo: metadata !== null && metadata !== undefined ? { aiMetadata: metadata } : null,
-      })
-      .returning();
-    if (newVersion === undefined) {
-      throw new Error("Failed to create draft version");
-    }
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow_version',
-      entityId: newVersion.id,
-      action: 'create_draft_version',
-      details: {
-        notes,
-        checksum,
-        versionNumber,
-        changelog,
-        metadata,
-      },
+    return this.withTx(tx, async (scopedTx) => {
+      const graphJson = await this.serializeWorkflowInTx(workflowId, userId, scopedTx) as unknown as WorkflowGraph;
+      // Compute checksum
+      const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
+      // Fetch the LATEST version for this workflow.
+      const [latestVersion] = await scopedTx
+        .select()
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.workflowId, workflowId))
+        .orderBy(desc(schema.workflowVersions.createdAt))
+        .limit(1);
+      // If checksum matches latest, no changes - return null
+      if (latestVersion !== null && latestVersion !== undefined && latestVersion.checksum === checksum) {
+        logger.debug({ workflowId, checksum }, "No changes detected, skipping draft version creation");
+        return null;
+      }
+      // Compute diff against latest version for changelog
+      let changelog: WorkflowDiff | null = null;
+      if (latestVersion !== null && latestVersion !== undefined) {
+        changelog = workflowDiffService.diff(latestVersion.graphJson as WorkflowJSON, graphJson as unknown as WorkflowJSON);
+      }
+      // Determine version number
+      const versionNumber = latestVersion !== null && latestVersion !== undefined ? (latestVersion.versionNumber === 0 ? 1 : latestVersion.versionNumber) + 1 : 1;
+      const [newVersion] = await scopedTx
+        .insert(schema.workflowVersions)
+        .values({
+          workflowId,
+          graphJson,
+          createdBy: userId,
+          isDraft: true,
+          published: false,
+          versionNumber,
+          notes,
+          checksum,
+          changelog,
+          // metadata field is actually migration_info in the schema
+          migrationInfo: metadata !== null && metadata !== undefined ? { aiMetadata: metadata } : null,
+        })
+        .returning();
+      if (newVersion === undefined) {
+        throw new Error("Failed to create draft version");
+      }
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow_version',
+        entityId: newVersion.id,
+        action: 'create_draft_version',
+        details: {
+          notes,
+          checksum,
+          versionNumber,
+          changelog,
+          metadata,
+        },
+      });
+      logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Created draft version");
+      return newVersion;
     });
-    logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Created draft version");
-    return newVersion;
   }
   /**
    * Publish a new version
@@ -394,96 +439,100 @@ export class VersionService {
       workflowId: string,
       userId: string,
       notes?: string,
-      force: boolean = false
+      force: boolean = false,
+      tx?: DbTransaction
     ): Promise<WorkflowVersion> {
-    // Authorization first: never do the serialization work before establishing
-    // the caller may publish (RUN2-7).
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
-    if (!hasAccess) {
-      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Authorization first: never do the serialization work before establishing
+      // the caller may publish (RUN2-7).
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit', scopedTx);
+      if (!hasAccess) {
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+      }
 
-    const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
+      const graphJson = await this.serializeWorkflowInTx(workflowId, userId, scopedTx) as unknown as WorkflowGraph;
 
-    // RUN2-7 / RUN2-9: publishing sets status to 'active' further down, exactly
-    // like PUT /api/workflows/:id/status does — so it must clear the validation
-    // gate. Previously only the status route ran the linter (and the structural
-    // validator was a stub returning `{ valid: true }`), leaving publish — the
-    // door the builder actually uses — completely ungated.
-    //
-    // GH-152: the gate also refuses documents whose templates do not resolve,
-    // which needs the project's template ids — resolved here so the rules stay pure.
-    const lintResults = await this.lintSerializedWorkflow(graphJson as unknown as LintableWorkflowContent);
-    const validation = summarizeLintResults(lintResults);
-    if (!validation.valid && !force) {
-      throw createError.validation(
-        `Cannot publish workflow: ${validation.errors.join(', ')}`
-      );
-    }
-    // Compute checksum
-    const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
-    // Compute diff against latest version for changelog
-    let changelog: WorkflowDiff | null = null;
-    // Fetch the LATEST version for this workflow.
-    const [latestVersion] = await db
-      .select()
-      .from(schema.workflowVersions)
-      .where(eq(schema.workflowVersions.workflowId, workflowId))
-      .orderBy(desc(schema.workflowVersions.createdAt))
-      .limit(1);
-    if (latestVersion !== null && latestVersion !== undefined) {
-      changelog = workflowDiffService.diff(latestVersion.graphJson as WorkflowJSON, graphJson as unknown as WorkflowJSON);
-    }
-    // Determine version number
-    const versionNumber = latestVersion !== null && latestVersion !== undefined ? (latestVersion.versionNumber === 0 ? 1 : latestVersion.versionNumber) + 1 : 1;
-    // Create new version (published)
-    const [newVersion] = await db
-      .insert(schema.workflowVersions)
-      .values({
-        workflowId,
-        graphJson,
-        createdBy: userId,
-        isDraft: false, // published
-        published: true,
-        publishedAt: new Date(),
-        versionNumber,
-        notes,
-        checksum,
-        changelog,
-      })
-      .returning();
-    if (newVersion === undefined) {
-      throw new Error("Failed to create published version");
-    }
-    // Update workflow's currentVersionId and status to active
-    await db
-      .update(schema.workflows)
-      .set({
-        currentVersionId: newVersion.id,
-        status: 'active',
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.workflows.id, workflowId));
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow_version',
-      entityId: newVersion.id,
-      action: 'publish',
-      details: {
-        notes,
-        checksum,
-        versionNumber,
-        validationWarnings: validation.warnings,
-        forced: force,
-        // RUN2-7: when a publish is forced past a failing gate, record exactly
-        // what was overridden — a forced publish must be auditable.
-        lintErrorsOverridden: validation.errors.length > 0 ? validation.errors : undefined,
-        changelog
-      },
+      // RUN2-7 / RUN2-9: publishing sets status to 'active' further down, exactly
+      // like PUT /api/workflows/:id/status does — so it must clear the validation
+      // gate. Previously only the status route ran the linter (and the structural
+      // validator was a stub returning `{ valid: true }`), leaving publish — the
+      // door the builder actually uses — completely ungated.
+      //
+      // GH-152: the gate also refuses documents whose templates do not resolve,
+      // which needs the project's template ids — resolved here so the rules stay pure.
+      const readiness = await this.buildReadinessContext(graphJson as unknown as LintableWorkflowContent, scopedTx);
+      const lintResults = collectLintResults(graphJson as unknown as LintableWorkflowContent, readiness);
+      const validation = summarizeLintResults(lintResults);
+      if (!validation.valid && !force) {
+        throw createError.validation(
+          `Cannot publish workflow: ${validation.errors.join(', ')}`
+        );
+      }
+      // Compute checksum
+      const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
+      // Compute diff against latest version for changelog
+      let changelog: WorkflowDiff | null = null;
+      // Fetch the LATEST version for this workflow.
+      const [latestVersion] = await scopedTx
+        .select()
+        .from(schema.workflowVersions)
+        .where(eq(schema.workflowVersions.workflowId, workflowId))
+        .orderBy(desc(schema.workflowVersions.createdAt))
+        .limit(1);
+      if (latestVersion !== null && latestVersion !== undefined) {
+        changelog = workflowDiffService.diff(latestVersion.graphJson as WorkflowJSON, graphJson as unknown as WorkflowJSON);
+      }
+      // Determine version number
+      const versionNumber = latestVersion !== null && latestVersion !== undefined ? (latestVersion.versionNumber === 0 ? 1 : latestVersion.versionNumber) + 1 : 1;
+      // Create new version (published)
+      const [newVersion] = await scopedTx
+        .insert(schema.workflowVersions)
+        .values({
+          workflowId,
+          graphJson,
+          createdBy: userId,
+          isDraft: false, // published
+          published: true,
+          publishedAt: new Date(),
+          versionNumber,
+          notes,
+          checksum,
+          changelog,
+        })
+        .returning();
+      if (newVersion === undefined) {
+        throw new Error("Failed to create published version");
+      }
+      // Update workflow's currentVersionId and status to active
+      await scopedTx
+        .update(schema.workflows)
+        .set({
+          currentVersionId: newVersion.id,
+          status: 'active',
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.workflows.id, workflowId));
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow_version',
+        entityId: newVersion.id,
+        action: 'publish',
+        details: {
+          notes,
+          checksum,
+          versionNumber,
+          validationWarnings: validation.warnings,
+          forced: force,
+          // RUN2-7: when a publish is forced past a failing gate, record exactly
+          // what was overridden — a forced publish must be auditable.
+          lintErrorsOverridden: validation.errors.length > 0 ? validation.errors : undefined,
+          changelog
+        },
+      });
+      logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Published new version");
+      return newVersion;
     });
-    logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Published new version");
-    return newVersion;
   }
   /**
    * Rollback to a previous version
@@ -494,39 +543,42 @@ export class VersionService {
     workflowId: string,
     toVersionId: string,
     userId: string,
-    notes?: string
+    notes?: string,
+    tx?: DbTransaction
   ): Promise<void> {
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
-    if (!hasAccess) {
-      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
-    }
+    await this.withTx(tx, async (scopedTx) => {
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit', scopedTx);
+      if (!hasAccess) {
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+      }
 
-    // Verify version exists and belongs to workflow
-    const version = await this.getVersion(toVersionId);
-    if (!version || version.workflowId !== workflowId) {
-      throw new Error("Version not found or does not belong to this workflow");
-    }
-    // Update workflow's currentVersionId
-    await db
-      .update(schema.workflows)
-      .set({
-        currentVersionId: toVersionId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.workflows.id, workflowId));
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'rollback',
-      details: {
-        toVersionId,
-        notes,
-        isDraft: version.isDraft,
-      },
+      // Verify version exists and belongs to workflow
+      const version = await this.getVersion(toVersionId, scopedTx);
+      if (!version || version.workflowId !== workflowId) {
+        throw new Error("Version not found or does not belong to this workflow");
+      }
+      // Update workflow's currentVersionId
+      await scopedTx
+        .update(schema.workflows)
+        .set({
+          currentVersionId: toVersionId,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.workflows.id, workflowId));
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'rollback',
+        details: {
+          toVersionId,
+          notes,
+          isDraft: version.isDraft,
+        },
+      });
+      logger.info({ workflowId, toVersionId, userId, isDraft: version.isDraft }, "Rolled back to version");
     });
-    logger.info({ workflowId, toVersionId, userId, isDraft: version.isDraft }, "Rolled back to version");
   }
   /**
    * Restore workflow to a specific version (creates new draft version with same content)
@@ -536,37 +588,41 @@ export class VersionService {
     workflowId: string,
     fromVersionId: string,
     userId: string,
-    notes?: string
+    notes?: string,
+    tx?: DbTransaction
   ): Promise<WorkflowVersion> {
-    // Verify source version exists and belongs to workflow
-    const sourceVersion = await this.getVersion(fromVersionId);
-    if (!sourceVersion || sourceVersion.workflowId !== workflowId) {
-      throw new Error("Source version not found or does not belong to this workflow");
-    }
-    // Create a new draft version with the same graphJson
-    const restoredVersion = await this.createDraftVersion(
-      workflowId,
-      userId,
-      notes ?? `Restored from version ${sourceVersion.versionNumber !== 0 ? String(sourceVersion.versionNumber) : fromVersionId}`,
-      { restoredFrom: fromVersionId }
-    );
-    if (!restoredVersion) {
-      throw new Error("Failed to create restored version (no changes detected)");
-    }
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'restore',
-      details: {
-        fromVersionId,
-        toVersionId: restoredVersion.id,
-        notes,
-      },
+    return this.withTx(tx, async (scopedTx) => {
+      // Verify source version exists and belongs to workflow
+      const sourceVersion = await this.getVersion(fromVersionId, scopedTx);
+      if (!sourceVersion || sourceVersion.workflowId !== workflowId) {
+        throw new Error("Source version not found or does not belong to this workflow");
+      }
+      // Create a new draft version with the same graphJson
+      const restoredVersion = await this.createDraftVersion(
+        workflowId,
+        userId,
+        notes ?? `Restored from version ${sourceVersion.versionNumber !== 0 ? String(sourceVersion.versionNumber) : fromVersionId}`,
+        { restoredFrom: fromVersionId },
+        scopedTx
+      );
+      if (!restoredVersion) {
+        throw new Error("Failed to create restored version (no changes detected)");
+      }
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'restore',
+        details: {
+          fromVersionId,
+          toVersionId: restoredVersion.id,
+          notes,
+        },
+      });
+      logger.info({ workflowId, fromVersionId, toVersionId: restoredVersion.id, userId }, "Restored to version");
+      return restoredVersion;
     });
-    logger.info({ workflowId, fromVersionId, toVersionId: restoredVersion.id, userId }, "Restored to version");
-    return restoredVersion;
   }
   /**
    * Pin a specific version (overrides currentVersionId for API/Intake)
@@ -574,133 +630,144 @@ export class VersionService {
   async pinVersion(
     workflowId: string,
     versionId: string,
-    userId: string
+    userId: string,
+    tx?: DbTransaction
   ): Promise<void> {
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
-    if (!hasAccess) {
-      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
-    }
+    await this.withTx(tx, async (scopedTx) => {
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit', scopedTx);
+      if (!hasAccess) {
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+      }
 
-    // Verify version exists and belongs to workflow
-    const version = await this.getVersion(versionId);
-    if (!version || version.workflowId !== workflowId) {
-      throw new Error("Version not found or does not belong to this workflow");
-    }
-    // Update workflow's pinnedVersionId
-    await db
-      .update(schema.workflows)
-      .set({
-        pinnedVersionId: versionId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.workflows.id, workflowId));
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'pin_version',
-      details: { versionId },
+      // Verify version exists and belongs to workflow
+      const version = await this.getVersion(versionId, scopedTx);
+      if (!version || version.workflowId !== workflowId) {
+        throw new Error("Version not found or does not belong to this workflow");
+      }
+      // Update workflow's pinnedVersionId
+      await scopedTx
+        .update(schema.workflows)
+        .set({
+          pinnedVersionId: versionId,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.workflows.id, workflowId));
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'pin_version',
+        details: { versionId },
+      });
+      logger.info({ workflowId, versionId, userId }, "Pinned version");
     });
-    logger.info({ workflowId, versionId, userId }, "Pinned version");
   }
   /**
    * Unpin version (removes pinnedVersionId)
    */
-  async unpinVersion(workflowId: string, userId: string): Promise<void> {
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
-    if (!hasAccess) {
-      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
-    }
+  async unpinVersion(workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit', scopedTx);
+      if (!hasAccess) {
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+      }
 
-    await db
-      .update(schema.workflows)
-      .set({
-        pinnedVersionId: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.workflows.id, workflowId));
-    // Log audit event
-    await db.insert(schema.auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'unpin_version',
-      details: {},
+      await scopedTx
+        .update(schema.workflows)
+        .set({
+          pinnedVersionId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.workflows.id, workflowId));
+      // Log audit event
+      await scopedTx.insert(schema.auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'unpin_version',
+        details: {},
+      });
+      logger.info({ workflowId, userId }, "Unpinned version");
     });
-    logger.info({ workflowId, userId }, "Unpinned version");
   }
   /**
    * Compute diff between two versions
    */
-  async diffVersions(versionId1: string, versionId2: string, userId: string): Promise<WorkflowDiff> {
-    const version1 = await this.getVersion(versionId1);
-    if (!version1) {
-      throw new Error("Version 1 not found");
-    }
-
-    const hasAccess1 = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view');
-    if (!hasAccess1) {
-      throw new Error("Access denied - insufficient permissions for version 1's workflow");
-    }
-
-    let graphJson2: WorkflowJSON;
-
-    if (versionId2 === CURRENT_VERSION_ID) {
-      // The live state of version 1's own workflow — already authorized above.
-      // Serialized the same way stored graphJson is written, so the two sides
-      // of the diff have identical shape.
-      const liveGraph = await this.serializeWorkflow(version1.workflowId, userId);
-      graphJson2 = liveGraph as unknown as WorkflowJSON;
-    } else {
-      const version2 = await this.getVersion(versionId2);
-      if (!version2) {
-        throw new Error("Version 2 not found");
+  async diffVersions(versionId1: string, versionId2: string, userId: string, tx?: DbTransaction): Promise<WorkflowDiff> {
+    return this.withTx(tx, async (scopedTx) => {
+      const version1 = await this.getVersion(versionId1, scopedTx);
+      if (!version1) {
+        throw new Error("Version 1 not found");
       }
-      const hasAccess2 = await aclService.hasWorkflowRole(userId, version2.workflowId, 'view');
-      if (!hasAccess2) {
-        throw new Error("Access denied - insufficient permissions for version 2's workflow");
-      }
-      graphJson2 = version2.graphJson as WorkflowJSON;
-    }
 
-    return workflowDiffService.diff(version1.graphJson as WorkflowJSON, graphJson2);
+      const hasAccess1 = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view', scopedTx);
+      if (!hasAccess1) {
+        throw new Error("Access denied - insufficient permissions for version 1's workflow");
+      }
+
+      let graphJson2: WorkflowJSON;
+
+      if (versionId2 === CURRENT_VERSION_ID) {
+        // The live state of version 1's own workflow — already authorized above.
+        // Serialized the same way stored graphJson is written, so the two sides
+        // of the diff have identical shape.
+        const liveGraph = await this.serializeWorkflowInTx(version1.workflowId, userId, scopedTx);
+        graphJson2 = liveGraph as unknown as WorkflowJSON;
+      } else {
+        const version2 = await this.getVersion(versionId2, scopedTx);
+        if (!version2) {
+          throw new Error("Version 2 not found");
+        }
+        const hasAccess2 = await aclService.hasWorkflowRole(userId, version2.workflowId, 'view', scopedTx);
+        if (!hasAccess2) {
+          throw new Error("Access denied - insufficient permissions for version 2's workflow");
+        }
+        graphJson2 = version2.graphJson as WorkflowJSON;
+      }
+
+      return workflowDiffService.diff(version1.graphJson as WorkflowJSON, graphJson2);
+    });
   }
   /**
    * Export workflow versions as JSON
    */
-  async exportVersions(workflowId: string, userId: string): Promise<Record<string, unknown>> {
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
-    if (!hasAccess) {
-      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
-    }
+  async exportVersions(workflowId: string, userId: string, tx?: DbTransaction): Promise<Record<string, unknown>> {
+    return this.withTx(tx, async (scopedTx) => {
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view', scopedTx);
+      if (!hasAccess) {
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+      }
 
-    const versions = await this.listVersions(workflowId);
-    return {
-      workflowId,
-      exportedAt: new Date().toISOString(),
-      versions: versions.map(v => ({
-        id: v.id,
-        graphJson: v.graphJson,
-        notes: v.notes,
-        changelog: v.changelog,
-        checksum: v.checksum,
-        published: v.published,
-        publishedAt: v.publishedAt,
-        createdAt: v.createdAt,
-      })),
-    };
+      const versions = await this.listVersions(workflowId, undefined, scopedTx);
+      return {
+        workflowId,
+        exportedAt: new Date().toISOString(),
+        versions: versions.map(v => ({
+          id: v.id,
+          graphJson: v.graphJson,
+          notes: v.notes,
+          changelog: v.changelog,
+          checksum: v.checksum,
+          published: v.published,
+          publishedAt: v.publishedAt,
+          createdAt: v.createdAt,
+        })),
+      };
+    });
   }
   /**
    * Update AI metadata for a version
    */
-  async updateAiMetadata(versionId: string, metadata: Record<string, unknown>): Promise<void> {
-    await db
-      .update(schema.workflowVersions)
-      .set({
-        migrationInfo: { aiMetadata: metadata }
-      })
-      .where(eq(schema.workflowVersions.id, versionId));
+  async updateAiMetadata(versionId: string, metadata: Record<string, unknown>, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      await scopedTx
+        .update(schema.workflowVersions)
+        .set({
+          migrationInfo: { aiMetadata: metadata }
+        })
+        .where(eq(schema.workflowVersions.id, versionId));
+    });
   }
 }
 export const versionService = new VersionService();

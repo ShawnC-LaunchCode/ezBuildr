@@ -162,8 +162,32 @@ export async function withCurrentTenant<T>(
 ): Promise<T> {
   const tenantId = getCurrentTenantId();
   if (!tenantId) {
-    logger.error("withCurrentTenant called with no tenant in async context");
-    throw new Error("RLS: no tenant in context.");
+    // Staged rollout (corrected 2026-08-20 during the RLS-2e review).
+    //
+    // Throwing here UNCONDITIONALLY was wrong. RLS is deliberately staged —
+    // policies exist, `FORCE ROW LEVEL SECURITY` is not set, and `RLS_ENFORCED`
+    // defaults to false — so before enforcement a missing tenant grants no
+    // extra safety by failing: the query would see every row either way. What
+    // it did instead was change behaviour the moment a service was converted,
+    // which broke real customer paths (anonymous public-link runs, run-token
+    // requests) and 81 integration tests, none of which are security findings.
+    //
+    // So: warn and behave as before while unenforced; fail CLOSED the moment
+    // enforcement is on, which is the point at which an unscoped query really
+    // would return zero rows or leak. That makes `RLS_ENFORCED` the single
+    // switch that tightens behaviour — what a staged rollout is supposed to
+    // mean — and makes RLS-5 (the full suite run as the restricted role with
+    // the flag on) the thing that finds every remaining unscoped path, rather
+    // than discovering them one broken feature at a time.
+    if (isRlsEnforced()) {
+      logger.error("withCurrentTenant called with no tenant in async context (RLS enforced)");
+      throw new Error("RLS: no tenant in context.");
+    }
+    logger.warn(
+      "withCurrentTenant called with no tenant in async context; RLS not enforced, "
+      + "running unscoped. This WILL throw once RLS_ENFORCED=true — see RLS-4/RLS-5.",
+    );
+    return db.transaction(fn);
   }
   return withTenant(tenantId, fn);
 }

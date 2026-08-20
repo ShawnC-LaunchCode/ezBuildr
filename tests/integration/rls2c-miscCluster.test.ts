@@ -141,6 +141,13 @@ describe("Misc cluster service-boundary tenant transaction (RLS-2c)", () => {
   // AC4 — the no-tenant path fails closed for a service with no explicit
   // tenantId argument (ReviewTaskService: authorization is userId/ACL-based).
   it("ReviewTaskService.getReviewTask throws with no ambient tenant and never calls the repository", async () => {
+    // Staged rollout: the throw only happens once RLS is enforced (before that
+    // `withCurrentTenant` warns and runs unscoped, because failing early buys
+    // no safety while every row is visible anyway). This assertion is about the
+    // enforced behaviour, so enable it for this test and restore after.
+    const priorRlsEnforced = process.env.RLS_ENFORCED;
+    process.env.RLS_ENFORCED = "true";
+    try {
     expect(getCurrentTenantId()).toBeUndefined();
 
     const spy = vi.spyOn(reviewTaskRepository, "findById");
@@ -150,7 +157,11 @@ describe("Misc cluster service-boundary tenant transaction (RLS-2c)", () => {
     ).rejects.toThrow(/no tenant in context/i);
 
     expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
+      spy.mockRestore();
+    } finally {
+      if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+      else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+    }
   });
 
   // AC4 — the mismatch guard for the one ReviewTaskService method that DOES

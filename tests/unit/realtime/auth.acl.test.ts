@@ -23,9 +23,16 @@ import type { Workflow, WorkflowAccess } from "../../../shared/schema";
  * propagates.
  */
 
+// RLS-2e: `WorkflowService.verifyAccess` now opens a tenant-scoped
+// transaction via `withCurrentTenant`/`withTenant`, which calls
+// `applyTenantToTransaction(tx, tenantId)` — a `tx.execute(...)` call that
+// sets the `app.current_tenant_id` GUC. The stub `tx` needs a no-op
+// `execute` for that call to succeed; its return value is never read.
 vi.mock("../../../server/db", () => ({
   db: {
-    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({ execute: vi.fn().mockResolvedValue(undefined) })
+    ),
   },
 }));
 

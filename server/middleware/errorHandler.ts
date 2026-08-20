@@ -123,6 +123,13 @@ function isForbiddenError(message: string): boolean {
     "you are not a member",
     "admin access required",
     "insufficient permissions",
+    // RLS-2e: `withCurrentTenant` fails closed with "RLS: no tenant in
+    // context." for an authenticated caller who has no tenant. That is an
+    // authorization outcome, not a server fault — before the RLS-2 rollout the
+    // same request reached the service's tenancy check and returned 403.
+    // Mirrored in `classifyRouteError`; both exist because routes are split
+    // between the two mechanisms.
+    "rls: no tenant in context",
   ];
   const lowerMessage = message.toLowerCase();
   return forbiddenPatterns.some((pattern) => lowerMessage.includes(pattern));

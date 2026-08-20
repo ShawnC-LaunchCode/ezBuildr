@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock, beforeAll, afterAll } from 'vitest';
 import type { CollectionField } from '@shared/schema';
 import type { DbTransaction } from '../../../server/repositories';
 
@@ -495,6 +495,18 @@ describe('CollectionFieldService', () => {
   });
 
   describe('RLS-2c: fails closed with no tenant in context', () => {
+  // Staged rollout: `withCurrentTenant` only THROWS on a missing tenant once
+  // RLS is enforced. Before that it warns and runs unscoped — failing early
+  // buys no safety while every row is visible anyway, and throwing
+  // unconditionally broke real customer paths (anonymous runs, run tokens).
+  // These assertions are about the ENFORCED behaviour, so enable it here.
+  const priorRlsEnforced = process.env.RLS_ENFORCED;
+  beforeAll(() => { process.env.RLS_ENFORCED = "true"; });
+  afterAll(() => {
+    if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+    else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+  });
+
     it('rejects with no ambient tenant and no supplied tx, and never reaches the repository', async () => {
       const insertData = {
         collectionId: mockCollectionId,
