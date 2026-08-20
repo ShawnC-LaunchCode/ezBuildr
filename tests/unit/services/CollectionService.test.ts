@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock, beforeAll, afterAll } from 'vitest';
 
 import { CollectionService } from '../../../server/services/CollectionService';
 import { getCurrentTenantId, runWithTenantContext } from '../../../server/utils/rlsContext';
@@ -445,6 +445,18 @@ describe('CollectionService', () => {
   // transaction, and does not survive it" proof needs a real database and
   // lives in tests/integration/rls2a-collectionService.test.ts.
   describe('RLS-2a service-boundary transaction: fails closed', () => {
+  // Staged rollout: `withCurrentTenant` only THROWS on a missing tenant once
+  // RLS is enforced. Before that it warns and runs unscoped — failing early
+  // buys no safety while every row is visible anyway, and throwing
+  // unconditionally broke real customer paths (anonymous runs, run tokens).
+  // These assertions are about the ENFORCED behaviour, so enable it here.
+  const priorRlsEnforced = process.env.RLS_ENFORCED;
+  beforeAll(() => { process.env.RLS_ENFORCED = "true"; });
+  afterAll(() => {
+    if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+    else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+  });
+
     it('throws (and never calls the repository) when called with no tx and no tenant in the async context', async () => {
       expect(getCurrentTenantId()).toBeUndefined();
 

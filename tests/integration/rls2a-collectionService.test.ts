@@ -225,6 +225,19 @@ describe("CollectionService service-boundary tenant transaction (RLS-2a)", () =>
   // AC5 — a call with no tenant in the async context and no explicit tx must
   // fail closed, never silently run unscoped.
   describe("the no-tenant path fails closed", () => {
+    // Staged rollout: `withCurrentTenant` only THROWS on a missing tenant once
+    // RLS is actually enforced. Before that it warns and runs unscoped, because
+    // failing early buys no safety while every row is visible anyway — and
+    // throwing unconditionally broke real customer paths (anonymous runs,
+    // run-token requests). These assertions are about the enforced behaviour,
+    // so turn enforcement on for their duration and restore it after.
+    const priorRlsEnforced = process.env.RLS_ENFORCED;
+    beforeAll(() => { process.env.RLS_ENFORCED = "true"; });
+    afterAll(() => {
+      if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+      else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+    });
+
     it("throws and never calls the repository when there is no tenant in the async context", async () => {
       expect(getCurrentTenantId()).toBeUndefined();
 

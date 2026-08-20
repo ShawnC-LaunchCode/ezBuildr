@@ -166,6 +166,13 @@ export class RunService {
   ): Promise<WorkflowRun> {
     const workflow = await this.authResolver.verifyCreateAccess(idOrSlug, userId);
     const workflowId = workflow.id;
+
+    // Tenant context for anonymous/public runs is established earlier, in
+    // `RunAuthResolver.verifyCreateAccess` — the first point at which the
+    // workflow is known and still before any RLS-converted service is reached.
+    // Doing it again here was redundant AND wrong: it forced a DB round-trip
+    // into no-DB unit tests (`RunService.versioning.test.ts`).
+
     // Resolve the version to use for this run
     let targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
     if (!targetVersionId) {

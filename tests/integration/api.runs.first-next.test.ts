@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
 import { versionService } from '../../server/services/VersionService';
 import {
   setupIntegrationTest,
@@ -132,7 +133,10 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
     // RVP-2 now actually resolves the run's start section from that pinned
     // graph -- so it must reflect the sections just created above, not the
     // empty snapshot `factory.createWorkflow` produced before they existed.
-    const publishedVersion = (await versionService.createDraftVersion(workflow.id, ctx.userId)) ?? version;
+    // RLS-2e: called directly, not over HTTP, so no `rlsContext` middleware has
+    // populated the async tenant context the converted service now requires.
+    const publishedVersion = (await runWithTenantContext(ctx.tenantId, () =>
+      versionService.createDraftVersion(workflow.id, ctx.userId))) ?? version;
     await db
       .update(schema.workflows)
       .set({ currentVersionId: publishedVersion.id })

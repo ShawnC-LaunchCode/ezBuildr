@@ -1077,7 +1077,77 @@ at once**.
 
 ---
 
-## RLS-2e — Roll out: workflow/template cluster 🔲
+## RLS-2e — Roll out: workflow/template cluster ✅ DONE 2026-08-20 — **the rollout is complete**
+
+All five converted: `WorkflowService`, `VersionService`, `TemplateService`,
+`TemplateValidationService`, `WorkflowClonerService` (`copyProject` + `copyWorkflow`;
+`copyWorkflowAsAdmin` deliberately excluded, below). **21 services now open a tenant-scoped
+transaction at the service boundary.** RLS-2a → 2e is finished; only RLS-4 and RLS-5 remain.
+
+**Gates re-run by the reviewer:** `type-check` **0** · `eslint --max-warnings 0` **exit 0** ·
+`test:fast` **285 files / 3283 passed** (baseline 3281 → +2, the reviewer's guard tests).
+
+### 🔴 The dev found a real DEADLOCK, not a documented degradation — the key result of this ticket
+
+`VersionService.serializeWorkflowInTx` calls `WorkflowService.getWorkflowWithDetails` **nested
+inside its own open transaction**, which then called the unconverted `BrandingService` **on the
+pool**. Against the `max: 1` test pool that is a hard hang: the branding read queues forever for
+the connection the outer transaction already holds.
+
+**This is a new path into the `SystemStats` deadlock class** — reached through a *converted
+service*, not a bare repository call. Every prior instance was repository-level. It reproduced
+the hang with `pg_stat_activity`, killed the hung task, `pg_terminate_backend`'d the stale
+`idle in transaction` row, and — correctly — **did not start a second concurrent run** to check.
+
+**Fix:** branding resolves only when `getWorkflowWithDetails` opened the transaction itself
+(every caller except `VersionService`). Nested calls compute the same workflow-only fallback
+`resolveForWorkflow`'s own failure branch uses, synchronously, with no DB call. Verified safe:
+`VersionService` has **zero** references to branding and the version snapshot schema does not
+carry it, so nothing downstream loses data.
+
+### 🔴 A third non-request caller, found by audit and in no checkpoint report
+
+`server/realtime/auth.ts` — **WebSocket collab upgrades never pass through Express middleware**,
+so a converted `verifyAccess` would have thrown "no tenant in context" for **every collaborative
+editing connection**. Now wrapped in `runWithTenantContext(payload.tenantId, …)`, using a tenant
+already verified from the JWT and checked against the room. Found by auditing callers, not by a
+failing test — and it appeared in no checkpoint, which is why the reviewer diffs the tree rather
+than reading reports.
+
+### Reviewer additions
+
+The dev was killed by a session limit before adding the guard tests the reviewer asked for, so
+the reviewer wrote them. The branding fix is **correct today and invisible if it regresses**: if
+the top-level path ever took the fallback branch too, every other assertion in the file would
+still pass and the builder would silently render **default branding on a customer-facing
+portal**. Two tests now pin both directions, and both were **mutation-proven**:
+
+- force `openedOwnTransaction = false` → the "resolves REAL branding" test goes red (and so does
+  the pre-existing GH-158 preview test);
+- force it `true` → the "does NOT hit BrandingService when nested" test goes red, i.e. the
+  deadlock path is detected.
+
+### `copyWorkflowAsAdmin` — the dev's reasoning beat the obvious fix
+
+Wrapping it in the ambient `withTx` would set the GUC to the **admin's** tenant while
+`copyWorkflowCore` reads the **source** workflow's sections and steps, silently producing an
+**empty copy**. Copying nothing quietly is worse than failing. Left with no GUC at all, so under
+`FORCE` it fails closed — it **breaks rather than leaks**, which is the correct direction.
+
+### Unconverted, all flagged with post-FORCE behaviour stated (AC6)
+
+| Item | Behaviour once `FORCE` is on |
+|---|---|
+| `copyWorkflowAsAdmin` | Fails closed (throws / empty copy). Needs RLS-6-style bypass. |
+| `BrandingService.resolveForWorkflow` | Silently renders **default branding** on the client portal — customer-visible. |
+| `VariableService.listVariables` (via `TemplateValidationService.validate`) | Sees **zero variables**, so a template is reported clean when it is not. |
+
+All three are now RLS-4 preconditions. Note the mechanism the reviewer corrected: the branding
+exposure is `resolveTenantIdForWorkflow` reading **`workflows`** (RLS-covered), **not** the
+branding column — `tenants` has no policy. Worded the other way, the next reader checks
+`tenants`, finds nothing, and dismisses it.
+
+**Priority: P0** · Size: L · Files: 11
 
 **Priority: P0** · Size: **L** · **BLOCKS RLS-4** · Dispatchable now
 
@@ -1516,11 +1586,36 @@ without a policy fails CI rather than shipping.
 > FORCE while the flag is false leaves that guard blind and the admin console truncates
 > silently.
 >
-> **2. `AdminOrgStatsService` is not on the admin path (from RLS-2d).**
+> **2. ✅ CLOSED 2026-08-19 — `AdminOrgStatsService` now reads through the admin path.**
+> `AdminOrgStatsRepository` gained an `adminDbOverride`, `AdminAccessService` gained an audited
+> `listOrgStats`, and the service reads through it, preserving RLS-6's containment (it never
+> imports `adminDb` itself). Original finding follows.
+>
+> ~~**`AdminOrgStatsService` is not on the admin path (from RLS-2d).**~~
 > `AdminOrgStatsRepository` imports the **normal** `db` pool and is **not** in RLS-6's `adminDb`
 > allowlist. It is an admin-only cross-tenant aggregate, so under `FORCE` it returns only the
 > acting admin's own tenant's organizations — no error, just a short list. **Route it through
 > `AdminAccessService`/`adminDb` and add it to the containment allowlist before FORCE.**
+>
+> **UPDATED 2026-08-20 — the rollout finished and the list grew to five. Treat this as a
+> checklist to verify, not a note to have read.** Precondition 2 is already CLOSED; the other
+> four are open. Every one of them is a *silent* failure: no error, just wrong or missing data.
+>
+> **4. `BrandingService.resolveForWorkflow` (from RLS-2e).** `resolveTenantIdForWorkflow` reads
+> **`workflows`** — RLS-covered — on the pool with no GUC, so it returns zero rows, `tenantId`
+> comes back null, and the client portal renders **default branding instead of the tenant's**.
+> Wrong logo and colours on a customer-facing page. Note it is `workflows` that is exposed, not
+> the branding column: `tenants` has no policy, so checking there finds nothing and misleads.
+>
+> **5. `VariableService.listVariables` (from RLS-2e).** Called by
+> `TemplateValidationService.validate`. Under `FORCE` it sees **zero variables** for the
+> workflow's sections and steps, so validation reports a template **clean when it is not** —
+> and template validation is the gate that stops broken documents reaching customers.
+>
+> **Also flagged, and this one is acceptable as-is:** `WorkflowClonerService.copyWorkflowAsAdmin`
+> is a genuine cross-tenant admin path left with no GUC. Under `FORCE` it **fails closed**
+> (throws or copies nothing) rather than leaking. Give it RLS-6-style bypass treatment when
+> convenient; it is not a correctness risk in the meantime.
 >
 > **3. Token-authenticated bootstrap lookups (from RLS-2c).**
 > `SignatureRequestService`'s `getSignatureRequestByToken` / `signDocument` /

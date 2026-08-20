@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildTestWhen } from "../../helpers/conditionFixtures";
 
+const TEST_TENANT_ID = "tenant-version-service-serialization-test";
+
 const getWorkflowWithDetails = vi.fn();
 const findBlocks = vi.fn();
 const findDocumentHooks = vi.fn();
@@ -11,16 +13,26 @@ vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: { getWorkflowWithDetails },
 }));
 
-vi.mock("../../../server/db", () => ({
-  db: {
-    query: {
-      blocks: { findMany: findBlocks },
-      documentHooks: { findMany: findDocumentHooks },
-      lifecycleHooks: { findMany: findLifecycleHooks },
+// RLS-2e: serializeWorkflow now opens a tenant-scoped transaction via
+// withCurrentTenant -> db.transaction and reads via `scopedTx.query...`
+// rather than `db.query...`. The stub tx exposes the same `query` object as
+// `db` itself, plus a no-op `execute` (applyTenantToTransaction's GUC set).
+vi.mock("../../../server/db", () => {
+  const query = {
+    blocks: { findMany: findBlocks },
+    documentHooks: { findMany: findDocumentHooks },
+    lifecycleHooks: { findMany: findLifecycleHooks },
+  };
+  return {
+    db: {
+      query,
+      transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ query, execute: vi.fn().mockResolvedValue(undefined) })
+      ),
     },
-  },
-  initializeDatabase: vi.fn(),
-}));
+    initializeDatabase: vi.fn(),
+  };
+});
 
 vi.mock("../../../server/services/AclService", () => ({
   aclService: { hasWorkflowRole: vi.fn().mockResolvedValue(true) },
@@ -36,6 +48,14 @@ describe("VersionService.serializeWorkflow", () => {
   });
 
   it("preserves runtime-critical workflow, logic, block, and hook fields", async () => {
+    // Dynamically imported (like VersionService below) rather than a static
+    // top-level import: a static import here would resolve server/utils/
+    // rlsContext.ts's own `import { db } from "../db"` before this file's
+    // `const findBlocks = vi.fn()` etc. run, and Vitest hoists `vi.mock`
+    // factories above ordinary top-level statements — the factory would
+    // then reference those consts before initialization.
+    const { enterTenantContextForTests } = await import("../../../server/utils/rlsContext");
+    enterTenantContextForTests(TEST_TENANT_ID);
     const conditionValue = { choices: ["yes", 2], exact: true };
     const visibleIf = { operator: "equals", alias: "approved", value: true };
     // Built once and reused for both the fixture and the assertion: `when`

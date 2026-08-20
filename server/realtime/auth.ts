@@ -5,6 +5,7 @@ import { WebSocket } from 'ws';
 import { createLogger } from '../logger';
 import { authService, type JWTPayload } from '../services/AuthService';
 import { workflowService } from '../services/WorkflowService';
+import { runWithTenantContext } from '../utils/rlsContext';
 const logger = createLogger({ module: 'collab-auth' });
 export interface AuthenticatedUser {
   userId: string;
@@ -122,7 +123,18 @@ export async function authenticateConnection(
   // Collaborative editing implies edit rights, so view-only access is still
   // rejected here (MAP-B5).
   try {
-    await workflowService.verifyAccess(roomInfo.workflowId, payload.userId, 'edit');
+    // RLS-2e: this WebSocket upgrade path never runs through Express's
+    // `rlsContext` middleware (it isn't an HTTP request), so
+    // `WorkflowService.verifyAccess` — now RLS-2e-converted and requiring an
+    // ambient tenant — would otherwise throw "no tenant in context" for
+    // every collab connection. `payload.tenantId` is already verified from
+    // the JWT and checked against the room's tenant above, so it is exactly
+    // the tenant this operation should run as; open that context explicitly
+    // for the one call that needs it, mirroring how a background job wraps
+    // a converted service call in `runWithTenantContext` (§2c).
+    await runWithTenantContext(payload.tenantId, () =>
+      workflowService.verifyAccess(roomInfo.workflowId, payload.userId, 'edit')
+    );
   } catch (error) {
     logger.warn(
       {

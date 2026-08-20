@@ -1,5 +1,7 @@
 import { logger } from "../logger";
 import { workflowRunRepository } from "../repositories/WorkflowRunRepository";
+import { workflowTenantResolver } from "../services/WorkflowTenantResolver";
+import { setCurrentTenantId } from "../utils/rlsContext";
 
 import type { Request, Response, NextFunction } from "express";
 
@@ -78,6 +80,30 @@ export async function runTokenAuth(
       workflowId: run.workflowId,
       runToken: token,
     };
+
+    // RLS-2e (reviewer fix): a run token is NOT a tenant JWT, so neither
+    // `attachUserToRequest` nor `cookieStrategy` runs for it and nothing
+    // populates the async tenant context. Every service the RLS-2 rollout
+    // converted throws "RLS: no tenant in context." when reached this way —
+    // which is every public link and every anonymous run, i.e. the
+    // customer-facing path. `workflow_runs` carries no tenant_id, so the tenant
+    // is resolved from the workflow, which is exactly what
+    // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
+    // alone"). Mirrors what RLS-1 did for `hybridAuth`.
+    //
+    // Best-effort by design: if resolution fails we leave the context empty and
+    // let the downstream service fail closed, rather than inventing a tenant.
+    try {
+      const runTenantId = await workflowTenantResolver.resolveForWorkflowId(run.workflowId);
+      if (runTenantId) {
+        setCurrentTenantId(runTenantId);
+      } else {
+        logger.warn({ runId: run.id, workflowId: run.workflowId },
+          "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
+      }
+    } catch (e) {
+      logger.warn({ err: e, runId: run.id }, "Tenant resolution failed for run token");
+    }
 
     next();
   } catch (error) {
@@ -168,6 +194,30 @@ async function creatorOrRunTokenAuthLogic(
       workflowId: run.workflowId,
       runToken: token,
     };
+
+    // RLS-2e (reviewer fix): a run token is NOT a tenant JWT, so neither
+    // `attachUserToRequest` nor `cookieStrategy` runs for it and nothing
+    // populates the async tenant context. Every service the RLS-2 rollout
+    // converted throws "RLS: no tenant in context." when reached this way —
+    // which is every public link and every anonymous run, i.e. the
+    // customer-facing path. `workflow_runs` carries no tenant_id, so the tenant
+    // is resolved from the workflow, which is exactly what
+    // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
+    // alone"). Mirrors what RLS-1 did for `hybridAuth`.
+    //
+    // Best-effort by design: if resolution fails we leave the context empty and
+    // let the downstream service fail closed, rather than inventing a tenant.
+    try {
+      const runTenantId = await workflowTenantResolver.resolveForWorkflowId(run.workflowId);
+      if (runTenantId) {
+        setCurrentTenantId(runTenantId);
+      } else {
+        logger.warn({ runId: run.id, workflowId: run.workflowId },
+          "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
+      }
+    } catch (e) {
+      logger.warn({ err: e, runId: run.id }, "Tenant resolution failed for run token");
+    }
 
     next();
   } catch (error) {

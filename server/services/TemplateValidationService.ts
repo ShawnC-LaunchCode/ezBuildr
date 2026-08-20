@@ -13,8 +13,9 @@
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { db } from '../db';
+import { type DbTransaction } from '../repositories';
 import { createError } from '../utils/errors';
+import { withCurrentTenant } from '../utils/rlsContext';
 import { getTemplateFilePath } from './templates';
 import {
   extractPlaceholdersDetailed,
@@ -133,6 +134,25 @@ const VALUELESS_STEP_TYPES = new Set(['display', 'final_documents']);
 
 export class TemplateValidationService {
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-2e). Reuses a caller-supplied `tx` if given (never
+   * nests, and skips the mismatch check — see §2b's documented gap);
+   * otherwise compares `expectedTenantId` against the ambient tenant and
+   * throws on disagreement before opening exactly one transaction via
+   * `withCurrentTenant`.
+   */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Validate a template's placeholders against a workflow's variables.
    *
    * @param templateId - Template row id (for the report)
@@ -144,39 +164,47 @@ export class TemplateValidationService {
     templateId: string,
     workflowId: string,
     tenantId: string,
-    userId: string
+    userId: string,
+    tx?: DbTransaction
   ): Promise<TemplateValidationReport> {
-    const template = await db.query.templates.findFirst({
-      where: eq(schema.templates.id, templateId),
-      with: { project: true },
-    });
-    if (!template) {
-      throw createError.notFound('Template', templateId);
-    }
-    if (template.project.tenantId !== tenantId) {
-      throw createError.forbidden('Access denied to this template');
-    }
-
-    const variables = await variableService.listVariables(workflowId, userId);
-
-    let placeholders: PlaceholderInfo[] = [];
-    const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;
-
-    if (metadata?.placeholders) {
-      placeholders = metadata.placeholders;
-    } else {
-      try {
-        placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(template.fileRef));
-      } catch (error) {
-        if (error instanceof TemplateSyntaxError) {
-          const report = this.buildReport(templateId, workflowId, [], variables);
-          return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
-        }
-        throw error;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const template = await scopedTx.query.templates.findFirst({
+        where: eq(schema.templates.id, templateId),
+        with: { project: true },
+      });
+      if (!template) {
+        throw createError.notFound('Template', templateId);
       }
-    }
+      if (template.project.tenantId !== tenantId) {
+        throw createError.forbidden('Access denied to this template');
+      }
 
-    return this.buildReport(templateId, workflowId, placeholders, variables);
+      // RLS-2e: VariableService has no repository layer and is not part of
+      // this cluster's conversion — this call runs on the pool, outside
+      // the transaction opened above. Flagged for whoever converts it;
+      // post-FORCE it will see zero rows (sections/steps are tenant-scoped
+      // via their workflow) instead of the workflow's real variables.
+      const variables = await variableService.listVariables(workflowId, userId);
+
+      let placeholders: PlaceholderInfo[] = [];
+      const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;
+
+      if (metadata?.placeholders) {
+        placeholders = metadata.placeholders;
+      } else {
+        try {
+          placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(template.fileRef));
+        } catch (error) {
+          if (error instanceof TemplateSyntaxError) {
+            const report = this.buildReport(templateId, workflowId, [], variables);
+            return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
+          }
+          throw error;
+        }
+      }
+
+      return this.buildReport(templateId, workflowId, placeholders, variables);
+    });
   }
 
   /** Pure comparison, separated for testability */

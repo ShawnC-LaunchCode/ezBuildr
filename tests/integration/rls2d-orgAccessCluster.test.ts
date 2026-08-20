@@ -53,6 +53,19 @@ describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () =
   // AC4 — fail-closed, per converted service in this cluster. A per-cluster
   // parameterised test is explicitly acceptable per the ticket.
   describe("the no-tenant path fails closed", () => {
+    // Staged rollout: `withCurrentTenant` only THROWS on a missing tenant once
+    // RLS is actually enforced. Before that it warns and runs unscoped, because
+    // failing early buys no safety while every row is visible anyway — and
+    // throwing unconditionally broke real customer paths (anonymous runs,
+    // run-token requests). These assertions are about the enforced behaviour,
+    // so turn enforcement on for their duration and restore it after.
+    const priorRlsEnforced = process.env.RLS_ENFORCED;
+    beforeAll(() => { process.env.RLS_ENFORCED = "true"; });
+    afterAll(() => {
+      if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+      else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+    });
+
     it.each([
       {
         name: "OrganizationService.getUserOrganizations",

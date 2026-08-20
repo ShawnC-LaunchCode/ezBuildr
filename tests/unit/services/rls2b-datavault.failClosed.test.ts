@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 
 import {
   datavaultApiTokensRepository,
@@ -88,6 +88,18 @@ const cases: Case[] = [
 ];
 
 describe("RLS-2b DataVault cluster: fails closed with no tenant in context (AC4)", () => {
+  // Staged rollout: `withCurrentTenant` only THROWS on a missing tenant once
+  // RLS is enforced. Before that it warns and runs unscoped — failing early
+  // buys no safety while every row is visible anyway, and throwing
+  // unconditionally broke real customer paths (anonymous runs, run tokens).
+  // These assertions are about the ENFORCED behaviour, so enable it here.
+  const priorRlsEnforced = process.env.RLS_ENFORCED;
+  beforeAll(() => { process.env.RLS_ENFORCED = "true"; });
+  afterAll(() => {
+    if (priorRlsEnforced === undefined) { delete process.env.RLS_ENFORCED; }
+    else { process.env.RLS_ENFORCED = priorRlsEnforced; }
+  });
+
   it("getCurrentTenantId() is undefined outside any request context (sanity)", () => {
     expect(getCurrentTenantId()).toBeUndefined();
   });
