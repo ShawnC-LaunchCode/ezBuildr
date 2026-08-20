@@ -344,6 +344,160 @@ this first**, rather than reflexively wrapping the entire method body the way
 §2b's `CollectionService` does — that shape is correct when everything inside
 is a DB call, not when it isn't.
 
+### 2e. Bootstrap reads: proving identity before tenant is known (RLS-4/RLS-5, 2026-08-20)
+
+`withTenant`/`withCurrentTenant` assume the tenant is already known. A whole
+class of reads happens **before** that's true by construction — the read's
+entire purpose is to discover the tenant, not use one already pinned. This
+was under-specified by Phase 3 below ("public/unauthenticated flows ... wrap
+their work in `withTenant`") until running the full integration suite as a
+genuine non-owner role for the first time (RLS-5) surfaced it directly, via
+the single highest-blast-radius finding of the initiative: `hybridAuth`'s own
+identity re-hydration (`getUserById` → `userRepository.findById`, used by
+**every** `hybridAuth`/`requireUser` route) runs before any tenant context
+exists — establishing it is the point — so under enforcement it was blocked
+for any user with a real (non-null) `tenant_id`, breaking authentication
+app-wide. The same shape recurs at smaller scale: a signature/upload token
+that must be looked up before its row's tenant is known (RLS-4 precondition
+2, still open), and Google OAuth's by-email lookup for a returning user.
+
+**The pattern, not a one-off:** a narrow, **read-only** self-identification
+clause added to the specific table's policy, keyed on a GUC set **only**
+after the caller's identity proof is independently verified (a JWT
+signature, a session lookup, a token hash match — never unauthenticated
+input, since the clause trusts the GUC's value completely and provides no
+isolation of its own):
+
+```sql
+USING (
+  tenant_id = ...                                              -- normal case
+  OR id = NULLIF(current_setting('app.current_user_id', true), '')  -- self, pre-tenant
+)
+WITH CHECK ( tenant_id = ... )               -- deliberately NOT extended — see below
+```
+
+Applied to `users` in migration `0028_rls_users_self_identification.sql`;
+`server/utils/rlsContext.ts` exports `withCurrentUserId` (pins only the
+self-id GUC — for reads) and `withTenantAsUser` (pins both — see the UPDATE
+gotcha next). `getUserById` (`server/middleware/userCache.ts`) is the one
+place that needs this on every request; `requireUser`/`optionalUser` were
+refactored to call it instead of duplicating an unscoped `findById`.
+
+**Deliberately read-only (not added to `WITH CHECK`).** Every real write to a
+user's own row (registration, tenant assignment, the Google upsert) already
+runs inside a proper tenant-scoped transaction once the target tenant is
+known — there is no legitimate write this bootstrap path needs, so keeping
+it out of `WITH CHECK` keeps the surface this opens as small as the problem
+requires. **This is the general answer for the next instance of this shape**
+(precondition 2 included): reach for a narrow, table-specific, GUC-keyed
+`OR` clause in `USING` before reaching for a `SECURITY DEFINER` function or a
+second `BYPASSRLS` pool. Both of the latter are strictly more powerful than
+this problem needs, and — unlike a policy clause sitting in the same
+migration file anyone reviewing tenant isolation already reads — they invite
+scope creep: a shared escape hatch accumulates "just one more case" over
+time in a way a narrow, per-table predicate does not. RLS-6's `BYPASSRLS`
+pool remains correct for what it's for (deliberate, audited, occasional
+cross-tenant admin reads) — it is the wrong shape for a hot-path, once-per-request
+identity check, which is a different problem even though both sound like
+"needs to see past tenant isolation."
+
+**The UPDATE gotcha this pattern has to account for.** `UPDATE ... SET
+tenant_id = X` is gated by `USING` against the row's **current** (pre-update)
+state, not the value being written. Assigning a user's first tenant (`NULL`
+→ a real tenant) by pinning only the target tenant leaves the row invisible
+to `USING` (`NULL IS NOT DISTINCT FROM X` is false) — and Postgres does
+**not** raise for an `UPDATE` that `USING` filters down to zero rows;
+`WITH CHECK` only ever runs on rows that were visible in the first place. The
+write silently no-ops with no exception, no log, nothing wrong-looking in the
+query result. Measured directly: `tests/helpers/integrationTestHelper.ts`'s
+fixture hit exactly this, and it cost a full extra round of investigation to
+tell apart from the self-identification fix not working at all. Fix:
+`withTenantAsUser` pins **both** GUCs — self-id makes the row visible via
+`USING` regardless of its current tenant; `WITH CHECK` (unchanged, tenant-only)
+still requires the *written* `tenant_id` to equal the pinned tenant, so this
+can only ever assign the tenant it was explicitly given.
+
+**One edge case flagged, not fully closed:** an *existing* user found by a
+non-primary-key lookup (Google OAuth's by-email match) whose current tenant
+differs from the one about to be pinned is invisible to `USING` the same way
+— now a visible `WITH CHECK` error on that path rather than the prior silent
+no-op, but not a fix.
+
+### 2f. Precondition 2, closed: three more shapes of the same pattern (RLS-4, 2026-08-20)
+
+Precondition 2 (`SignatureRequestService`/`RunFileUploadService`'s token
+bootstrap) turned out to be three genuinely different problems wearing the
+same trenchcoat, not one. Closing it produced two more variants of §2e's
+pattern, plus a reminder that the pattern doesn't fix everything.
+
+**Variant 2: a hash, not a primary key.** `signature_requests` (migration
+`0029`) is the closest cousin of `users`' fix — the caller presents a token,
+`hashToken()` computes its hash locally (no DB round trip, the hash IS the
+verification, same as a JWT signature check being a different *kind* of
+proof), and `getSignatureRequestByToken` pins it as
+`app.current_signing_token` before the lookup via the new
+`withVerifiedIdentifier(gucName, value, fn)` — the generalized form of
+`withCurrentUserId` for any GUC name, not just `app.current_user_id`. Still
+read-only; the write side already opened `withTenant(request.tenantId, ...)`
+correctly once the tenant was known, so nothing there needed to change.
+
+**Variant 3: a foreign key, not a secret.** `RunFileUploadService`/
+`runTokenAuth`'s gap has no per-row secret at all — authorization comes from
+`workflow_runs.run_token`, matched against a table (`workflow_runs`) that
+carries no RLS policy in the first place. What that match legitimately
+establishes is one fact: "this connection holds a verified token for a run
+whose `workflow_id` is X" — and `workflows` (ownership-derived, no
+`tenant_id` column) is exactly the table that needs X next, to resolve the
+run's tenant via `app_owner_tenant()`. Migration `0030` adds `OR id =
+NULLIF(current_setting('app.current_workflow_id', true), '')::uuid` to
+`workflows`, and `runTokenAuth` pins it — but *only* to a `workflow_id` that
+came from a row already reached through an independent, RLS-free check
+(`workflow_runs`' token match), never from raw request input. The trust here
+is entirely about **how** the id was obtained, not the id's value — a bare
+UUID is not a secret the way a token hash is.
+
+Having the ambient tenant resolve correctly wasn't sufficient by itself:
+`RunFileUploadService.resolveContext` and `RunAuthResolver.verifyCreateAccess`
+were both still reading `workflows`/`projects` on the bare pool, never
+touching the async context `hybridAuth`/`runTokenAuth` had already
+populated. Both were rethreaded through `withCurrentTenant` — for
+`RunAuthResolver` specifically, only when a tenant is *already* known
+(`getCurrentTenantId() !== undefined`), never unconditionally: forcing a
+tenant requirement on every call would make an anonymous public-link request
+hard-throw the moment `RLS_ENFORCED=true` flips, exactly the regression
+`withCurrentTenant`'s own "warn and run unscoped" staged-rollout behavior
+exists to prevent.
+
+**Not a bootstrap problem at all: declared visibility.**
+`RunAuthResolver.verifyCreateAccess`'s *very first* read — resolving a
+workflow by public link or slug — has no prior verification step to key
+anything on: the caller supplies the slug directly, and that first read is
+what decides whether they may see the row it points to. Neither a
+self-identification GUC nor a hash applies, because there is nothing yet to
+have verified. The fix needs no GUC at all: `workflows.is_public` (plus
+`status = 'active'`) is a column the row's own owner already set, declaring
+it visible without regard to tenant — that is the entire meaning of
+"public." Migration `0031` adds `OR (is_public = true AND status =
+'active')` to `workflows`, and the identical `EXISTS (...)` join-based
+version to `sections`/`steps` (using their existing ownership-derived
+`EXISTS` shape) — a public workflow's content needs to be exactly as visible
+as the workflow itself, since sections/steps are how it actually renders and
+runs. None of this touches `WITH CHECK` on any of the three: public
+readability never implies public writability.
+
+**A reminder the pattern doesn't cover:** once the above let a request reach
+far enough into `VersionService.serializeWorkflowInTx`'s draft-version
+creation, it hit a *different* class of bug entirely — six `audit_logs`
+inserts that never set `tenantId`, defaulting to `NULL` even though a real
+tenant was correctly pinned by then. `NULL` vs. a real pinned tenant fails
+`WITH CHECK` the ordinary way (not `IS NOT DISTINCT FROM`-eligible, since
+the GUC *is* set here) — this was a plain missing-field bug, unrelated to
+any bootstrap shape, that RLS enforcement happened to be the first thing to
+notice. Fixed by threading `getCurrentTenantId()` into all six inserts. The
+lesson: getting the RLS *architecture* right surfaces ordinary application
+bugs it wasn't designed to find, and the fix for those is just fixing the
+bug, not another policy clause.
+
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
   DML on the tenant tables, and point the app's `DATABASE_URL` at it. Owner keeps

@@ -69,21 +69,42 @@ async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown
       lastPasswordChange: null
     };
     logger.debug({ userId: userData.id, email: userData.email, tenantId: tenantId }, 'Upserting user');
-    await userRepository.upsert(userData);
-    if (userData.email && BOOTSTRAP_ADMIN_EMAILS.includes(userData.email)) {
-      const { users } = await import('@shared/schema');
-      const { eq } = await import('drizzle-orm');
-      const promoted = await db
-        .update(users)
-        .set({ role: 'admin', tenantRole: 'owner' })
-        .where(eq(users.email, userData.email))
-        .returning({ id: users.id });
-      if (promoted.length > 0) {
-        const { invalidateUserCache } = await import('./middleware/userCache');
-        invalidateUserCache(promoted[0].id);
-        logger.info({ email: userData.email }, 'Bootstrap admin promoted to admin/owner on login');
+    // RLS-5 finding: `users.tenant_id` is a direct-tenant_id RLS column, and
+    // this upsert writes a REAL (non-null) tenantId with no ambient tenant in
+    // context yet — this IS the operation that first establishes it, for a
+    // brand-new Google login. Under the restricted role that finding was
+    // measured against, that WITH CHECK can only pass if the transaction
+    // itself is scoped to the target tenant, so pin it explicitly rather than
+    // relying on an ambient context that cannot exist yet at this point.
+    //
+    // `withTenantAsUser`, not plain `withTenant`: a RETURNING user (found by
+    // email, already has some tenant_id) is visible to the UPDATE branch of
+    // `userRepository.upsert` only if their CURRENT tenant_id already matches
+    // the pinned one (RLS's USING clause gates on current state, not the
+    // written value) — pinning the self-id GUC too makes their own row
+    // visible regardless, turning what would otherwise be a silent
+    // zero-rows-updated no-op into either a correct update or a visible
+    // error. It does not, on its own, let a user's tenant actually change:
+    // WITH CHECK still requires the written tenant_id to equal the pinned
+    // one, and this path never writes a different one.
+    const { withTenantAsUser } = await import('./utils/rlsContext');
+    await withTenantAsUser(tenantId, payload.sub, async (tx) => {
+      await userRepository.upsert(userData, tx);
+      if (userData.email && BOOTSTRAP_ADMIN_EMAILS.includes(userData.email)) {
+        const { users } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const promoted = await tx
+          .update(users)
+          .set({ role: 'admin', tenantRole: 'owner' })
+          .where(eq(users.email, userData.email))
+          .returning({ id: users.id });
+        if (promoted.length > 0) {
+          const { invalidateUserCache } = await import('./middleware/userCache');
+          invalidateUserCache(promoted[0].id);
+          logger.info({ email: userData.email }, 'Bootstrap admin promoted to admin/owner on login');
+        }
       }
-    }
+    });
     return userData;
   } catch (error) {
     logger.error({ err: error, userId: payload.sub }, 'Failed to upsert user during authentication');

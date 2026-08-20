@@ -23,7 +23,7 @@ import { db, initializeDatabase } from "../../server/db";
 import { projectRepository, reviewTaskRepository, signatureRequestRepository, workflowRepository } from "../../server/repositories";
 import { reviewTaskService } from "../../server/services/ReviewTaskService";
 import { signatureRequestService } from "../../server/services/SignatureRequestService";
-import { getCurrentTenantId, runWithTenantContext } from "../../server/utils/rlsContext";
+import { applyTenantToTransaction, getCurrentTenantId, runWithTenantContext } from "../../server/utils/rlsContext";
 
 function firstValue(result: unknown): unknown {
   const rows = (result as { rows?: Array<Record<string, unknown>> }).rows
@@ -47,50 +47,59 @@ describe("Misc cluster service-boundary tenant transaction (RLS-2c)", () => {
     }).returning();
     tenantId = tenant.id;
 
-    const [user] = await db.insert(schema.users).values({
-      id: `rls2c-misc-${nanoid()}`,
-      email: `rls2c-misc-${nanoid()}@example.com`,
-      fullName: "RLS-2c Misc Test User",
-      firstName: "RLS2c",
-      lastName: "Misc",
-      tenantId,
-      tenantRole: "owner",
-      authProvider: "local",
-      lastPasswordChange: null,
-      defaultMode: "easy",
-    }).returning();
-    userId = user.id;
+    // RLS-5 finding (same shape as tests/helpers/testFactory.ts/
+    // integrationTestHelper.ts): users/projects below write a real tenant_id
+    // with no ambient GUC pinned — fails RLS's WITH CHECK under a genuine
+    // non-owner role. Pin it now that the tenant is known; safe as a plain
+    // `applyTenantToTransaction` since these are fresh INSERTs.
+    await db.transaction(async (tx) => {
+      await applyTenantToTransaction(tx, tenantId);
 
-    const [project] = await db.insert(schema.projects).values({
-      name: "RLS-2c Misc Project",
-      title: "RLS-2c Misc Project",
-      tenantId,
-      creatorId: userId,
-      createdBy: userId,
-      ownerId: userId,
-      ownerType: "user",
-      ownerUuid: userId,
-    }).returning();
-    projectId = project.id;
+      const [user] = await tx.insert(schema.users).values({
+        id: `rls2c-misc-${nanoid()}`,
+        email: `rls2c-misc-${nanoid()}@example.com`,
+        fullName: "RLS-2c Misc Test User",
+        firstName: "RLS2c",
+        lastName: "Misc",
+        tenantId,
+        tenantRole: "owner",
+        authProvider: "local",
+        lastPasswordChange: null,
+        defaultMode: "easy",
+      }).returning();
+      userId = user.id;
 
-    const [workflow] = await db.insert(schema.workflows).values({
-      title: "RLS-2c Misc Workflow",
-      creatorId: userId,
-      ownerId: userId,
-      ownerType: "user",
-      ownerUuid: userId,
-      projectId,
-      status: "draft",
-    }).returning();
-    workflowId = workflow.id;
+      const [project] = await tx.insert(schema.projects).values({
+        name: "RLS-2c Misc Project",
+        title: "RLS-2c Misc Project",
+        tenantId,
+        creatorId: userId,
+        createdBy: userId,
+        ownerId: userId,
+        ownerType: "user",
+        ownerUuid: userId,
+      }).returning();
+      projectId = project.id;
 
-    const [run] = await db.insert(schema.workflowRuns).values({
-      workflowId,
-      runToken: `rls2c-misc-run-token-${nanoid()}`,
-      ownerType: "user",
-      ownerUuid: userId,
-    }).returning();
-    runId = run.id;
+      const [workflow] = await tx.insert(schema.workflows).values({
+        title: "RLS-2c Misc Workflow",
+        creatorId: userId,
+        ownerId: userId,
+        ownerType: "user",
+        ownerUuid: userId,
+        projectId,
+        status: "draft",
+      }).returning();
+      workflowId = workflow.id;
+
+      const [run] = await tx.insert(schema.workflowRuns).values({
+        workflowId,
+        runToken: `rls2c-misc-run-token-${nanoid()}`,
+        ownerType: "user",
+        ownerUuid: userId,
+      }).returning();
+      runId = run.id;
+    });
   });
 
   afterAll(async () => {

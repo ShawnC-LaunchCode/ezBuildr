@@ -179,12 +179,12 @@ export class TemplateValidationService {
         throw createError.forbidden('Access denied to this template');
       }
 
-      // RLS-2e: VariableService has no repository layer and is not part of
-      // this cluster's conversion — this call runs on the pool, outside
-      // the transaction opened above. Flagged for whoever converts it;
-      // post-FORCE it will see zero rows (sections/steps are tenant-scoped
-      // via their workflow) instead of the workflow's real variables.
-      const variables = await variableService.listVariables(workflowId, userId);
+      // RLS-4 precondition 5 (closed): `listVariables` now takes the same
+      // optional `tx` this method does and reuses `scopedTx` instead of
+      // opening a second transaction — opening one here would deadlock the
+      // size-1 test pool while this transaction is still open. Real
+      // tenant-scoped `sections`/`steps` reads under FORCE, not zero rows.
+      const variables = await variableService.listVariables(workflowId, userId, scopedTx);
 
       let placeholders: PlaceholderInfo[] = [];
       const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;

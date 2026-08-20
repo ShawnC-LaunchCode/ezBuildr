@@ -7,6 +7,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RunFileUploadService } from '../../../server/services/RunFileUploadService';
 
+// RLS-4 precondition 2: resolveContext now reads workflow/project inside
+// withCurrentTenant (to actually use whatever ambient tenant hybridAuth/
+// runTokenAuth already established — migration 0030), which opens a real
+// db.transaction unavailable in unit-fast. Mock it to just invoke the
+// callback directly — these tests inject fully mocked repositories anyway,
+// so the fake tx value itself is never inspected.
+const { mockTx } = vi.hoisted(() => ({ mockTx: { __fakeTx: true } as never }));
+vi.mock('../../../server/db', () => ({
+  db: {
+    transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(mockTx)),
+  },
+}));
+
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
 const PROJECT_ID = '33333333-3333-4333-8333-333333333333';

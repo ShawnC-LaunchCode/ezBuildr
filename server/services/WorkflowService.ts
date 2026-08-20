@@ -5,7 +5,6 @@ import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, Acc
 import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
 import type { IntakeConfig } from "@shared/types/intake";
 import type { ConditionExpression } from "@shared/types/conditions";
-import { resolveBranding, type WorkflowBrandingSettings } from "@shared/types/branding";
 
 interface GraphConfig {
   title?: string;
@@ -241,10 +240,6 @@ export class WorkflowService {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getWorkflowWithDetails(workflowId: string, userId: string, tx?: DbTransaction) {
-    // RLS-2e: whether THIS call opened the transaction (vs. reusing a
-    // caller-supplied one) determines how branding is resolved below —
-    // see the comment at that call site.
-    const openedOwnTransaction = tx === undefined;
     const result = await this.withTx(tx, async (scopedTx) => {
       const workflow = await this.verifyAccess(workflowId, userId, 'view', scopedTx);
       // OPTIMIZATION: Run independent queries in parallel
@@ -306,57 +301,19 @@ export class WorkflowService {
     // author something their participants never get. Resolved through the same
     // service the runtime payload uses, so preview and production agree.
     //
-    // RLS-2e: deliberately resolved OUTSIDE the transaction above, and — when
-    // `tx` was caller-supplied — WITHOUT hitting the DB at all. BrandingService
-    // has no repository layer and is not part of this cluster's conversion, so
-    // `resolveForWorkflow` runs on the pool. Calling it from inside an open
-    // transaction is not merely a degraded-correctness read (see the RLS-4
-    // note below): against the size-1 test pool it is a hard DEADLOCK — the
-    // pool query queues forever for the one connection the still-open
-    // transaction already holds. Measured directly: a nested call from
-    // `VersionService.serializeWorkflowInTx` (which passes its own `tx` and
-    // never reads `branding`) hung a real vitest run; `pg_stat_activity`
-    // showed the outer transaction sitting `idle in transaction` waiting on
-    // the client, which was itself blocked waiting on the pool. This is the
-    // `SystemStats` deadlock class, just reached through a converted service
-    // instead of a bare repository call.
-    //
-    // The fix: only resolve branding for real when THIS call opened its own
-    // transaction (the ordinary top-level case — every caller except
-    // VersionService passes no `tx`). When nested inside a caller's
-    // transaction, compute the same workflow-only fallback
-    // `resolveForWorkflow`'s own catch branch uses on failure —
-    // `resolveBranding(null, workflowBranding)` — synchronously, with no DB
-    // call, instead of risking the deadlock for a value the only nested
-    // caller discards.
-    //
-    // Separately, once FORCE is on: the branding value itself comes from
-    // `tenants.branding`, and `tenants` carries no RLS policy, so that read
-    // is unaffected. The exposure is one hop earlier — `resolveForWorkflow`
-    // first calls `resolveTenantIdForWorkflow`, which reads `workflows` (a
-    // table that IS policy-covered). On the pool with no GUC set, that
-    // query returns zero rows once FORCE is on, so `tenantId` resolves to
-    // `null` and `resolveBranding(null, workflowBranding)` silently renders
-    // DEFAULT branding instead of the tenant's — wrong logo and colours on
-    // a customer-visible portal, not merely a degraded read. Flagged as an
-    // RLS-4 precondition (reviewer, RLS-2e review), not fixed here —
-    // BrandingService conversion is out of this cluster's scope.
-    const branding = openedOwnTransaction
-      ? await this.brandingSvc.resolveForWorkflow(workflowId, result.settings)
-      : resolveBranding(null, this.parseWorkflowBrandingForNestedCall(result.settings));
+    // RLS-4 precondition 4 (closed): `BrandingService.resolveForWorkflow` now
+    // takes the same optional `tx` this method does and threads it straight
+    // through — reusing an already-open caller transaction (e.g.
+    // `VersionService.serializeWorkflowInTx`) instead of opening a second one,
+    // which is what used to deadlock the size-1 test pool. When `tx` is
+    // undefined (the ordinary top-level case), `BrandingService` opens its own
+    // short transaction against the ambient tenant, so the `workflows` read
+    // inside `resolveTenantIdForWorkflow` succeeds under FORCE instead of
+    // silently returning zero rows. Real tenant-aware branding either way, no
+    // synchronous fallback needed.
+    const branding = await this.brandingSvc.resolveForWorkflow(workflowId, result.settings, tx);
 
     return { ...result, branding };
-  }
-  /**
-   * Mirrors `BrandingService`'s own lenient settings parse (private there),
-   * used only for the nested-call fallback above — never for the real,
-   * tenant-aware resolution, which always goes through `BrandingService`.
-   */
-  private parseWorkflowBrandingForNestedCall(settings: unknown): WorkflowBrandingSettings | null {
-    if (typeof settings !== 'object' || settings === null) {
-      return null;
-    }
-    return settings as WorkflowBrandingSettings;
   }
   /**
    * List workflows for a user (Owner OR Shared)

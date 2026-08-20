@@ -42,6 +42,20 @@ vi.mock("../../../server/utils/cookies", () => ({
   parseCookies: vi.fn(),
 }));
 
+// RLS-4 precondition 2: both hybridAuth's JWT re-hydration and cookieStrategy
+// now go through userCache's getUserById (which pins app.current_user_id via
+// a real db.transaction — migration 0028) instead of calling
+// userRepository.findById directly. This suite is about middleware
+// behavior, not userCache's own caching/transaction machinery, so mock at
+// that boundary and delegate straight to the already-mocked
+// userRepository.findById — every existing per-test
+// `vi.mocked(userRepository.findById).mockResolvedValue(...)` /
+// `expect(userRepository.findById).toHaveBeenCalledWith(...)` keeps working
+// unchanged.
+vi.mock("../../../server/middleware/userCache", () => ({
+  getUserById: vi.fn((userId: string) => userRepository.findById(userId)),
+}));
+
 describe("Auth Middleware", () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;

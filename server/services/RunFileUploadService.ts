@@ -12,6 +12,7 @@ import {
   workflowRunRepository,
 } from '../repositories';
 import { createError } from '../utils/errors';
+import { withCurrentTenant } from '../utils/rlsContext';
 
 import { isFileTypeAccepted, MAX_FILE_SIZE } from './fileService';
 import { runDefinitionProvider } from './workflow-runs/RunDefinitionProvider';
@@ -265,11 +266,21 @@ export class RunFileUploadService {
       await this.workflowAccess.verifyAccess(run.workflowId, userId);
     }
 
-    const workflow = await this.workflowRepo.findById(run.workflowId);
-    if (!workflow?.projectId) { throw createError.notFound('Project for run'); }
-    const project = await this.projectRepo.findById(workflow.projectId);
-    if (!project?.tenantId) { throw createError.notFound('Tenant for run'); }
-    return { run, tenantId: project.tenantId };
+    // RLS-4 precondition 2 (closed): `workflows`/`projects` are RLS-covered,
+    // and these reads used to run on the bare pool with no tenant. For the
+    // authenticated path, `hybridAuth` has already pinned the real tenant
+    // into the async context by this point (0028); for the run-token path,
+    // `runTokenAuth` now does the same via `app.current_workflow_id`
+    // (0030) before this method is ever reached. Either way there is a real
+    // ambient tenant to use here now — thread it through instead of
+    // bypassing RLS's whole point via the bare pool.
+    return withCurrentTenant(async (tx) => {
+      const workflow = await this.workflowRepo.findById(run.workflowId, tx);
+      if (!workflow?.projectId) { throw createError.notFound('Project for run'); }
+      const project = await this.projectRepo.findById(workflow.projectId, tx);
+      if (!project?.tenantId) { throw createError.notFound('Tenant for run'); }
+      return { run, tenantId: project.tenantId };
+    });
   }
 
   private async resolveUploadConfig(

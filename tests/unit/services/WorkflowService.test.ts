@@ -278,17 +278,20 @@ describe("WorkflowService", () => {
     });
   });
   describe("getWorkflowWithDetails", () => {
-    // RLS-2e reviewer guard. The deadlock fix made branding resolution
-    // conditional: the top-level call (no `tx`) does the real DB-backed
-    // lookup, while a call nested inside a caller's transaction computes the
-    // workflow-only fallback synchronously — because doing the pool read
-    // inside an open transaction hangs against the size-1 pool.
+    // RLS-4 precondition 4 (closed). `getWorkflowWithDetails` now threads its
+    // own `tx` parameter straight into `BrandingService.resolveForWorkflow`
+    // instead of branching on whether it opened its own transaction.
+    // `BrandingService` itself decides how to run: reuse the caller's tx
+    // (VersionService.serializeWorkflowInTx's case — this is what used to
+    // deadlock the size-1 pool) or open its own short transaction against
+    // the ambient tenant (the top-level, no-tx case). Either way branding
+    // resolution is real, not a synchronous workflow-only fallback.
     //
-    // That split is correct today and INVISIBLE if it regresses: if the
-    // top-level path ever took the fallback branch too, every other
-    // assertion in this file would still pass and the builder would silently
-    // render default branding. These two tests are the only thing standing
-    // between that and a silent customer-visible bug.
+    // These two tests are what stands between that and a silent
+    // customer-visible bug: if `tx` ever stopped being threaded through, the
+    // builder (or the nested VersionService path) would silently render
+    // default branding and every other assertion in this file would still
+    // pass.
     it("resolves REAL branding on the top-level path (no caller tx)", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
@@ -301,9 +304,10 @@ describe("WorkflowService", () => {
       await service.getWorkflowWithDetails(validUUID, "user-123");
 
       expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledTimes(1);
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, undefined);
     });
 
-    it("does NOT hit BrandingService when nested inside a caller's transaction", async () => {
+    it("resolves REAL branding through the caller's transaction when nested inside one", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
@@ -313,8 +317,8 @@ describe("WorkflowService", () => {
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
       // A caller-supplied tx is what VersionService.serializeWorkflowInTx
-      // passes; the pool read here is what deadlocked. The fake only needs the
-      // one drizzle accessor the nested path touches.
+      // passes; the pool read here is what used to deadlock. The fake only
+      // needs the one drizzle accessor the nested path touches.
       const callerTx = {
         query: {
           transformBlocks: { findMany: vi.fn().mockResolvedValue([]) },
@@ -323,7 +327,7 @@ describe("WorkflowService", () => {
       } as never;
       await service.getWorkflowWithDetails(validUUID, "user-123", callerTx);
 
-      expect(mockBrandingSvc.resolveForWorkflow).not.toHaveBeenCalled();
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, callerTx);
     });
 
     it("should return workflow with sections, steps, and logic rules", async () => {
@@ -355,15 +359,11 @@ describe("WorkflowService", () => {
         "Access denied"
       );
     });
-    // RLS-2e reviewer guard: `getWorkflowWithDetails` now resolves branding
-    // differently depending on whether it opened its own transaction (see
-    // its class-body comment) — the top-level, no-`tx` call (every caller
-    // except VersionService) must still resolve REAL tenant-aware branding
-    // through BrandingService, not the workflow-only fallback. This test
-    // already asserts `mockBrandingSvc.resolveForWorkflow` was called with
-    // the real values and returned; a regression that made the fallback the
-    // only path (or made this call conditional on something else) would
-    // turn it red.
+    // The top-level, no-`tx` call (every caller except VersionService) must
+    // resolve REAL tenant-aware branding through BrandingService. This test
+    // asserts `mockBrandingSvc.resolveForWorkflow` was called with the real
+    // values and returned; a regression that stopped threading `tx` through
+    // or reintroduced a synchronous fallback would turn it red.
     it("returns server-resolved branding so preview matches production (GH-158 O-9)", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
       // The builder preview renders from this payload and has no run. Resolving
@@ -388,7 +388,7 @@ describe("WorkflowService", () => {
       const result = await service.getWorkflowWithDetails(validUUID, "user-123");
 
       expect(result.branding).toEqual(tenantResolved);
-      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings);
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, undefined);
     });
   });
   describe("listWorkflows", () => {

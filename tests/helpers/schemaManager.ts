@@ -89,8 +89,50 @@ export class SchemaManager {
     // and takes _v28. If you are adding a migration while another board is in
     // flight, expect this and renumber at merge rather than hand-editing the
     // journal.
+    // Bumped to _v29 for RLS-4's blocking fix (0026_rls_nullif_guc_cast),
+    // which recreates the 26 direct-tenant_id policies with the GUC cast
+    // wrapped in NULLIF. A stale _v28 schema still has the unguarded cast, so
+    // rls4-forceEnforcement.test.ts's "no tenant pinned" case would still
+    // raise instead of filtering — the exact defect this migration fixes.
+    // Bumped to _v30 for RLS-5 (0027_rls_null_tenant_isolation), found by
+    // actually running the suite as a non-owner role: `NULL = NULL` is NULL
+    // in SQL, so a legitimately-NULL `tenant_id` (e.g. a just-registered user
+    // before tenant assignment) could never satisfy `tenant_id = NULLIF(...)
+    // ::uuid`, blocking registration entirely. A stale _v29 schema still has
+    // the `=` predicate and registration would fail the same way under
+    // RLS_RESTRICTED.
+    // Bumped to _v31 for RLS-5 (0028_rls_users_self_identification): the
+    // largest RLS-5 finding — `hybridAuth`'s own identity re-hydration
+    // (`getUserById`) runs before any tenant is known, so it was blocked by
+    // `users`' ordinary policy for any user with a real tenant, breaking
+    // every authenticated route. Adds a narrow, read-only self-row clause
+    // keyed on `app.current_user_id`, set only after the JWT/session is
+    // verified. A stale _v30 schema lacks the clause and every authenticated
+    // request past registration would fail the same way under
+    // RLS_RESTRICTED.
+    // Bumped to _v32 for RLS-4 precondition 2 (0029_rls_signature_requests_
+    // self_identification): the same self-identification pattern applied to
+    // `signature_requests`, keyed on the hashed signing token instead of a
+    // primary key. A stale _v31 schema lacks the clause and the public
+    // signing portal's token lookup would still be blocked with no tenant
+    // pinned.
+    // Bumped to _v33 for RLS-4 precondition 2 part 2
+    // (0030_rls_workflows_self_identification): `RunFileUploadService`/
+    // `runTokenAuth`'s bootstrap read of `workflows` (needed to resolve a
+    // run's tenant) is blocked the same way — fixed with a self-id clause
+    // keyed on `app.current_workflow_id`, pinned only after the workflow id
+    // was legitimately obtained from a verified run-token match. A stale
+    // _v32 schema lacks the clause and the run-token/file-upload path would
+    // still be blocked with no tenant pinned.
+    // Bumped to _v34 for RLS-4 precondition 2 part 3
+    // (0031_rls_public_workflow_visibility): a DIFFERENT gap found once
+    // parts 1/2 landed — `RunAuthResolver.verifyCreateAccess`'s public
+    // slug/link lookup has no prior verification to key a self-id GUC on,
+    // so the fix is a declared-visibility clause (`is_public = true AND
+    // status = 'active'`) on workflows/sections/steps instead. A stale _v33
+    // schema lacks it and every public-link anonymous run would still 404.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v28`;
+        return `test_schema_w${this.workerId}_v34`;
     }
 
     /**

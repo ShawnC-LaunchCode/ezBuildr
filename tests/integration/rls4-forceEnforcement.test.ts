@@ -133,52 +133,33 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
 
   // AC5 — non-vacuous: fail CLOSED, not accidentally permissive.
   //
-  // 🔴 MEASURED 2026-08-20, and it is a BLOCKING finding for RLS-4:
-  // with no tenant pinned, this does not return zero rows — it RAISES
-  // `invalid input syntax for type uuid: ""`.
-  //
-  // Why: once a custom GUC has been touched on a connection, it reverts to
-  // EMPTY STRING rather than unset, and the policy casts unguarded —
+  // Was BLOCKING as of 2026-08-20: with no tenant pinned, this used to RAISE
+  // `invalid input syntax for type uuid: ""` instead of returning zero rows,
+  // because once a custom GUC has been touched on a connection it reverts to
+  // EMPTY STRING rather than unset, and the policy cast unguarded —
   // `current_setting('app.current_tenant_id', true)::uuid`. `''::uuid` raises.
-  // No policy in 0001 or 0024 wraps it in NULLIF.
   //
-  // Both outcomes are fail-CLOSED — no row escapes either way — so this asserts
-  // "nothing was returned" rather than pretending the shapes are the same. But
-  // the operational difference is large: under FORCE in a POOLED app, any query
-  // that runs outside a tenant transaction on a connection that previously
-  // served one gets a hard 500 instead of an empty result. The fix is to write
-  // the policy as
+  // Fixed by migration 0026 (`rls_nullif_guc_cast`), which rewrites every
+  // direct-tenant_id policy as
   //   NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
-  // which yields NULL, filters the row, and does not raise. RLS-4 must land
-  // that BEFORE setting FORCE anywhere.
-  it("with no tenant pinned, no row is returned (fails closed — by raising, see note)", async () => {
-    let leaked = -1;
-    try {
-      const res = await appRole.query(`SELECT id FROM users WHERE tenant_id IN ($1, $2)`, [TENANT_A, TENANT_B]);
-      leaked = res.rowCount ?? -1;
-    } catch (e) {
-      expect(String(e)).toMatch(/invalid input syntax for type uuid/i);
-      leaked = 0;
-    }
-    expect(leaked).toBe(0);
+  // so the empty string yields NULL, the row is filtered, and nothing raises.
+  // This assertion is now the strict form the handoff called for: a bare
+  // rowCount check with no catch branch. If it starts raising again, the fix
+  // did not take (or something reintroduced an unguarded cast).
+  it("with no tenant pinned, no row is returned (fails closed, without raising)", async () => {
+    const res = await appRole.query(`SELECT id FROM users WHERE tenant_id IN ($1, $2)`, [TENANT_A, TENANT_B]);
+    expect(res.rowCount).toBe(0);
   });
 
   // AC5 — the documented trap: an EMPTY-STRING GUC is not the same as unset,
-  // and `''::uuid` raises rather than comparing, so this must be covered
-  // separately or a fail-open could hide behind it.
-  it("with an EMPTY-STRING tenant GUC, it also returns zero rows (the documented trap)", async () => {
+  // and used to raise rather than compare, so this must be covered separately
+  // or a fail-open could hide behind it. Same NULLIF fix applies here.
+  it("with an EMPTY-STRING tenant GUC, it also returns zero rows without raising (the documented trap)", async () => {
     await appRole.query("BEGIN");
     await appRole.query(`SELECT set_config('app.current_tenant_id', '', true)`);
-    let rowCount = -1;
-    try {
-      const res = await appRole.query(`SELECT id FROM users WHERE tenant_id IN ($1, $2)`, [TENANT_A, TENANT_B]);
-      rowCount = res.rowCount ?? -1;
-    } catch {
-      // A raise is also fail-closed: nothing is returned.
-      rowCount = 0;
-    }
+    const res = await appRole.query(`SELECT id FROM users WHERE tenant_id IN ($1, $2)`, [TENANT_A, TENANT_B]);
     await appRole.query("ROLLBACK");
-    expect(rowCount).toBe(0);
+    expect(res.rowCount).toBe(0);
   });
 
   // The guard that stops this suite passing for the wrong reason.

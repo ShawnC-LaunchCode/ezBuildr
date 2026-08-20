@@ -1,10 +1,10 @@
-import { WorkflowRun } from "@shared/schema";
+import { WorkflowRun, type Workflow } from "@shared/schema";
 
-import { workflowRepository, workflowRunRepository, projectRepository } from "../../repositories";
+import { workflowRepository, workflowRunRepository, projectRepository, type DbTransaction } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { workflowService } from "../WorkflowService";
 import { workflowTenantResolver } from "../WorkflowTenantResolver";
-import { getCurrentTenantId, setCurrentTenantId } from "../../utils/rlsContext";
+import { getCurrentTenantId, setCurrentTenantId, withCurrentTenant } from "../../utils/rlsContext";
 export interface RunAuthContext {
     run?: WorkflowRun;
     mode: 'live' | 'preview';
@@ -89,10 +89,27 @@ export class RunAuthResolver {
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async verifyCreateAccess(idOrSlug: string, userId: string | undefined) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
-        const workflow = isUuid
-            ? await this.workflowRepo.findById(idOrSlug)
-            : await this.workflowRepo.findByPublicLink(idOrSlug)
-                ?? await this.workflowRepo.findBySlug(idOrSlug);
+        const lookupWorkflow = async (tx?: DbTransaction): Promise<Workflow | null | undefined> => (
+            isUuid
+                ? this.workflowRepo.findById(idOrSlug, tx)
+                : (await this.workflowRepo.findByPublicLink(idOrSlug, tx))
+                    ?? this.workflowRepo.findBySlug(idOrSlug, tx)
+        );
+        // RLS-4 precondition 2 (closed): `workflows` is RLS-covered. A
+        // PUBLIC workflow is visible on the bare pool regardless (0031's
+        // declared-visibility clause needs no tenant), which is why this
+        // lookup already worked for the anonymous public-link path. A
+        // PRIVATE workflow does not carry that clause — it needs the
+        // requester's real tenant, which `hybridAuth` already resolved into
+        // the async context (0028) for an authenticated caller. Use it via
+        // `withCurrentTenant` when one exists; when none does (anonymous),
+        // run unscoped exactly as before — `withCurrentTenant` only THROWS
+        // for a missing tenant once `RLS_ENFORCED=true`, and forcing a
+        // tenant requirement here would break the anonymous public-link path
+        // this method exists to serve.
+        const workflow = getCurrentTenantId() !== undefined
+            ? await withCurrentTenant((tx) => lookupWorkflow(tx))
+            : await lookupWorkflow();
 
         // RLS-2e (reviewer fix): this is the earliest point at which the run's
         // workflow — and therefore its tenant — is known, and it runs BEFORE
@@ -100,8 +117,7 @@ export class RunAuthResolver {
         // authenticated user, and a run-token request is not a tenant JWT, so
         // nothing upstream has populated the async tenant context; without this
         // every converted service below throws "RLS: no tenant in context." and
-        // the public runner 500s. The lookups above use repositories directly,
-        // so they are safe to run before the context exists.
+        // the public runner 500s.
         //
         // Only fills an EMPTY context — never overrides a real authenticated
         // tenant — and is best-effort: if resolution fails the context stays

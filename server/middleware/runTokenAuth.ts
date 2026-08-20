@@ -1,7 +1,7 @@
 import { logger } from "../logger";
 import { workflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { workflowTenantResolver } from "../services/WorkflowTenantResolver";
-import { setCurrentTenantId } from "../utils/rlsContext";
+import { setCurrentTenantId, withVerifiedIdentifier } from "../utils/rlsContext";
 
 import type { Request, Response, NextFunction } from "express";
 
@@ -91,10 +91,24 @@ export async function runTokenAuth(
     // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
     // alone"). Mirrors what RLS-1 did for `hybridAuth`.
     //
+    // RLS-4 precondition 2 (closed): that resolution itself reads `workflows`
+    // — RLS-covered, ownership-derived — with no tenant known yet, which is
+    // exactly what it's trying to determine. `run.workflowId` just came from
+    // a verified token match on `workflow_runs` (unprotected), so it is a
+    // legitimately-established value; pin it as `app.current_workflow_id`
+    // (migration 0030's self-identification clause on `workflows`) for the
+    // duration of this one lookup so it can actually see the row, instead of
+    // being silently blocked the same way the bootstrap read always was
+    // before FORCE was ever considered.
+    //
     // Best-effort by design: if resolution fails we leave the context empty and
     // let the downstream service fail closed, rather than inventing a tenant.
     try {
-      const runTenantId = await workflowTenantResolver.resolveForWorkflowId(run.workflowId);
+      const runTenantId = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        run.workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+      );
       if (runTenantId) {
         setCurrentTenantId(runTenantId);
       } else {
@@ -205,10 +219,24 @@ async function creatorOrRunTokenAuthLogic(
     // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
     // alone"). Mirrors what RLS-1 did for `hybridAuth`.
     //
+    // RLS-4 precondition 2 (closed): that resolution itself reads `workflows`
+    // — RLS-covered, ownership-derived — with no tenant known yet, which is
+    // exactly what it's trying to determine. `run.workflowId` just came from
+    // a verified token match on `workflow_runs` (unprotected), so it is a
+    // legitimately-established value; pin it as `app.current_workflow_id`
+    // (migration 0030's self-identification clause on `workflows`) for the
+    // duration of this one lookup so it can actually see the row, instead of
+    // being silently blocked the same way the bootstrap read always was
+    // before FORCE was ever considered.
+    //
     // Best-effort by design: if resolution fails we leave the context empty and
     // let the downstream service fail closed, rather than inventing a tenant.
     try {
-      const runTenantId = await workflowTenantResolver.resolveForWorkflowId(run.workflowId);
+      const runTenantId = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        run.workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+      );
       if (runTenantId) {
         setCurrentTenantId(runTenantId);
       } else {

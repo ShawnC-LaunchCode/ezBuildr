@@ -10,7 +10,7 @@ import {
 } from "../repositories";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
-import { withCurrentTenant, withTenant, getCurrentTenantId } from "../utils/rlsContext";
+import { withCurrentTenant, withTenant, withVerifiedIdentifier, getCurrentTenantId } from "../utils/rlsContext";
 
 import { aclService as defaultAclService } from "./AclService";
 
@@ -30,15 +30,20 @@ import { aclService as defaultAclService } from "./AclService";
  * declineSignature) back the PUBLIC signing portal, reached with
  * `optionalHybridAuth` + a run-token holder who is never a tenant user — there
  * is no ambient tenant to read, ever, by design. The token IS the
- * authorization; the initial `findByToken` lookup deliberately runs unscoped
- * (matches today's behaviour). Once the row is found, `request.tenantId` is a
- * concrete value, so subsequent writes on that request open their own
- * `withTenant(request.tenantId, ...)` transaction rather than depending on
- * `withCurrentTenant`'s ambient read. `markExpiredRequests` (cron/background,
- * scans across ALL tenants) follows the same per-row shape for its writes —
- * the cross-tenant SELECT itself has the same bootstrapping gap RLS-6 solved
- * for the admin console and needs the equivalent BYPASSRLS path once FORCE is
- * on; out of this ticket's scope, flagged for RLS-4/6-style follow-up.
+ * authorization: `getSignatureRequestByToken`'s initial `findByToken` lookup
+ * runs under a narrow self-identification policy clause keyed on the hashed
+ * token (RLS-4 precondition 2, migration 0029 — see
+ * docs/architecture/TENANT_ISOLATION_RLS.md §2e), not truly unscoped. Once the
+ * row is found, `request.tenantId` is a concrete value, so every write on
+ * that request opens its own `withTenant(request.tenantId, ...)` transaction
+ * rather than depending on `withCurrentTenant`'s ambient read.
+ *
+ * `markExpiredRequests` (cron/background, scans across ALL tenants) is a
+ * DIFFERENT shape and is NOT covered by the fix above — there is no per-row
+ * token to bootstrap from, it is a genuine cross-tenant batch read. It has
+ * the same bootstrapping gap RLS-6 solved for the admin console and needs
+ * the equivalent BYPASSRLS path once FORCE is on; still out of scope here,
+ * flagged for that follow-up.
  */
 export class SignatureRequestService {
   private signatureRequestRepo: typeof signatureRequestRepository;
@@ -171,13 +176,25 @@ export class SignatureRequestService {
    * Get signature request by token (for public signing portal)
    * No authentication required. See the class comment — there is no ambient
    * tenant to read here (a run-token holder is never a tenant user), so the
-   * initial lookup is deliberately unscoped and the tenant only becomes known
-   * once the row is found, at which point every write below opens its own
-   * `withTenant(request.tenantId, ...)` transaction.
+   * tenant only becomes known once the row is found, at which point every
+   * write below opens its own `withTenant(request.tenantId, ...)` transaction.
+   *
+   * RLS-4 precondition 2 (closed): the initial lookup is no longer truly
+   * unscoped. `signature_requests`' policy (migration 0029) carries a narrow
+   * self-identification clause matching on the hashed token — the same
+   * pattern `users`' self-id clause uses (0028), keyed on a token hash
+   * instead of a primary key. The hash IS the verification (computed locally
+   * before any DB call, never trusting anything unverified), so pinning it
+   * as `app.current_signing_token` before the read lets the ONE matching row
+   * through without needing a tenant, `SECURITY DEFINER`, or a bypass role.
    */
   async getSignatureRequestByToken(token: string): Promise<SignatureRequest> {
     const hashedToken = hashToken(token);
-    const request = await this.signatureRequestRepo.findByToken(hashedToken);
+    const request = await withVerifiedIdentifier(
+      'app.current_signing_token',
+      hashedToken,
+      (tx) => this.signatureRequestRepo.findByToken(hashedToken, tx)
+    );
     if (!request) {
       throw createError.notFound("Invalid signature link");
     }

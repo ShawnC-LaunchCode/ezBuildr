@@ -1,6 +1,7 @@
 import type { User } from '@shared/schema';
 
 import { userRepository } from '../repositories';
+import { withCurrentUserId } from '../utils/rlsContext';
 
 /**
  * Shared in-process TTL cache for user lookups.
@@ -46,11 +47,20 @@ export function invalidateUserCache(userId: string): void {
   userCache.delete(userId);
 }
 
-/** Fetch a user by id, using the TTL cache and falling back to the database. */
+/**
+ * Fetch a user by id, using the TTL cache and falling back to the database.
+ *
+ * RLS-5: this is the auth re-hydration read — it runs before any tenant is
+ * known (establishing it is the point), so a cache miss must go through
+ * `withCurrentUserId`, which pins `app.current_user_id` to this exact id so
+ * `users`' self-identification policy clause (migration 0028) lets the row
+ * through. Never call this with an id that has not already been verified
+ * (a JWT signature, a valid session) — the clause trusts it completely.
+ */
 export async function getUserById(userId: string): Promise<User | undefined> {
   const cached = getCachedUser(userId);
   if (cached) { return cached; }
-  const user = (await userRepository.findById(userId)) ?? undefined;
+  const user = await withCurrentUserId(userId, (tx) => userRepository.findById(userId, tx)) ?? undefined;
   if (user) { setCachedUser(user); }
   return user;
 }

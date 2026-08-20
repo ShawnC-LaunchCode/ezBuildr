@@ -1,6 +1,5 @@
 import { UnauthorizedError } from '../errors/AuthErrors';
 import { createLogger } from '../logger';
-import { userRepository } from '../repositories';
 import { authService, type JWTPayload } from '../services/AuthService';
 import { parseCookies } from "../utils/cookies";
 import { setCurrentTenantId } from '../utils/rlsContext';
@@ -120,7 +119,11 @@ async function cookieStrategy(req: Request): Promise<boolean> {
     if (refreshToken) {
       const userId = await authService.validateRefreshToken(refreshToken);
       if (userId) {
-        const user = await userRepository.findById(userId);
+        // RLS-5: route through the same self-identification-aware path as
+        // the JWT strategy (`getUserById`) rather than a bare
+        // `userRepository.findById` — this runs before any tenant is known
+        // too, so it needs `users`' self-id policy clause (migration 0028).
+        const user = await getUserById(userId);
         if (user) {
           // Type-safe property assignment
           Object.assign(req, {

@@ -12,7 +12,7 @@ import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
 import { createError } from "../utils/errors";
 import { documentTemplateRepository, type DbTransaction } from "../repositories";
-import { withCurrentTenant } from "../utils/rlsContext";
+import { getCurrentTenantId, withCurrentTenant } from "../utils/rlsContext";
 import {
   lintWorkflowContent,
   type LintableWorkflowContent,
@@ -414,6 +414,7 @@ export class VersionService {
       }
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow_version',
         entityId: newVersion.id,
@@ -514,6 +515,7 @@ export class VersionService {
         .where(eq(schema.workflows.id, workflowId));
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow_version',
         entityId: newVersion.id,
@@ -567,6 +569,7 @@ export class VersionService {
         .where(eq(schema.workflows.id, workflowId));
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,
@@ -610,6 +613,7 @@ export class VersionService {
       }
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,
@@ -654,6 +658,7 @@ export class VersionService {
         .where(eq(schema.workflows.id, workflowId));
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,
@@ -682,6 +687,7 @@ export class VersionService {
         .where(eq(schema.workflows.id, workflowId));
       // Log audit event
       await scopedTx.insert(schema.auditLogs).values({
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,

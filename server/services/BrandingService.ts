@@ -13,6 +13,8 @@ import type {
 
 import { db } from '../db';
 import { createLogger } from '../logger';
+import { type DbTransaction } from '../repositories';
+import { withCurrentTenant } from '../utils/rlsContext';
 
 import { workflowTenantResolver } from './WorkflowTenantResolver';
 
@@ -28,11 +30,34 @@ const logger = createLogger({ module: 'BrandingService' });
  */
 export class BrandingService {
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-4 precondition 4). If the caller already handed us a
+   * transaction, reuse it — never open a nested one, which would deadlock
+   * the size-1 test pool while the caller's own transaction still holds the
+   * only connection (measured via `VersionService.serializeWorkflowInTx`,
+   * see the comment at `WorkflowService.getWorkflowWithDetails`'s branding
+   * call site). Otherwise open exactly one via `withCurrentTenant`, which
+   * reads the tenant already populated in the request's async context
+   * (`hybridAuth`, or `runTokenAuth`/`RunAuthResolver` for the anonymous
+   * participant path) and sets the transaction-local `app.current_tenant_id`
+   * GUC for the `workflows` read inside `fn`.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Get tenant branding configuration
    */
-  async getBrandingByTenantId(tenantId: string): Promise<TenantBranding | null> {
+  async getBrandingByTenantId(tenantId: string, tx?: DbTransaction): Promise<TenantBranding | null> {
     try {
-      const [tenant] = await db
+      const [tenant] = await (tx ?? db)
         .select({ branding: tenants.branding })
         .from(tenants)
         .where(eq(tenants.id, tenantId));
@@ -100,17 +125,29 @@ export class BrandingService {
    * Never throws: this runs on the anonymous participant read path, so a
    * branding lookup failure degrades to the product default rather than
    * breaking the run.
+   *
+   * `tx` (RLS-4 precondition 4): pass the caller's own open transaction when
+   * one exists (e.g. `WorkflowService.getWorkflowWithDetails` nested inside
+   * `VersionService.serializeWorkflowInTx`) so this reuses it instead of
+   * opening a second one. Leave it undefined for the ordinary top-level
+   * case — `withTx` then opens its own short transaction against the
+   * ambient tenant, which is what makes the `workflows` read (RLS-covered,
+   * ownership-derived) succeed under FORCE instead of silently returning
+   * zero rows and falling back to default branding.
    */
   async resolveForWorkflow(
     workflowId: string,
-    workflowSettings: unknown
+    workflowSettings: unknown,
+    tx?: DbTransaction
   ): Promise<ResolvedBranding> {
     const workflowBranding = this.parseWorkflowBranding(workflowSettings);
 
     try {
-      const tenantId = await this.resolveTenantIdForWorkflow(workflowId);
-      const tenantBranding = tenantId !== null ? await this.getBrandingByTenantId(tenantId) : null;
-      return resolveBranding(tenantBranding, workflowBranding);
+      return await this.withTx(tx, async (scopedTx) => {
+        const tenantId = await this.resolveTenantIdForWorkflow(workflowId, scopedTx);
+        const tenantBranding = tenantId !== null ? await this.getBrandingByTenantId(tenantId, scopedTx) : null;
+        return resolveBranding(tenantBranding, workflowBranding);
+      });
     } catch (error) {
       logger.error({ error, workflowId }, 'Failed to resolve workflow branding; using workflow-only branding');
       return resolveBranding(null, workflowBranding);
@@ -143,8 +180,8 @@ export class BrandingService {
    * `ownerType`/`ownerUuid`, so a transferred workflow rendered the original
    * creator's branding rather than the new owner's.
    */
-  private async resolveTenantIdForWorkflow(workflowId: string): Promise<string | null> {
-    return workflowTenantResolver.resolveForWorkflowId(workflowId);
+  private async resolveTenantIdForWorkflow(workflowId: string, tx?: DbTransaction): Promise<string | null> {
+    return workflowTenantResolver.resolveForWorkflowId(workflowId, tx);
   }
 
   /**

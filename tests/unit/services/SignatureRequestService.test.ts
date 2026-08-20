@@ -5,7 +5,21 @@ import { runWithTenantContext } from '../../../server/utils/rlsContext';
 
 import { SignatureRequestService } from '../../../server/services/SignatureRequestService';
 
-const mockTx = { __fakeTx: true } as unknown as DbTransaction;
+// RLS-4 precondition 2: getSignatureRequestByToken now opens a real
+// transaction via withVerifiedIdentifier (to pin app.current_signing_token
+// before the lookup — migration 0029), which needs a real DB unavailable in
+// unit-fast. Mock db.transaction to just invoke the callback with the same
+// fake tx already used for the explicit-tx tests below, so a cache miss
+// still exercises the real service logic without a DB connection.
+const { mockTx } = vi.hoisted(() => ({
+  mockTx: { __fakeTx: true, execute: vi.fn().mockResolvedValue(undefined) } as unknown as DbTransaction,
+}));
+
+vi.mock('../../../server/db', () => ({
+  db: {
+    transaction: vi.fn((fn: (tx: DbTransaction) => unknown) => fn(mockTx)),
+  },
+}));
 
 describe('SignatureRequestService', () => {
   let service: SignatureRequestService;

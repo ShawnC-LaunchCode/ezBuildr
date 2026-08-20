@@ -31,6 +31,13 @@ vi.mock("../../../server/services/WorkflowService", () => ({
 }));
 
 
+// RLS-4 precondition 5: `listVariables` now opens a tenant-scoped transaction
+// via `withCurrentTenant` when no `tx` is supplied, which needs a real DB
+// (unavailable in unit-fast). Passing a fake `tx` takes the reuse branch
+// instead — `sectionRepoMock`/`stepRepoMock`/`verifyAccessMock` don't
+// inspect it, so any object works.
+const fakeTx = {} as never;
+
 const SECTION = { id: "sec-1", title: "Page 1" };
 
 function step(overrides: Record<string, unknown>) {
@@ -62,7 +69,7 @@ describe("VariableService.listVariables — choices (O-2)", () => {
       }),
     ]);
 
-    const [variable] = await new VariableService().listVariables("wf-1", "user-1");
+    const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
 
     expect(variable.choices).toEqual([
       { value: "basic", label: "Basic" },
@@ -75,14 +82,14 @@ describe("VariableService.listVariables — choices (O-2)", () => {
       step({ id: "s2", type: "multiple_choice", config: { options: ["A", "B"] } }),
     ]);
 
-    const [variable] = await new VariableService().listVariables("wf-1", "user-1");
+    const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
     expect(variable.choices).toHaveLength(2);
   });
 
   it("omits `choices` entirely for a step type that never has options", async () => {
     stepRepoMock.findBySectionIds.mockResolvedValue([step({ id: "s3", type: "short_text" })]);
 
-    const [variable] = await new VariableService().listVariables("wf-1", "user-1");
+    const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
     expect(variable).not.toHaveProperty("choices");
   });
 
@@ -91,7 +98,7 @@ describe("VariableService.listVariables — choices (O-2)", () => {
       step({ id: "s4", type: "radio", config: {} }),
     ]);
 
-    const [variable] = await new VariableService().listVariables("wf-1", "user-1");
+    const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
     expect(variable).not.toHaveProperty("choices");
   });
 });

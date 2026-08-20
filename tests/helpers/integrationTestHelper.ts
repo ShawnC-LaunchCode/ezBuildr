@@ -22,6 +22,7 @@ import * as schema from '@shared/schema';
 import { db, initializeDatabase } from '../../server/db';
 import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerRoutes } from '../../server/routes';
+import { withTenantAsUser } from '../../server/utils/rlsContext';
 
 export interface IntegrationTestContext {
   app: Express;
@@ -134,27 +135,48 @@ export async function setupIntegrationTest(
     const authToken = registerResponse.body.token;
     const userId = registerResponse.body.user.id;
 
-    // Update user with tenant and roles
-    await db.update(schema.users)
-      .set({
-        tenantId,
-        role: userRole,
-        tenantRole: tenantRole,
-      })
-      .where(eq(schema.users.id, userId));
+    // RLS-5 finding: this fixture writes real (non-null) tenant_id values on
+    // two direct-tenant_id tables (users, organizations) with no ambient
+    // tenant in context — the tenant just created above IS that context, so
+    // pin it explicitly. Without this, each write below fails its RLS WITH
+    // CHECK under a genuine non-owner role (the restricted role RLS-5 runs
+    // the suite as), which is exactly what a real "assign this brand-new
+    // tenant" application code path (e.g. googleAuth.ts's upsertUser) must
+    // also do — this fixture now mirrors that instead of relying on the
+    // owner-bypass that hid the gap until RLS-5 ran the suite for real.
+    //
+    // `withTenantAsUser`, not plain `withTenant`: the users UPDATE below
+    // moves this row from tenant_id=NULL to a real tenant, and RLS's USING
+    // clause gates on the row's CURRENT state — pinning only the target
+    // tenant leaves a NULL-tenant row invisible to the UPDATE, which then
+    // silently matches zero rows with no error (see the doc comment on
+    // withTenantAsUser). Pinning the self-id GUC too makes the row visible
+    // regardless of its current tenant while WITH CHECK still enforces that
+    // the written tenant_id must equal the one just pinned.
+    const { orgId } = await withTenantAsUser(tenantId, userId, async (tx) => {
+      // Update user with tenant and roles
+      await tx.update(schema.users)
+        .set({
+          tenantId,
+          role: userRole,
+          tenantRole: tenantRole,
+        })
+        .where(eq(schema.users.id, userId));
 
-    // Create organization for ACL testing
-    const [org] = await db.insert(schema.organizations).values({
-      name: `${tenantName} Org`,
-      tenantId: tenantId,
-    }).returning();
-    const orgId = org.id;
+      // Create organization for ACL testing
+      const [org] = await tx.insert(schema.organizations).values({
+        name: `${tenantName} Org`,
+        tenantId: tenantId,
+      }).returning();
 
-    // Create organization membership
-    await db.insert(schema.organizationMemberships).values({
-      orgId: orgId,
-      userId: userId,
-      role: 'admin',
+      // Create organization membership
+      await tx.insert(schema.organizationMemberships).values({
+        orgId: org.id,
+        userId: userId,
+        role: 'admin',
+      });
+
+      return { orgId: org.id };
     });
 
     let projectId: string | undefined;

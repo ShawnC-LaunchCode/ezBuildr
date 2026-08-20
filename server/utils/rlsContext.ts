@@ -191,3 +191,111 @@ export async function withCurrentTenant<T>(
   }
   return withTenant(tenantId, fn);
 }
+
+/**
+ * Self-identification bootstrap (RLS-5, the auth-rehydration finding).
+ *
+ * `hybridAuth` and `requireUser` re-read a user's own row to get its
+ * authoritative role/tenant, and that read necessarily runs BEFORE any tenant
+ * is known — establishing it is the whole point of the read. Under FORCE with
+ * a non-owner role, `users`' ordinary tenant-scoped policy blocks it: there is
+ * no tenant to pin yet, and the row's own tenant_id is unknown until this
+ * query runs.
+ *
+ * `users`' policy carries one extra, narrowly-scoped clause for exactly this:
+ * `OR id = NULLIF(current_setting('app.current_user_id', true), '')`
+ * (migration 0028). This is the general pattern for the whole class of
+ * "prove identity via some external proof, then read the one row that
+ * reveals your tenant" problem — see
+ * docs/architecture/TENANT_ISOLATION_RLS.md. Set the GUC to a value ONLY
+ * after verifying that proof (a JWT signature, a session lookup, a token
+ * match), never from unauthenticated input — the clause trusts this value
+ * completely and grants no isolation of its own.
+ *
+ * Transaction-local `SET LOCAL`, same hygiene as `applyTenantToTransaction`:
+ * a session-level `SET` would stick to the pooled physical connection and
+ * leak into the next request.
+ */
+export async function withCurrentUserId<T>(
+  userId: string,
+  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+): Promise<T> {
+  if (typeof userId !== "string" || userId.trim().length === 0) {
+    throw new Error("RLS: refusing to set an empty current-user id.");
+  }
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${userId}, true)`);
+    return fn(tx);
+  });
+}
+
+/**
+ * The general form of the pattern above (RLS-4 precondition 2, the second
+ * application after `withCurrentUserId`/`users`): pin ANY table-specific
+ * self-identification GUC — not necessarily a primary key — to a value
+ * proven by some external check, then run `fn` where the matching table's
+ * policy can see the one row that value identifies.
+ *
+ * `signature_requests` (migration 0029) uses this keyed on a HASHED token
+ * rather than a primary key: `getSignatureRequestByToken` hashes the
+ * caller-presented token locally (no DB round trip — the hash IS the
+ * verification, the same way a JWT signature check is, just a different
+ * kind of proof) and pins it as `app.current_signing_token` before the
+ * lookup. Whatever future table needs this next reuses the shape: verify
+ * first, pin the GUC to the verified value, run the bootstrap read inside
+ * this transaction.
+ *
+ * `gucName` must be a literal you control, never derived from request
+ * input — it selects WHICH policy clause this unlocks, and a caller-chosen
+ * name would let a request pin an arbitrary GUC.
+ */
+export async function withVerifiedIdentifier<T>(
+  gucName: string,
+  value: string,
+  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+): Promise<T> {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`RLS: refusing to set an empty value for ${gucName}.`);
+  }
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config(${gucName}, ${value}, true)`);
+    return fn(tx);
+  });
+}
+
+/**
+ * Assigning a user's FIRST tenant — the shape both `googleAuth.ts`'s
+ * `upsertUser` and any invite/auto-provision flow needs, and the one
+ * `withTenant` alone gets subtly wrong.
+ *
+ * `UPDATE ... SET tenant_id = X` is gated by RLS's `USING` clause against the
+ * row's CURRENT (pre-update) state, not the value being written — pinning
+ * only the target tenant makes a row whose EXISTING `tenant_id` is NULL
+ * invisible to the update (`NULL IS NOT DISTINCT FROM X` is false), so the
+ * `UPDATE` silently matches zero rows. Silently, because Postgres does not
+ * raise for an `UPDATE` that `USING` filters down to nothing — `WITH CHECK`
+ * only ever runs on rows that were visible in the first place. No error, no
+ * write, and the caller has no way to tell from the query result alone
+ * (measured directly: `tests/helpers/integrationTestHelper.ts`'s fixture hit
+ * exactly this and the row's `tenant_id` stayed NULL with no exception).
+ *
+ * Pinning BOTH GUCs fixes it correctly rather than papering over it: the
+ * self-id clause (migration 0028) makes the row visible via `USING`
+ * regardless of its current tenant, and `WITH CHECK` still requires the
+ * WRITTEN `tenant_id` to equal the pinned tenant — so this can only ever
+ * assign the tenant it was explicitly given, never anything else.
+ */
+export async function withTenantAsUser<T>(
+  tenantId: string,
+  userId: string,
+  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await applyTenantToTransaction(tx, tenantId);
+    if (typeof userId !== "string" || userId.trim().length === 0) {
+      throw new Error("RLS: refusing to set an empty current-user id.");
+    }
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${userId}, true)`);
+    return fn(tx);
+  });
+}

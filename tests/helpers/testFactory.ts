@@ -1,12 +1,13 @@
 
 import { randomUUID } from 'crypto';
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
 import type { DbTransaction } from '../../server/repositories/BaseRepository';
+import { applyTenantToTransaction } from '../../server/utils/rlsContext';
 
 type DBInstance = NonNullable<ReturnType<typeof getDb>>;
 // Generate a unique ID suitable for the database
@@ -62,6 +63,11 @@ export interface TestTemplate {
 }
 export class TestFactory {
   private db: DBInstance | DbTransaction;
+  // RLS-5: the tenant most recently established by createTenant()/
+  // createWorkflow() on this instance, remembered so later calls that don't
+  // otherwise know a tenant (createSection, createStep, ...) can still pin
+  // it. Opportunistic, not required — see withKnownTenant.
+  private lastTenantId?: string;
   /**
    * Create a new TestFactory
    * @param txOrDb - Optional transaction or database instance. If not provided, uses global db.
@@ -69,6 +75,26 @@ export class TestFactory {
    */
   constructor(txOrDb?: DBInstance | DbTransaction) {
     this.db = txOrDb ?? getDb();
+  }
+  /**
+   * Run `fn` inside a transaction pinned to `lastTenantId` if this instance
+   * has one (set by a prior createTenant()/createWorkflow() call), otherwise
+   * run it exactly as before — unscoped, against `this.db` directly. Not
+   * required for these helpers to work when RLS is unenforced, but needed
+   * once it is: `sections`/`steps`/`datavault_*`/`collections` are all
+   * RLS-covered and reject an unscoped write the same way `workflows` did
+   * (RLS-5 finding). Backward compatible by construction — a caller that
+   * never established a tenant on this instance sees no behaviour change.
+   */
+  private async withKnownTenant<T>(fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
+    if (!this.lastTenantId) {
+      return fn(this.db as DbTransaction);
+    }
+    const tenantId = this.lastTenantId;
+    return this.db.transaction(async (tx: DbTransaction) => {
+      await applyTenantToTransaction(tx, tenantId);
+      return fn(tx);
+    });
   }
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)
@@ -95,6 +121,16 @@ export class TestFactory {
           ...overrides?.tenant,
         })
         .returning();
+      // RLS-5 finding (same shape as tests/helpers/integrationTestHelper.ts):
+      // users/projects below write a real (non-null) tenantId with no
+      // ambient GUC pinned — under a genuine non-owner role this fails RLS's
+      // WITH CHECK. Pin it now that the tenant this transaction is building
+      // is known; safe as a plain `applyTenantToTransaction` (not
+      // `withTenantAsUser`) because these are fresh INSERTs, not an UPDATE
+      // moving an existing row between tenants — INSERT has no pre-existing
+      // row for RLS's USING clause to hide.
+      await applyTenantToTransaction(tx, tenant.id);
+      this.lastTenantId = tenant.id;
       // Create user with admin/owner role for test permissions
       const [user] = await tx
         .insert(schema.users)
@@ -143,6 +179,24 @@ export class TestFactory {
   ): Promise<TestWorkflow> {
     // Transaction ensures Neon routes workflow + version inserts to same backend
     return this.db.transaction(async (tx: DbTransaction) => {
+      // RLS-5 finding: `workflows` is ownership-derived (no tenant_id
+      // column) — its policy resolves the tenant via `app_owner_tenant()`,
+      // which itself reads `users`/`projects` under RLS as the SAME calling
+      // role. With no GUC pinned, that internal read (and the WITH CHECK on
+      // this insert) both fail. Unlike createTenant(), this method isn't
+      // given a tenantId directly, so discover it via the self-identification
+      // clause (migration 0028) on the already-known userId, then pin it —
+      // the same bootstrap shape `withTenantAsUser` exists for, just needing
+      // the lookup step first since only userId is in hand here.
+      await tx.execute(sql`SELECT set_config('app.current_user_id', ${userId}, true)`);
+      const [actingUser] = await tx
+        .select({ tenantId: schema.users.tenantId })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId));
+      if (actingUser?.tenantId) {
+        await applyTenantToTransaction(tx, actingUser.tenantId);
+        this.lastTenantId = actingUser.tenantId;
+      }
       const [workflow] = await tx
         .insert(schema.workflows)
         .values({
@@ -186,7 +240,7 @@ export class TestFactory {
     workflowId: string,
     overrides?: Partial<typeof schema.sections.$inferInsert>
   ) {
-    const [section] = await this.db
+    const [section] = await this.withKnownTenant((tx) => tx
       .insert(schema.sections)
       .values({
         id: generateId(),
@@ -196,7 +250,7 @@ export class TestFactory {
         order: 0,
         ...overrides,
       })
-      .returning();
+      .returning());
     return section;
   }
   /**
@@ -206,33 +260,35 @@ export class TestFactory {
     sectionId: string,
     overrides?: Partial<typeof schema.steps.$inferInsert>
   ) {
-    const workflowId = overrides?.workflowId ?? (
-      await this.db
-        .select({ workflowId: schema.sections.workflowId })
-        .from(schema.sections)
-        .where(eq(schema.sections.id, sectionId))
-        .limit(1)
-    )[0]?.workflowId;
+    return this.withKnownTenant(async (tx) => {
+      const workflowId = overrides?.workflowId ?? (
+        await tx
+          .select({ workflowId: schema.sections.workflowId })
+          .from(schema.sections)
+          .where(eq(schema.sections.id, sectionId))
+          .limit(1)
+      )[0]?.workflowId;
 
-    if (!workflowId) {
-      throw new Error(`Cannot create test step for unknown section ${sectionId}`);
-    }
+      if (!workflowId) {
+        throw new Error(`Cannot create test step for unknown section ${sectionId}`);
+      }
 
-    const [step] = await this.db
-      .insert(schema.steps)
-      .values({
-        id: generateId(),
-        workflowId,
-        sectionId,
-        type: 'short_text',
-        title: 'Test Step',
-        description: 'Test step',
-        required: false,
-        order: 0,
-        ...overrides,
-      })
-      .returning();
-    return step;
+      const [step] = await tx
+        .insert(schema.steps)
+        .values({
+          id: generateId(),
+          workflowId,
+          sectionId,
+          type: 'short_text',
+          title: 'Test Step',
+          description: 'Test step',
+          required: false,
+          order: 0,
+          ...overrides,
+        })
+        .returning();
+      return step;
+    });
   }
   /**
    * Create a template
@@ -287,7 +343,12 @@ export class TestFactory {
     userId: string,
     overrides?: Partial<typeof schema.datavaultDatabases.$inferInsert>
   ) {
-    const [database] = await this.db
+    // tenantId is given directly here, unlike createSection/createStep — use
+    // it rather than lastTenantId, which may not have been set (or may be
+    // stale) if the caller didn't build this database's hierarchy through
+    // createTenant() first.
+    this.lastTenantId = tenantId;
+    const [database] = await this.withKnownTenant((tx) => tx
       .insert(schema.datavaultDatabases)
       .values({
         id: generateId(),
@@ -300,7 +361,7 @@ export class TestFactory {
         createdBy: userId,
         ...overrides,
       })
-      .returning();
+      .returning());
     return database;
   }
   /**
@@ -311,7 +372,9 @@ export class TestFactory {
     userId: string,
     overrides?: Partial<typeof schema.datavaultTables.$inferInsert>
   ) {
-    const [table] = await this.db
+    // No tenantId parameter here — relies on lastTenantId, set by a prior
+    // createDatabase() call on this same instance.
+    const [table] = await this.withKnownTenant((tx) => tx
       .insert(schema.datavaultTables)
       .values({
         id: generateId(),
@@ -324,7 +387,7 @@ export class TestFactory {
         columns: [],
         ...overrides,
       })
-      .returning();
+      .returning());
     return table;
   }
   /**
@@ -335,7 +398,8 @@ export class TestFactory {
     userId: string,
     overrides?: Partial<typeof schema.collections.$inferInsert>
   ) {
-    const [collection] = await this.db
+    this.lastTenantId = tenantId;
+    const [collection] = await this.withKnownTenant((tx) => tx
       .insert(schema.collections)
       .values({
         id: generateId(),
@@ -347,7 +411,7 @@ export class TestFactory {
         createdBy: userId,
         ...overrides,
       })
-      .returning();
+      .returning());
     return collection;
   }
   /**
