@@ -10,6 +10,7 @@ import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { withCurrentTenant } from "../utils/rlsContext";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -31,18 +32,29 @@ async function lookupWorkflowIdFromStepMiddleware(
     if (!stepId) {
       return next();
     }
-    const step = await stepRepository.findById(stepId);
-    if (!step) {
-      res.status(404).json({ message: "Step not found" });
-      return;
-    }
-    const section = await sectionRepository.findById(step.sectionId);
-    if (!section) {
-      res.status(404).json({ message: "Section not found" });
+    // RLS-5: `steps`/`sections` are RLS-covered through the ownership-derived
+    // policy on their parent workflow, so these reads must run inside the
+    // tenant-scoped transaction `hybridAuth` already established — on the bare
+    // pool they return nothing and this middleware 404s a step that exists.
+    // Route middleware is a THIRD place this class of gap lives, alongside
+    // services and test fixtures.
+    const resolved = await withCurrentTenant(async (tx) => {
+      const step = await stepRepository.findById(stepId, tx);
+      if (!step) {
+        return { error: "Step not found" as const };
+      }
+      const section = await sectionRepository.findById(step.sectionId, tx);
+      if (!section) {
+        return { error: "Section not found" as const };
+      }
+      return { workflowId: section.workflowId };
+    });
+    if ('error' in resolved) {
+      res.status(404).json({ message: resolved.error });
       return;
     }
 
-    req.params.workflowId = section.workflowId;
+    req.params.workflowId = resolved.workflowId;
     next();
   } catch (error) {
     logger.error({ error }, "Error in lookupWorkflowIdFromStepMiddleware");
@@ -66,7 +78,10 @@ async function lookupWorkflowIdFromStepIncludingDeletedMiddleware(
     if (!stepId) {
       return next();
     }
-    const step = await stepRepository.findByIdIncludingDeleted(stepId);
+    // RLS-5: same tenant-scoping requirement as
+    // `lookupWorkflowIdFromStepMiddleware` above.
+    const step = await withCurrentTenant((tx) =>
+      stepRepository.findByIdIncludingDeleted(stepId, tx));
     if (!step) {
       res.status(404).json({ message: "Step not found" });
       return;
@@ -94,7 +109,10 @@ async function lookupWorkflowIdFromSectionMiddleware(
     if (!sectionId) {
       return next();
     }
-    const section = await sectionRepository.findById(sectionId);
+    // RLS-5: `sections` is RLS-covered via its parent workflow's
+    // ownership-derived policy — read inside the tenant-scoped transaction.
+    const section = await withCurrentTenant((tx) =>
+      sectionRepository.findById(sectionId, tx));
     if (!section) {
       res.status(404).json({ message: "Section not found" });
       return;

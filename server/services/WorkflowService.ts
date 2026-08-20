@@ -68,7 +68,7 @@ import {
   type DbTransaction,
 } from "../repositories";
 import { canCreateWithOwnership, canManageOrg } from "../utils/ownershipAccess";
-import { withCurrentTenant } from "../utils/rlsContext";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 import { aclService } from "./AclService";
 import { BrandingService, brandingService } from "./BrandingService";
@@ -764,6 +764,11 @@ export class WorkflowService {
 
       // 4. Audit Log
       await scopedTx.insert(auditLogs).values({
+        // RLS-5: without this `tenant_id` defaults to NULL, and a NULL tenant
+        // inside a transaction pinned to a real one fails WITH CHECK
+        // (`NULL IS NOT DISTINCT FROM '<tenant>'` is false). Same
+        // missing-field bug RLS-2e fixed across VersionService's six inserts.
+        tenantId: getCurrentTenantId(),
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,

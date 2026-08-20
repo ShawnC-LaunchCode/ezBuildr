@@ -103,10 +103,11 @@ describe("SectionService", () => {
         title: "First Section",
       });
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       // Empty workflow → first section gets order 1.
       expect(mockSectionRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workflowId: workflow.id, order: 1 })
+        expect.objectContaining({ workflowId: workflow.id, order: 1 }),
+        expect.anything()
       );
       expect(result).toBe(created);
     });
@@ -125,7 +126,8 @@ describe("SectionService", () => {
       await service.createSection(workflow.id, "user-123", { title: "New Section" });
 
       expect(mockSectionRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ workflowId: workflow.id, order: 3 })
+        expect.objectContaining({ workflowId: workflow.id, order: 3 }),
+        expect.anything()
       );
     });
 
@@ -173,7 +175,7 @@ describe("SectionService", () => {
 
       await service.deleteSection(section.id, workflow.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
       expect(mockSectionRepo.softDelete).toHaveBeenCalledWith(section.id, expect.anything());
       expect(mockSectionRepo.delete).not.toHaveBeenCalled();
@@ -199,7 +201,7 @@ describe("SectionService", () => {
 
       const restored = await service.restoreSection(section.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       expect(mockStepRepo.restoreBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
       expect(mockSectionRepo.restore).toHaveBeenCalledWith(section.id, expect.anything());
       expect(restored.deletedAt).toBeNull();
@@ -229,12 +231,13 @@ describe("SectionService", () => {
 
       const result = await service.getSectionDeleteImpact(section.id, workflow.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       // Aggregation is delegated to the repo, but it must be given every step id
       // in the section (including virtual/computed steps, which cascade too).
-      expect(mockStepRepo.findBySectionId).toHaveBeenCalledWith(section.id, undefined, true);
+      expect(mockStepRepo.findBySectionId).toHaveBeenCalledWith(section.id, expect.anything(), true);
       expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith(
-        steps.map((s) => s.id)
+        steps.map((s) => s.id),
+        expect.anything()
       );
       expect(result).toEqual({ answerCount: 9, runCount: 4 });
     });
@@ -250,7 +253,7 @@ describe("SectionService", () => {
 
       const result = await service.getSectionDeleteImpact(section.id, workflow.id, "user-123");
 
-      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([]);
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([], expect.anything());
       expect(result).toEqual({ answerCount: 0, runCount: 0 });
     });
 
@@ -279,7 +282,7 @@ describe("SectionService", () => {
 
       const result = await service.getSectionDeleteImpactById(section.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit", expect.anything());
       expect(result).toEqual({ answerCount: 3, runCount: 2 });
     });
 
@@ -323,7 +326,7 @@ describe("SectionService", () => {
 
       const result = await service.duplicateSection(source.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
 
       // Later sibling shifts down by one to make room.
       expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(
@@ -515,7 +518,7 @@ describe("SectionService", () => {
         { id: sectionC.id, order: 0 },
       ]);
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       // The reorder itself is not gated by the finding — every order write happens.
       expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(sectionA.id, workflow.id, 2, expect.anything());
       expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(sectionB.id, workflow.id, 1, expect.anything());

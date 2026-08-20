@@ -8,6 +8,7 @@ import { createLimiter } from "../middleware/rateLimiting";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { sectionService } from "../services/SectionService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { withCurrentTenant } from "../utils/rlsContext";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -29,7 +30,10 @@ async function lookupWorkflowIdMiddleware(
     if (!sectionId) {
       return next();
     }
-    const section = await sectionRepository.findById(sectionId);
+    // RLS-5: `sections` is RLS-covered via its parent workflow's
+    // ownership-derived policy — read inside the tenant-scoped transaction.
+    const section = await withCurrentTenant((tx) =>
+      sectionRepository.findById(sectionId, tx));
     if (!section) {
       res.status(404).json({ message: "Section not found" });
       return;

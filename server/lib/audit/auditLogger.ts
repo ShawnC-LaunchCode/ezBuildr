@@ -3,6 +3,7 @@ import { auditLogs } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
+import { getCurrentTenantId } from "../../utils/rlsContext";
 
 export interface AuditEvent {
     tenantId?: string | null;
@@ -30,7 +31,16 @@ export class AuditLogger {
     static async log(event: AuditEvent, executor: AuditExecutor = db): Promise<void> {
         try {
             await executor.insert(auditLogs).values({
-                tenantId: event.tenantId ? event.tenantId : null,
+                // RLS-5: fall back to the ambient tenant when the caller did
+                // not supply one. Writing NULL from inside a transaction
+                // pinned to a real tenant fails WITH CHECK
+                // (`NULL IS NOT DISTINCT FROM '<tenant>'` is false), so an
+                // un-tenanted audit row does not just lose attribution — it
+                // aborts the caller's transaction and takes the audited
+                // operation down with it. An explicit event.tenantId still
+                // wins; the null fallback is kept for genuine system events
+                // that run with no tenant context at all.
+                tenantId: event.tenantId ? event.tenantId : (getCurrentTenantId() ?? null),
                 // Coerce empty string to null: workspaceId maps to a uuid column,
                 // and "" is not valid uuid syntax (aborts the caller's transaction).
                 workspaceId: event.workspaceId ? event.workspaceId : null,

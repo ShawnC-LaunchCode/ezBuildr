@@ -6,7 +6,7 @@ import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { remapJsonIds } from "../utils/remapJsonIds";
 import { stepRepository, sectionRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
-import { db } from "../db";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import { aliasRenameService } from "./AliasRenameService";
 import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
@@ -85,7 +85,25 @@ export class StepService {
     this.stepValueRepo = stepValueRepo ?? stepValueRepository;
   }
 
-
+  /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-5). Reuses a caller-supplied `tx` if given (never nests);
+   * otherwise opens exactly one via `withCurrentTenant`.
+   *
+   * Same reason `SectionService` needed this: `steps` is RLS-covered through
+   * the OWNERSHIP-derived policy on its parent workflow, so this service
+   * never mentions `tenantId` and the RLS-2 rollout's "services referencing
+   * tenantId" scoping missed it entirely. Ambient-only variant (§2c).
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
   private async getWorkflowAliases(workflowId: string, tx?: DbTransaction): Promise<Set<string>> {
@@ -179,70 +197,73 @@ export class StepService {
     workflowId: string,
     sectionId: string,
     userId: string,
-    data: CreateStepData
+    data: CreateStepData,
+    tx?: DbTransaction
   ): Promise<Step> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    const currentCount = await this.stepRepo.countByWorkflowId(workflowId);
-    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
-      );
-    }
-
-    let finalConfig = data.config;
-    if (finalConfig) {
-      try {
-        // Enforce strict validation
-        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as StepConfig, { strict: true });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          { stepType: data.type, workflowId, error: message },
-          "Step config validation failed during creation"
-        );
-        throw new Error(`Validation error: ${message}`);
+      // Verify section belongs to workflow
+      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
       }
-    }
 
-    // Validate alias if provided; otherwise auto-generate one from the
-    // question label so the step's answer is available to documents
-    // (steps without an alias are excluded from document data entirely)
-    let alias = data.alias;
-    if (alias) {
-      validateAliasFormat(alias);
-      await this.validateAliasUniqueness(workflowId, alias);
-    } else if (data.title) {
-      alias = await this.generateUniqueAlias(workflowId, data.title);
-    }
+      const currentCount = await this.stepRepo.countByWorkflowId(workflowId, scopedTx);
+      if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+        throw new LimitExceededError(
+          `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+        );
+      }
 
-    // Get current steps to determine next order
-    const existingSteps = await this.stepRepo.findBySectionId(sectionId);
-    const nextOrder = existingSteps.length > 0
-      ? Math.max(...existingSteps.map((s) => s.order)) + 1
-      : 1;
+      let finalConfig = data.config;
+      if (finalConfig) {
+        try {
+          // Enforce strict validation
+          finalConfig = validateAndNormalizeConfig(data.type, finalConfig as StepConfig, { strict: true });
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(
+            { stepType: data.type, workflowId, error: message },
+            "Step config validation failed during creation"
+          );
+          throw new Error(`Validation error: ${message}`);
+        }
+      }
 
-    // Strip client-controlled identity fields before the spread: `id` would
-    // let a client pick the primary key, and `isVirtual` is owned by the
-    // transform-block machinery (which creates virtual steps via the repo
-    // directly, never through this public create path).
-    const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
-    return this.stepRepo.create({
-      ...safeData,
-      config: finalConfig,
-      alias,
-      workflowId,
-      sectionId,
-      order: data.order ?? nextOrder,
-      // Server-controlled: never let a client-supplied value mark a
-      // freshly created step as already soft-deleted (ICW2-B1).
-      deletedAt: null,
+      // Validate alias if provided; otherwise auto-generate one from the
+      // question label so the step's answer is available to documents
+      // (steps without an alias are excluded from document data entirely)
+      let alias = data.alias;
+      if (alias) {
+        validateAliasFormat(alias);
+        await this.validateAliasUniqueness(workflowId, alias, undefined, scopedTx);
+      } else if (data.title) {
+        alias = await this.generateUniqueAlias(workflowId, data.title, scopedTx);
+      }
+
+      // Get current steps to determine next order
+      const existingSteps = await this.stepRepo.findBySectionId(sectionId, scopedTx);
+      const nextOrder = existingSteps.length > 0
+        ? Math.max(...existingSteps.map((s) => s.order)) + 1
+        : 1;
+
+      // Strip client-controlled identity fields before the spread: `id` would
+      // let a client pick the primary key, and `isVirtual` is owned by the
+      // transform-block machinery (which creates virtual steps via the repo
+      // directly, never through this public create path).
+      const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
+      return this.stepRepo.create({
+        ...safeData,
+        config: finalConfig,
+        alias,
+        workflowId,
+        sectionId,
+        order: data.order ?? nextOrder,
+        // Server-controlled: never let a client-supplied value mark a
+        // freshly created step as already soft-deleted (ICW2-B1).
+        deletedAt: null,
+      }, scopedTx);
     });
   }
 
@@ -254,30 +275,30 @@ export class StepService {
    * targets the *same* workflow, so a verbatim alias would collide with the
    * `(workflowId, lower(alias))` unique index.
    */
-  async duplicateStep(stepId: string, userId: string): Promise<Step> {
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async duplicateStep(stepId: string, userId: string, callerTx?: DbTransaction): Promise<Step> {
+    return this.withTx(callerTx, async (tx) => {
+      const step = await this.stepRepo.findById(stepId, tx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      const section = await this.sectionRepo.findById(step.sectionId, tx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+      await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit', tx);
 
-    const currentCount = await this.stepRepo.countByWorkflowId(section.workflowId);
-    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
-      );
-    }
+      const currentCount = await this.stepRepo.countByWorkflowId(section.workflowId, tx);
+      if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+        throw new LimitExceededError(
+          `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+        );
+      }
 
-    const taken = await this.getWorkflowAliases(section.workflowId);
-    const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
+      const taken = await this.getWorkflowAliases(section.workflowId, tx);
+      const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
 
-    return db.transaction(async (tx) => {
       // Shift every later sibling (including virtual/computed steps, so their
       // order never collides with the inserted copy) down by one.
       const siblings = await this.stepRepo.findBySectionId(step.sectionId, tx, true);
@@ -350,12 +371,13 @@ export class StepService {
     stepId: string,
     workflowId: string,
     userId: string,
-    data: Partial<InsertStep>
+    data: Partial<InsertStep>,
+    callerTx?: DbTransaction
   ): Promise<Step & { warnings?: string[] }> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    // Run the entire update in one tenant-scoped transaction.
+    return this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
 
-    // Run the entire update in a transaction
-    return db.transaction(async (tx) => {
       const step = await this.stepRepo.findById(stepId, tx);
       if (!step) {
         throw new Error(STEP_NOT_FOUND);
@@ -435,21 +457,23 @@ export class StepService {
    * hard `DELETE`, so the `step_values.step_id` cascade never fires and
    * respondent answers survive. See `restoreStep` to undo.
    */
-  async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+  async deleteStep(stepId: string, workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Verify step's section belongs to workflow
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== workflowId) {
-      throw new Error("Step not found in this workflow");
-    }
+      // Verify step's section belongs to workflow
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section || section.workflowId !== workflowId) {
+        throw new Error("Step not found in this workflow");
+      }
 
-    await this.stepRepo.softDelete(stepId);
+      await this.stepRepo.softDelete(stepId, scopedTx);
+    });
   }
 
   /**
@@ -457,19 +481,21 @@ export class StepService {
    * step's `deletedAt` is set, so the filtered `findById` cannot see it.
    * Restore UI is deferred — this is server-side only.
    */
-  async restoreStep(stepId: string, userId: string): Promise<Step> {
-    const step = await this.stepRepo.findByIdIncludingDeleted(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async restoreStep(stepId: string, userId: string, tx?: DbTransaction): Promise<Step> {
+    return this.withTx(tx, async (scopedTx) => {
+      const step = await this.stepRepo.findByIdIncludingDeleted(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit');
+      await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit', scopedTx);
 
-    const restored = await this.stepRepo.restore(stepId);
-    if (!restored) {
-      throw new Error(STEP_NOT_FOUND);
-    }
-    return restored;
+      const restored = await this.stepRepo.restore(stepId, scopedTx);
+      if (!restored) {
+        throw new Error(STEP_NOT_FOUND);
+      }
+      return restored;
+    });
   }
 
   /**
@@ -478,38 +504,42 @@ export class StepService {
    * the client's destructive-confirm dialog (ICW2-13). The counting logic
    * lives in StepValueRepository so ICW2-B1 (soft-delete) can reuse it.
    */
-  async getStepDeleteImpact(stepId: string, workflowId: string, userId: string): Promise<DeleteImpact> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+  async getStepDeleteImpact(stepId: string, workflowId: string, userId: string, tx?: DbTransaction): Promise<DeleteImpact> {
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Verify step's section belongs to workflow
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== workflowId) {
-      throw new Error("Step not found in this workflow");
-    }
+      // Verify step's section belongs to workflow
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section || section.workflowId !== workflowId) {
+        throw new Error("Step not found in this workflow");
+      }
 
-    return this.stepValueRepo.countImpactForSteps([stepId]);
+      return this.stepValueRepo.countImpactForSteps([stepId], scopedTx);
+    });
   }
 
   /**
    * Impact of deleting a step (workflow looked up automatically).
    */
-  async getStepDeleteImpactById(stepId: string, userId: string): Promise<DeleteImpact> {
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async getStepDeleteImpactById(stepId: string, userId: string, tx?: DbTransaction): Promise<DeleteImpact> {
+    return this.withTx(tx, async (scopedTx) => {
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    return this.getStepDeleteImpact(stepId, section.workflowId, userId);
+      return this.getStepDeleteImpact(stepId, section.workflowId, userId, scopedTx);
+    });
   }
 
   /**
@@ -519,18 +549,19 @@ export class StepService {
     workflowId: string,
     sectionId: string,
     userId: string,
-    stepOrders: Array<{ id: string; order: number }>
+    stepOrders: Array<{ id: string; order: number }>,
+    callerTx?: DbTransaction
   ): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    await this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Verify section belongs to workflow
+      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, tx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Update each step's order
-    await db.transaction(async (tx) => {
+      // Update each step's order
       for (const { id, order } of stepOrders) {
         await this.stepRepo.updateOrder(id, sectionId, order, tx);
       }
@@ -540,24 +571,28 @@ export class StepService {
   /**
    * Get steps for a section
    */
-  async getSteps(workflowId: string, sectionId: string, userId: string): Promise<Step[]> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+  async getSteps(workflowId: string, sectionId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Verify section belongs to workflow
+      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    return this.stepRepo.findBySectionId(sectionId);
+      return this.stepRepo.findBySectionId(sectionId, scopedTx);
+    });
   }
 
-  async verifyWorkflowAccess(workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'view');
+  async verifyWorkflowAccess(workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
+    });
   }
 
-  async getWorkflowSteps(workflowId: string): Promise<Step[]> {
-    return this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+  async getWorkflowSteps(workflowId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, (scopedTx) => this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx));
   }
 
   // ===================================================================
@@ -567,15 +602,17 @@ export class StepService {
   /**
    * Get steps for a section (workflow looked up automatically)
    */
-  async getStepsBySectionId(sectionId: string, userId: string): Promise<Step[]> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+  async getStepsBySectionId(sectionId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.getSteps(section.workflowId, sectionId, userId);
+      // Use the existing method with the workflowId
+      return this.getSteps(section.workflowId, sectionId, userId, scopedTx);
+    });
   }
 
   /**
@@ -583,19 +620,21 @@ export class StepService {
    * Used for preview/run token authentication
    * Validates that the section belongs to the expected workflow
    */
-  async getStepsBySectionIdNoAuth(sectionId: string, expectedWorkflowId: string): Promise<Step[]> {
-    // Look up the section
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+  async getStepsBySectionIdNoAuth(sectionId: string, expectedWorkflowId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the section
+      const section = await this.sectionRepo.findById(sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Verify the section belongs to the expected workflow
-    if (section.workflowId !== expectedWorkflowId) {
-      throw new Error("Section does not belong to the specified workflow");
-    }
+      // Verify the section belongs to the expected workflow
+      if (section.workflowId !== expectedWorkflowId) {
+        throw new Error("Section does not belong to the specified workflow");
+      }
 
-    return this.stepRepo.findBySectionId(sectionId);
+      return this.stepRepo.findBySectionId(sectionId, scopedTx);
+    });
   }
 
   /**
@@ -604,16 +643,19 @@ export class StepService {
   async createStepBySectionId(
     sectionId: string,
     userId: string,
-    data: CreateStepData
+    data: CreateStepData,
+    tx?: DbTransaction
   ): Promise<Step> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.createStep(section.workflowId, sectionId, userId, data);
+      // Use the existing method with the workflowId
+      return this.createStep(section.workflowId, sectionId, userId, data, scopedTx);
+    });
   }
 
   /**
@@ -622,16 +664,19 @@ export class StepService {
   async reorderStepsBySectionId(
     sectionId: string,
     userId: string,
-    stepOrders: Array<{ id: string; order: number }>
+    stepOrders: Array<{ id: string; order: number }>,
+    tx?: DbTransaction
   ): Promise<void> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+    await this.withTx(tx, async (scopedTx) => {
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    await this.reorderSteps(section.workflowId, sectionId, userId, stepOrders);
+      // Use the existing method with the workflowId
+      await this.reorderSteps(section.workflowId, sectionId, userId, stepOrders, scopedTx);
+    });
   }
 
   /**
@@ -640,22 +685,25 @@ export class StepService {
   async updateStepById(
     stepId: string,
     userId: string,
-    data: Partial<InsertStep>
+    data: Partial<InsertStep>,
+    tx?: DbTransaction
   ): Promise<Step & { warnings?: string[] }> {
-    // Look up the step to get its section
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the step to get its section
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.updateStep(stepId, section.workflowId, userId, data);
+      // Use the existing method with the workflowId
+      return this.updateStep(stepId, section.workflowId, userId, data, scopedTx);
+    });
   }
 
   public async propagateChoiceOptionRenames(stepId: string, workflowId: string, aliasChanges: Map<string, string>, tx: DbTransaction): Promise<string[]> {
@@ -708,43 +756,47 @@ export class StepService {
   /**
    * Delete a step (workflow looked up automatically)
    */
-  async deleteStepById(stepId: string, userId: string): Promise<void> {
-    // Look up the step to get its section
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async deleteStepById(stepId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      // Look up the step to get its section
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    await this.deleteStep(stepId, section.workflowId, userId);
+      // Use the existing method with the workflowId
+      await this.deleteStep(stepId, section.workflowId, userId, scopedTx);
+    });
   }
 
   /**
    * Get a step by ID (workflow looked up automatically)
    */
-  async getStepById(stepId: string, userId: string): Promise<Step> {
-    // Look up the step
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async getStepById(stepId: string, userId: string, tx?: DbTransaction): Promise<Step> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the step
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the section to get its workflowId
+      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-    // Verify ownership
-    await this.workflowSvc.verifyAccess(section.workflowId, userId);
+      // Verify ownership
+      await this.workflowSvc.verifyAccess(section.workflowId, userId, 'view', scopedTx);
 
-    return step;
+      return step;
+    });
   }
 }
 

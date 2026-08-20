@@ -143,7 +143,8 @@ describe("StepService", () => {
         expect.objectContaining({
           sectionId: section.id,
           order: 3,
-        })
+        }),
+      expect.anything()
       );
     });
 
@@ -259,7 +260,8 @@ describe("StepService", () => {
       await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(mockStepRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ alias: "whatIsYourFirstName" })
+        expect.objectContaining({ alias: "whatIsYourFirstName" }),
+      expect.anything()
       );
     });
 
@@ -286,7 +288,8 @@ describe("StepService", () => {
       await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(mockStepRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ alias: "email2" })
+        expect.objectContaining({ alias: "email2" }),
+      expect.anything()
       );
     });
 
@@ -348,7 +351,7 @@ describe("StepService", () => {
         service.createStep(workflow.id, section.id, "other-user", newStepData)
       ).rejects.toThrow("Access denied");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user", "edit", expect.anything());
     });
   });
 
@@ -458,7 +461,7 @@ describe("StepService", () => {
 
       await service.deleteStep(step.id, workflow.id, "user-123");
 
-      expect(mockStepRepo.softDelete).toHaveBeenCalledWith(step.id);
+      expect(mockStepRepo.softDelete).toHaveBeenCalledWith(step.id, expect.anything());
       expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
 
@@ -499,8 +502,8 @@ describe("StepService", () => {
 
       const restored = await service.restoreStep(step.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
-      expect(mockStepRepo.restore).toHaveBeenCalledWith(step.id);
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
+      expect(mockStepRepo.restore).toHaveBeenCalledWith(step.id, expect.anything());
       expect(restored.deletedAt).toBeNull();
     });
 
@@ -524,8 +527,8 @@ describe("StepService", () => {
 
       const result = await service.getStepDeleteImpact(step.id, workflow.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
-      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([step.id]);
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([step.id], expect.anything());
       expect(result).toEqual({ answerCount: 5, runCount: 3 });
     });
 
@@ -593,7 +596,7 @@ describe("StepService", () => {
 
       const result = await service.getStepDeleteImpactById(step.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit", expect.anything());
       expect(result).toEqual({ answerCount: 2, runCount: 1 });
     });
 
@@ -759,7 +762,7 @@ describe("StepService", () => {
 
       const result = await service.duplicateStep(step.id, "user-123");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
 
       // The later sibling shifts down by one to make room for the copy.
       expect(mockStepRepo.updateOrder).toHaveBeenCalledWith(

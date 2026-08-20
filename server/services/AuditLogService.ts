@@ -5,6 +5,7 @@ import { auditLogs, type AuditLog } from "@shared/schema";
 import { db } from "../db";
 import { createLogger } from "../logger";
 import type { DbTransaction } from "../repositories";
+import { getCurrentTenantId } from "../utils/rlsContext";
 
 const logger = createLogger({ module: "audit-log-service" });
 
@@ -120,7 +121,10 @@ export class AuditLogService {
       // Since the schema requires workspaceId, we'll use a system workspace concept
       // or make it nullable in a future migration. For now, we'll handle gracefully.
       const auditEntry = {
-        tenantId: tenantId ?? null,
+        // RLS-5: same fallback as `AuditLogger.log` — a NULL tenant written
+        // from inside a tenant-pinned transaction fails WITH CHECK and aborts
+        // the audited operation, not just the audit row.
+        tenantId: tenantId ?? getCurrentTenantId() ?? null,
         workspaceId: workspaceId ?? null,
         userId,
         action: eventType,
