@@ -7,6 +7,11 @@ no environment in which to safely build one.
 
 ---
 
+> **Finishing RLS? Start with [`RLS_HANDOFF.md`](RLS_HANDOFF.md).** The rollout is complete
+> (21 services); only RLS-4 and RLS-5 remain, and RLS-4 is **blocked** by a measured defect —
+> the policies RAISE rather than filter when no tenant is pinned. The handoff carries the fix,
+> the four open preconditions, and the environment traps that cost real hours.
+
 ## How to work this document
 
 - Read this header and **your ticket only**.
