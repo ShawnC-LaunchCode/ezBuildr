@@ -23,6 +23,10 @@ import { organizationService } from "../../server/services/OrganizationService";
 import { projectService } from "../../server/services/ProjectService";
 import { teamService } from "../../server/services/TeamService";
 import { enterTenantContextForTests, getCurrentTenantId } from "../../server/utils/rlsContext";
+// Fixture creation and cleanup are the OBSERVER (tests/helpers/ownerDb.ts).
+// The assertions still run against the application pool — including the
+// `current_setting` probe, which is specifically about that pool.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () => {
   let tenantId: string;
@@ -31,13 +35,13 @@ describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () =
   beforeAll(async () => {
     await initializeDatabase();
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `RLS-2d Org Cluster ${nanoid()}`,
       plan: "pro",
     }).returning();
     tenantId = tenant.id;
 
-    const [user] = await db.insert(schema.users).values({
+    const [user] = await getOwnerDb().insert(schema.users).values({
       email: `rls2d-org-${nanoid()}@example.com`,
       fullName: "RLS-2d Org Cluster User",
       tenantId,
@@ -46,8 +50,8 @@ describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () =
   });
 
   afterAll(async () => {
-    await db.delete(schema.users).where(eq(schema.users.tenantId, tenantId));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+    await getOwnerDb().delete(schema.users).where(eq(schema.users.tenantId, tenantId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
   });
 
   // AC4 — fail-closed, per converted service in this cluster. A per-cluster
@@ -140,7 +144,7 @@ describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () =
     expect(seenTxs[0]).toBe(seenTxs[1]);
     expect(seenTxs[1]).toBe(seenTxs[2]);
 
-    await db.delete(schema.projects).where(eq(schema.projects.id, project.id));
+    await getOwnerDb().delete(schema.projects).where(eq(schema.projects.id, project.id));
   });
 
   // The GUC set inside the transaction is the CALLER's tenant, and does not
@@ -185,7 +189,7 @@ describe("Org/access cluster service-boundary tenant transaction (RLS-2d)", () =
     const afterVal = afterRows?.[0]?.t;
     expect(afterVal === null || afterVal === "").toBe(true);
 
-    await db.delete(schema.organizationMemberships).where(eq(schema.organizationMemberships.orgId, org.id));
-    await db.delete(orgs).where(eq(orgs.id, org.id));
+    await getOwnerDb().delete(schema.organizationMemberships).where(eq(schema.organizationMemberships.orgId, org.id));
+    await getOwnerDb().delete(orgs).where(eq(orgs.id, org.id));
   });
 });

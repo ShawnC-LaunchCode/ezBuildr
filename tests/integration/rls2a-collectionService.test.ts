@@ -29,6 +29,9 @@ import { collectionRepository, collectionFieldRepository } from "../../server/re
 import { registerRoutes } from "../../server/routes";
 import { collectionService } from "../../server/services/CollectionService";
 import { getCurrentTenantId, runWithTenantContext } from "../../server/utils/rlsContext";
+// Fixture creation and cleanup are the OBSERVER (see tests/helpers/ownerDb.ts);
+// the assertions below still run against the application pool.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 import type { Server } from "http";
 
@@ -53,7 +56,7 @@ describe("CollectionService service-boundary tenant transaction (RLS-2a)", () =>
   let tenantB: TenantCtx;
 
   async function makeTenant(name: string): Promise<TenantCtx> {
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `${name} ${nanoid()}`,
       plan: "pro",
     }).returning();
@@ -69,7 +72,7 @@ describe("CollectionService service-boundary tenant transaction (RLS-2a)", () =>
       throw new Error(`register failed: ${JSON.stringify(res.body)}`);
     }
 
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId: tenant.id, role: "admin", tenantRole: "owner" })
       .where(eq(schema.users.id, res.body.user.id));
 
@@ -99,8 +102,8 @@ describe("CollectionService service-boundary tenant transaction (RLS-2a)", () =>
   });
 
   afterAll(async () => {
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantA.tenantId));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantB.tenantId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantA.tenantId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantB.tenantId));
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
@@ -142,6 +145,9 @@ describe("CollectionService service-boundary tenant transaction (RLS-2a)", () =>
       // AC4 half 2 — the pooled-connection leak `is_local => true` exists to
       // prevent. A later query on the pool (not the finished transaction)
       // must see no tenant at all.
+      // ⚠️ STAYS on the APP pool, deliberately: this asserts the GUC does not
+      // survive the transaction on the connection the APPLICATION uses. Reading
+      // it through the observer would prove nothing about that pool.
       const after = await db.execute(sql`SELECT current_setting('app.current_tenant_id', true) AS t`);
       const afterVal = firstValue(after);
       expect(afterVal === null || afterVal === "").toBe(true);

@@ -7,7 +7,6 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
-import { db } from '../../server/db';
 import { setupAuth, _testOnly_setGoogleClient } from '../../server/googleAuth';
 import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerRoutes } from '../../server/routes';
@@ -422,7 +421,7 @@ describe('DataVault v4 Regression Tests', () => {
         .set('Authorization', `Bearer ${authToken}`);
       expect(deleteResponse.status).toBe(200);
       // Verify note is deleted
-      const notes = await db
+      const notes = await getOwnerDb()
         .select()
         .from(datavaultRowNotes)
         .where(eq(datavaultRowNotes.id, noteId));
@@ -497,7 +496,7 @@ describe('DataVault v4 Regression Tests', () => {
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
       // Verify token is deleted
-      const tokens = await db
+      const tokens = await getOwnerDb()
         .select()
         .from(datavaultApiTokens)
         .where(eq(datavaultApiTokens.id, tokenId));
@@ -596,7 +595,7 @@ describe('DataVault v4 Regression Tests', () => {
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
       // Verify permission is deleted
-      const permissions = await db
+      const permissions = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.id, permissionId));

@@ -24,14 +24,18 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import * as schema from "@shared/schema";
 import type { InsertWorkflow } from "@shared/schema";
 
-import { db, initializeDatabase } from "../../server/db";
+import { initializeDatabase } from "../../server/db";
 import { projectRepository, sectionRepository, workflowRepository } from "../../server/repositories";
 import { templateService } from "../../server/services/TemplateService";
 import { templateValidationService } from "../../server/services/TemplateValidationService";
 import { versionService } from "../../server/services/VersionService";
 import { workflowClonerService } from "../../server/services/WorkflowClonerService";
 import { workflowService } from "../../server/services/WorkflowService";
-import { enterTenantContextForTests, getCurrentTenantId } from "../../server/utils/rlsContext";
+import { enterTenantContextForTests, getCurrentTenantId, withTenant } from "../../server/utils/rlsContext";
+// Fixture creation and cleanup are the OBSERVER (tests/helpers/ownerDb.ts).
+// The assertions still run against the application pool — including the
+// `current_setting` probe, which is specifically about that pool.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)", () => {
   let tenantId: string;
@@ -40,13 +44,13 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
   beforeAll(async () => {
     await initializeDatabase();
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `RLS-2e Workflow Cluster ${nanoid()}`,
       plan: "pro",
     }).returning();
     tenantId = tenant.id;
 
-    const [user] = await db.insert(schema.users).values({
+    const [user] = await getOwnerDb().insert(schema.users).values({
       email: `rls2e-workflow-${nanoid()}@example.com`,
       fullName: "RLS-2e Workflow Cluster User",
       tenantId,
@@ -55,9 +59,9 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
   });
 
   afterAll(async () => {
-    await db.delete(schema.workflows).where(eq(schema.workflows.creatorId, userId));
-    await db.delete(schema.users).where(eq(schema.users.tenantId, tenantId));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.creatorId, userId));
+    await getOwnerDb().delete(schema.users).where(eq(schema.users.tenantId, tenantId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
   });
 
   // AC4 — fail-closed, per converted service in this cluster. A per-cluster
@@ -161,8 +165,8 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     // repositories, not merely two transactions scoped to the same tenant.
     expect(seenTxs[0]).toBe(seenTxs[1]);
 
-    await db.delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
-    await db.delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
+    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 
   it("reuses a caller-supplied transaction instead of opening a nested one (WorkflowService.verifyAccess)", async () => {
@@ -173,7 +177,12 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     );
 
     enterTenantContextForTests(tenantId);
-    await db.transaction(async (tx) => {
+    // A caller-supplied transaction, but a TENANT-SCOPED one — which is what a
+    // real caller passing `tx` into a converted service always has. A bare
+    // `db.transaction` here carries no GUC, so `verifyAccess`'s read of
+    // `workflows` returns nothing under the restricted role and the assertion
+    // never gets to run.
+    await withTenant(tenantId, async (tx) => {
       const findByIdOrSlugSpy = vi.spyOn(workflowRepository, "findByIdOrSlug");
       await workflowService.verifyAccess(workflow.id, userId, "view", tx);
       // Reused the caller's tx, not a freshly opened one.
@@ -181,8 +190,8 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
       findByIdOrSlugSpy.mockRestore();
     });
 
-    await db.delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
-    await db.delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
+    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 
   // Positive-path proof that WorkflowClonerService.copyWorkflow still works
@@ -208,16 +217,16 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     expect(result.workflow!.id).not.toBe(source.id);
     expect(result.workflow!.creatorId).toBe(userId);
 
-    const copiedSections = await db
+    const copiedSections = await getOwnerDb()
       .select()
       .from(schema.sections)
       .where(eq(schema.sections.workflowId, result.workflow!.id));
     expect(copiedSections).toHaveLength(1);
 
-    await db.delete(schema.sections).where(eq(schema.sections.workflowId, result.workflow!.id));
-    await db.delete(schema.workflows).where(eq(schema.workflows.id, result.workflow!.id));
-    await db.delete(schema.sections).where(eq(schema.sections.workflowId, source.id));
-    await db.delete(schema.workflows).where(eq(schema.workflows.id, source.id));
+    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, result.workflow!.id));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, result.workflow!.id));
+    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, source.id));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, source.id));
   });
 
   // Positive-path proof VersionService.publishVersion's new 5th param (`tx`,
@@ -230,8 +239,8 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
       { title: `RLS-2e Publish ${nanoid()}`, creatorId: userId } as InsertWorkflow,
       userId
     );
-    const section = await db.query.sections.findFirst({ where: eq(schema.sections.workflowId, workflow.id) });
-    await db.insert(schema.steps).values({
+    const section = await getOwnerDb().query.sections.findFirst({ where: eq(schema.sections.workflowId, workflow.id) });
+    await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
       sectionId: section!.id,
       type: "short_text",
@@ -248,10 +257,10 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     const version = await versionService.getVersion(updated.currentVersionId!);
     expect(version?.published).toBe(true);
 
-    await db.update(schema.workflows).set({ currentVersionId: null }).where(eq(schema.workflows.id, workflow.id));
-    await db.delete(schema.workflowVersions).where(eq(schema.workflowVersions.workflowId, workflow.id));
-    await db.delete(schema.steps).where(eq(schema.steps.sectionId, section!.id));
-    await db.delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
-    await db.delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
+    await getOwnerDb().update(schema.workflows).set({ currentVersionId: null }).where(eq(schema.workflows.id, workflow.id));
+    await getOwnerDb().delete(schema.workflowVersions).where(eq(schema.workflowVersions.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.steps).where(eq(schema.steps.sectionId, section!.id));
+    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 });

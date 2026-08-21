@@ -110,7 +110,7 @@ describe('Automatic document generation on run completion', () => {
     stepId: string,
     value: unknown
   ): Promise<string> {
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId,
@@ -187,7 +187,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(1);
 
     // Record persisted with a working download URL
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -244,7 +244,7 @@ describe('Automatic document generation on run completion', () => {
     }).where(eq(schema.steps.id, finalStep.id));
 
     // Run is pinned to the version published BEFORE the live edit.
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -264,7 +264,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));
@@ -300,7 +300,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -368,7 +368,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.skipped).toEqual(['rejectionLetter']);
     expect(result.failed ?? []).toHaveLength(0);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -427,7 +427,7 @@ describe('Automatic document generation on run completion', () => {
       order: 1,
     });
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -446,7 +446,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(1);
     expect(result.failed ?? []).toHaveLength(0);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));
@@ -544,7 +544,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -607,7 +607,7 @@ describe('Automatic document generation on run completion', () => {
     ]);
 
     // A failed render must not persist a downloadable document record.
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));

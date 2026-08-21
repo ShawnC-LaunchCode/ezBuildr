@@ -1,8 +1,8 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
-import { getDb } from '../../server/db';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { seedLargeDatavaultTable, type SeedDatavaultResult } from '../helpers/datavaultSeeder';
+import { getOwnerDb } from '../helpers/ownerDb';
 
 describe('DataVault Filter Performance Harness (DVP-1)', () => {
   let seededData: SeedDatavaultResult;
@@ -14,7 +14,9 @@ describe('DataVault Filter Performance Harness (DVP-1)', () => {
   });
 
   it('seeds >= 100k values across at least 4 column types and measures filter performance', async () => {
-    const db = getDb();
+    // Owner handle: this suite does DDL (DROP/CREATE INDEX, SET) and seeds
+    // fixtures, none of which the restricted app role may do.
+    const db = getOwnerDb();
     expect(db).toBeDefined();
 
     console.log('\n===============================================================');

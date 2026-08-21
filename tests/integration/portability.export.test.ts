@@ -10,7 +10,6 @@ import * as os from "os";
 import * as path from "path";
 
 import * as schema from "@shared/schema";
-import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { BundleReader } from "../../server/services/portability/bundleReader";
@@ -110,7 +109,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
     expect(response.headers['content-disposition']).toMatch(/attachment; filename="ezbuildr-project-.*-export\.ezb"/);
     
     // Verify Audit Log (AC 5)
-    const logs = await db
+    const logs = await getOwnerDb()
       .select()
       .from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_exported")));

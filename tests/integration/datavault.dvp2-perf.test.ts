@@ -1,6 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
-import { getDb } from '../../server/db';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { seedLargeDatavaultTable, type SeedDatavaultResult } from '../helpers/datavaultSeeder';
 import * as schema from '@shared/schema';
@@ -22,7 +21,9 @@ describe('DataVault Filter Performance Benchmark (DVP-2)', () => {
   });
 
   it('measures baseline vs indexed filter slope, write throughput on post-DVH-2 main, storage, and correctness', async () => {
-    const db = getDb();
+    // Owner handle: this suite does DDL (DROP/CREATE INDEX, SET) and seeds
+    // fixtures, none of which the restricted app role may do.
+    const db = getOwnerDb();
     expect(db).toBeDefined();
 
     console.log('\n===============================================================');

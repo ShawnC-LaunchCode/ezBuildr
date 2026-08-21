@@ -88,7 +88,7 @@ describe('OrganizationService Integration', () => {
             expect(org.createdByUserId).toBe(testUserId1);
             testOrgId = org.id;
             // Verify admin membership was created
-            const memberships = await db
+            const memberships = await getOwnerDb()
                 .select()
                 .from(organizationMemberships)
                 .where(eq(organizationMemberships.orgId, org.id));

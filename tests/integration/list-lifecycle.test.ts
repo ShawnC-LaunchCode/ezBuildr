@@ -18,6 +18,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture writes and verification reads are the OBSERVER, not the
+// application under test — see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 
@@ -231,7 +234,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     if (pinnedVersion === null) {
       throw new Error('Expected the completed list workflow to produce a draft version');
     }
-    await db
+    await getOwnerDb()
       .update(schema.workflows)
       .set({ currentVersionId: pinnedVersion.id })
       .where(eq(schema.workflows.id, workflowId));

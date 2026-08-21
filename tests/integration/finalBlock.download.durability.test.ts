@@ -128,7 +128,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     });
 
     const runToken = `debt15-token-${Date.now()}`;
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -145,7 +145,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     const result = await runLifecycleService.generateDocuments(run.id);
     expect(result.success).toBe(true);
 
-    const [record] = await db
+    const [record] = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));

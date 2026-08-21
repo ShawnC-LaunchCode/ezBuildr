@@ -207,11 +207,11 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
     const processed = await runCompletionJobWorker.processBatch(`g171-2-${runId}`, 1);
     expect(processed).toBe(1);
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .select({ generationStatus: schema.workflowRuns.generationStatus })
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
-    const documents = await db
+    const documents = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));

@@ -600,7 +600,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       columnId: randomUUID(),
     };
 
-    await db.insert(schema.steps).values({
+    await getOwnerDb().insert(schema.steps).values({
       workflowId, sectionId, type: "list", title: "Beneficiaries",
       alias: "beneficiaries", order: 1,
       config: {
@@ -703,7 +703,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     });
 
     it("AC 2: a valid us-federal calendar still round-trips", async () => {
-      await db.update(schema.workflows)
+      await getOwnerDb().update(schema.workflows)
         .set({ settings: { businessDayCalendar: "us-federal", completionMessage: "Done" } })
         .where(eq(schema.workflows.id, workflowId));
 

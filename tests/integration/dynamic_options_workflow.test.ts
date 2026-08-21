@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 import type { ChoiceAdvancedConfig } from '@shared/types/stepConfigs';
 
-import { db } from '../../server/db';
 import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import {
@@ -206,7 +205,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
   });
 
   it('stores the table-column binding on the workflow choice step', async () => {
-    const [storedStep] = await db
+    const [storedStep] = await getOwnerDb()
       .select({ config: schema.steps.config })
       .from(schema.steps)
       .where(eq(schema.steps.id, choiceStepId));

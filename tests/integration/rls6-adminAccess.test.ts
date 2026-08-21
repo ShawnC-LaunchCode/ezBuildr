@@ -38,7 +38,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db, initializeDatabase } from "../../server/db";
+/**
+ * OWNER connection: this suite CREATEs roles, GRANTs, and sets FORCE ROW LEVEL
+ * SECURITY — all owner-only operations. Under RLS_RESTRICTED the app pool is a
+ * deliberate non-owner, so every one of them failed and the whole suite skipped.
+ * Its cross-tenant assertions run through the roles it creates and through
+ * adminDb, never through the app pool, so nothing here is weakened.
+ */
+import { getOwnerDb } from "../helpers/ownerDb";
+import { initializeDatabase } from "../../server/db";
 import { closeAdminDb, initializeAdminDb } from "../../server/db/adminDb";
 import { registerRoutes } from "../../server/routes";
 
@@ -99,7 +107,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     //    — roles outlive the database — so the suite would have failed on any
     //    fresh cluster, i.e. in CI. Creating it here removes that hidden
     //    dependency entirely.
-    await db.execute(sql.raw(`
+    await getOwnerDb().execute(sql.raw(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ADMIN_ROLE}') THEN
@@ -109,16 +117,16 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     `));
     // Password is set per run rather than baked into the role: ALTER ROLE ...
     // WITH PASSWORD is not additive, so this is safe to re-run.
-    await db.execute(sql.raw(`ALTER ROLE "${ADMIN_ROLE}" WITH PASSWORD '${ADMIN_PASSWORD}'`));
-    await db.execute(sql.raw(`GRANT USAGE ON SCHEMA "${schemaName}" TO "${ADMIN_ROLE}"`));
-    await db.execute(sql.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA "${schemaName}" TO "${ADMIN_ROLE}"`));
+    await getOwnerDb().execute(sql.raw(`ALTER ROLE "${ADMIN_ROLE}" WITH PASSWORD '${ADMIN_PASSWORD}'`));
+    await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schemaName}" TO "${ADMIN_ROLE}"`));
+    await getOwnerDb().execute(sql.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA "${schemaName}" TO "${ADMIN_ROLE}"`));
 
     // 2. A non-owner, non-bypass role standing in for RLS-4's future
     //    application role — the exact convention
     //    tests/integration/rls-phase4-workflows.test.ts uses. Created here
     //    too (idempotently) since file execution order across a worker is
     //    not guaranteed.
-    await db.execute(sql.raw(`
+    await getOwnerDb().execute(sql.raw(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${restrictedRole}') THEN
@@ -126,11 +134,11 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
         END IF;
       END $$;
     `));
-    await db.execute(sql.raw(`GRANT USAGE ON SCHEMA "${schemaName}" TO "${restrictedRole}"`));
-    await db.execute(sql.raw(`GRANT SELECT ON "${schemaName}".users TO "${restrictedRole}"`));
+    await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schemaName}" TO "${restrictedRole}"`));
+    await getOwnerDb().execute(sql.raw(`GRANT SELECT ON "${schemaName}".users TO "${restrictedRole}"`));
 
     // 3. Simulate RLS-4's end state for `users`, for this test only.
-    await db.execute(sql.raw(`ALTER TABLE "${schemaName}".users FORCE ROW LEVEL SECURITY`));
+    await getOwnerDb().execute(sql.raw(`ALTER TABLE "${schemaName}".users FORCE ROW LEVEL SECURITY`));
 
     // 4. Point the admin pool at this worker's schema, exactly as
     //    server/db/adminDb.ts does in production via search_path pinning on
@@ -159,9 +167,9 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     });
 
     // 6. Two tenants: a platform admin in tenant A, a plain user in tenant B.
-    const [tenantA] = await db.insert(schema.tenants)
+    const [tenantA] = await getOwnerDb().insert(schema.tenants)
       .values({ name: `RLS-6 Tenant A ${nanoid()}`, plan: "pro" }).returning();
-    const [tenantB] = await db.insert(schema.tenants)
+    const [tenantB] = await getOwnerDb().insert(schema.tenants)
       .values({ name: `RLS-6 Tenant B ${nanoid()}`, plan: "pro" }).returning();
     tenantAId = tenantA.id;
     tenantBId = tenantB.id;
@@ -177,7 +185,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     }
     adminUserId = adminRes.body.user.id as string;
     adminToken = adminRes.body.token as string;
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId: tenantAId, role: "admin", tenantRole: "owner" })
       .where(eq(schema.users.id, adminUserId));
 
@@ -191,20 +199,20 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
       throw new Error(`user B register failed: ${JSON.stringify(userBRes.body)}`);
     }
     userBId = userBRes.body.user.id as string;
-    await db.update(schema.users).set({ tenantId: tenantBId }).where(eq(schema.users.id, userBId));
+    await getOwnerDb().update(schema.users).set({ tenantId: tenantBId }).where(eq(schema.users.id, userBId));
   });
 
   afterAll(async () => {
     try {
-      await db.execute(sql.raw(`ALTER TABLE "${schemaName}".users NO FORCE ROW LEVEL SECURITY`));
+      await getOwnerDb().execute(sql.raw(`ALTER TABLE "${schemaName}".users NO FORCE ROW LEVEL SECURITY`));
     } catch {
       /* best-effort: leave for the next run rather than fail teardown */
     }
     try {
-      await db.delete(schema.users).where(eq(schema.users.id, adminUserId));
-      await db.delete(schema.users).where(eq(schema.users.id, userBId));
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantAId));
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantBId));
+      await getOwnerDb().delete(schema.users).where(eq(schema.users.id, adminUserId));
+      await getOwnerDb().delete(schema.users).where(eq(schema.users.id, userBId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantAId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantBId));
     } catch {
       /* best-effort cleanup */
     }
@@ -225,7 +233,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     expect(seenIds).toContain(userBId);     // tenant B — proves it crossed the boundary
 
     // --- AC5: every cross-tenant read writes an admin_access_log row. ---
-    const logRows = rows(await db.execute(sql`
+    const logRows = rows(await getOwnerDb().execute(sql`
       SELECT * FROM admin_access_log
       WHERE actor_user_id = ${adminUserId}
         AND action = 'admin.users.listAllWithWorkflowCounts'
@@ -239,7 +247,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     //     non-owner/non-bypass role with the GUC pinned to tenant A, must
     //     see ONLY tenant A. Without this half, AC3 alone would be equally
     //     true in a world where RLS enforces nothing at all. ---
-    const restrictedRows = await db.transaction(async (tx) => {
+    const restrictedRows = await getOwnerDb().transaction(async (tx) => {
       await tx.execute(sql.raw(`SET LOCAL ROLE "${restrictedRole}"`));
       await tx.execute(sql.raw(`SET LOCAL search_path TO "${schemaName}", public`));
       await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantAId}, true)`);
@@ -263,7 +271,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     // error — proves no cross-tenant row was returned; fixing 0001's cast
     // itself is RLS-3/RLS-4 scope, not this ticket's.
     try {
-      const noContextRows = await db.transaction(async (tx) => {
+      const noContextRows = await getOwnerDb().transaction(async (tx) => {
         await tx.execute(sql.raw(`SET LOCAL ROLE "${restrictedRole}"`));
         await tx.execute(sql.raw(`SET LOCAL search_path TO "${schemaName}", public`));
         return rows(await tx.execute(sql`SELECT id FROM users`));
@@ -281,14 +289,14 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
   });
 
   it("no policy gained a platform-admin clause, and the admin role is not the table owner (AC6 sanity)", async () => {
-    const policyRows = rows(await db.execute(sql.raw(`
+    const policyRows = rows(await getOwnerDb().execute(sql.raw(`
       SELECT qual FROM pg_policies
       WHERE schemaname = '${schemaName}' AND tablename = 'users' AND policyname = 'tenant_isolation'
     `)));
     expect(policyRows).toHaveLength(1);
     expect(String(policyRows[0].qual)).not.toMatch(/is_platform_admin/i);
 
-    const ownerRows = rows(await db.execute(sql.raw(`
+    const ownerRows = rows(await getOwnerDb().execute(sql.raw(`
       SELECT tableowner FROM pg_tables WHERE schemaname = '${schemaName}' AND tablename = 'users'
     `)));
     expect(ownerRows[0]?.tableowner).not.toBe(ADMIN_ROLE);

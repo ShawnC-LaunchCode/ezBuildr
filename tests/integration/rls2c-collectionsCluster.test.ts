@@ -25,6 +25,10 @@ import { registerRoutes } from "../../server/routes";
 import { collectionFieldService } from "../../server/services/CollectionFieldService";
 import { recordService } from "../../server/services/RecordService";
 import { getCurrentTenantId } from "../../server/utils/rlsContext";
+// Fixture creation and cleanup are the OBSERVER (tests/helpers/ownerDb.ts).
+// The assertions still run against the application pool — including the
+// `current_setting` probe, which is specifically about that pool.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 import type { Server } from "http";
 
@@ -47,7 +51,7 @@ describe("Collections/records cluster service-boundary tenant transaction (RLS-2
   let collectionId: string;
 
   async function makeTenant(name: string): Promise<TenantCtx> {
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `${name} ${nanoid()}`,
       plan: "pro",
     }).returning();
@@ -63,7 +67,7 @@ describe("Collections/records cluster service-boundary tenant transaction (RLS-2
       throw new Error(`register failed: ${JSON.stringify(res.body)}`);
     }
 
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId: tenant.id, role: "admin", tenantRole: "owner" })
       .where(eq(schema.users.id, res.body.user.id));
 
@@ -103,7 +107,7 @@ describe("Collections/records cluster service-boundary tenant transaction (RLS-2
   });
 
   afterAll(async () => {
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantA.tenantId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantA.tenantId));
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 

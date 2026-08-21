@@ -4,7 +4,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import {
   setupIntegrationTest,
   createTestUser,
@@ -115,7 +114,7 @@ describe.sequential("Admin user workflows API", () => {
       expect(response.status).toBe(201);
       expect(response.body.workflow.id).not.toBe(workflowId);
 
-      const [copy] = await db
+      const [copy] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, response.body.workflow.id));
@@ -124,7 +123,7 @@ describe.sequential("Admin user workflows API", () => {
       expect(copy.title).toBe("Salvaged Copy");
 
       // The source is untouched — copy is a salvage step, not a move.
-      const [source] = await db
+      const [source] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));
@@ -174,7 +173,7 @@ describe.sequential("Admin user workflows API", () => {
         listResponse.body.workflows.some((w: { id: string }) => w.id === workflowId)
       ).toBe(false);
 
-      const rows = await db
+      const rows = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));

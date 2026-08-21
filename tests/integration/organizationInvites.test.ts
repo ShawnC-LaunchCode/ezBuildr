@@ -251,7 +251,7 @@ describe('Organization Invites', () => {
             );
 
             // Manually expire the invite
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
                 .where(eq(organizationInvites.id, inviteResult.inviteId));
@@ -285,7 +285,7 @@ describe('Organization Invites', () => {
                 organizationService.acceptInvite(inviteResult.token, existingUserId)
             ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
 
-            const memberships = await db
+            const memberships = await getOwnerDb()
                 .select()
                 .from(organizationMemberships)
                 .where(eq(organizationMemberships.userId, existingUserId));
@@ -332,7 +332,7 @@ describe('Organization Invites', () => {
             const invite = await db.query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
-            const memberships = await db
+            const memberships = await getOwnerDb()
                 .select()
                 .from(organizationMemberships)
                 .where(eq(organizationMemberships.userId, existingUserId));
@@ -377,7 +377,7 @@ describe('Organization Invites', () => {
             );
 
             // Expire the invite
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ expiresAt: new Date(Date.now() - 1000) })
                 .where(eq(organizationInvites.id, inviteResult.inviteId));
@@ -478,7 +478,7 @@ describe('Organization Invites', () => {
                 adminUserId
             );
 
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ status: 'expired' })
                 .where(eq(organizationInvites.id, inviteResult.inviteId));

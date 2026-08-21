@@ -15,7 +15,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runWithTenantContext } from '../../server/utils/rlsContext';
 import { versionService } from '../../server/services/VersionService';
 import {
@@ -23,6 +22,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture writes and verification reads are the OBSERVER, not the
+// application under test — see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('ICW2-B9: first /next on a fresh run', () => {
   let ctx: IntegrationTestContext;
@@ -41,7 +43,7 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
   });
 
   async function getRunRow(runId: string): Promise<typeof schema.workflowRuns.$inferSelect> {
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .select()
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
@@ -137,7 +139,7 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
     // populated the async tenant context the converted service now requires.
     const publishedVersion = (await runWithTenantContext(ctx.tenantId, () =>
       versionService.createDraftVersion(workflow.id, ctx.userId))) ?? version;
-    await db
+    await getOwnerDb()
       .update(schema.workflows)
       .set({ currentVersionId: publishedVersion.id })
       .where(eq(schema.workflows.id, workflow.id));

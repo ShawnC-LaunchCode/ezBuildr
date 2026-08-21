@@ -4,7 +4,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { datavaultTables, datavaultTablePermissions, auditLogs } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -56,7 +55,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     nonMember = await createTestUser(ctx, 'viewer');
 
     // 3. Create Test Table (Owned by 'owner')
-    const [table] = await db
+    const [table] = await getOwnerDb()
       .insert(datavaultTables)
       .values({
         tenantId: ctx.tenantId,
@@ -220,7 +219,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       expect(res.body.role).toBe('read');
 
       // Cleanup: Remove the permission
-      await db
+      await getOwnerDb()
         .delete(datavaultTablePermissions)
         .where(
           eq(datavaultTablePermissions.userId, nonMember.userId)
@@ -267,7 +266,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
   describe('DELETE /api/datavault/permissions/:permissionId', () => {
     it('should allow owner to revoke permissions', async () => {
       // Get writer's permission ID
-      const perms = await db
+      const perms = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.userId, writer.userId));
@@ -291,7 +290,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     });
 
     it('should deny writer from revoking permissions', async () => {
-      const perms = await db
+      const perms = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.userId, reader.userId));
@@ -368,7 +367,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       // Allow async fire-and-forget audit log to complete
       await new Promise((r) => setTimeout(r, 100));
 
-      const logs = await db
+      const logs = await getOwnerDb()
         .select()
         .from(auditLogs)
         .where(
@@ -406,7 +405,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       // Allow async fire-and-forget audit log to complete
       await new Promise((r) => setTimeout(r, 100));
 
-      const logs = await db
+      const logs = await getOwnerDb()
         .select()
         .from(auditLogs)
         .where(
@@ -451,7 +450,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
       await new Promise((r) => setTimeout(r, 100));
 
-      const logs = await db
+      const logs = await getOwnerDb()
         .select()
         .from(auditLogs)
         .where(eq(auditLogs.resourceId, tableId));
@@ -500,7 +499,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
       await new Promise((r) => setTimeout(r, 100));
 
-      const logs = await db
+      const logs = await getOwnerDb()
         .select()
         .from(auditLogs)
         .where(eq(auditLogs.resourceId, databaseId));

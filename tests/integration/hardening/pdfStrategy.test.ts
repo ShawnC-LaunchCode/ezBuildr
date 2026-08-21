@@ -167,7 +167,7 @@ describe('Hardening: generated documents record the real converter', () => {
       },
     });
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -186,7 +186,7 @@ describe('Hardening: generated documents record the real converter', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));

@@ -23,7 +23,6 @@ import {
 } from '@shared/schema';
 import type { FinalBlockConfig } from '@shared/types/stepConfigs';
 
-import { db } from '../../../server/db';
 import { stepValueRepository } from '../../../server/repositories';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { storageProvider } from '../../../server/services/storage/index';
@@ -93,7 +92,7 @@ describe('Runtime Pipelines Integration Tests', () => {
   let phoneStepId: string;
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
+    const [tenant] = await getOwnerDb()
       .insert(tenants)
       .values({
         name: 'Test Tenant - Runtime Pipelines',
@@ -109,7 +108,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       tenantRole: 'owner',
     } as any).returning(); // Cast to any to avoid partial type issues if necessary
     // Create test project
-    const [project] = await db
+    const [project] = await getOwnerDb()
       .insert(projects)
       .values({
         title: 'Test Project',
@@ -122,7 +121,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     testProjectId = project.id;
     // Create test workflow
-    const [workflow] = await db
+    const [workflow] = await getOwnerDb()
       .insert(workflows)
       .values({
         projectId: testProjectId,
@@ -134,7 +133,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     testWorkflowId = workflow.id;
     // Create test section
-    const [section] = await db
+    const [section] = await getOwnerDb()
       .insert(sections)
       .values({
         workflowId: testWorkflowId,
@@ -143,7 +142,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     // Create test steps
-    const [emailStep] = await db
+    const [emailStep] = await getOwnerDb()
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
@@ -156,7 +155,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     emailStepId = emailStep.id;
-    const [phoneStep] = await db
+    const [phoneStep] = await getOwnerDb()
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
@@ -170,7 +169,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     phoneStepId = phoneStep.id;
     // Create workflow run
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(workflowRuns)
       .values({
         workflowId: testWorkflowId,
@@ -227,7 +226,7 @@ describe('Runtime Pipelines Integration Tests', () => {
         createDocxBuffer('Document for {{email}}')
       );
 
-      const [template] = await db
+      const [template] = await getOwnerDb()
         .insert(templates)
         .values({
           projectId: testProjectId,
@@ -249,7 +248,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       // incompatible nested ConditionGroup on `template.metadata.visibleIf`
       // and never attached the template to any step at all, so it was
       // orphaned twice over.
-      const [finalSection] = await db
+      const [finalSection] = await getOwnerDb()
         .insert(sections)
         .values({
           workflowId: testWorkflowId,
@@ -304,7 +303,7 @@ describe('Runtime Pipelines Integration Tests', () => {
 
     it('should skip document generation when visibleIf condition is false', async () => {
       // Create run with email that does NOT contain 'show'
-      const [hiddenRun] = await db
+      const [hiddenRun] = await getOwnerDb()
         .insert(workflowRuns)
         .values({
           workflowId: testWorkflowId,
@@ -326,7 +325,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(result.documentsGenerated).toBe(0);
 
-      const records = await db
+      const records = await getOwnerDb()
         .select()
         .from(runGeneratedDocuments)
         .where(eq(runGeneratedDocuments.runId, hiddenRun.id));
@@ -338,7 +337,7 @@ describe('Runtime Pipelines Integration Tests', () => {
 
     it('should generate document when visibleIf condition is true', async () => {
       // Create run with email that DOES contain 'show'
-      const [visibleRun] = await db
+      const [visibleRun] = await getOwnerDb()
         .insert(workflowRuns)
         .values({
           workflowId: testWorkflowId,

@@ -197,7 +197,7 @@ describe('Organization Audit Fixes', () => {
       const second = await organizationService.acceptInvite(invite.token, user2Id);
       expect(second).toEqual(first);
 
-      const memberships = await db
+      const memberships = await getOwnerDb()
         .select()
         .from(organizationMemberships)
         .where(
@@ -250,7 +250,7 @@ describe('Organization Audit Fixes', () => {
       const invite1 = await organizationService.createInvite(testOrgId, email, user1Id);
 
       // Manually expire it
-      await db
+      await getOwnerDb()
         .update(organizationInvites)
         .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
         .where(eq(organizationInvites.id, invite1.inviteId));

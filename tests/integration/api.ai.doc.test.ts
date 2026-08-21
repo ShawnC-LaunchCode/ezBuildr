@@ -10,7 +10,6 @@ import _multer from "multer";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 
-import { db } from "../../server/db";
 import { documentAIAssistService } from "../../server/lib/ai/DocumentAIAssistService";
 import { logger } from "../../server/logger";
 import { registerRoutes } from "../../server/routes";
@@ -285,7 +284,7 @@ describe("AI Document Assistant API Integration Tests", () => {
             await fs.unlink(cleanupPath);
         }
 
-        const usageRows = await db
+        const usageRows = await getOwnerDb()
             .select()
             .from(aiUsage)
             .where(eq(aiUsage.tenantId, authState.tenantId));
@@ -319,7 +318,7 @@ describe("AI Document Assistant API Integration Tests", () => {
             );
             expect(mockGenerateContent).not.toHaveBeenCalled();
 
-            const usageRows = await db
+            const usageRows = await getOwnerDb()
                 .select()
                 .from(aiUsage)
                 .where(eq(aiUsage.tenantId, authState.tenantId));

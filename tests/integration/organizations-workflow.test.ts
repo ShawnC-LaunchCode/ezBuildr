@@ -302,7 +302,7 @@ describe('Organization Workflow Integration Tests', () => {
         )
       ).rejects.toThrow(/already invited|pending invite/i);
       // Cleanup
-      await db
+      await getOwnerDb()
         .delete(organizationInvites)
         .where(eq(organizationInvites.id, invite1.inviteId));
     });
@@ -323,7 +323,7 @@ describe('Organization Workflow Integration Tests', () => {
         user1Id // adminUserId
       );
       // Manually expire it
-      await db
+      await getOwnerDb()
         .update(organizationInvites)
         .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
         .where(eq(organizationInvites.id, invite.inviteId));
@@ -337,7 +337,7 @@ describe('Organization Workflow Integration Tests', () => {
       });
       expect(expiredInvite?.status).toBe('expired');
       // Cleanup
-      await db
+      await getOwnerDb()
         .delete(organizationInvites)
         .where(eq(organizationInvites.id, invite.inviteId));
     });
@@ -361,7 +361,7 @@ describe('Organization Workflow Integration Tests', () => {
         )
       ).rejects.toThrow(/organization admin/i);
       // Cleanup
-      await db
+      await getOwnerDb()
         .delete(organizationMemberships)
         .where(eq(organizationMemberships.orgId, org2.id));
       await getOwnerDb().delete(organizations).where(eq(organizations.id, org2.id));

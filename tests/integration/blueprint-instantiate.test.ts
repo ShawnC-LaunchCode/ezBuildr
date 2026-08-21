@@ -21,7 +21,6 @@ import type { ConditionExpression, Condition } from "@shared/types/conditions";
 
 import { buildTestWhen } from "../helpers/conditionFixtures";
 
-import { db } from "../../server/db";
 import {
   setupIntegrationTest,
   createAuthenticatedAgent,
@@ -137,7 +136,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
 
     // Logic rule should have been remapped onto the *new* steps, not the
     // original workflow's step ids.
-    const newRules = await db
+    const newRules = await getOwnerDb()
       .select()
       .from(schema.logicRules)
       .where(eq(schema.logicRules.workflowId, newWorkflowId));
@@ -219,7 +218,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
   });
 
   it("returns 400 and creates nothing for an empty blueprint", async () => {
-    const [blueprint] = await db
+    const [blueprint] = await getOwnerDb()
       .insert(schema.workflowBlueprints)
       .values({
         tenantId: ctx.tenantId,
@@ -234,7 +233,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/no content/i);
 
-    const created = await db
+    const created = await getOwnerDb()
       .select({ id: schema.workflows.id })
       .from(schema.workflows)
       .where(eq(schema.workflows.sourceBlueprintId, blueprint.id));

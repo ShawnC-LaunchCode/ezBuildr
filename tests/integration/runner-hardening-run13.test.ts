@@ -139,7 +139,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   async function getGeneratedDocuments(runId: string): Promise<Array<typeof schema.runGeneratedDocuments.$inferSelect>> {
-    return db
+    return getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -148,7 +148,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   async function waitForGenerationStatus(runId: string, expectedPrefix: string): Promise<string> {
     const deadline = Date.now() + 3000;
     while (Date.now() < deadline) {
-      const [run] = await db
+      const [run] = await getOwnerDb()
         .select({ generationStatus: schema.workflowRuns.generationStatus })
         .from(schema.workflowRuns)
         .where(eq(schema.workflowRuns.id, runId));

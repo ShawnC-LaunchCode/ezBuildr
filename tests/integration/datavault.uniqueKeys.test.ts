@@ -8,6 +8,9 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { DatavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
+// RLS-5: fixture writes and verification reads are the OBSERVER, not the
+// application under test — see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 import {
   createTestUser,
   setupIntegrationTest,
@@ -81,7 +84,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(unarchiveRes.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify row 1 remains archived in the database
-    const [row1InDb] = await db
+    const [row1InDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, row1Id));
@@ -127,14 +130,14 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(bulkUnarchiveRes.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify row A is not restored live
-    const [rowAInDb] = await db
+    const [rowAInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowAId));
     expect(rowAInDb?.deletedAt).not.toBeNull();
 
     // Verify row B is ALSO not restored live (whole-batch all-or-nothing rollback)
-    const [rowBInDb] = await db
+    const [rowBInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowBId));
@@ -173,7 +176,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(unarchiveRes.status).toBe(200);
 
-    const [rowInDb] = await db
+    const [rowInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowId));
@@ -209,7 +212,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(loser.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify exactly one active row exists in the database
-    const matchingRows = await db
+    const matchingRows = await getOwnerDb()
       .select({ id: schema.datavaultValues.rowId })
       .from(schema.datavaultValues)
       .innerJoin(schema.datavaultRows, eq(schema.datavaultValues.rowId, schema.datavaultRows.id))

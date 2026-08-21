@@ -1119,7 +1119,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(archiveResponse.status).toBe(200);
 
-    const [archivedRow] = await db
+    const [archivedRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1134,7 +1134,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
       message: 'Row unarchived successfully',
     });
 
-    const [restoredRow] = await db
+    const [restoredRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1155,7 +1155,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
     expect(restoredTable?.rowCount).toBe(1);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const unarchiveLogs = await db
+    const unarchiveLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1185,7 +1185,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
       .set('Authorization', `Bearer ${otherTenantToken}`);
     expect(crossTenantResponse.status).toBe(403);
 
-    const [stillArchivedRow] = await db
+    const [stillArchivedRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1245,7 +1245,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    const createLogs = await db
+    const createLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1272,7 +1272,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    const updateLogs = await db
+    const updateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1297,7 +1297,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    const deleteLogs = await db
+    const deleteLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1346,7 +1346,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(bulkArchiveRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const archiveLogs = await db
+    const archiveLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1362,7 +1362,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(getAuditChanges(archiveLogs[0]).after?.count).toBe(2);
     expect(getAuditChanges(archiveLogs[0]).after?.tableId).toBe(auditTableId);
 
-    const archivedRows = await db
+    const archivedRows = await getOwnerDb()
       .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(inArray(datavaultRows.id, [rowAId, rowBId]));
@@ -1379,7 +1379,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(bulkUnarchiveRes.body.count).toBe(2);
     await new Promise((r) => setTimeout(r, 100));
 
-    const restoredRows = await db
+    const restoredRows = await getOwnerDb()
       .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(inArray(datavaultRows.id, [rowAId, rowBId]));
@@ -1404,7 +1404,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     );
     expect(tableAfterUnarchive.rowCount).toBe(liveCountBeforeArchive);
 
-    const unarchiveLogs = await db
+    const unarchiveLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1427,7 +1427,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(bulkDeleteRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const bulkDeleteLogs = await db
+    const bulkDeleteLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1450,7 +1450,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(reorderRes.status).toBe(204);
     await new Promise((r) => setTimeout(r, 100));
 
-    const reorderLogs = await db
+    const reorderLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1478,7 +1478,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     const testTableId = createTableRes.body.id as string;
     await new Promise((r) => setTimeout(r, 100));
 
-    const tableCreateLogs = await db
+    const tableCreateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1499,7 +1499,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(updateTableRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const tableUpdateLogs = await db
+    const tableUpdateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1520,7 +1520,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     const testDatabaseId = createDatabaseRes.body.id as string;
     await new Promise((r) => setTimeout(r, 100));
 
-    const databaseCreateLogs = await db
+    const databaseCreateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1539,7 +1539,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(updateDatabaseRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const databaseUpdateLogs = await db
+    const databaseUpdateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1559,7 +1559,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(moveTableRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const tableMoveLogs = await db
+    const tableMoveLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1581,7 +1581,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     const testColId = createColRes.body.id as string;
     await new Promise((r) => setTimeout(r, 100));
 
-    const colCreateLogs = await db
+    const colCreateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1602,7 +1602,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(updateColRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const colUpdateLogs = await db
+    const colUpdateLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1621,7 +1621,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(deleteColRes.status).toBe(204);
     await new Promise((r) => setTimeout(r, 100));
 
-    const colDeleteLogs = await db
+    const colDeleteLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1640,7 +1640,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(deleteTableRes.status).toBe(204);
     await new Promise((r) => setTimeout(r, 100));
 
-    const tableDeleteLogs = await db
+    const tableDeleteLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1659,7 +1659,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(deleteDatabaseRes.status).toBe(204);
     await new Promise((r) => setTimeout(r, 100));
 
-    const databaseDeleteLogs = await db
+    const databaseDeleteLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1683,7 +1683,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    const logs = await db
+    const logs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1733,7 +1733,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
   });
 
   it('AC8: POST /api/datavault/references/batch writes no audit entry', async () => {
-    const beforeLogs = await db
+    const beforeLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(eq(auditLogs.tenantId, ctx.tenantId));
@@ -1753,7 +1753,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(res.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
 
-    const afterLogs = await db
+    const afterLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(eq(auditLogs.tenantId, ctx.tenantId));

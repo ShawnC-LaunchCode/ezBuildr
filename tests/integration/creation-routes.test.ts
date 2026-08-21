@@ -26,7 +26,6 @@ import { LIMITS } from "@shared/limits";
 import * as schema from "@shared/schema";
 import { buildTestWhen } from "../helpers/conditionFixtures";
 
-import { db } from "../../server/db";
 import {
   createAuthenticatedAgent,
   createTestUser,
@@ -101,7 +100,7 @@ describe("POST /api/workflows", () => {
 
   it("returns 403 for a project the user cannot edit", async () => {
     // A project owned by a user in a different tenant — the caller has no ACL role.
-    const [foreignTenant] = await db
+    const [foreignTenant] = await getOwnerDb()
       .insert(schema.tenants)
       .values({ name: `Foreign ${nanoid()}`, plan: "pro" })
       .returning();
@@ -393,7 +392,7 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
     const sharedUser = await createTestUser(ctx, "builder");
     sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
 
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({
         workflowId,
@@ -427,7 +426,7 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
   });
 
   it("the same mutations succeed once the ACL role is raised to edit", async () => {
-    await db
+    await getOwnerDb()
       .update(schema.workflowAccess)
       .set({ role: "edit" })
       .where(eq(schema.workflowAccess.id, aclEntryId));
@@ -450,7 +449,7 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
     const other = await makeWorkflowWithSection();
 
     const orderOf = async (id: string): Promise<number> => {
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select({ order: schema.sections.order })
         .from(schema.sections)
         .where(eq(schema.sections.id, id));
@@ -495,7 +494,7 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
     const foreignStepId = await mkStep(otherSectionId, "Foreign");
 
     const orderOf = async (id: string): Promise<number> => {
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select({ order: schema.steps.order })
         .from(schema.steps)
         .where(eq(schema.steps.id, id));
@@ -540,12 +539,12 @@ describe("update payloads cannot mass-assign immutable/server-controlled fields 
     expect(res.body.title).toBe("Renamed");
 
     // The row still lives at its original id; the attacker-chosen id never existed.
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .select({ id: schema.steps.id })
       .from(schema.steps)
       .where(eq(schema.steps.id, stepId));
     expect(row?.id).toBe(stepId);
-    const hijackRows = await db
+    const hijackRows = await getOwnerDb()
       .select({ id: schema.steps.id })
       .from(schema.steps)
       .where(eq(schema.steps.id, hijackId));
@@ -571,7 +570,7 @@ describe("update payloads cannot mass-assign immutable/server-controlled fields 
     // Crucially, the section stays in the caller's workflow.
     expect(res.body.workflowId).toBe(workflowId);
 
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .select({ workflowId: schema.sections.workflowId })
       .from(schema.sections)
       .where(eq(schema.sections.id, sectionId));
@@ -761,7 +760,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
 
     const sharedUser = await createTestUser(ctx, "builder");
     const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
       .returning();
@@ -806,7 +805,7 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
     expect(step1.status).toBe(201);
     expect(step2.status).toBe(201);
 
-    const [rule] = await db
+    const [rule] = await getOwnerDb()
       .insert(schema.logicRules)
       .values({
         workflowId,
@@ -861,7 +860,7 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
 
     const sharedUser = await createTestUser(ctx, "builder");
     const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
       .returning();

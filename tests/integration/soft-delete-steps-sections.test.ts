@@ -251,7 +251,7 @@ describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", ()
     const sharedUser = await createTestUser(ctx, "builder");
     const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
 
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
       .returning();
@@ -260,7 +260,7 @@ describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", ()
     expect(deniedRestore.status).toBe(403);
     expect((await fetchStepRow(stepId)).deletedAt).not.toBeNull();
 
-    await db
+    await getOwnerDb()
       .update(schema.workflowAccess)
       .set({ role: "edit" })
       .where(eq(schema.workflowAccess.id, aclEntry.id));
