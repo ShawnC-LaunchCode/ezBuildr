@@ -122,6 +122,8 @@ grep -oE 'at [A-Za-z]+(Service|Repository)\.[a-zA-Z]+ \(C:/[^)]*server/[^)]*\)' 
 | `6f09ba54` | `AuditLogger` silently dropping every tenanted audit row |
 | `4a9f3ff2` | Owner's ruling on `0032` recorded |
 | `6941b767` | Background-job tenant bootstrap; `WorkflowTenantResolver`; `RunDefinitionProvider` |
+| `7f13e14b` | **`0033`** — bootstrap clauses on `projects`/`organizations`, completing tenant resolution |
+| `3a2b2d97` | Portability export/import; `AuditLogService`'s three inserts |
 
 ### The two findings worth carrying forward
 
@@ -191,13 +193,20 @@ clause on those two tables when someone hits it.
 it** — run-token requests have been silently getting no tenant. Worth a
 deliberate look before RLS-4.
 
-### Measured progress, three full restricted-role runs
+### Measured progress, four full restricted-role runs
 
 | | Files | Tests failed | passed | skipped |
 |---|---|---|---|---|
 | Start of session | 98 failed / 26 passed | 297 | 423 | 463 |
 | After `0032` (login) | 97 / 27 | 344 | 455 | 384 |
-| After Section/Step/audit | 98 / 26 | 316 | **484** | 383 |
+| After Section/Step/audit | 98 / 26 | 316 | 484 | 383 |
+| **End of session** | **96 / 28** | 325 | **495** | **363** |
+
+**The headline number is not in that table: hard RLS violations went 100 → 4.**
+Only `datavault_rows` still raises. Everything remaining is the *quiet* failure
+mode — a SELECT filtered to zero rows, surfacing as "not found" or a failed
+assertion rather than an error — which is exactly why it has to be chased
+caller-by-caller rather than by grepping for violations.
 
 **Read this table carefully — "failed" going up is progress here.** Suites that
 used to die in `beforeAll` counted all their tests as *skipped*; now they run and
@@ -210,7 +219,20 @@ RLS violations by table, same three runs: `sections` **84 → 0**,
 
 ### What is left, measured
 
-**(a) Services still unconverted that touch RLS-covered tables (16).**
+**(a) Services still unconverted that touch RLS-covered tables (14).**
+
+Top remaining by measured failure count: `RunLifecycleService` (21 — the
+document-RENDERING layer below what is now fixed: templates, `RenderCore`,
+`FinalBlockRenderer`), `DatavaultRowsService` (18, and the only source of the
+4 remaining hard violations), `ImportService.apply` (11 — the row-writing half;
+its owner-resolution half is done).
+
+⚠️ **Two entries on this list need no conversion — check before starting.**
+`AclService` already threads `tx` through every method and never opens its own
+transaction, which is the CORRECT shape for a helper called from inside one:
+it needs its *callers* to pass a `tx`, not a `withTx` of its own.
+`MarketplaceService` is a pure delegate to `ImportService` and needed no change
+at all — its 4 failures were `ImportService`'s.
 
 | File | Lines |
 |---|---|
