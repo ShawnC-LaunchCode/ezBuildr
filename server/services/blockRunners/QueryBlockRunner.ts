@@ -4,6 +4,7 @@
  */
 
 import { queryRunner } from "../../lib/queries/QueryRunner";
+import { withTenant } from "../../utils/rlsContext";
 import { logger } from "../../logger";
 import { workflowQueriesRepository, stepValueRepository } from "../../repositories";
 
@@ -42,8 +43,13 @@ export class QueryBlockRunner extends BaseBlockRunner {
         };
       }
 
-      // Execute query with current context data
-      const listVariable = await queryRunner.executeQuery(query, context.data, tenantId);
+      // Execute query with current context data, inside a tenant-scoped
+      // transaction: the DataVault tables it reads are RLS-covered and a block
+      // runner is reachable with no ambient tenant (run token, or the
+      // background completion worker), so the tenant resolved above is pinned
+      // explicitly here — at the service boundary, not inside the lib.
+      const listVariable = await withTenant(tenantId, (tx) =>
+        queryRunner.executeQuery(query, context.data, tenantId, tx));
 
       // Persist to virtual step if runId is present
       if (context.runId && block.virtualStepId) {

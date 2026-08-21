@@ -6,7 +6,6 @@ import type { WorkflowQuery, QueryFilter, QueryListVariable } from '@shared/type
 
 import { db } from '../../db';
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
-import { withTenant } from '../../utils/rlsContext';
 
 import type { DbTransaction } from '../../repositories';
 
@@ -21,29 +20,24 @@ export class QueryRunner {
      * @param contextVariables Runtime variables { "data.foo": "value" } for filter substitution
      * @param tenantId The tenant ID for security scoping
      */
+    // eslint-disable-next-line complexity
     async executeQuery(
         query: WorkflowQuery,
         contextVariables: Record<string, unknown>,
-        tenantId: string
+        tenantId: string,
+        tx?: DbTransaction
     ): Promise<QueryListVariable> {
         // 1. Basic Validation
         if (!query.tableId) { throw new Error('Query missing tableId'); }
         // RLS-5: `datavault_rows`, `datavault_values` and `datavault_tables`
-        // are all covered (migration 0011). Query blocks run inside a workflow
-        // run, which can be reached with no ambient tenant (a run token, or the
-        // background completion worker), so the tenant the caller resolved is
-        // pinned explicitly. The `eq(datavaultTables.tenantId, tenantId)`
-        // predicate below stays — RLS is the backstop, not the replacement.
-        return withTenant(tenantId, (tx) => this.executeQueryInTx(query, contextVariables, tenantId, tx));
-    }
-
-    // eslint-disable-next-line complexity
-    private async executeQueryInTx(
-        query: WorkflowQuery,
-        contextVariables: Record<string, unknown>,
-        tenantId: string,
-        tx: DbTransaction
-    ): Promise<QueryListVariable> {
+        // are all covered (migration 0011), so this must run inside a
+        // tenant-scoped transaction. It is the CALLER'S transaction, not one
+        // opened here: this is a lib, the services above it are the service
+        // boundary, and this class takes an injectable `db` that a
+        // self-opened `withTenant` would silently bypass. The
+        // `eq(datavaultTables.tenantId, tenantId)` predicate below stays
+        // either way — RLS is the backstop, not the replacement.
+        const conn = tx ?? this.db;
         // 2. Resolve Filter Values
         const resolvedFilters = this.resolveFilters(query.filters, contextVariables);
         // 3. Build the complete condition set before applying a single WHERE clause.
@@ -107,7 +101,7 @@ export class QueryRunner {
             }
             if (condition) {
                 conditions.push(exists(
-                    tx.select({ one: sql`1` })
+                    conn.select({ one: sql`1` })
                         .from(v)
                         .where(and(
                             eq(v.rowId, datavaultRows.id),
@@ -124,7 +118,7 @@ export class QueryRunner {
         // The prompt says "Apply sorting... Return ListVariable".
         // DB sorting is better for pagination.
         // Let's implement primary sort column logic
-        let sqlQuery = tx.select({ id: datavaultRows.id })
+        let sqlQuery = conn.select({ id: datavaultRows.id })
             .from(datavaultRows)
             .innerJoin(datavaultTables, eq(datavaultRows.tableId, datavaultTables.id))
             .$dynamic();

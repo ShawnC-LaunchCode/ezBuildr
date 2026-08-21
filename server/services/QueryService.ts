@@ -2,6 +2,7 @@ import type { WorkflowQuery } from '@shared/types/query';
 import { workflowQuerySchema } from '@shared/types/query';
 
 import { queryRunner } from '../lib/queries/QueryRunner';
+import { withTenant } from '../utils/rlsContext';
 import {
     projectRepository,
     userRepository,
@@ -121,8 +122,10 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId, tenantId);
-        // Execute query to get live list
-        const list = await queryRunner.executeQuery(query, context, tenantId);
+        // Execute query to get live list, in a tenant-scoped transaction —
+        // the DataVault tables it reads are RLS-covered.
+        const list = await withTenant(tenantId, (tx) =>
+            queryRunner.executeQuery(query, context, tenantId, tx));
         // Map to options
         return list.rows.map((row: Record<string, unknown>) => ({
             label: row[labelColumnId] ?? row['_id'], // Fallback to ID
@@ -143,7 +146,8 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId, tenantId);
-        const list = await queryRunner.executeQuery(query, context, tenantId);
+        const list = await withTenant(tenantId, (tx) =>
+            queryRunner.executeQuery(query, context, tenantId, tx));
         return list.rows.some((row: Record<string, unknown>) => {
             const rowValue = row[valueColumnId];
             // Loose equality check for strings/numbers might be needed

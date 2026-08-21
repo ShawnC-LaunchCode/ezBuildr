@@ -5,11 +5,22 @@ const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
 const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin, where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
-vi.mock('../../../server/db', () => ({
-  db: {
+// getActiveWorkflowsForTemplate now reads workflows/sections/steps (all
+// RLS-covered) inside one tenant-scoped transaction, so the query chain is
+// reached through the transaction handle rather than the pool. With no tenant
+// in context and RLS unenforced, `withCurrentTenant` falls through to
+// `db.transaction`.
+vi.mock('../../../server/db', () => {
+  const conn = {
     select: (...args: unknown[]) => mockSelect(...args) as unknown,
-  },
-}));
+  };
+  return {
+    db: {
+      ...conn,
+      transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback(conn),
+    },
+  };
+});
 
 vi.mock('../../../server/services/storage', () => ({
   storageProvider: {
