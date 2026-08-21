@@ -361,9 +361,15 @@ export class ExportService {
    * column without naming its database, so both are resolved upward.
    */
   private async collectConfigDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [stepRows, blockRows] = await Promise.all([
-      db.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, workflowId)),
-      db.select({ config: blocks.config }).from(blocks).where(eq(blocks.workflowId, workflowId))
+    // RLS-5: `steps` is RLS-covered (ownership-derived), so on the bare pool
+    // this returned nothing and the export silently omitted every DataVault
+    // reference — a bundle that imports "successfully" and is missing data.
+    // Sequential inside ONE transaction, not Promise.all: concurrent queries
+    // on a single connection are the deadlock shape against the max:1 test
+    // pool, and two transactions would not see a consistent snapshot anyway.
+    const [stepRows, blockRows] = await withCurrentTenant(async (tx) => [
+      await tx.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, workflowId)),
+      await tx.select({ config: blocks.config }).from(blocks).where(eq(blocks.workflowId, workflowId)),
     ]);
 
     const databaseIds = new Set<string>();
@@ -382,17 +388,17 @@ export class ExportService {
     }
 
     if (columnIds.size > 0) {
-      const cols = await db.select({ tableId: datavaultColumns.tableId })
+      const cols = await withCurrentTenant((tx) => tx.select({ tableId: datavaultColumns.tableId })
         .from(datavaultColumns)
-        .where(inArray(datavaultColumns.id, Array.from(columnIds)));
+        .where(inArray(datavaultColumns.id, Array.from(columnIds))));
       for (const col of cols) {
         tableIds.add(col.tableId);
       }
     }
     if (tableIds.size > 0) {
-      const tables = await db.select({ databaseId: datavaultTables.databaseId })
+      const tables = await withCurrentTenant((tx) => tx.select({ databaseId: datavaultTables.databaseId })
         .from(datavaultTables)
-        .where(inArray(datavaultTables.id, Array.from(tableIds)));
+        .where(inArray(datavaultTables.id, Array.from(tableIds))));
       for (const table of tables) {
         // `datavault_tables.database_id` is nullable in the schema, so a
         // parentless table is representable and simply reaches no database.
@@ -409,21 +415,26 @@ export class ExportService {
 
   /** Every DataVault database this workflow reaches, by any of its routes. */
   private async collectReferencedDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [fromDataSources, fromQueries, fromQueryTables, fromConfig] = await Promise.all([
-      db.select({ id: workflowDataSources.dataSourceId })
+    // RLS-5: same treatment as collectConfigDatabaseIds — one transaction,
+    // sequential. `collectConfigDatabaseIds` opens its own transaction, so it
+    // is deliberately awaited OUTSIDE this one rather than nested inside it,
+    // which would be a query issued while this transaction holds the only
+    // connection (the deadlock shape).
+    const [fromDataSources, fromQueries, fromQueryTables] = await withCurrentTenant(async (tx) => [
+      await tx.select({ id: workflowDataSources.dataSourceId })
         .from(workflowDataSources)
         .where(eq(workflowDataSources.workflowId, workflowId)),
-      db.select({ id: workflowQueries.dataSourceId })
+      await tx.select({ id: workflowQueries.dataSourceId })
         .from(workflowQueries)
         .where(eq(workflowQueries.workflowId, workflowId)),
       // A query's tableId can belong to a different database than its
       // dataSourceId claims; take both so neither can dangle.
-      db.select({ id: datavaultTables.databaseId })
+      await tx.select({ id: datavaultTables.databaseId })
         .from(workflowQueries)
         .innerJoin(datavaultTables, eq(workflowQueries.tableId, datavaultTables.id))
         .where(eq(workflowQueries.workflowId, workflowId)),
-      this.collectConfigDatabaseIds(workflowId)
     ]);
+    const fromConfig = await this.collectConfigDatabaseIds(workflowId);
 
     const ids = new Set<string>(fromConfig);
     for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables]) {
@@ -520,11 +531,15 @@ export class ExportService {
         pageConditions.push(gt(idCol, lastId));
       }
 
-      rows = await db.select(selection)
+      // RLS-5: the actual row-fetch for every exported entity. Unscoped this
+      // returns zero rows for RLS-covered tables, so the bundle is written
+      // EMPTY and the import later fails with "Bundle roots not found" — the
+      // export itself reporting success throughout.
+      rows = await withCurrentTenant((tx) => tx.select(selection)
         .from(descriptor.table)
         .where(pageConditions.length > 0 ? and(...pageConditions) : undefined)
         .orderBy(idCol)
-        .limit(this.batchSize);
+        .limit(this.batchSize));
 
       if (rows.length > 0) {
         nextLastId = (rows[rows.length - 1] as Record<string, unknown>).id as string;
@@ -535,12 +550,13 @@ export class ExportService {
         ? [tableCols['createdAt'], ...descriptorCols]
         : descriptorCols;
 
-      rows = await db.select(selection)
+      // RLS-5: same as the keyset branch above.
+      rows = await withCurrentTenant((tx) => tx.select(selection)
         .from(descriptor.table)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(...orderCols)
         .limit(this.batchSize)
-        .offset(offset);
+        .offset(offset));
         
       nextOffset = offset + this.batchSize;
     }

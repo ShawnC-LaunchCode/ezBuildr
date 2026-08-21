@@ -7,6 +7,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __BASE_DB_URL__: string;
   // eslint-disable-next-line no-var
+  var __OWNER_DB_URL__: string;
+  // eslint-disable-next-line no-var
   var __TEST_SCHEMA__: string;
 }
 // Load environment variables immediately
@@ -296,6 +298,17 @@ beforeAll(async () => {
       } else {
         process.env.DATABASE_URL = connectionString;
       }
+      // RLS-5: the OWNER connection string, kept for the test observer.
+      //
+      // Under RLS_RESTRICTED the app's pool is the restricted role, which is
+      // the whole point — but a test's own fixture setup and its verification
+      // reads are NOT the application. They are an external observer building
+      // and inspecting state, and forcing them through the app's tenant rules
+      // makes a suite assert things about its harness rather than about the
+      // code under test. `tests/helpers/ownerDb.ts` reads this to offer that
+      // observer connection. In normal mode it is the same string the app
+      // uses, so nothing changes.
+      (global as any).__OWNER_DB_URL__ = connectionString;
 
       // Dynamically import server/db to ensure it picks up the mutated env vars
       const dbModule = await import("../server/db");

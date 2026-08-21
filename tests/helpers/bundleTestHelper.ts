@@ -4,7 +4,11 @@ import * as os from "os";
 import * as path from "path";
 import type AdmZip from "adm-zip";
 import * as schema from "@shared/schema";
-import { db } from "../../server/db";
+// RLS-5: this file is pure FIXTURE construction — it builds the world a suite
+// then exercises the app against. That makes it the observer, not the
+// application (see tests/helpers/ownerDb.ts), so it writes as the owner and is
+// unaffected by whether the app under test is running restricted.
+import { getOwnerDb } from "./ownerDb";
 import { storageProvider } from "../../server/services/storage";
 import { importService, type ImportPreview, type ImportApplyOptions, type ImportApplyResult } from "../../server/services/portability/ImportService";
 
@@ -70,7 +74,7 @@ export async function seedWorkflow(opts: {
   userId: string;
   title?: string;
 }): Promise<{ workflowId: string; sectionId: string }> {
-  const [workflow] = await db.insert(schema.workflows).values({
+  const [workflow] = await getOwnerDb().insert(schema.workflows).values({
     title: opts.title ?? `Fixture Workflow ${randomUUID().slice(0, 8)}`,
     name: "Fixture Workflow",
     projectId: opts.projectId,
@@ -80,13 +84,13 @@ export async function seedWorkflow(opts: {
     ownerUuid: opts.userId,
   }).returning();
 
-  const [section] = await db.insert(schema.sections).values({
+  const [section] = await getOwnerDb().insert(schema.sections).values({
     workflowId: workflow.id,
     title: "Page One",
     order: 0,
   }).returning();
 
-  await db.insert(schema.steps).values({
+  await getOwnerDb().insert(schema.steps).values({
     workflowId: workflow.id,
     sectionId: section.id,
     type: "text",
@@ -116,14 +120,14 @@ export async function seedTemplate(opts: {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   );
 
-  const [template] = await db.insert(schema.templates).values({
+  const [template] = await getOwnerDb().insert(schema.templates).values({
     projectId: opts.projectId,
     name: opts.name ?? `Fixture Template ${randomUUID().slice(0, 8)}`,
     type: "docx",
     fileRef,
   }).returning();
 
-  await db.insert(schema.templateVersions).values({
+  await getOwnerDb().insert(schema.templateVersions).values({
     templateId: template.id,
     versionNumber: 1,
     fileRef,
@@ -135,7 +139,7 @@ export async function seedTemplate(opts: {
     return { templateId: template.id, fileRef, workflowVersionId: null };
   }
 
-  const [version] = await db.insert(schema.workflowVersions).values({
+  const [version] = await getOwnerDb().insert(schema.workflowVersions).values({
     workflowId: opts.attachToWorkflowId,
     versionNumber: 1,
     isDraft: false,
@@ -143,7 +147,7 @@ export async function seedTemplate(opts: {
     createdBy: opts.userId,
   }).returning();
 
-  await db.insert(schema.workflowTemplates).values({
+  await getOwnerDb().insert(schema.workflowTemplates).values({
     workflowVersionId: version.id,
     templateId: template.id,
     key: "primary",
@@ -167,7 +171,7 @@ export async function seedDatavault(opts: {
   attachToWorkflowId: string | null;
   name?: string;
 }): Promise<{ databaseId: string; tableId: string; columnId: string; rowId: string }> {
-  const [database] = await db.insert(schema.datavaultDatabases).values({
+  const [database] = await getOwnerDb().insert(schema.datavaultDatabases).values({
     tenantId: opts.tenantId,
     name: opts.name ?? `Fixture DB ${randomUUID().slice(0, 8)}`,
     type: "native",
@@ -177,7 +181,7 @@ export async function seedDatavault(opts: {
     ownerUuid: opts.userId,
   }).returning();
 
-  const [table] = await db.insert(schema.datavaultTables).values({
+  const [table] = await getOwnerDb().insert(schema.datavaultTables).values({
     tenantId: opts.tenantId,
     databaseId: database.id,
     name: "States",
@@ -186,7 +190,7 @@ export async function seedDatavault(opts: {
     ownerUuid: opts.userId,
   }).returning();
 
-  const [column] = await db.insert(schema.datavaultColumns).values({
+  const [column] = await getOwnerDb().insert(schema.datavaultColumns).values({
     tableId: table.id,
     name: "Code",
     slug: "code",
@@ -194,23 +198,23 @@ export async function seedDatavault(opts: {
     orderIndex: 0,
   }).returning();
 
-  const [row] = await db.insert(schema.datavaultRows).values({
+  const [row] = await getOwnerDb().insert(schema.datavaultRows).values({
     tableId: table.id,
     createdBy: opts.userId,
   }).returning();
 
-  await db.insert(schema.datavaultValues).values({
+  await getOwnerDb().insert(schema.datavaultValues).values({
     rowId: row.id,
     columnId: column.id,
     value: "CA",
   });
 
   if (opts.attachToWorkflowId !== null) {
-    await db.insert(schema.workflowDataSources).values({
+    await getOwnerDb().insert(schema.workflowDataSources).values({
       workflowId: opts.attachToWorkflowId,
       dataSourceId: database.id,
     });
-    await db.insert(schema.workflowQueries).values({
+    await getOwnerDb().insert(schema.workflowQueries).values({
       workflowId: opts.attachToWorkflowId,
       dataSourceId: database.id,
       tableId: table.id,

@@ -12,6 +12,11 @@ import { resolveBusinessDayCalendar } from "@shared/types/workflow";
 import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { applyTenantToTransaction, withTenantAsUser } from "../../server/utils/rlsContext";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the app —
+// see tests/helpers/ownerDb.ts. The app under test still runs restricted.
+import { getOwnerDb } from "../helpers/ownerDb";
+
+const odb = () => getOwnerDb();
 import { registerRoutes } from "../../server/routes";
 import {
   recomputeChecksum, seedWorkflow, seedTemplate, seedDatavault
@@ -64,7 +69,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     });
     baseURL = `http://localhost:${port}`;
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await odb().insert(schema.tenants).values({
       name: "Test Tenant for Portability Import",
       plan: "free",
     }).returning();
@@ -92,7 +97,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         .where(eq(schema.users.id, userId)));
 
     // Second tenant + user, entirely separate.
-    const [otherTenant] = await db.insert(schema.tenants).values({
+    const [otherTenant] = await odb().insert(schema.tenants).values({
       name: "Other Tenant for Portability Import",
       plan: "free",
     }).returning();
@@ -127,7 +132,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   afterAll(async () => {
     for (const id of [tenantId, otherTenantId]) {
       if (id) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, id));
+        await odb().delete(schema.tenants).where(eq(schema.tenants.id, id));
       }
     }
     if (server) {
@@ -180,12 +185,12 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     bundle = await downloadBundle("project", projectId, authToken);
 
-    await db.delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
+    await odb().delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
   });
 
   it("AC 1: preview returns the ImportPreview JSON and writes nothing", async () => {
-    const projectsBefore = await db.select().from(schema.projects);
-    const workflowsBefore = await db.select().from(schema.workflows);
+    const projectsBefore = await odb().select().from(schema.projects);
+    const workflowsBefore = await odb().select().from(schema.workflows);
 
     const response = await request(baseURL)
       .post("/api/portability/import/preview")
@@ -198,13 +203,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(response.body).toHaveProperty("canProceed");
     expect(response.body.entityCounts.workflows).toBeGreaterThan(0);
 
-    const projectsAfter = await db.select().from(schema.projects);
-    const workflowsAfter = await db.select().from(schema.workflows);
+    const projectsAfter = await odb().select().from(schema.projects);
+    const workflowsAfter = await odb().select().from(schema.workflows);
     expect(projectsAfter.length).toBe(projectsBefore.length);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
 
     // AC 6: previews are not audit-logged.
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs).toHaveLength(0);
   });
@@ -221,17 +226,17 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(newRootId).not.toBe(projectId);
 
     // The imported project really carries the workflow's contents (IEX-13).
-    const [importedWorkflow] = await db.select().from(schema.workflows)
+    const [importedWorkflow] = await odb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, newRootId));
     expect(importedWorkflow).toBeDefined();
     expect(importedWorkflow.id).not.toBe(workflowId);
 
-    const importedSteps = await db.select().from(schema.steps)
+    const importedSteps = await odb().select().from(schema.steps)
       .where(eq(schema.steps.workflowId, importedWorkflow.id));
     expect(importedSteps).toHaveLength(1);
     expect(importedSteps[0].alias).toBeTruthy();
 
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs).toHaveLength(1);
     expect(logs[0].entityId).toBe(newRootId);
@@ -252,7 +257,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       .attach("file", bundle, "bundle.ezb")
       .expect(201);
 
-    const [importedProject] = await db.select().from(schema.projects)
+    const [importedProject] = await odb().select().from(schema.projects)
       .where(eq(schema.projects.id, response.body.rootId));
     expect(importedProject.title).toBe("Renamed On Import");
 
@@ -283,7 +288,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect([403, 404]).toContain(response.status);
 
     // Nothing was written into the other tenant.
-    const otherWorkflows = await db.select().from(schema.workflows)
+    const otherWorkflows = await odb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, otherProjectId));
     expect(otherWorkflows).toHaveLength(0);
   });
@@ -392,7 +397,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.body.entityCounts.fake_entity).toBeUndefined();
 
     // AC 2: Audit row carries observed counts
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs.length).toBeGreaterThan(0);
     
@@ -416,7 +421,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
     const tampered = zip.toBuffer();
 
-    const workflowsBefore = await db.select().from(schema.workflows);
+    const workflowsBefore = await odb().select().from(schema.workflows);
 
     const apply = await request(baseURL)
       .post("/api/portability/import/apply")
@@ -431,7 +436,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     // The rejection must roll back Pass 2, not merely report a 400 after it
     // committed — otherwise the import leaves orphaned rows no rootId can reach.
-    const workflowsAfter = await db.select().from(schema.workflows);
+    const workflowsAfter = await odb().select().from(schema.workflows);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
   });
 
@@ -529,13 +534,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
       expect(applied.body.blobsRestored).toBeGreaterThan(0);
 
       // The imported link must point at the imported template, not the source's.
-      const [importedLink] = await db.select()
+      const [importedLink] = await odb().select()
         .from(schema.workflowTemplates)
         .innerJoin(schema.workflowVersions,
           eq(schema.workflowTemplates.workflowVersionId, schema.workflowVersions.id))
         .where(eq(schema.workflowVersions.workflowId, applied.body.rootId));
       expect(importedLink).toBeTruthy();
-      const [importedTemplate] = await db.select().from(schema.templates)
+      const [importedTemplate] = await odb().select().from(schema.templates)
         .where(eq(schema.templates.id, importedLink.workflow_templates.templateId));
       expect(importedTemplate).toBeTruthy();
     });
@@ -568,10 +573,10 @@ describe.sequential("Portability Import API Integration Tests", () => {
       expect(applied.body.entityCounts.workflow_queries).toBe(1);
 
       // The imported query must resolve to the imported database.
-      const [importedQuery] = await db.select().from(schema.workflowQueries)
+      const [importedQuery] = await odb().select().from(schema.workflowQueries)
         .where(eq(schema.workflowQueries.workflowId, applied.body.rootId));
       expect(importedQuery).toBeTruthy();
-      const [importedDb] = await db.select().from(schema.datavaultDatabases)
+      const [importedDb] = await odb().select().from(schema.datavaultDatabases)
         .where(eq(schema.datavaultDatabases.id, importedQuery.dataSourceId));
       expect(importedDb).toBeTruthy();
     });
@@ -669,7 +674,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     it("AC 1: an invalid businessDayCalendar is a 400 at import naming the field and the allowed values", async () => {
       const tampered = withWorkflowSettings(bundle, { businessDayCalendar: "garbage" });
-      const workflowsBefore = await db.select().from(schema.workflows);
+      const workflowsBefore = await odb().select().from(schema.workflows);
 
       const apply = await request(baseURL)
         .post("/api/portability/import/apply")
@@ -684,7 +689,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
       // Rejected before anything was written, so there is no half-imported
       // workflow carrying a calendar that will explode at render time.
-      const workflowsAfter = await db.select().from(schema.workflows);
+      const workflowsAfter = await odb().select().from(schema.workflows);
       expect(workflowsAfter.length).toBe(workflowsBefore.length);
 
       // Preview refuses it up front rather than only at apply.
@@ -718,7 +723,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         .attach("file", exported, "wf.ezb")
         .expect(201);
 
-      const [imported] = await db.select().from(schema.workflows)
+      const [imported] = await odb().select().from(schema.workflows)
         .where(eq(schema.workflows.id, applied.body.rootId));
       const settings = imported.settings as Record<string, unknown>;
       expect(settings.businessDayCalendar).toBe("us-federal");
@@ -738,7 +743,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         .attach("file", exported, "wf.ezb")
         .expect(201);
 
-      const [imported] = await db.select().from(schema.workflows)
+      const [imported] = await odb().select().from(schema.workflows)
         .where(eq(schema.workflows.id, applied.body.rootId));
       expect((imported.settings as Record<string, unknown>).businessDayCalendar).toBeUndefined();
       // The function the DOCX render path calls, on the imported row.

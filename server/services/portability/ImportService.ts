@@ -7,7 +7,7 @@ import { BundleReader } from './bundleReader';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { ExportWarning, RequiresReentry, BundleManifest } from './bundleFormat';
 import { db } from '../../db';
-import { runWithTenantContext, withCurrentTenant, withCurrentUserId } from '../../utils/rlsContext';
+import { runWithTenantContext, withCurrentTenant, withCurrentUserId, withTenant } from '../../utils/rlsContext';
 import { projects, workflows, datavaultTables, steps, users, organizations } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
@@ -1165,8 +1165,16 @@ export class ImportService {
         const observedEntityCounts: Record<string, number> = {};
         const skippedOldIds = new Set<string>();
 
-        // Pass 2: Remap foreign keys and insert rows
-        await db.transaction(async (tx: DbTransaction) => {
+        // Pass 2: Remap foreign keys and insert rows.
+        // RLS-5: every row written here carries `targetOwner.tenantId` (see
+        // `applyFieldDefaults`, which stamps it onto any entity whose shape has
+        // a tenantId). A raw `db.transaction` sets no GUC, so the policy reads
+        // `tenant_id IS NOT DISTINCT FROM NULL` and WITH CHECK rejects the very
+        // rows the import exists to create. Pin the tenant the import is
+        // targeting — the same value the rows are stamped with, so WITH CHECK
+        // can only ever accept rows belonging to it and an import cannot write
+        // into a tenant it did not resolve.
+        await withTenant(targetOwner.tenantId, async (tx: DbTransaction) => {
           for (const desc of ENTITY_GRAPH) {
             if (this.shouldSkipEntity(desc)) {continue;}
             
