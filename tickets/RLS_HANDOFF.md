@@ -133,16 +133,22 @@ and the Google OAuth upsert. **This is a total authentication outage under
 FORCE** — broader than `0028`, which only broke re-hydration for tokens already
 issued.
 
-⚠️ **`0032` is the weakest of the four self-identification variants and it is
-FLAGGED FOR OWNER REVIEW.** `0028` verifies a JWT signature first; `0029`'s
+✅ **`0032` was RULED ON by the repo owner 2026-08-20 — keep it as written. Do
+not relitigate.** It is still the weakest of the four self-identification
+variants, and that was raised explicitly before the ruling: `0028` verifies a JWT signature first; `0029`'s
 token hash *is* the proof; `0030`'s id came from a verified token match. In
 `0032` **nothing is verified — the caller typed the email.** It is justified
 structurally (a credential cannot be checked without first reading the row that
 holds it) and kept narrow by `users_email_idx` being UNIQUE, by being read-only,
-and by being transaction-local. The standing ruling scopes this pattern to
-"identity known, tenant not yet"; here identity is *claimed*. The owner should
-confirm or replace it. The Google path is the stronger case, since
+and by being transaction-local. The Google path is the stronger case, since
 `verifyGoogleToken` has already checked the signature.
+
+The alternative the owner weighed it against, kept here because it stays a clean
+future swap: **a dedicated low-privilege auth connection** that may read `users`
+and nothing else — RLS-6's `adminDb` shape but much narrower — which moves
+containment from convention (who is allowed to set the GUC) into the connection
+itself. It changes HOW the read is permitted, not any call site, so it can
+replace `0032` later without touching the seven callers.
 
 **The async store and the transaction GUC are INDEPENDENT.** This cost a wasted
 fix. `AuditLogger` was "fixed" by falling back to `getCurrentTenantId()` — but a

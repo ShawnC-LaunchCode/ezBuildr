@@ -49,10 +49,15 @@
 -- authentication paths may call `withLoginEmail`, the same contract
 -- `withVerifiedIdentifier` documents for its GUC name.
 --
--- FLAGGED FOR OWNER REVIEW: the standing ruling scopes this pattern to
--- "identity known, tenant not yet". Here identity is CLAIMED, not known, so
--- this stretches the ruling rather than simply applying it. The alternative is
--- that login cannot function under FORCE at all. Recorded rather than assumed.
+-- ✅ RULED BY THE REPO OWNER 2026-08-20 — keep this clause as written.
+-- It was raised explicitly, because the standing ruling scopes this pattern to
+-- "identity known, tenant not yet" and here identity is CLAIMED, not known —
+-- so this stretches the ruling rather than simply applying it. The owner chose
+-- it over the alternative (a dedicated low-privilege auth connection that may
+-- read `users` and nothing else, RLS-6's `adminDb` shape but narrower). That
+-- alternative remains a clean future swap if containment-by-convention ever
+-- feels too thin: it changes HOW the read is permitted, not any call site.
+-- Do not relitigate without the owner.
 --
 -- 0001/.../0031 are applied and immutable — this recreates `users`' policy
 -- again, adding the OR clause to USING only. Idempotent: DROP POLICY IF
