@@ -106,30 +106,35 @@ predicates, as it always was.
 **Do not set `FORCE` yet.** Measured, not predicted — `RLS_RESTRICTED=true npm
 run test:integration`, which is exactly what RLS-4 creates:
 
-| | 2026-08-20 start | 2026-08-20 end | **2026-08-21 (now)** |
+| | 2026-08-20 start | 2026-08-20 end | **2026-08-21 end** |
 |---|---|---|---|
-| Files | 98 failed / 26 passed | 85 failed / 39 passed | **83 failed / 41 passed** |
-| Tests passed | 423 | 770 | **812** |
-| Tests skipped (suite died in setup) | 463 | 113 | **112** |
-| Raw "violates row-level security" hits | 100 | 20 | **48** |
+| Files | 98 failed / 26 passed | 85 failed / 39 passed | **70 failed / 54 passed** |
+| Tests passed | 423 | 770 | **869** |
+| Tests skipped (suite died in setup) | 463 | 113 | **97** |
+| Raw "violates row-level security" hits | 100 | 20 | **22** (8 production / 14 fixtures) |
+
+⚠️ **The 2026-08-20 numbers are not directly comparable to these.** Until the
+schema-fingerprint fix (§4), 11 of 124 worker schemas were silently running
+the app against migrations-0026-era policies, so every measurement before it
+mixed real failures with stale-schema artifacts. These are the first
+trustworthy figures.
 
 **Read the last row correctly or you will misjudge the work — this is the trap
 §4 warns about, and it fires on this very table.** The raw count went *up*
 because more tests now get further: a suite that used to fail at a read now
 proceeds to a write. Attributed by caller (the grep in §4):
 
-- **10 are production code** — `WorkflowService` 3, `VersionService` 2,
-  `routes/datavault/rowArchive.routes` 2, `routes/auth.routes` 2 (registration's
-  insert; the comment at that call site claims 0027 permits it and the
-  measurement disagrees — unresolved, see §5), `routes/dataSource.routes` 1
-  (`createDataSource` inserting `datavault_databases` unscoped).
-- **38 are test fixtures writing through the app's restricted pool** —
-  `api.runs.prefill-allowlist`, `runner-hardening-run13`,
-  `datavault.cloneUniqueKeys` and ~20 others. That is Phase 2 work and
-  `tests/helpers/ownerDb.ts` is the tool for it, not a production change.
+- **8 are production code** — `WorkflowService` 3, `VersionService` 2,
+  `routes/datavault/rowArchive.routes` 2, `routes/runs.routes` 1. All four are
+  the *same* open question: a write that IS scoped and still fails `WITH
+  CHECK`, meaning the row's derived tenant disagrees with the pinned one.
+  Start there.
+- **14 are test fixtures**, of which 4 are in `rls*` suites and are
+  **correct** — those suites exist to observe what a restricted role cannot
+  do. The real fixture remainder is ~10.
 
-Judge progress by **passed** (770 → 812) and by the production-attributable
-violation count (20 → 10), never by the raw grep.
+Judge progress by **passed** (770 → 869) and by the production-attributable
+violation count, never by the raw grep.
 
 **The dominant remaining failure is still the QUIET mode** — a SELECT filtered
 to zero rows, surfacing as "Access denied - insufficient permissions" or "not
