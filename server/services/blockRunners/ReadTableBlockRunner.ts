@@ -12,7 +12,7 @@ import type { DatavaultColumn } from "@shared/schema";
 import { db } from "../../db";
 import { logger } from "../../logger";
 import { stepValueRepository, datavaultColumnsRepository } from "../../repositories";
-import { runWithTenantContext } from "../../utils/rlsContext";
+import { runWithTenantContext, withTenant } from "../../utils/rlsContext";
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
@@ -200,8 +200,13 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         };
       }
 
-      // Get table columns for metadata
-      const allColumns = await datavaultColumnsRepository.findByTableId(tableConfig.tableId);
+      // Get table columns for metadata. `datavault_columns` is RLS-covered
+      // (migration 0011, derived through its table's tenant), and this runner
+      // can be reached with no ambient tenant — from a run-token submission or
+      // the background completion worker — so scope it to the tenant this
+      // runner already resolved, the same way the ownership check above does.
+      const allColumns = await withTenant(tenantId, (tx) =>
+        datavaultColumnsRepository.findByTableId(tableConfig.tableId, tx));
       const columnMap = new Map(allColumns.map(c => [c.id, c]));
 
       // Determine selected columns for output

@@ -17,10 +17,20 @@ import { RunStateService } from '../../../server/services/workflow-runs/RunState
 import { db } from '../../../server/db';
 import { workflowRepository, stepRepository } from '../../../server/repositories';
 
+// getSharedRunDetails now resolves the share link's tenant before reading
+// `workflows`/`steps` (both RLS-covered) — the route carries no auth, so
+// nothing else can. That resolution runs in a transaction, and the reads run
+// in a tenant-scoped one, so the db mock needs `transaction`.
 vi.mock('../../../server/db', () => ({
   db: {
     select: vi.fn(),
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({ execute: vi.fn() })),
   },
+}));
+
+vi.mock('../../../server/services/WorkflowTenantResolver', () => ({
+  workflowTenantResolver: { resolveForWorkflowId: vi.fn().mockResolvedValue('tenant-1') },
 }));
 
 vi.mock('../../../server/repositories', () => ({
