@@ -12,11 +12,13 @@ type MfaSecret = InferSelectModel<typeof mfaSecrets>;
 type MfaBackupCode = InferSelectModel<typeof mfaBackupCodes>;
 
 // Define hoisted mocks
-const { mockMfaSecretsFindFirst, mockMfaBackupCodesFindMany, mockUsersFindFirst, mockDbInsert, mockDbUpdate, mockDbDelete } = vi.hoisted(() => {
+const { mockMfaSecretsFindFirst, mockMfaBackupCodesFindMany, mockUsersFindFirst, mockDbInsert, mockDbUpdate, mockDbDelete, mockFindSelfUser, mockUpdateSelfUser } = vi.hoisted(() => {
   return {
     mockMfaSecretsFindFirst: vi.fn(),
     mockMfaBackupCodesFindMany: vi.fn(),
     mockUsersFindFirst: vi.fn(),
+    mockFindSelfUser: vi.fn(),
+    mockUpdateSelfUser: vi.fn(),
     mockDbInsert: vi.fn(() => ({
       values: vi.fn(() => ({
         onConflictDoUpdate: vi.fn(),
@@ -53,6 +55,16 @@ vi.mock("../../../server/db", () => ({
   },
 }));
 
+// RLS-5: `users.mfaEnabled` is no longer written with a bare `db.update` —
+// `users` is RLS-covered and this runs before a tenant is pinned, so the write
+// goes through the self-row helpers (self-id GUC + the row's own tenant).
+// Mocking that seam lets these tests assert WHAT is written rather than that
+// `db.update` happened to be called twice.
+vi.mock("../../../server/utils/selfUser", () => ({
+  findSelfUser: mockFindSelfUser,
+  updateSelfUser: mockUpdateSelfUser,
+}));
+
 vi.mock("../../../server/logger", () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
@@ -76,6 +88,8 @@ describe("MfaService", () => {
 
     // Reset all mocks
     vi.clearAllMocks();
+    mockFindSelfUser.mockResolvedValue({ id: "user-123", tenantId: "tenant-1" } as unknown as User);
+    mockUpdateSelfUser.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -209,7 +223,8 @@ describe("MfaService", () => {
         });
 
         // Verify database updates were called
-        expect(mockDbUpdate).toHaveBeenCalledTimes(2); // mfaSecrets and users
+        expect(mockDbUpdate).toHaveBeenCalledTimes(1); // mfaSecrets
+        expect(mockUpdateSelfUser).toHaveBeenCalledWith(userId, "tenant-1", { mfaEnabled: true });
       });
 
       it("should return false if no MFA secret found", async () => {
@@ -534,6 +549,7 @@ describe("MfaService", () => {
 
         // Verify MFA secret was disabled
         expect(mockDbUpdate).toHaveBeenCalled();
+        expect(mockUpdateSelfUser).toHaveBeenCalledWith(userId, "tenant-1", { mfaEnabled: false });
 
         // Verify backup codes were deleted
         expect(mockDbDelete).toHaveBeenCalled();

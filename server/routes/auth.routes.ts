@@ -30,51 +30,12 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { parseCookies } from "../utils/cookies"; // Import parseCookies
 import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
 import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
-import { withCurrentUserId, withLoginEmail, withTenantAsUser } from "../utils/rlsContext";
+import { withLoginEmail } from "../utils/rlsContext";
+import { findSelfUser, updateSelfUser } from "../utils/selfUser";
 import { sendErrorResponse } from "../utils/responses";
 
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: 'auth-routes' });
-// =================================================================
-// SELF-ROW ACCESS (RLS-5)
-// =================================================================
-/**
- * Read the CALLER'S OWN `users` row, before any tenant is pinned.
- *
- * Every route below that reads a user reads the *caller's* row, from an id
- * that some verification step already produced — a `hybridAuth` JWT, a
- * verified refresh-token rotation, a password-reset or MFA-pending token.
- * None of those establishes a tenant, so the ordinary tenant-scoped policy
- * hides the row for anyone who has one; `users`' self-identification clause
- * (migration 0028) is exactly for this, keyed on `app.current_user_id`.
- *
- * ⚠️ Never pass an id that came from request input. The clause trusts this
- * value completely — see `withCurrentUserId`.
- *
- * This is deliberately NOT `getUserById` (server/middleware/userCache.ts),
- * which is the same read plus a 30-second TTL cache: these routes read
- * mutable auth state (`mfaEnabled`, `isPlaceholder`) immediately around
- * writing it, and a cached row would make those checks stale.
- */
-async function findSelf(userId: string): Promise<User | undefined> {
-  return withCurrentUserId(userId, (tx) => userRepository.findById(userId, tx));
-}
-/**
- * Update the caller's own row from a pre-tenant path.
- *
- * The self-identification clause is read-only by design, so `USING` sees the
- * row but `WITH CHECK` still demands the written `tenant_id` match the pinned
- * tenant. For a user who already has one that means pinning BOTH GUCs
- * (`withTenantAsUser`); for a not-yet-assigned user there is nothing to pin
- * and the NULL-safe comparison from migration 0027 accepts the row.
- */
-async function updateSelf(user: User, updates: Partial<User>): Promise<void> {
-  if (user.tenantId) {
-    await withTenantAsUser(user.tenantId, user.id, (tx) => userRepository.updateUser(user.id, updates, tx));
-    return;
-  }
-  await withCurrentUserId(user.id, (tx) => userRepository.updateUser(user.id, updates, tx));
-}
 // =================================================================
 // LOGIN HANDLER HELPERS
 // =================================================================
@@ -458,7 +419,7 @@ export function registerAuthRoutes(app: Express): void {
         metricsService.recordAuthLatency(startTime, 'refresh', 401);
         return res.status(401).json({ message: 'Invalid refresh token' });
       }
-      const user = await findSelf(result.userId);
+      const user = await findSelfUser(result.userId);
       if (!user) {
         metricsService.recordAuthLatency(startTime, 'refresh', 401);
         // eslint-disable-next-line sonarjs/no-duplicate-string
@@ -538,7 +499,7 @@ export function registerAuthRoutes(app: Express): void {
       const userId = await authService.verifyPasswordResetToken(token);
       if (!userId) { return res.status(400).json({ message: "Invalid token" }); }
       // Get user to pass email to password validation
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       const userInputs = user ? [user.email, user.firstName, user.lastName].filter(Boolean) as string[] : [];
       const pwdValidation = authService.validatePasswordStrength(newPassword, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message }); }
@@ -548,7 +509,7 @@ export function registerAuthRoutes(app: Express): void {
       await authService.consumePasswordResetToken(token);
 
       if (user?.isPlaceholder) {
-        await updateSelf(user, { isPlaceholder: false, emailVerified: true });
+        await updateSelfUser(user.id, user.tenantId, { isPlaceholder: false, emailVerified: true });
       }
 
       // Audit log: Password reset
@@ -600,7 +561,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       res.json({
         id: user.id,
@@ -658,7 +619,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized", code: "unauthorized" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: 'User not found' }); }
       const token = authService.createToken(user);
       res.json({ token, expiresIn: '15m' });
@@ -677,7 +638,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       // Check if MFA is already enabled
       if (user.mfaEnabled) {
@@ -752,7 +713,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const userId = payload.userId;
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 404);
         return res.status(404).json({ message: "User not found" });
@@ -856,7 +817,7 @@ export function registerAuthRoutes(app: Express): void {
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
       const { password } = req.body as { password: string };
       if (!password) { return res.status(400).json({ message: "Password required to disable MFA" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       // Verify password
       if (user.authProvider === 'local') {
@@ -894,7 +855,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user?.mfaEnabled) {
         return res.status(400).json({ message: "MFA is not enabled" });
       }
@@ -1050,7 +1011,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await findSelf(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(401).json({ message: "Unauthorized" }); }
 
       if (user.mfaEnabled) {
