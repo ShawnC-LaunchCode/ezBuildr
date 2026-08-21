@@ -11,6 +11,7 @@ import * as schema from "@shared/schema";
 import { resolveBusinessDayCalendar } from "@shared/types/workflow";
 import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
+import { applyTenantToTransaction, withTenantAsUser } from "../../server/utils/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import {
   recomputeChecksum, seedWorkflow, seedTemplate, seedDatavault
@@ -82,9 +83,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
 
-    await db.update(schema.users)
-      .set({ tenantId, tenantRole: "owner" })
-      .where(eq(schema.users.id, userId));
+    // RLS-5: registration leaves tenant_id NULL, so this is the
+    // UPDATE-moving-a-row-between-tenants shape — pinning the target tenant
+    // alone leaves the row invisible to USING and the write matches zero rows.
+    await withTenantAsUser(tenantId, userId, (tx) =>
+      tx.update(schema.users)
+        .set({ tenantId, tenantRole: "owner" })
+        .where(eq(schema.users.id, userId)));
 
     // Second tenant + user, entirely separate.
     const [otherTenant] = await db.insert(schema.tenants).values({
@@ -105,9 +110,11 @@ describe.sequential("Portability Import API Integration Tests", () => {
       .expect(201);
     otherToken = otherRegister.body.token;
 
-    await db.update(schema.users)
-      .set({ tenantId: otherTenantId, tenantRole: "owner" })
-      .where(eq(schema.users.id, otherRegister.body.user.id));
+    // RLS-5: same shape as the update above.
+    await withTenantAsUser(otherTenantId, otherRegister.body.user.id, (tx) =>
+      tx.update(schema.users)
+        .set({ tenantId: otherTenantId, tenantRole: "owner" })
+        .where(eq(schema.users.id, otherRegister.body.user.id)));
 
     const otherProject = await request(baseURL)
       .post("/api/projects")
@@ -138,30 +145,37 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     // Give the project a workflow with real contents, so the round-trip is
     // asserting structure rather than an empty shell.
-    const [workflow] = await db.insert(schema.workflows).values({
-      title: `Import Workflow ${nanoid()}`,
-      name: `Import Workflow`,
-      projectId,
-      creatorId: userId,
-      ownerId: userId,
-      ownerType: 'user',
-      ownerUuid: userId,
-    }).returning();
-    workflowId = workflow.id;
+    // RLS-5: `workflows`/`sections`/`steps` are RLS-covered through the
+    // ownership-derived policy, so these fresh INSERTs need the tenant pinned.
+    // One transaction for all three, since the section/step rows are only
+    // permitted once their parent workflow is visible within the same scope.
+    workflowId = await db.transaction(async (tx) => {
+      await applyTenantToTransaction(tx, tenantId);
+      const [workflow] = await tx.insert(schema.workflows).values({
+        title: `Import Workflow ${nanoid()}`,
+        name: `Import Workflow`,
+        projectId,
+        creatorId: userId,
+        ownerId: userId,
+        ownerType: 'user',
+        ownerUuid: userId,
+      }).returning();
 
-    const [section] = await db.insert(schema.sections).values({
-      workflowId,
-      title: "Page One",
-      order: 0,
-    }).returning();
+      const [section] = await tx.insert(schema.sections).values({
+        workflowId: workflow.id,
+        title: "Page One",
+        order: 0,
+      }).returning();
 
-    await db.insert(schema.steps).values({
-      workflowId,
-      sectionId: section.id,
-      type: 'text',
-      title: 'Your name',
-      alias: 'your_name',
-      order: 0,
+      await tx.insert(schema.steps).values({
+        workflowId: workflow.id,
+        sectionId: section.id,
+        type: 'text',
+        title: 'Your name',
+        alias: 'your_name',
+        order: 0,
+      });
+      return workflow.id;
     });
 
     bundle = await downloadBundle("project", projectId, authToken);

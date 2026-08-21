@@ -7,6 +7,7 @@ import { BundleReader } from './bundleReader';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { ExportWarning, RequiresReentry, BundleManifest } from './bundleFormat';
 import { db } from '../../db';
+import { runWithTenantContext, withCurrentTenant, withCurrentUserId } from '../../utils/rlsContext';
 import { projects, workflows, datavaultTables, steps, users, organizations } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
@@ -555,7 +556,13 @@ export class ImportService {
   }
   
   private async resolveTargetOwnerForProject(userId: string, tenantId: string, targetProjectId: string): Promise<TargetOwner> {
-    const project = await projectRepository.findById(targetProjectId);
+    // RLS-5: the caller's tenant IS known by now (resolveTargetOwner resolved
+    // it just above), so this is ordinary tenant-scoped work rather than a
+    // bootstrap — pin the real tenant instead of reaching for 0033's
+    // project-id clause, which exists for the case where no tenant is known.
+    // Reading a project outside the caller's tenant must stay impossible here.
+    const project = await runWithTenantContext(tenantId, () =>
+      withCurrentTenant((tx) => projectRepository.findById(targetProjectId, tx)));
     if (project === undefined) { throw new Error('Target project not found'); }
 
     const hasProjectEdit = await aclService.hasProjectRole(userId, targetProjectId, 'edit');
@@ -573,7 +580,13 @@ export class ImportService {
   }
 
   private async resolveTargetOwner(userId: string, options: ImportApplyOptions): Promise<TargetOwner> {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    // RLS-5: pure bootstrap — this read exists to DISCOVER the tenant, so
+    // there is none to pin yet. `users`' self-identification clause
+    // (migration 0028) is what makes the caller's own row visible; without
+    // this the import fails as "User not found or missing tenant" for every
+    // user who has a tenant, which is all of them.
+    const [user] = await withCurrentUserId(userId, (tx) =>
+      tx.select().from(users).where(eq(users.id, userId)).limit(1));
     const tenantId = user?.tenantId;
     if (tenantId === undefined || tenantId === null) {
       throw new Error('User not found or missing tenant');

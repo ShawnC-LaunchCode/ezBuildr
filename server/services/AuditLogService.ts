@@ -5,7 +5,7 @@ import { auditLogs, type AuditLog } from "@shared/schema";
 import { db } from "../db";
 import { createLogger } from "../logger";
 import type { DbTransaction } from "../repositories";
-import { getCurrentTenantId } from "../utils/rlsContext";
+import { getCurrentTenantId, withTenant } from "../utils/rlsContext";
 
 const logger = createLogger({ module: "audit-log-service" });
 
@@ -120,11 +120,12 @@ export class AuditLogService {
       // For security events, we'll use a default workspace or null
       // Since the schema requires workspaceId, we'll use a system workspace concept
       // or make it nullable in a future migration. For now, we'll handle gracefully.
+      const resolvedTenantId = tenantId ?? getCurrentTenantId() ?? null;
       const auditEntry = {
         // RLS-5: same fallback as `AuditLogger.log` — a NULL tenant written
         // from inside a tenant-pinned transaction fails WITH CHECK and aborts
         // the audited operation, not just the audit row.
-        tenantId: tenantId ?? getCurrentTenantId() ?? null,
+        tenantId: resolvedTenantId,
         workspaceId: workspaceId ?? null,
         userId,
         action: eventType,
@@ -138,7 +139,13 @@ export class AuditLogService {
         timestamp: new Date(),
       };
 
-      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+      // RLS-5: pin the row's own tenant when there is one. A genuine system
+      // event with no tenant anywhere still writes NULL on the pool, which the
+      // policy permits (`NULL IS NOT DISTINCT FROM NULL`).
+      const [result] = resolvedTenantId
+        ? await withTenant(resolvedTenantId, (tx) =>
+            tx.insert(auditLogs).values(auditEntry).returning())
+        : await db.insert(auditLogs).values(auditEntry).returning();
 
       logger.info(
         {
@@ -195,7 +202,13 @@ export class AuditLogService {
         timestamp: new Date(),
       };
 
-      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+      // RLS-5: writes a REAL tenant_id from the bare pool, where no GUC is set
+      // and the policy reads `tenant_id IS NOT DISTINCT FROM NULL` — WITH CHECK
+      // rejects it and the whole export/import 500s. Unlike `AuditLogger.log`
+      // this does NOT swallow the error, so it fails loudly rather than
+      // silently dropping the row; both need the row's own tenant pinned.
+      const [result] = await withTenant(tenantId, (tx) =>
+        tx.insert(auditLogs).values(auditEntry).returning());
 
       logger.info(
         { userId, scope, rootId, tenantId },
@@ -244,7 +257,13 @@ export class AuditLogService {
         timestamp: new Date(),
       };
 
-      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+      // RLS-5: writes a REAL tenant_id from the bare pool, where no GUC is set
+      // and the policy reads `tenant_id IS NOT DISTINCT FROM NULL` — WITH CHECK
+      // rejects it and the whole export/import 500s. Unlike `AuditLogger.log`
+      // this does NOT swallow the error, so it fails loudly rather than
+      // silently dropping the row; both need the row's own tenant pinned.
+      const [result] = await withTenant(tenantId, (tx) =>
+        tx.insert(auditLogs).values(auditEntry).returning());
 
       logger.info({ userId, scope, rootId, tenantId }, "Data import event logged");
 

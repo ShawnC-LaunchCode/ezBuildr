@@ -1,4 +1,5 @@
 import { db } from '../../db';
+import { withCurrentTenant } from '../../utils/rlsContext';
 import {
   projects, workflows, datavaultDatabases, datavaultTables, datavaultColumns,
   workflowTemplates, workflowVersions, workflowDataSources, workflowQueries,
@@ -190,57 +191,89 @@ export class ExportService {
   }
 
   private async verifyAccessAndGetTenant(root: RootParams, userId: string): Promise<string> {
-    if (root.scope === 'project') {
-      const [project] = await db.select().from(projects).where(eq(projects.id, root.id)).limit(1);
-      if (project == null) {
+    // RLS-5: `projects`/`workflows`/`datavault_databases` are all RLS-covered,
+    // and these reads ran on the bare pool — so under a non-owner role they
+    // returned zero rows and every export 404'd as "not found" for a project
+    // the caller plainly owns.
+    //
+    // The ACL checks get their OWN transaction rather than sharing this one.
+    // Both ACL services already thread `tx` all the way down, so they need a
+    // tenant scope of their own (their reads hit `projects`/`workflows` too,
+    // and unscoped they deny access to resources the caller owns — a 403 where
+    // the unscoped row read gave a 404). They must NOT run inside the read
+    // transaction below: a second query issued while that transaction holds
+    // the only connection is the `SystemStats` deadlock, and against the max:1
+    // test pool it HANGS rather than failing. Measured here, not theorised.
+    const found = await withCurrentTenant(async (tx) => {
+      if (root.scope === 'project') {
+        const [project] = await tx.select().from(projects).where(eq(projects.id, root.id)).limit(1);
+        return { kind: 'project' as const, project };
+      }
+      if (root.scope === 'workflow') {
+        const [workflow] = await tx.select().from(workflows).where(eq(workflows.id, root.id)).limit(1);
+        if (workflow == null) {
+          return { kind: 'workflow' as const, workflow: undefined, project: undefined };
+        }
+        if (workflow.projectId == null) {
+          return { kind: 'workflow' as const, workflow, project: undefined };
+        }
+        const [project] = await tx.select().from(projects).where(eq(projects.id, workflow.projectId)).limit(1);
+        return { kind: 'workflow' as const, workflow, project };
+      }
+      if (root.scope === 'database') {
+        const [database] = await tx.select().from(datavaultDatabases).where(eq(datavaultDatabases.id, root.id)).limit(1);
+        return { kind: 'database' as const, database };
+      }
+      return { kind: 'invalid' as const };
+    });
+
+    if (found.kind === 'project') {
+      if (found.project == null) {
         throw new Error('Project not found');
       }
-      
-      const canEdit = await aclService.hasProjectRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        aclService.hasProjectRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
+      return requireTenant(found.project.tenantId, 'project', root.id);
+    }
 
-      return requireTenant(project.tenantId, 'project', root.id);
-    } else if (root.scope === 'workflow') {
-      const [workflow] = await db.select().from(workflows).where(eq(workflows.id, root.id)).limit(1);
-      if (workflow == null) {
+    if (found.kind === 'workflow') {
+      if (found.workflow == null) {
         throw new Error('Workflow not found');
       }
-
       // `workflows.project_id` is nullable in the schema, so an orphan workflow
       // is representable. Say that, rather than looking up `projects.id = NULL`
       // and reporting "Project not found" for a workflow that plainly exists.
-      if (workflow.projectId == null) {
+      if (found.workflow.projectId == null) {
         throw new Error(
           `Cannot export workflow ${root.id}: it is not attached to a project, so no tenant can be resolved for it.`
         );
       }
-
-      const [project] = await db.select().from(projects).where(eq(projects.id, workflow.projectId)).limit(1);
-      if (project == null) {
+      if (found.project == null) {
         throw new Error('Project not found');
       }
-
-      const canEdit = await aclService.hasWorkflowRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        aclService.hasWorkflowRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this workflow');
       }
+      return requireTenant(found.project.tenantId, 'project', found.project.id);
+    }
 
-      return requireTenant(project.tenantId, 'project', project.id);
-    } else if (root.scope === 'database') {
-      const [database] = await db.select().from(datavaultDatabases).where(eq(datavaultDatabases.id, root.id)).limit(1);
-      if (database == null) {
+    if (found.kind === 'database') {
+      if (found.database == null) {
         throw new Error('Database not found');
       }
-
-      const canEdit = await datavaultAclService.hasDatabaseRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        datavaultAclService.hasDatabaseRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this database');
       }
-      
-      return database.tenantId;
+      return found.database.tenantId;
     }
+
     throw new Error('Invalid export scope');
   }
 
