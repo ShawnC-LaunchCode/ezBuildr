@@ -28,6 +28,9 @@ import {
   createTestUser,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("Blueprint instantiate (ICW2-15)", () => {
   let ctx: IntegrationTestContext;
@@ -80,7 +83,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     // Logic rule: show "Pet name" when "Has pets?" equals true. Created
     // directly against the DB — there is no dedicated logic-rule creation
     // route (only AI-ops and GET).
-    await db.insert(schema.logicRules).values({
+    await getOwnerDb().insert(schema.logicRules).values({
       workflowId,
       conditionStepId: stepBId,
       when: buildTestWhen(stepBId, "equals", "true"),
@@ -178,7 +181,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     expect(stepCRes.status).toBe(201);
     const stepCId = stepCRes.body.id as string;
 
-    await db.insert(schema.logicRules).values({
+    await getOwnerDb().insert(schema.logicRules).values({
       workflowId,
       conditionStepId: stepBId,
       when: buildTestWhen("has_pets", "is_true"),
@@ -195,13 +198,13 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     expect(instRes.status).toBe(200);
     const newWorkflowId = instRes.body.data.workflowId as string;
 
-    const newSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, newWorkflowId));
+    const newSteps = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, newWorkflowId));
     const newController = newSteps.find((step) => step.alias === "has_pets");
     const newTarget = newSteps.find((step) => step.alias === "pet_name");
     expect(newController).toBeDefined();
     expect(newTarget).toBeDefined();
 
-    const newRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, newWorkflowId));
+    const newRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, newWorkflowId));
     expect(newRules).toHaveLength(1);
     const [rule] = newRules;
     const whenGroup = rule.when as ConditionExpression;

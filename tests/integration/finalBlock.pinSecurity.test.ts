@@ -15,6 +15,9 @@ import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunC
 import { runService } from '../../server/services/RunService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 
@@ -80,7 +83,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
   beforeEach(async () => {
     // The real completion worker claims a global queue within this test schema.
     // Keep each case responsible only for the job it just enqueued.
-    await db.delete(schema.runCompletionJobs);
+    await getOwnerDb().delete(schema.runCompletionJobs);
   });
 
   afterAll(async () => {
@@ -115,7 +118,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
       name: `${prefix} template`,
       fileRef: currentFileRef,
     });
-    const [version] = await db.insert(schema.templateVersions).values({
+    const [version] = await getOwnerDb().insert(schema.templateVersions).values({
       id: randomUUID(),
       templateId: template.id,
       versionNumber: 1,
@@ -186,7 +189,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
         }],
       },
     });
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: workflow.id,
       runToken: `g171-2-${randomUUID()}`,
       createdBy: `creator:${ctx1.userId}`,

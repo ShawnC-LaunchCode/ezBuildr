@@ -18,6 +18,9 @@ import { users, userCredentials, workflows } from "@shared/schema";
 import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 import { TestFactory } from "../../helpers/testFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 
 
@@ -62,7 +65,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
 
         const userId = registerRes.body.user.id;
 
-        await db.update(users)
+        await getOwnerDb().update(users)
             .set({ emailVerified: true })
             .where(eq(users.id, userId));
 
@@ -212,7 +215,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                 .send(user2)
                 .expect(201);
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
 
@@ -271,7 +274,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
             const section = await factory.createSection(created.workflow.id);
             await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
             // An anonymous run requires a published version to pin to.
-            await db.update(workflows)
+            await getOwnerDb().update(workflows)
                 .set({ currentVersionId: created.version.id })
                 .where(eq(workflows.id, created.workflow.id));
             return created.workflow.publicLink!;
@@ -349,7 +352,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                 .send(user2)
                 .expect(201);
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
 

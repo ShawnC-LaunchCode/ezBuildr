@@ -14,6 +14,9 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 const processingMocks = vi.hoisted(() => ({
   scanAndFix: vi.fn(() => new Promise<never>(() => {})),
@@ -98,7 +101,7 @@ describe.sequential('Hardening: template processing timeout', () => {
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    const [template] = await db.insert(schema.templates).values({
+    const [template] = await getOwnerDb().insert(schema.templates).values({
       projectId: ctx.projectId!,
       name: 'Existing template',
       fileRef: 'existing.docx',
@@ -117,7 +120,7 @@ describe.sequential('Hardening: template processing timeout', () => {
   ])(
     'returns 400 for timed-out $kind processing on POST without inserting or leaking a temp file',
     async ({ buffer, filename }) => {
-      const rowsBefore = await db.select({ id: schema.templates.id })
+      const rowsBefore = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, ctx.projectId!));
 
@@ -136,7 +139,7 @@ describe.sequential('Hardening: template processing timeout', () => {
         expect(processingMocks.extractFields).not.toHaveBeenCalled();
       }
       expect(await leakedCopiesOf(buffer)).toEqual([]);
-      const rowsAfter = await db.select({ id: schema.templates.id })
+      const rowsAfter = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, ctx.projectId!));
       expect(rowsAfter).toEqual(rowsBefore);

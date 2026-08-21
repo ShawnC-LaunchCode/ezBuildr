@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import {
   runCompletionJobRepository,
   workflowRunRepository,
@@ -16,6 +15,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('durable run completion outbox', () => {
   let ctx: IntegrationTestContext;
@@ -42,11 +44,11 @@ describe.sequential('durable run completion outbox', () => {
   // the only claimable work in the table, so the leftover pending rows other
   // tests enqueue but never claim must not survive between tests.
   beforeEach(async () => {
-    await db.delete(schema.runCompletionJobs);
+    await getOwnerDb().delete(schema.runCompletionJobs);
   });
 
   async function createRun(): Promise<typeof schema.workflowRuns.$inferSelect> {
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: `outbox-${randomUUID()}`,
@@ -55,7 +57,7 @@ describe.sequential('durable run completion outbox', () => {
   }
 
   async function jobsFor(runId: string): Promise<Array<typeof schema.runCompletionJobs.$inferSelect>> {
-    return db.select()
+    return getOwnerDb().select()
       .from(schema.runCompletionJobs)
       .where(eq(schema.runCompletionJobs.runId, runId));
   }

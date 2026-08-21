@@ -9,6 +9,9 @@ import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, createVerifiedUser, createUserWithMfa, generateTotpCode } from "../helpers/testUtils";
 
 import type { Express } from "express";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * MFA Flow Integration Tests (REAL)
  * Tests complete multi-factor authentication flows
@@ -499,7 +502,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     it("should enforce MFA for tenant users when required by tenant", async () => {
       // 1. Create a tenant with mfaRequired = true
       const tenantId = crypto.randomUUID();
-      await db.insert(tenants).values({
+      await getOwnerDb().insert(tenants).values({
         id: tenantId,
         name: "MFA Enforced Tenant",
         mfaRequired: true,
@@ -507,7 +510,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       // 2. Create user in that tenant (without MFA enabled individually)
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
-      await db.update(users)
+      await getOwnerDb().update(users)
         .set({ tenantId: tenantId, tenantRole: 'viewer' })
         .where(eq(users.id, userId));
       // 3. Login - should REQUIRE MFA because of tenant setting
@@ -520,7 +523,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(loginResponse.body.message).toContain("MFA required");
       // Cleanup
       await deleteTestUser(userId);
-      await db.delete(tenants).where(eq(tenants.id, tenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId));
     });
   });
 });

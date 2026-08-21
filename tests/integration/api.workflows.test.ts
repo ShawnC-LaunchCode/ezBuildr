@@ -8,6 +8,9 @@ import * as schema from "@shared/schema";
 
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 
 /**
@@ -102,7 +105,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       // Simulate a run created while the workflow was org-owned (an owner
       // distinct from the acting user) so the reset to the personal/user model
       // on unfile is observable on the run.
-      const [run] = await db.insert(schema.workflowRuns).values({
+      const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
         workflowId,
         runToken: nanoid(),
         createdBy: ctx.userId,
@@ -233,7 +236,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       const _authToken2 = registerResponse2.body.token;
       const user2Id = registerResponse2.body.user?.id;
 
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({
           tenantId: ctx.tenantId,
           tenantRole: "owner",

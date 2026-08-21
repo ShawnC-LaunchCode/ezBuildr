@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { hashToken } from '../../server/utils/encryption';
 import {
   createTestUser,
@@ -14,6 +13,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('GH-147 save, resume, and staff handoff', () => {
   let ctx: IntegrationTestContext;
@@ -43,7 +45,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       order: 0,
     });
     stepId = step.id;
-    await db.update(schema.workflowVersions).set({
+    await getOwnerDb().update(schema.workflowVersions).set({
       graphJson: {
         title: 'Resume interview',
         description: null,
@@ -64,7 +66,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
         logicRules: [],
       },
     }).where(eq(schema.workflowVersions.id, versionId));
-    await db.update(schema.workflows)
+    await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: versionId })
       .where(eq(schema.workflows.id, workflowId));
 
@@ -83,9 +85,9 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .expect(200);
     expect(submitResponse.body.success).toBe(true);
 
-    const [otherTenant] = await db.insert(schema.tenants).values({ name: 'Outside tenant' }).returning();
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({ name: 'Outside tenant' }).returning();
     otherTenantId = otherTenant.id;
-    const [otherUser] = await db.insert(schema.users).values({
+    const [otherUser] = await getOwnerDb().insert(schema.users).values({
       email: `outside-${randomBytes(6).toString('hex')}@example.com`,
       tenantId: otherTenantId,
       emailVerified: true,
@@ -96,13 +98,13 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
 
   afterAll(async () => {
     if (otherTenantUserId) {
-      await db.delete(schema.users).where(eq(schema.users.id, otherTenantUserId));
+      await getOwnerDb().delete(schema.users).where(eq(schema.users.id, otherTenantUserId));
     }
     if (otherTenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
     }
     if (ctx?.tenantId) {
-      await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, ctx.tenantId));
+      await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, ctx.tenantId));
     }
     await ctx.cleanup();
   });
@@ -117,12 +119,12 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     expect(new Date(createLinkResponse.body.data.expiresAt).getTime())
       .toBeGreaterThan(Date.now() + 50 * 60_000);
 
-    const [storedLink] = await db.select()
+    const [storedLink] = await getOwnerDb().select()
       .from(schema.runResumeLinks)
       .where(eq(schema.runResumeLinks.runId, runId))
       .orderBy(desc(schema.runResumeLinks.createdAt))
       .limit(1);
-    const [queuedEmail] = await db.select()
+    const [queuedEmail] = await getOwnerDb().select()
       .from(schema.emailQueue)
       .where(eq(schema.emailQueue.to, recipientEmail))
       .orderBy(desc(schema.emailQueue.createdAt))
@@ -159,7 +161,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ token: resumeToken })
       .expect(401);
 
-    const auditRows = await db.select()
+    const auditRows = await getOwnerDb().select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, runId));
     expect(auditRows.map(row => row.action)).toEqual(expect.arrayContaining([
@@ -170,7 +172,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
 
   it('enforces resume-link expiration without consuming or auditing the credential', async () => {
     const expiredToken = randomBytes(32).toString('hex');
-    const [expiredLink] = await db.insert(schema.runResumeLinks).values({
+    const [expiredLink] = await getOwnerDb().insert(schema.runResumeLinks).values({
       tenantId: ctx.tenantId,
       runId,
       tokenHash: hashToken(expiredToken),
@@ -183,7 +185,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ token: expiredToken })
       .expect(401);
 
-    const [stored] = await db.select()
+    const [stored] = await getOwnerDb().select()
       .from(schema.runResumeLinks)
       .where(eq(schema.runResumeLinks.id, expiredLink.id));
     expect(stored.usedAt).toBeNull();
@@ -202,7 +204,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       clientEmail: assignee.email.toLowerCase(),
     });
 
-    const [storedRun] = await db.select()
+    const [storedRun] = await getOwnerDb().select()
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
     expect(storedRun.assignedToUserId).toBe(assignee.userId);
@@ -229,7 +231,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ assigneeUserId: otherTenantUserId, expiryMinutes: 60 })
       .expect(403);
 
-    const auditRows = await db.select({ action: schema.auditLogs.action })
+    const auditRows = await getOwnerDb().select({ action: schema.auditLogs.action })
       .from(schema.auditLogs)
       .where(inArray(schema.auditLogs.action, ['run_handoff', 'run_resume_link_created']));
     expect(auditRows.some(row => row.action === 'run_handoff')).toBe(true);

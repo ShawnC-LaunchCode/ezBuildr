@@ -4,7 +4,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { workflowRunRepository } from '../../server/repositories';
 import { authService } from '../../server/services/AuthService';
 import {
@@ -12,6 +11,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('portal-assigned run access', () => {
   let ctx: IntegrationTestContext | null = null;
@@ -27,7 +29,7 @@ describe.sequential('portal-assigned run access', () => {
       workflow: { status: 'active' },
     });
     workflowId = created.workflow.id;
-    await db.update(schema.workflows)
+    await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: created.version.id })
       .where(eq(schema.workflows.id, workflowId));
     const section = await factory.createSection(workflowId);
@@ -47,7 +49,7 @@ describe.sequential('portal-assigned run access', () => {
       .expect(201);
 
     const runId = createResponse.body.data.runId as string;
-    const [storedRun] = await db.select()
+    const [storedRun] = await getOwnerDb().select()
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
     expect(storedRun.clientEmail).toBe('client@example.com');

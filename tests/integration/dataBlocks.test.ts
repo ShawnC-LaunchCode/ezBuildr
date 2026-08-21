@@ -7,7 +7,6 @@ import { users, tenants, projects, workflows, sections, blocks, datavaultDatabas
 import type { Block } from '@shared/schema';
 import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
-import { db } from '../../server/db';
 import { enterTenantContextForTests, runWithTenantContext } from '../../server/utils/rlsContext';
 import { WriteRunner } from '../../server/lib/writes/WriteRunner';
 import { stepValueRepository } from '../../server/repositories';
@@ -18,6 +17,9 @@ import {
 } from '../../server/services';
 import { ReadTableBlockRunner } from '../../server/services/blockRunners/ReadTableBlockRunner';
 import { RunService } from '../../server/services/RunService';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe('Data Block Integration Tests', () => {
     let tenantId: string;
@@ -40,7 +42,7 @@ describe('Data Block Integration Tests', () => {
 
     beforeAll(async () => {
         // 1. Setup Tenant and User
-        const [tenant] = await db.insert(tenants).values({
+        const [tenant] = await getOwnerDb().insert(tenants).values({
             name: 'DataBlock Test Tenant',
             slug: `datablock-tenant-${Date.now()}`,
         } as any).returning();
@@ -50,7 +52,7 @@ describe('Data Block Integration Tests', () => {
         // right after the tenant exists, for the rest of this hook.
         enterTenantContextForTests(tenantId);
 
-        const [user] = await db.insert(users).values({
+        const [user] = await getOwnerDb().insert(users).values({
             id: uuidv4(),
             email: testEmail,
             tenantId: tenantId,
@@ -61,7 +63,7 @@ describe('Data Block Integration Tests', () => {
         userId = user.id;
 
         // 2. Setup DataVault Schema
-        const [database] = await db.insert(datavaultDatabases).values({
+        const [database] = await getOwnerDb().insert(datavaultDatabases).values({
             name: 'Test Database',
             tenantId: tenantId,
         } as any).returning();
@@ -93,7 +95,7 @@ describe('Data Block Integration Tests', () => {
         }, tenantId);
         upsertMatchColumnId = upsertMatchColumn.id;
 
-        const [project] = await db.insert(projects).values({
+        const [project] = await getOwnerDb().insert(projects).values({
             name: 'Write Block Project',
             title: 'Write Block Project',
             tenantId,
@@ -179,7 +181,7 @@ describe('Data Block Integration Tests', () => {
         );
         await datavaultRowsService.archiveRow(tenantId, archived.row.id);
 
-        const [readWorkflow] = await db.insert(workflows).values({
+        const [readWorkflow] = await getOwnerDb().insert(workflows).values({
             projectId,
             title: 'Read Table Block Workflow',
             published: true,
@@ -234,22 +236,22 @@ describe('Data Block Integration Tests', () => {
         if (tenantId) {
             // Delete projects first to remove workflows (which reference users)
             // This prevents FK violation when deleting users via tenant cascade
-            await db.delete(projects).where(eq(projects.tenantId, tenantId));
+            await getOwnerDb().delete(projects).where(eq(projects.tenantId, tenantId));
 
             // audit_logs.tenant_id is ON DELETE NO ACTION, so any audited write in
             // this suite pins the tenant. DataVault mutations became audited in
             // DV-13, which is what surfaced this; integrationTestHelper.cleanup
             // already does the equivalent for user-scoped audit rows.
-            await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
+            await getOwnerDb().delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
 
             // Clean up tenant (cascades to users, etc.)
-            await db.delete(tenants).where(eq(tenants.id, tenantId));
+            await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId));
         }
     });
 
     it('should write data to DataVault via WriteBlock', { timeout: 30000 }, async () => {
         // 1. Create Workflow & Section
-        const [workflow] = await db.insert(workflows).values({
+        const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId: projectId,
             title: 'Write Block Workflow',
             published: true,
@@ -258,7 +260,7 @@ describe('Data Block Integration Tests', () => {
             ownerId: userId,
         } as any).returning();
 
-        const [section] = await db.insert(sections).values({
+        const [section] = await getOwnerDb().insert(sections).values({
             workflowId: workflow.id,
             title: 'Write Section',
             order: 0,
@@ -267,7 +269,7 @@ describe('Data Block Integration Tests', () => {
         // 2. Create Steps & Blocks
         // Input 'step' to capture user data (NOT a block)
         const inputBlockId = uuidv4();
-        await db.insert(steps).values({
+        await getOwnerDb().insert(steps).values({
             id: inputBlockId,
             workflowId: workflow.id,
             sectionId: section.id,
@@ -278,7 +280,7 @@ describe('Data Block Integration Tests', () => {
 
         // Write block to save data to DV (Logic Block)
         const writeBlockId = uuidv4();
-        await db.insert(blocks).values({
+        await getOwnerDb().insert(blocks).values({
             id: writeBlockId,
             workflowId: workflow.id, // Required
             sectionId: section.id,
@@ -431,7 +433,7 @@ describe('Data Block Integration Tests', () => {
 
     it('should query data from DataVault via QueryBlock and use in Logic', { timeout: 30000 }, async () => {
         // 1. Create Workflow & Query
-        const [workflow] = await db.insert(workflows).values({
+        const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId: projectId,
             title: 'Query Block Workflow',
             published: true,
@@ -441,7 +443,7 @@ describe('Data Block Integration Tests', () => {
         } as any).returning();
 
         // Create a saved query
-        const [query] = await db.insert(workflowQueries).values({
+        const [query] = await getOwnerDb().insert(workflowQueries).values({
             projectId: projectId,
             workflowId: workflow.id,
             dataSourceId: databaseId,
@@ -453,7 +455,7 @@ describe('Data Block Integration Tests', () => {
             tenantId: tenantId,
         } as any).returning();
 
-        const [section] = await db.insert(sections).values({
+        const [section] = await getOwnerDb().insert(sections).values({
             workflowId: workflow.id,
             title: 'Query Section',
             order: 0,
@@ -463,7 +465,7 @@ describe('Data Block Integration Tests', () => {
         // Query Block (Logic Block)
         // Needs a Virtual Step to store the result
         const queryStepId = uuidv4();
-        await db.insert(steps).values({
+        await getOwnerDb().insert(steps).values({
             id: queryStepId,
             workflowId: workflow.id,
             sectionId: section.id,
@@ -474,7 +476,7 @@ describe('Data Block Integration Tests', () => {
 
         const queryBlockId = uuidv4();
         const listVarName = 'my_results';
-        await db.insert(blocks).values({
+        await getOwnerDb().insert(blocks).values({
             id: queryBlockId,
             workflowId: workflow.id, // Required
             sectionId: section.id,
@@ -491,7 +493,7 @@ describe('Data Block Integration Tests', () => {
 
         // Validate Block (to consume list variable)
         const validateBlockId = uuidv4();
-        await db.insert(blocks).values({
+        await getOwnerDb().insert(blocks).values({
             id: validateBlockId,
             workflowId: workflow.id, // Required
             sectionId: section.id,

@@ -32,6 +32,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
@@ -133,7 +136,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
         createdBy: `creator:${ctx.userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',

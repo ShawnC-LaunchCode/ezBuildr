@@ -6,9 +6,11 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 
 import { tenants, users, workflows, sections, steps, stepValues } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupAuth } from "../../server/googleAuth";
 import { registerRoutes } from "../../server/routes";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 // Hoisted state for auth
 const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
 // Mock auth middleware to allow bypassing Google auth
@@ -78,13 +80,13 @@ describe("Detailed Verification: JS Helper Availability", () => {
         await registerRoutes(app);
         agent = request.agent(app);
         // Setup Tenant
-        const [tenant] = await db.insert(tenants).values({
+        const [tenant] = await getOwnerDb().insert(tenants).values({
             name: "Helper Test Tenant",
             plan: "pro"
         } as any).returning();
         tenantId = tenant.id;
         // Setup User
-        const [user] = await db.insert(users).values({
+        const [user] = await getOwnerDb().insert(users).values({
             email: `test-${nanoid()}@example.com`,
             tenantId,
             role: "admin",
@@ -102,7 +104,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         };
         await agent.post("/api/auth/mock-login").send({ user: userWithClaims });
         // Create Workflow
-        const [workflow] = await db.insert(workflows).values({
+        const [workflow] = await getOwnerDb().insert(workflows).values({
             tenantId,
             ownerId: userId,
             creatorId: userId,
@@ -116,7 +118,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
     });
     it("should execute a JS block that uses helper functions", async () => {
         // 1. Create a Section with a JS Question
-        const [section] = await db.insert(sections).values({
+        const [section] = await getOwnerDb().insert(sections).values({
             workflowId,
             title: "JS Section",
             order: 1
@@ -133,7 +135,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
             greeting: upper
         };
     `;
-        const [step] = await db.insert(steps).values({
+        const [step] = await getOwnerDb().insert(steps).values({
             workflowId,
             sectionId: section.id,
             title: "Helper Test Step",
@@ -160,7 +162,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         }
         expect(submitRes.status).toBe(200);
         // 5. Verify the value in DB
-        const [savedValue] = await db.select().from(stepValues).where(
+        const [savedValue] = await getOwnerDb().select().from(stepValues).where(
             and(
                 eq(stepValues.runId, runId),
                 eq(stepValues.stepId, step.id)

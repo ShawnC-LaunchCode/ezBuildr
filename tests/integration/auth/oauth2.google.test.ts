@@ -15,6 +15,9 @@ import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../.
 
 import type { Express } from 'express';
 import type { TokenPayload } from 'google-auth-library';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 describe('OAuth2 Google Authentication Flow', () => {
   let app: Express;
   let testTenantId: string;
@@ -28,7 +31,7 @@ describe('OAuth2 Google Authentication Flow', () => {
     // Register auth routes
     await setupAuth(app);
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'Test Tenant',
       plan: 'pro',
     }).returning();
@@ -41,12 +44,12 @@ describe('OAuth2 Google Authentication Flow', () => {
     };
     _testOnly_setGoogleClient(mockGoogleClient);
     // Clean up test users
-    await db.delete(users).where(eq(users.email, 'testuser@example.com'));
+    await getOwnerDb().delete(users).where(eq(users.email, 'testuser@example.com'));
   });
   afterAll(async () => {
     // Clean up
     if (testTenantId) {
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
     _testOnly_setGoogleClient(null);
   });
@@ -183,9 +186,9 @@ describe('OAuth2 Google Authentication Flow', () => {
     it('should update existing user on subsequent logins', async () => {
       const userId = 'google-user-existing';
       // Clean up any existing user first
-      await db.delete(users).where(eq(users.id, userId));
+      await getOwnerDb().delete(users).where(eq(users.id, userId));
       // Create existing user
-      await db.insert(users).values({
+      await getOwnerDb().insert(users).values({
         id: userId,
         email: 'existing@example.com',
         firstName: 'Old',

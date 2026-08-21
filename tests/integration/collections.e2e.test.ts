@@ -9,11 +9,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { tenants, users, projects } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { collectionFieldService } from '../../server/services/CollectionFieldService';
 import { collectionService } from '../../server/services/CollectionService';
 import { recordService } from '../../server/services/RecordService';
 import { runWithTenantContext } from '../../server/utils/rlsContext';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // RLS-2a/2c: collectionService, collectionFieldService and recordService all
 // now open a tenant-scoped transaction at the service boundary (via
@@ -41,13 +43,13 @@ describe('Collections System E2E Tests', () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'E2E Test Tenant',
     }).returning();
     testTenantId = tenant.id;
 
     // Create test user
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       id: 'test-user-collections-e2e',
       email: 'test-collections-e2e@example.com',
       fullName: 'Collections E2E Test User',
@@ -62,7 +64,7 @@ describe('Collections System E2E Tests', () => {
     testUserId = user.id;
 
     // Create test project
-    await db.insert(projects).values({
+    await getOwnerDb().insert(projects).values({
       name: 'E2E Test Project',
       title: 'E2E Test Project',
       description: 'Project for collections E2E tests',
@@ -78,10 +80,10 @@ describe('Collections System E2E Tests', () => {
     // Cleanup in reverse order
     if (testTenantId) {
       // Delete tenant (cascade will handle the rest)
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
     if (testUserId) {
-      await db.delete(users).where(eq(users.id, testUserId));
+      await getOwnerDb().delete(users).where(eq(users.id, testUserId));
     }
   });
 

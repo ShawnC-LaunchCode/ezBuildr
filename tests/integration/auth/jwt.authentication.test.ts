@@ -14,6 +14,9 @@ import { emailVerificationTokens, users } from "@shared/schema";
 
 import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 describe.sequential("JWT Authentication Integration Tests", () => {
     let ctx: IntegrationTestContext;
     let testUser: {
@@ -54,7 +57,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
             });
             expect(verificationTokens.length).toBeGreaterThan(0);
             // Update user to verified
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             // Login
@@ -78,7 +81,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             // Login
@@ -105,7 +108,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             // Login
@@ -128,7 +131,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -160,7 +163,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -332,7 +335,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -380,7 +383,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
             // Manually set isPublic=true in DB
             const { workflows } = await import("@shared/schema");
             const publicSlug = `public-${nanoid()}`;
-            await db.update(workflows)
+            await getOwnerDb().update(workflows)
                 .set({
                     isPublic: true,
                     slug: publicSlug,
@@ -407,7 +410,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
             // Manually set isPublic
             const { workflows } = await import("@shared/schema");
             const optionalSlug = `optional-${nanoid()}`;
-            await db.update(workflows)
+            await getOwnerDb().update(workflows)
                 .set({
                     isPublic: true,
                     slug: optionalSlug,
@@ -429,7 +432,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -458,7 +461,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -491,7 +494,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -534,7 +537,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)
@@ -561,7 +564,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(testUser)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, registerRes.body.user.id));
             const loginRes = await request(ctx.baseURL)

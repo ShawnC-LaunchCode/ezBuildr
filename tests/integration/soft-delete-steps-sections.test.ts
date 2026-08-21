@@ -26,6 +26,9 @@ import {
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
 import { TestFactory } from "../helpers/testFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 let ctx: IntegrationTestContext;
 let agent: ReturnType<typeof createAuthenticatedAgent>;
@@ -71,12 +74,12 @@ async function makeStep(workflowId: string, sectionId: string, alias: string): P
 }
 
 async function fetchStepRow(stepId: string) {
-  const [row] = await db.select().from(schema.steps).where(eq(schema.steps.id, stepId));
+  const [row] = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.id, stepId));
   return row;
 }
 
 async function fetchSectionRow(sectionId: string) {
-  const [row] = await db.select().from(schema.sections).where(eq(schema.sections.id, sectionId));
+  const [row] = await getOwnerDb().select().from(schema.sections).where(eq(schema.sections.id, sectionId));
   return row;
 }
 
@@ -85,9 +88,9 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "answered_question");
 
-    const [run] = await db.insert(schema.workflowRuns)
+    const [run] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    await db.insert(schema.stepValues).values({ runId: run.id, stepId, value: "the answer" });
+    await getOwnerDb().insert(schema.stepValues).values({ runId: run.id, stepId, value: "the answer" });
 
     const del = await agent.delete(`/api/steps/${stepId}`);
     expect(del.status).toBe(204);
@@ -96,7 +99,7 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
     expect(stepRow).toBeDefined();
     expect(stepRow.deletedAt).not.toBeNull();
 
-    const values = await db.select().from(schema.stepValues).where(eq(schema.stepValues.stepId, stepId));
+    const values = await getOwnerDb().select().from(schema.stepValues).where(eq(schema.stepValues.stepId, stepId));
     expect(values).toHaveLength(1);
     expect(values[0].value).toBe("the answer");
   });
@@ -105,9 +108,9 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "child_of_section");
 
-    const [run] = await db.insert(schema.workflowRuns)
+    const [run] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    await db.insert(schema.stepValues).values({ runId: run.id, stepId, value: "kept" });
+    await getOwnerDb().insert(schema.stepValues).values({ runId: run.id, stepId, value: "kept" });
 
     const del = await agent.delete(`/api/sections/${sectionId}`);
     expect(del.status).toBe(204);
@@ -118,7 +121,7 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
     const stepRow = await fetchStepRow(stepId);
     expect(stepRow.deletedAt).not.toBeNull();
 
-    const values = await db.select().from(schema.stepValues).where(eq(schema.stepValues.stepId, stepId));
+    const values = await getOwnerDb().select().from(schema.stepValues).where(eq(schema.stepValues.stepId, stepId));
     expect(values).toHaveLength(1);
   });
 });
@@ -308,19 +311,19 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
     };
     await workflowContentIngestService.apply(workflowId, v1, { source: "manual" });
 
-    const dbSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const dbSteps = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const keepStep = dbSteps.find((s) => s.alias === "ingestKeepMe");
     const removeStep = dbSteps.find((s) => s.alias === "ingestRemoveMe");
     if (!keepStep || !removeStep) {
       throw new Error("Expected both ingest steps to have been created");
     }
-    const [dbSection] = await db.select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId));
+    const [dbSection] = await getOwnerDb().select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId));
 
     // Give the step-to-be-removed an answer, to confirm the reconciliation
     // delete is a soft-delete (answers survive), not a hard DELETE.
-    const [run] = await db.insert(schema.workflowRuns)
+    const [run] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    await db.insert(schema.stepValues).values({ runId: run.id, stepId: removeStep.id, value: "will survive" });
+    await getOwnerDb().insert(schema.stepValues).values({ runId: run.id, stepId: removeStep.id, value: "will survive" });
 
     // v2 references the real DB ids for the section and the surviving step
     // only — "Remove Me" is gone from the payload, as if a user deleted the
@@ -347,7 +350,7 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
     const keptAfterV2 = await fetchStepRow(keepStep.id);
     expect(keptAfterV2.deletedAt).toBeNull();
 
-    const survivingValues = await db.select().from(schema.stepValues).where(eq(schema.stepValues.stepId, removeStep.id));
+    const survivingValues = await getOwnerDb().select().from(schema.stepValues).where(eq(schema.stepValues.stepId, removeStep.id));
     expect(survivingValues).toHaveLength(1);
 
     // Re-applying the same (v2) payload again must ignore the already
@@ -379,13 +382,13 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
     };
     await workflowContentIngestService.apply(workflowId, v1, { source: "manual" });
 
-    const dbSections = await db.select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId));
+    const dbSections = await getOwnerDb().select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId));
     const keepSection = dbSections.find((s) => s.title === "Kept Section");
     const removeSection = dbSections.find((s) => s.title === "Removed Section");
     if (!keepSection || !removeSection) {
       throw new Error("Expected both ingest sections to have been created");
     }
-    const dbStepsBefore = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const dbStepsBefore = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const removedChildStep = dbStepsBefore.find((s) => s.alias === "ingestSectionB");
     if (!removedChildStep) {
       throw new Error("Expected the removed section's step to have been created");

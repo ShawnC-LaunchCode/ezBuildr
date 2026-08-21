@@ -6,6 +6,9 @@ import { organizationService } from '../../server/services/OrganizationService';
 import { hashToken } from '../../server/utils/encryption';
 import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs, passwordResetTokens } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * Tests for Organization Invite System
@@ -40,22 +43,22 @@ describe('Organization Invites', () => {
         enterTenantContextForTests(testTenantId);
         // ... (lines 28-32 same)
         // Create test tenant
-        await db.insert(tenants).values({
+        await getOwnerDb().insert(tenants).values({
             id: testTenantId,
             name: 'Invite Test Tenant',
         }).onConflictDoNothing();
 
         // Create test users
         // Create test users (clean up first)
-        await db.delete(auditLogs).where(
+        await getOwnerDb().delete(auditLogs).where(
             or(
                 eq(auditLogs.userId, adminUserId),
                 eq(auditLogs.userId, existingUserId)
             )
         );
-        await db.delete(users).where(inArray(users.id, [adminUserId, existingUserId]));
+        await getOwnerDb().delete(users).where(inArray(users.id, [adminUserId, existingUserId]));
 
-        await db.insert(users).values([
+        await getOwnerDb().insert(users).values([
             { id: adminUserId, email: 'admin@test.com', fullName: 'Admin User', tenantId: testTenantId },
             { id: existingUserId, email: existingUserEmail, fullName: 'Existing User', tenantId: testTenantId },
         ]);
@@ -74,15 +77,15 @@ describe('Organization Invites', () => {
         try {
             if (testOrgId) {
                 // Delete invites
-                await db.delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
+                await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
                 // Delete memberships
-                await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+                await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
                 // Delete organization
-                await db.delete(organizations).where(eq(organizations.id, testOrgId));
+                await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
             }
 
             // Clean up placeholder users
-            await db.delete(users).where(eq(users.email, newUserEmail));
+            await getOwnerDb().delete(users).where(eq(users.email, newUserEmail));
         } catch (error) {
             // Ignore cleanup errors
         }

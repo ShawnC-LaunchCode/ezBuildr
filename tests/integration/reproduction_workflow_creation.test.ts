@@ -3,8 +3,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import { users, tenants, insertWorkflowSchema } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { workflowService } from "../../server/services/WorkflowService";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("Reproduction: Workflow Creation", () => {
     let tenantId: string;
@@ -12,14 +14,14 @@ describe("Reproduction: Workflow Creation", () => {
 
     beforeAll(async () => {
         // Create Tenant
-        const [tenant] = await db.insert(tenants).values({
+        const [tenant] = await getOwnerDb().insert(tenants).values({
             name: "Reproduction Tenant",
             plan: "pro"
         }).returning();
         tenantId = tenant.id;
 
         // Create User
-        const [user] = await db.insert(users).values({
+        const [user] = await getOwnerDb().insert(users).values({
             email: `repro_test_${Date.now()}@example.com`,
             fullName: "Reproduction Tester",
             tenantId: tenant.id,
@@ -31,10 +33,10 @@ describe("Reproduction: Workflow Creation", () => {
 
     afterAll(async () => {
         if (userId) {
-            await db.delete(users).where(eq(users.id, userId));
+            await getOwnerDb().delete(users).where(eq(users.id, userId));
         }
         if (tenantId) {
-            await db.delete(tenants).where(eq(tenants.id, tenantId));
+            await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId));
         }
     });
 

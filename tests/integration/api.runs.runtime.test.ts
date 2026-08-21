@@ -6,13 +6,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { hashToken } from '../../server/utils/encryption';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('GET /api/runs/:runId/runtime', () => {
   let ctx: IntegrationTestContext;
@@ -48,7 +50,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     });
     stepId = step.id;
 
-    await db.update(schema.workflowVersions)
+    await getOwnerDb().update(schema.workflowVersions)
       .set({
         graphJson: {
           title: 'Pinned interview',
@@ -80,7 +82,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       .where(eq(schema.workflowVersions.id, versionId));
 
     runToken = `runtime-${randomUUID()}`;
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(runToken),
@@ -91,14 +93,14 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     }).returning();
     runId = run.id;
 
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId,
       stepId,
       value: 'Ada Lovelace',
     });
 
     otherRunToken = `other-runtime-${randomUUID()}`;
-    const [otherRun] = await db.insert(schema.workflowRuns).values({
+    const [otherRun] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(otherRunToken),
@@ -107,7 +109,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     otherRunId = otherRun.id;
 
     expiredRunToken = `expired-runtime-${randomUUID()}`;
-    const [expiredRun] = await db.insert(schema.workflowRuns).values({
+    const [expiredRun] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(expiredRunToken),
@@ -222,10 +224,10 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
   });
 
   it('keeps serving the pinned snapshot after the live section and step change', async () => {
-    await db.update(schema.sections)
+    await getOwnerDb().update(schema.sections)
       .set({ title: 'Changed live section', description: 'Changed live description' })
       .where(eq(schema.sections.id, sectionId));
-    await db.update(schema.steps)
+    await getOwnerDb().update(schema.steps)
       .set({ title: 'Changed live step', required: false, config: { placeholder: 'Changed' } })
       .where(eq(schema.steps.id, stepId));
 

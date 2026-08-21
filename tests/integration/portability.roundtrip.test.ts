@@ -9,10 +9,12 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import * as schema from "@shared/schema";
 import { stepTypeEnum } from "@shared/schema";
 import { LIST_FIELD_QUESTION_TYPES } from "@shared/types/stepConfigs";
-import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { seedTemplate } from "../helpers/bundleTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * IEX3-3 — portability fidelity across every step type.
@@ -235,7 +237,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
 
   /** alias -> normalised config, for every step of a workflow. */
   async function configsByAlias(ofWorkflowId: string): Promise<Record<string, unknown>> {
-    const rows = await db.select().from(schema.steps)
+    const rows = await getOwnerDb().select().from(schema.steps)
       .where(eq(schema.steps.workflowId, ofWorkflowId));
     const out: Record<string, unknown> = {};
     for (const row of rows) {
@@ -260,7 +262,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     });
     baseURL = `http://localhost:${port}`;
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: "Round-trip Fidelity Tenant", plan: "free",
     }).returning();
     tenantId = tenant.id;
@@ -275,7 +277,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       .expect(201);
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
 
@@ -286,7 +288,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       .expect(201);
     projectId = projectResponse.body.id;
 
-    const [workflow] = await db.insert(schema.workflows).values({
+    const [workflow] = await getOwnerDb().insert(schema.workflows).values({
       title: `Round-trip Workflow ${nanoid()}`,
       name: "Round-trip Workflow",
       projectId, creatorId: userId, ownerId: userId,
@@ -294,7 +296,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     }).returning();
     workflowId = workflow.id;
 
-    const [section] = await db.insert(schema.sections).values({
+    const [section] = await getOwnerDb().insert(schema.sections).values({
       workflowId, title: "Everything", order: 0,
     }).returning();
 
@@ -316,7 +318,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
         continue;
       }
       const alias = `alias_${type}`;
-      await db.insert(schema.steps).values({
+      await getOwnerDb().insert(schema.steps).values({
         workflowId,
         sectionId: section.id,
         type,
@@ -331,8 +333,8 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
 
   afterAll(async () => {
     if (tenantId) {
-      await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
@@ -389,7 +391,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       .attach("file", bundle, "project.ezb")
       .expect(201);
 
-    const [importedWorkflow] = await db.select().from(schema.workflows)
+    const [importedWorkflow] = await getOwnerDb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, applied.body.rootId));
     expect(importedWorkflow).toBeDefined();
 

@@ -9,6 +9,9 @@ import { sections, steps, workflows } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential("workflow intake configuration contract", () => {
   let ctx: IntegrationTestContext;
@@ -92,7 +95,7 @@ describe.sequential("workflow intake configuration contract", () => {
       throw new Error("Expected the workflow's default section");
     }
 
-    await db.update(workflows)
+    await getOwnerDb().update(workflows)
       .set({
         intakeConfig: {
           allowPrefill: true,
@@ -103,11 +106,11 @@ describe.sequential("workflow intake configuration contract", () => {
       })
       .where(eq(workflows.id, workflowId));
 
-    await db.update(sections)
+    await getOwnerDb().update(sections)
       .set({ config: { keep: true, intakeAssignment: true } })
       .where(eq(sections.id, section.id));
 
-    const [legacyStep] = await db.insert(steps).values({
+    const [legacyStep] = await getOwnerDb().insert(steps).values({
       workflowId,
       sectionId: section.id,
       type: "short_text",

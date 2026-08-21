@@ -8,6 +8,9 @@ import * as schema from "@shared/schema";
 
 import { db } from "../../server/db";
 import { createTestUser, setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * DVH-5: cloning a workflow/project with DataVault data must backfill
@@ -26,7 +29,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       tenantRole: "owner",
     });
     member = await createTestUser(ctx, "builder");
-    await db.insert(schema.organizationMemberships).values({
+    await getOwnerDb().insert(schema.organizationMemberships).values({
       orgId: ctx.orgId,
       userId: member.userId,
       role: "member",
@@ -86,7 +89,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       })
       .returning();
 
-    await db.insert(schema.workflowVersions).values({
+    await getOwnerDb().insert(schema.workflowVersions).values({
       id: randomUUID(),
       workflowId: workflow.id,
       versionNumber: 1,
@@ -164,7 +167,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       .returning();
 
     for (const [columnId, value] of Object.entries(values)) {
-      await db.insert(schema.datavaultValues).values({
+      await getOwnerDb().insert(schema.datavaultValues).values({
         id: randomUUID(),
         rowId: row.id,
         columnId,

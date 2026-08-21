@@ -21,6 +21,9 @@ import { runWithTenantContext } from '../../server/utils/rlsContext';
 import { TestFactory } from '../helpers/testFactory';
 
 import type { Server } from 'http';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface OptionsResponse {
   options: Array<{ value: string; label: string }>;
@@ -88,7 +91,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     });
     otherTenantId = other.tenant.id;
 
-    const [sameTenantReader] = await db.insert(schema.users).values({
+    const [sameTenantReader] = await getOwnerDb().insert(schema.users).values({
       id: randomUUID(),
       tenantId,
       email: `dynamic-options-viewer-${randomUUID()}@example.com`,
@@ -169,7 +172,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     choiceStepId = choiceStep.id;
 
     runToken = `dynamic-options-${randomUUID()}`;
-    await db.insert(schema.workflowRuns).values({
+    await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: workflow.id,
       runToken: hashToken(runToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
@@ -182,7 +185,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
       { workflow: { ownerType: 'user', ownerUuid: other.user.id } }
     );
     otherTenantRunToken = `dynamic-options-other-${randomUUID()}`;
-    await db.insert(schema.workflowRuns).values({
+    await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: otherWorkflow.id,
       runToken: hashToken(otherTenantRunToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
@@ -195,10 +198,10 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
     if (otherTenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
     }
     if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
   });
 

@@ -7,6 +7,9 @@ import { workflowRunEvents, workflowRunMetrics, projects, workflows, workflowVer
 import { db } from "../../server/db";
 import { runService } from "../../server/services/RunService";
 import { createGraphWorkflow } from "../factories/graphFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("Analytics Service Integration", () => {
     let userId: string;
@@ -33,17 +36,17 @@ describe("Analytics Service Integration", () => {
             console.error("MANUAL PATCH FAILED", e);
         }
 
-        const [tenant] = await db.insert(tenants).values({ name: "Service Test Tenant", plan: "pro" } as any).returning();
+        const [tenant] = await getOwnerDb().insert(tenants).values({ name: "Service Test Tenant", plan: "pro" } as any).returning();
         tenantId = tenant.id;
         userId = `user-${nanoid()}`;
-        await db.insert(users).values({ id: userId, email: `${userId}@test.com`, passwordHash: "x", tenantId, tenantRole: "owner", role: "admin" } as any);
-        const [p] = await db.insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, createdBy: userId, ownerId: userId } as any).returning();
+        await getOwnerDb().insert(users).values({ id: userId, email: `${userId}@test.com`, passwordHash: "x", tenantId, tenantRole: "owner", role: "admin" } as any);
+        const [p] = await getOwnerDb().insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, createdBy: userId, ownerId: userId } as any).returning();
 
         const { workflow: w, version: v } = createGraphWorkflow({ projectId: p.id, creatorId: userId, status: "active", isPublic: true });
-        const [wfRes] = await db.insert(workflows).values({ ...w, status: 'active', isPublic: true } as any).returning();
+        const [wfRes] = await getOwnerDb().insert(workflows).values({ ...w, status: 'active', isPublic: true } as any).returning();
         workflow = wfRes;
 
-        const [vRes] = await db.insert(workflowVersions).values({
+        const [vRes] = await getOwnerDb().insert(workflowVersions).values({
             ...v,
             // RVP-2: the run created below now actually resolves navigation
             // from this pinned graph (via RunDefinitionProvider) instead of
@@ -61,7 +64,7 @@ describe("Analytics Service Integration", () => {
         } as any).returning();
 
 
-        await db.update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
+        await getOwnerDb().update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
         workflow = await db.query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
     });
 
@@ -81,7 +84,7 @@ describe("Analytics Service Integration", () => {
 
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
-            eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
+            eventsAfterStart = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
             if (eventsAfterStart.some(e => e.type === 'run.start')) { break; }
             await new Promise(r => setTimeout(r, 200));
         }
@@ -94,13 +97,13 @@ describe("Analytics Service Integration", () => {
         await runService.completeRunNoAuth(runId);
 
         // 4. Verify Events (workflow.complete)
-        const events = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
+        const events = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
         expect(events.some(e => e.type === 'workflow.complete')).toBe(true);
 
         // 5. Verify Metrics Aggregation
         await new Promise(r => setTimeout(r, 1000));
 
-        const metrics = await db.select().from(workflowRunMetrics).where(eq(workflowRunMetrics.runId, runId));
+        const metrics = await getOwnerDb().select().from(workflowRunMetrics).where(eq(workflowRunMetrics.runId, runId));
         expect(metrics.length).toBe(1);
         expect(metrics[0].completed).toBe(true);
     });

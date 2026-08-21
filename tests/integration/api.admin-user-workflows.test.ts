@@ -11,6 +11,9 @@ import {
   createAuthenticatedAgent,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * Admin user-workflows API integration tests.
@@ -192,7 +195,7 @@ describe.sequential("Admin user workflows API", () => {
   describe("DELETE /api/admin/users/:userId", () => {
     it("deletes a zero-workflow user who owns a populated DataVault table", async () => {
       const target = await createTestUser(ctx, "builder");
-      const [table] = await db.insert(schema.datavaultTables).values({
+      const [table] = await getOwnerDb().insert(schema.datavaultTables).values({
         tenantId: ctx.tenantId,
         ownerUserId: target.userId,
         ownerType: "user",
@@ -200,7 +203,7 @@ describe.sequential("Admin user workflows API", () => {
         name: "Deletion regression table",
         slug: `deletion-regression-${target.userId}`,
       }).returning();
-      const [row] = await db.insert(schema.datavaultRows).values({
+      const [row] = await getOwnerDb().insert(schema.datavaultRows).values({
         tableId: table.id,
         createdBy: target.userId,
         updatedBy: target.userId,
@@ -211,13 +214,13 @@ describe.sequential("Admin user workflows API", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("User deleted successfully");
       expect(
-        await db.select().from(schema.users).where(eq(schema.users.id, target.userId))
+        await getOwnerDb().select().from(schema.users).where(eq(schema.users.id, target.userId))
       ).toHaveLength(0);
       expect(
-        await db.select().from(schema.datavaultTables).where(eq(schema.datavaultTables.id, table.id))
+        await getOwnerDb().select().from(schema.datavaultTables).where(eq(schema.datavaultTables.id, table.id))
       ).toHaveLength(0);
       expect(
-        await db.select().from(schema.datavaultRows).where(eq(schema.datavaultRows.id, row.id))
+        await getOwnerDb().select().from(schema.datavaultRows).where(eq(schema.datavaultRows.id, row.id))
       ).toHaveLength(0);
     });
   });

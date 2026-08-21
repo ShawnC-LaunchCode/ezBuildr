@@ -3,10 +3,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { db } from '../../server/db';
 import { versionService } from '../../server/services/VersionService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('POST /api/runs/:runId/values/bulk', () => {
   let ctx: IntegrationTestContext;
@@ -118,7 +120,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     // asserts is rejected. Regenerate the version now that the content exists.
     const pinnedVersion = (await versionService.createDraftVersion(workflowId, ctx.userId)) ?? version;
 
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: pinnedVersion.id,
       runToken: 'bulk-values-run-token',
@@ -144,7 +146,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -172,7 +174,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     expect(res.body.error).toContain('Invalid step values');
     expect(res.body.details.stepIds).toEqual([radioStepId, dateStepId]);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -192,7 +194,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -212,7 +214,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -231,7 +233,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -253,7 +255,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     expect(res.status).toBe(400);
     expect(res.body.errors[0]).toContain(otherSectionStepId);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 

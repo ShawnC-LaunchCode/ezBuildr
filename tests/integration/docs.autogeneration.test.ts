@@ -26,6 +26,9 @@ import { runLifecycleService } from '../../server/services/workflow-runs/RunLife
 import { versionService } from '../../server/services/VersionService';
 import { storageProvider } from '../../server/services/storage/index';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -111,7 +114,7 @@ describe('Automatic document generation on run completion', () => {
       })
       .returning();
 
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId,
       value,
@@ -133,10 +136,10 @@ describe('Automatic document generation on run completion', () => {
       if (projectId) {
         // Delete workflows first: workflow_versions.created_by references
         // users without cascade, so deleting the tenant directly violates FKs
-        await db.delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
+        await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
       }
       if (tenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
       for (const fileRef of templateFileRefs) {
         await fs.unlink(path.join(FILES_DIR, fileRef)).catch(() => { });
@@ -225,7 +228,7 @@ describe('Automatic document generation on run completion', () => {
     // different template. If generateDocuments read the live tables, the
     // respondent's document would silently switch to template B's content --
     // a correctness/auditability bug, not just a UX one.
-    await db.update(schema.steps).set({
+    await getOwnerDb().update(schema.steps).set({
       config: {
         markdownHeader: '',
         documents: [
@@ -244,7 +247,7 @@ describe('Automatic document generation on run completion', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',
@@ -426,7 +429,7 @@ describe('Automatic document generation on run completion', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values([
+    await getOwnerDb().insert(schema.stepValues).values([
       { runId: run.id, stepId: nameStep.id, value: 'Wile E. Coyote' },
       { runId: run.id, stepId: tierStep.id, value: 'vip' },
     ]);
@@ -637,7 +640,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documents).toBeUndefined();
 
     // Let's check the run's generationStatus!
-    const [run] = await db.select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
+    const [run] = await getOwnerDb().select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
     expect(run.generationStatus).toMatch(/^failed:/);
   });
 });

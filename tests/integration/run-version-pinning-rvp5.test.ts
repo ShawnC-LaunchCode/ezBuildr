@@ -45,9 +45,11 @@ import {
 } from "@shared/schema";
 import { buildTestWhen } from "../helpers/conditionFixtures";
 
-import { db } from "../../server/db";
 import { runService } from "../../server/services/RunService";
 import { versionService } from "../../server/services/VersionService";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () => {
   let tenantId: string;
@@ -55,9 +57,9 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   let userId: string;
 
   beforeAll(async () => {
-    const [tenant] = await db.insert(tenants).values({ name: "RVP-5 Tenant", plan: "pro" }).returning();
+    const [tenant] = await getOwnerDb().insert(tenants).values({ name: "RVP-5 Tenant", plan: "pro" }).returning();
     tenantId = tenant.id;
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       email: `rvp5_${randomUUID().slice(0, 8)}@example.com`,
       fullName: "RVP-5 Tester",
       tenantId,
@@ -65,7 +67,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
       tenantRole: "owner",
     }).returning();
     userId = user.id;
-    const [project] = await db.insert(projects).values({
+    const [project] = await getOwnerDb().insert(projects).values({
       title: "RVP-5 Project",
       name: "RVP-5 Project",
       tenantId,
@@ -77,13 +79,13 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   });
 
   afterAll(async () => {
-    if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
+    if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }
     if (userId) {
 
-      try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* table may be empty */ }
-      await db.delete(users).where(eq(users.id, userId));
+      try { await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* table may be empty */ }
+      await getOwnerDb().delete(users).where(eq(users.id, userId));
     }
-    if (tenantId) { await db.delete(tenants).where(eq(tenants.id, tenantId)); }
+    if (tenantId) { await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId)); }
   });
 
   /**
@@ -96,7 +98,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
    * pitfall that pattern causes: a run pinned to an empty snapshot).
    */
   async function buildPublishedWorkflowAndRun() {
-    const [workflow] = await db.insert(workflows).values({
+    const [workflow] = await getOwnerDb().insert(workflows).values({
       title: "RVP-5 Interview",
       projectId,
       creatorId: userId,
@@ -105,39 +107,39 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     }).returning();
     const workflowId = workflow.id;
 
-    const [section1] = await db.insert(sections).values({
+    const [section1] = await getOwnerDb().insert(sections).values({
       workflowId, title: "Intro", order: 0,
     }).returning();
-    const [section2] = await db.insert(sections).values({
+    const [section2] = await getOwnerDb().insert(sections).values({
       workflowId, title: "Details", order: 1,
     }).returning();
-    const [section3] = await db.insert(sections).values({
+    const [section3] = await getOwnerDb().insert(sections).values({
       workflowId, title: "Final", order: 2,
     }).returning();
 
-    const [stepName] = await db.insert(steps).values({
+    const [stepName] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section1.id, type: "short_text",
       title: "Your name", alias: "name", required: true, order: 0,
     }).returning();
-    const [stepToDelete] = await db.insert(steps).values({
+    const [stepToDelete] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section1.id, type: "short_text",
       title: "About to be deleted", alias: "toDelete", required: false, order: 1,
     }).returning();
-    const [stepWantsExtra] = await db.insert(steps).values({
+    const [stepWantsExtra] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section1.id, type: "short_text",
       title: "Want extra detail?", alias: "wantsExtra", required: true, order: 2,
     }).returning();
-    const [stepExtraDetail] = await db.insert(steps).values({
+    const [stepExtraDetail] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section1.id, type: "short_text",
       title: "Extra detail", alias: "extraDetail", required: false, order: 3,
     }).returning();
 
-    const [stepDetail1] = await db.insert(steps).values({
+    const [stepDetail1] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section2.id, type: "short_text",
       title: "Detail", alias: "detail1", required: true, order: 0,
     }).returning();
 
-    const [stepFinal1] = await db.insert(steps).values({
+    const [stepFinal1] = await getOwnerDb().insert(steps).values({
       workflowId, sectionId: section3.id, type: "short_text",
       title: "Final answer", alias: "final1", required: true, order: 0,
     }).returning();
@@ -147,7 +149,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     // false, so it is required only if this rule's hide action does NOT
     // apply -- making it a decisive test of which copy of the rule (pinned
     // vs. live) the server actually used.
-    const [rule] = await db.insert(logicRules).values({
+    const [rule] = await getOwnerDb().insert(logicRules).values({
       workflowId,
       conditionStepId: stepWantsExtra.id,
       when: buildTestWhen(stepWantsExtra.id, "equals", "no"),
@@ -175,14 +177,14 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   }
 
   async function cleanupWorkflow(workflowId: string): Promise<void> {
-    await db.delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
-    await db.delete(logicRules).where(eq(logicRules.workflowId, workflowId));
-    await db.delete(steps).where(eq(steps.workflowId, workflowId));
-    await db.delete(sections).where(eq(sections.workflowId, workflowId));
+    await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
+    await getOwnerDb().delete(logicRules).where(eq(logicRules.workflowId, workflowId));
+    await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
+    await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
     // workflow_versions has no direct FK cascade from workflows in this
     // schema's delete order used elsewhere in this file's sibling
     // (run-version-pinning-rvp6.test.ts); workflow delete cascades it.
-    await db.delete(workflows).where(eq(workflows.id, workflowId));
+    await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId));
   }
 
   it(
@@ -205,13 +207,13 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
         // app actually removes a step -- the row survives so step_values
         // stays valid, but live-table readers (`stepRepo.findBySectionId`
         // etc.) filter it out via `deletedAt IS NULL`.
-        await db.update(steps).set({ deletedAt: new Date() }).where(eq(steps.id, stepToDelete.id));
+        await getOwnerDb().update(steps).set({ deletedAt: new Date() }).where(eq(steps.id, stepToDelete.id));
 
         // Consequence 2: add a REQUIRED question mid-run, directly to the
         // live `steps` table (bypassing the version snapshot entirely --
         // exactly what an author editing the published workflow does). It
         // belongs to section3, which the respondent has not reached yet.
-        const [liveOnlyRequired] = await db.insert(steps).values({
+        const [liveOnlyRequired] = await getOwnerDb().insert(steps).values({
           workflowId, sectionId: section3.id, type: "short_text",
           title: "Added after the run started", alias: "liveOnlyRequired",
           required: true, order: 1,
@@ -220,14 +222,14 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
         // Consequence 3: delete a section. Soft-delete again -- the run's
         // pinned graph still has section2's snapshot, so navigation and
         // submission must still walk through it.
-        await db.update(sections).set({ deletedAt: new Date() }).where(eq(sections.id, section2.id));
+        await getOwnerDb().update(sections).set({ deletedAt: new Date() }).where(eq(sections.id, section2.id));
 
         // Consequence 4: edit a logic rule. Flip the SAME rule's action from
         // 'hide' to 'require', keeping the same condition/target. If the
         // server were reading the live rule, submitting wantsExtra='no'
         // would now REQUIRE extraDetail (which the respondent is never
         // asked for) instead of hiding it.
-        await db.update(logicRules).set({ action: "require" }).where(eq(logicRules.id, rule.id));
+        await getOwnerDb().update(logicRules).set({ action: "require" }).where(eq(logicRules.id, rule.id));
 
         // ---- Drive the run through to completion using the PINNED definition ----
 
@@ -284,18 +286,18 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
         expect(completedRun.completed).toBe(true);
 
         // The deleted question's answer was persisted, not silently lost.
-        const [savedToDelete] = await db.select().from(stepValues)
+        const [savedToDelete] = await getOwnerDb().select().from(stepValues)
           .where(eq(stepValues.stepId, stepToDelete.id));
         expect(savedToDelete?.value).toBe("stale but still mine");
 
         // The live-only required question was never asked and never
         // answered -- completion did not (and could not) demand it.
-        const liveOnlyValues = await db.select().from(stepValues)
+        const liveOnlyValues = await getOwnerDb().select().from(stepValues)
           .where(eq(stepValues.stepId, liveOnlyRequired.id));
         expect(liveOnlyValues).toHaveLength(0);
 
         // extraDetail (hidden per the pinned rule) was never answered either.
-        const extraDetailValues = await db.select().from(stepValues)
+        const extraDetailValues = await getOwnerDb().select().from(stepValues)
           .where(eq(stepValues.stepId, stepExtraDetail.id));
         expect(extraDetailValues).toHaveLength(0);
       } finally {

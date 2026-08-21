@@ -6,6 +6,9 @@ import { datavaultTables, datavaultTablePermissions, auditLogs } from '@shared/s
 
 import { db } from '../../server/db';
 import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface AuditChangeSet {
   before?: Record<string, unknown>;
@@ -65,7 +68,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     tableId = table.id;
 
     // 4. Grant Permissions
-    await db.insert(datavaultTablePermissions).values([
+    await getOwnerDb().insert(datavaultTablePermissions).values([
       { tableId, userId: writer.userId, role: 'write' },
       { tableId, userId: reader.userId, role: 'read' },
     ]);
@@ -280,7 +283,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       expect(res.body.success).toBe(true);
 
       // Re-grant the permission
-      await db.insert(datavaultTablePermissions).values({
+      await getOwnerDb().insert(datavaultTablePermissions).values({
         tableId,
         userId: writer.userId,
         role: 'write',

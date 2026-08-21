@@ -33,6 +33,9 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 let ctx: IntegrationTestContext;
 let agent: ReturnType<typeof createAuthenticatedAgent>;
@@ -117,8 +120,8 @@ describe("POST /api/workflows", () => {
     expect(res.body.message).toMatch(/access denied/i);
 
     // cleanup foreign tenant + its users to avoid FK debris across the suite
-    await db.delete(schema.users).where(eq(schema.users.tenantId, foreignTenant.id));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, foreignTenant.id));
+    await getOwnerDb().delete(schema.users).where(eq(schema.users.tenantId, foreignTenant.id));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, foreignTenant.id));
   });
 
   it("returns 401 without auth", async () => {
@@ -649,11 +652,11 @@ describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete
     const stepId2 = await makeStep(workflowId, sectionId, "q_two");
 
     // Two runs; step1 answered in both (2 answers / 2 runs), step2 in one (1 / 1).
-    const [run1] = await db.insert(schema.workflowRuns)
+    const [run1] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    const [run2] = await db.insert(schema.workflowRuns)
+    const [run2] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    await db.insert(schema.stepValues).values([
+    await getOwnerDb().insert(schema.stepValues).values([
       { runId: run1.id, stepId: stepId1, value: "a" },
       { runId: run2.id, stepId: stepId1, value: "b" },
       { runId: run1.id, stepId: stepId2, value: "c" },
@@ -767,7 +770,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     expect(denied.status).toBe(403);
     expect(denied.body.message).toMatch(/access denied/i);
 
-    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+    await getOwnerDb().update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
 
     const allowed = await sharedAgent.post(`/api/steps/${stepId}/duplicate`);
     expect(allowed.status).toBe(201);
@@ -838,7 +841,7 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
 
     // The section-scoped logic rule was copied with both ids remapped onto
     // the new steps — never left pointing at the source's step ids.
-    const allRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    const allRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
     const copiedRule = allRules.find((r) => r.id !== rule.id);
     expect(copiedRule).toBeDefined();
     expect(copiedRule?.conditionStepId).toBe(newStep1?.id);
@@ -867,7 +870,7 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
     expect(denied.status).toBe(403);
     expect(denied.body.message).toMatch(/access denied/i);
 
-    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+    await getOwnerDb().update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
 
     const allowed = await sharedAgent.post(`/api/sections/${sectionId}/duplicate`);
     expect(allowed.status).toBe(201);

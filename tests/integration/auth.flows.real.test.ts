@@ -9,6 +9,9 @@ import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, randomEmail, randomPassword, createVerifiedUser, generateTotpCode } from "../helpers/testUtils";
 
 import type { Express } from "express";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * REAL Auth Flow Integration Tests
  * Tests complete authentication flows end-to-end
@@ -63,7 +66,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       // Step 3: Verify email (in real app, user would click link from email)
       // For testing, we'll directly update the user
       const { users } = await import("@shared/schema");
-      await db.update(users)
+      await getOwnerDb().update(users)
         .set({ emailVerified: true })
         .where(eq(users.email, email));
       // Step 4: Login successfully

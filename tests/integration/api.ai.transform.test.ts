@@ -3,7 +3,6 @@ import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 
-import { db } from "../../server/db";
 import { aiUsage } from "../../shared/schema/ai";
 import { tenants } from "../../shared/schema/auth";
 import { ProviderFactory } from "../../server/services/ai/providers/ProviderFactory";
@@ -30,6 +29,9 @@ vi.mock("../../server/middleware/rbac", () => ({
 }));
 
 import transformRouter from "../../server/routes/api.ai.transform.routes";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("AI transform usage accounting (AISL-5)", () => {
   const app = express();
@@ -39,7 +41,7 @@ describe("AI transform usage accounting (AISL-5)", () => {
   app.use("/api/ai/transform", transformRouter);
 
   beforeAll(async () => {
-    await db.insert(tenants).values({
+    await getOwnerDb().insert(tenants).values({
       id: TENANT_ID,
       name: "AISL-5 Transform Tenant",
       plan: "pro",
@@ -53,11 +55,11 @@ describe("AI transform usage accounting (AISL-5)", () => {
   });
 
   afterEach(async () => {
-    await db.delete(aiUsage).where(eq(aiUsage.tenantId, TENANT_ID));
+    await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, TENANT_ID));
   });
 
   afterAll(async () => {
-    await db.delete(tenants).where(eq(tenants.id, TENANT_ID));
+    await getOwnerDb().delete(tenants).where(eq(tenants.id, TENANT_ID));
   });
 
   const cases: Array<{
@@ -102,7 +104,7 @@ describe("AI transform usage accounting (AISL-5)", () => {
       .send(body)
       .expect(200);
 
-    const rows = await db.select().from(aiUsage).where(eq(aiUsage.tenantId, TENANT_ID));
+    const rows = await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, TENANT_ID));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       tenantId: TENANT_ID,

@@ -6,7 +6,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { workflowRunRepository } from '../../server/repositories';
 import { runService } from '../../server/services/RunService';
 import { hashToken } from '../../server/utils/encryption';
@@ -17,6 +16,9 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface TestRun {
   id: string;
@@ -99,7 +101,7 @@ describe.sequential('completed run answer immutability', () => {
 
   async function createRun(completed = false): Promise<TestRun> {
     const token = `completed-immutability-${randomUUID()}`;
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(token),
@@ -111,7 +113,7 @@ describe.sequential('completed run answer immutability', () => {
   }
 
   async function expectNoValue(runId: string): Promise<void> {
-    const values = await db.select()
+    const values = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
     expect(values).toEqual([]);

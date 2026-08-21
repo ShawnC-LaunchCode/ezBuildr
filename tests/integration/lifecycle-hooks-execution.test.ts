@@ -29,6 +29,9 @@ import {
 import { db } from '../../server/db';
 import { createTestWorkflow, createTestSection, createTestStep, createTestWorkflowRun } from '../factories';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
@@ -52,7 +55,7 @@ describe('Lifecycle Hooks Execution', () => {
     stepId = uuidv4();
 
     // Create workflow with section and step for each test
-    await db.insert(workflows).values(
+    await getOwnerDb().insert(workflows).values(
       createTestWorkflow({
         id: workflowId,
         projectId: ctx.projectId,
@@ -64,7 +67,7 @@ describe('Lifecycle Hooks Execution', () => {
       })
     );
 
-    await db.insert(sections).values(
+    await getOwnerDb().insert(sections).values(
       createTestSection({
         id: sectionId,
         workflowId,
@@ -73,7 +76,7 @@ describe('Lifecycle Hooks Execution', () => {
       })
     );
 
-    await db.insert(steps).values(
+    await getOwnerDb().insert(steps).values(
       createTestStep({
         id: stepId,
         workflowId,
@@ -116,7 +119,7 @@ describe('Lifecycle Hooks Execution', () => {
       const _hookId = createRes.body.data.id;
 
       // Create a run and trigger beforePage phase
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({
           workflowId,
           createdBy: ctx.userId,
@@ -146,7 +149,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(consoleLogs.some(log => String(log[0]).includes('Entering page'))).toBe(true);
 
       // Verify execution was logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -182,7 +185,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -225,7 +228,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -252,7 +255,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(result.data.existingData).toBe('preserved');
 
       // Error logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -292,11 +295,11 @@ describe('Lifecycle Hooks Execution', () => {
       expect(createRes.status).toBe(201);
 
       // Create run with step value
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
-      await db.insert(stepValues).values({
+      await getOwnerDb().insert(stepValues).values({
         runId: run.id,
         stepId: stepId,
         value: 'John Doe',
@@ -350,7 +353,7 @@ emit(result)
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -404,7 +407,7 @@ emit(result)
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -457,7 +460,7 @@ emit(result)
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -505,7 +508,7 @@ emit(result)
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -527,7 +530,7 @@ emit(result)
       expect(result.errors![0].error).toMatch(/timeout|timed out/i);
 
       // Timeout logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -598,7 +601,7 @@ emit(result)
       expect(hook3Res.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -619,7 +622,7 @@ emit(result)
       expect(result.data.final).toBe(true);
 
       // Verify all hooks executed
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -756,7 +759,7 @@ emit(result)
   describe('Script Console Logs', () => {
     it('should retrieve execution logs for a run', async () => {
       // Create run with hooks that have console output
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -784,7 +787,7 @@ emit(result)
 
     it('should clear execution logs for a run', async () => {
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -809,7 +812,7 @@ emit(result)
       expect(res.body.success).toBe(true);
 
       // Verify cleared
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 

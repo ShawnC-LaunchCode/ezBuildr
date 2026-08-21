@@ -21,9 +21,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { workflows, users, tenants, projects, sections, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { runService } from "../../server/services/RunService";
 import { versionService } from "../../server/services/VersionService";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe("RVP-6 pin every new run at creation (Option B)", () => {
   let tenantId: string;
@@ -31,9 +33,9 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   let userId: string;
 
   beforeAll(async () => {
-    const [tenant] = await db.insert(tenants).values({ name: "RVP-6 Tenant", plan: "pro" }).returning();
+    const [tenant] = await getOwnerDb().insert(tenants).values({ name: "RVP-6 Tenant", plan: "pro" }).returning();
     tenantId = tenant.id;
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       email: `rvp6_${randomUUID().slice(0, 8)}@example.com`,
       fullName: "RVP-6 Tester",
       tenantId,
@@ -41,7 +43,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       tenantRole: "owner",
     }).returning();
     userId = user.id;
-    const [project] = await db.insert(projects).values({
+    const [project] = await getOwnerDb().insert(projects).values({
       title: "RVP-6 Project",
       name: "RVP-6 Project",
       tenantId,
@@ -53,13 +55,13 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   });
 
   afterAll(async () => {
-    if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
+    if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }
     if (userId) {
 
-      try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* table may be empty */ }
-      await db.delete(users).where(eq(users.id, userId));
+      try { await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* table may be empty */ }
+      await getOwnerDb().delete(users).where(eq(users.id, userId));
     }
-    if (tenantId) { await db.delete(tenants).where(eq(tenants.id, tenantId)); }
+    if (tenantId) { await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId)); }
   });
 
   /** A workflow with real content (so serialization has something to
@@ -69,7 +71,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
    * `RunAuthResolver.verifyCreateAccess` only lets an anonymous caller reach
    * the version check at all when the workflow is active and public. */
   async function makeVersionlessWorkflow(overrides?: { status?: 'draft' | 'active'; isPublic?: boolean }) {
-    const [workflow] = await db.insert(workflows).values({
+    const [workflow] = await getOwnerDb().insert(workflows).values({
       title: "RVP-6 Draft",
       projectId,
       creatorId: userId,
@@ -77,26 +79,26 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       status: overrides?.status ?? "draft",
       isPublic: overrides?.isPublic ?? false,
     }).returning();
-    const [section] = await db.insert(sections).values({ workflowId: workflow.id, title: "Page 1", order: 0 }).returning();
-    await db.insert(steps).values({
+    const [section] = await getOwnerDb().insert(sections).values({ workflowId: workflow.id, title: "Page 1", order: 0 }).returning();
+    await getOwnerDb().insert(steps).values({
       workflowId: workflow.id, sectionId: section.id, title: "Your name", type: "short_text", alias: "name", order: 0,
     });
     return workflow;
   }
 
   async function versionsFor(workflowId: string) {
-    return db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
+    return getOwnerDb().select().from(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
   }
 
   // Each test creates and tears down its own workflow (runs before
   // sections/steps/versions before the workflow itself), since the
   // per-workflow version count is exactly what these tests assert on.
   async function cleanupWorkflow(workflowId: string): Promise<void> {
-    await db.delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
-    await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
-    await db.delete(steps).where(eq(steps.workflowId, workflowId));
-    await db.delete(sections).where(eq(sections.workflowId, workflowId));
-    await db.delete(workflows).where(eq(workflows.id, workflowId));
+    await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
+    await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
+    await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
+    await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+    await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId));
   }
 
   it("AC1: pins an authenticated creator's run to a newly created draft version when the workflow has none", async () => {
@@ -111,7 +113,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       expect(versions[0].id).toBe(run.workflowVersionId);
       expect(versions[0].isDraft).toBe(true);
 
-      await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
     } finally {
       await cleanupWorkflow(workflow.id);
     }
@@ -132,7 +134,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       const versions = await versionsFor(workflow.id);
       expect(versions).toHaveLength(1);
 
-      await db.delete(workflowRuns).where(eq(workflowRuns.workflowId, workflow.id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflow.id));
     } finally {
       await cleanupWorkflow(workflow.id);
     }
@@ -151,7 +153,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       const versionsAfter = await versionsFor(workflow.id);
       expect(versionsAfter).toHaveLength(1);
 
-      await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
     } finally {
       await cleanupWorkflow(workflow.id);
     }

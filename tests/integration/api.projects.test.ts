@@ -13,6 +13,9 @@ import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { projectService } from "../../server/services/ProjectService";
 import { enterTenantContextForTests } from "../../server/utils/rlsContext";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * Projects API Integration Tests
  *
@@ -49,7 +52,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     baseURL = `http://localhost:${port}`;
     // Create test tenant
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: "Test Tenant for Projects",
       plan: "free",
     }).returning();
@@ -68,14 +71,14 @@ describe.sequential("Projects API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
     // Assign tenant and role to user
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
   });
   afterAll(async () => {
     // Cleanup
     if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
       await new Promise<void>((resolve) => {
@@ -240,12 +243,12 @@ describe.sequential("Projects API Integration Tests", () => {
       expect(seenIds).not.toContain(archivedProjectId);
     });
     it("PROJ-8: active list carries ownerName for an org-owned project", async () => {
-      const [org] = await db.insert(schema.organizations).values({
+      const [org] = await getOwnerDb().insert(schema.organizations).values({
         name: `Owner Name Org ${nanoid()}`,
         tenantId,
         createdByUserId: userId,
       }).returning();
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId: org.id,
         userId,
         role: "admin",
@@ -384,10 +387,10 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       const editUserToken = registerResponse.body.token;
       const editUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, editUserId));
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId,
         principalType: "user",
         principalId: editUserId,
@@ -413,7 +416,7 @@ describe.sequential("Projects API Integration Tests", () => {
     let projectId: string;
     beforeEach(async () => {
       // Create another tenant and user
-      const [otherTenant] = await db.insert(schema.tenants).values({
+      const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
         name: "Other Tenant",
         plan: "free",
       }).returning();
@@ -428,7 +431,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       otherAuthToken = registerResponse.body.token;
       const otherUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId: otherTenantId, tenantRole: "owner" })
         .where(eq(schema.users.id, otherUserId));
       // Create project in first tenant
@@ -440,7 +443,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     afterAll(async () => {
       if (otherTenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
       }
     });
     it("should not allow cross-tenant access", async () => {
@@ -458,13 +461,13 @@ describe.sequential("Projects API Integration Tests", () => {
 
     beforeAll(async () => {
       // Org owned by the main tenant, with `userId` (tenant owner) as org admin.
-      const [org] = await db.insert(schema.organizations).values({
+      const [org] = await getOwnerDb().insert(schema.organizations).values({
         name: `Archive Gate Org ${nanoid()}`,
         tenantId,
         createdByUserId: userId,
       }).returning();
       orgId = org.id;
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId,
         userId,
         role: "admin",
@@ -482,10 +485,10 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       memberAuthToken = registerResponse.body.token;
       memberUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, memberUserId));
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId,
         userId: memberUserId,
         role: "member",
@@ -493,7 +496,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     afterAll(async () => {
       if (orgId) {
-        await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId));
+        await getOwnerDb().delete(schema.organizations).where(eq(schema.organizations.id, orgId));
       }
     });
     beforeEach(async () => {
@@ -504,7 +507,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: `Archive Gate Project ${nanoid()}`, ownerType: "org", ownerUuid: orgId })
         .expect(201);
       projectId = response.body.id;
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId,
         principalType: "user",
         principalId: memberUserId,

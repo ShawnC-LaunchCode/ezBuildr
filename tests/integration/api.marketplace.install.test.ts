@@ -7,7 +7,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { storageProvider } from "../../server/services/storage";
 import { generateMarketplaceBundles } from "../../scripts/generateMarketplaceBundles";
 import {
@@ -15,6 +14,9 @@ import {
     createAuthenticatedAgent,
     type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * TM-3 vertical proof: POST /api/templates/:id/install through the real
@@ -67,7 +69,7 @@ describe.sequential("Template install API (TM-3)", () => {
         expect(typeof res.body.id).toBe("string");
         firstInstalledWorkflowId = res.body.id as string;
 
-        const [workflow] = await db.select().from(schema.workflows)
+        const [workflow] = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.id, firstInstalledWorkflowId));
         expect(workflow).toBeDefined();
         // AC2: scoped to the caller's own project (and, transitively, tenant -
@@ -77,20 +79,20 @@ describe.sequential("Template install API (TM-3)", () => {
         expect(workflow.ownerUuid).toBe(ctx.userId);
         expect(workflow.creatorId).toBe(ctx.userId);
 
-        const sections = await db.select().from(schema.sections)
+        const sections = await getOwnerDb().select().from(schema.sections)
             .where(eq(schema.sections.workflowId, firstInstalledWorkflowId));
         expect(sections.length).toBeGreaterThan(0);
 
-        const steps = await db.select().from(schema.steps)
+        const steps = await getOwnerDb().select().from(schema.steps)
             .where(eq(schema.steps.workflowId, firstInstalledWorkflowId));
         expect(steps.length).toBeGreaterThan(0);
 
         // AC5: the template's DOCX is attached and round-trips byte-identical.
-        const [workflowTemplate] = await db.select().from(schema.workflowTemplates)
+        const [workflowTemplate] = await getOwnerDb().select().from(schema.workflowTemplates)
             .where(eq(schema.workflowTemplates.workflowVersionId, workflow.currentVersionId as string));
         expect(workflowTemplate).toBeDefined();
 
-        const [template] = await db.select().from(schema.templates)
+        const [template] = await getOwnerDb().select().from(schema.templates)
             .where(eq(schema.templates.id, workflowTemplate.templateId));
         expect(template).toBeDefined();
         expect(template.projectId).toBe(projectIdA);
@@ -110,19 +112,19 @@ describe.sequential("Template install API (TM-3)", () => {
 
         expect(secondWorkflowId).not.toBe(firstInstalledWorkflowId);
 
-        const firstSections = await db.select().from(schema.sections)
+        const firstSections = await getOwnerDb().select().from(schema.sections)
             .where(eq(schema.sections.workflowId, firstInstalledWorkflowId));
-        const secondSections = await db.select().from(schema.sections)
+        const secondSections = await getOwnerDb().select().from(schema.sections)
             .where(eq(schema.sections.workflowId, secondWorkflowId));
         const firstIds = new Set(firstSections.map((s) => s.id));
         expect(secondSections.every((s) => !firstIds.has(s.id))).toBe(true);
 
         // Editing one does not affect the other.
-        await db.update(schema.workflows)
+        await getOwnerDb().update(schema.workflows)
             .set({ title: "Edited After Install" })
             .where(eq(schema.workflows.id, secondWorkflowId));
 
-        const [untouched] = await db.select().from(schema.workflows)
+        const [untouched] = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.id, firstInstalledWorkflowId));
         expect(untouched.title).not.toBe("Edited After Install");
     });
@@ -136,7 +138,7 @@ describe.sequential("Template install API (TM-3)", () => {
         const otherWorkflowId = res.body.id as string;
         expect(otherWorkflowId).not.toBe(firstInstalledWorkflowId);
 
-        const [otherWorkflow] = await db.select().from(schema.workflows)
+        const [otherWorkflow] = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.id, otherWorkflowId));
         expect(otherWorkflow.projectId).toBe(projectIdB);
         expect(otherWorkflow.ownerUuid).toBe(otherCtx.userId);
@@ -150,26 +152,26 @@ describe.sequential("Template install API (TM-3)", () => {
     // AC3 (Vertical proof): installing into a project the caller does not
     // own is rejected, and nothing is written.
     it("installing into a project the caller does not own is rejected, and nothing is written", async () => {
-        const before = await db.select().from(schema.workflows)
+        const before = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.projectId, projectIdB));
 
         const res = await agent.post("/api/templates/nda/install").send({ projectId: projectIdB });
 
         expect([403, 404]).toContain(res.status);
 
-        const after = await db.select().from(schema.workflows)
+        const after = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.projectId, projectIdB));
         expect(after.length).toBe(before.length);
     });
 
     it("an unknown template id 404s and writes nothing", async () => {
-        const before = await db.select().from(schema.workflows)
+        const before = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.projectId, projectIdA));
 
         const res = await agent.post("/api/templates/not-a-real-template/install").send({ projectId: projectIdA });
         expect(res.status).toBe(404);
 
-        const after = await db.select().from(schema.workflows)
+        const after = await getOwnerDb().select().from(schema.workflows)
             .where(eq(schema.workflows.projectId, projectIdA));
         expect(after.length).toBe(before.length);
     });

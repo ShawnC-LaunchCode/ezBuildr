@@ -14,9 +14,11 @@ import {
 } from "@shared/schema";
 import { BlockContext, CreateRecordConfig } from "@shared/types/blocks";
 
-import { db } from "../../server/db";
 import { runPersistenceWriter } from "../../server/services/runs/RunPersistenceWriter";
 import { scriptEngine } from "../../server/services/scripting/ScriptEngine";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 const TEST_TIMEOUT = 15000;
 describe("Variable Schema Safety & Resolution", () => {
     let tenantId: string;
@@ -33,13 +35,13 @@ describe("Variable Schema Safety & Resolution", () => {
         stepId1 = uuidv4(); // Generate new ID for each test
         // 1. Setup Tenant & User
         tenantId = uuidv4();
-        await db.insert(tenantsSchema).values({
+        await getOwnerDb().insert(tenantsSchema).values({
             id: tenantId,
             name: "Variable Safety Tenant",
             slug: `safety - ${uuidv4()} `,
         } as any);
         userId = uuidv4();
-        await db.insert(usersSchema).values({
+        await getOwnerDb().insert(usersSchema).values({
             id: userId,
             email: `safety - ${uuidv4()} @example.com`,
             tenantId,
@@ -50,7 +52,7 @@ describe("Variable Schema Safety & Resolution", () => {
         } as any);
         // 2. Setup Project & Workflow
         projectId = uuidv4();
-        await db.insert(projectsSchema).values({
+        await getOwnerDb().insert(projectsSchema).values({
             id: projectId,
             name: "Safety Project",
             title: "Safety Project",
@@ -62,7 +64,7 @@ describe("Variable Schema Safety & Resolution", () => {
         workflowId = uuidv4();
         versionId = uuidv4();
         sectionId = uuidv4();
-        await db.insert(workflowsSchema).values({
+        await getOwnerDb().insert(workflowsSchema).values({
             id: workflowId,
             projectId,
             title: "Safety Workflow",
@@ -78,7 +80,7 @@ describe("Variable Schema Safety & Resolution", () => {
         // placeholder used to be harmless here because saveStepValue read
         // the live tables directly; it now must be a real (if minimal)
         // snapshot of the section/step this test creates below.
-        await db.insert(workflowVersionsSchema).values({
+        await getOwnerDb().insert(workflowVersionsSchema).values({
             id: versionId,
             workflowId,
             versionNumber: 1,
@@ -100,13 +102,13 @@ describe("Variable Schema Safety & Resolution", () => {
             createdBy: userId,
         } as any);
         // 3. Setup Section & Step
-        await db.insert(sectionsSchema).values({
+        await getOwnerDb().insert(sectionsSchema).values({
             id: sectionId,
             workflowId,
             title: "Main Section",
             order: 1,
         } as any);
-        await db.insert(stepsSchema).values({
+        await getOwnerDb().insert(stepsSchema).values({
             id: stepId1,
             workflowId,
             sectionId,
@@ -133,19 +135,19 @@ describe("Variable Schema Safety & Resolution", () => {
         try {
             // Delete workflow-related data first
             if (versionId) {
-                await db.delete(workflowVersionsSchema).where(eq(workflowVersionsSchema.id, versionId));
+                await getOwnerDb().delete(workflowVersionsSchema).where(eq(workflowVersionsSchema.id, versionId));
             }
             if (workflowId) {
-                await db.delete(workflowsSchema).where(eq(workflowsSchema.id, workflowId));
+                await getOwnerDb().delete(workflowsSchema).where(eq(workflowsSchema.id, workflowId));
             }
             if (projectId) {
-                await db.delete(projectsSchema).where(eq(projectsSchema.id, projectId));
+                await getOwnerDb().delete(projectsSchema).where(eq(projectsSchema.id, projectId));
             }
             if (userId) {
-                await db.delete(usersSchema).where(eq(usersSchema.id, userId));
+                await getOwnerDb().delete(usersSchema).where(eq(usersSchema.id, userId));
             }
             if (tenantId) {
-                await db.delete(tenantsSchema).where(eq(tenantsSchema.id, tenantId));
+                await getOwnerDb().delete(tenantsSchema).where(eq(tenantsSchema.id, tenantId));
             }
         } catch (error) {
             console.warn("Cleanup error (non-critical):", error);

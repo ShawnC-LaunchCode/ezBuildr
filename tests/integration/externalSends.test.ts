@@ -5,9 +5,11 @@ import { describe, it, expect, beforeEach, afterAll, beforeAll, vi } from 'vites
 
 import { tenants, projects, workflows, sections, steps, blocks, users, workspaces, externalDestinations, workflowVersions } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runExecutionCoordinator, type ExecutionContext } from '../../server/services/runs/RunExecutionCoordinator';
 import { runPersistenceWriter } from '../../server/services/runs/RunPersistenceWriter';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // Mock global fetch
 const fetchMock = vi.fn();
@@ -27,10 +29,10 @@ describe('External Send Block Integration', () => {
 
     beforeAll(async () => {
         // 1. Setup Tenant & User
-        const [tenant] = await db.insert(tenants).values({ name: 'External Send Tenant', slug: `ext-tenant-${Date.now()}` } as any).returning();
+        const [tenant] = await getOwnerDb().insert(tenants).values({ name: 'External Send Tenant', slug: `ext-tenant-${Date.now()}` } as any).returning();
         tenantId = tenant.id;
 
-        const [user] = await db.insert(users).values({
+        const [user] = await getOwnerDb().insert(users).values({
             id: uuidv4(),
             email: `ext-test-${Date.now()}@example.com`,
             tenantId,
@@ -43,7 +45,7 @@ describe('External Send Block Integration', () => {
 
         // 2. Setup Workspace (required)
         try {
-            const [ws] = await db.insert(workspaces as any).values({
+            const [ws] = await getOwnerDb().insert(workspaces as any).values({
                 title: 'Test Workspace',
                 tenantId
             } as any).returning() as any[];
@@ -53,7 +55,7 @@ describe('External Send Block Integration', () => {
         }
 
         // 3. Setup Project
-        const [project] = await db.insert(projects).values({
+        const [project] = await getOwnerDb().insert(projects).values({
             name: 'External Send Project',
             title: 'Ex Send',
             tenantId,
@@ -68,8 +70,8 @@ describe('External Send Block Integration', () => {
     afterAll(async () => {
         if (tenantId) {
             // Clean up projects first to allow tenant delete if cascades are tricky
-            await db.delete(projects).where(eq(projects.tenantId, tenantId));
-            await db.delete(tenants).where(eq(tenants.id, tenantId));
+            await getOwnerDb().delete(projects).where(eq(projects.tenantId, tenantId));
+            await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId));
         }
     });
 
@@ -82,7 +84,7 @@ describe('External Send Block Integration', () => {
         });
 
         // 4. Setup Workflow & Version & Section
-        const [workflow] = await db.insert(workflows).values({
+        const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId,
             title: 'Send Workflow',
             creatorId: userId,
@@ -91,7 +93,7 @@ describe('External Send Block Integration', () => {
         } as any).returning();
         workflowId = workflow.id;
 
-        const [version] = await db.insert(workflowVersions).values({
+        const [version] = await getOwnerDb().insert(workflowVersions).values({
             workflowId,
             versionNumber: 1,
             // Schema-valid placeholder: RVP-1 parses a pinned version's
@@ -104,9 +106,9 @@ describe('External Send Block Integration', () => {
         workflowVersionId = version.id;
 
         // Update workflow current version
-        await db.update(workflows).set({ currentVersionId: workflowVersionId }).where(eq(workflows.id, workflowId));
+        await getOwnerDb().update(workflows).set({ currentVersionId: workflowVersionId }).where(eq(workflows.id, workflowId));
 
-        const [section] = await db.insert(sections).values({
+        const [section] = await getOwnerDb().insert(sections).values({
             workflowId,
             title: 'Send Section',
             order: 0
@@ -114,7 +116,7 @@ describe('External Send Block Integration', () => {
         sectionId = section.id;
 
         // 5. Setup External Destination
-        const [dest] = await db.insert(externalDestinations).values({
+        const [dest] = await getOwnerDb().insert(externalDestinations).values({
             tenantId,
             type: 'webhook',
             name: 'Test Webhook',
@@ -126,7 +128,7 @@ describe('External Send Block Integration', () => {
     it('PREVIEW MODE: Should simulate send and NOT call fetch', async () => {
         // 1. Create Input Step
         const inputStepId = uuidv4();
-        await db.insert(steps).values({
+        await getOwnerDb().insert(steps).values({
             id: inputStepId,
             workflowId,
             sectionId,
@@ -137,7 +139,7 @@ describe('External Send Block Integration', () => {
 
         // 2. Create External Send Block
         const blockId = uuidv4();
-        await db.insert(blocks).values({
+        await getOwnerDb().insert(blocks).values({
             id: blockId,
             workflowId,
             sectionId,
@@ -191,7 +193,7 @@ describe('External Send Block Integration', () => {
     it('LIVE MODE: Should call fetch with mapped payload', async () => {
         // 1. Create Input Step
         const inputStepId = uuidv4();
-        await db.insert(steps).values({
+        await getOwnerDb().insert(steps).values({
             id: inputStepId,
             workflowId,
             sectionId,
@@ -202,7 +204,7 @@ describe('External Send Block Integration', () => {
 
         // 2. Create External Send Block
         const blockId = uuidv4();
-        await db.insert(blocks).values({
+        await getOwnerDb().insert(blocks).values({
             id: blockId,
             workflowId,
             sectionId,

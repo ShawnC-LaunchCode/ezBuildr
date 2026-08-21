@@ -31,6 +31,9 @@ import { db } from '../../../server/db';
 import { storageProvider } from '../../../server/services/storage';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { TestFactory } from '../../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 /**
  * PdfConverter reads PDF_CONVERTER_API_URL in its constructor and DocumentEngine
@@ -116,10 +119,10 @@ describe('Hardening: generated documents record the real converter', () => {
   afterAll(async () => {
     try {
       if (projectId) {
-        await db.delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
+        await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
       }
       if (tenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
       for (const fileRef of templateFileRefs) {
         await fs.unlink(path.join(FILES_DIR, fileRef)).catch(() => { });
@@ -172,7 +175,7 @@ describe('Hardening: generated documents record the real converter', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',

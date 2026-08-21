@@ -18,6 +18,9 @@ import { authService } from '../../../server/services/AuthService';
 import { hashToken } from '../../../server/utils/encryption';
 
 import type { Express } from 'express';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 describe('OAuth2 Token Refresh Flow', () => {
   let app: Express;
   let testTenantId: string;
@@ -32,7 +35,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     // Register auth routes
     registerAuthRoutes(app);
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: `Token Refresh Test Tenant ${nanoid()}`,
       plan: 'pro',
     }).returning();
@@ -41,7 +44,7 @@ describe('OAuth2 Token Refresh Flow', () => {
   beforeEach(async () => {
     // Create fresh test user for each test
     testUserEmail = `refresh-test-${nanoid()}@example.com`;
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       id: nanoid(),
       email: testUserEmail,
       firstName: 'Refresh',
@@ -68,13 +71,13 @@ describe('OAuth2 Token Refresh Flow', () => {
     // Clean up
     if (testTenantId) {
       // Find users and delete their audit logs first
-      const tenantUsers = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, testTenantId));
+      const tenantUsers = await getOwnerDb().select({ id: users.id }).from(users).where(eq(users.tenantId, testTenantId));
       if (tenantUsers.length > 0) {
         const userIds = tenantUsers.map(u => u.id);
         // Delete related data first to avoid FK violations
-        await db.delete(auditLogs).where(inArray(auditLogs.userId, userIds));
+        await getOwnerDb().delete(auditLogs).where(inArray(auditLogs.userId, userIds));
       }
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
   });
   describe('POST /api/auth/refresh-token', () => {
@@ -148,7 +151,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
     it('should return 401 for expired refresh token', async () => {
       // Create an expired token
-      const _expiredTokenRecord = await db.insert(refreshTokens).values({
+      const _expiredTokenRecord = await getOwnerDb().insert(refreshTokens).values({
         token: 'expired-token-hash',
         userId: testUserId,
         expiresAt: new Date(Date.now() - 1000), // Expired 1 second ago
@@ -164,7 +167,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     it('should return 401 for revoked refresh token', async () => {
       // Revoke the token
       // Revoke the token
-      await db.update(refreshTokens)
+      await getOwnerDb().update(refreshTokens)
         .set({ revoked: true })
         .where(eq(refreshTokens.token, hashToken(testRefreshToken)));
       const response = await request(app)
@@ -175,7 +178,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
     it('should return 401 when user is not found', async () => {
       // Delete the user but keep the refresh token
-      await db.delete(users).where(eq(users.id, testUserId));
+      await getOwnerDb().delete(users).where(eq(users.id, testUserId));
       const response = await request(app)
         .post('/api/auth/refresh-token')
         .set('Cookie', `refresh_token=${testRefreshToken}`);
@@ -269,7 +272,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       expect(cookies).toBeDefined();
       expect((cookies as unknown as string[]).some((c) => c.startsWith('refresh_token='))).toBe(true);
       // Verify refresh token exists in database
-      const tokenCount = await db.select().from(refreshTokens)
+      const tokenCount = await getOwnerDb().select().from(refreshTokens)
         .where(eq(refreshTokens.userId, testUserId));
       expect(tokenCount.length).toBeGreaterThan(0);
     });
@@ -307,7 +310,7 @@ describe('OAuth2 Token Refresh Flow', () => {
         userAgent: 'Tablet Browser',
       });
       // Verify all tokens are valid
-      const activeTokens = await db.select().from(refreshTokens)
+      const activeTokens = await getOwnerDb().select().from(refreshTokens)
         .where(and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)
@@ -321,7 +324,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       // Revoke all tokens (simulating password reset)
       await authService.revokeAllUserTokens(testUserId);
       // Verify all tokens are revoked
-      const activeTokens = await db.select().from(refreshTokens)
+      const activeTokens = await getOwnerDb().select().from(refreshTokens)
         .where(and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)
@@ -347,7 +350,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     it('should hash refresh tokens before storing in database', async () => {
       const rawToken = await authService.createRefreshToken(testUserId);
       // Find token in database
-      const dbTokens = await db.select().from(refreshTokens)
+      const dbTokens = await getOwnerDb().select().from(refreshTokens)
         .where(eq(refreshTokens.userId, testUserId));
       // Raw token should not appear in database
       const tokensMatch = dbTokens.some(t => t.token === rawToken);
@@ -372,7 +375,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
     it('should validate token ownership', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
+      const [otherUser] = await getOwnerDb().insert(users).values({
         id: nanoid(),
         email: 'other-user@example.com',
         firstName: 'Other',

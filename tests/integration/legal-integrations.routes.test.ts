@@ -5,7 +5,6 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, externalConnections, secrets, tenants } from '../../shared/schema';
-import { db } from '../../server/db';
 import { decrypt } from '../../server/utils/encryption';
 import {
   createAuthenticatedAgent,
@@ -13,6 +12,9 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe('legal integrations routes', () => {
   let ctx: IntegrationTestContext;
@@ -45,7 +47,7 @@ describe('legal integrations routes', () => {
     stripeConnectionId = response.body.integration.id;
     expect(JSON.stringify(response.body)).not.toContain('integrationSecret');
 
-    const storedSecrets = await db.select().from(secrets).where(eq(secrets.projectId, ctx.projectId!));
+    const storedSecrets = await getOwnerDb().select().from(secrets).where(eq(secrets.projectId, ctx.projectId!));
     expect(storedSecrets).toHaveLength(2);
     expect(storedSecrets.map((secret) => decrypt(secret.valueEnc)).sort()).toEqual([
       'sk_test_integrationSecret123',
@@ -56,7 +58,7 @@ describe('legal integrations routes', () => {
       expect(secret.valueEnc).not.toContain('integrationSecret');
     }
 
-    const [connection] = await db.select().from(externalConnections)
+    const [connection] = await getOwnerDb().select().from(externalConnections)
       .where(eq(externalConnections.id, stripeConnectionId));
     expect(connection.authConfig).toEqual({ provider: 'stripe', tokenRef: 'secretKey' });
     expect(JSON.stringify(connection)).not.toContain('integrationSecret');
@@ -139,7 +141,7 @@ describe('legal integrations routes', () => {
     expect(restarted.status).toBe(200);
     expect(restarted.body.authorizationUrl).toMatch(/^https:\/\/ca\.app\.clio\.com\/oauth\/authorize\?/);
 
-    const storedSecrets = await db.select().from(secrets).where(eq(secrets.projectId, ctx.projectId!));
+    const storedSecrets = await getOwnerDb().select().from(secrets).where(eq(secrets.projectId, ctx.projectId!));
     const clioPlaintexts = storedSecrets
       .filter((secret) => (secret.metadata as { provider?: string } | null)?.provider === 'clio')
       .map((secret) => decrypt(secret.valueEnc))
@@ -159,7 +161,7 @@ describe('legal integrations routes', () => {
   });
 
   it('denies integration metadata to a user from another tenant', async () => {
-    const [otherTenant] = await db.insert(tenants).values({ name: 'Other Firm', plan: 'pro' }).returning();
+    const [otherTenant] = await getOwnerDb().insert(tenants).values({ name: 'Other Firm', plan: 'pro' }).returning();
     try {
       const otherUser = await createTestUser(ctx, 'owner', otherTenant.id);
       const denied = await request(ctx.baseURL)
@@ -167,8 +169,8 @@ describe('legal integrations routes', () => {
         .set('Authorization', `Bearer ${otherUser.token}`);
       expect(denied.status).toBe(403);
     } finally {
-      await db.delete(auditLogs).where(eq(auditLogs.tenantId, otherTenant.id));
-      await db.delete(tenants).where(eq(tenants.id, otherTenant.id));
+      await getOwnerDb().delete(auditLogs).where(eq(auditLogs.tenantId, otherTenant.id));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, otherTenant.id));
     }
   });
 });

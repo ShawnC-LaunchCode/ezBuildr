@@ -22,6 +22,9 @@ import {
 } from '../../../server/services/oauth2';
 
 import type { Express } from 'express';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 // The connections route runs validateSafeUrl(baseUrl), which does real DNS
 // resolution as SSRF protection. The example hosts used here (api.example.com)
@@ -54,12 +57,12 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
     // Register routes
     registerConnectionsV2Routes(app);
     // Create test data
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'OAuth Test Tenant',
       plan: 'pro',
     }).returning();
     testTenantId = tenant.id;
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       id: nanoid(),
       email: 'oauth-test@example.com',
       firstName: 'OAuth',
@@ -75,7 +78,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
     testUserId = user.id;
     // Create JWT token
     authToken = authService.createToken(user);
-    const [project] = await db.insert(projects).values({
+    const [project] = await getOwnerDb().insert(projects).values({
       title: 'OAuth Test Project',
       name: 'OAuth Test Project',
       creatorId: testUserId,
@@ -87,13 +90,13 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   });
   beforeEach(async () => {
     // Clean up connections before each test
-    await db.delete(connections).where(eq(connections.projectId, testProjectId));
-    await db.delete(secrets).where(eq(secrets.projectId, testProjectId));
+    await getOwnerDb().delete(connections).where(eq(connections.projectId, testProjectId));
+    await getOwnerDb().delete(secrets).where(eq(secrets.projectId, testProjectId));
   });
   afterAll(async () => {
     // Clean up test data
     if (testTenantId) {
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
   });
   describe('OAuth2 Authorization Flow Initiation', () => {

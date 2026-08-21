@@ -17,6 +17,9 @@ import {
     users,
     tenants,
 } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * Tests for Transfer Ownership System
@@ -52,13 +55,13 @@ describe('Transfer Ownership', () => {
     beforeEach(async () => {
         enterTenantContextForTests(testTenantId);
         // Create test tenant
-        await db.insert(tenants).values({
+        await getOwnerDb().insert(tenants).values({
             id: testTenantId,
             name: 'Transfer Test Tenant',
         }).onConflictDoNothing();
 
         // Create test users
-        await db.insert(users).values([
+        await getOwnerDb().insert(users).values([
             { id: userId1, email: 'transfer1@test.com', fullName: 'Transfer User 1', tenantId: testTenantId },
             { id: userId2, email: 'transfer2@test.com', fullName: 'Transfer User 2', tenantId: testTenantId },
         ]).onConflictDoUpdate({
@@ -81,17 +84,17 @@ describe('Transfer Ownership', () => {
     afterEach(async () => {
         try {
             if (testWorkflowId) {
-                await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+                await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));
             }
             if (testProjectId) {
-                await db.delete(projects).where(eq(projects.id, testProjectId));
+                await getOwnerDb().delete(projects).where(eq(projects.id, testProjectId));
             }
             if (testDatabaseId) {
-                await db.delete(datavaultDatabases).where(eq(datavaultDatabases.id, testDatabaseId));
+                await getOwnerDb().delete(datavaultDatabases).where(eq(datavaultDatabases.id, testDatabaseId));
             }
             if (testOrgId) {
-                await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
-                await db.delete(organizations).where(eq(organizations.id, testOrgId));
+                await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+                await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
             }
         } catch (error) {
             // Ignore cleanup errors
@@ -210,8 +213,8 @@ describe('Transfer Ownership', () => {
             ).rejects.toThrow(/organization admin/i);
 
             // Cleanup
-            await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, otherOrg.id));
-            await db.delete(organizations).where(eq(organizations.id, otherOrg.id));
+            await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, otherOrg.id));
+            await getOwnerDb().delete(organizations).where(eq(organizations.id, otherOrg.id));
         });
 
         it('should prevent org member without owner role from transferring org-owned project', async () => {
@@ -241,8 +244,8 @@ describe('Transfer Ownership', () => {
             ).rejects.toThrow(/Access denied|insufficient permissions|admin role required/i);
 
             // Cleanup
-            await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, org2.id));
-            await db.delete(organizations).where(eq(organizations.id, org2.id));
+            await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, org2.id));
+            await getOwnerDb().delete(organizations).where(eq(organizations.id, org2.id));
         });
     });
 
@@ -315,7 +318,7 @@ describe('Transfer Ownership', () => {
 
             // Create user3 who is not a member
             const userId3 = '00000000-0000-0000-0000-000000000033';
-            await db.insert(users).values({
+            await getOwnerDb().insert(users).values({
                 id: userId3,
                 email: 'transfer3@test.com',
                 fullName: 'Transfer User 3',
@@ -328,7 +331,7 @@ describe('Transfer Ownership', () => {
             ).rejects.toThrow('Access denied');
 
             // Cleanup
-            await db.delete(users).where(eq(users.id, userId3));
+            await getOwnerDb().delete(users).where(eq(users.id, userId3));
         });
     });
 

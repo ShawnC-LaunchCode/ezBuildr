@@ -20,6 +20,9 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe('DataVault auto_number Integration Tests', () => {
   let ctx: IntegrationTestContext;
@@ -190,7 +193,7 @@ describe('DataVault auto_number Integration Tests', () => {
 
   it('self-heals a missing counter with the column prefix and padding', async () => {
     enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
-    await db.delete(datavaultNumberSequences).where(and(
+    await getOwnerDb().delete(datavaultNumberSequences).where(and(
       eq(datavaultNumberSequences.tenantId, ctx.tenantId),
       eq(datavaultNumberSequences.tableId, tableId),
       eq(datavaultNumberSequences.columnId, invoiceColumnId)

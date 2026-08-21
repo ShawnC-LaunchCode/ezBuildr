@@ -15,6 +15,9 @@ import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunC
 import { runService } from '../../server/services/RunService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -83,7 +86,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   async function createRun(workflowId: string, workflowVersionId?: string): Promise<{ runId: string; runToken: string }> {
     const runToken = `run13-token-${randomUUID()}`;
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId,
       runToken,
@@ -95,7 +98,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   async function createOtherProjectTemplate(): Promise<string> {
-    const [otherProject] = await db.insert(schema.projects).values({
+    const [otherProject] = await getOwnerDb().insert(schema.projects).values({
       title: 'RUN-13 Other Project',
       name: 'RUN-13 Other Project',
       tenantId: ctx.tenantId,
@@ -186,7 +189,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     // branch instead of pinning to the empty placeholder graph
     // factory.createWorkflow creates before this test adds its steps.
     const { runId } = await createRun(workflow.id);
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId,
       stepId: textStep.id,
       value: 'Ada Lovelace LLC',

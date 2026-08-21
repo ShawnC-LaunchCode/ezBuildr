@@ -10,6 +10,9 @@ import { sections, steps } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // The upload route performs real placeholder extraction after the scanner mock,
 // so this fixture must be a valid OOXML package rather than only a ZIP container.
@@ -110,7 +113,7 @@ describe("Templates API Integration Tests", () => {
       .insert(sections)
       .values({ workflowId, title: "Page 1", order: 0 })
       .returning();
-    await db.insert(steps).values({
+    await getOwnerDb().insert(steps).values({
       workflowId,
       sectionId: section.id,
       title: "Your name",

@@ -17,6 +17,9 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface AuditChangeSet {
   before?: Record<string, unknown>;
@@ -61,13 +64,13 @@ describe('DataVault API Routes', () => {
     });
     registerDatavaultRoutes(app);
     // In real tests, create test tenant and user:
-    // const [tenant] = await db.insert(tenants).values({
+    // const [tenant] = await getOwnerDb().insert(tenants).values({
     //   name: 'Test Tenant',
     //   plan: 'free',
     // }).returning();
     // testTenantId = tenant.id;
     //
-    // const [user] = await db.insert(users).values({
+    // const [user] = await getOwnerDb().insert(users).values({
     //   id: 'test-user-id',
     //   tenantId: testTenantId,
     //   email: 'test@example.com',
@@ -78,13 +81,13 @@ describe('DataVault API Routes', () => {
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
-    //   await db.delete(datavaultTables).where(eq(datavaultTables.tenantId, testTenantId));
+    //   await getOwnerDb().delete(datavaultTables).where(eq(datavaultTables.tenantId, testTenantId));
     // }
   });
   beforeEach(async () => {
     // Reset test data before each test
     // if (testTableId) {
-    //   await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
+    //   await getOwnerDb().delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
     // }
   });
   describe('Tables API', () => {
@@ -927,7 +930,7 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
     row5Id = r5.body.row.id;
 
     // Soft delete row 4 and row 5 -> 3 live rows, 2 archived rows
-    await db.update(datavaultRows)
+    await getOwnerDb().update(datavaultRows)
       .set({ deletedAt: new Date() })
       .where(inArray(datavaultRows.id, [row4Id, row5Id]));
   });
@@ -1059,7 +1062,7 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
 
     // Clean up the non-numeric test row if created
     if (nonNumericRow.body?.row?.id) {
-      await db.update(datavaultRows)
+      await getOwnerDb().update(datavaultRows)
         .set({ deletedAt: new Date() })
         .where(eq(datavaultRows.id, nonNumericRow.body.row.id));
     }
@@ -1850,7 +1853,7 @@ describe('DataVault blank value coercion (DVH-1)', () => {
     expect(res.status).toBe(201);
     const rowId = res.body.row.id as string;
 
-    const stored = await db.select({ value: datavaultValues.value })
+    const stored = await getOwnerDb().select({ value: datavaultValues.value })
       .from(datavaultValues)
       .where(and(eq(datavaultValues.rowId, rowId), eq(datavaultValues.columnId, uniqueColumnId)));
     expect(stored).toHaveLength(1);

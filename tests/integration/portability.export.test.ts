@@ -15,6 +15,9 @@ import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { BundleReader } from "../../server/services/portability/bundleReader";
 import { seedWorkflow, seedTemplate, seedDatavault } from "../helpers/bundleTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential("Portability Export API Integration Tests", () => {
   let app: Express;
@@ -48,7 +51,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
     });
     baseURL = `http://localhost:${port}`;
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: "Test Tenant for Portability Export",
       plan: "free",
     }).returning();
@@ -67,7 +70,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
 
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
   });
@@ -75,8 +78,8 @@ describe.sequential("Portability Export API Integration Tests", () => {
   afterAll(async () => {
     delete process.env.TEST_RATE_LIMIT;
     if (tenantId) {
-      await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
       await new Promise<void>((resolve) => {
@@ -94,7 +97,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
     projectId = response.body.id;
     
     // Clear audit logs for the user to assert exactly one row per test
-    await db.delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
+    await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
   });
 
   it("AC 1 & 5: should return a .ezb zip with correct headers and log exactly one audit_logs row", async () => {
@@ -199,7 +202,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
 
   it("AC 3: should return 403 for authenticated user without access", async () => {
     // Create another user in a different tenant
-    const [otherTenant] = await db.insert(schema.tenants).values({
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `Other Tenant ${nanoid()}`,
       plan: "free",
     }).returning();
@@ -217,7 +220,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
     const otherAuthToken = registerResponse.body.token;
     const otherUserId = registerResponse.body.user.id;
     
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId: otherTenant.id, tenantRole: "owner" })
       .where(eq(schema.users.id, otherUserId));
 
@@ -228,7 +231,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
       
     expect(response.body.message).toMatch(/Access denied/i);
     
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenant.id));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenant.id));
   });
 
   it("AC 4: should return 404 for non-existent root id", async () => {
@@ -259,7 +262,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
       const collabUserId = registerResponse.body.user.id;
       
       // Put them in the same tenant as a normal member, not owner, so they don't get implicit edit
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, collabUserId));
         
@@ -271,7 +274,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
         .expect(201);
       const workflowId = workflowResponse.body.id;
       
-      const [database] = await db.insert(schema.datavaultDatabases).values({
+      const [database] = await getOwnerDb().insert(schema.datavaultDatabases).values({
         name: "Test Database",
         tenantId,
         ownerType: "user",
@@ -282,13 +285,13 @@ describe.sequential("Portability Export API Integration Tests", () => {
       const databaseId = database.id;
 
       // 3. Grant 'view' access on all 3 to the collab user
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId, principalType: "user", principalId: collabUserId, role: "view"
       });
-      await db.insert(schema.workflowAccess).values({
+      await getOwnerDb().insert(schema.workflowAccess).values({
         workflowId, principalType: "user", principalId: collabUserId, role: "view"
       });
-      await db.insert(schema.datavaultDatabaseAccess).values({
+      await getOwnerDb().insert(schema.datavaultDatabaseAccess).values({
         databaseId, principalType: "user", principalId: collabUserId, role: "view"
       });
 
@@ -309,11 +312,11 @@ describe.sequential("Portability Export API Integration Tests", () => {
       expect(viewDb.status).toBe(403);
 
       // 5. Upgrade to 'edit'
-      await db.update(schema.projectAccess)
+      await getOwnerDb().update(schema.projectAccess)
         .set({ role: "edit" }).where(eq(schema.projectAccess.principalId, collabUserId));
-      await db.update(schema.workflowAccess)
+      await getOwnerDb().update(schema.workflowAccess)
         .set({ role: "edit" }).where(eq(schema.workflowAccess.principalId, collabUserId));
-      await db.update(schema.datavaultDatabaseAccess)
+      await getOwnerDb().update(schema.datavaultDatabaseAccess)
         .set({ role: "edit" }).where(eq(schema.datavaultDatabaseAccess.principalId, collabUserId));
         
       // 6. Assert 'edit' succeeds (AC 3)
@@ -360,11 +363,11 @@ describe.sequential("Portability Export API Integration Tests", () => {
       const collabAuthToken = registerResponse.body.token;
       const collabUserId = registerResponse.body.user.id;
       
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, collabUserId));
 
-      const [database] = await db.insert(schema.datavaultDatabases).values({
+      const [database] = await getOwnerDb().insert(schema.datavaultDatabases).values({
         name: "Inherited DB",
         tenantId,
         ownerType: "user",
@@ -374,7 +377,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
       }).returning();
       
       // Give project-level edit
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId, principalType: "user", principalId: collabUserId, role: "edit"
       });
       // Give no specific database access!
@@ -507,7 +510,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           attachToWorkflowId: null, name: "Unrelated DB"
         });
 
-        await db.insert(schema.steps).values({
+        await getOwnerDb().insert(schema.steps).values({
           workflowId, sectionId, type: "choice", title: "Home state",
           alias: "home_state", order: 1,
           config: {
@@ -549,7 +552,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           .expect(201);
         const collabToken = collabRegister.body.token as string;
         const collabUserId = collabRegister.body.user.id as string;
-        await db.update(schema.users)
+        await getOwnerDb().update(schema.users)
           .set({ tenantId, tenantRole: "viewer" })
           .where(eq(schema.users.id, collabUserId));
 
@@ -559,7 +562,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           attachToWorkflowId: null, name: "Not Yours To Export"
         });
 
-        await db.insert(schema.steps).values({
+        await getOwnerDb().insert(schema.steps).values({
           workflowId, sectionId, type: "choice", title: "Pick one",
           alias: "pick_one", order: 1,
           config: {
@@ -571,7 +574,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           },
         });
 
-        await db.insert(schema.workflowAccess).values({
+        await getOwnerDb().insert(schema.workflowAccess).values({
           workflowId, principalType: "user", principalId: collabUserId, role: "edit"
         });
 
@@ -622,7 +625,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           .expect(201);
         const collabToken = collabRegister.body.token as string;
         const collabUserId = collabRegister.body.user.id as string;
-        await db.update(schema.users)
+        await getOwnerDb().update(schema.users)
           .set({ tenantId, tenantRole: "viewer" })
           .where(eq(schema.users.id, collabUserId));
 
@@ -632,7 +635,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           attachToWorkflowId: workflowId, name: "Someone Else's DB"
         });
 
-        await db.insert(schema.workflowAccess).values({
+        await getOwnerDb().insert(schema.workflowAccess).values({
           workflowId, principalType: "user", principalId: collabUserId, role: "edit"
         });
 
@@ -705,7 +708,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
 
         // A pasted-looking credential in hook code is exactly what the user
         // needs told *before* they share the file.
-        await db.insert(schema.transformBlocks).values({
+        await getOwnerDb().insert(schema.transformBlocks).values({
           workflowId,
           name: "Leaky block",
           language: "javascript",
@@ -755,10 +758,10 @@ describe.sequential("Portability Export API Integration Tests", () => {
           .expect(201);
         const collabToken = collabRegister.body.token as string;
         const collabUserId = collabRegister.body.user.id as string;
-        await db.update(schema.users)
+        await getOwnerDb().update(schema.users)
           .set({ tenantId, tenantRole: "viewer" })
           .where(eq(schema.users.id, collabUserId));
-        await db.insert(schema.workflowAccess).values({
+        await getOwnerDb().insert(schema.workflowAccess).values({
           workflowId, principalType: "user", principalId: collabUserId, role: "view"
         });
 

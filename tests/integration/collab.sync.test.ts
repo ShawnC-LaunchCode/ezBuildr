@@ -17,6 +17,9 @@ import {
 
 import { collabDocs, collabUpdates, users, workflowAccess } from '@shared/schema';
 import { and, eq } from 'drizzle-orm';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * DEBT-3b: real-time collaboration sync had no test at all.
@@ -149,7 +152,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     // ctx.authToken is minted at registration, before the harness assigns the
     // tenant, so its tenantId claim is null and the collab server rejects it as
     // a cross-tenant attempt. Re-mint from the persisted user row.
-    const [user] = await db.select().from(users).where(eq(users.id, ctx.userId)).limit(1);
+    const [user] = await getOwnerDb().select().from(users).where(eq(users.id, ctx.userId)).limit(1);
     collabToken = authService.createToken(user);
 
     // No initCollabServer() call here on purpose: registerRoutes already wires
@@ -175,7 +178,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
 
   it('creates a room and tracks two authorized active users', async () => {
     const builder = await createTestUser(ctx, 'builder');
-    await db.insert(workflowAccess).values({
+    await getOwnerDb().insert(workflowAccess).values({
       workflowId,
       principalType: 'user',
       principalId: builder.userId,

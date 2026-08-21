@@ -34,6 +34,9 @@ import {
   workflows,
   tenants,
 } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 describe('Organization Workflow Integration Tests', () => {
   // Test users
   const user1Id = uuidv4();
@@ -46,12 +49,12 @@ describe('Organization Workflow Integration Tests', () => {
   let inviteToken: string;
   beforeAll(async () => {
     // Create test tenant
-    await db.insert(tenants).values({
+    await getOwnerDb().insert(tenants).values({
       id: testTenantId,
       name: 'Test Tenant',
     }).onConflictDoNothing();
     // Create test users
-    await db.insert(users).values([
+    await getOwnerDb().insert(users).values([
       {
         id: user1Id,
         email: 'org-owner@test.com',
@@ -76,15 +79,15 @@ describe('Organization Workflow Integration Tests', () => {
     // Cleanup in reverse dependency order
     try {
       if (testWorkflowId) {
-        await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+        await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));
       }
       if (testOrgId) {
-        await db.delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
-        await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
-        await db.delete(organizations).where(eq(organizations.id, testOrgId));
+        await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
+        await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+        await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
       }
-      await db.delete(users).where(eq(users.tenantId, testTenantId));
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(users).where(eq(users.tenantId, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     } catch (error) {
       console.error('Cleanup error:', error);
     }
@@ -361,7 +364,7 @@ describe('Organization Workflow Integration Tests', () => {
       await db
         .delete(organizationMemberships)
         .where(eq(organizationMemberships.orgId, org2.id));
-      await db.delete(organizations).where(eq(organizations.id, org2.id));
+      await getOwnerDb().delete(organizations).where(eq(organizations.id, org2.id));
     });
     it('Member cannot promote themselves to admin', { timeout: 30000 }, async () => {
       enterTenantContextForTests(testTenantId);

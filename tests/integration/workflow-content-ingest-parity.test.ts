@@ -14,6 +14,9 @@ import {
 import { workflowService } from '../../server/services/WorkflowService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface PersistedStepShape {
   title: string;
@@ -146,9 +149,9 @@ function stableJson(value: unknown): unknown {
 
 async function readPersistedShape(workflowId: string): Promise<PersistedWorkflowShape> {
   const [dbSections, dbSteps, dbRules] = await Promise.all([
-    db.select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId)),
-    db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId)),
-    db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId)),
+    getOwnerDb().select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId)),
+    getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId)),
+    getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId)),
   ]);
 
   const sectionById = new Map(dbSections.map((section) => [section.id, section]));
@@ -271,7 +274,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
 
     await workflowContentIngestService.apply(workflowId, fixture, { source: 'ai' });
 
-    const stored = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const stored = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const aliases = stored.map((step) => step.alias);
     expect(aliases).toContain('applicantname');
     expect(aliases).toContain('_1stchoice');
@@ -371,13 +374,13 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
 
     await workflowContentIngestService.apply(workflowId, parsed as unknown as WorkflowContentData, { source: 'ai' });
 
-    const storedSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const storedSteps = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const controller = storedSteps.find((step) => step.alias === 'has_pets');
     const target = storedSteps.find((step) => step.alias === 'pet_name');
     expect(controller).toBeDefined();
     expect(target).toBeDefined();
 
-    const storedRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    const storedRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
     expect(storedRules).toHaveLength(1);
     const [rule] = storedRules;
     expect(rule.action).toBe('show');

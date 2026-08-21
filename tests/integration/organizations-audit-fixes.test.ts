@@ -24,6 +24,9 @@ import {
   tenants,
   auditLogs,
 } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 
 describe('Organization Audit Fixes', () => {
@@ -45,13 +48,13 @@ describe('Organization Audit Fixes', () => {
   beforeAll(async () => {
     enterTenantContextForTests(testTenantId);
     // Create test tenant
-    await db.insert(tenants).values({
+    await getOwnerDb().insert(tenants).values({
       id: testTenantId,
       name: 'Test Tenant Audit',
     }).onConflictDoNothing();
 
     // Create test users
-    await db.insert(users).values([
+    await getOwnerDb().insert(users).values([
       {
         id: user1Id,
         email: 'audit-user1@test.com',
@@ -76,7 +79,7 @@ describe('Organization Audit Fixes', () => {
     // Create a dummy workspace with ID = testTenantId to satisfy OrganizationService's
     // incorrect assumption that tenantId can be logged as workspaceId in audit logs.
     const { workspaces } = await import('../../shared/schema');
-    await db.insert(workspaces).values({
+    await getOwnerDb().insert(workspaces).values({
       id: testTenantId, // Force ID to match tenantId
       organizationId: testOrgId,
       name: 'Default Workspace',
@@ -88,9 +91,9 @@ describe('Organization Audit Fixes', () => {
     // Cleanup
     try {
       if (testOrgId) {
-        await db.delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
-        await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
-        await db.delete(organizations).where(eq(organizations.id, testOrgId));
+        await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
+        await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+        await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
       }
 
       // Cleanup assets created by users to prevents FK violations
@@ -103,17 +106,17 @@ describe('Organization Audit Fixes', () => {
 
       for (const uid of testUserIds) {
         // Runs
-        await db.delete(workflowRuns).where(eq(workflowRuns.createdBy, uid));
+        await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.createdBy, uid));
         // Workflows
-        await db.delete(workflows).where(eq(workflows.creatorId, uid));
+        await getOwnerDb().delete(workflows).where(eq(workflows.creatorId, uid));
         // Projects
-        await db.delete(projects).where(eq(projects.creatorId, uid));
+        await getOwnerDb().delete(projects).where(eq(projects.creatorId, uid));
         // Audit Logs (fix FK violation)
-        await db.delete(auditLogs).where(eq(auditLogs.userId, uid));
+        await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, uid));
       }
 
-      await db.delete(users).where(eq(users.tenantId, testTenantId));
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(users).where(eq(users.tenantId, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     } catch (error) {
       console.error('Cleanup error:', error);
     }
@@ -145,7 +148,7 @@ describe('Organization Audit Fixes', () => {
       );
 
       // Create a run
-      const [run] = await db.insert(workflowRuns).values({
+      const [run] = await getOwnerDb().insert(workflowRuns).values({
         workflowId: workflow.id,
         runToken: uuidv4(),
         createdBy: user1Id,
@@ -165,9 +168,9 @@ describe('Organization Audit Fixes', () => {
       expect(updatedRun?.ownerUuid).toBe(testOrgId);
 
       // Cleanup
-      await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
-      await db.delete(projects).where(eq(projects.id, project.id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(projects).where(eq(projects.id, project.id));
     });
   });
 
@@ -206,7 +209,7 @@ describe('Organization Audit Fixes', () => {
       expect(memberships).toHaveLength(1);
 
       // Cleanup
-      await db.delete(organizationMemberships).where(
+      await getOwnerDb().delete(organizationMemberships).where(
         and(
           eq(organizationMemberships.orgId, testOrgId),
           eq(organizationMemberships.userId, user2Id)
@@ -234,7 +237,7 @@ describe('Organization Audit Fixes', () => {
       expect(dbInvite?.status).toBe('pending');
 
       // Cleanup
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
     });
   });
 
@@ -265,8 +268,8 @@ describe('Organization Audit Fixes', () => {
       expect(expiredInvite?.status).toBe('expired');
 
       // Cleanup
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite1.inviteId));
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite2.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite1.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite2.inviteId));
     });
   });
 
@@ -315,9 +318,9 @@ describe('Organization Audit Fixes', () => {
       ).rejects.toThrow(/owns workflows/i);
 
       // Cleanup
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
-      await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, org.id));
-      await db.delete(organizations).where(eq(organizations.id, org.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, org.id));
+      await getOwnerDb().delete(organizations).where(eq(organizations.id, org.id));
     });
   });
 
@@ -350,7 +353,7 @@ describe('Organization Audit Fixes', () => {
       expect(cleanedUser).toBeUndefined();
 
       // Cleanup invite
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
     });
   });
 
@@ -378,7 +381,7 @@ describe('Organization Audit Fixes', () => {
       expect(duration).toBeLessThan(500);
 
       // Cleanup
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
     });
   });
 });

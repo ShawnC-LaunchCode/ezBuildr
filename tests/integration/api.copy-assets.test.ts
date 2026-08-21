@@ -8,6 +8,9 @@ import * as schema from "@shared/schema";
 
 import { db } from "../../server/db";
 import { createTestUser, setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential("Asset Copy API Integration Tests", () => {
   let ctx: IntegrationTestContext;
@@ -22,7 +25,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       tenantRole: "owner",
     });
     member = await createTestUser(ctx, "builder");
-    await db.insert(schema.organizationMemberships).values({
+    await getOwnerDb().insert(schema.organizationMemberships).values({
       orgId: ctx.orgId,
       userId: member.userId,
       role: "member",
@@ -144,7 +147,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.workflowVersions).values({
+    await getOwnerDb().insert(schema.workflowVersions).values({
       id: randomUUID(),
       workflowId: workflow.id,
       versionNumber: 1,
@@ -164,7 +167,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.steps).values({
+    await getOwnerDb().insert(schema.steps).values({
       id: randomUUID(),
       workflowId: workflow.id,
       sectionId: section.id,
@@ -223,14 +226,14 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.datavaultValues).values({
+    await getOwnerDb().insert(schema.datavaultValues).values({
       id: randomUUID(),
       rowId: row.id,
       columnId: column.id,
       value: "Ada Lovelace",
     });
 
-    await db.insert(schema.workflowDataSources).values({
+    await getOwnerDb().insert(schema.workflowDataSources).values({
       workflowId: workflow.id,
       dataSourceId: database.id,
     });

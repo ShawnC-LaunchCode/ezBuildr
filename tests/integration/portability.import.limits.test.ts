@@ -9,11 +9,13 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
 import * as schema from "@shared/schema";
-import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { BundleWriter } from "../../server/services/portability/bundleWriter";
 import { FORMAT_VERSION, type BundleManifest } from "../../server/services/portability/bundleFormat";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // The upload cap, and the reader's declared-size limits (IEX2-10), are all
 // read when their modules are first imported, so every override has to be in
@@ -75,7 +77,7 @@ describe.sequential("Portability Import API — upload size cap", () => {
     });
     baseURL = `http://localhost:${port}`;
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: "Test Tenant for Import Limits",
       plan: "free",
     }).returning();
@@ -94,7 +96,7 @@ describe.sequential("Portability Import API — upload size cap", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
 
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
   });
@@ -103,7 +105,7 @@ describe.sequential("Portability Import API — upload size cap", () => {
     delete process.env.PORTABILITY_MAX_UPLOAD_BYTES;
     delete process.env.PORTABILITY_MAX_ENTRY_BYTES;
     if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });

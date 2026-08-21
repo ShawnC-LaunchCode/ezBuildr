@@ -5,6 +5,9 @@ import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { organizations, organizationMemberships, users, tenants } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * Tests for Organization Service (Integration)
  *
@@ -31,13 +34,13 @@ describe('OrganizationService Integration', () => {
     beforeEach(async () => {
         // Determine a safe tenant name or ensure uniqueness if running parallel (though beforeEach runs per test)
         // Create a test tenant
-        const [tenant] = await db.insert(tenants).values({
+        const [tenant] = await getOwnerDb().insert(tenants).values({
             name: 'Test Tenant Integration',
             plan: 'pro',
         }).returning();
         currentTenantId = tenant.id;
         // Create test users with tenantId using upsert to guarantee state
-        await db.insert(users).values([
+        await getOwnerDb().insert(users).values([
             { id: testUserId1, email: 'orgtest1_int@test.com', fullName: 'Org Test User 1 Int', tenantId: tenant.id },
             { id: testUserId2, email: 'orgtest2_int@test.com', fullName: 'Org Test User 2 Int', tenantId: tenant.id },
         ]).onConflictDoUpdate({
@@ -64,9 +67,9 @@ describe('OrganizationService Integration', () => {
         try {
             if (testOrgId) {
                 // Delete memberships first (cascade should handle this, but be explicit)
-                await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+                await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
                 // Delete organization
-                await db.delete(organizations).where(eq(organizations.id, testOrgId));
+                await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
             }
         } catch (error) {
             // Ignore cleanup errors
@@ -138,7 +141,7 @@ describe('OrganizationService Integration', () => {
             );
             testOrgId = org.id;
             // Add user2 as member (not admin)
-            await db.insert(organizationMemberships).values({
+            await getOwnerDb().insert(organizationMemberships).values({
                 orgId: org.id,
                 userId: testUserId2,
                 role: 'member',
