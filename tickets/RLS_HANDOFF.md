@@ -120,6 +120,8 @@ grep -oE 'at [A-Za-z]+(Service|Repository)\.[a-zA-Z]+ \(C:/[^)]*server/[^)]*\)' 
 | `13af4730` | **`0032` — the authentication front door.** See below |
 | `7107752b` | `SectionService` + `StepService` converted; the route-middleware layer; `audit_logs` missing-`tenantId` |
 | `6f09ba54` | `AuditLogger` silently dropping every tenanted audit row |
+| `4a9f3ff2` | Owner's ruling on `0032` recorded |
+| `6941b767` | Background-job tenant bootstrap; `WorkflowTenantResolver`; `RunDefinitionProvider` |
 
 ### The two findings worth carrying forward
 
@@ -157,6 +159,37 @@ caller that opened its transaction via `withTenant(explicitId, …)` sets the GU
 undefined exactly where a tenant was pinned. Violations moved 190 → 188. The
 real defect was the no-transaction path writing a real tenant onto the pool,
 where no GUC is set. **Never infer one mechanism from the other.**
+
+### ⚠️ Two traps this vertical exposed — both will bite again
+
+**`runWithTenantContext` is NOT enough on its own.** It populates the async
+STORE, which is what *converted services* read when they call
+`withCurrentTenant`. A repository call issued **directly on the pool** never
+consults it. So "I set the tenant context" does not make a bare
+`someRepository.findById(id)` work — that read needs a real transaction. This is
+the same store-vs-GUC confusion that wasted a fix on `AuditLogger`, in a second
+costume. If a fix "sets the tenant" and the symptom does not move, check whether
+the failing read is actually inside a transaction.
+
+**`WorkflowTenantResolver` could not resolve a tenant under enforcement, and
+`runTokenAuth` still silently suffers it.** Migration `0030` makes the
+*workflow* readable during bootstrap, but *deriving its tenant* reads
+`users`/`projects`/`organizations` — RLS-covered in their own right — and
+`app_owner_tenant()` is plain SQL, **not `SECURITY DEFINER`**, so it is subject
+to RLS as well. Resolution therefore found the workflow and still returned
+`null`, which every caller correctly treats as "deny".
+
+Fixed for the user-id paths by pinning `app.current_user_id` to an id taken off
+the already-read workflow (`0028`'s existing clause makes it visible — **no new
+migration needed**). ⚠️ **The `projects` and `organizations` paths are NOT
+fixed**: a workflow whose tenant is only derivable through its project or an org
+owner will still fail to resolve. That needs the same verified-foreign-key
+clause on those two tables when someone hits it.
+
+⚠️ **`runTokenAuth` has this identical hole** and swallows it as best-effort
+("leave the context empty rather than invent a tenant"), so **no test shows
+it** — run-token requests have been silently getting no tenant. Worth a
+deliberate look before RLS-4.
 
 ### Measured progress, three full restricted-role runs
 
