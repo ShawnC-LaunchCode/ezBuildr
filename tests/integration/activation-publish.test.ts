@@ -17,6 +17,7 @@ import { workflowService } from "../../server/services/WorkflowService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("ICW2-7 activation creates a version and unblocks anonymous runs", () => {
   let tenantId: string;
@@ -81,6 +82,10 @@ describe("ICW2-7 activation creates a version and unblocks anonymous runs", () =
   });
 
   it("sets currentVersionId on activation and lets an anonymous run start", async () => {
+    // RLS-5: this test drives `runService` / `workflowService` DIRECTLY, so no
+    // middleware opens a tenant context for them. Entering it here (not in a
+    // hook — that does not propagate into a test body) is recipe step 3.
+    enterTenantContextForTests(tenantId);
     // Reproduce the pre-fix dead-end: the OLD activation flipped status to 'active'
     // without ever creating a version, so createAnonymousRun hit the version guard.
     await getOwnerDb().update(workflows)

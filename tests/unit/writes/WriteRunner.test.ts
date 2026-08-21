@@ -24,9 +24,11 @@ vi.mock("../../../server/lib/audit/auditLogger", () => ({
     },
 }));
 // Mock DB
+// RLS-5: the real write now runs in `withTenant`, which pins the tenant GUC on
+// the transaction before handing it over — so the stub tx needs `execute`.
 vi.mock("../../../server/db", () => ({
     db: {
-        transaction: vi.fn((callback) => callback({})), // Execute transaction callback immediately
+        transaction: vi.fn((callback) => callback({ execute: vi.fn() })), // Execute transaction callback immediately
     },
     initializeDatabase: vi.fn(),
     dbInitPromise: Promise.resolve(),

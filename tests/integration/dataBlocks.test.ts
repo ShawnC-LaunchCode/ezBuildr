@@ -7,6 +7,9 @@ import { users, tenants, projects, workflows, sections, blocks, datavaultDatabas
 import type { Block } from '@shared/schema';
 import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
+// RLS-5 recipe step 3: every test here drives runService/blockService DIRECTLY,
+// so nothing opens a tenant context for them; a hook entry would not reach a
+// test body. See tickets/RLS_HANDOFF.md §0b.
 import { enterTenantContextForTests, runWithTenantContext } from '../../server/utils/rlsContext';
 import { WriteRunner } from '../../server/lib/writes/WriteRunner';
 import { stepValueRepository } from '../../server/repositories';
@@ -250,6 +253,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('should write data to DataVault via WriteBlock', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         // 1. Create Workflow & Section
         const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId: projectId,
@@ -332,6 +337,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('serializes concurrent upserts for the same new match value into exactly one row', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         const matchValue = `concurrent-${uuidv4()}`;
         const config: WriteBlockConfig = {
             dataSourceId: databaseId,
@@ -372,6 +379,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('returns actual EAV cell values and excludes archived rows via Read Table block', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         const list = await executeReadTable();
 
         const alpha = list.rows.find(row => row[readTextColumnId] === 'Alpha');
@@ -393,6 +402,8 @@ describe('Data Block Integration Tests', () => {
     ] as const)(
         'applies the %s EAV filter without querying a nonexistent data column',
         async (operator, value, expectedLabels) => {
+
+        enterTenantContextForTests(tenantId);
             const list = await executeReadTable({
                 filters: [{ columnId: operator === 'greater_than' ? readNumberColumnId : readTextColumnId, operator, value }],
             });
@@ -403,6 +414,8 @@ describe('Data Block Integration Tests', () => {
     );
 
     it('sorts number-column values numerically via Read Table block', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         const list = await executeReadTable({
             sort: { columnId: readNumberColumnId, direction: 'asc' },
         });
@@ -414,6 +427,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('sorts prefixed auto-numbers as padded text without a numeric-cast error', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         const list = await executeReadTable({
             sort: { columnId: readPrefixedAutoNumberColumnId, direction: 'asc' },
         });
@@ -423,6 +438,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('continues to sort unprefixed auto-numbers numerically', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         const list = await executeReadTable({
             sort: { columnId: readUnprefixedAutoNumberColumnId, direction: 'asc' },
         });
@@ -432,6 +449,8 @@ describe('Data Block Integration Tests', () => {
     });
 
     it('should query data from DataVault via QueryBlock and use in Logic', { timeout: 30000 }, async () => {
+
+        enterTenantContextForTests(tenantId);
         // 1. Create Workflow & Query
         const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId: projectId,
