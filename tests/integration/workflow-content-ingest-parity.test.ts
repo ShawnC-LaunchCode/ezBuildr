@@ -6,7 +6,6 @@ import { AIGeneratedWorkflowSchema } from '@shared/types/ai';
 import { evaluateRules, type EvaluableLogicRule } from '@shared/workflowLogic';
 
 import { AliasResolver } from '../../server/services/AliasResolver';
-import { db } from '../../server/db';
 import {
   workflowContentIngestService,
   type WorkflowContentData,
@@ -207,7 +206,8 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
       tenantName: 'Ingest Parity Tenant',
       createProject: true,
     });
-    factory = new TestFactory(db);
+    // Fixture rows go through the observer connection, not the app pool.
+    factory = new TestFactory(getOwnerDb());
   });
 
   afterAll(async () => {
@@ -305,13 +305,13 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
       workflowService.replaceWorkflowContent(workflowId, ctx.userId, badFixture)
     ).rejects.toThrow();
 
-    const [wf] = await db
+    const [wf] = await getOwnerDb()
       .select()
       .from(schema.workflows)
       .where(eq(schema.workflows.id, workflowId));
     expect(wf?.title).toBe('Original Title');
 
-    const audits = await db
+    const audits = await getOwnerDb()
       .select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, workflowId));
@@ -321,13 +321,13 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     // content + audit all land when nothing fails).
     await workflowService.replaceWorkflowContent(workflowId, ctx.userId, cloneFixture({ title: 'Replaced Title' }));
 
-    const [wfAfter] = await db
+    const [wfAfter] = await getOwnerDb()
       .select()
       .from(schema.workflows)
       .where(eq(schema.workflows.id, workflowId));
     expect(wfAfter?.title).toBe('Replaced Title');
 
-    const auditsAfter = await db
+    const auditsAfter = await getOwnerDb()
       .select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, workflowId));

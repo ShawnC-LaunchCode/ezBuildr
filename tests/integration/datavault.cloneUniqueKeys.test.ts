@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { createTestUser, setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -53,7 +52,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
   }> {
     const suffix = `${tag}-${randomUUID()}`;
 
-    const [project] = await db
+    const [project] = await getOwnerDb()
       .insert(schema.projects)
       .values({
         id: randomUUID(),
@@ -70,7 +69,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       })
       .returning();
 
-    const [workflow] = await db
+    const [workflow] = await getOwnerDb()
       .insert(schema.workflows)
       .values({
         id: randomUUID(),
@@ -99,7 +98,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       published: true,
     });
 
-    const [database] = await db
+    const [database] = await getOwnerDb()
       .insert(schema.datavaultDatabases)
       .values({
         id: randomUUID(),
@@ -113,7 +112,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
       .returning();
 
     const tableName = `DVH-5 Table ${suffix}`;
-    const [table] = await db
+    const [table] = await getOwnerDb()
       .insert(schema.datavaultTables)
       .values({
         id: randomUUID(),
@@ -134,7 +133,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     tableId: string,
     opts: { name: string; slug: string; isUnique?: boolean; isPrimaryKey?: boolean; orderIndex: number }
   ): Promise<string> {
-    const [column] = await db
+    const [column] = await getOwnerDb()
       .insert(schema.datavaultColumns)
       .values({
         id: randomUUID(),
@@ -155,7 +154,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     values: Record<string, string>,
     opts: { deletedAt?: Date } = {}
   ): Promise<string> {
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .insert(schema.datavaultRows)
       .values({
         id: randomUUID(),
@@ -179,7 +178,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
   }
 
   function findClonedTable(ownerUuid: string, tableName: string) {
-    return db
+    return getOwnerDb()
       .select()
       .from(schema.datavaultTables)
       .where(and(eq(schema.datavaultTables.ownerUuid, ownerUuid), eq(schema.datavaultTables.name, `dev_${tableName}`)));
@@ -201,20 +200,20 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     const [clonedTable] = await findClonedTable(member.userId, tableName);
     expect(clonedTable).toBeDefined();
 
-    const [clonedColumn] = await db
+    const [clonedColumn] = await getOwnerDb()
       .select()
       .from(schema.datavaultColumns)
       .where(and(eq(schema.datavaultColumns.tableId, clonedTable.id), eq(schema.datavaultColumns.slug, "employee-id")));
     expect(clonedColumn).toBeDefined();
 
     // Criterion 1: one key per live cloned value, asserted by querying the table directly.
-    const keys = await db
+    const keys = await getOwnerDb()
       .select()
       .from(schema.datavaultUniqueKeys)
       .where(eq(schema.datavaultUniqueKeys.columnId, clonedColumn.id));
     expect(keys).toHaveLength(2);
 
-    const clonedRows = await db
+    const clonedRows = await getOwnerDb()
       .select()
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.tableId, clonedTable.id));
@@ -234,7 +233,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     expect(dupRes.status).toBe(409);
 
     // The rejected duplicate did not add a second key for the same value.
-    const keysAfterDup = await db
+    const keysAfterDup = await getOwnerDb()
       .select()
       .from(schema.datavaultUniqueKeys)
       .where(eq(schema.datavaultUniqueKeys.columnId, clonedColumn.id));
@@ -256,13 +255,13 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     const [clonedTable] = await findClonedTable(member.userId, tableName);
     expect(clonedTable).toBeDefined();
 
-    const [clonedColumn] = await db
+    const [clonedColumn] = await getOwnerDb()
       .select()
       .from(schema.datavaultColumns)
       .where(and(eq(schema.datavaultColumns.tableId, clonedTable.id), eq(schema.datavaultColumns.slug, "code")));
     expect(clonedColumn).toBeDefined();
 
-    const keys = await db
+    const keys = await getOwnerDb()
       .select()
       .from(schema.datavaultUniqueKeys)
       .where(eq(schema.datavaultUniqueKeys.columnId, clonedColumn.id));
@@ -284,7 +283,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     const [clonedTable] = await findClonedTable(member.userId, tableName);
     expect(clonedTable).toBeDefined();
 
-    const [clonedColumn] = await db
+    const [clonedColumn] = await getOwnerDb()
       .select()
       .from(schema.datavaultColumns)
       .where(and(eq(schema.datavaultColumns.tableId, clonedTable.id), eq(schema.datavaultColumns.slug, "serial")));
@@ -292,7 +291,7 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     expect(clonedColumn.isPrimaryKey).toBe(true);
     expect(clonedColumn.isUnique).toBe(false);
 
-    const keys = await db
+    const keys = await getOwnerDb()
       .select()
       .from(schema.datavaultUniqueKeys)
       .where(eq(schema.datavaultUniqueKeys.columnId, clonedColumn.id));
@@ -317,18 +316,18 @@ describe.sequential("DataVault clone unique-key backfill (DVH-5)", () => {
     const [clonedTable] = await findClonedTable(member.userId, tableName);
     expect(clonedTable).toBeDefined();
 
-    const clonedRows = await db
+    const clonedRows = await getOwnerDb()
       .select()
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.tableId, clonedTable.id));
     expect(clonedRows).toHaveLength(1);
 
-    const [clonedColumn] = await db
+    const [clonedColumn] = await getOwnerDb()
       .select()
       .from(schema.datavaultColumns)
       .where(and(eq(schema.datavaultColumns.tableId, clonedTable.id), eq(schema.datavaultColumns.slug, "ticket")));
 
-    const keys = await db
+    const keys = await getOwnerDb()
       .select()
       .from(schema.datavaultUniqueKeys)
       .where(eq(schema.datavaultUniqueKeys.columnId, clonedColumn.id));

@@ -6,7 +6,6 @@ import WebSocket from 'ws';
 import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
 
-import { db } from '../../server/db';
 import { getRoomStats, shutdown } from '../../server/realtime/collabServer';
 import { authService } from '../../server/services/AuthService';
 import {
@@ -227,14 +226,14 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     const client = await connectClient(url());
     clients.push(client);
 
-    const [collabDoc] = await db
+    const [collabDoc] = await getOwnerDb()
       .select({ id: collabDocs.id })
       .from(collabDocs)
       .where(and(eq(collabDocs.workflowId, workflowId), eq(collabDocs.tenantId, ctx.tenantId)))
       .limit(1);
     expect(collabDoc).toBeDefined();
 
-    const before = await db
+    const before = await getOwnerDb()
       .select({ id: collabUpdates.id })
       .from(collabUpdates)
       .where(eq(collabUpdates.docId, collabDoc.id));
@@ -245,7 +244,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
 
     let persistedCount = before.length;
     await waitForCondition(async () => {
-      const rows = await db
+      const rows = await getOwnerDb()
         .select({ id: collabUpdates.id })
         .from(collabUpdates)
         .where(eq(collabUpdates.docId, collabDoc.id));

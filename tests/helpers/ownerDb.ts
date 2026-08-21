@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
 import * as schema from '@shared/schema';
@@ -36,7 +36,11 @@ import * as schema from '@shared/schema';
  * app uses, so behaviour is unchanged.
  */
 let pool: Pool | null = null;
-let instance: ReturnType<typeof drizzle> | null = null;
+// Typed WITH the schema generic (not a bare `ReturnType<typeof drizzle>`) so
+// this handle is assignable wherever the app's own `db` is — e.g.
+// `new TestFactory(getOwnerDb())`, which is how a suite routes its fixture
+// creation through the observer instead of the application pool.
+let instance: NodePgDatabase<typeof schema> | null = null;
 
 function ownerConnectionString(): string {
   const url = (global as typeof globalThis & { __OWNER_DB_URL__?: string }).__OWNER_DB_URL__;
@@ -52,7 +56,7 @@ function ownerConnectionString(): string {
   return fallback;
 }
 
-export function getOwnerDb(): ReturnType<typeof drizzle> {
+export function getOwnerDb(): NodePgDatabase<typeof schema> {
   if (instance !== null) {
     return instance;
   }

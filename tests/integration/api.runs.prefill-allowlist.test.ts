@@ -21,13 +21,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { versionService } from '../../server/services/VersionService';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+// RLS-5: fixture writes and verification reads are the TEST OBSERVER, not the
+// application — under RLS_RESTRICTED the app's pool is a genuine non-owner and
+// these writes are rejected by `workflows`/`workflow_snapshots` policies. The
+// app paths under test are untouched; see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from '../helpers/ownerDb';
 import { TestFactory } from '../helpers/testFactory';
 
 describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
@@ -47,7 +51,7 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
   });
 
   async function getStepValues(runId: string): Promise<(typeof schema.stepValues.$inferSelect)[]> {
-    return db
+    return getOwnerDb()
       .select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
@@ -78,7 +82,7 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
     // `createDraftVersion` returns null only when the checksum is unchanged,
     // which can't happen here (the live workflow just gained content).
     const version = (await versionService.createDraftVersion(workflow.id, ctx.userId)) ?? emptyVersion;
-    await db
+    await getOwnerDb()
       .update(schema.workflows)
       .set({ currentVersionId: version.id })
       .where(eq(schema.workflows.id, workflow.id));
@@ -169,7 +173,7 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
     it('keeps a snapshot-sourced value (and rejects the attacker override) even though intakeConfig forbids prefill entirely', async () => {
       const { workflow, version, emailStep } = await makeWorkflowWithSteps(); // no intakeConfig -> allowPrefill defaults to falsy
 
-      const [snapshot] = await db
+      const [snapshot] = await getOwnerDb()
         .insert(schema.workflowSnapshots)
         .values({
           workflowId: workflow.id,

@@ -6,7 +6,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { createTestUser, setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -61,13 +60,13 @@ describe.sequential("Asset Copy API Integration Tests", () => {
     expect(response.body.data.copiedRows).toBe(1);
 
     const copiedWorkflowId = response.body.data.workflows[0].id as string;
-    const copiedSections = await db
+    const copiedSections = await getOwnerDb()
       .select()
       .from(schema.sections)
       .where(eq(schema.sections.workflowId, copiedWorkflowId));
     expect(copiedSections).toHaveLength(1);
 
-    const copiedTables = await db
+    const copiedTables = await getOwnerDb()
       .select()
       .from(schema.datavaultTables)
       .where(eq(schema.datavaultTables.ownerUuid, member.userId));
@@ -108,7 +107,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
   });
 
   async function createOrgProjectWithWorkflow(userId: string): Promise<{ projectId: string; workflowId: string }> {
-    const [project] = await db
+    const [project] = await getOwnerDb()
       .insert(schema.projects)
       .values({
         id: randomUUID(),
@@ -125,7 +124,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [workflow] = await db
+    const [workflow] = await getOwnerDb()
       .insert(schema.workflows)
       .values({
         id: randomUUID(),
@@ -157,7 +156,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       published: true,
     });
 
-    const [section] = await db
+    const [section] = await getOwnerDb()
       .insert(schema.sections)
       .values({
         id: randomUUID(),
@@ -177,7 +176,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       order: 1,
     });
 
-    const [database] = await db
+    const [database] = await getOwnerDb()
       .insert(schema.datavaultDatabases)
       .values({
         id: randomUUID(),
@@ -190,7 +189,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [table] = await db
+    const [table] = await getOwnerDb()
       .insert(schema.datavaultTables)
       .values({
         id: randomUUID(),
@@ -204,7 +203,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [column] = await db
+    const [column] = await getOwnerDb()
       .insert(schema.datavaultColumns)
       .values({
         id: randomUUID(),
@@ -216,7 +215,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .insert(schema.datavaultRows)
       .values({
         id: randomUUID(),
