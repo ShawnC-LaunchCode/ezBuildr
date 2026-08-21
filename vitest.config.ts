@@ -27,6 +27,7 @@ const dbUnitTests = [
   "tests/unit/scripts/migrateOptionAliases.db.test.ts",
   "tests/unit/services/document/delivery/DocumentDelivery.db.test.ts",
   "tests/unit/repositories/AiUsageRepository.test.ts",
+  "tests/unit/middleware/runTokenAuth.tenant.db.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)
