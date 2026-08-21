@@ -11,6 +11,7 @@ import {
   type WorkflowContentData,
 } from '../../server/services/WorkflowContentIngestService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
@@ -214,10 +215,19 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     await ctx.cleanup();
   });
 
+  /**
+   * RLS-5: this suite calls `workflowContentIngestService.apply` DIRECTLY
+   * rather than over HTTP, so no middleware ever opens a tenant context and
+   * the service's `withCurrentTenant` has nothing to read. `beforeAll` and
+   * `beforeEach` both fail to propagate through AsyncLocalStorage (measured),
+   * so the context has to be entered inside each test body — which is what
+   * `createWorkflow` does here, since every test starts by calling it.
+   */
   async function createWorkflow(title: string): Promise<string> {
     if (ctx.projectId === undefined) {
       throw new Error('Integration test project was not created');
     }
+    enterTenantContextForTests(ctx.tenantId);
 
     const { workflow } = await factory.createWorkflow(ctx.projectId, ctx.userId, {
       workflow: { title },

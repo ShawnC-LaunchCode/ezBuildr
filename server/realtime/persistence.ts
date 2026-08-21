@@ -5,6 +5,7 @@ import * as Y from 'yjs';
 import { collabDocs, collabUpdates, collabSnapshots } from '../../shared/schema';
 import { db } from '../db';
 import { createLogger } from '../logger';
+import { withTenant } from '../utils/rlsContext';
 
 
 const logger = createLogger({ module: 'collab-persistence' });
@@ -108,31 +109,43 @@ export async function getOrCreateCollabDoc(
   versionId?: string | null
 ): Promise<string> {
   try {
-    // Try to find existing doc
-    const existing = await db.query.collabDocs.findFirst({
-      where: and(
-        eq(collabDocs.workflowId, workflowId),
-        eq(collabDocs.tenantId, tenantId),
-        versionId ? eq(collabDocs.versionId, versionId) : isNull(collabDocs.versionId)
-      ),
+    // RLS-5: `collab_docs` is RLS-covered, and a WebSocket upgrade never passes
+    // through Express middleware — so nothing has put a tenant in the async
+    // context by the time this runs (`server/realtime/auth.ts` wraps its own
+    // access check for the same reason). Written unscoped, the INSERT is
+    // rejected under enforcement and every collaborative editing session fails
+    // to open. The tenant arrives as an argument, verified from the JWT and
+    // checked against the room, so pin it explicitly.
+    //
+    // Read and insert share the transaction: this is a get-or-create, so
+    // making it atomic is a small bonus rather than a change in behaviour.
+    return await withTenant(tenantId, async (tx) => {
+      // Try to find existing doc
+      const existing = await tx.query.collabDocs.findFirst({
+        where: and(
+          eq(collabDocs.workflowId, workflowId),
+          eq(collabDocs.tenantId, tenantId),
+          versionId ? eq(collabDocs.versionId, versionId) : isNull(collabDocs.versionId)
+        ),
+      });
+
+      if (existing) {
+        return existing.id;
+      }
+
+      // Create new doc
+      const [newDoc] = await tx
+        .insert(collabDocs)
+        .values({
+          workflowId,
+          tenantId,
+          versionId: versionId ?? null,
+        })
+        .returning();
+
+      logger.info({ docId: newDoc.id, workflowId, tenantId }, 'Created new collab doc');
+      return newDoc.id;
     });
-
-    if (existing) {
-      return existing.id;
-    }
-
-    // Create new doc
-    const [newDoc] = await db
-      .insert(collabDocs)
-      .values({
-        workflowId,
-        tenantId,
-        versionId: versionId ?? null,
-      })
-      .returning();
-
-    logger.info({ docId: newDoc.id, workflowId, tenantId }, 'Created new collab doc');
-    return newDoc.id;
   } catch (error) {
     logger.error({ error, workflowId, tenantId }, 'Failed to get or create collab doc');
     throw error;

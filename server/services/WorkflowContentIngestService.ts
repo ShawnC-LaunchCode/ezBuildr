@@ -1,6 +1,7 @@
 import { eq, inArray, and, isNull } from "drizzle-orm";
 
 import { db } from "../db";
+import { withCurrentTenant } from "../utils/rlsContext";
 import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
@@ -268,7 +269,12 @@ export class WorkflowContentIngestService {
     if (options.tx) {
       return runner(options.tx);
     }
-    return db.transaction(runner);
+    // RLS-5: `sections` and `steps` are RLS-covered through their workflow's
+    // ownership-derived policy, so this transaction has to carry the tenant —
+    // a bare `db.transaction` here had every insert rejected under
+    // enforcement. Same house pattern as every other converted service; the
+    // caller-supplied-tx branch above is unchanged and still never nests.
+    return withCurrentTenant(runner);
   }
 
   private async buildAliasState(tx: Transaction, workflowId: string): Promise<AliasSyncState> {
