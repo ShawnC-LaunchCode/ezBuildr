@@ -12,7 +12,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import { users, tenants, projects, externalConnections as connections, secrets } from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { registerConnectionsV2Routes } from '../../../server/routes/connections-v2.routes';
 import { authService } from '../../../server/services/AuthService';
 import {
@@ -282,7 +281,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
       expect(createResponse.status).toBe(201);
       const connectionId = createResponse.body.id;
       // Check initial status (should be disabled/not authorized)
-      const connection = await db.query.externalConnections.findFirst({
+      const connection = await getOwnerDb().query.externalConnections.findFirst({
         where: eq(connections.id, connectionId),
       });
       expect(connection).toBeDefined();

@@ -65,7 +65,7 @@ describe("Analytics Service Integration", () => {
 
 
         await getOwnerDb().update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
-        workflow = await db.query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
+        workflow = await getOwnerDb().query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
     });
 
     it("should generate events and metrics on run completion", { timeout: 30000 }, async () => {

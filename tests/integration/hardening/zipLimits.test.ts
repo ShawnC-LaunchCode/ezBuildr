@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { MAX_ZIP_UNCOMPRESSED_BYTES } from '../../../server/utils/zipLimits';
 import {
   setupIntegrationTest,
@@ -176,7 +175,7 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
         .where(eq(schema.templates.projectId, projectId));
       expect(rowsAfterPost).toEqual(rowsBeforePost);
 
-      const templateBeforePatch = await db.query.templates.findFirst({
+      const templateBeforePatch = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
 
@@ -189,7 +188,7 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
       expect(patchResponse.status).toBe(400);
       expect(responseMessage(patchResponse.body)).toMatch(expectedMessage);
       expect(await leakedCopiesOf(hostile)).toEqual([]);
-      const templateAfterPatch = await db.query.templates.findFirst({
+      const templateAfterPatch = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
       expect(templateAfterPatch).toEqual(templateBeforePatch);

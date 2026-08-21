@@ -7,6 +7,8 @@ import { refreshTokens } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, createVerifiedUser } from "../helpers/testUtils";
+// RLS-5: verification reads are the OBSERVER - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 import type { Express } from "express";
 /**
@@ -112,7 +114,7 @@ describe("Session Management Integration Tests (REAL)", () => {
         .post("/api/auth/login")
         .send({ email, password });
       // Manually revoke one session
-      const allTokens = await db.query.refreshTokens.findMany({
+      const allTokens = await getOwnerDb().query.refreshTokens.findMany({
         where: eq(refreshTokens.userId, userId),
       });
       await db
@@ -200,7 +202,7 @@ describe("Session Management Integration Tests (REAL)", () => {
       expect(revokeResponse.status).toBe(200);
       expect(revokeResponse.body.message).toContain("revoked");
       // Verify session was revoked in database
-      const revokedToken = await db.query.refreshTokens.findFirst({
+      const revokedToken = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.id, sessionToRevoke.id),
       });
       expect(revokedToken!.revoked).toBe(true);
@@ -359,7 +361,7 @@ describe("Session Management Integration Tests (REAL)", () => {
         .set("Cookie", cookie!);
       // Verify trusted devices were revoked
       const { trustedDevices } = await import("@shared/schema");
-      const devices = await db.query.trustedDevices.findMany({
+      const devices = await getOwnerDb().query.trustedDevices.findMany({
         where: eq(trustedDevices.userId, userId),
       });
       expect(devices.every((d) => d.revoked)).toBe(true);

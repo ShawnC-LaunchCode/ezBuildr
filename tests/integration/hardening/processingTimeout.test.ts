@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../../server/db';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
@@ -152,7 +151,7 @@ describe.sequential('Hardening: template processing timeout', () => {
   ])(
     'returns 400 for timed-out $kind processing on PATCH without updating or leaking a temp file',
     async ({ buffer, filename }) => {
-      const templateBefore = await db.query.templates.findFirst({
+      const templateBefore = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
 
@@ -171,7 +170,7 @@ describe.sequential('Hardening: template processing timeout', () => {
         expect(processingMocks.extractFields).not.toHaveBeenCalled();
       }
       expect(await leakedCopiesOf(buffer)).toEqual([]);
-      const templateAfter = await db.query.templates.findFirst({
+      const templateAfter = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
       expect(templateAfter).toEqual(templateBefore);

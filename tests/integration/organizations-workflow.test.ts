@@ -21,7 +21,6 @@ import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { workflowService } from '../../server/services/WorkflowService';
 import { hashToken } from '../../server/utils/encryption';
@@ -107,7 +106,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(org.id).toBeDefined();
       testOrgId = org.id;
       // Verify creator is auto-added as admin
-      const memberships = await db.query.organizationMemberships.findMany({
+      const memberships = await getOwnerDb().query.organizationMemberships.findMany({
         where: eq(organizationMemberships.orgId, testOrgId),
       });
       expect(memberships).toHaveLength(1);
@@ -126,7 +125,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(invite.token).toBeDefined();
       inviteToken = invite.token;
       // Verify invite was created
-      const dbInvite = await db.query.organizationInvites.findFirst({
+      const dbInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite.inviteId),
       });
       expect(dbInvite).toBeDefined();
@@ -140,7 +139,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(result).toBeDefined();
       expect(result.orgId).toBe(testOrgId);
       // Verify membership was created
-      const membership = await db.query.organizationMemberships.findFirst({
+      const membership = await getOwnerDb().query.organizationMemberships.findFirst({
         where: and(
           eq(organizationMemberships.orgId, testOrgId),
           eq(organizationMemberships.userId, user2Id)
@@ -150,7 +149,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(membership?.role).toBe('member');
       // Verify invite was accepted (status changed to 'accepted').
       // Tokens are stored hashed, so look up by the hash of the raw token.
-      const invite = await db.query.organizationInvites.findFirst({
+      const invite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.token, hashToken(inviteToken)),
       });
       expect(invite).toBeDefined();
@@ -182,7 +181,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(transferred.ownerType).toBe('org');
       expect(transferred.ownerUuid).toBe(testOrgId);
       // Verify in database
-      const dbWorkflow = await db.query.workflows.findFirst({
+      const dbWorkflow = await getOwnerDb().query.workflows.findFirst({
         where: eq(workflows.id, testWorkflowId),
       });
       expect(dbWorkflow?.ownerType).toBe('org');
@@ -256,7 +255,7 @@ describe('Organization Workflow Integration Tests', () => {
       enterTenantContextForTests(testTenantId);
       await organizationService.removeMember(testOrgId, user2Id, user1Id);
       // Verify membership was removed
-      const membership = await db.query.organizationMemberships.findFirst({
+      const membership = await getOwnerDb().query.organizationMemberships.findFirst({
         where: and(
           eq(organizationMemberships.orgId, testOrgId),
           eq(organizationMemberships.userId, user2Id)
@@ -332,7 +331,7 @@ describe('Organization Workflow Integration Tests', () => {
         organizationService.acceptInvite(invite.token, user3Id)
       ).rejects.toThrow(/expired/i);
       // The invite is also transitioned to 'expired' so it cannot be retried.
-      const expiredInvite = await db.query.organizationInvites.findFirst({
+      const expiredInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite.inviteId),
       });
       expect(expiredInvite?.status).toBe('expired');

@@ -14,7 +14,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { users, workflows, workflowRuns, organizationMemberships } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 import { TestFactory } from "../../helpers/testFactory";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
@@ -528,7 +527,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(201);
 
             // Verify anonymous creation — no user context was attached
-            const run = await db.query.workflowRuns.findFirst({
+            const run = await getOwnerDb().query.workflowRuns.findFirst({
                 where: eq(workflowRuns.id, res.body.data.runId)
             });
 
@@ -547,7 +546,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(201);
 
             // Verify authenticated creation
-            const run = await db.query.workflowRuns.findFirst({
+            const run = await getOwnerDb().query.workflowRuns.findFirst({
                 where: eq(workflowRuns.id, res.body.data.runId)
             });
 

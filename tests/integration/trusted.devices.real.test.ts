@@ -7,6 +7,8 @@ import { trustedDevices } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, createUserWithMfa, generateTotpCode } from "../helpers/testUtils";
+// RLS-5: verification reads are the OBSERVER - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 import type { Express } from "express";
 /**
@@ -59,7 +61,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
       expect(trustResponse.body.message).toContain("trusted");
       expect(trustResponse.body.trustedUntil).toBeDefined();
       // Verify device is in database
-      const devices = await db.query.trustedDevices.findMany({
+      const devices = await getOwnerDb().query.trustedDevices.findMany({
         where: and(
           eq(trustedDevices.userId, userId),
           eq(trustedDevices.revoked, false)
@@ -119,7 +121,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
       // Should have extended expiry
       expect(secondExpiry > firstExpiry).toBe(true);
       // Should still only have 1 device record
-      const devices = await db.query.trustedDevices.findMany({
+      const devices = await getOwnerDb().query.trustedDevices.findMany({
         where: and(
           eq(trustedDevices.userId, userId),
           eq(trustedDevices.revoked, false)
@@ -281,7 +283,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${token}`);
       expect(revokeResponse.status).toBe(200);
       // Verify device is revoked
-      const device = await db.query.trustedDevices.findFirst({
+      const device = await getOwnerDb().query.trustedDevices.findFirst({
         where: eq(trustedDevices.id, deviceId),
       });
       expect(device!.revoked).toBe(true);
@@ -408,7 +410,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${mfaLoginResponse.body.token}`)
         .set("User-Agent", userAgent)
         .set("X-Forwarded-For", "192.168.1.100");
-      const device1 = await db.query.trustedDevices.findFirst({
+      const device1 = await getOwnerDb().query.trustedDevices.findFirst({
         where: eq(trustedDevices.userId, userId),
       });
       const firstLastUsed = device1!.lastUsedAt;
@@ -420,7 +422,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
         .set("User-Agent", userAgent)
         .set("X-Forwarded-For", "192.168.1.100")
         .send({ email, password });
-      const device2 = await db.query.trustedDevices.findFirst({
+      const device2 = await getOwnerDb().query.trustedDevices.findFirst({
         where: eq(trustedDevices.userId, userId),
       });
       const secondLastUsed = device2!.lastUsedAt;

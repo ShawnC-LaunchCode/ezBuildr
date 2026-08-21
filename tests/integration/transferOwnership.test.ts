@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { db } from '../../server/db';
 import { workflowRepository } from '../../server/repositories';
 import { datavaultDatabasesService } from '../../server/services/DatavaultDatabasesService';
 import { organizationService } from '../../server/services/OrganizationService';
@@ -129,7 +128,7 @@ describe('Transfer Ownership', () => {
             expect(transferred.ownerUuid).toBe(testOrgId);
 
             // Verify workflow was cascaded
-            const updatedWorkflow = await db.query.workflows.findFirst({
+            const updatedWorkflow = await getOwnerDb().query.workflows.findFirst({
                 where: eq(workflows.id, testWorkflowId),
             });
 
@@ -177,7 +176,7 @@ describe('Transfer Ownership', () => {
             // runs before the injected failure) would have committed on its
             // own. Assert it did NOT: ownerType/ownerUuid must be exactly as
             // they were before the failed transfer attempt.
-            const projectAfterFailure = await db.query.projects.findFirst({
+            const projectAfterFailure = await getOwnerDb().query.projects.findFirst({
                 where: eq(projects.id, testProjectId),
             });
             expect(projectAfterFailure?.ownerType).toBe('user');
@@ -186,7 +185,7 @@ describe('Transfer Ownership', () => {
             // The workflow cascade never got its own failure, but since it
             // lives in the same rolled-back transaction it must also be
             // untouched.
-            const workflowAfterFailure = await db.query.workflows.findFirst({
+            const workflowAfterFailure = await getOwnerDb().query.workflows.findFirst({
                 where: eq(workflows.id, testWorkflowId),
             });
             expect(workflowAfterFailure?.ownerType).toBe('user');

@@ -10,7 +10,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import { users, tenants, refreshTokens } from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
 
 import type { Express } from 'express';
@@ -100,7 +99,7 @@ describe('OAuth2 Google Authentication Flow', () => {
       expect(Array.isArray(cookies)).toBe(true);
       expect((cookies as unknown as string[]).some((c: string) => c.startsWith('refresh_token='))).toBe(true);
       // Verify user was created in database
-      const dbUser = await db.query.users.findFirst({
+      const dbUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, 'google-user-123'),
       });
       expect(dbUser).toBeDefined();
@@ -230,7 +229,7 @@ describe('OAuth2 Google Authentication Flow', () => {
         profileImageUrl: 'https://example.com/new-avatar.jpg',
       });
       // Verify database was updated
-      const updatedUser = await db.query.users.findFirst({
+      const updatedUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, userId),
       });
       expect(updatedUser?.firstName).toBe('Updated');
@@ -260,7 +259,7 @@ describe('OAuth2 Google Authentication Flow', () => {
         });
       expect(response.status).toBe(200);
       // Verify refresh token exists in database
-      const token = await db.query.refreshTokens.findFirst({
+      const token = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.userId, 'google-user-refresh'),
       });
       expect(token).toBeDefined();

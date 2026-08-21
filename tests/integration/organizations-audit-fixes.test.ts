@@ -8,7 +8,6 @@ import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
 import { workflowService } from '../../server/services/WorkflowService';
@@ -160,7 +159,7 @@ describe('Organization Audit Fixes', () => {
       await projectService.transferOwnership(project.id, user1Id, 'org', testOrgId);
 
       // Verify run ownership changed
-      const updatedRun = await db.query.workflowRuns.findFirst({
+      const updatedRun = await getOwnerDb().query.workflowRuns.findFirst({
         where: eq(workflowRuns.id, run.id),
       });
 
@@ -229,7 +228,7 @@ describe('Organization Audit Fixes', () => {
         user1Id
       );
 
-      const dbInvite = await db.query.organizationInvites.findFirst({
+      const dbInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite.inviteId),
       });
 
@@ -262,7 +261,7 @@ describe('Organization Audit Fixes', () => {
       expect(invite2.inviteId).not.toBe(invite1.inviteId);
 
       // Verify first invite was marked expired
-      const expiredInvite = await db.query.organizationInvites.findFirst({
+      const expiredInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite1.inviteId),
       });
       expect(expiredInvite?.status).toBe('expired');
@@ -286,7 +285,7 @@ describe('Organization Audit Fixes', () => {
       await organizationService.deleteOrganization(org.id, user1Id);
 
       // Verify deleted
-      const deleted = await db.query.organizations.findFirst({
+      const deleted = await getOwnerDb().query.organizations.findFirst({
         where: eq(organizations.id, org.id),
       });
 
@@ -333,7 +332,7 @@ describe('Organization Audit Fixes', () => {
       const invite = await organizationService.createInvite(testOrgId, email, user1Id);
 
       // Get placeholder user
-      const placeholderUser = await db.query.users.findFirst({
+      const placeholderUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
 
@@ -346,7 +345,7 @@ describe('Organization Audit Fixes', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Verify placeholder user was cleaned up
-      const cleanedUser = await db.query.users.findFirst({
+      const cleanedUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
 

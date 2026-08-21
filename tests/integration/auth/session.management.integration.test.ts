@@ -11,7 +11,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { refreshTokens, users } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -69,7 +68,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .expect(200);
             expect(loginRes.headers['set-cookie']).toBeDefined();
             // Verify refresh token in database
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -88,7 +87,7 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: eq(refreshTokens.userId, userId),
             });
             expect(tokens.length).toBeGreaterThan(0);
@@ -123,7 +122,7 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -488,7 +487,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 })
                 .expect(200);
             // Get the refresh token from database (non-revoked only)
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -528,7 +527,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 expect(res.status).toBe(200);
                 expect(res.body.token).toBeDefined();
             });
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)

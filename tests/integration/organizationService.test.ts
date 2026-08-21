@@ -53,7 +53,7 @@ describe('OrganizationService Integration', () => {
         } catch (e) {
             // Ignore
         }
-        const userCheck = await db.query.users.findFirst({
+        const userCheck = await getOwnerDb().query.users.findFirst({
             where: eq(users.id, testUserId1),
             columns: { id: true, tenantId: true }
         });

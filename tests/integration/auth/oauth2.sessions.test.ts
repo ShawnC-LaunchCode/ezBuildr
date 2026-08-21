@@ -14,7 +14,6 @@ import { users, tenants, refreshTokens, trustedDevices , auditLogs } from '@shar
 
 
 
-import { db } from '../../../server/db';
 import { userCredentialsRepository } from '../../../server/repositories';
 import { registerAuthRoutes } from '../../../server/routes/auth.routes';
 import { authService } from '../../../server/services/AuthService';
@@ -223,7 +222,7 @@ describe('OAuth2 Session Management', () => {
       const token = await authService.createRefreshToken(testUserId);
 
       // Get session ID
-      const sessionRecord = await db.query.refreshTokens.findFirst({
+      const sessionRecord = await getOwnerDb().query.refreshTokens.findFirst({
         where: and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.token, hashToken(token))
@@ -240,7 +239,7 @@ describe('OAuth2 Session Management', () => {
       expect(response.body.message).toBe('Session revoked successfully');
 
       // Verify session is revoked
-      const updatedSession = await db.query.refreshTokens.findFirst({
+      const updatedSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.id, sessionRecord!.id),
       });
       expect(updatedSession?.revoked).toBe(true);
@@ -258,7 +257,7 @@ describe('OAuth2 Session Management', () => {
     it('should prevent revoking current session', async () => {
       const token = await authService.createRefreshToken(testUserId);
 
-      const sessionRecord = await db.query.refreshTokens.findFirst({
+      const sessionRecord = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -289,7 +288,7 @@ describe('OAuth2 Session Management', () => {
 
       // Create session for other user
       const otherToken = await authService.createRefreshToken(otherUser.id);
-      const otherSession = await db.query.refreshTokens.findFirst({
+      const otherSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(otherToken)),
       });
 
@@ -427,7 +426,7 @@ describe('OAuth2 Session Management', () => {
           .set('User-Agent', 'Test Browser/1.0')
           .send({ password: 'StrongTestUser123!@#' });
 
-        const initialDevice = await db.query.trustedDevices.findFirst({
+        const initialDevice = await getOwnerDb().query.trustedDevices.findFirst({
           where: eq(trustedDevices.userId, testUserId),
         });
 
@@ -532,7 +531,7 @@ describe('OAuth2 Session Management', () => {
         expect(response.body.message).toBe('Device revoked successfully');
 
         // Verify device is revoked
-        const updatedDevice = await db.query.trustedDevices.findFirst({
+        const updatedDevice = await getOwnerDb().query.trustedDevices.findFirst({
           where: eq(trustedDevices.id, device.id),
         });
         expect(updatedDevice?.revoked).toBe(true);
@@ -554,7 +553,7 @@ describe('OAuth2 Session Management', () => {
         ip: '192.168.1.100',
       });
 
-      const session = await db.query.refreshTokens.findFirst({
+      const session = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -567,7 +566,7 @@ describe('OAuth2 Session Management', () => {
         userAgent,
       });
 
-      const session = await db.query.refreshTokens.findFirst({
+      const session = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -578,7 +577,7 @@ describe('OAuth2 Session Management', () => {
     it('should update lastUsedAt on token refresh', async () => {
       const token = await authService.createRefreshToken(testUserId);
 
-      const _initialSession = await db.query.refreshTokens.findFirst({
+      const _initialSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 

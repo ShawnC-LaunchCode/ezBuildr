@@ -1,7 +1,6 @@
 import { eq, inArray, or } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { hashToken } from '../../server/utils/encryption';
 import { enterTenantContextForTests } from '../../server/utils/rlsContext';
@@ -100,7 +99,7 @@ describe('Organization Invites', () => {
             expect(result.token).toBeDefined();
 
             // Verify placeholder user was created
-            const placeholderUser = await db.query.users.findFirst({
+            const placeholderUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -109,7 +108,7 @@ describe('Organization Invites', () => {
             expect(placeholderUser?.placeholderEmail).toBe(newUserEmail);
             expect(placeholderUser?.fullName).toBe(newUserEmail.split('@')[0]); // Email prefix
 
-            const setupToken = await db.query.passwordResetTokens.findFirst({
+            const setupToken = await getOwnerDb().query.passwordResetTokens.findFirst({
                 where: eq(passwordResetTokens.userId, placeholderUser!.id),
             });
 
@@ -130,7 +129,7 @@ describe('Organization Invites', () => {
             expect(result.inviteId).toBeDefined();
 
             // Verify existing user was not modified
-            const user = await db.query.users.findFirst({
+            const user = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, existingUserEmail),
             });
 
@@ -170,7 +169,7 @@ describe('Organization Invites', () => {
             const beforeCreate = new Date();
             const result = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, result.inviteId),
             });
 
@@ -210,7 +209,7 @@ describe('Organization Invites', () => {
             expect(newMember?.role).toBe('member');
 
             // Verify invite was marked as accepted
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 
@@ -224,7 +223,7 @@ describe('Organization Invites', () => {
             const inviteResult = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             // Get placeholder user
-            const placeholderUser = await db.query.users.findFirst({
+            const placeholderUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -234,7 +233,7 @@ describe('Organization Invites', () => {
             await organizationService.acceptInvite(inviteResult.token, placeholderUser!.id);
 
             // Verify user is no longer placeholder
-            const updatedUser = await db.query.users.findFirst({
+            const updatedUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -261,7 +260,7 @@ describe('Organization Invites', () => {
             ).rejects.toThrow('expired');
 
             // Verify invite was marked as expired
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 
@@ -329,7 +328,7 @@ describe('Organization Invites', () => {
                 organizationService.acceptInvite(inviteResult.token, existingUserId)
             ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
             const memberships = await getOwnerDb()
@@ -414,7 +413,7 @@ describe('Organization Invites', () => {
 
             await organizationService.revokeInvite(inviteResult.inviteId, adminUserId);
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 

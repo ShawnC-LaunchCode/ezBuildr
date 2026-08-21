@@ -87,7 +87,7 @@ describe.sequential("workflow intake configuration contract", () => {
   });
 
   it("removes only legacy persisted values when the cleanup migration runs", async () => {
-    const section = await db.query.sections.findFirst({
+    const section = await getOwnerDb().query.sections.findFirst({
       where: eq(sections.workflowId, workflowId),
     });
     expect(section).toBeDefined();
@@ -123,13 +123,13 @@ describe.sequential("workflow intake configuration contract", () => {
     const migrationSql = readFileSync(migrationPath, "utf8").replaceAll("--> statement-breakpoint", "");
     await db.execute(sql.raw(migrationSql));
 
-    const cleanedWorkflow = await db.query.workflows.findFirst({
+    const cleanedWorkflow = await getOwnerDb().query.workflows.findFirst({
       where: eq(workflows.id, workflowId),
     });
-    const cleanedSection = await db.query.sections.findFirst({
+    const cleanedSection = await getOwnerDb().query.sections.findFirst({
       where: eq(sections.id, section.id),
     });
-    const cleanedStep = await db.query.steps.findFirst({
+    const cleanedStep = await getOwnerDb().query.steps.findFirst({
       where: eq(steps.id, legacyStep.id),
     });
 

@@ -26,7 +26,6 @@ import {
   scriptExecutionLog
 } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { createTestWorkflow, createTestSection, createTestStep, createTestWorkflowRun } from '../factories';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
@@ -713,7 +712,7 @@ emit(result)
       expect(deleteRes.body.success).toBe(true);
 
       // Verify deleted
-      const hook = await db.query.lifecycleHooks.findFirst({
+      const hook = await getOwnerDb().query.lifecycleHooks.findFirst({
         where: eq(lifecycleHooks.id, hookId),
       });
       expect(hook).toBeUndefined();

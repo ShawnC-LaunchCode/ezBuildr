@@ -4,7 +4,6 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest";
 
 import { loginAttempts, accountLocks } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, randomEmail, randomPassword, createVerifiedUser, generateTotpCode } from "../helpers/testUtils";
 
@@ -113,11 +112,11 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       // Verify lock in database
       const { users } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       expect(user).toBeDefined();
-      const locks = await db.query.accountLocks.findMany({
+      const locks = await getOwnerDb().query.accountLocks.findMany({
         where: eq(accountLocks.userId, user!.id),
       });
       expect(locks.length).toBeGreaterThan(0);
@@ -131,7 +130,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       await request(app).post("/api/auth/login").send({ email, password: "wrong2" });
       await request(app).post("/api/auth/login").send({ email, password }); // Correct
       // Verify attempts recorded
-      const attempts = await db.query.loginAttempts.findMany({
+      const attempts = await getOwnerDb().query.loginAttempts.findMany({
         where: eq(loginAttempts.email, email),
       });
       expect(attempts.length).toBe(3);
@@ -158,10 +157,10 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       expect(setupResponse.body.backupCodes.length).toBe(10);
       // Step 3: Get TOTP secret from database (in real app, user scans QR code)
       const { users, mfaSecrets } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       expect(mfaSecret).toBeDefined();
@@ -208,10 +207,10 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       const backupCodes = setupResponse.body.backupCodes;
       // Get secret and verify to enable MFA
       const { users, mfaSecrets } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       const totpCode = generateTotpCode(mfaSecret!.secret);
@@ -259,10 +258,10 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       // Step 2: Get reset token from database (in real app, sent via email)
       const { passwordResetTokens } = await import("@shared/schema");
       const { users } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const resetTokenRecord = await db.query.passwordResetTokens.findFirst({
+      const resetTokenRecord = await getOwnerDb().query.passwordResetTokens.findFirst({
         where: eq(passwordResetTokens.userId, user!.id),
       });
       expect(resetTokenRecord).toBeDefined();
@@ -317,11 +316,11 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       // Token might still be valid (JWT) but refresh tokens should be revoked
       // The key test is that refresh tokens are invalidated
       const { users } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       const { refreshTokens } = await import("@shared/schema");
-      const validRefreshTokens = await db.query.refreshTokens.findMany({
+      const validRefreshTokens = await getOwnerDb().query.refreshTokens.findMany({
         where: eq(refreshTokens.userId, user!.id),
       });
       // All refresh tokens should be revoked
@@ -375,11 +374,11 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       expect(reuseAttempt.status).toBe(401);
       // All user's refresh tokens should be revoked (security measure)
       const { users } = await import("@shared/schema");
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       const { refreshTokens } = await import("@shared/schema");
-      const allTokens = await db.query.refreshTokens.findMany({
+      const allTokens = await getOwnerDb().query.refreshTokens.findMany({
         where: eq(refreshTokens.userId, user!.id),
       });
       // All should be revoked

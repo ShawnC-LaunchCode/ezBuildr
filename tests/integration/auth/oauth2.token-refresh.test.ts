@@ -11,7 +11,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import { users, tenants, refreshTokens, auditLogs } from '@shared/schema';
 
-import { db } from '../../../server/db';
 import {  userCredentialsRepository } from '../../../server/repositories';
 import { registerAuthRoutes } from '../../../server/routes/auth.routes';
 import { authService } from '../../../server/services/AuthService';
@@ -114,12 +113,12 @@ describe('OAuth2 Token Refresh Flow', () => {
       expect(newRefreshToken).toBeDefined();
       expect(newRefreshToken).not.toBe(testRefreshToken);
       // Old token should be revoked in database
-      const oldToken = await db.query.refreshTokens.findFirst({
+      const oldToken = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
       expect(oldToken?.revoked).toBe(true);
       // New token should exist and not be revoked
-      const newToken = await db.query.refreshTokens.findFirst({
+      const newToken = await getOwnerDb().query.refreshTokens.findFirst({
         where: and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)
@@ -193,7 +192,7 @@ describe('OAuth2 Token Refresh Flow', () => {
         .set('X-Forwarded-For', '192.168.1.100');
       expect(response.status).toBe(200);
       // Check new token has updated metadata
-      const newToken = await db.query.refreshTokens.findFirst({
+      const newToken = await getOwnerDb().query.refreshTokens.findFirst({
         where: and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)
@@ -284,7 +283,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       expect(response.body.message).toBe('Logout successful');
       // Verify token is revoked
       // Verify token is revoked
-      const token = await db.query.refreshTokens.findFirst({
+      const token = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
       expect(token?.revoked).toBe(true);
@@ -390,7 +389,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       }).returning();
       // Token belongs to testUserId, not otherUser
       // The system should verify the token belongs to the correct user
-      const token = await db.query.refreshTokens.findFirst({
+      const token = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
       expect(token?.userId).toBe(testUserId);

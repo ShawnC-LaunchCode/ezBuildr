@@ -12,7 +12,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { emailVerificationTokens, users } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -52,7 +51,7 @@ describe.sequential("JWT Authentication Integration Tests", () => {
                 .send(testUser)
                 .expect(201);
             // Verify email
-            const verificationTokens = await db.query.emailVerificationTokens.findMany({
+            const verificationTokens = await getOwnerDb().query.emailVerificationTokens.findMany({
                 where: eq(emailVerificationTokens.userId, registerRes.body.user.id),
             });
             expect(verificationTokens.length).toBeGreaterThan(0);
@@ -384,8 +383,15 @@ describe.sequential("JWT Authentication Integration Tests", () => {
             const { workflows } = await import("@shared/schema");
             const publicSlug = `public-${nanoid()}`;
             await getOwnerDb().update(workflows)
+                // RLS-5: `status: "active"` is not cosmetic. Migration 0031's public
+                // carve-out is `is_public = true AND status = 'active'` — a DRAFT
+                // workflow flagged public is deliberately NOT publicly readable, and
+                // without this the row is invisible and the route 404s. The real
+                // publish flow always sets both, so this makes the fixture match
+                // production rather than weakening the assertion below.
                 .set({
                     isPublic: true,
+                    status: "active",
                     slug: publicSlug,
                     requireLogin: false
                 } as any)
@@ -411,8 +417,10 @@ describe.sequential("JWT Authentication Integration Tests", () => {
             const { workflows } = await import("@shared/schema");
             const optionalSlug = `optional-${nanoid()}`;
             await getOwnerDb().update(workflows)
+                // See the note above: 0031's carve-out needs status 'active' too.
                 .set({
                     isPublic: true,
+                    status: "active",
                     slug: optionalSlug,
                     requireLogin: false
                 } as any)
