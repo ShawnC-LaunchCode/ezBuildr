@@ -9,6 +9,7 @@ import { personalizationService } from "../lib/ai/personalization";
 import { createLogger } from '../logger';
 import { hybridAuth } from "../middleware/auth";
 import { requireAssetAccess } from "../utils/ownershipAccess";
+import { withCurrentTenant } from "../utils/rlsContext";
 import { asyncHandler } from '../utils/asyncHandler';
 import { strictLimiter } from "../middleware/rateLimiter";
 
@@ -107,9 +108,9 @@ const getUserContext = asyncHandler(async (req, res, next) => {
         let workflowSettings: WorkflowPersonalizationSettings | undefined;
         const workflowId = body.workflowId;
         if (typeof workflowId === "string" && workflowId !== "") {
-            const workflow = await db.query.workflows.findFirst({
+            const workflow = await withCurrentTenant((tx) => tx.query.workflows.findFirst({
                 where: eq(workflows.id, workflowId)
-            });
+            }));
             
             if (workflow) {
                 // Verify user has access to this workflow

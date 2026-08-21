@@ -20,10 +20,22 @@ type EmailVerificationToken = InferSelectModel<typeof emailVerificationTokens>;
 
 
 // Mock database and external dependencies
+// RLS-5: the by-email password-reset lookups now run through `withLoginEmail`
+// (migration 0032), which opens a transaction and pins the GUC on it — so the
+// mock needs `transaction`, and the stub tx needs both `execute` and the same
+// relational `query` surface the pooled handle exposes.
+const { mockUsersFindFirst } = vi.hoisted(() => ({ mockUsersFindFirst: vi.fn() }));
+
 vi.mock("../../../server/db", () => ({
   db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      execute: vi.fn(),
+      query: {
+        users: { findFirst: mockUsersFindFirst },
+      },
+    })),
     query: {
-      users: { findFirst: vi.fn() },
+      users: { findFirst: mockUsersFindFirst },
       refreshTokens: { findFirst: vi.fn() },
       passwordResetTokens: { findFirst: vi.fn() },
       emailVerificationTokens: { findFirst: vi.fn() },

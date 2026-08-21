@@ -6,7 +6,7 @@ import { toDataURL as qrToDataURL } from "qrcode";
 
 import * as speakeasy from "speakeasy";
 
-import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
+import { mfaSecrets, mfaBackupCodes } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
@@ -182,9 +182,12 @@ export class MfaService {
      * Check if user has MFA enabled
      */
     async isMfaEnabled(userId: string): Promise<boolean> {
-        const user = await db.query.users.findFirst({
-            where: eq(users.id, userId)
-        });
+        // RLS-5: reads the caller's own `users` row before a tenant is pinned —
+        // the self-identification case (0028). Unscoped this returns undefined
+        // for any user who has a tenant, so MFA would silently report as
+        // DISABLED for everyone: a login that should demand a second factor
+        // would skip it. `findSelfUser` pins `app.current_user_id`.
+        const user = await findSelfUser(userId);
 
         return user?.mfaEnabled ?? false;
     }

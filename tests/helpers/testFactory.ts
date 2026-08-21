@@ -63,7 +63,9 @@ export interface TestTemplate {
   template: typeof schema.templates.$inferSelect;
 }
 export class TestFactory {
-  private db: DBInstance | DbTransaction;
+  /** Explicit handle from the caller, if any. Undefined means "the observer",
+   *  resolved LAZILY — see the constructor. */
+  private readonly injected?: DBInstance | DbTransaction;
   // RLS-5: the tenant most recently established by createTenant()/
   // createWorkflow() on this instance, remembered so later calls that don't
   // otherwise know a tenant (createSection, createStep, ...) can still pin
@@ -87,7 +89,16 @@ export class TestFactory {
     // A caller passing an explicit handle still wins — in particular
     // `runInTransaction`'s `tx`, which is how a suite gets automatic rollback.
     // See tests/helpers/ownerDb.ts for why the observer/app split exists.
-    this.db = txOrDb ?? getOwnerDb();
+    // Stored, NOT resolved: a `describe` body runs at collection time, before
+    // tests/setup.ts has picked this worker's schema, and resolving the
+    // observer that early pinned a pool with no search_path (every query then
+    // failed with `relation "tenants" does not exist`). `get db()` resolves on
+    // first use instead, by which point setup has run.
+    this.injected = txOrDb;
+  }
+
+  private get db(): DBInstance | DbTransaction {
+    return this.injected ?? getOwnerDb();
   }
   /**
    * Run `fn` inside a transaction pinned to `lastTenantId` if this instance

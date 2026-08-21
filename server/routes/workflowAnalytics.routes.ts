@@ -24,6 +24,7 @@ import { heatmapService } from '../services/analytics/HeatmapService';
 import sli from '../services/sli';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { AuthRequest } from '../middleware/auth';
 const router = Router();
@@ -368,9 +369,9 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
       return;
     }
 
-    const existingConfig = await db.query.sliConfigs.findFirst({
+    const existingConfig = await withCurrentTenant((tx) => tx.query.sliConfigs.findFirst({
       where: (cfg, { eq }) => eq(cfg.id, id)
-    });
+    }));
     
     if (existingConfig) {
       if (existingConfig.workflowId) {

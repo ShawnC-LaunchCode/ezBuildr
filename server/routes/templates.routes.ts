@@ -45,6 +45,7 @@ import {
 } from '../services/templates';
 import { templateVersionService } from '../services/TemplateVersionService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 import { isProcessingTimeoutError, withTimeout } from '../utils/concurrency';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
@@ -71,10 +72,10 @@ async function getWorkflowNormalizationOptions(
     return undefined;
   }
 
-  const workflow = await db.query.workflows.findFirst({
+  const workflow = await withCurrentTenant((tx) => tx.query.workflows.findFirst({
     where: eq(schema.workflows.id, workflowId),
     with: { project: true },
-  });
+  }));
   if (!workflow) {
     throw createError.notFound('Workflow', workflowId);
   }
@@ -228,12 +229,12 @@ router.get(
       const params = projectIdParamsSchema.parse(req.params);
       const query = listTemplatesQuerySchema.parse(req.query);
       const { cursor, limit } = query;
-      const project = await db.query.projects.findFirst({
+      const project = await withCurrentTenant((tx) => tx.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
-      });
+      }));
       if (!project) {
         throw createError.notFound('Project', params.projectId);
       }
@@ -276,12 +277,12 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = projectIdParamsSchema.parse(req.params);
-      const project = await db.query.projects.findFirst({
+      const project = await withCurrentTenant((tx) => tx.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
-      });
+      }));
       if (!project) {
         await cleanupFile(req.file?.path);
         throw createError.notFound('Project', params.projectId);

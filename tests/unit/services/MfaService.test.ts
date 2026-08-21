@@ -337,7 +337,7 @@ describe("MfaService", () => {
       it("should return true if MFA is enabled", async () => {
         const userId = "user-123";
 
-        mockUsersFindFirst.mockResolvedValue({
+        mockFindSelfUser.mockResolvedValue({
           id: userId,
           email: "test@example.com",
           mfaEnabled: true,
@@ -351,7 +351,7 @@ describe("MfaService", () => {
       it("should return false if MFA is disabled", async () => {
         const userId = "user-123";
 
-        mockUsersFindFirst.mockResolvedValue({
+        mockFindSelfUser.mockResolvedValue({
           id: userId,
           email: "test@example.com",
           mfaEnabled: false,
@@ -365,7 +365,7 @@ describe("MfaService", () => {
       it("should return false if user not found", async () => {
         const userId = "user-123";
 
-        mockUsersFindFirst.mockResolvedValue(null);
+        mockFindSelfUser.mockResolvedValue(null);
 
         const result = await mfaService.isMfaEnabled(userId);
 

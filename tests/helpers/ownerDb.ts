@@ -61,14 +61,21 @@ export function getOwnerDb(): NodePgDatabase<typeof schema> {
     return instance;
   }
   pool = new Pool({ connectionString: ownerConnectionString(), max: 2 });
-  const testSchema = (global as typeof globalThis & { __TEST_SCHEMA__?: string }).__TEST_SCHEMA__;
-  if (testSchema !== undefined && testSchema !== '') {
-    // Match the app pool's per-connection search_path so both see the same
-    // per-worker schema (tests/setup.ts sets this for the app's pool).
-    pool.on('connect', (client) => {
+  // Match the app pool's per-connection search_path so both see the same
+  // per-worker schema (tests/setup.ts sets this for the app's pool).
+  //
+  // The schema is read INSIDE the handler, per connection — not captured once
+  // when the pool is built. A `describe` body runs at collection time, before
+  // `tests/setup.ts` has assigned `__TEST_SCHEMA__`, so anything constructed
+  // there (e.g. `const factory = new TestFactory()`) could otherwise pin an
+  // undefined schema for the process's whole lifetime and every query would
+  // fail with `relation "tenants" does not exist`.
+  pool.on('connect', (client) => {
+    const testSchema = (global as typeof globalThis & { __TEST_SCHEMA__?: string }).__TEST_SCHEMA__;
+    if (testSchema !== undefined && testSchema !== '') {
       void client.query(`SET search_path TO "${testSchema}", public`);
-    });
-  }
+    }
+  });
   instance = drizzle(pool, { schema });
   return instance;
 }
