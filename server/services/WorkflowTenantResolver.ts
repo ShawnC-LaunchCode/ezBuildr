@@ -48,6 +48,33 @@ async function readUserForBootstrap(
   return withCurrentUserId(userId, (scopedTx) => userRepository.findById(userId, scopedTx));
 }
 
+/**
+ * The same bootstrap read for `projects` / `organizations` (migration 0033).
+ *
+ * These two are why the user-only fix was not enough. `resolveForWorkflow`
+ * tries the PROJECT tenant FIRST, so with only `users` reachable a filed
+ * workflow did not fail — it fell through to the creator and resolved THAT
+ * person's tenant, which is usually the same one and silently is not after a
+ * project transfer. Resolving confidently wrong is worse than resolving
+ * nothing, so this closes the fall-through rather than relying on it.
+ *
+ * `gucName` is a literal chosen here, never derived from input, and the id is
+ * always one read off an already-legitimately-read workflow row.
+ */
+async function readOwnerTableForBootstrap<T>(
+  gucName: 'app.current_project_id' | 'app.current_org_id',
+  id: string,
+  read: (tx?: DbTransaction) => Promise<T>,
+  tx?: DbTransaction
+): Promise<T> {
+  if (tx) {
+    await tx.execute(sql`SELECT set_config(${gucName}, ${id}, true)`);
+    return read(tx);
+  }
+  const { withVerifiedIdentifier } = await import('../utils/rlsContext');
+  return withVerifiedIdentifier(gucName, id, (scopedTx) => read(scopedTx));
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isValidUuid(val?: string | null): boolean {
@@ -134,7 +161,12 @@ export class WorkflowTenantResolver {
     }
 
     if (ownerType === 'org') {
-      const organization = await organizationRepository.findById(ownerUuid, tx);
+      const organization = await readOwnerTableForBootstrap(
+        'app.current_org_id',
+        ownerUuid,
+        (scopedTx) => organizationRepository.findById(ownerUuid, scopedTx),
+        tx
+      );
       return isValidUuid(organization?.tenantId) ? organization!.tenantId : null;
     }
 
@@ -175,7 +207,13 @@ export class WorkflowTenantResolver {
   ): Promise<TenantResolution> {
     // 2. Project tenant.
     if (workflow?.projectId) {
-      const project = await projectRepository.findById(workflow.projectId, tx);
+      const projectId = workflow.projectId;
+      const project = await readOwnerTableForBootstrap(
+        'app.current_project_id',
+        projectId,
+        (scopedTx) => projectRepository.findById(projectId, scopedTx),
+        tx
+      );
       if (isValidUuid(project?.tenantId)) {
         return { tenantId: project!.tenantId, source: 'project' };
       }

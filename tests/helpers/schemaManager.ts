@@ -138,8 +138,15 @@ export class SchemaManager {
     // user who already had a real tenant and EVERY password login failed as
     // "Invalid credentials". A stale _v34 schema lacks the clause and login
     // stays broken under the restricted role.
+    // Bumped to _v36 for RLS-5 (0033_rls_bootstrap_project_org_lookup):
+    // `WorkflowTenantResolver` could not derive a tenant at all under
+    // enforcement — 0030 makes the workflow readable but the tables its tenant
+    // is DERIVED from (`projects`, `organizations`) are RLS-covered too, and
+    // `app_owner_tenant()` is plain SQL, not SECURITY DEFINER. A stale _v35
+    // schema lacks both clauses, so a filed workflow silently falls through to
+    // its creator's tenant instead of its project's.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v35`;
+        return `test_schema_w${this.workerId}_v36`;
     }
 
     /**

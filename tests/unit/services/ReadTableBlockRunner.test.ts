@@ -11,7 +11,21 @@ const mocks = vi.hoisted(() => ({
   warn: vi.fn(),
 }));
 
-vi.mock('../../../server/db', () => ({ db: {} }));
+// RLS-5: WorkflowTenantResolver's bootstrap reads (migrations 0028/0033) open
+// their own transaction when the caller passes no `tx` — which is exactly how
+// this runner calls it — so the `db` stub needs a working `transaction` whose
+// `tx` exposes `execute` (that is what pins the GUC). Without it resolution
+// throws, the runner bails before its filter validation, and the assertion
+// below fails with "0 calls" rather than anything that names the real cause.
+vi.mock('../../../server/db', () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+  };
+});
 
 vi.mock('../../../server/logger', () => ({
   logger: {
