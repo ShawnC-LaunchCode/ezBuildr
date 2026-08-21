@@ -26,17 +26,27 @@ vi.mock('../../server/repositories/LifecycleHookRepository');
 vi.mock('../../server/repositories/ScriptExecutionLogRepository');
 vi.mock('../../server/repositories/WorkflowRepository');
 vi.mock('../../server/services/scripting/ScriptEngine');
-vi.mock('../../server/db', () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        innerJoin: vi.fn(() => ({
-          where: vi.fn(() => Promise.resolve([]))
-        }))
+// Each method now opens one tenant-scoped transaction at the service boundary
+// (RLS-2e). With no tenant in the async context and RLS unenforced,
+// `withCurrentTenant` falls through to a plain `db.transaction`, so the stub
+// tx has to answer the same query chain `db` does — the alias-map read runs on
+// it now, not on the pool.
+vi.mock('../../server/db', () => {
+  const selectChain = () => ({
+    from: vi.fn(() => ({
+      innerJoin: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve([]))
       }))
     }))
-  }
-}));
+  });
+  return {
+    db: {
+      select: vi.fn(selectChain),
+      transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ select: vi.fn(selectChain), execute: vi.fn() })),
+    }
+  };
+});
 
 describe('LifecycleHookService', () => {
   let lifecycleHookService: LifecycleHookService;
@@ -391,8 +401,8 @@ describe('LifecycleHookService', () => {
       });
 
       expect(result).toEqual(mockHook);
-      expect(workflowRepository.findById).toHaveBeenCalledWith('workflow-1');
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
+      expect(workflowRepository.findById).toHaveBeenCalledWith('workflow-1', expect.anything());
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit', expect.anything());
       expect(lifecycleHookRepository.create).toHaveBeenCalled();
     });
 
@@ -440,7 +450,7 @@ describe('LifecycleHookService', () => {
           mutationMode: false,
         })
       ).rejects.toThrow(ACCESS_DENIED_MESSAGE);
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit', expect.anything());
       expect(lifecycleHookRepository.create).not.toHaveBeenCalled();
     });
   });
@@ -463,8 +473,8 @@ describe('LifecycleHookService', () => {
       });
 
       expect(result).toEqual(updatedHook);
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
-      expect(lifecycleHookRepository.update).toHaveBeenCalledWith('hook-1', { name: 'Updated Hook' });
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit', expect.anything());
+      expect(lifecycleHookRepository.update).toHaveBeenCalledWith('hook-1', { name: 'Updated Hook' }, expect.anything());
     });
 
     it('should reject update for non-owner', async () => {
@@ -480,7 +490,7 @@ describe('LifecycleHookService', () => {
       await expect(
         lifecycleHookService.updateHook('hook-1', 'user-2', { name: 'Updated Hook' })
       ).rejects.toThrow(ACCESS_DENIED_MESSAGE);
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit', expect.anything());
       expect(lifecycleHookRepository.update).not.toHaveBeenCalled();
     });
   });
@@ -499,8 +509,8 @@ describe('LifecycleHookService', () => {
 
       await lifecycleHookService.deleteHook('hook-1', 'user-1');
 
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
-      expect(lifecycleHookRepository.delete).toHaveBeenCalledWith('hook-1');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit', expect.anything());
+      expect(lifecycleHookRepository.delete).toHaveBeenCalledWith('hook-1', expect.anything());
     });
 
     it('should reject deletion for non-owner', async () => {
@@ -516,7 +526,7 @@ describe('LifecycleHookService', () => {
       await expect(lifecycleHookService.deleteHook('hook-1', 'user-2')).rejects.toThrow(
         ACCESS_DENIED_MESSAGE
       );
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit', expect.anything());
       expect(lifecycleHookRepository.delete).not.toHaveBeenCalled();
     });
   });
@@ -553,7 +563,7 @@ describe('LifecycleHookService', () => {
       expect(result.success).toBe(true);
       expect(result.output).toEqual({ result: 84 });
       expect(result.durationMs).toBe(15);
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view', expect.anything());
     });
   });
 
@@ -574,8 +584,8 @@ describe('LifecycleHookService', () => {
       const result = await lifecycleHookService.listHooks('workflow-1', 'user-1');
 
       expect(result).toEqual(mockHooks);
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view');
-      expect(lifecycleHookRepository.findByWorkflowId).toHaveBeenCalledWith('workflow-1');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view', expect.anything());
+      expect(lifecycleHookRepository.findByWorkflowId).toHaveBeenCalledWith('workflow-1', expect.anything());
     });
 
     it('should reject listing for non-owner', async () => {
@@ -588,7 +598,7 @@ describe('LifecycleHookService', () => {
       await expect(lifecycleHookService.listHooks('workflow-1', 'user-2')).rejects.toThrow(
         ACCESS_DENIED_MESSAGE
       );
-      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'view');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'view', expect.anything());
       expect(lifecycleHookRepository.findByWorkflowId).not.toHaveBeenCalled();
     });
   });

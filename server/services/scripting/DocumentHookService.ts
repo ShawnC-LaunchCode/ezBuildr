@@ -17,10 +17,32 @@ import { logger } from "../../logger";
 import { documentHookRepository } from "../../repositories/DocumentHookRepository";
 import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
 import { workflowRepository } from "../../repositories/WorkflowRepository";
+import { withCurrentTenant } from "../../utils/rlsContext";
 
 import { scriptEngine } from "./ScriptEngine";
 
+import type { DbTransaction } from "../../repositories";
+
 export class DocumentHookService {
+  /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-2e, ambient-only variant) — the ownership read of
+   * `workflows`, which is RLS-covered, plus the hook write that depends on it.
+   * Reuses a caller-supplied `tx` rather than nesting.
+   *
+   * `scriptEngine.execute` stays OUTSIDE: it runs a sandboxed script (a
+   * subprocess, for Python) and must not be held inside an open transaction
+   * (TENANT_ISOLATION_RLS §2d).
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
   /**
    * Execute all hooks for a given phase
    * Non-breaking: continues on errors and collects them
@@ -235,20 +257,22 @@ export class DocumentHookService {
     userId: string,
     data: CreateDocumentHookInput
   ): Promise<DocumentHook> {
-    // Verify workflow ownership
-    const workflow = await workflowRepository.findById(workflowId);
-    if (!workflow) {
-      throw new Error("Workflow not found");
-    }
-    if (workflow.creatorId && workflow.creatorId !== userId) {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+    const hook = await this.withTx(undefined, async (tx) => {
+      // Verify workflow ownership
+      const workflow = await workflowRepository.findById(workflowId, tx);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+      if (workflow.creatorId && workflow.creatorId !== userId) {
+        // eslint-disable-next-line sonarjs/no-duplicate-string
+        throw new Error("Unauthorized: You do not own this workflow");
+      }
 
-    // Create hook
-    const hook = await documentHookRepository.create({
-      ...data,
-      workflowId,
+      // Create hook
+      return documentHookRepository.create({
+        ...data,
+        workflowId,
+      }, tx);
     });
 
     logger.info(
@@ -271,19 +295,21 @@ export class DocumentHookService {
     userId: string,
     data: UpdateDocumentHookInput
   ): Promise<DocumentHook> {
-    // Get hook and verify ownership
-    const hook = await documentHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    const { hook, updated } = await this.withTx(undefined, async (tx) => {
+      // Get hook and verify ownership
+      const found = await documentHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
+        throw new Error("Unauthorized: You do not own this workflow");
+      }
 
-    // Update hook
-    const updated = await documentHookRepository.update(hookId, data);
+      // Update hook
+      return { hook: found, updated: await documentHookRepository.update(hookId, data, tx) };
+    });
 
     logger.info(
       {
@@ -300,19 +326,22 @@ export class DocumentHookService {
    * Delete a document hook
    */
   async deleteHook(hookId: string, userId: string): Promise<void> {
-    // Get hook and verify ownership
-    const hook = await documentHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    const hook = await this.withTx(undefined, async (tx) => {
+      // Get hook and verify ownership
+      const found = await documentHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
+        throw new Error("Unauthorized: You do not own this workflow");
+      }
 
-    // Delete hook
-    await documentHookRepository.delete(hookId);
+      // Delete hook
+      await documentHookRepository.delete(hookId, tx);
+      return found;
+    });
 
     logger.info(
       {
@@ -331,16 +360,20 @@ export class DocumentHookService {
     userId: string,
     testInput: TestHookInput
   ): Promise<TestHookResult> {
-    // Get hook and verify ownership
-    const hook = await documentHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    // Get hook and verify ownership. The transaction closes before the script
+    // runs — a sandboxed execution must not be held inside one (§2d).
+    const hook = await this.withTx(undefined, async (tx) => {
+      const found = await documentHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
+        throw new Error("Unauthorized: You do not own this workflow");
+      }
+      return found;
+    });
 
     // Execute hook with test data
     const result = await scriptEngine.execute({
@@ -373,16 +406,18 @@ export class DocumentHookService {
    * List all hooks for a workflow
    */
   async listHooks(workflowId: string, userId: string): Promise<DocumentHook[]> {
-    // Verify workflow ownership
-    const workflow = await workflowRepository.findById(workflowId);
-    if (!workflow) {
-      throw new Error("Workflow not found");
-    }
-    if (workflow.creatorId && workflow.creatorId !== userId) {
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+    return this.withTx(undefined, async (tx) => {
+      // Verify workflow ownership
+      const workflow = await workflowRepository.findById(workflowId, tx);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+      if (workflow.creatorId && workflow.creatorId !== userId) {
+        throw new Error("Unauthorized: You do not own this workflow");
+      }
 
-    return (await documentHookRepository.findByWorkflowId(workflowId)) as DocumentHook[];
+      return (await documentHookRepository.findByWorkflowId(workflowId, tx)) as DocumentHook[];
+    });
   }
 
   /**
