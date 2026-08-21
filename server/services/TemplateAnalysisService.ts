@@ -15,6 +15,7 @@ import path from 'path';
 import { eq } from 'drizzle-orm';
 
 import { db } from '../db';
+import { withCurrentTenant } from '../utils/rlsContext';
 import { workflows, workflowTemplates, templates } from '../../shared/schema';
 
 import { createError } from '../utils/errors';
@@ -571,7 +572,13 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
   active: Array<{ id: string; name: string }>;
   pinned: Array<{ id: string; name: string }>;
 }> {
-  const usages = await db
+  // RLS-5: `workflows`, `sections` and `steps` are all covered. This runs from
+  // the authenticated template-analysis route, so the ambient tenant is set —
+  // one transaction for the whole analysis, since an unscoped read here would
+  // report "no workflows affected" rather than failing, which is the answer
+  // that gets a template overwritten.
+  return withCurrentTenant(async (tx) => {
+  const usages = await tx
     .select({
       workflowId: workflows.id,
       workflowName: workflows.name,
@@ -596,11 +603,11 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
 
   for (const wf of uniqueWorkflows.values()) {
     // Fetch sections (legacy final_documents)
-    const wfSections = await db.select({ config: sections.config }).from(sections).where(eq(sections.workflowId, wf.id));
+    const wfSections = await tx.select({ config: sections.config }).from(sections).where(eq(sections.workflowId, wf.id));
     const secState = checkSectionPinState(wfSections, templateId, normalizeFinalDocumentsTemplateEntry);
 
     // Fetch steps (final_block)
-    const wfSteps = await db.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, wf.id));
+    const wfSteps = await tx.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, wf.id));
     const stState = checkStepPinState(wfSteps, templateId);
 
     const isUnpinned = secState.isUnpinned || stState.isUnpinned;
@@ -616,6 +623,7 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
   }
 
   return { active, pinned };
+  });
 }
 
 /**

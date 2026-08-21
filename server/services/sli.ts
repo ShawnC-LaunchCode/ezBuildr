@@ -8,9 +8,10 @@
  */
 import { eq, and, gte, lte, isNull, desc } from 'drizzle-orm';
 
-import { sliConfigs, sliWindows, metricsRollups, type InsertSliConfig, type InsertSliWindow, type SliConfig } from '../../shared/schema';
+import { sliConfigs, sliWindows, metricsRollups, projects, type InsertSliConfig, type InsertSliWindow, type SliConfig } from '../../shared/schema';
 import { db } from '../db';
 import logger from '../logger';
+import { withCurrentTenant, withTenant } from '../utils/rlsContext';
 export interface SliResult {
   successPct: number;
   p95Ms: number;
@@ -111,7 +112,9 @@ export async function saveSLIWindow(params: {
     p95Ms: params.sli.p95Ms,
     errorBudgetBurnPct: Math.round(params.sli.errorBudgetBurnPct),
   };
-  await db.insert(sliWindows).values(insertData);
+  // RLS-5: `sli_windows` is covered and this runs from the metrics-rollup job,
+  // which has no ambient tenant at all — the row's own tenant is pinned.
+  await withTenant(params.tenantId, (tx) => tx.insert(sliWindows).values(insertData));
   logger.debug({
     projectId: params.projectId,
     workflowId: params.workflowId,
@@ -133,33 +136,41 @@ export async function getOrCreateConfig(params: {
   } else {
     conditions.push(isNull(sliConfigs.workflowId));
   }
-  const existing = await db
-    .select()
-    .from(sliConfigs)
-    .where(and(...conditions))
-    .limit(1);
-  if (existing.length > 0) {
-    return existing[0];
-  }
-  // Create default config
-  // Need tenantId - get from project
-  const project = await db.query.projects.findFirst({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    where: (projects: any, { eq }: any) => eq(projects.id, params.projectId),
+  // `sli_configs` and `projects` are both covered, and the insert's tenant is
+  // read off the project — so read and write share one tenant-scoped
+  // transaction. Called from an authenticated analytics route, so the ambient
+  // tenant is set (unlike saveSLIWindow above, which is a job).
+  const created = await withCurrentTenant(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(sliConfigs)
+      .where(and(...conditions))
+      .limit(1);
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    // Create default config
+    // Need tenantId - get from project
+    const [project] = await tx
+      .select()
+      .from(projects)
+      .where(eq(projects.id, params.projectId))
+      .limit(1);
+    if (project === undefined) {
+      throw new Error(`Project not found: ${params.projectId}`);
+    }
+    const defaultConfig: InsertSliConfig = {
+      tenantId: project.tenantId!,
+      projectId: params.projectId,
+      workflowId: params.workflowId ?? null,
+      targetSuccessPct: 99,
+      targetP95Ms: 5000,
+      errorBudgetPct: 1,
+      window: params.window ?? '7d',
+    };
+    const [row] = await tx.insert(sliConfigs).values(defaultConfig).returning();
+    return row;
   });
-  if (!project) {
-    throw new Error(`Project not found: ${params.projectId}`);
-  }
-  const defaultConfig: InsertSliConfig = {
-    tenantId: project.tenantId!,
-    projectId: params.projectId,
-    workflowId: params.workflowId ?? null,
-    targetSuccessPct: 99,
-    targetP95Ms: 5000,
-    errorBudgetPct: 1,
-    window: params.window ?? '7d',
-  };
-  const [created] = await db.insert(sliConfigs).values(defaultConfig).returning();
   logger.info({
     projectId: params.projectId,
     workflowId: params.workflowId,

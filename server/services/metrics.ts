@@ -7,8 +7,8 @@
 import { eq, and, gte, desc } from 'drizzle-orm';
 
 import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
-import { db } from '../db';
 import { createLogger } from '../logger';
+import { withCurrentTenant, withTenant } from '../utils/rlsContext';
 
 const logger = createLogger({ module: 'metrics' });
 
@@ -41,7 +41,12 @@ export async function emit(event: MetricsEventInput): Promise<void> {
       durationMs: event.durationMs ?? null,
       payload: sanitizedPayload,
     };
-    await db.insert(metricsEvents).values(insertData);
+    // RLS-5: `metrics_events` is tenant-scoped and covered. Written from the
+    // pool with no GUC, WITH CHECK compares the row's real tenant against NULL
+    // and rejects it — silently, because this function swallows its own
+    // errors, so the run would succeed and its metrics would just vanish. The
+    // event carries its own tenant, so pin that.
+    await withTenant(event.tenantId, (tx) => tx.insert(metricsEvents).values(insertData));
     logger.debug({
       type: event.type,
       projectId: event.projectId,
@@ -284,12 +289,14 @@ export async function getRecentEvents(params: {
   if (params.since) {
     conditions.push(gte(metricsEvents.ts, params.since));
   }
-  return db
+  // Covered table, ordinary tenant-scoped read (the analytics routes that call
+  // this run behind hybridAuth).
+  return withCurrentTenant((tx) => tx
     .select()
     .from(metricsEvents)
     .where(and(...conditions))
     .orderBy(desc(metricsEvents.ts))
-    .limit(params.limit ?? 100);
+    .limit(params.limit ?? 100));
 }
 /**
  * Redact sensitive fields from payload
