@@ -16,6 +16,7 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
@@ -59,7 +60,14 @@ describe.sequential('completed run answer immutability', () => {
       createProject: true,
     });
 
-    const factory = new TestFactory();
+    // RLS-5: this hook calls `versionService` DIRECTLY (no HTTP, so no
+    // middleware opens a tenant context). Entering it here covers the rest of
+    // this hook — note it does NOT propagate to the test bodies below, which
+    // go over HTTP and get their own context from auth.
+    enterTenantContextForTests(ctx.tenantId);
+
+    // Fixture rows belong to the observer, not the application pool.
+    const factory = new TestFactory(getOwnerDb());
     const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     workflowId = workflow.id;
     versionId = version.id;
@@ -185,6 +193,10 @@ describe.sequential('completed run answer immutability', () => {
   ])('prevents a $label from crossing an in-flight completion boundary', async ({
     lateWrite,
   }) => {
+    // Direct service calls below (`runService.completeRunNoAuth`, the late
+    // write) never touch auth middleware, so the tenant context has to be
+    // entered HERE — a `beforeAll` entry does not propagate into a test body.
+    enterTenantContextForTests(ctx.tenantId);
     const run = await createRun();
     const completionReachedBoundary = deferred();
     const releaseCompletion = deferred();
