@@ -9,6 +9,25 @@ import { logger } from '../../../server/logger';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
 const runId = '11111111-1111-4111-8111-111111111111';
 const workflowId = '22222222-2222-4222-8222-222222222222';
 const versionId = '33333333-3333-4333-8333-333333333333';
@@ -150,9 +169,9 @@ describe('RunDefinitionProvider', () => {
       expect(definition.steps).toEqual([
         expect.objectContaining({ id: targetId, title: 'Live step' }),
       ]);
-      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId);
-      expect(stepRepo.findBySectionIds).toHaveBeenCalledWith([sectionId]);
-      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId);
+      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId, expect.anything());
+      expect(stepRepo.findBySectionIds).toHaveBeenCalledWith([sectionId], expect.anything());
+      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId, expect.anything());
       // The pinned-version path must not be touched for a versionless run.
       expect(versionRepo.findById).not.toHaveBeenCalled();
     });

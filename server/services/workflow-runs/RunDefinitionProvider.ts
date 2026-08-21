@@ -10,6 +10,7 @@ import {
   workflowVersionRepository,
 } from "../../repositories";
 import { createError } from "../../utils/errors";
+import { withCurrentTenant } from "../../utils/rlsContext";
 
 // This validates a version's serialized graphJson, whose fields come straight
 // from nullable DB columns. `.optional()` accepts `undefined` but REJECTS
@@ -281,10 +282,21 @@ export class RunDefinitionProvider {
   }
 
   private async getLiveDefinition(run: WorkflowRun): Promise<RunDefinition> {
-    const liveSections: Section[] = await this.sectionRepo.findByWorkflowId(run.workflowId);
-    const sectionIds = liveSections.map((section) => section.id);
-    const liveSteps: Step[] = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(run.workflowId);
+    // RLS-5: `sections`/`steps` are RLS-covered through their parent
+    // workflow's ownership-derived policy. On the bare pool these return zero
+    // rows and the run renders as an EMPTY definition — no error, just a
+    // workflow with no pages and no questions, and for document generation a
+    // silent "0 documents generated, success: true". One tenant transaction
+    // for all three reads, so they also see a consistent snapshot.
+    const { liveSections, liveSteps, logicRules } = await withCurrentTenant(async (tx) => {
+      const sectionsRead: Section[] = await this.sectionRepo.findByWorkflowId(run.workflowId, tx);
+      const stepsRead: Step[] = await this.stepRepo.findBySectionIds(
+        sectionsRead.map((section) => section.id),
+        tx
+      );
+      const rulesRead = await this.logicRuleRepo.findByWorkflowId(run.workflowId, tx);
+      return { liveSections: sectionsRead, liveSteps: stepsRead, logicRules: rulesRead };
+    });
 
     const sections: RunSection[] = liveSections.map((section) => ({
       id: section.id,

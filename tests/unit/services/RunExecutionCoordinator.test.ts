@@ -12,6 +12,25 @@ import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
 import type { RunDefinition, RunStep } from '../../../server/services/workflow-runs/RunDefinitionProvider';
+
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
 // Mock dependencies
 vi.mock('../../../server/services/scripting/ScriptEngine', () => ({
     scriptEngine: {
@@ -306,8 +325,17 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                     { stepId: 'deleted-step', value: 'orphaned' },
                 ]);
 
-                expect(warnSpy).toHaveBeenCalledTimes(1);
-                expect(warnSpy.mock.calls[0][0]).toMatchObject({
+                // RLS-5: count the DROPPED-IDS warning specifically rather than
+                // every warn. `withCurrentTenant` also warns while RLS is
+                // unenforced ("no tenant in async context"), and a bare
+                // toHaveBeenCalledTimes(1) counted that too — which made this
+                // assert "nothing else in the stack ever warns", a claim it was
+                // never meant to make. AC1 is that the drop is logged ONCE.
+                const dropWarnings = warnSpy.mock.calls.filter(
+                    (call) => typeof call[0] === 'object' && call[0] !== null && 'droppedStepIds' in call[0]
+                );
+                expect(dropWarnings).toHaveLength(1);
+                expect(dropWarnings[0][0]).toMatchObject({
                     runId: 'run-1',
                     sectionId: 'section-1',
                     droppedStepIds: ['deleted-step'],

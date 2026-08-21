@@ -21,6 +21,8 @@ import type { FinalBlockConfig, FinalDocumentOutputFormat } from "../../../share
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { createError } from "../../utils/errors";
+import { getCurrentTenantId, runWithTenantContext, withCurrentTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
+import { workflowTenantResolver } from "../WorkflowTenantResolver";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
@@ -413,6 +415,38 @@ export class RunLifecycleService {
       if (!run) {throw createError.notFound('Workflow run', runId);}
       const workflowId = run.workflowId;
 
+      // RLS-5: this method is reached from `RunCompletionJobWorker.processJob`
+      // — a BACKGROUND JOB, not an HTTP request — so nothing upstream has
+      // populated the async tenant context and `withCurrentTenant` has nothing
+      // to read. Everything below reads `workflows`/`sections`/`steps`, all
+      // RLS-covered, so under a non-owner role they silently return zero rows
+      // and this fails as "Workflow not found" on a workflow that plainly
+      // exists (13 of the RLS-5 run's failures were exactly this).
+      //
+      // `workflow_runs` carries no tenant_id and no policy, so `run` above is
+      // readable without any of this — which makes `run.workflowId` a
+      // legitimately-established value, the same standing `runTokenAuth` has.
+      // Pin it via migration 0030's self-identification clause just long
+      // enough to resolve the tenant, then run the whole remainder inside that
+      // tenant's context so every converted service below works too.
+      //
+      // Best-effort by design, matching `runTokenAuth`: if resolution fails we
+      // leave the context empty rather than inventing a tenant, and the
+      // downstream services fail closed on their own terms.
+      if (getCurrentTenantId() === undefined) {
+        const resolvedTenantId = await withVerifiedIdentifier(
+          'app.current_workflow_id',
+          workflowId,
+          (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+        );
+        if (resolvedTenantId) {
+          return await runWithTenantContext(
+            resolvedTenantId,
+            () => this.generateDocumentsInner(runId, options)
+          );
+        }
+      }
+
       const existingDocs = await runGeneratedDocumentsRepository.findByRunId(runId);
       if (existingDocs.length > 0) {
         logger.info({ runId, documentCount: existingDocs.length }, 'Documents already generated for run, skipping');
@@ -438,7 +472,16 @@ export class RunLifecycleService {
       // versionless run still falls back to the live tables via the
       // provider's 'live' branch (unchanged today-behavior, AC3).
       const { steps: definitionSteps, sections: definitionSections } = await this.definitionProvider.getDefinition(run);
-      const workflow = await workflowRepository.findById(workflowId);
+      // RLS-5: `runWithTenantContext` above populates the async STORE, which is
+      // what converted services read — but a repository call issued directly on
+      // the pool never consults it. The store and the transaction GUC are
+      // independent (the same distinction that made the first AuditLogger fix a
+      // no-op), so this read needs a real tenant transaction of its own, not
+      // merely an ambient tenant. Scoped per-read rather than wrapping the whole
+      // method: document generation does template rendering and external I/O
+      // below, and holding a transaction open across that is exactly the
+      // long-transaction hazard the service-boundary ruling warns about.
+      const workflow = await withCurrentTenant((tx) => workflowRepository.findById(workflowId, tx));
       if (!workflow) {throw createError.notFound('Workflow', workflowId);}
       if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
 
@@ -478,7 +521,9 @@ export class RunLifecycleService {
       // owner_uuid — GH-170's F1 fatal bug came from exactly that shortcut.
       // Only used to resolve `datavault` mapping bindings (GH-156); every
       // other read stays unaffected if this project lookup is somehow null.
-      const project = await projectRepository.findById(workflow.projectId);
+      // RLS-5: `projects` is RLS-covered — same per-read scoping as the
+      // workflow lookup above.
+      const project = await withCurrentTenant((tx) => projectRepository.findById(workflow.projectId!, tx));
       const tenantId = project?.tenantId ?? undefined;
 
       // 4. Create scoped Template Resolver

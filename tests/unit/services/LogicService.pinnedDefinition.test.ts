@@ -23,6 +23,25 @@ import type { LogicRule, WorkflowRun } from '@shared/schema';
 import { LogicService } from '../../../server/services/LogicService';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
 const VERSION_ID = '33333333-3333-4333-8333-333333333333';
@@ -177,9 +196,9 @@ describe('LogicService pinned-definition sourcing (RVP-2)', () => {
 
       const navigation = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
-      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID);
+      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
       expect(stepRepo.findBySectionIds).toHaveBeenCalled();
-      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID);
+      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
       // Both sections (including the "live-only" one) are visible because
       // there is no pinned graph to restrict to -- this run always reads
       // live, so there is no "live-only" concept for it.

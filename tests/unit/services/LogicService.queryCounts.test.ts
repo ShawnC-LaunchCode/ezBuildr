@@ -6,6 +6,25 @@ import { LogicService } from '../../../server/services/LogicService';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
 function makeSections(): Section[] {
     return Array.from({ length: 3 }, (_, index) => ({
         id: `section-${index + 1}`,
