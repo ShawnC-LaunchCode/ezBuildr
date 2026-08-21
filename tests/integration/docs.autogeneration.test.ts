@@ -29,6 +29,11 @@ import { TestFactory } from '../helpers/testFactory';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5: this suite calls services DIRECTLY rather than over HTTP, so no
+// middleware populates the tenant context. `enterWith` binds only the current
+// async execution — beforeAll and beforeEach both fail to propagate into a test
+// body (measured, not assumed) — so it must be called inside the test itself.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -222,6 +227,7 @@ describe('Automatic document generation on run completion', () => {
 
     // Publish a version -- this is what the respondent's run gets pinned to,
     // and what generateDocuments must resolve final-block configs from.
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(workflow.id, userId, 'initial publish');
 
     // Author edits the LIVE final block AFTER publish, repointing doc-1 at a
