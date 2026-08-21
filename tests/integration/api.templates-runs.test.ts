@@ -8,7 +8,6 @@ import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vite
 
 import { sections, steps } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -109,7 +108,7 @@ describe("Templates API Integration Tests", () => {
     // serializes from the database and ignores that field entirely), which the
     // gate now correctly refuses — an interview with no questions cannot be
     // completed by any respondent.
-    const [section] = await db
+    const [section] = await getOwnerDb()
       .insert(sections)
       .values({ workflowId, title: "Page 1", order: 0 })
       .returning();

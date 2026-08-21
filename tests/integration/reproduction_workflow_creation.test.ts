@@ -7,6 +7,7 @@ import { workflowService } from "../../server/services/WorkflowService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("Reproduction: Workflow Creation", () => {
     let tenantId: string;
@@ -56,6 +57,12 @@ describe("Reproduction: Workflow Creation", () => {
         console.log("Parsed Workflow Data:", workflowData);
 
         try {
+            // RLS-5 recipe step 3: this drives `workflowService` DIRECTLY, so no
+            // middleware opens a tenant context. Without it `withTx` degrades to
+            // an UNSCOPED transaction (the documented staged-rollout behaviour),
+            // `app_current_tenant()` is NULL, and `workflows`' ownership-derived
+            // WITH CHECK rejects the insert.
+            enterTenantContextForTests(tenantId);
             const workflow = await workflowService.createWorkflow(workflowData, userId);
             expect(workflow).toBeDefined();
             expect(workflow.title).toBe(reqBody.title);
