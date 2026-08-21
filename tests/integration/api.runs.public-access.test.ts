@@ -29,7 +29,8 @@ describe.sequential('public run access policy', () => {
       tenantName: 'Public run outsider',
     });
 
-    const factory = new TestFactory();
+    // Fixture rows belong to the observer, not the application pool (RLS-5).
+    const factory = new TestFactory(getOwnerDb());
     const requireLogin = await factory.createWorkflow(ownerCtx.projectId!, ownerCtx.userId, {
       workflow: {
         status: 'active',

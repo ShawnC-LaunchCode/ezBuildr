@@ -66,6 +66,24 @@ diff.
 observe what a restricted role cannot see; an owner handle or a free tenant
 makes them pass unconditionally.
 
+### ⚠️ A fourth class the recipe does NOT cover: RLS changes the answer
+
+`api.runs.public-access` asserts a cross-tenant authenticated launch of a
+PRIVATE workflow returns **403**. Under enforcement it returns **404**,
+because the row is genuinely invisible to that tenant — the route never gets
+far enough to deny it.
+
+**This is not a defect and must not be "fixed" by editing the assertion
+without a decision.** Denial is preserved either way, and 404 arguably leaks
+less than 403 (a 403 confirms the workflow exists). But it IS a user-visible
+API contract change that arrives the day `FORCE` is set, and any client
+branching on 403 will behave differently.
+
+Expect more of these as the tail is worked. Each one is a product decision,
+not a test fix. Collect them for RLS-4 rather than silently making them
+green — a suite edited to match new behaviour is indistinguishable, later,
+from a suite that was wrong all along.
+
 ### The remaining 81 files, classified by first error
 
 | Files | Class | What it means |

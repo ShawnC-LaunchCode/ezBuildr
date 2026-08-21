@@ -9,6 +9,7 @@ import { TestFactory } from '../helpers/testFactory';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe.sequential('POST /api/runs/:runId/values/bulk', () => {
   let ctx: IntegrationTestContext;
@@ -29,7 +30,11 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
       tenantName: 'Test Tenant',
       createProject: true,
     });
-    factory = new TestFactory();
+    // Fixture rows belong to the observer, not the application pool (RLS-5).
+    factory = new TestFactory(getOwnerDb());
+    // `versionService.createDraftVersion` below is a DIRECT service call — no
+    // middleware runs, so nothing opens a tenant context for it.
+    enterTenantContextForTests(ctx.tenantId);
 
     const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     workflowId = workflow.id;
