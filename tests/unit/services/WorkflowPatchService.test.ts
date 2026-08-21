@@ -13,8 +13,11 @@ import type {
   WorkflowTemplateRepository,
   DatavaultDatabasesRepository
 } from '../../../server/repositories';
-// section.delete/step.delete soft-delete (ICW2-B11) via db.transaction; the
-// fake just invokes the callback with a stub tx (mocked repos ignore it).
+// Every op now runs inside one tenant-scoped transaction opened at the service
+// boundary (RLS-2e) — with no tenant in the async context and RLS unenforced,
+// `withCurrentTenant` falls through to a plain `db.transaction`. The fake just
+// invokes the callback with a stub tx, which the mocked repos ignore; the
+// assertions below therefore match the trailing tx with `expect.anything()`.
 vi.mock('../../../server/db', () => ({
   db: {
     transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
@@ -206,7 +209,8 @@ describe('WorkflowPatchService', () => {
       expect(mockStepRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           sectionId: 'section-real-uuid',
-        })
+        }),
+        expect.anything()
       );
     });
     it('should handle multi-level tempId references', async () => {
@@ -293,7 +297,8 @@ describe('WorkflowPatchService', () => {
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.objectContaining({ type: 'group' }),
-        })
+        }),
+        expect.anything()
       );
     });
   });
@@ -623,7 +628,7 @@ describe('WorkflowPatchService', () => {
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
       expect(result.summary[0]).toContain('Deleted step');
-      expect(mockStepRepo.softDelete).toHaveBeenCalledWith('step-123');
+      expect(mockStepRepo.softDelete).toHaveBeenCalledWith('step-123', expect.anything());
       expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
     it('soft-deletes a section AND cascades to its steps instead of hard-deleting either (section.delete)', async () => {
@@ -680,7 +685,8 @@ describe('WorkflowPatchService', () => {
               }),
             ]),
           }),
-        })
+        }),
+        expect.anything()
       );
     });
     it('should parse complex condition expressions', async () => {
@@ -715,7 +721,8 @@ describe('WorkflowPatchService', () => {
               }),
             ]),
           }),
-        })
+        }),
+        expect.anything()
       );
     });
 
@@ -748,7 +755,8 @@ describe('WorkflowPatchService', () => {
               expect.objectContaining({ variable, operator, valueType: 'constant' }),
             ]),
           }),
-        })
+        }),
+        expect.anything()
       );
     });
   });
@@ -804,14 +812,15 @@ describe('WorkflowPatchService', () => {
       expect(result.summary[0]).toContain("Attached document 'Engagement Letter'");
       expect(mockDocTemplateRepo.findByIdAndProjectId).toHaveBeenCalledWith(
         'template-123',
-        'project-123'
+        'project-123',
+        expect.anything()
       );
       expect(mockWorkflowTemplateRepo.create).toHaveBeenCalledWith({
         workflowVersionId: mockWorkflowId,
         templateId: 'template-123',
         key: 'engagement-letter',
         isPrimary: false,
-      });
+      }, expect.anything());
     });
     it('should bind document fields to workflow variables (document.bindFields)', async () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
@@ -860,7 +869,7 @@ describe('WorkflowPatchService', () => {
           client_name: { type: 'variable', source: 'fullName' },
           client_email: { type: 'variable', source: 'email' },
         },
-      });
+      }, expect.anything());
     });
     it('should reject binding to non-existent step alias', async () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([

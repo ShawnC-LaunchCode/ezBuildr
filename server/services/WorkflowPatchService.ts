@@ -1,7 +1,6 @@
 import crypto from "crypto";
 
 import { createLogger } from "../logger";
-import { db } from "../db";
 import {
   sectionRepository,
   stepRepository as defaultStepRepository,
@@ -10,7 +9,9 @@ import {
   workflowTemplateRepository,
   workflowRepository,
   projectRepository,
+  type DbTransaction,
 } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
@@ -54,18 +55,34 @@ export class WorkflowPatchService {
     this.tempIdMap.clear();
   }
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-2e, the "ambient-only" variant — no method here carries an
+   * explicit tenantId to cross-check against, since the tenant is derived from
+   * the workflow being patched). Reuses a caller-supplied `tx` if given, so a
+   * single logical operation gets exactly one transaction and one GUC.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+  /**
    * Get tenant context from workflow
    * Required for DataVault operations
    */
-  private async getTenantContext(workflowId: string): Promise<{ tenantId: string; projectId: string }> {
-    const workflow = await workflowRepository.findById(workflowId);
+  private async getTenantContext(workflowId: string, tx?: DbTransaction): Promise<{ tenantId: string; projectId: string }> {
+    const workflow = await workflowRepository.findById(workflowId, tx);
     if (!workflow) {
       throw new Error("Workflow not found");
     }
     if (!workflow.projectId) {
       throw new Error("Workflow has no project");
     }
-    const project = await projectRepository.findById(workflow.projectId);
+    const project = await projectRepository.findById(workflow.projectId, tx);
     if (!project) {
       throw new Error("Project not found");
     }
@@ -99,15 +116,19 @@ export class WorkflowPatchService {
     const summary: string[] = [];
     const errors: string[] = [];
     this.clearMappings();
-    // Validate all ops before applying
-    for (const op of ops) {
-      try {
-        await this.validateOp(workflowId, op);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Unknown validation error";
-        errors.push(`Validation failed for ${op.op}: ${message}`);
+    // Validate all ops before applying. One tenant-scoped transaction for the
+    // whole pass — every check inside is a read, so there is no reason to open
+    // (and pin the GUC on) one per op.
+    await this.withTx(undefined, async (tx) => {
+      for (const op of ops) {
+        try {
+          await this.validateOp(workflowId, op, tx);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Unknown validation error";
+          errors.push(`Validation failed for ${op.op}: ${message}`);
+        }
       }
-    }
+    });
     if (errors.length > 0) {
       return { summary, errors };
     }
@@ -128,7 +149,7 @@ export class WorkflowPatchService {
   /**
    * Validate a single operation (security checks, safety rules)
    */
-  private async validateOp(workflowId: string, op: WorkflowPatchOp): Promise<void> {
+  private async validateOp(workflowId: string, op: WorkflowPatchOp, tx?: DbTransaction): Promise<void> {
     // Validate against Zod schema
     const result = workflowPatchOpSchema.safeParse(op);
     if (!result.success) {
@@ -144,7 +165,7 @@ export class WorkflowPatchService {
     }
     // Alias uniqueness check for step creation
     if ((op.op === "step.create" || op.op === "step.update") && op.alias) {
-      const existingSteps = await this.stepRepository.findByWorkflowId(workflowId);
+      const existingSteps = await this.stepRepository.findByWorkflowId(workflowId, tx);
       const duplicate = existingSteps.find(
         (s) => s.alias === op.alias && (op.op === "step.create" || s.id !== this.resolve(op.id))
       );
@@ -157,27 +178,47 @@ export class WorkflowPatchService {
    * Verify that an entity (section or step) belongs to the given workflow ID.
    * Prevents IDOR attacks where a user passes a valid ID from another tenant's workflow.
    */
-  private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'section' | 'step'): Promise<void> {
+  private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'section' | 'step', tx?: DbTransaction): Promise<void> {
     if (type === 'section') {
-      const section = await sectionRepository.findById(entityId);
+      const section = await sectionRepository.findById(entityId, tx);
       if (!section) {throw new Error(`Section not found: ${entityId}`);}
       if (section.workflowId !== workflowId) {throw new Error(`Section ${entityId} does not belong to workflow ${workflowId}`);}
     } else if (type === 'step') {
-      const step = await this.stepRepository.findById(entityId);
+      const step = await this.stepRepository.findById(entityId, tx);
       if (!step) {throw new Error(`Step not found: ${entityId}`);}
-      const section = await sectionRepository.findById(step.sectionId);
+      const section = await sectionRepository.findById(step.sectionId, tx);
       if (!section || section.workflowId !== workflowId) {throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);}
     }
   }
 
   /**
-   * Apply a single operation
+   * Apply a single operation, in one tenant-scoped transaction.
+   *
+   * One transaction per OP rather than per batch: `applyOps` deliberately
+   * stops at the first failure and keeps whatever already succeeded, so
+   * widening this to the whole batch would change failure semantics (it would
+   * roll the earlier ops back), not just the RLS scoping.
    */
-  // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
   private async applyOp(
     workflowId: string,
     userId: string,
     op: WorkflowPatchOp
+  ): Promise<string> {
+    return this.withTx(undefined, (tx) => this.applyOpInTx(workflowId, userId, op, tx));
+  }
+  /**
+   * The operation body. Every DB call here takes the caller's `tx` so the whole
+   * op runs inside the single transaction `applyOp` opened — including the
+   * calls into other converted services, which reuse a supplied `tx` rather
+   * than opening a second one (a nested transaction deadlocks the size-1 test
+   * pool — see RLS_HANDOFF §4).
+   */
+  // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
+  private async applyOpInTx(
+    workflowId: string,
+    userId: string,
+    op: WorkflowPatchOp,
+    tx: DbTransaction
   ): Promise<string> {
     switch (op.op) {
       // ====================================================================
@@ -187,7 +228,7 @@ export class WorkflowPatchService {
         await workflowService.updateWorkflow(workflowId, userId, {
           title: op.title,
           description: op.description,
-        });
+        }, tx);
         return `Updated workflow metadata`;
       }
       // ====================================================================
@@ -199,7 +240,7 @@ export class WorkflowPatchService {
           title: op.title,
           order: op.order,
           config: op.config,
-        });
+        }, tx);
         if (op.tempId) {
           this.mapTempId(op.tempId, section.id);
         }
@@ -208,25 +249,24 @@ export class WorkflowPatchService {
       case "section.update": {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
         await sectionRepository.update(sectionId, {
           title: op.title,
           order: op.order,
           config: op.config,
-        });
+        }, tx);
         return `Updated section`;
       }
       case "section.delete": {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
         // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
         // Cascade to the section's own steps, mirroring the manual delete
-        // path in SectionService.deleteSection.
-        await db.transaction(async (tx) => {
-          await this.stepRepository.softDeleteBySectionId(sectionId, tx);
-          await sectionRepository.softDelete(sectionId, tx);
-        });
+        // path in SectionService.deleteSection. The op's own transaction is
+        // the cascade's transaction — opening a second one here would nest.
+        await this.stepRepository.softDeleteBySectionId(sectionId, tx);
+        await sectionRepository.softDelete(sectionId, tx);
         return `Deleted section`;
       }
       case "section.reorder": {
@@ -234,8 +274,8 @@ export class WorkflowPatchService {
         for (let i = 0; i < op.sectionIds.length; i++) {
           const sectionId = this.resolve(op.sectionIds[i]);
           if (sectionId) {
-            await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
-            await sectionRepository.update(sectionId, { order: i + 1 });
+            await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
+            await sectionRepository.update(sectionId, { order: i + 1 }, tx);
           }
         }
         return `Reordered ${op.sectionIds.length} sections`;
@@ -243,10 +283,10 @@ export class WorkflowPatchService {
       case "section.setVisibleIf": {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
         await sectionRepository.update(sectionId, {
           visibleIf: op.visibleIf,
-        });
+        }, tx);
         return op.visibleIf === null
           ? `Cleared section visibility condition`
           : `Updated section visibility condition`;
@@ -263,9 +303,9 @@ export class WorkflowPatchService {
         // even another tenant's — section by passing its UUID. A tempId from a
         // same-batch section.create resolves to a section created in *this*
         // workflow, so the assertion still passes for the legitimate path.
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
         // Get max order for this section if not specified
-        const order = op.order ?? await this.getNextStepOrder(sectionId);
+        const order = op.order ?? await this.getNextStepOrder(sectionId, tx);
         const step = await this.stepRepository.create({
           workflowId,
           sectionId,
@@ -278,7 +318,7 @@ export class WorkflowPatchService {
           // steps with no validation — the ICW2-2 defect, at the ops seam.
           config: op.config,
           defaultValue: op.defaultValue,
-        });
+        }, tx);
         if (op.tempId) {
           this.mapTempId(op.tempId, step.id);
         }
@@ -289,7 +329,7 @@ export class WorkflowPatchService {
         const stepId = this.resolve(op.id || op.tempId);
         // eslint-disable-next-line sonarjs/no-duplicate-string
         if (!stepId) { throw new Error("Step ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
         await this.stepRepository.update(stepId, {
           type: op.type as StepType,
           title: op.title,
@@ -299,16 +339,16 @@ export class WorkflowPatchService {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ConditionExpression validated by Zod schema
           visibleIf: op.visibleIf as any,
           defaultValue: op.defaultValue,
-        });
+        }, tx);
         return `Updated step`;
       }
       case "step.delete": {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
         // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
-        await this.stepRepository.softDelete(stepId);
+        await this.stepRepository.softDelete(stepId, tx);
         return `Deleted step`;
       }
       case "step.move": {
@@ -318,23 +358,23 @@ export class WorkflowPatchService {
         const toSectionId = this.resolve(op.toSectionId);
         if (!toSectionId) { throw new Error("Target section ID required"); }
         
-        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
-        await this.assertEntityBelongsToWorkflow(toSectionId, workflowId, 'section');
-        const order = op.order ?? await this.getNextStepOrder(toSectionId);
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
+        await this.assertEntityBelongsToWorkflow(toSectionId, workflowId, 'section', tx);
+        const order = op.order ?? await this.getNextStepOrder(toSectionId, tx);
         await this.stepRepository.update(stepId, {
           sectionId: toSectionId,
           order,
-        });
+        }, tx);
         return `Moved step to different section`;
       }
       case "step.setVisibleIf": {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
         await this.stepRepository.update(stepId, {
           visibleIf: op.visibleIf,
-        });
+        }, tx);
         return op.visibleIf === null
           ? `Cleared step visibility condition`
           : `Updated step visibility condition`;
@@ -342,12 +382,12 @@ export class WorkflowPatchService {
       case "step.reorder": {
         const sectionId = this.resolve(op.sectionId);
         if (!sectionId) { throw new Error("Section ID required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
         for (let i = 0; i < op.stepIds.length; i++) {
           const stepId = this.resolve(op.stepIds[i]);
           if (stepId) {
-            await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
-            await this.stepRepository.update(stepId, { sectionId, order: i + 1 });
+            await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
+            await this.stepRepository.update(stepId, { sectionId, order: i + 1 }, tx);
           }
         }
         return `Reordered ${op.stepIds.length} steps`;
@@ -356,10 +396,10 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
         await this.stepRepository.update(stepId, {
           required: op.required,
-        });
+        }, tx);
         return `Set step required: ${op.required}`;
       }
       // ====================================================================
@@ -371,18 +411,18 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
         if (!targetId) { throw new Error("Logic rule target ID required"); }
-        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type);
+        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type, tx);
         // Convert rule to ConditionExpression format
         const conditionExpr = this.parseConditionToExpression(op.rule.condition);
         if (op.rule.target.type === "step") {
           await this.stepRepository.update(targetId, {
             visibleIf: conditionExpr,
-          });
+          }, tx);
           return `Applied visibility rule to step`;
         } else if (op.rule.target.type === "section") {
           await sectionRepository.update(targetId, {
             visibleIf: conditionExpr,
-          });
+          }, tx);
           return `Applied visibility rule to section`;
         } else {
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -397,29 +437,29 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
         if (!targetId) { throw new Error("Logic rule target ID required"); }
-        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type);
+        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type, tx);
         const conditionExpr = op.rule.condition
           ? this.parseConditionToExpression(op.rule.condition)
           : null;
         if (op.rule.target.type === "step") {
           await this.stepRepository.update(targetId, {
             visibleIf: conditionExpr,
-          });
+          }, tx);
         } else if (op.rule.target.type === "section") {
           await sectionRepository.update(targetId, {
             visibleIf: conditionExpr,
-          });
+          }, tx);
         }
         return `Updated visibility rule`;
       }
       case "logicRule.delete": {
         // Delete logic rule by ID (from logic_rules table)
-        const logicRule = await logicRuleRepository.findById(op.id);
+        const logicRule = await logicRuleRepository.findById(op.id, tx);
         if (logicRule) {
            if (logicRule.workflowId !== workflowId) {
                throw new Error(`Logic rule does not belong to workflow ${workflowId}`);
            }
-           await logicRuleRepository.delete(op.id);
+           await logicRuleRepository.delete(op.id, tx);
         }
         return `Removed logic rule`;
       }
@@ -430,11 +470,12 @@ export class WorkflowPatchService {
         // Attach an existing template to the workflow
         // Assumes 'template' field contains a templateId
         const templateId = op.template;
-        const { projectId } = await this.getTenantContext(workflowId);
+        const { projectId } = await this.getTenantContext(workflowId, tx);
         // Verify template exists and belongs to project
         const template = await documentTemplateRepository.findByIdAndProjectId(
           templateId,
-          projectId
+          projectId,
+          tx
         );
         if (!template) {
           throw new Error(
@@ -444,7 +485,7 @@ export class WorkflowPatchService {
         // Get current workflow to access versionId
         // For now, we'll use workflowId directly since workflow_templates uses workflowVersionId
         // In production, we'd need to handle versioning properly
-        const workflow = await workflowRepository.findById(workflowId);
+        const workflow = await workflowRepository.findById(workflowId, tx);
         if (!workflow) {
           throw new Error("Workflow not found");
         }
@@ -457,7 +498,7 @@ export class WorkflowPatchService {
           templateId: template.id,
           key: this.generateSlug(op.name),
           isPrimary: false,
-        });
+        }, tx);
         if (op.tempId) {
           this.mapTempId(op.tempId, link.id);
         }
@@ -468,12 +509,12 @@ export class WorkflowPatchService {
         const docId = this.resolve(op.id || op.tempId);
         if (!docId) { throw new Error("Document ID or tempId required"); }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { projectId } = await this.getTenantContext(workflowId);
+        const { projectId } = await this.getTenantContext(workflowId, tx);
         // Update the template metadata
         if (op.name !== undefined) {
           await documentTemplateRepository.update(docId, {
             name: op.name,
-          });
+          }, tx);
         }
         return `Updated document`;
       }
@@ -490,7 +531,7 @@ export class WorkflowPatchService {
           metadata: {
             visibleIf: conditionExpr,
           },
-        });
+        }, tx);
         return op.condition
           ? `Set conditional visibility for document`
           : `Removed conditional visibility from document`;
@@ -500,9 +541,9 @@ export class WorkflowPatchService {
         const docId = this.resolve(op.id || op.tempId);
         if (!docId) { throw new Error("Document ID or tempId required"); }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { projectId } = await this.getTenantContext(workflowId);
+        const { projectId } = await this.getTenantContext(workflowId, tx);
         // Verify all step aliases exist in workflow
-        const workflowSteps = await this.stepRepository.findByWorkflowId(workflowId);
+        const workflowSteps = await this.stepRepository.findByWorkflowId(workflowId, tx);
         const validAliases = new Set(workflowSteps.map(s => s.alias).filter(Boolean));
         for (const stepAlias of Object.values(op.bindings)) {
           if (!validAliases.has(stepAlias)) {
@@ -522,14 +563,14 @@ export class WorkflowPatchService {
         // Update template mapping
         await documentTemplateRepository.update(docId, {
           mapping,
-        });
+        }, tx);
         return `Bound ${Object.keys(op.bindings).length} field(s) to workflow variables`;
       }
       // ====================================================================
       // DataVault Operations (Additive only - strictly safe)
       // ====================================================================
       case "datavault.createTable": {
-        const { tenantId } = await this.getTenantContext(workflowId);
+        const { tenantId } = await this.getTenantContext(workflowId, tx);
         // Normalize to null so an empty-string databaseId can't (a) slip past
         // the ownership check below via a falsy guard, nor (b) be persisted as a
         // bogus "" reference (`"" ?? null` keeps the empty string).
@@ -539,7 +580,7 @@ export class WorkflowPatchService {
         // Verify database exists and belongs to this tenant if provided
         if (databaseId) {
           const { datavaultDatabasesRepository } = await import('../repositories');
-          const dbObj = await datavaultDatabasesRepository.findById(databaseId);
+          const dbObj = await datavaultDatabasesRepository.findById(databaseId, tx);
           if (!dbObj || dbObj.tenantId !== tenantId) {
               throw new Error(`Database ${databaseId} not found or does not belong to your tenant`);
           }
@@ -552,7 +593,7 @@ export class WorkflowPatchService {
           name: op.name,
           slug: this.generateSlug(op.name),
           description: null,
-        });
+        }, tx);
         // Add custom columns (ID column is auto-created by service)
         let columnCount = 0;
         for (const col of op.columns) {
@@ -570,7 +611,7 @@ export class WorkflowPatchService {
             options: col.type === 'select' || col.type === 'multiselect'
               ? col.config?.options ?? null
               : null,
-          }, tenantId);
+          }, tenantId, tx);
         }
         if (op.tempId) {
           this.mapTempId(op.tempId, table.id);
@@ -580,18 +621,19 @@ export class WorkflowPatchService {
       case "datavault.addColumns": {
         const tableId = this.resolve(op.tableId);
         if (!tableId) { throw new Error("Table ID required"); }
-        const { tenantId } = await this.getTenantContext(workflowId);
+        const { tenantId } = await this.getTenantContext(workflowId, tx);
         // Verify table exists and user has write access
         await this.datavaultTablesService.requirePermission(
           userId,
           tableId,
           tenantId,
-          "write"
+          "write",
+          tx
         );
         // Get current max orderIndex
-        const context = await this.getTenantContext(workflowId);
+        const context = await this.getTenantContext(workflowId, tx);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const existingColumns = await this.datavaultColumnsService.listColumns(tableId, context.tenantId);
+        const existingColumns = await this.datavaultColumnsService.listColumns(tableId, context.tenantId, tx);
         // Add new columns
         for (const col of op.columns) {
           await this.datavaultColumnsService.createColumn({
@@ -605,7 +647,7 @@ export class WorkflowPatchService {
             options: col.type === 'select' || col.type === 'multiselect'
               ? col.config?.options ?? null
               : null,
-          }, context.tenantId);
+          }, context.tenantId, tx);
         }
         return `Added ${op.columns.length} column(s) to DataVault table`;
       }
@@ -619,8 +661,8 @@ export class WorkflowPatchService {
   /**
    * Get next available order for a section's steps
    */
-  private async getNextStepOrder(sectionId: string): Promise<number> {
-    const steps = await this.stepRepository.findBySectionId(sectionId);
+  private async getNextStepOrder(sectionId: string, tx?: DbTransaction): Promise<number> {
+    const steps = await this.stepRepository.findBySectionId(sectionId, tx);
     if (steps.length === 0) { return 1; }
     return Math.max(...steps.map(s => s.order)) + 1;
   }
