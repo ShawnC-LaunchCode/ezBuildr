@@ -63,7 +63,10 @@ async function lookupWorkflowIdFromSectionIncludingDeletedMiddleware(
     if (!sectionId) {
       return next();
     }
-    const section = await sectionRepository.findByIdIncludingDeleted(sectionId);
+    // Same reason as the sibling middleware above: `sections` is RLS-covered
+    // through its workflow's ownership-derived policy.
+    const section = await withCurrentTenant((tx) =>
+      sectionRepository.findByIdIncludingDeleted(sectionId, tx));
     if (!section) {
       res.status(404).json({ message: "Section not found" });
       return;

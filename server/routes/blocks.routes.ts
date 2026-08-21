@@ -12,6 +12,7 @@ import { listToolsBlockService } from "../services/ListToolsBlockService";
 import { queryBlockService } from "../services/QueryBlockService";
 import { readTableBlockService } from "../services/ReadTableBlockService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
@@ -312,7 +313,9 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       // Generate unique output variable name
-      const allSteps = await stepRepository.findByWorkflowId(workflowId);
+      // RLS-5: `steps` is covered via its workflow's ownership-derived policy.
+      const allSteps = await withCurrentTenant((tx) =>
+        stepRepository.findByWorkflowId(workflowId, tx));
       const existingAliases = new Set(allSteps.map((s) => s.alias).filter(Boolean));
       let outputVar = `${sourceListVar}_filtered`;
       let counter = 2;

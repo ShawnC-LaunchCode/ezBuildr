@@ -10,6 +10,7 @@ import { requireOwner, requirePermission } from "../middleware/rbac";
 import { requireTenant, validateTenantParam } from "../middleware/tenant";
 import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories";
+import { withTenantAsUser } from "../utils/rlsContext";
 import { authService } from "../services/AuthService";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -45,10 +46,17 @@ async function createTenantHandler(req: Request, res: Response): Promise<void> {
       .returning();
 
     if (authReq.userId) {
-      await userRepository.updateUser(authReq.userId, {
-        tenantId: newTenant.id,
-        tenantRole: 'owner',
-      });
+      // Assigning a user's FIRST tenant, which is the one shape `withTenant`
+      // alone gets wrong: `USING` is evaluated against the row's CURRENT
+      // tenant, so pinning only the new one makes the row invisible and the
+      // UPDATE silently matches zero rows — no error, no write.
+      // `withTenantAsUser` pins the self-id GUC as well so the row is visible,
+      // while WITH CHECK still forces the written tenant to be this one.
+      await withTenantAsUser(newTenant.id, authReq.userId, (tx) =>
+        userRepository.updateUser(authReq.userId as string, {
+          tenantId: newTenant.id,
+          tenantRole: 'owner',
+        }, tx));
     }
 
     logger.info({ tenantId: newTenant.id, userId: authReq.userId }, 'Tenant created');

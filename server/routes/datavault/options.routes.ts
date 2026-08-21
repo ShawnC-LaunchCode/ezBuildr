@@ -3,12 +3,10 @@ import { z } from 'zod';
 import { logger } from '../../logger';
 import { getAuthUserId, optionalHybridAuth } from '../../middleware/auth';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../../middleware/runTokenAuth';
-import { projectRepository } from '../../repositories/ProjectRepository';
-import { userRepository } from '../../repositories/UserRepository';
-import { workflowRepository } from '../../repositories/WorkflowRepository';
 import { datavaultColumnsService, datavaultRowsService, datavaultTablesService } from '../../services';
+import { workflowTenantResolver } from '../../services/WorkflowTenantResolver';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { runWithTenantContext } from '../../utils/rlsContext';
+import { runWithTenantContext, withVerifiedIdentifier } from '../../utils/rlsContext';
 import { classifyRouteError } from '../../utils/routeErrors';
 import { paginationSchema } from '../../utils/validation';
 
@@ -33,25 +31,33 @@ function toOptionString(value: unknown): string {
   return String(value);
 }
 
+/**
+ * Resolve the tenant for a run-token caller, who has no tenant context of
+ * their own.
+ *
+ * This was a local re-implementation of the workflow -> project -> creator
+ * ownership walk, issued on the bare pool. Two problems, one of which RLS
+ * only made visible: `workflows`, `projects` and `users` are all RLS-covered,
+ * so under enforcement each hop returns nothing; and a hand-rolled copy of
+ * the resolution order drifts from the real one — `WorkflowTenantResolver` is
+ * the single implementation, and migration 0033 exists precisely because
+ * getting that order wrong resolves CONFIDENTLY to the wrong tenant rather
+ * than failing.
+ *
+ * `app.current_workflow_id` is pinned for the lookup exactly as
+ * `runTokenAuth` does it: the workflow id came from a verified run-token
+ * match on `workflow_runs`, so migration 0030's clause may trust it.
+ */
 async function resolveWorkflowTenantId(workflowId: string): Promise<string> {
-  const workflow = await workflowRepository.findById(workflowId);
-  if (!workflow) {
-    throw new Error('Workflow not found');
-  }
-  if (typeof workflow.projectId === 'string') {
-    const project = await projectRepository.findById(workflow.projectId);
-    if (typeof project?.tenantId === 'string') {
-      return project.tenantId;
-    }
-  }
-  if (typeof workflow.creatorId !== 'string') {
+  const tenantId = await withVerifiedIdentifier(
+    'app.current_workflow_id',
+    workflowId,
+    (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+  );
+  if (!tenantId) {
     throw new Error('Access denied - run workflow has no tenant');
   }
-  const creator = await userRepository.findById(workflow.creatorId);
-  if (typeof creator?.tenantId === 'string') {
-    return creator.tenantId;
-  }
-  throw new Error('Access denied - run workflow has no tenant');
+  return tenantId;
 }
 
 /** Register the runner-safe DataVault choice-option endpoint. */

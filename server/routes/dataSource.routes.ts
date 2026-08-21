@@ -9,6 +9,7 @@ import { datavaultTablesRepository } from '../repositories/DatavaultTablesReposi
 import { dataSourceService } from '../services/DataSourceService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from '../utils/rlsContext';
 import { classifyRouteError } from '../utils/routeErrors';
 
 
@@ -121,11 +122,15 @@ dataSourceRouter.get('/native/catalog', asyncHandler(async (req, res) => {
             return;
         }
 
-        // 1. Get all accessible databases
-        const databases = await datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId);
-
-        // 2. Get all accessible tables
-        const tables = await datavaultTablesRepository.findByTenantAndUser(tenantId, userId);
+        // 1+2. Both DataVault tables are RLS-covered, and this is one logical
+        // read, so it gets ONE tenant-scoped transaction rather than two. The
+        // GUC comes from the ambient context, not from `tenantId` — the same
+        // value here, but keeping the transaction's tenant and the query's
+        // predicate independent is the point of having both (§2b).
+        const { databases, tables } = await withCurrentTenant(async (tx) => ({
+            databases: await datavaultDatabasesRepository.findByTenantAndUser(tenantId, userId, tx),
+            tables: await datavaultTablesRepository.findByTenantAndUser(tenantId, userId, tx),
+        }));
 
         // 3. Structure the response
         // Group tables by databaseId

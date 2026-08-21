@@ -1,5 +1,6 @@
 import { createLogger } from "../logger";
-import { userRepository } from "../repositories";
+
+import { getUserById } from "./userCache";
 
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 
@@ -21,9 +22,16 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
       });
     }
 
-    // Get full user details from database to check role
+    // Get full user details from database to check role.
+    //
+    // RLS-5: this runs before any tenant is pinned and reads the CALLER'S own
+    // row, so it is the same self-identification read `requireUser` does —
+    // `getUserById` pins `app.current_user_id` (migration 0028) so the row is
+    // visible, and shares that path's TTL cache and its invalidation on role
+    // change. An unscoped `findById` here would deny every admin route under
+    // enforcement for any admin who has a tenant.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    const dbUser = await userRepository.findById(userId);
+    const dbUser = await getUserById(userId);
 
     if (!dbUser) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -71,7 +79,7 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
  */
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await getUserById(userId);
     return user?.role === 'admin';
   } catch (error) {
     logger.error({ err: error, userId }, 'Error checking admin status');
