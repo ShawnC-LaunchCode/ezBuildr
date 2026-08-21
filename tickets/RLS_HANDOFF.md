@@ -36,6 +36,48 @@ described here is **committed** on `dev`.
 
 ---
 
+## 0b. Phase 2's recipe — proven on six suites, apply it mechanically
+
+Every remaining restricted-run failure is one of three things, and the fix for
+each is local and verifiable. **Work one suite at a time; run it under
+`RLS_RESTRICTED=true` and then in normal mode before moving on.**
+
+1. **Fixture writes and verification reads go through the observer.**
+   `db.insert/update/delete/select` in a test → `getOwnerDb()`. The app runs
+   restricted; a test building the world it exercises is not the app.
+2. **`new TestFactory()` → `new TestFactory(getOwnerDb())`.** Same reason. The
+   handle is now typed with the schema generic so this just works.
+3. **Direct service calls need `enterTenantContextForTests(ctx.tenantId)`** —
+   and they need it in **each place** such a call happens. A `beforeAll` entry
+   covers the rest of that hook and **does not propagate into a test body**.
+   Measured twice; on `api.runs.completed-immutability` the hook-only entry
+   took it from 4-skipped to 3-passed-1-failed, and the one failure was the
+   test whose body made its own service call.
+
+**Do NOT put step 3 into `setupIntegrationTest`.** It is tempting — dozens of
+suites would get it free — but four `rls*` suites use that helper and exist to
+assert `/no tenant in context/`. They would keep passing only because
+hook-entered context does not propagate into their test bodies, i.e. the
+guards protecting this entire initiative would depend on an invisible rule
+nobody would notice changing. Explicit per-suite edits are worth the extra
+diff.
+
+**Never apply any of this to the `rls*` suites themselves.** They exist to
+observe what a restricted role cannot see; an owner handle or a free tenant
+makes them pass unconditionally.
+
+### The remaining 81 files, classified by first error
+
+| Files | Class | What it means |
+|---|---|---|
+| 28 | quiet: "not found" / "access denied" / undefined row | A read filtered to zero rows — recipe steps 1-3 |
+| 14 | wrong status code | Same, one layer up |
+| 4 | app 500 | Usually a real unscoped write behind the route |
+| 34 | other | Mixed; classify individually |
+| 1 | timeout | ✅ was `collab.sync`, fixed |
+
+---
+
 ## 1. Status
 
 **Two gates, both still shut.** `FORCE` is not set anywhere and the app still
