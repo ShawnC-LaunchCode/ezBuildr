@@ -1993,6 +1993,28 @@ Ranked by failure shape, because every one of these would have failed **silently
 
 ## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` 🔲
 
+> ### ✅ RULED BY THE REPO OWNER 2026-08-21 — the shape is settled, build it this way
+>
+> **The BYPASSRLS pool stays READ-ONLY. Admin writes are ordinary tenant-pinned
+> writes against the TARGET's tenant.**
+>
+> The flow for every write: read the target row through the audited `adminDb`
+> path (which already writes its `admin_access_log` row), take that row's
+> tenant, then perform the write inside `withTenant(targetTenantId, …)` on the
+> **normal** pool. It works for all five cases — a newly created user has no
+> tenant to pin, exactly like registration; `workflows` derives its tenant from
+> ownership, so pinning the owner's tenant satisfies the policy.
+>
+> **Why this over extending `AdminAccessService` to write through `adminDb`:**
+> it costs one extra read per write and keeps a property that can be stated in
+> one sentence and tested — *the bypass connection cannot write*. The
+> alternative doubles what a leaked admin connection can do for a convenience
+> saving. It also means the containment test keeps its current meaning.
+>
+> Consequence for the mechanical cost noted below: **`adminDbOverride` only
+> ever needs threading through READ methods**, so `BaseRepository.create` /
+> `.delete` do not need to change — which was the ugliest part of the estimate.
+
 **Priority: P1** · Size: M · **BLOCKS RLS-4** (same reason RLS-6 did) · Files:
 `server/routes/admin.routes.ts`, `server/services/AdminAccessService.ts`,
 `server/repositories/{User,Workflow}Repository.ts`, possibly `BaseRepository.ts`
@@ -2020,18 +2042,23 @@ of the sweep:
 semantic step and wants the repo owner's eyes**, not a reviewer's judgement call: a
 BYPASSRLS pool that can also write is a materially larger blast radius than one that cannot.
 
-### Preferred fix
+### Preferred fix (settled by the ruling above)
 
-1. Owner ruling first: does the audited module cover cross-tenant **writes**, or do the four
-   write sites get a different answer (a per-tenant `withTenant` using the target's own
-   tenant, read first through the audited read path)?
-2. Add one `AdminAccessService` method per operation, each pairing the `adminDb` call with an
-   `admin_access_log` row, exactly as the existing four do.
-3. Mechanical cost to note when sizing: the pattern threads an `adminDbOverride?: DrizzleDB`
-   through the repository method being called. The existing four hit methods that already
-   have it; several of these are `BaseRepository` generics (`findById`, `create`, `delete`),
-   so either those gain the parameter or the methods get non-generic admin variants. **Do not
-   let that push anyone toward giving the app role `BYPASSRLS`** — RLS-4's AC2 stands.
+1. **Reads** — one `AdminAccessService` method per operation, pairing the `adminDb` call with
+   an `admin_access_log` row, exactly as the existing four do. Thread
+   `adminDbOverride?: DrizzleDB` through the repository READ methods involved
+   (`UserRepository.findById`/`findByEmail`, `WorkflowRepository.findAll`/`findById`, the
+   `get*Stats` aggregates). `BaseRepository.findById` gaining the parameter is acceptable;
+   `create`/`delete` must NOT.
+2. **Writes** — `AdminAccessService` resolves the target's tenant via (1), then performs the
+   write in `withTenant(targetTenantId, …)` on the normal pool, logging the same audit row.
+   `userRepository.create` for a brand-new admin-created user has no tenant to pin and runs
+   unscoped, exactly like registration (0027's NULL-safe `WITH CHECK` is what permits it).
+3. `mfaService.adminResetMfa` reaches a `users` write for another user through `disableMfa` —
+   it takes the same treatment, and `server/utils/selfUser.ts` is explicitly NOT the answer
+   for it (its doc comment says so).
+4. **Do not let any of this push anyone toward giving the app role `BYPASSRLS`** — RLS-4's
+   AC2 stands.
 
 ### Ties
 
@@ -2046,6 +2073,8 @@ BYPASSRLS pool that can also write is a materially larger blast radius than one 
 1. Every cross-tenant admin operation in `admin.routes.ts` goes through `AdminAccessService`;
    none touches a repository directly.
 2. Each one writes an `admin_access_log` row (actor, action, target user/tenant, request id).
+2b. **No write is issued on the `adminDb` connection** — asserted by a test, not by review.
+   Every write goes through `withTenant` on the normal pool.
 3. The containment test still passes and is still non-vacuous (prove it fails when a
    disallowed file imports `adminDb`).
 4. With `ADMIN_DATABASE_URL` unset, every admin route behaves exactly as today (the
