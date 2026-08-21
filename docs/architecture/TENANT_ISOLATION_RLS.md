@@ -498,6 +498,65 @@ lesson: getting the RLS *architecture* right surfaces ordinary application
 bugs it wasn't designed to find, and the fix for those is just fixing the
 bug, not another policy clause.
 
+### 2g. Working the conversion checklist (Phase 1 sweep, 2026-08-21)
+
+`scripts/audit-rls-surface.ts` turned "what is left" into a finite list, and
+working it end to end produced four things worth knowing before touching the
+rest of it.
+
+**"Resolve the tenant from a token you already verified" is now a named
+recipe, used in four places.** `runTokenAuth` established it; the sweep found
+three more callers with the identical shape — a caller holding a verified
+credential for a RUN, needing to read `workflows`/`steps`/`projects`, which
+are covered:
+
+```ts
+const tenantId = await withVerifiedIdentifier(
+  'app.current_workflow_id',              // migration 0030's clause
+  run.workflowId,                         // from a row reached by a verified match
+  (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx),
+);
+if (!tenantId) { throw /* fail closed */; }
+await withTenant(tenantId, (tx) => /* the real work */);
+```
+
+`SignatureBlockService`'s HMAC callback, `RunStateService.getSharedRunDetails`
+(the share-link page, which mounts **no** auth middleware at all) and
+`datavault/options.routes` all use it now. That last one had grown its **own
+copy** of the workflow → project → creator walk; a hand-rolled copy is exactly
+what `0033` exists to prevent, because it resolves confidently to the wrong
+tenant after a project transfer rather than failing. **If you find a second
+implementation of tenant resolution, delete it — there is one.**
+
+**The self-row helpers live in `server/utils/selfUser.ts`.** `findSelfUser` /
+`updateSelfUser` wrap §2e's pattern for the ~12 places that read or write the
+CALLER'S own `users` row before a tenant exists (the auth routes, MFA
+enable/disable). `updateSelfUser` encodes the UPDATE gotcha: both GUCs when the
+user has a tenant, self-id only when they do not. Never call either for an
+admin acting on someone else's row — that is `adminDb`'s job, deliberately
+somewhere else.
+
+**Open the transaction at the service boundary, not in a lib.** `QueryRunner`
+takes an injectable `db` in its constructor; a `withTenant` placed *inside* it
+opened a transaction on the global pool and silently bypassed that injection —
+every test driving it through a mock failed with "Database not initialized".
+It now takes the caller's `tx`, and `QueryBlockRunner`/`QueryService` open the
+scoped transaction. The rule from §2b is not stylistic: a lib that opens its
+own transaction cannot be tested, and cannot be composed into a caller's.
+
+**Rank the sites by how they fail, not by how many there are.** The sweep's
+worst finds were not the ones that would throw:
+
+| Site | Unscoped behaviour under enforcement |
+|---|---|
+| `metrics.emit`, `AuditLogger` | Insert rejected, error **swallowed** — the run succeeds, its telemetry vanishes |
+| `TemplateAnalysisService` | "Which workflows would this template update break?" answers **none** — the template gets overwritten with no warning |
+| `RunStateService` share page | Workflow invisible, `accessSettings` falls back to defaults — renders `allow_portal: false` as though configured |
+| `ImportService` collision check | Finds no existing names, reports **no collisions**, import creates the duplicates it was asked to warn about |
+| `LifecycleHookService` alias map | Comes back **empty** — hooks still run, with no alias resolution |
+
+A read that throws gets noticed in the first hour of a rollout. These do not.
+
 **Phase 3 — Enforce.** Only after Phase 2 is adopted and verified in staging:
 - Preferred: create a dedicated **non-owner, non-BYPASSRLS** app role, grant it
   DML on the tenant tables, and point the app's `DATABASE_URL` at it. Owner keeps
