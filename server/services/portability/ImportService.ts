@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { BundleReader } from './bundleReader';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { ExportWarning, RequiresReentry, BundleManifest } from './bundleFormat';
-import { db } from '../../db';
 import { runWithTenantContext, withCurrentTenant, withCurrentUserId, withTenant } from '../../utils/rlsContext';
 import { projects, workflows, datavaultTables, steps, users, organizations } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -186,30 +185,42 @@ export class ImportService {
   }
 
   private async getTargetOwnerForPreview(userId: string, targetProjectId?: string): Promise<TargetOwner | null> {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    // The caller's own row, read before any tenant is established — that read
+    // is what establishes it. Self-identification clause (migration 0028).
+    const user = await withCurrentUserId(userId, async (tx) => {
+      const [row] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+      return row;
+    });
     if (user?.tenantId == null) {
       return null;
     }
+    const tenantId = user.tenantId;
 
     if (targetProjectId !== undefined) {
-      const [project] = await db.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
-      if (project === undefined) {
-        throw new Error('Project not found');
-      }
-      const canView = await aclService.hasProjectRole(userId, targetProjectId, 'view');
+      // `projects` is RLS-covered, and reading one outside the caller's tenant
+      // must stay impossible — so the tenant just resolved above is pinned for
+      // the read, and the ACL check shares the transaction rather than issuing
+      // pool queries from inside it (the SystemStats deadlock shape).
+      const { project, canView } = await withTenant(tenantId, async (tx) => {
+        const [row] = await tx.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
+        if (row === undefined) {
+          throw new Error('Project not found');
+        }
+        return { project: row, canView: await aclService.hasProjectRole(userId, targetProjectId, 'view', tx) };
+      });
       if (!canView) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
       return {
         ownerType: project.ownerType ?? 'user',
         ownerUuid: project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId ?? userId,
-        tenantId: project.tenantId ?? user.tenantId
+        tenantId: project.tenantId ?? tenantId
       };
     }
     return {
       ownerType: 'user',
       ownerUuid: userId,
-      tenantId: user.tenantId
+      tenantId
     };
   }
 
@@ -220,12 +231,17 @@ export class ImportService {
     result: ImportPreview
   ): Promise<void> {
     if (extracted.projects.size > 0) {
-      const existingProjects = await db.select({ name: projects.title })
+      // projects / workflows / datavault_tables are all RLS-covered; each of
+      // these three reads gets the target tenant pinned. They are separate
+      // transactions rather than one because they are independent checks
+      // guarded by different conditions — nothing here depends on them being
+      // atomic.
+      const existingProjects = await withTenant(targetOwner.tenantId, (tx) => tx.select({ name: projects.title })
         .from(projects)
         .where(and(
           eq(projects.ownerType, targetOwner.ownerType),
           eq(projects.ownerUuid, targetOwner.ownerUuid)
-        ));
+        )));
       const existingNames = new Set(existingProjects.map(p => p.name).filter(Boolean));
       for (const name of extracted.projects) {
         if (existingNames.has(name)) {
@@ -236,13 +252,13 @@ export class ImportService {
 
     if (extracted.workflows.size > 0 && extracted.projects.size === 0) {
       const projectCondition = targetProjectId ? eq(workflows.projectId, targetProjectId) : isNull(workflows.projectId);
-      const existingWorkflows = await db.select({ title: workflows.title })
+      const existingWorkflows = await withTenant(targetOwner.tenantId, (tx) => tx.select({ title: workflows.title })
         .from(workflows)
         .where(and(
           eq(workflows.ownerType, targetOwner.ownerType),
           eq(workflows.ownerUuid, targetOwner.ownerUuid),
           projectCondition
-        ));
+        )));
         
       const existingNames = new Set(existingWorkflows.map(w => w.title).filter(Boolean));
       for (const title of extracted.workflows) {
@@ -253,9 +269,9 @@ export class ImportService {
     }
 
     if (extracted.tableSlugs.size > 0) {
-      const existingTables = await db.select({ slug: datavaultTables.slug })
+      const existingTables = await withTenant(targetOwner.tenantId, (tx) => tx.select({ slug: datavaultTables.slug })
         .from(datavaultTables)
-        .where(eq(datavaultTables.tenantId, targetOwner.tenantId));
+        .where(eq(datavaultTables.tenantId, targetOwner.tenantId)));
       const existingSlugs = new Set(existingTables.map(t => t.slug).filter(Boolean));
       for (const slug of extracted.tableSlugs) {
         if (existingSlugs.has(slug)) {
@@ -604,7 +620,13 @@ export class ImportService {
     }
 
     if (ownerType === 'org') {
-      const [org] = await db.select().from(organizations).where(eq(organizations.id, ownerUuid)).limit(1);
+      // `organizations` is RLS-covered. The tenant is already known here, so
+      // this is ordinary scoped work — 0033's org-id bootstrap clause is for
+      // the case where it is not.
+      const org = await withTenant(tenantId, async (tx) => {
+        const [row] = await tx.select().from(organizations).where(eq(organizations.id, ownerUuid)).limit(1);
+        return row;
+      });
       if (org === undefined) { throw new Error('Target organization not found'); }
       if (org.tenantId !== tenantId) { throw new Error('Access denied - target organization belongs to different tenant'); }
       
@@ -938,7 +960,8 @@ export class ImportService {
     // No explicit target. Keeping the bundle's own project is only acceptable
     // when it really is the caller's to write to — same tenant, edit rights.
     for (const projectId of unmapped) {
-      const project = await projectRepository.findById(projectId);
+      const project = await withTenant(targetOwner.tenantId, (tx) =>
+        projectRepository.findById(projectId, tx));
       const sameTenant = project !== undefined && project.tenantId === targetOwner.tenantId;
       const canEdit = sameTenant && await aclService.hasProjectRole(userId, projectId, 'edit');
       if (!canEdit) {
