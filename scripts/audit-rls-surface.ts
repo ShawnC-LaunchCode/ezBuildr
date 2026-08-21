@@ -60,6 +60,29 @@ const COVERED_TABLES = [
   'datavaultValues', 'datavaultColumns',
 ];
 
+/**
+ * The same tables in SQL form, for raw `db.execute(sql`…`)` — a whole category
+ * the two scanners above are blind to, because it never names a Drizzle table
+ * object or a repository. Added 2026-08-21 after the Phase 1 sweep found the
+ * metrics-rollup job reading `metrics_rollups` this way: a background job with
+ * no tenant, whose unscoped read under enforcement returns nothing and rolls
+ * up silence.
+ */
+const COVERED_TABLES_SQL = [
+  'ai_usage', 'audit_logs', 'collab_docs', 'collections', 'connections',
+  'datavault_api_tokens', 'datavault_columns', 'datavault_database_access',
+  'datavault_databases', 'datavault_number_sequences', 'datavault_row_notes',
+  'datavault_rows', 'datavault_table_access', 'datavault_table_permissions',
+  'datavault_tables', 'datavault_unique_keys', 'datavault_values',
+  'external_destinations', 'metrics_events', 'metrics_rollups', 'organizations',
+  'projects', 'records', 'review_tasks', 'run_document_deliveries',
+  'run_resume_links', 'sections', 'signature_requests', 'sli_configs',
+  'sli_windows', 'steps', 'teams', 'tenant_domains', 'users',
+  'workflow_blueprints', 'workflows',
+];
+const EXECUTE_CALL = /\bdb\.execute\(/g;
+const COVERED_SQL_RE = new RegExp(String.raw`\b(${COVERED_TABLES_SQL.join('|')})\b`);
+
 const REPO_CALL = new RegExp(
   String.raw`\b(?:${RLS_REPOS}|datavault[A-Za-z]*)Repository\.([a-zA-Z]\w*)\(([^;]{0,400})`,
   'gs',
@@ -87,6 +110,7 @@ interface Row { unthreaded: number; total: number; scoped: boolean; file: string
 function main(): void {
   const repoRows: Row[] = [];
   const dbRows: Array<{ hits: number; file: string }> = [];
+  const rawRows: Array<{ hits: number; file: string }> = [];
 
   for (const abs of walk('server')) {
     const file = relative('.', abs).split('\\').join('/');
@@ -109,18 +133,31 @@ function main(): void {
       if (COVERED_RE.test(src.slice(m.index ?? 0, (m.index ?? 0) + 400))) { hits += 1; }
     }
     if (hits > 0) { dbRows.push({ hits, file }); }
+
+    // Raw SQL. The window looks BACKWARDS as well as forwards, because the
+    // query is usually built into a `const query = sql`…`` above and only
+    // passed at the call site.
+    let rawHits = 0;
+    for (const m of src.matchAll(EXECUTE_CALL)) {
+      const start = m.index ?? 0;
+      if (COVERED_SQL_RE.test(src.slice(Math.max(0, start - 900), start + 900))) { rawHits += 1; }
+    }
+    if (rawHits > 0) { rawRows.push({ hits: rawHits, file }); }
   }
 
   repoRows.sort((a, b) => b.unthreaded - a.unthreaded);
   dbRows.sort((a, b) => b.hits - a.hits);
+  rawRows.sort((a, b) => b.hits - a.hits);
 
   const repoTotal = repoRows.reduce((n, r) => n + r.unthreaded, 0);
   const dbTotal = dbRows.reduce((n, r) => n + r.hits, 0);
+  const rawTotal = rawRows.reduce((n, r) => n + r.hits, 0);
 
   console.log('=== RLS surface audit ===\n');
   console.log(`Repository calls on RLS-covered tables with no tx argument: ${repoTotal} across ${repoRows.length} files`);
   console.log(`Direct db.* calls on RLS-covered tables:                    ${dbTotal} across ${dbRows.length} files`);
-  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal}\n`);
+  console.log(`Raw db.execute() SQL naming a covered table:                ${rawTotal} across ${rawRows.length} files`);
+  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal + rawTotal}\n`);
 
   console.log('--- repository calls: files with NO scoping helper at all (highest risk) ---');
   for (const r of repoRows.filter((r) => !r.scoped)) {
@@ -132,6 +169,10 @@ function main(): void {
   }
   console.log('\n--- direct db.* calls on covered tables ---');
   for (const r of dbRows) {
+    console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
+  }
+  console.log('\n--- raw db.execute() SQL naming a covered table (widest net, most false positives) ---');
+  for (const r of rawRows) {
     console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
   }
 }
