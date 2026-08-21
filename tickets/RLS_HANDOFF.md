@@ -1,221 +1,107 @@
-# RLS Phase 2 — handoff to finish RLS-4 and RLS-5
+# RLS Phase 2 — state, patterns and traps
 
-**Rewritten 2026-08-20 (second rewrite, later the same day).** The previous
-version of this file was written before anyone had read the restricted-role
-failures caller-by-caller. **Its central diagnosis was wrong** — see §2, which
-exists specifically so the next session does not re-derive the wrong plan from
-the old one. `dev` is at `6f09ba54`; everything described here is **committed**.
+**Rewritten 2026-08-21 for a cold start.** Assumes no prior context. `dev` is at
+`0aafd677`; everything described here is **committed** and the working tree is
+clean.
 
-Board: [`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md).
-Deliberately not named `*_TICKETS.md` — that glob is what dispatch scans for
-work; this is context, not a board.
+- **Plan and estimates:** [`RLS_COMPLETION_PLAN.md`](RLS_COMPLETION_PLAN.md) —
+  phased scope against the ~2026-10-21 client-data date. Read that for *what to
+  do and when*. Read **this** file for *state, patterns and hazards*.
+- **Board:** [`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md).
+  Deliberately not `*_TICKETS.md` — that glob is what dispatch scans; this is
+  context, not a board.
 
 ---
 
-## 0. Read this first, in this order
+## 0. Orientation, in this order
 
-1. This file, end to end. **§2 before you plan anything.**
-2. `docs/architecture/TENANT_ISOLATION_RLS.md` **§2e and §2f** — the
-   self-identification pattern and its variants (primary-key, token-hash,
-   verified-foreign-key, and now login-email) plus the declared-visibility
-   carve-out. **Read this before inventing a new mechanism for anything below.**
-3. §2b/§2c/§2d in the same doc for the underlying `withTx`/service-boundary
-   pattern everything here builds on.
+1. This file, §1–§3.
+2. `docs/architecture/TENANT_ISOLATION_RLS.md` **§2b–§2f** — the
+   `withTx`/service-boundary pattern, and the self-identification pattern with
+   its four variants. **Read before inventing a mechanism for anything below;**
+   the next bootstrap-shaped problem almost certainly fits an existing shape.
+3. `npx tsx scripts/audit-rls-surface.ts` — the remaining worklist, generated
+   fresh. Its header explains what it can and cannot see.
 
-**Do not relitigate these — repo-owner rulings, reasoning already recorded:**
-- Tenant GUC set at the **service boundary**, never repository or request.
-- Ambient GUC and `eq(tenantId, …)` predicate stay **independent** checks.
+**Repo-owner rulings — settled, do not relitigate:**
+- Tenant GUC is set at the **service boundary**, never repository or request.
+- The ambient GUC and the `eq(tenantId, …)` predicate stay **independent**
+  checks. Two checks fed by one input are not two checks.
 - Admin cross-tenant access goes through the **separate `BYPASSRLS` role**
-  (RLS-6), reachable from one audited module. Never give the app role
-  `BYPASSRLS`; never add an `is_platform_admin` clause to a policy.
-- Bootstrap-shaped RLS problems (identity known, tenant not yet) get a
-  **narrow, table-specific, GUC-keyed `OR` clause in `USING`** — not a
-  `SECURITY DEFINER` function, not a second bypass pool.
+  (RLS-6's `server/db/adminDb.ts`), reachable from one audited module. Never
+  give the app role `BYPASSRLS`; never add an `is_platform_admin` policy clause.
+- Bootstrap-shaped problems get a **narrow, table-specific, GUC-keyed `OR`
+  clause in `USING`** — not a `SECURITY DEFINER` function, not a second pool.
+- **`0032` stays as written** (ruled 2026-08-20). See §5.
 
 ---
 
-## 1. 🔴 THE HEADLINE: do not roll RLS-4 out to dev yet
+## 1. Status
 
-**Setting `FORCE` + the restricted role in dev today would take dev down.**
-This is measured, not predicted — `RLS_RESTRICTED=true npm run test:integration`
-runs the whole app against a real non-owner role, which is exactly what RLS-4
-creates, and **98 of 124 files still fail**.
+**Two gates, both still shut.**
 
-Everything in §3 must land first. The gate that says "safe to roll out" is
-RLS-5 being green, and that is what RLS-5 was always for.
+`FORCE` is not set anywhere, and the app still connects as the table owner —
+which Postgres exempts from RLS. So policies exist and are **not enforced**.
+Isolation today is service-layer `eq(tenantId, …)` predicates, as it always was.
 
----
+**Do not set `FORCE` yet.** Measured, not predicted: running the whole app
+against a real non-owner role (`RLS_RESTRICTED=true npm run test:integration`)
+still fails **85 of 124 files**. That run is exactly what RLS-4 creates.
 
-## 2. 🔴 The previous handoff's diagnosis was wrong — read this before planning
+| | Start of 2026-08-20 | Now |
+|---|---|---|
+| Files | 98 failed / 26 passed | **85 failed / 39 passed** |
+| Tests passed | 423 | **770** |
+| Tests skipped (suite died in setup) | 463 | **113** |
+| Hard RLS violations | 100 | **20** |
 
-The prior version sorted the ~99 failing files into three categories and called
-the dominant one:
+**Read that table correctly or you will misjudge the work.** A suite that dies
+in `beforeAll` reports every test as *skipped*, not failed. So as setup gets
+fixed, tests move from skipped → running, and the *failure* count can rise while
+things genuinely improve. Judge by **passed** and **skipped**.
 
-> **Category B — the long tail: individual files with their own unscoped
-> fixture writes.** … Confirmed by root-cause grep: **206 of ~230 raw RLS
-> errors in the final run are `"violates row-level security policy for table
-> X"`**, traced to files never routing through the fixed shared helpers.
+Remaining violations: `collab_docs` 10, `users` 4, `datavault_rows` 4,
+`datavault_databases` 2. Everything else failing is the *quiet* mode — a SELECT
+filtered to zero rows, surfacing as "not found" or a failed assertion rather
+than an error.
 
-**That inference does not hold.** The grep matched the *error text* and then
-assumed the *caller* was a test fixture. It was not checked. When the callers
-are actually read, every one of the top stack frames is in `server/`:
-
-```
-84 at SectionRepository.create            (via SectionService — unconverted)
-14 at UserRepository.create               (registration path)
-14 at RunLifecycleService.generateDocumentsInner
- 4 at MarketplaceService.installTemplate
- 4 at ImportService.resolveTargetOwner / .apply
- 2 at StepService.createStep              (unconverted)
- 2 at StripePaymentService.handleWebhook
- 2 at DocumentAIAssistService.*
- 1 at SectionService.createSection / RunService.createRun
-```
-
-**So the real finding is bigger than a test-fixture cleanup: the service
-rollout was never complete.** RLS-2 declared victory at "21 services" using a
-scoping criterion measured on 2026-08-18 — *services that reference
-`tenantId`* (35 of 99 files). That criterion is structurally blind in three
-directions, and every blind spot is a live gap:
-
-1. **Ownership-derived tables.** `sections`, `steps` and `workflows` carry no
-   `tenant_id` column — their policies resolve the tenant through the parent
-   workflow. So the services that own them **never mention `tenantId`** and
-   fell straight out of the measured surface. `SectionService` and
-   `StepService` are the workflow builder's core, and neither had a single
-   line of RLS conversion.
-2. **Services outside `server/services/*.ts`.** The survey globbed one
-   directory. `server/lib/templates/MarketplaceService.ts`,
-   `server/lib/ai/DocumentAIAssistService.ts`,
-   `server/services/workflow-runs/RunLifecycleService.ts`,
-   `server/services/portability/ImportService.ts` and
-   `server/services/integrations/StripePaymentService.ts` were never counted.
-3. **A whole layer nobody named: route middleware.** `steps.routes.ts`'s
-   `lookupWorkflowIdFromStepMiddleware` and its two siblings read
-   `steps`/`sections` on the bare pool to resolve a `workflowId` before the
-   handler runs. Under RLS they 404 a step that exists. This is neither a
-   service nor a fixture, so no category covered it.
-
-**Practical consequence for whoever picks this up:** do not budget "several
-passes of mechanical fixture fixes." Budget **finishing the rollout** — call it
-RLS-2f — and expect test-fixture work to be the *smaller* half.
-
-**How to avoid repeating the error:** when you tally RLS failures, group by the
-**top `server/` stack frame**, never by the error string:
-
-```bash
-grep -oE 'at [A-Za-z]+(Service|Repository)\.[a-zA-Z]+ \(C:/[^)]*server/[^)]*\)' run.log \
-  | sort | uniq -c | sort -rn
-```
+**Normal mode is green and must stay so: 124/124 files, 1183/1183 tests.**
+Verified after every risky change. It is the regression gate for all of this.
 
 ---
 
-## 3. What landed this session, and what is measurably left
+## 2. What is left — a bounded list, not a search
 
-### Committed (five commits, each gated independently)
+The epic felt unbounded because the failure mode is discovery-by-execution: an
+unscoped read is invisible until a test drives that path, so every pass found
+more work *because it got further*. `scripts/audit-rls-surface.ts` replaces that
+with a static bound:
 
-| Commit | What |
-|---|---|
-| `bfc54bfe` | The prior session's uncommitted tree: `0026`–`0031`, the RLS-5 harness, the two shared fixtures |
-| `13af4730` | **`0032` — the authentication front door.** See below |
-| `7107752b` | `SectionService` + `StepService` converted; the route-middleware layer; `audit_logs` missing-`tenantId` |
-| `6f09ba54` | `AuditLogger` silently dropping every tenanted audit row |
-| `4a9f3ff2` | Owner's ruling on `0032` recorded |
-| `6941b767` | Background-job tenant bootstrap; `WorkflowTenantResolver`; `RunDefinitionProvider` |
-| `7f13e14b` | **`0033`** — bootstrap clauses on `projects`/`organizations`, completing tenant resolution |
-| `3a2b2d97` | Portability export/import; `AuditLogService`'s three inserts |
-| `79db0734` | Export data reads; **`tests/helpers/ownerDb.ts`** — the test observer |
-| `9a72ef00` | Observer applied across 82 integration suites |
-| `2265804d` | `RunDataService` alias seeding — "undefined variable" in every document |
+```
+Repository calls on RLS-covered tables with no tx argument:  97 across 22 files
+Direct db.* calls on RLS-covered tables:                     24 across 11 files
+TOTAL call sites to triage:                                 121
+```
 
-### The two findings worth carrying forward
+Highly concentrated — five files hold over half:
 
-**`0032` — every password login was broken.** `validateCredentials` starts with
-`userRepository.findByEmail(email)`, which runs with neither a tenant nor a user
-id known (resolving who the caller is *is* the point). Against `0027`/`0028`'s
-policy that reduces to `tenant_id IS NOT DISTINCT FROM NULL OR id = NULL`, so
-every user with a real tenant is invisible and login fails as "Invalid
-credentials". Same shape broke the registration duplicate check, password reset
-and the Google OAuth upsert. **This is a total authentication outage under
-FORCE** — broader than `0028`, which only broke re-hydration for tokens already
-issued.
+```
+27  server/services/WorkflowPatchService.ts
+14  server/routes/admin.routes.ts       ← belongs on adminDb, NOT a conversion
+11  server/routes/auth.routes.ts
+ 9  server/services/esign/SignatureBlockService.ts
+ 6  server/services/portability/ImportService.ts
+```
 
-✅ **`0032` was RULED ON by the repo owner 2026-08-20 — keep it as written. Do
-not relitigate.** It is still the weakest of the four self-identification
-variants, and that was raised explicitly before the ruling: `0028` verifies a JWT signature first; `0029`'s
-token hash *is* the proof; `0030`'s id came from a verified token match. In
-`0032` **nothing is verified — the caller typed the email.** It is justified
-structurally (a credential cannot be checked without first reading the row that
-holds it) and kept narrow by `users_email_idx` being UNIQUE, by being read-only,
-and by being transaction-local. The Google path is the stronger case, since
-`verifyGoogleToken` has already checked the signature.
+⚠️ **Not every hit is a conversion.** `admin.routes.ts` and
+`middleware/adminAuth.ts` are cross-tenant admin reads that belong on RLS-6's
+existing `adminDb` path. `AclService` already threads `tx` through every method
+and correctly never opens its own transaction — it needs its *callers* fixed,
+not itself. `QueryService` is dead code. `WorkflowTenantResolver` is bootstrap
+by design.
 
-The alternative the owner weighed it against, kept here because it stays a clean
-future swap: **a dedicated low-privilege auth connection** that may read `users`
-and nothing else — RLS-6's `adminDb` shape but much narrower — which moves
-containment from convention (who is allowed to set the GUC) into the connection
-itself. It changes HOW the read is permitted, not any call site, so it can
-replace `0032` later without touching the seven callers.
-
-**The async store and the transaction GUC are INDEPENDENT.** This cost a wasted
-fix. `AuditLogger` was "fixed" by falling back to `getCurrentTenantId()` — but a
-caller that opened its transaction via `withTenant(explicitId, …)` sets the GUC
-**without** populating the `AsyncLocalStorage` store, so the fallback resolved to
-undefined exactly where a tenant was pinned. Violations moved 190 → 188. The
-real defect was the no-transaction path writing a real tenant onto the pool,
-where no GUC is set. **Never infer one mechanism from the other.**
-
-### ⚠️ Two traps this vertical exposed — both will bite again
-
-**`runWithTenantContext` is NOT enough on its own.** It populates the async
-STORE, which is what *converted services* read when they call
-`withCurrentTenant`. A repository call issued **directly on the pool** never
-consults it. So "I set the tenant context" does not make a bare
-`someRepository.findById(id)` work — that read needs a real transaction. This is
-the same store-vs-GUC confusion that wasted a fix on `AuditLogger`, in a second
-costume. If a fix "sets the tenant" and the symptom does not move, check whether
-the failing read is actually inside a transaction.
-
-**`WorkflowTenantResolver` could not resolve a tenant under enforcement, and
-`runTokenAuth` still silently suffers it.** Migration `0030` makes the
-*workflow* readable during bootstrap, but *deriving its tenant* reads
-`users`/`projects`/`organizations` — RLS-covered in their own right — and
-`app_owner_tenant()` is plain SQL, **not `SECURITY DEFINER`**, so it is subject
-to RLS as well. Resolution therefore found the workflow and still returned
-`null`, which every caller correctly treats as "deny".
-
-Fixed for the user-id paths by pinning `app.current_user_id` to an id taken off
-the already-read workflow (`0028`'s existing clause makes it visible — **no new
-migration needed**). ⚠️ **The `projects` and `organizations` paths are NOT
-fixed**: a workflow whose tenant is only derivable through its project or an org
-owner will still fail to resolve. That needs the same verified-foreign-key
-clause on those two tables when someone hits it.
-
-⚠️ **`runTokenAuth` has this identical hole** and swallows it as best-effort
-("leave the context empty rather than invent a tenant"), so **no test shows
-it** — run-token requests have been silently getting no tenant. Worth a
-deliberate look before RLS-4.
-
-### Measured progress, four full restricted-role runs
-
-| | Files | Tests failed | passed | skipped |
-|---|---|---|---|---|
-| Start of session | 98 failed / 26 passed | 297 | 423 | 463 |
-| After `0032` (login) | 97 / 27 | 344 | 455 | 384 |
-| After Section/Step/audit | 98 / 26 | 316 | 484 | 383 |
-| After portability | 96 / 28 | 325 | 495 | 363 |
-| After the test observer | 90 / 34 | 311 | 736 | 136 |
-| **End of session** | **85 / 39** | 300 | **770** | **113** |
-
-**Two numbers matter more than the failure count.** Hard RLS violations went
-**100 → 20** (`collab_docs` 10, `users` 4, `datavault_rows` 4,
-`datavault_databases` 2), and passing tests went **423 → 770** while skipped went
-**463 → 113**. Everything still failing is the *quiet* mode — a SELECT filtered
-to zero rows, surfacing as "not found" or a failed assertion rather than an
-error — which is exactly why it has to be chased caller-by-caller rather than by
-grepping for violations.
-
-**Top remaining production frames, measured at end of session — start here:**
+**Top remaining runtime failures** (from the last restricted run — pair these
+with the static list, since they show what actually breaks):
 
 ```
 11 ExportService.exportToFile          access check still denies in some suites
@@ -226,141 +112,173 @@ grepping for violations.
  5 ImportService.apply                 the row-writing half
 ```
 
-**The single biggest lever was `tests/helpers/ownerDb.ts`** — separating the test
-observer from the application moved passing tests 495 → 736 on its own. If more
-suites still fail on their own fixture reads, apply it there before anything
-else; read that file's two bold warnings first.
+Then: **test tail** (many will fall out once the above land — re-measure before
+estimating), **CI gate**, **dev rollout**, **test → prod**.
 
-**Read this table carefully — "failed" going up is progress here.** Suites that
-used to die in `beforeAll` counted all their tests as *skipped*; now they run and
-fail individually on the next layer. The honest signals are **passed: 423 → 484**
-and **skipped: 463 → 383**. Judging this work by the failure count alone will
-make real progress look like regression.
+---
 
-RLS violations by table, same three runs: `sections` **84 → 0**,
-`audit_logs` 2 → 190 → **0**, `users` 14 → 2.
+## 3. The tools you have — use these, do not invent
 
-### What is left, measured
+**`server/utils/rlsContext.ts`:**
 
-**(a) Services still unconverted that touch RLS-covered tables (14).**
-
-Top remaining by measured failure count: `RunLifecycleService` (21 — the
-document-RENDERING layer below what is now fixed: templates, `RenderCore`,
-`FinalBlockRenderer`), `DatavaultRowsService` (18, and the only source of the
-4 remaining hard violations), `ImportService.apply` (11 — the row-writing half;
-its owner-resolution half is done).
-
-⚠️ **Two entries on this list need no conversion — check before starting.**
-`AclService` already threads `tx` through every method and never opens its own
-transaction, which is the CORRECT shape for a helper called from inside one:
-it needs its *callers* to pass a `tx`, not a `withTx` of its own.
-`MarketplaceService` is a pure delegate to `ImportService` and needed no change
-at all — its 4 failures were `ImportService`'s.
-
-| File | Lines |
+| Helper | Use for |
 |---|---|
-| `WorkflowPatchService` | 748 |
-| `RunService` | 657 |
-| `TransformBlockService` | 595 |
-| `AclService` | 257 |
-| `LogicRuleService` / `AliasRenameService` | 240 each |
-| `BlockService` | 187 |
-| `WorkflowExportService` | 181 |
-| `ReadTableBlockService` | 172 |
-| `QueryBlockService` | 159 |
-| `ListToolsBlockService` | 152 |
-| `portability/ImportService` | 1218 |
-| `workflow-runs/RunLifecycleService` | 712 |
-| `lib/ai/DocumentAIAssistService` | 328 |
-| `integrations/StripePaymentService` | 266 |
-| `lib/templates/MarketplaceService` | 98 |
+| `withCurrentTenant(fn)` | Ordinary tenant-scoped work; reads the ambient tenant |
+| `withTenant(tenantId, fn)` | You already know the tenant explicitly |
+| `withTenantAsUser(tenantId, userId, fn)` | An UPDATE moving a row *between* tenants |
+| `withCurrentUserId(userId, fn)` | Bootstrap: identity verified, tenant unknown |
+| `withVerifiedIdentifier(guc, value, fn)` | Bootstrap keyed on any other proven value |
+| `withLoginEmail(email, fn)` | **Auth paths only.** See §5 |
+| `runWithTenantContext(tenantId, fn)` | Populates the async STORE — see the trap in §4 |
 
-**Legitimately excluded, do not convert:** `AdminAccessService` (RLS-6's
-`adminDb`, by design), `QueryService` (dead code, confirmed twice),
-`WorkflowTenantResolver` (bootstrap by design — that is what `0030`'s GUC is for).
+**The house service pattern** (§2c: "ambient-only" variant — most services):
 
-**(b) Route-layer bare repository reads — 5 files, 22 call sites:**
-`admin.routes.ts` (15 — most of these should arguably route through RLS-6's
-`adminDb` rather than being tenant-scoped; decide per site),
-`dashboard.routes.ts` (3), `dataSource.routes.ts` (2), `blocks.routes.ts` (1),
-`tenant.routes.ts` (1).
+```ts
+private async withTx<T>(tx: DbTransaction | undefined, fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
+  if (tx) { return fn(tx); }        // reuse a caller's, never nest
+  return withCurrentTenant(fn);
+}
+```
 
-**(c) Test-fixture writes.** Real, and still the long tail by file count — but
-the *smaller* half of the work, not the whole of it. Fix pattern unchanged from
-the previous handoff (`applyTenantToTransaction` for a fresh INSERT with a known
-tenant; `withTenantAsUser` for an UPDATE moving a row between tenants; mirror
-`testFactory.createWorkflow` when only a userId is known).
+**`tests/helpers/ownerDb.ts` — the single biggest lever.** It separates the test
+*observer* from the *application*: the app runs restricted, while fixture setup
+and verification reads go through an owner connection. Applying it across 82
+suites moved passing tests **495 → 736 in one commit**. If a suite fails on its
+own fixture reads, reach for this first. **Read its two bold warnings** — never
+use it to make an app-path failure disappear, and never in the `rls-*` suites.
 
-**(d) Category A (6 files) — tests doing their own DDL via `db`.** Unchanged,
-still low priority, still not app bugs: `rls-coverage`, `rls-phase4-workflows`,
-`datavault.dvp2-perf`, `rls-datavault`, `rls4-forceEnforcement`,
-`rls6-adminAccess`.
+Direct-service-call suites need `enterTenantContextForTests(tenantId)` **inside
+each test body**; `beforeAll` and `beforeEach` both fail to propagate through
+`AsyncLocalStorage` (measured, not assumed).
 
 ---
 
-## 4. Order of work to actually close RLS-4 and RLS-5
+## 4. Traps that have each cost real time
 
-1. **Finish the rollout (§3a, §3b)** — the services and the route layer. This is
-   the bulk of the remaining work and it is what the previous plan under-scoped.
-   Convert in clusters, commit per cluster, and **audit each service's callers**
-   for non-request paths with no ambient tenant before declaring it done.
-2. **Test-fixture cleanup (§3c)** until `RLS_RESTRICTED` is green or every
-   remaining failure is freshly triaged.
-3. **Wire RLS-5 into CI** per its ticket AC: a required check running the full
-   suite as the restricted role, output for both roles pasted side by side.
-4. **Only then RLS-4's dev rollout** — provision `ADMIN_DATABASE_URL` and the
-   least-privilege role in dev, set `FORCE` and `RLS_ENFORCED=true` **together**
-   (a FORCE-without-the-flag leaves `AdminAccessService`'s guard blind), repoint
-   `DATABASE_URL`, then prove AC4 (cross-tenant read impossible) and AC5
-   (non-vacuous with the GUC unset) with pasted output, and document a rollback.
-5. `test`, then a **PR-only** promotion to `main`.
+**The async store and the transaction GUC are INDEPENDENT.** This cost two
+separate wasted fixes, in different costumes. `runWithTenantContext` populates
+the `AsyncLocalStorage` store, which only *converted services* consult when they
+call `withCurrentTenant`. **A repository call issued directly on the pool never
+looks at it.** Equally, a caller using `withTenant(explicitId, …)` sets the GUC
+*without* populating the store, so `getCurrentTenantId()` reads undefined
+exactly where a tenant is very much pinned. If a fix "sets the tenant" and the
+symptom does not move, check whether the failing read is actually inside a
+transaction.
+
+**A pool query inside a transaction HANGS, it does not fail.** The `SystemStats`
+deadlock class: against the `max: 1` test pool, a second query issued while a
+transaction holds the only connection waits forever. It presents as a 600s hang
+and a hook timeout, never an error. Hit again this session by putting an ACL
+check (which issues its own queries) inside a read transaction — the fix is to
+give it its OWN transaction, sequenced after. Likewise, `Promise.all` of several
+queries on one `tx` is the same shape: make them sequential.
+
+**Converting a service breaks the unit tests that mock its repos**, two ways:
+the `server/db` mock may need `transaction` (whose stub `tx` needs `execute`),
+and `toHaveBeenCalledWith` assertions gain a trailing `tx`. Updating them to
+`expect.anything()` is a *stronger* claim, not a weaker one. Also watch for a
+mocked `server/logger` missing `createLogger` once a newly-imported module needs
+it.
+
+**A failing restricted run leaks temp files**, and
+`tests/integration/hardening/processingTimeout.test.ts` asserts the OS temp dir
+is clean — so it then fails in **normal** mode and looks like a regression you
+caused. It is not. Clear and re-run in isolation:
+
+```bash
+TMP="$(node -e 'console.log(require("os").tmpdir())')"
+ls "$TMP" | grep -E "^file-[0-9]+-[a-f0-9]+\.(docx|pdf)$" | while read f; do rm -f "$TMP/$f"; done
+```
+
+**Attribute failures by CALLER, not error text.** An entire earlier plan was
+built on a grep that matched the right string and the wrong layer — it counted
+"violates row-level security policy" and assumed the callers were test fixtures.
+They were production code, and the real finding (the rollout was never complete)
+was missed for two days. Always:
+
+```bash
+grep -oE 'at [A-Za-z]+(Service|Repository)\.[a-zA-Z]+ \(C:/[^)]*server/[^)]*\)' run.log \
+  | sort | uniq -c | sort -rn
+```
+
+**Environment:**
+- Never pipe a background DB run through `tail` — it truncates the *saved*
+  output. Redirect to a file.
+- Never run two DB-backed suites at once. Check `pg_stat_activity` first.
+- `npm run test:docker:up` starts postgres (5434) **and** gotenberg (3009).
+- A transient `57P03` mid-run is Postgres recovering under load, not a
+  regression. Re-run.
+- Schema-cache token is **`_v36`** (`tests/helpers/schemaManager.ts`) — bump it
+  for any new migration, with the reasoning in a comment.
+- A full restricted run takes ~19 minutes. Budget for that in any measure/fix
+  loop; it is why this work does not interleave well with feature work.
 
 ---
 
-## 5. Environment facts that will cost you hours otherwise
+## 5. Migrations 0026–0033, and the one flagged decision
 
-- **Never pipe a `RLS_RESTRICTED`/DB-backed background run through `tail`.**
-  Redirect to a file (`... > scratchpad/foo.log 2>&1`). A `| tail -N` on a
-  backgrounded command truncates the SAVED output to N lines.
-- **Never run two DB-backed suites concurrently**, including across a
-  foreground/background split. Check first:
-  `docker exec ezbuildr-test-db-1 psql -U postgres -d ezbuildr_test -c "SELECT count(*) FROM pg_stat_activity WHERE datname='ezbuildr_test' AND state='active';"`
-- **`npm run test:docker:up` starts postgres (5434) AND gotenberg (3009).** Both
-  are needed; a missing service reads like a code defect.
-- **A failing restricted-role run leaks temp files into the OS temp dir**, and
-  `tests/integration/hardening/processingTimeout.test.ts` asserts that directory
-  is clean. It will then fail in **normal** mode and look like a regression you
-  caused. It is not. Clear them and re-run in isolation to confirm:
-  ```bash
-  TMP="$(node -e 'console.log(require("os").tmpdir())')"
-  ls "$TMP" | grep -E "^file-[0-9]+-[a-f0-9]+\.(docx|pdf)$" | while read f; do rm -f "$TMP/$f"; done
-  ```
-- **A transient `FATAL: the database system is not yet accepting connections`
-  (`57P03`) mid-run is not a regression** — Postgres recovering under load.
-  Re-run rather than chasing it.
-- **`set_config`'s GUC-name argument can safely be a bind parameter** — this is
-  what makes `withVerifiedIdentifier(gucName, value, fn)` work.
-- **Column shapes for the next self-identification clause:** `workflows.id` is
-  `uuid` (needs `::uuid`), `users.id` is `varchar` (no cast), `users.email` is
-  `varchar` UNIQUE (no cast), `signature_requests.token` is `text` holding an
-  already-hashed value (no cast).
-- Schema-cache token is at **`_v35`** (`tests/helpers/schemaManager.ts`) — bump
-  it for any further migration, with the reasoning in a comment.
-- **Converting a service breaks the unit tests that mock its repos**, in two
-  ways: the `server/db` mock may need `transaction` (and `execute`), and
-  `toHaveBeenCalledWith` assertions gain a trailing `tx`. Updating them to
-  `expect.anything()` is a *stronger* claim, not a weaker one — same as RLS-2a.
+| | What it fixed |
+|---|---|
+| `0026` | Unguarded `::uuid` cast **raised** instead of filtering (`NULLIF`) |
+| `0027` | `NULL = NULL` is NULL, so a NULL-tenant user could never match — blocked registration |
+| `0028` | `hybridAuth`'s own identity re-hydration was blocked → **every authenticated route** |
+| `0029` | Signature-token bootstrap (hashed-token variant) |
+| `0030` | Run-token/upload bootstrap (verified-foreign-key variant) |
+| `0031` | Public workflows (declared-visibility carve-out, no GUC) |
+| `0032` | **Every password login was broken** — see below |
+| `0033` | `projects`/`organizations` bootstrap, completing tenant resolution |
+
+**`0032` — the authentication front door.** `findByEmail` runs with neither a
+tenant nor a user id known (resolving who the caller is *is* the point), so
+every user with a real tenant was invisible and **all password logins failed as
+"Invalid credentials"** — plus registration's duplicate check, password reset,
+and the Google OAuth upsert.
+
+✅ **Ruled 2026-08-20: keep as written.** It is the weakest of the four
+self-identification variants and that was raised before the ruling: `0028`
+verifies a JWT signature, `0029`'s token hash *is* the proof, `0030`'s id came
+from a verified match — in `0032` **nothing is verified, the caller typed the
+email**. Justified structurally (a credential cannot be checked without reading
+the row holding it) and kept narrow by `users_email_idx` being UNIQUE,
+read-only, transaction-local.
+
+The alternative, still a clean future swap: a **dedicated low-privilege auth
+connection** that may read `users` and nothing else — `adminDb`'s shape but far
+narrower — moving containment from convention into the connection. It changes
+*how* the read is permitted, not any of the seven call sites.
+
+**`0033` closed a correctness hole, not just availability.**
+`resolveForWorkflow` tries the PROJECT tenant first. With only the user paths
+reachable, a filed workflow did not fail — it fell **through** to the creator
+and resolved *that person's* tenant. Usually identical, silently not after a
+project transfer, so a run or document could be confidently attributed to the
+**wrong tenant**. `app_owner_tenant()` is plain SQL, **not `SECURITY DEFINER`**,
+so it is bound by RLS like any other caller — that is why the derivation tables
+each needed their own clause.
+
+⚠️ **Worth verifying, not assumed:** `runTokenAuth` had this same resolution
+hole and swallowed it as best-effort ("leave the context empty rather than
+invent a tenant"), so **no test showed it**. The `0033` + resolver fixes
+*should* have closed it, but that was never tested directly. Confirm before
+RLS-4.
+
+⚠️ **Before enforcement, spend 30 minutes on the accumulated escape clauses.**
+`users` (self-id + login-email), `workflows` (workflow-id + public),
+`signature_requests`, `projects`, `organizations` each now carry a narrow
+read-only `OR` keyed on a GUC **application code sets**. Five auditable clauses
+beats every query site — but it is no longer "the database enforces it
+regardless of the app," which is what this phase was originally sold on. That
+trade is discussed in `RLS_COMPLETION_PLAN.md` §6.
 
 ---
 
-## 6. The one habit that matters
+## 6. The habit that actually matters
 
-**Prove every guard fails, and ask the second question.** This session it paid
-out four times in a row, each fix revealing the next layer rather than finishing
-the job: `createTestUser`'s unscoped UPDATE → login by email → section creation →
-step creation → route middleware → that file's own fixture reads. Every single
-time, the tempting move was to stop at "the error changed."
+**Prove the guard fails, and ask the second question.** This paid out five times
+in a row: each fix revealed the next layer rather than finishing the job —
+fixture UPDATE → login by email → section creation → step creation → route
+middleware → that file's own fixture reads. Every single time the tempting move
+was to stop at "the error changed."
 
-And the sharper version, which is what §2 is really about: **when you attribute
-a failure, check the caller, not the error text.** An entire plan was built on a
-grep that matched the right string and the wrong layer.
+When a fix here looks done, run it once more and see whether a *different* error
+appears where the old one was. That is usually not noise; it is the next layer.

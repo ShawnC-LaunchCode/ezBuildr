@@ -7,10 +7,19 @@ no environment in which to safely build one.
 
 ---
 
+> **Finishing RLS? Start with [`RLS_COMPLETION_PLAN.md`](RLS_COMPLETION_PLAN.md)**
+> for the phased scope and estimates against the client-data date, then
+> [`RLS_HANDOFF.md`](RLS_HANDOFF.md) for state, patterns and traps. Run
+> `npx tsx scripts/audit-rls-surface.ts` for the current worklist.
+>
+> <details><summary>Original pointer, kept for the record</summary>
+>
 > **Finishing RLS? Start with [`RLS_HANDOFF.md`](RLS_HANDOFF.md).** The rollout is complete
 > (21 services); only RLS-4 and RLS-5 remain, and RLS-4 is **blocked** by a measured defect —
 > the policies RAISE rather than filter when no tenant is pinned. The handoff carries the fix,
 > the four open preconditions, and the environment traps that cost real hours.
+> *(Superseded: the blocker and all preconditions were closed 2026-08-20/21.)*
+> </details>
 
 ## How to work this document
 
