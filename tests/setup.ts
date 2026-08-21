@@ -216,33 +216,41 @@ beforeAll(async () => {
       // We must do this BEFORE importing server/db so that the pool connects to the correct schema
       // Save original URL for teardown
       (global as any).__BASE_DB_URL__ = process.env.DATABASE_URL;
-      const { schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!);
-      // Set TEST_SCHEMA in both global and env so db.ts can configure the pool correctly
-      (global as any).__TEST_SCHEMA__ = schemaName;
-      process.env.TEST_SCHEMA = schemaName;
-      console.log(`🔒 Test Schema Isolated: ${schemaName} (Reused: ${existed})`);
-      // Check if we need to run migrations
-      // If schema exists, verify it has tables before skipping migrations
+      let { schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!);
+
+      // Decide whether this schema may be reused, by CONTENT rather than by
+      // table count (2026-08-21). The old check — "does it have any tables?" —
+      // is blind to policy-only migrations, and every migration since 0024 is
+      // policy-only. It left 11 of 124 `_v36` schemas frozen on the original
+      // 0001 RLS policies while carrying a current-looking name, so ~9% of
+      // workers ran the app against three-week-old rules and produced failures
+      // that read exactly like production defects. See the block comment on
+      // `SchemaManager.migrationsFingerprint`.
+      const expectedFingerprint = await SchemaManager.migrationsFingerprint();
+      (global as any).__MIGRATIONS_FINGERPRINT__ = expectedFingerprint;
+
       if (existed) {
-        try {
-          const { Client } = await import('pg');
-          const checkClient = new Client({ connectionString });
-          await checkClient.connect();
-          const tableCheck = await checkClient.query(
-            `SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
-            [schemaName]
+        const actual = await SchemaManager.readSchemaFingerprint(connectionString, schemaName);
+        if (actual === expectedFingerprint) {
+          (global as any).__SKIP_MIGRATIONS__ = true;
+          console.log(`📊 Schema ${schemaName} matches the migration fingerprint - skipping migrations`);
+        } else {
+          console.warn(
+            `♻️ Schema ${schemaName} was built from a DIFFERENT migration set `
+            + `(had ${actual ?? 'no fingerprint'}, need ${expectedFingerprint}) - rebuilding from scratch`
           );
-          await checkClient.end();
-          const hasTable = parseInt(tableCheck.rows[0].cnt) > 0;
-          (global as any).__SKIP_MIGRATIONS__ = hasTable;
-          console.log(`📊 Schema ${schemaName} has ${tableCheck.rows[0].cnt} tables - ${hasTable ? 'skipping' : 'running'} migrations`);
-        } catch (e) {
-          console.warn(`⚠️ Could not check table count, will run migrations:`, e);
+          await SchemaManager.dropTestSchema(process.env.DATABASE_URL!, schemaName);
+          ({ schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!));
           (global as any).__SKIP_MIGRATIONS__ = false;
         }
       } else {
         (global as any).__SKIP_MIGRATIONS__ = false;
       }
+
+      // Set TEST_SCHEMA in both global and env so db.ts can configure the pool correctly
+      (global as any).__TEST_SCHEMA__ = schemaName;
+      process.env.TEST_SCHEMA = schemaName;
+      console.log(`🔒 Test Schema Isolated: ${schemaName} (Reused: ${existed})`);
 
       if (RLS_RESTRICTED) {
         // Everything below needs owner/DDL privilege, so it runs through a
@@ -392,7 +400,21 @@ beforeAll(async () => {
         console.log("⚠️ DB module loaded but appears to be a mock. Skipping real DB setup.");
       }
     } catch (error) {
-      console.warn("⚠️ Database initialization failed (ignoring for unit tests or mock scenarios):", error);
+      // FATAL as of 2026-08-21. This used to warn and continue — and since the
+      // whole block is already gated on `shouldConnectToDb()`, "ignoring for
+      // unit tests or mock scenarios" had stopped being true: what it actually
+      // ignored was a failed schema build in a DB-backed run, letting the suite
+      // proceed against a schema that is not the one the migrations describe.
+      //
+      // That is how 11 worker schemas ended up frozen on the original 0001 RLS
+      // policies while carrying a current-looking name. Every failure they
+      // produced read like an application defect; one was written up as one.
+      //
+      // One loud failure here is strictly better than eighty mystery failures
+      // downstream — and it is the same lesson as "check the container first"
+      // when a whole integration run goes red.
+      console.error("❌ Test database setup failed — refusing to run against an unknown schema:", error);
+      throw error;
     }
   }
 });
@@ -498,10 +520,36 @@ async function applyManualMigrations(db: { execute: (sql: string) => Promise<unk
           }
         }
         console.log(`✅ Applied ${files.length} migration files.`);
+
+        // Record what built this schema — ONLY after the whole chain applied.
+        // A partial chain must leave no fingerprint, so the next run rebuilds
+        // instead of caching the half-migrated state forever (which is exactly
+        // what happened to 11 schemas before this existed).
+        const fingerprint = (global as any).__MIGRATIONS_FINGERPRINT__;
+        const schema = (global as any).__TEST_SCHEMA__;
+        if (typeof fingerprint === 'string' && typeof schema === 'string') {
+          await db.execute(
+            `CREATE TABLE IF NOT EXISTS "${schema}".__schema_fingerprint (`
+            + `fingerprint text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`
+          );
+          await db.execute(`DELETE FROM "${schema}".__schema_fingerprint`);
+          await db.execute(
+            `INSERT INTO "${schema}".__schema_fingerprint (fingerprint) VALUES ('${fingerprint}')`
+          );
+          console.log(`🔏 Recorded migration fingerprint ${fingerprint} on ${schema}`);
+        }
       }
     }
   } catch (error: any) {
-    console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
+    // Deliberately FATAL as of 2026-08-21. This used to warn and continue
+    // ("non-fatal if DB exists"), which is how a chain that died at 0027 left a
+    // schema with every table and none of the later policies — and, because the
+    // fingerprint is only written on success, that schema now rebuilds next run
+    // rather than being cached. Continuing into a suite whose schema is not the
+    // one the migrations describe produces results that are worse than a
+    // failure: they look like application defects. Fail here instead.
+    console.error("❌ Migrations failed — refusing to run against a half-built schema:", error);
+    throw error;
   }
 }
 

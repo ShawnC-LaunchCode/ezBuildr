@@ -145,8 +145,76 @@ export class SchemaManager {
     // `app_owner_tenant()` is plain SQL, not SECURITY DEFINER. A stale _v35
     // schema lacks both clauses, so a filed workflow silently falls through to
     // its creator's tenant instead of its project's.
+    // Bumped to _v37 for the fingerprint mechanism below — see the block
+    // comment on `migrationsFingerprint`. The bump forces one clean rebuild so
+    // every schema starts fingerprinted; from here on the token is a
+    // human-readable generation marker, NOT the correctness mechanism.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v36`;
+        return `test_schema_w${this.workerId}_v37`;
+    }
+
+    /**
+     * A content hash of the whole migrations directory.
+     *
+     * WHY THIS EXISTS — measured 2026-08-21, after it cost two sessions.
+     *
+     * Schema reuse was gated on "does this schema have any tables?" That check
+     * cannot see a **policy-only** migration, and every migration from `0024`
+     * onward is policy-only: they create no tables, they rewrite RLS policies.
+     * Combined with `applyManualMigrations` swallowing its own failures, a
+     * chain that died at `0027` left a schema with all its tables, no further
+     * migrations, and a name claiming to be current. It was then reused
+     * forever.
+     *
+     * The damage was not a broken test — it was a LYING one. **11 of 124
+     * `_v36` schemas were still carrying the ORIGINAL `0001` policies**, so
+     * roughly 9% of workers ran the whole app against August 19's rules. Every
+     * failure they produced was an artifact, and one of them ("registration
+     * violates RLS under the restricted role") was written up as an unexplained
+     * production defect and nearly investigated as one.
+     *
+     * So: the schema records the fingerprint of the migration set that built
+     * it, written ONLY after a fully successful apply. A mismatch rebuilds from
+     * scratch. The `_vN` token stays as documentation of intent, but nothing
+     * depends on a human remembering to bump it.
+     */
+    static async migrationsFingerprint(): Promise<string> {
+        const fs = await import('fs');
+        const path = await import('path');
+        const dir = path.join(process.cwd(), 'migrations');
+        if (!fs.existsSync(dir)) { return 'no-migrations-dir'; }
+        const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+        const hash = _crypto.createHash('sha256');
+        for (const file of files) {
+            hash.update(file);
+            hash.update('\0');
+            hash.update(fs.readFileSync(path.join(dir, file)));
+            hash.update('\0');
+        }
+        return `${files.length}:${hash.digest('hex').slice(0, 32)}`;
+    }
+
+    /**
+     * Read the fingerprint a schema was built with, or null if it has none
+     * (which is also the answer for every schema built before this existed).
+     */
+    static async readSchemaFingerprint(connectionString: string, schemaName: string): Promise<string | null> {
+        const client = new Client({ connectionString });
+        try {
+            await client.connect();
+            const exists = await client.query(
+                `SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = $1 AND table_name = '__schema_fingerprint'`,
+                [schemaName],
+            );
+            if (exists.rowCount === 0) { return null; }
+            const row = await client.query(`SELECT fingerprint FROM "${schemaName}".__schema_fingerprint LIMIT 1`);
+            return row.rowCount === 0 ? null : String(row.rows[0].fingerprint);
+        } catch {
+            return null;
+        } finally {
+            await client.end();
+        }
     }
 
     /**
