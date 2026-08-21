@@ -27,13 +27,25 @@
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
-/** Repositories whose backing tables carry an RLS policy. */
+/**
+ * Repositories whose backing tables carry an RLS policy.
+ *
+ * Verified against the migrations 2026-08-21 rather than assumed — the earlier
+ * list included `logicRule`, `block`, `template`, `workflowVersion` and
+ * `stepValue`, whose tables (`logic_rules`, `blocks`, `templates`,
+ * `workflow_versions`, `step_values`) have **no policy at all**. Those hits
+ * were false positives, and converting them would have been pure churn.
+ *
+ * The authority is `CREATE POLICY ... ON <table>` plus the table arrays in
+ * `migrations/0001`, `0011` and `0026`. **Add to this list whenever a table
+ * gains a policy** (CLAUDE.md convention 7 requires new tenant tables to get
+ * one), or this bound silently stops covering it.
+ */
 const RLS_REPOS = [
   'workflow', 'section', 'step', 'project', 'user', 'collection', 'record',
   'organization', 'team', 'connection', 'reviewTask', 'signatureRequest',
   'auditLog', 'workflowBlueprint', 'tenantDomain', 'collabDoc',
-  'externalDestination', 'logicRule', 'block', 'template', 'workflowVersion',
-  'stepValue',
+  'externalDestination',
 ].join('|');
 
 /** Drizzle table identifiers that are RLS-covered, for direct `db.*` calls. */
