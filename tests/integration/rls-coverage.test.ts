@@ -29,7 +29,19 @@ import { join } from "path";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { db } from "../../server/db";
+/**
+ * ⚠️ This suite uses the OWNER connection, and that is correct here even though
+ * `ownerDb`'s doc warns against it in `rls-*` suites. That warning protects
+ * suites asserting what a restricted role can SEE — handing those an owner
+ * handle makes them pass unconditionally.
+ *
+ * This suite asserts SCHEMA STRUCTURE, not visibility: it applies a migration,
+ * creates and drops probe tables, and reads `information_schema`. Every one of
+ * those needs ownership (`must be owner of table ai_usage` is exactly how it
+ * failed under RLS_RESTRICTED), and none of them is an application path. The
+ * coverage assertions read the catalog, which the owner sees identically.
+ */
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const MIGRATION_SQL = readFileSync(
   join(process.cwd(), "migrations", "0024_repair_rls_coverage.sql"),
@@ -52,7 +64,7 @@ function rows(result: unknown): Array<Record<string, unknown>> {
  * either `relrowsecurity` or a policy named `tenant_isolation`.
  */
 async function findUncoveredTenantIdTables(targetSchema: string): Promise<string[]> {
-  const r = await db.execute(sql`
+  const r = await getOwnerDb().execute(sql`
     SELECT c.relname AS table_name
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -81,7 +93,7 @@ async function tableRlsState(
   targetSchema: string,
   tableName: string,
 ): Promise<{ exists: boolean; rlsEnabled: boolean; hasPolicy: boolean }> {
-  const r = await db.execute(sql`
+  const r = await getOwnerDb().execute(sql`
     SELECT
       c.relrowsecurity AS rls_enabled,
       EXISTS (
@@ -107,7 +119,7 @@ beforeAll(async () => {
 
   // Apply 0024 into the current schema (idempotent: DROP POLICY IF EXISTS +
   // CREATE POLICY, ALTER TABLE ENABLE ROW LEVEL SECURITY is a safe re-run).
-  await db.execute(sql.raw(MIGRATION_SQL));
+  await getOwnerDb().execute(sql.raw(MIGRATION_SQL));
 });
 
 describe("RLS coverage (RLS-3 / SEC-051)", () => {
@@ -118,7 +130,7 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
 
   test("the coverage check is discriminating: a tenant_id table with no policy is flagged", async () => {
     const probeTable = `rls_coverage_probe_${schema}`;
-    await db.execute(sql.raw(`
+    await getOwnerDb().execute(sql.raw(`
       CREATE TABLE "${schema}"."${probeTable}" (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id uuid NOT NULL
@@ -128,21 +140,21 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
       const uncovered = await findUncoveredTenantIdTables(schema);
       expect(uncovered).toContain(probeTable);
     } finally {
-      await db.execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."${probeTable}"`));
+      await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."${probeTable}"`));
     }
   });
 
   test("the coverage check clears once the probe table gets RLS + a tenant_isolation policy", async () => {
     const probeTable = `rls_coverage_probe2_${schema}`;
-    await db.execute(sql.raw(`
+    await getOwnerDb().execute(sql.raw(`
       CREATE TABLE "${schema}"."${probeTable}" (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id uuid NOT NULL
       )
     `));
     try {
-      await db.execute(sql.raw(`ALTER TABLE "${schema}"."${probeTable}" ENABLE ROW LEVEL SECURITY`));
-      await db.execute(sql.raw(
+      await getOwnerDb().execute(sql.raw(`ALTER TABLE "${schema}"."${probeTable}" ENABLE ROW LEVEL SECURITY`));
+      await getOwnerDb().execute(sql.raw(
         `CREATE POLICY tenant_isolation ON "${schema}"."${probeTable}" `
         + `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid) `
         + `WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`,
@@ -150,7 +162,7 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
       const uncovered = await findUncoveredTenantIdTables(schema);
       expect(uncovered).not.toContain(probeTable);
     } finally {
-      await db.execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."${probeTable}"`));
+      await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."${probeTable}"`));
     }
   });
 
@@ -174,8 +186,8 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
 afterAll(async () => {
   // Best-effort: drop probe tables if a failed assertion left one behind.
   try {
-    await db.execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe_${schema}"`));
-    await db.execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe2_${schema}"`));
+    await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe_${schema}"`));
+    await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe2_${schema}"`));
   } catch {
     /* best-effort cleanup */
   }

@@ -23,7 +23,19 @@ import { join } from "path";
 import { sql } from "drizzle-orm";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 
-import { db } from "../../server/db";
+/**
+ * ⚠️ OWNER connection, deliberately — and it does NOT weaken this suite.
+ *
+ * `ownerDb`'s warning against `rls-*` suites protects suites that assert what
+ * the APP's restricted pool can see. This suite does not work that way: it
+ * creates its own non-owner role and asserts visibility under `SET LOCAL ROLE`
+ * inside a transaction, which is a stronger and self-contained mechanism. Both
+ * halves REQUIRE ownership — creating a role, applying a migration, and
+ * `SET LOCAL ROLE` itself are all owner operations, so under RLS_RESTRICTED
+ * this suite failed at setup with `must be owner of table ...` and every test
+ * was skipped.
+ */
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // The phase-4 workflows/sections/steps policies (+ app_current_tenant /
 // app_owner_tenant) were consolidated into 0001_enable_rls.sql when the
@@ -70,9 +82,9 @@ function rows(result: unknown): Array<Record<string, unknown>> {
 /** Run a query as the non-owner test role, scoped to `tenant` (or no tenant). */
 async function asTenant<T>(
   tenant: string | null,
-  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+  fn: (tx: Parameters<Parameters<ReturnType<typeof getOwnerDb>['transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
+  return getOwnerDb().transaction(async (tx) => {
     await tx.execute(sql.raw(`SET LOCAL ROLE "${TEST_ROLE}"`));
     // SET ROLE drops the login role's search_path (rls_tester defaults to
     // "$user",public), so pin it back to the test schema for this transaction.
@@ -94,10 +106,10 @@ beforeAll(async () => {
   TEST_ROLE = `rls_tester_${schema}`;
 
   // 1. Apply the phase-4 migration (idempotent) into the current schema.
-  await db.execute(sql.raw(MIGRATION_SQL));
+  await getOwnerDb().execute(sql.raw(MIGRATION_SQL));
 
   // 2. A non-owner, non-superuser role so RLS is actually enforced for it.
-  await db.execute(sql.raw(`
+  await getOwnerDb().execute(sql.raw(`
     DO $$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${TEST_ROLE}') THEN
@@ -105,8 +117,8 @@ beforeAll(async () => {
       END IF;
     END $$;
   `));
-  await db.execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
-  await db.execute(sql.raw(
+  await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
+  await getOwnerDb().execute(sql.raw(
     `GRANT SELECT, INSERT ON `
     + `"${schema}".workflows, "${schema}".sections, "${schema}".steps, `
     + `"${schema}".users, "${schema}".organizations, "${schema}".projects `
@@ -115,30 +127,30 @@ beforeAll(async () => {
 
   // 3. Seed two tenants with user-owned + org-owned workflows (as superuser,
   //    which bypasses RLS for the insert).
-  await db.execute(sql`INSERT INTO tenants (id, name) VALUES (${tenantA}, ${tenantAName}), (${tenantB}, ${tenantBName})`);
-  await db.execute(sql`INSERT INTO users (id, email, tenant_id) VALUES (${userA}, ${emailA}, ${tenantA}), (${userB}, ${emailB}, ${tenantB})`);
-  await db.execute(sql`INSERT INTO organizations (id, name, slug, tenant_id) VALUES (${orgB}, ${orgBName}, ${orgBSlug}, ${tenantB})`);
+  await getOwnerDb().execute(sql`INSERT INTO tenants (id, name) VALUES (${tenantA}, ${tenantAName}), (${tenantB}, ${tenantBName})`);
+  await getOwnerDb().execute(sql`INSERT INTO users (id, email, tenant_id) VALUES (${userA}, ${emailA}, ${tenantA}), (${userB}, ${emailB}, ${tenantB})`);
+  await getOwnerDb().execute(sql`INSERT INTO organizations (id, name, slug, tenant_id) VALUES (${orgB}, ${orgBName}, ${orgBSlug}, ${tenantB})`);
 
   // workflow owned by user A (tenant A)
-  await db.execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfUserA}, ${"WF User A"}, 'user', ${userA}, ${userA}, ${userA})`);
+  await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfUserA}, ${"WF User A"}, 'user', ${userA}, ${userA}, ${userA})`);
   // workflow owned by user B (tenant B)
-  await db.execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfUserB}, ${"WF User B"}, 'user', ${userB}, ${userB}, ${userB})`);
+  await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfUserB}, ${"WF User B"}, 'user', ${userB}, ${userB}, ${userB})`);
   // workflow owned by org B (tenant B) — exercises the org resolution branch
-  await db.execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfOrgB}, ${"WF Org B"}, 'org', ${orgB}, ${userB}, ${userB})`);
+  await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfOrgB}, ${"WF Org B"}, 'org', ${orgB}, ${userB}, ${userB})`);
 
-  await db.execute(sql`INSERT INTO sections (id, workflow_id, title, "order") VALUES (${secA}, ${wfUserA}, 'Sec A', 1), (${secB}, ${wfUserB}, 'Sec B', 1)`);
-  await db.execute(sql`INSERT INTO steps (id, workflow_id, section_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${secA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${secB}, 'short_text', 'Step B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title, "order") VALUES (${secA}, ${wfUserA}, 'Sec A', 1), (${secB}, ${wfUserB}, 'Sec B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, section_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${secA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${secB}, 'short_text', 'Step B', 1)`);
 });
 
 afterAll(async () => {
   // Clean up seeded rows (as superuser; ignore if already gone).
   try {
-    await db.execute(sql`DELETE FROM steps WHERE id IN (${stepA}, ${stepB})`);
-    await db.execute(sql`DELETE FROM sections WHERE id IN (${secA}, ${secB})`);
-    await db.execute(sql`DELETE FROM workflows WHERE id IN (${wfUserA}, ${wfUserB}, ${wfOrgB})`);
-    await db.execute(sql`DELETE FROM organizations WHERE id = ${orgB}`);
-    await db.execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
-    await db.execute(sql`DELETE FROM tenants WHERE id IN (${tenantA}, ${tenantB})`);
+    await getOwnerDb().execute(sql`DELETE FROM steps WHERE id IN (${stepA}, ${stepB})`);
+    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id IN (${secA}, ${secB})`);
+    await getOwnerDb().execute(sql`DELETE FROM workflows WHERE id IN (${wfUserA}, ${wfUserB}, ${wfOrgB})`);
+    await getOwnerDb().execute(sql`DELETE FROM organizations WHERE id = ${orgB}`);
+    await getOwnerDb().execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
+    await getOwnerDb().execute(sql`DELETE FROM tenants WHERE id IN (${tenantA}, ${tenantB})`);
   } catch {
     /* best-effort cleanup */
   }
@@ -153,7 +165,7 @@ describe("RLS phase 4: app_owner_tenant resolution (SEC-051 / ICW-B2)", () => {
     // defines it too) Postgres cannot apply search-path shadowing and errors
     // "function app_owner_tenant(...) is not unique" (42725). Explicit types
     // resolve to a single candidate.
-    const r = await db.execute(sql`
+    const r = await getOwnerDb().execute(sql`
       SELECT
         app_owner_tenant('user'::owner_type, ${userA}::varchar, NULL::varchar, NULL::varchar, NULL::uuid)      AS by_owner_user,
         app_owner_tenant('org'::owner_type,  ${orgB}::varchar, NULL::varchar, NULL::varchar, NULL::uuid)       AS by_owner_org,
@@ -219,8 +231,8 @@ describe("RLS phase 4: WITH CHECK blocks cross-tenant writes", () => {
       await tx.execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${okId}, 'legit', 'user', ${userA}, ${userA}, ${userA})`);
     });
     // Confirm it landed, then clean up as superuser.
-    const seen = rows(await db.execute(sql`SELECT id FROM workflows WHERE id = ${okId}`));
+    const seen = rows(await getOwnerDb().execute(sql`SELECT id FROM workflows WHERE id = ${okId}`));
     expect(seen).toHaveLength(1);
-    await db.execute(sql`DELETE FROM workflows WHERE id = ${okId}`);
+    await getOwnerDb().execute(sql`DELETE FROM workflows WHERE id = ${okId}`);
   });
 });

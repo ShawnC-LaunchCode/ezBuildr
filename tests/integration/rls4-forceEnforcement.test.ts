@@ -2,7 +2,19 @@ import { Client } from "pg";
 import { sql } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-import { db } from "../../server/db";
+/**
+ * ⚠️ OWNER connection, deliberately — and it does NOT weaken this suite.
+ *
+ * `ownerDb`'s warning against `rls-*` suites protects suites that assert what
+ * the APP's restricted pool can see. This suite does not work that way: it
+ * creates its own non-owner role and asserts visibility under `SET LOCAL ROLE`
+ * inside a transaction, which is a stronger and self-contained mechanism. Both
+ * halves REQUIRE ownership — creating a role, applying a migration, and
+ * `SET LOCAL ROLE` itself are all owner operations, so under RLS_RESTRICTED
+ * this suite failed at setup with `must be owner of table ...` and every test
+ * was skipped.
+ */
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * RLS-4 AC4 + AC5 — the proof that tenant isolation is real at the DATABASE
@@ -70,7 +82,7 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
     //    application tables, and explicitly NOT the table owner and NOT
     //    BYPASSRLS — the two things that would silently exempt it from every
     //    policy and make this whole suite pass for the wrong reason.
-    await db.execute(sql.raw(`
+    await getOwnerDb().execute(sql.raw(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ROLE}') THEN
@@ -78,21 +90,21 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
         END IF;
       END $$;
     `));
-    await db.execute(sql.raw(`ALTER ROLE "${ROLE}" WITH PASSWORD '${PASSWORD}' NOBYPASSRLS NOSUPERUSER`));
-    await db.execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${ROLE}"`));
-    await db.execute(sql.raw(
+    await getOwnerDb().execute(sql.raw(`ALTER ROLE "${ROLE}" WITH PASSWORD '${PASSWORD}' NOBYPASSRLS NOSUPERUSER`));
+    await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${ROLE}"`));
+    await getOwnerDb().execute(sql.raw(
       `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${schema}" TO "${ROLE}"`,
     ));
-    await db.execute(sql.raw(
+    await getOwnerDb().execute(sql.raw(
       `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${ROLE}"`,
     ));
 
     // 2. Seed two tenants and a row for each, as the owner (which bypasses RLS
     //    for the insert — that is the point: the data exists regardless).
-    await db.execute(sql`DELETE FROM users WHERE tenant_id IN (${TENANT_A}, ${TENANT_B})`);
-    await db.execute(sql`DELETE FROM tenants WHERE id IN (${TENANT_A}, ${TENANT_B})`);
-    await db.execute(sql`INSERT INTO tenants (id, name) VALUES (${TENANT_A}, ${'RLS4 Tenant A'}), (${TENANT_B}, ${'RLS4 Tenant B'})`);
-    await db.execute(sql`
+    await getOwnerDb().execute(sql`DELETE FROM users WHERE tenant_id IN (${TENANT_A}, ${TENANT_B})`);
+    await getOwnerDb().execute(sql`DELETE FROM tenants WHERE id IN (${TENANT_A}, ${TENANT_B})`);
+    await getOwnerDb().execute(sql`INSERT INTO tenants (id, name) VALUES (${TENANT_A}, ${'RLS4 Tenant A'}), (${TENANT_B}, ${'RLS4 Tenant B'})`);
+    await getOwnerDb().execute(sql`
       INSERT INTO users (id, email, tenant_id) VALUES
         (${'rls4-user-a'}, ${'rls4-a@example.com'}, ${TENANT_A}),
         (${'rls4-user-b'}, ${'rls4-b@example.com'}, ${TENANT_B})
@@ -101,7 +113,7 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
     // 3. Turn enforcement ON for `users` in this schema. FORCE is what makes
     //    policies apply to the table's owner too; without it a superuser-owned
     //    table silently ignores every policy.
-    await db.execute(sql.raw(`ALTER TABLE "${schema}".users FORCE ROW LEVEL SECURITY`));
+    await getOwnerDb().execute(sql.raw(`ALTER TABLE "${schema}".users FORCE ROW LEVEL SECURITY`));
 
     appRole = await connectAsAppRole();
   });
@@ -109,9 +121,9 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
   afterAll(async () => {
     if (appRole) { await appRole.end(); }
     try {
-      await db.execute(sql.raw(`ALTER TABLE "${schema}".users NO FORCE ROW LEVEL SECURITY`));
-      await db.execute(sql`DELETE FROM users WHERE tenant_id IN (${TENANT_A}, ${TENANT_B})`);
-      await db.execute(sql`DELETE FROM tenants WHERE id IN (${TENANT_A}, ${TENANT_B})`);
+      await getOwnerDb().execute(sql.raw(`ALTER TABLE "${schema}".users NO FORCE ROW LEVEL SECURITY`));
+      await getOwnerDb().execute(sql`DELETE FROM users WHERE tenant_id IN (${TENANT_A}, ${TENANT_B})`);
+      await getOwnerDb().execute(sql`DELETE FROM tenants WHERE id IN (${TENANT_A}, ${TENANT_B})`);
     } catch { /* best effort */ }
   });
 
@@ -164,13 +176,13 @@ describe("RLS-4: FORCE ROW LEVEL SECURITY as a non-owner role", () => {
 
   // The guard that stops this suite passing for the wrong reason.
   it("the app role is neither the table owner nor BYPASSRLS", async () => {
-    const owner = await db.execute(sql.raw(
+    const owner = await getOwnerDb().execute(sql.raw(
       `SELECT tableowner FROM pg_tables WHERE schemaname = '${schema}' AND tablename = 'users'`,
     ));
     const rows = (owner as unknown as { rows?: Array<Record<string, unknown>> }).rows ?? [];
     expect(String(rows[0]?.tableowner)).not.toBe(ROLE);
 
-    const bypass = await db.execute(sql.raw(
+    const bypass = await getOwnerDb().execute(sql.raw(
       `SELECT rolbypassrls, rolsuper FROM pg_roles WHERE rolname = '${ROLE}'`,
     ));
     const brows = (bypass as unknown as { rows?: Array<Record<string, unknown>> }).rows ?? [];
