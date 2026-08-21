@@ -124,6 +124,9 @@ grep -oE 'at [A-Za-z]+(Service|Repository)\.[a-zA-Z]+ \(C:/[^)]*server/[^)]*\)' 
 | `6941b767` | Background-job tenant bootstrap; `WorkflowTenantResolver`; `RunDefinitionProvider` |
 | `7f13e14b` | **`0033`** — bootstrap clauses on `projects`/`organizations`, completing tenant resolution |
 | `3a2b2d97` | Portability export/import; `AuditLogService`'s three inserts |
+| `79db0734` | Export data reads; **`tests/helpers/ownerDb.ts`** — the test observer |
+| `9a72ef00` | Observer applied across 82 integration suites |
+| `2265804d` | `RunDataService` alias seeding — "undefined variable" in every document |
 
 ### The two findings worth carrying forward
 
@@ -200,13 +203,33 @@ deliberate look before RLS-4.
 | Start of session | 98 failed / 26 passed | 297 | 423 | 463 |
 | After `0032` (login) | 97 / 27 | 344 | 455 | 384 |
 | After Section/Step/audit | 98 / 26 | 316 | 484 | 383 |
-| **End of session** | **96 / 28** | 325 | **495** | **363** |
+| After portability | 96 / 28 | 325 | 495 | 363 |
+| After the test observer | 90 / 34 | 311 | 736 | 136 |
+| **End of session** | **85 / 39** | 300 | **770** | **113** |
 
-**The headline number is not in that table: hard RLS violations went 100 → 4.**
-Only `datavault_rows` still raises. Everything remaining is the *quiet* failure
-mode — a SELECT filtered to zero rows, surfacing as "not found" or a failed
-assertion rather than an error — which is exactly why it has to be chased
-caller-by-caller rather than by grepping for violations.
+**Two numbers matter more than the failure count.** Hard RLS violations went
+**100 → 20** (`collab_docs` 10, `users` 4, `datavault_rows` 4,
+`datavault_databases` 2), and passing tests went **423 → 770** while skipped went
+**463 → 113**. Everything still failing is the *quiet* mode — a SELECT filtered
+to zero rows, surfacing as "not found" or a failed assertion rather than an
+error — which is exactly why it has to be chased caller-by-caller rather than by
+grepping for violations.
+
+**Top remaining production frames, measured at end of session — start here:**
+
+```
+11 ExportService.exportToFile          access check still denies in some suites
+10 UserRepository.findByEmail          a by-email path 0032 did not reach
+10 RunLifecycleService (:443 / :571)   the document RENDERING layer
+14 DatavaultRowsService                the only remaining hard violations
+ 6 PersonalizationService.generateText
+ 5 ImportService.apply                 the row-writing half
+```
+
+**The single biggest lever was `tests/helpers/ownerDb.ts`** — separating the test
+observer from the application moved passing tests 495 → 736 on its own. If more
+suites still fail on their own fixture reads, apply it there before anything
+else; read that file's two bold warnings first.
 
 **Read this table carefully — "failed" going up is progress here.** Suites that
 used to die in `beforeAll` counted all their tests as *skipped*; now they run and
