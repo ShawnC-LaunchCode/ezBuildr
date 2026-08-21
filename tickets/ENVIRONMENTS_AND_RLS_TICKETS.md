@@ -1928,9 +1928,136 @@ Suite: `tests/integration/`.
 
 ---
 
+## RLS-2f — The call-site sweep: convert everything the audit found ✅ DONE 2026-08-21 (bar RLS-7)
+
+**RLS-2a…2e converted the SERVICES. This converted the CALL SITES** — the ones that never
+went through a service, or went through one that had not been converted, and were therefore
+invisible to the service-by-service rollout. `scripts/audit-rls-surface.ts` (written
+2026-08-21) made that finite: **121 sites across 28 files** at the start.
+
+**Result: 121 → 25, and of the 25 remaining, 14 are RLS-7 below and 10 are audit false
+positives** (uncovered tables inside the scanner's 400-character window) or deliberate
+(registration's insert, which must run with NO tenant pinned — 0027's NULL-safe `WITH CHECK`
+is exactly what permits it). One is `WorkflowClonerService.copyWorkflowAsAdmin`, also RLS-7.
+
+Converted, in order of size: `WorkflowPatchService` (27), `auth.routes` (10),
+`SignatureBlockService` (9), the two scripting hook services (10), `ImportService` (7),
+`metrics`/`sli`/`TemplateAnalysisService`/`QueryRunner` (7), the small route sites (7),
+`RunStateService` + `ReadTableBlockRunner` (3), `MfaService` (2), `adminAuth` (2).
+
+**Gates:** `type-check` 0 · `eslint --max-warnings 0` on every touched file · `test:fast`
+**285 files / 3283 passed** · `test:integration` **124 files / 1183 passed** (the one failing
+file, `hardening/processingTimeout.test.ts`, is the documented leaked-temp-file trap — cleared
+and re-run in isolation, 4/4 green).
+
+**Restricted-role re-measurement** (`RLS_RESTRICTED=true npm run test:integration`, the run
+RLS-5 will gate on): **812 tests passed, up from 770**; 41 files pass, up from 39. The raw
+"violates row-level security" grep rose 20 → 48, which is the trap this initiative has fallen
+into before — attributed by caller, **10 are production code and 38 are test fixtures writing
+through the app's restricted pool** (Phase 2's `ownerDb` work). See `RLS_HANDOFF.md` §1.
+
+### The findings that mattered more than the count
+
+Ranked by failure shape, because every one of these would have failed **silently**, not loudly
+— see `docs/architecture/TENANT_ISOLATION_RLS.md` §2g for the table:
+
+- **`metrics.emit` and the audit-log writers swallow their own errors.** A rejected insert
+  means the run succeeds and its telemetry simply vanishes.
+- **`TemplateAnalysisService`** answers "which workflows would this template update break?"
+  from `workflows`/`sections`/`steps`. Unscoped it answers **none** — the answer that gets a
+  template overwritten with no warning.
+- **`RunStateService.getSharedRunDetails`** backs a route with **no auth middleware at all**;
+  unscoped, `accessSettings` falls back to defaults and the shared page renders
+  `allow_portal: false` as though the owner had set it.
+- **`ImportService`'s collision check** reports "no collisions" and creates the duplicates it
+  was asked to warn about.
+- **`datavault/options.routes` had grown a SECOND implementation of tenant resolution** — the
+  workflow → project → creator walk, hand-rolled and unscoped. That is precisely the defect
+  `0033` exists for: it resolves *confidently to the wrong tenant* after a project transfer.
+  Deleted; it delegates to `WorkflowTenantResolver` now.
+
+### Two corrections worth keeping
+
+- **The audit itself was over-counting.** `logic_rules`, `blocks`, `templates`,
+  `workflow_versions` and `step_values` have **no policy** — 7 phantom sites and three whole
+  files (the ListTools/Query/Write block runners) that needed nothing. Checked against every
+  `CREATE POLICY` in `migrations/`, not assumed. The list now carries its derivation and a
+  warning to extend it when a table gains a policy, since the reverse error hides real work.
+- **A lib must not open the transaction.** `QueryRunner` takes an injectable `db`; a
+  `withTenant` placed inside it opened one on the global pool and silently bypassed that
+  injection — every test driving it through a mock failed with "Database not initialized".
+  The transaction belongs at the service boundary (`QueryBlockRunner`/`QueryService`), which
+  is what §2b already said.
+
+---
+
+## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` 🔲
+
+**Priority: P1** · Size: M · **BLOCKS RLS-4** (same reason RLS-6 did) · Files:
+`server/routes/admin.routes.ts`, `server/services/AdminAccessService.ts`,
+`server/repositories/{User,Workflow}Repository.ts`, possibly `BaseRepository.ts`
+
+### Finding
+
+RLS-6 built the audited BYPASSRLS path and routed **four** global admin reads through it.
+The 2026-08-21 sweep found **14 more sites in `admin.routes.ts`** that are equally
+cross-tenant and still on the normal pool, plus `WorkflowClonerService.copyWorkflowAsAdmin`
+(already documented in-file as "fails closed, does not leak" — which under `FORCE` means the
+admin copy feature stops working).
+
+They split into two kinds, and the second is why this is a ticket rather than a continuation
+of the sweep:
+
+- **Reads** (7): `userRepository.findById` for a target user ×4, `findByEmail`,
+  `workflowRepository.findAll`, `workflowRepository.findById` ×3, and the three
+  `get*Stats` aggregates.
+- **Writes** (4): `updateIsActive`, `updateRole`, `userRepository.create`,
+  `workflowRepository.delete` — and `mfaService.adminResetMfa`, which reaches a `users`
+  write for someone else's row through `disableMfa`.
+
+`AdminAccessService`'s own docstring scopes it to *reads* ("read cross-tenant through
+`adminDb`, then write one `admin_access_log` row"). **Extending it to writes is a real
+semantic step and wants the repo owner's eyes**, not a reviewer's judgement call: a
+BYPASSRLS pool that can also write is a materially larger blast radius than one that cannot.
+
+### Preferred fix
+
+1. Owner ruling first: does the audited module cover cross-tenant **writes**, or do the four
+   write sites get a different answer (a per-tenant `withTenant` using the target's own
+   tenant, read first through the audited read path)?
+2. Add one `AdminAccessService` method per operation, each pairing the `adminDb` call with an
+   `admin_access_log` row, exactly as the existing four do.
+3. Mechanical cost to note when sizing: the pattern threads an `adminDbOverride?: DrizzleDB`
+   through the repository method being called. The existing four hit methods that already
+   have it; several of these are `BaseRepository` generics (`findById`, `create`, `delete`),
+   so either those gain the parameter or the methods get non-generic admin variants. **Do not
+   let that push anyone toward giving the app role `BYPASSRLS`** — RLS-4's AC2 stands.
+
+### Ties
+
+- Depends on nothing; blocks RLS-4, which must not ship an admin console that silently
+  truncates. Same failure shape RLS-6 was created for.
+- `adminDb.containment.test.ts`'s allowlist may need widening — deliberately, by editing an
+  explicit list, which is why it is a list and not a directory prefix.
+- `server/utils/selfUser.ts` is **not** the answer for any of these: its two warnings say so.
+
+### Acceptance criteria
+
+1. Every cross-tenant admin operation in `admin.routes.ts` goes through `AdminAccessService`;
+   none touches a repository directly.
+2. Each one writes an `admin_access_log` row (actor, action, target user/tenant, request id).
+3. The containment test still passes and is still non-vacuous (prove it fails when a
+   disallowed file imports `adminDb`).
+4. With `ADMIN_DATABASE_URL` unset, every admin route behaves exactly as today (the
+   documented interim fallback) — proven by the existing admin integration suites.
+5. `type-check` 0 · `lint` 0 · `test:fast` at or above baseline · `test:integration` no new
+   failures.
+
+---
+
 ## Phase 2 Gate
 
-- [ ] RLS-1 ✅ (2026-08-18, `bc90cc3e`), RLS-2a, RLS-2b, RLS-3, RLS-4, RLS-5, RLS-6 ✅ each with a dated verification note
+- [ ] RLS-1 ✅ (2026-08-18, `bc90cc3e`), RLS-2a, RLS-2b, RLS-3, RLS-4, RLS-5, RLS-6 ✅, RLS-2f ✅ (2026-08-21), RLS-7 each with a dated verification note
 - [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
       needs delivering
 - [ ] A cross-tenant read proven impossible at the database level, with fail-closed evidence
@@ -1949,7 +2076,9 @@ RLS-2a    pilot: the pattern, on CollectionService
 RLS-2b    rollout: the remaining ~35 tenant-scoped services  ─┐ parallel with
 RLS-3     policy coverage repair                              ├─ each other and
 RLS-6     admin cross-tenant read path                        ─┘ with RLS-2b
-RLS-4     FORCE + restricted role   (blocked on 2b, 3 and 6)
+RLS-2f ✅ done 2026-08-21 — the call-site sweep (121 -> 25 sites)
+RLS-7     admin.routes' remaining cross-tenant ops  (blocks RLS-4, needs an owner ruling)
+RLS-4     FORCE + restricted role   (blocked on 2b, 2f, 3, 6 and 7)
 RLS-5     gate: full integration as the restricted role
 ```
 
@@ -1957,6 +2086,10 @@ RLS-2b, RLS-3 and RLS-6 are mutually disjoint — services, migrations and the a
 respectively — so they can run concurrently once RLS-2a fixes the pattern. **RLS-4 needs all
 three**: without 2b it returns zero rows, without 3 the coverage is wrong, without 6 the admin
 console silently truncates.
+
+**Added 2026-08-21:** RLS-2f closed the gap the service-by-service rollout could not see —
+call sites that never went through a service. RLS-7 is the same argument as RLS-6, applied to
+the admin operations RLS-6 did not cover, and it blocks RLS-4 for the identical reason.
 
 ---
 

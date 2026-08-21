@@ -39,7 +39,31 @@ individual site is not.
 
 ## 2. The measured remaining surface
 
-Audited 2026-08-21 across `server/**/*.ts`:
+> ### ✅ Updated 2026-08-21, end of session two — Phase 1 is essentially done
+>
+> The sweep below was worked end to end: **121 sites → 32**, and the 32 are
+> triaged in `RLS_HANDOFF.md` §2. Only two groups are real work, and neither is
+> "conversion":
+>
+> - **15 sites are the admin cross-tenant cluster** (`admin.routes.ts` +
+>   `WorkflowClonerService.copyWorkflowAsAdmin`) — now **RLS-7** on the board.
+>   It needs a repo-owner ruling before code: extending `AdminAccessService` to
+>   cross-tenant **writes** is a larger blast radius than the read-only charter
+>   it was given, and that is not a reviewer's call to make.
+> - **3 sites are background jobs** scanning `metrics_rollups` across every
+>   tenant by design — RLS-4's job-exception decision, not a wrapper.
+>
+> The remaining ~14 are triaged false positives or deliberate (registration's
+> insert, which must run with no tenant pinned). The audit script was corrected
+> twice while working the list — it counted five tables that have no policy,
+> and it was blind to raw `db.execute` SQL, which hid a real defect.
+>
+> **Phase 2 (the test tail) is now the critical path**, and the restricted-run
+> measurement says what it is: of 48 raw violations, **38 are test fixtures
+> writing through the app's restricted pool**. `tests/helpers/ownerDb.ts` is
+> the tool; it moved passing tests 495 → 736 the last time it was applied.
+
+Audited 2026-08-21 (start of session two) across `server/**/*.ts`:
 
 | Category | Call sites | Files |
 |---|---|---|
@@ -68,7 +92,7 @@ Two of those are not conversions at all: `admin.routes.ts` and
 
 Sized in **focused days** — days actually spent on this, not calendar days.
 
-### Phase 1 — Production conversion (~3 days) · the bulk
+### Phase 1 — Production conversion (~3 days) · the bulk · ✅ DONE 2026-08-21, bar RLS-7
 Work §2's checklist file by file, highest count first. Patterns are established;
 nothing here needs inventing. Per file: thread `tx`, or wrap at the service
 boundary with the ambient-only `withTx`, or route to `adminDb`. Commit per file
@@ -80,10 +104,13 @@ does not make a bare pool read work), and a pool query issued while a
 transaction holds the only connection *hangs* rather than fails against the
 `max:1` test pool.
 
-### Phase 2 — Test tail (~1–2 days)
-85 files still fail under the restricted role, but a large share are downstream
-of Phase 1 and will fall out for free. Re-measure after Phase 1 before
-estimating this; do not work it in parallel. Remaining fixture work: apply
+### Phase 2 — Test tail (~1–2 days) · ← **now the critical path**
+83 files still fail under the restricted role (was 85; 812 tests pass, up from
+770). Re-measured after Phase 1, as this section said to: the failures are
+dominated by **fixture writes**, not production paths — 38 of 48 violations
+come from test files creating workflows/projects/sections through the app's
+restricted pool. The rest is the quiet mode: a read filtered to zero rows
+surfacing as "Access denied" or "not found". Remaining fixture work: apply
 `ownerDb`, and `enterTenantContextForTests` inside test bodies for suites that
 call services directly.
 
