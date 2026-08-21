@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
+import { getOwnerDb } from './ownerDb';
 import type { DbTransaction } from '../../server/repositories/BaseRepository';
 import { applyTenantToTransaction } from '../../server/utils/rlsContext';
 
@@ -74,7 +75,19 @@ export class TestFactory {
    *                 Pass a transaction for automatic rollback (recommended).
    */
   constructor(txOrDb?: DBInstance | DbTransaction) {
-    this.db = txOrDb ?? getDb();
+    // RLS-5: defaults to the OBSERVER, not the application pool.
+    //
+    // This class exists to build the world a test is exercised in — it is the
+    // fixture layer, never the code under test. Under RLS_RESTRICTED the app's
+    // pool is a genuine non-owner, so a default of `getDb()` had `users`,
+    // `workflows`, `sections` and the DataVault tables reject fixture rows,
+    // and 22 suites failed for harness reasons that read exactly like
+    // application defects.
+    //
+    // A caller passing an explicit handle still wins — in particular
+    // `runInTransaction`'s `tx`, which is how a suite gets automatic rollback.
+    // See tests/helpers/ownerDb.ts for why the observer/app split exists.
+    this.db = txOrDb ?? getOwnerDb();
   }
   /**
    * Run `fn` inside a transaction pinned to `lastTenantId` if this instance

@@ -9,7 +9,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { storageProvider } from '../../server/services/storage';
 import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
@@ -76,7 +75,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(FILES_DIR, { recursive: true });
   });
 

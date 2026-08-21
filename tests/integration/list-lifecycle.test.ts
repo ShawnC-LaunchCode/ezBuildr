@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 import type { ListConfig, ListValue } from '@shared/types/stepConfigs';
 
-import { db } from '../../server/db';
 import { storageProvider } from '../../server/services/storage/index';
 import { versionService } from '../../server/services/VersionService';
 import {
@@ -98,7 +97,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
       tenantRole: 'owner',
     });
     agent = createAuthenticatedAgent(ctx.baseURL, ctx.authToken);
-    factory = new TestFactory(db);
+    factory = new TestFactory();
   });
 
   afterAll(async () => {

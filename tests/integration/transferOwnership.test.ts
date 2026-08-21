@@ -308,6 +308,8 @@ describe('Transfer Ownership', () => {
         });
 
         it('should prevent non-member from transferring org workflow', async () => {
+
+          enterTenantContextForTests(testTenantId);
             // Create org-owned workflow
             const workflow = await workflowService.createWorkflow(
                 { title: 'Org Workflow', creatorId: userId1, ownerId: userId1 },
@@ -343,6 +345,7 @@ describe('Transfer Ownership', () => {
         // via runWithTenantContext to stand in for the middleware a direct
         // service call doesn't get.
         it('should transfer database ownership', async () => {
+          enterTenantContextForTests(testTenantId);
             await runWithTenantContext(testTenantId, async () => {
                 // Create user-owned database
                 const database = await datavaultDatabasesService.createDatabase({
@@ -371,6 +374,8 @@ describe('Transfer Ownership', () => {
         });
 
         it('should allow an org admin to transfer an org database out', async () => {
+
+          enterTenantContextForTests(testTenantId);
             await runWithTenantContext(testTenantId, async () => {
                 // Create org-owned database
                 const database = await datavaultDatabasesService.createDatabase({
@@ -401,6 +406,8 @@ describe('Transfer Ownership', () => {
         });
 
         it('should prevent an org member (non-admin) from transferring an org database out', async () => {
+
+          enterTenantContextForTests(testTenantId);
             await runWithTenantContext(testTenantId, async () => {
                 // Create org-owned database; userId2 is only a member.
                 const database = await datavaultDatabasesService.createDatabase({

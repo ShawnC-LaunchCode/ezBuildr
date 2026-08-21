@@ -25,7 +25,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import {
   setupIntegrationTest,
@@ -86,7 +85,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(OUTPUTS_DIR, { recursive: true });
   });
 

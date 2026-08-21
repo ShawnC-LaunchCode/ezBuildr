@@ -27,7 +27,6 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { storageProvider } from '../../../server/services/storage';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { TestFactory } from '../../helpers/testFactory';
@@ -100,7 +99,7 @@ async function requireGotenberg(): Promise<void> {
 }
 
 describe('Hardening: generated documents record the real converter', () => {
-  const factory = new TestFactory(db);
+  const factory = new TestFactory();
   let tenantId: string;
   let userId: string;
   let projectId: string;

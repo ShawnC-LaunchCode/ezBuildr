@@ -6,7 +6,7 @@ import {
   type DbTransaction,
 } from '../repositories';
 import { canManageOrg, isOrgMember } from '../utils/ownershipAccess';
-import { withCurrentTenant, getCurrentTenantId } from '../utils/rlsContext';
+import { withCurrentTenant, getCurrentTenantId, withTenant } from '../utils/rlsContext';
 
 import { aclService } from './AclService';
 import { datavaultAclService } from './DatavaultAclService';
@@ -344,11 +344,26 @@ export class DatavaultDatabasesService {
     const { transferService } = await import('./TransferService');
 
     // No tenantId argument on this method (see file header) — the database's own
-    // tenantId IS the tenant boundary. Look it up first (unscoped by design: a
-    // primary-key lookup isn't itself tenant-filtered), then open the transaction
-    // scoped to what the row says, exactly like *VerifyOwnership helpers elsewhere
-    // in this cluster that discover tenant from the row rather than an argument.
-    const preliminary = await datavaultDatabasesRepository.findById(databaseId, tx);
+    // tenantId IS the tenant boundary, so it has to be discovered from the row
+    // before the scoped transaction can be opened.
+    //
+    // ⚠️ RLS-5: this lookup used to be unscoped "by design", on the reasoning
+    // that "a primary-key lookup isn't itself tenant-filtered". That premise
+    // was only ever true while the app connected as the table OWNER, which
+    // Postgres exempts from RLS. Against a real non-owner role
+    // `datavault_databases` is covered, an unscoped read returns NOTHING, and
+    // every transfer failed as "Database not found" — a bootstrap read that
+    // cannot see the row it needs in order to learn which tenant to pin.
+    //
+    // Use the ambient tenant when the caller has one (routes and block runners
+    // always do), which makes the row visible and costs nothing. With no
+    // ambient tenant this behaves exactly as before, so no pre-enforcement
+    // caller changes.
+    const ambientTenantId = getCurrentTenantId();
+    const preliminary = tx !== undefined || ambientTenantId === undefined
+      ? await datavaultDatabasesRepository.findById(databaseId, tx)
+      : await withTenant(ambientTenantId, (scoped) =>
+          datavaultDatabasesRepository.findById(databaseId, scoped));
     if (!preliminary) {
       throw new NotFoundError('Database not found');
     }

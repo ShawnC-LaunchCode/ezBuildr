@@ -17,7 +17,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { workflowContentIngestService, type WorkflowContentData } from "../../server/services/WorkflowContentIngestService";
 import {
   createAuthenticatedAgent,
@@ -29,6 +28,7 @@ import { TestFactory } from "../helpers/testFactory";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 let ctx: IntegrationTestContext;
 let agent: ReturnType<typeof createAuthenticatedAgent>;
@@ -42,7 +42,7 @@ beforeAll(async () => {
     tenantRole: "owner",
   });
   agent = createAuthenticatedAgent(ctx.baseURL, ctx.authToken);
-  factory = new TestFactory(db);
+  factory = new TestFactory();
 });
 
 afterAll(async () => {
@@ -85,6 +85,7 @@ async function fetchSectionRow(sectionId: string) {
 
 describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 AC1)", () => {
   it("sets deletedAt and leaves existing step_values intact", async () => {
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "answered_question");
 
@@ -105,6 +106,8 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
   });
 
   it("DELETE /api/sections/:sectionId soft-deletes the section and cascades to its steps", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "child_of_section");
 
@@ -128,6 +131,7 @@ describe("DELETE /api/steps/:stepId soft-deletes and preserves answers (ICW2-B1 
 
 describe("soft-deleted steps/sections are invisible to reads (ICW2-B1 AC2)", () => {
   it("is excluded from the aggregate reader (GET /api/workflows/:workflowId) and the runner path", async () => {
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const keepStepId = await makeStep(workflowId, sectionId, "keep_visible");
     const deleteStepId = await makeStep(workflowId, sectionId, "hide_me");
@@ -153,6 +157,8 @@ describe("soft-deleted steps/sections are invisible to reads (ICW2-B1 AC2)", () 
   });
 
   it("a soft-deleted section disappears from the sections list and its steps disappear from the workflow detail", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId: keepSectionId } = await makeWorkflowWithSection();
     const deleteSectionRes = await agent
       .post(`/api/workflows/${workflowId}/sections`)
@@ -179,6 +185,7 @@ describe("soft-deleted steps/sections are invisible to reads (ICW2-B1 AC2)", () 
 
 describe("a soft-deleted step's alias frees up for reuse (ICW2-B1 AC3)", () => {
   it("creating a new step with the same alias does not hit the unique-alias violation", async () => {
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const originalStepId = await makeStep(workflowId, sectionId, "reusable_alias");
 
@@ -196,6 +203,7 @@ describe("a soft-deleted step's alias frees up for reuse (ICW2-B1 AC3)", () => {
 
 describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", () => {
   it("POST /api/steps/:stepId/restore clears deletedAt for the owner", async () => {
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "restore_me_step");
 
@@ -215,6 +223,8 @@ describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", ()
   });
 
   it("POST /api/sections/:sectionId/restore clears deletedAt for the section and cascades to its steps", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "restore_me_child");
 
@@ -233,6 +243,8 @@ describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", ()
   });
 
   it("denies restore to a view-role collaborator (403) and allows it once raised to edit", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     // Unfiled workflow so the shared user's only access is the direct ACL
     // row inserted below (mirrors the ICW2-1 ACL test pattern).
     const wfRes = await agent.post("/api/workflows").send({ title: `Restore ACL WF ${nanoid()}` });
@@ -271,6 +283,8 @@ describe("restore endpoints clear deletedAt under edit access (ICW2-B1 AC4)", ()
   });
 
   it("returns 401 without auth and 404 for a step that was never deleted... only once restored is a no-op restore idempotent", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const { workflowId, sectionId } = await makeWorkflowWithSection();
     const stepId = await makeStep(workflowId, sectionId, "noauth_restore");
 
@@ -294,6 +308,8 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
   }
 
   it("soft-deletes a step dropped from the incoming payload, ignores it on a later re-apply, and leaves the surviving step untouched", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const workflowId = await createWorkflow(`Ingest Soft-Delete ${nanoid()}`);
 
     const v1: WorkflowContentData = {
@@ -362,6 +378,8 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
   });
 
   it("soft-deletes a whole section dropped from the incoming payload, cascading to its steps", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const workflowId = await createWorkflow(`Ingest Section Removal ${nanoid()}`);
 
     const v1: WorkflowContentData = {

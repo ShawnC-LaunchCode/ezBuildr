@@ -21,7 +21,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import { versionService } from '../../server/services/VersionService';
 import { storageProvider } from '../../server/services/storage/index';
@@ -83,7 +82,7 @@ async function getGeneratedFileBuffer(storageKey: string): Promise<Buffer> {
 }
 
 describe('Automatic document generation on run completion', () => {
-  const factory = new TestFactory(db);
+  const factory = new TestFactory();
   let tenantId: string;
   let userId: string;
   let projectId: string;

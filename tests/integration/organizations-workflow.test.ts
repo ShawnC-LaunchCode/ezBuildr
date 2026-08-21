@@ -156,6 +156,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(invite?.status).toBe('accepted');
     });
     it('Step 4: Create workflow owned by user', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const workflow = await workflowService.createWorkflow(
         {
           title: 'Test Workflow for Transfer',
@@ -171,6 +172,7 @@ describe('Organization Workflow Integration Tests', () => {
       testWorkflowId = workflow.id;
     });
     it('Step 5: Transfer workflow to organization', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const transferred = await workflowService.transferOwnership(
         testWorkflowId,
         user1Id,
@@ -188,6 +190,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(dbWorkflow?.ownerUuid).toBe(testOrgId);
     });
     it('Step 6: Org member (user2) can access workflow', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User2 is a member of the org, should be able to access
       const workflow = await workflowService.getWorkflowWithDetails(
         testWorkflowId,
@@ -198,6 +201,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow.title).toBe('Test Workflow for Transfer');
     });
     it('Step 7: Org member (user2) cannot update workflow without edit role', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User2 should be able to view org-owned workflow, but editing requires org admin or ACL edit access.
       await expect(workflowService.updateWorkflow(
         testWorkflowId,
@@ -208,6 +212,7 @@ describe('Organization Workflow Integration Tests', () => {
       )).rejects.toThrow(/Access denied|insufficient permissions/i);
     });
     it('Step 8: Org admin (user1) can still access workflow after transfer', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // Original owner (now admin) should still have access
       const workflow = await workflowService.getWorkflowWithDetails(
         testWorkflowId,
@@ -217,12 +222,14 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow.id).toBe(testWorkflowId);
     });
     it('Step 9: Non-member (user3) CANNOT access org workflow', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User3 is not a member of the org
       await expect(
         workflowService.getWorkflowWithDetails(testWorkflowId, user3Id)
       ).rejects.toThrow(/Access denied|not found/i);
     });
     it('Step 10: Non-member (user3) CANNOT update org workflow', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User3 should not be able to update
       await expect(
         workflowService.updateWorkflow(testWorkflowId, user3Id, {
@@ -231,6 +238,7 @@ describe('Organization Workflow Integration Tests', () => {
       ).rejects.toThrow(/Access denied|not found/i);
     });
     it('Step 11: Non-member (user3) CANNOT transfer org workflow', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // User3 should not be able to transfer org workflow to themselves
       await expect(
         workflowService.transferOwnership(
@@ -242,11 +250,13 @@ describe('Organization Workflow Integration Tests', () => {
       ).rejects.toThrow(/Access denied|not found/i);
     });
     it('Step 12: Org member can see workflow in list', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const workflows = await workflowService.listWorkflows(user2Id);
       expect(workflows).toBeDefined();
       expect(workflows.some((w) => w.id === testWorkflowId)).toBe(true);
     });
     it('Step 13: Non-member CANNOT see workflow in list', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       const workflows = await workflowService.listWorkflows(user3Id);
       expect(workflows).toBeDefined();
       expect(workflows.some((w) => w.id === testWorkflowId)).toBe(false);
@@ -264,6 +274,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(membership).toBeUndefined();
     });
     it('Step 15: Removed member (user2) can no longer access workflow', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // After removal, user2 should no longer have access
       await expect(
         workflowService.getWorkflowWithDetails(testWorkflowId, user2Id)
@@ -306,6 +317,7 @@ describe('Organization Workflow Integration Tests', () => {
         .where(eq(organizationInvites.id, invite1.inviteId));
     });
     it('Cannot accept expired invite', { timeout: 30000 }, async () => {
+      enterTenantContextForTests(testTenantId);
       // Invite an address the accepting user actually owns, and one who is not
       // already a member. This test previously invited an unrelated address
       // ('expired@test.com') while accepting as user2, so it hit acceptInvite's

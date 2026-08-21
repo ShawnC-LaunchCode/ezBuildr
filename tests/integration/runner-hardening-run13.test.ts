@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
@@ -61,7 +60,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
       tenantName: 'RUN-13 Tenant',
       createProject: true,
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(FILES_DIR, { recursive: true });
   });
 
