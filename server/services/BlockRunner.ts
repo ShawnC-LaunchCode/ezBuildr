@@ -90,6 +90,20 @@ export class BlockRunner {
    * NOTE: External side effects (HTTP calls, emails, external APIs) cannot be rolled back
    * by database transactions. Design your workflows accordingly.
    */
+  // ⚠️ DEAD CODE, and it must not be revived as-is (checked 2026-08-21: no
+  // caller anywhere in server/ or tests/).
+  //
+  // Two things are wrong with it now. It opens a bare `db.transaction`, so
+  // every covered table written inside is unscoped under enforcement — and
+  // worse, the block runners it dispatches to resolve their own tenant and
+  // open their OWN `withTenant` transaction (see WriteRunner). Nesting one
+  // inside this transaction is the SystemStats deadlock class: against the
+  // size-1 test pool the inner transaction waits forever for a connection the
+  // outer one is holding, and it HANGS rather than failing.
+  //
+  // If cross-block atomicity is ever wanted, the transaction has to be opened
+  // with `withCurrentTenant` here AND threaded into the runners so they reuse
+  // it instead of opening their own.
   async runPhaseWithTransaction(context: BlockContext): Promise<BlockResult> {
     return db.transaction(async (tx) => {
       // Execute the phase with transaction context

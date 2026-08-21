@@ -3,7 +3,6 @@ import type { LogicRule, InsertLogicRule } from "@shared/schema";
 import { conditionExpressionSchema } from "@shared/types/conditions";
 import type { ConditionExpression } from "@shared/types/conditions";
 
-import { db } from "../db";
 import {
   logicRuleRepository,
   stepRepository,
@@ -13,6 +12,7 @@ import {
 
 import { AliasResolver } from "./AliasResolver";
 import { workflowService } from "./WorkflowService";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 const RULE_NOT_FOUND = "Logic rule not found";
 
@@ -161,7 +161,7 @@ export class LogicRuleService {
   async createRule(workflowId: string, userId: string, input: LogicRuleInput): Promise<LogicRule> {
     await this.workflowSvc.verifyAccess(workflowId, userId, "edit");
 
-    return db.transaction(async (tx) => {
+    return withCurrentTenant(async (tx) => {
       const fields = await this.buildRuleFields(workflowId, input, tx);
       const existing = await this.logicRuleRepo.findByWorkflowId(workflowId, tx);
       const nextOrder = existing.length > 0 ? Math.max(...existing.map((rule) => rule.order)) + 1 : 1;
@@ -184,7 +184,7 @@ export class LogicRuleService {
   ): Promise<LogicRule> {
     await this.workflowSvc.verifyAccess(workflowId, userId, "edit");
 
-    return db.transaction(async (tx) => {
+    return withCurrentTenant(async (tx) => {
       const existingRule = await this.logicRuleRepo.findByIdAndWorkflow(ruleId, workflowId, tx);
       if (!existingRule) {
         throw new Error(RULE_NOT_FOUND);
@@ -229,7 +229,7 @@ export class LogicRuleService {
     orders: Array<{ id: string; order: number }>
   ): Promise<void> {
     await this.workflowSvc.verifyAccess(workflowId, userId, "edit");
-    await db.transaction(async (tx) => {
+    await withCurrentTenant(async (tx) => {
       for (const { id, order } of orders) {
         await this.logicRuleRepo.updateOrder(id, workflowId, order, tx);
       }

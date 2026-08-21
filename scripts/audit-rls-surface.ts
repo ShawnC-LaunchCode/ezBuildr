@@ -83,6 +83,23 @@ const COVERED_TABLES_SQL = [
 const EXECUTE_CALL = /\bdb\.execute\(/g;
 const COVERED_SQL_RE = new RegExp(String.raw`\b(${COVERED_TABLES_SQL.join('|')})\b`);
 
+/**
+ * A bare `db.transaction(...)` in application code — the fourth way to reach a
+ * covered table unscoped, and the one that produced the worst defects of the
+ * 2026-08-21 sweep. It is invisible to every other scanner here, because the
+ * writes inside it are issued on the transaction handle (`tx.insert(...)`),
+ * never on `db`.
+ *
+ * Three real examples, all silent: `WriteRunner` reported a successful write
+ * while inserting nothing, `WorkflowContentIngestService` had every
+ * section/step insert rejected, and `LogicRuleService` read `steps` through one
+ * (so alias resolution would have run against an empty set).
+ *
+ * The correct spelling is always `withCurrentTenant` / `withTenant`, so this
+ * flags the CONSTRUCT rather than trying to infer which tables it touches.
+ */
+const BARE_TRANSACTION = /\bdb\.transaction\(/g;
+
 const REPO_CALL = new RegExp(
   String.raw`\b(?:${RLS_REPOS}|datavault[A-Za-z]*)Repository\.([a-zA-Z]\w*)\(([^;]{0,400})`,
   'gs',
@@ -111,6 +128,7 @@ function main(): void {
   const repoRows: Row[] = [];
   const dbRows: Array<{ hits: number; file: string }> = [];
   const rawRows: Array<{ hits: number; file: string }> = [];
+  const txRows: Array<{ hits: number; file: string }> = [];
 
   for (const abs of walk('server')) {
     const file = relative('.', abs).split('\\').join('/');
@@ -134,6 +152,20 @@ function main(): void {
     }
     if (hits > 0) { dbRows.push({ hits, file }); }
 
+    // Bare transactions. `rlsContext` IS the scoping mechanism and
+    // `BaseRepository` is the generic data layer a caller's tx flows through;
+    // adminDb is excluded above. Comment lines are skipped because several
+    // files legitimately DISCUSS the construct.
+    let txHits = 0;
+    if (!file.endsWith('utils/rlsContext.ts') && !file.endsWith('repositories/BaseRepository.ts')) {
+      for (const m of src.matchAll(BARE_TRANSACTION)) {
+        const lineStart = src.lastIndexOf('\n', m.index ?? 0) + 1;
+        if (/^\s*(\*|\/\/)/.test(src.slice(lineStart, m.index ?? 0))) { continue; }
+        txHits += 1;
+      }
+    }
+    if (txHits > 0) { txRows.push({ hits: txHits, file }); }
+
     // Raw SQL. The window looks BACKWARDS as well as forwards, because the
     // query is usually built into a `const query = sql`…`` above and only
     // passed at the call site.
@@ -148,16 +180,19 @@ function main(): void {
   repoRows.sort((a, b) => b.unthreaded - a.unthreaded);
   dbRows.sort((a, b) => b.hits - a.hits);
   rawRows.sort((a, b) => b.hits - a.hits);
+  txRows.sort((a, b) => b.hits - a.hits);
 
   const repoTotal = repoRows.reduce((n, r) => n + r.unthreaded, 0);
   const dbTotal = dbRows.reduce((n, r) => n + r.hits, 0);
   const rawTotal = rawRows.reduce((n, r) => n + r.hits, 0);
+  const txTotal = txRows.reduce((n, r) => n + r.hits, 0);
 
   console.log('=== RLS surface audit ===\n');
   console.log(`Repository calls on RLS-covered tables with no tx argument: ${repoTotal} across ${repoRows.length} files`);
   console.log(`Direct db.* calls on RLS-covered tables:                    ${dbTotal} across ${dbRows.length} files`);
   console.log(`Raw db.execute() SQL naming a covered table:                ${rawTotal} across ${rawRows.length} files`);
-  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal + rawTotal}\n`);
+  console.log(`Bare db.transaction() in application code:                  ${txTotal} across ${txRows.length} files`);
+  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal + rawTotal + txTotal}\n`);
 
   console.log('--- repository calls: files with NO scoping helper at all (highest risk) ---');
   for (const r of repoRows.filter((r) => !r.scoped)) {
@@ -169,6 +204,10 @@ function main(): void {
   }
   console.log('\n--- direct db.* calls on covered tables ---');
   for (const r of dbRows) {
+    console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
+  }
+  console.log('\n--- bare db.transaction() (should be withCurrentTenant/withTenant) ---');
+  for (const r of txRows) {
     console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
   }
   console.log('\n--- raw db.execute() SQL naming a covered table (widest net, most false positives) ---');
