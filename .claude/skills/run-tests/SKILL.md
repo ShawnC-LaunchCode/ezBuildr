@@ -47,6 +47,42 @@ npm run test:docker:up                              # adds services you are miss
 docker compose -f docker-compose.test.yml ps        # confirm BOTH, not just PG
 ```
 
+## ⚠️ A whole run going red? Check `docker logs` before reading a single test
+
+Two environment failures produce mass red that reads exactly like a code
+regression, and both are invisible from the test output alone.
+
+**1. The test Postgres segfaults under load.** Observed 2026-08-19, 08-20 and
+08-21 — roughly daily during heavy runs:
+
+```
+server process (PID …) was terminated by signal 11: Segmentation fault
+```
+
+It takes down whichever suites were in `beforeAll` and every later query until
+recovery finishes, surfacing as `57P03 the database system is in recovery
+mode`. One observed run went **124/124 → 119/124 with 15 skipped**, and all
+five files passed when re-run in isolation. `docker-compose.test.yml` now sets
+`shm_size: 1gb` (Docker's 64MB default was measured at 95% full during a run,
+the standard cause) — **apply it with a container recreate**, which also wipes
+the tmpfs data dir:
+
+```bash
+docker compose -f docker-compose.test.yml up -d --force-recreate test-db
+docker logs ezbuildr-test-db-1 2>&1 | grep -c "signal 11"   # should stay 0
+```
+
+**2. A stale schema silently runs old migrations.** Schemas are reused per
+worker and validated by a **fingerprint of the migrations directory**
+(`tests/helpers/schemaManager.ts`), recorded in the schema itself and written
+only after the whole chain applies. Before that existed, reuse was gated on
+"does it have tables?" — blind to policy-only migrations — and **11 of 124
+schemas were running RLS policies three weeks out of date**, producing failures
+that were written up as application defects. A mismatch now rebuilds
+automatically, and a failed migration fails the run loudly instead of caching a
+half-built schema. If you see `♻️ Schema … was built from a DIFFERENT migration
+set`, that is the mechanism working, not a problem.
+
 ## Database for unit-db / integration tests
 
 Tests honor `TEST_DATABASE_URL` (overrides `DATABASE_URL`, see `tests/setup.ts:37`). Local Docker PG (tmpfs, fast):

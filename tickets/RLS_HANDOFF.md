@@ -241,7 +241,16 @@ ls "$TMP" | grep -E "^file-[0-9]+-[a-f0-9]+\.(docx|pdf)$" | while read f; do rm 
   output. Redirect to a file.
 - Never run two DB-backed suites at once. Check `pg_stat_activity` first.
 - `npm run test:docker:up` starts postgres (5434) **and** gotenberg (3009).
-- A transient `57P03` mid-run is Postgres recovering under load. Re-run.
+- A transient `57P03` ("the database system is in recovery mode") mid-run means
+  **the test Postgres segfaulted and restarted**, not that it is merely busy.
+  Confirmed 2026-08-21 in `docker logs ezbuildr-test-db-1`: `server process …
+  was terminated by signal 11: Segmentation fault`, and it has now happened on
+  2026-08-19, 08-20 and 08-21 — roughly once a day under heavy runs. It takes
+  down whichever suites were mid-setup (5 files / 15 skipped in one observed
+  run) and looks exactly like a code regression. **Check `docker logs` before
+  believing a mass failure**, then re-run the affected files in isolation; they
+  pass. Worth fixing before RLS-5 becomes a required gate, or the gate will be
+  flaky for reasons that have nothing to do with RLS.
 - Schema-cache token is **`_v36`** (`tests/helpers/schemaManager.ts`) — bump it
   for any new migration, with the reasoning in a comment.
 - A full restricted run takes ~19 minutes; normal integration ~10. Budget for
@@ -295,10 +304,14 @@ tenant id lands in the async context, and was proven non-vacuous by breaking
 
 ### Three open questions for whoever takes RLS-4
 
-1. **Registration's `users` INSERT violates in restricted mode** (2 hits,
-   `auth.routes.ts:250`; also present as "users 4" in the 2026-08-20
-   measurement, so it predates this sweep). Everything checkable says it should
-   pass, which is why it is written down rather than guessed at:
+1. ✅ **CLOSED 2026-08-21 — it was never an application bug.** Registration's
+   `users` INSERT violated in restricted mode because **11 of the 124 test
+   schemas were still running migrations 0026-era policies** while carrying a
+   current-looking `_v36` name: schema reuse was gated on "does it have
+   tables?", which cannot see a policy-only migration, and migration failures
+   were swallowed twice over. Fixed by fingerprinting the migration set (see
+   §4) — the evidence below is kept because the *reasoning* was right and the
+   environment was lying, which is the more useful lesson:
    - the logged params show `tenant_id` **NULL**, not `''`;
    - the policy in the schema that run actually used (`test_schema_w35_v36`) is
      the NULL-safe one — a single PERMISSIVE `tenant_isolation`, `WITH CHECK
@@ -309,10 +322,16 @@ tenant id lands in the async context, and was proven non-vacuous by breaking
      is in scope, and no session-level `set_config` exists anywhere in the repo
      (verified by grep).
 
-   That leaves "the GUC was somehow set on that pooled connection" as the only
-   remaining explanation, and it has not been caught in the act. **Resolve
-   before FORCE** — reproduce by inserting a NULL-tenant `users` row as the
-   restricted role directly, then fix the code or the comment accordingly.
+   Every one of those checks was correct. The insert was simply running against
+   a schema built before 0027. Proven both ways: inserting a NULL-tenant `users`
+   row as the restricted role by hand **succeeds** on a correctly-built schema,
+   and `pg_policies` showed 11 schemas whose `users` WITH CHECK still used bare
+   `=` instead of `IS NOT DISTINCT FROM`.
+
+   **The transferable lesson: when every check says the code is right, check
+   whether the environment is what it claims to be.** A cache keyed on
+   something it cannot validate will eventually lie, and it lies in the shape
+   of an application defect.
 2. **The DocuSign webhook cannot resolve a tenant.** `/webhook/docusign`
    arrives with an envelope id and nothing else, so there is nothing to resolve
    *from* until `signature_requests` — covered — has been read. Documented at

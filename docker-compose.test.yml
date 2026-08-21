@@ -9,6 +9,22 @@ services:
       POSTGRES_PASSWORD: postgres
     tmpfs:
       - /var/lib/postgresql/data  # RAM disk for maximum speed
+    # Docker's default /dev/shm is 64MB, and Postgres uses it for the shared
+    # memory segments parallel query workers allocate. Measured 2026-08-21:
+    # /dev/shm sat at 61MB of 64MB (95%) during an integration run, and the
+    # server has segfaulted (`terminated by signal 11`) under heavy runs on
+    # 08-19, 08-20 and 08-21 — roughly once a day.
+    #
+    # A crash mid-run takes down whichever suites were in setup and surfaces as
+    # `57P03 the database system is in recovery mode`, which reads exactly like
+    # a code regression: one observed run went 124/124 -> 119/124, and all five
+    # files passed on a re-run in isolation.
+    #
+    # 1GB is the standard remedy for Postgres in Docker. Flagged honestly as
+    # the LEADING SUSPECT rather than a proven cause — the proof is the absence
+    # of further signal-11 entries in `docker logs ezbuildr-test-db-1`. Check
+    # there first the next time a whole run goes red.
+    shm_size: 1gb
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
