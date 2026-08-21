@@ -10,7 +10,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { datavaultNumberSequences } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { datavaultColumnsService } from '../../server/services/DatavaultColumnsService';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
@@ -113,7 +112,7 @@ describe('DataVault auto_number Integration Tests', () => {
 
   it('seeds prefix, padding, and the configured start value into the counter row', async () => {
     enterTenantContextForTests(ctx.tenantId); // RLS-2b: bind per test — enterWith covers only the current async execution.
-    const [sequence] = await db
+    const [sequence] = await getOwnerDb()
       .select()
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, invoiceColumnId));
@@ -159,7 +158,7 @@ describe('DataVault auto_number Integration Tests', () => {
       [statusColumnId]: 'new',
     });
     const valueBefore = created.values[invoiceColumnId];
-    const [sequenceBefore] = await db
+    const [sequenceBefore] = await getOwnerDb()
       .select({ nextValue: datavaultNumberSequences.nextValue })
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, invoiceColumnId));
@@ -169,7 +168,7 @@ describe('DataVault auto_number Integration Tests', () => {
     });
 
     const updated = await datavaultRowsService.getRow(created.row.id, ctx.tenantId);
-    const [sequenceAfter] = await db
+    const [sequenceAfter] = await getOwnerDb()
       .select({ nextValue: datavaultNumberSequences.nextValue })
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, invoiceColumnId));
@@ -202,7 +201,7 @@ describe('DataVault auto_number Integration Tests', () => {
     const row = await datavaultRowsService.createRow(tableId, ctx.tenantId, {});
     expect(row.values[invoiceColumnId]).toBe('INV-0001');
 
-    const [sequence] = await db
+    const [sequence] = await getOwnerDb()
       .select()
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, invoiceColumnId));
@@ -234,7 +233,7 @@ describe('DataVault auto_number Integration Tests', () => {
       autonumberPadding: 3,
     }, ctx.tenantId);
 
-    const [sequenceBefore] = await db
+    const [sequenceBefore] = await getOwnerDb()
       .select()
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, column.id));
@@ -242,7 +241,7 @@ describe('DataVault auto_number Integration Tests', () => {
 
     await datavaultColumnsService.deleteColumn(column.id, ctx.tenantId);
 
-    const [sequenceAfter] = await db
+    const [sequenceAfter] = await getOwnerDb()
       .select()
       .from(datavaultNumberSequences)
       .where(eq(datavaultNumberSequences.columnId, column.id));

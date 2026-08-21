@@ -13,7 +13,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@shared/schema";
 import { LIMITS } from "@shared/limits";
 
-import { db } from "../../server/db";
 import { sectionService } from "../../server/services/SectionService";
 import { stepService } from "../../server/services/StepService";
 import {
@@ -22,6 +21,10 @@ import {
 } from "../../server/services/WorkflowContentIngestService";
 import { TestFactory } from "../helpers/testFactory";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture writes and verification reads are the OBSERVER, not the
+// application under test — see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe.sequential("creation limits and transactional reorders (ICW-11/12)", () => {
   let ctx: IntegrationTestContext;
@@ -32,14 +35,23 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       tenantName: "Creation Limits Tenant",
       createProject: true,
     });
-    factory = new TestFactory(db);
+    // Fixture rows belong to the observer, not the application pool (RLS-5).
+    factory = new TestFactory(getOwnerDb());
   });
 
   afterAll(async () => {
     await ctx.cleanup();
   });
 
+  /**
+   * RLS-5: every test in this file calls `sectionService` / `stepService` /
+   * `workflowContentIngestService` DIRECTLY — no HTTP, so no middleware opens
+   * a tenant context and their `withCurrentTenant` has nothing to read. Each
+   * test starts here, so entering the context in this helper covers all of
+   * them; a `beforeAll` entry would NOT propagate into the test bodies.
+   */
   async function createWorkflowId(title: string): Promise<string> {
+    enterTenantContextForTests(ctx.tenantId);
     if (ctx.projectId === undefined) {
       throw new Error("Integration test project was not created");
     }
@@ -61,7 +73,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       ])
     ).rejects.toThrow();
 
-    const rows = await db
+    const rows = await getOwnerDb()
       .select()
       .from(schema.sections)
       .where(eq(schema.sections.workflowId, workflowId));
@@ -84,7 +96,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       ])
     ).rejects.toThrow();
 
-    const rows = await db
+    const rows = await getOwnerDb()
       .select()
       .from(schema.steps)
       .where(eq(schema.steps.sectionId, section.id));
@@ -103,7 +115,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       { id: s2.id, order: 0 },
     ]);
 
-    const rows = await db
+    const rows = await getOwnerDb()
       .select()
       .from(schema.sections)
       .where(eq(schema.sections.workflowId, workflowId));
@@ -128,7 +140,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       workflowContentIngestService.apply(workflowId, oversized, { source: "ai" })
     ).rejects.toThrow(/Section limit reached/);
 
-    const rows = await db
+    const rows = await getOwnerDb()
       .select()
       .from(schema.sections)
       .where(eq(schema.sections.workflowId, workflowId));
@@ -157,7 +169,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
       workflowContentIngestService.apply(workflowId, oversized, { source: "ai" })
     ).rejects.toThrow(/Question limit reached/);
 
-    const rows = await db
+    const rows = await getOwnerDb()
       .select()
       .from(schema.steps)
       .where(eq(schema.steps.workflowId, workflowId));

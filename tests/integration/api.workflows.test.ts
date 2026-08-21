@@ -6,7 +6,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -96,7 +95,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
         .expect(200);
 
       // Confirm the workflow is now filed under the target project.
-      const [filedWorkflow] = await db
+      const [filedWorkflow] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));
@@ -138,7 +137,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(verifyResponse.body.ownerUuid).toBe(ctx.userId);
 
       // ICW2-17 AC2: the run's owner fields were propagated in the same transaction.
-      const [updatedRun] = await db
+      const [updatedRun] = await getOwnerDb()
         .select()
         .from(schema.workflowRuns)
         .where(eq(schema.workflowRuns.id, run.id));

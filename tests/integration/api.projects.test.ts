@@ -8,7 +8,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { projectService } from "../../server/services/ProjectService";
@@ -370,7 +369,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .set("Authorization", `Bearer ${authToken}`)
         .expect(204);
       // Verify it's archived
-      const [project] = await db
+      const [project] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -402,7 +401,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .set("Authorization", `Bearer ${editUserToken}`)
         .expect(403);
       // Verify it was NOT archived — the edit-role caller was rejected before any write.
-      const [project] = await db
+      const [project] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -523,7 +522,7 @@ describe.sequential("Projects API Integration Tests", () => {
       await expect(
         projectService.updateProject(projectId, memberUserId, { status: "archived" })
       ).rejects.toThrow(/Access denied/);
-      const [unchanged] = await db
+      const [unchanged] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -548,7 +547,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: "Renamed via PATCH", status: "archived" })
         .expect(200);
       expect(response.body).toHaveProperty("name", "Renamed via PATCH");
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -562,7 +561,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: "Renamed via PUT", status: "archived" })
         .expect(200);
       expect(response.body).toHaveProperty("name", "Renamed via PUT");
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -591,7 +590,7 @@ describe.sequential("Projects API Integration Tests", () => {
         })
         .expect(400);
       expect(response.body.success).toBe(false);
-      const acl = await db
+      const acl = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(eq(schema.projectAccess.projectId, projectId));
@@ -652,7 +651,7 @@ describe.sequential("Projects API Integration Tests", () => {
         success: true,
         message: "Access revoked successfully",
       });
-      const [remaining] = await db
+      const [remaining] = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(
@@ -687,7 +686,7 @@ describe.sequential("Projects API Integration Tests", () => {
         projectService.grantProjectAccess(projectId, userId, entries)
       ).rejects.toThrow();
 
-      const acl = await db
+      const acl = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(eq(schema.projectAccess.projectId, projectId));
