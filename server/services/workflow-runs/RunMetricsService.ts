@@ -17,6 +17,8 @@ import { captureRunLifecycle } from "../metrics";
 
 import type { WorkflowContext } from "./types";
 import type { AnalyticsEventInput } from "../analytics/AnalyticsService";
+import { withTenant, withVerifiedIdentifier } from '../../utils/rlsContext';
+import { workflowTenantResolver } from '../WorkflowTenantResolver';
 
 export class RunMetricsService {
   constructor(
@@ -53,12 +55,33 @@ export class RunMetricsService {
    */
   async getWorkflowContext(workflowId: string): Promise<WorkflowContext | null> {
     try {
-      const workflow = await this.workflowRepo.findById(workflowId);
+      // RLS-5: `workflows` and `projects` are both covered, and these ran on the
+      // bare pool — so under enforcement this returned null and every caller
+      // took its "no context, skipping capture" early return. That path logs at
+      // DEBUG, so run analytics simply stopped being recorded with nothing in
+      // the logs to say so. Resolved under migration 0030's clause because this
+      // is reached from run execution, which may carry a run token rather than
+      // a session and so may have no ambient tenant of its own.
+      const workflow = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => this.workflowRepo.findById(workflowId, tx)
+      );
       if (!workflow?.projectId) {
         return null;
       }
 
-      const project = await this.projectRepo.findById(workflow.projectId);
+      const tenantId = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+      );
+      if (!tenantId) {
+        return null;
+      }
+
+      const project = await withTenant(tenantId, (tx) =>
+        this.projectRepo.findById(workflow.projectId!, tx));
       if (!project?.tenantId) {
         return null;
       }

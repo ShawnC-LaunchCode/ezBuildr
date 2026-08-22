@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { sections, steps, workflows } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -121,7 +120,12 @@ describe.sequential("workflow intake configuration contract", () => {
 
     const migrationPath = resolve(process.cwd(), "migrations", "0006_remove_legacy_intake_reuse.sql");
     const migrationSql = readFileSync(migrationPath, "utf8").replaceAll("--> statement-breakpoint", "");
-    await db.execute(sql.raw(migrationSql));
+    // RLS-5: a MIGRATION runs as the schema owner in every real environment, so
+    // it must run on the owner connection here too. Through the application
+    // pool its UPDATEs are tenant-scoped, match zero rows with no tenant in
+    // context, and the cleanup silently does nothing — the assertions below
+    // then report stale data as a migration bug.
+    await getOwnerDb().execute(sql.raw(migrationSql));
 
     const cleanedWorkflow = await getOwnerDb().query.workflows.findFirst({
       where: eq(workflows.id, workflowId),

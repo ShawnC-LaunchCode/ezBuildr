@@ -67,10 +67,27 @@ const createDocx = (): Buffer => {
 
 const createPdf = (): Buffer => Buffer.from('%PDF-1.4\n% timeout test\n');
 
-const leakedCopiesOf = async (buffer: Buffer): Promise<string[]> => {
+/**
+ * Temp-file names matching the upload pattern that already exist. `os.tmpdir()`
+ * is shared and PERSISTENT, so any leak from any earlier run — including runs
+ * from previous days — stays on disk and would make this assertion fail
+ * forever afterwards, in every mode, attributing an old leak to the current
+ * change. Measured: 68 such files dated a day before this fix, one of them
+ * byte-identical to `createPdf()`.
+ *
+ * Snapshot before the upload and diff after, so the assertion is about THIS
+ * request rather than about the machine's history.
+ */
+const existingTempNames = async (): Promise<Set<string>> => {
+  const names = await fs.readdir(os.tmpdir());
+  return new Set(names.filter(n => /^file-\d+-[a-f0-9]+\.(docx|pdf)$/.test(n)));
+};
+
+const leakedCopiesOf = async (buffer: Buffer, before: Set<string>): Promise<string[]> => {
   const leaked: string[] = [];
   const names = await fs.readdir(os.tmpdir());
-  for (const name of names.filter(candidate => /^file-\d+-[a-f0-9]+\.(docx|pdf)$/.test(candidate))) {
+  for (const name of names.filter(candidate =>
+    /^file-\d+-[a-f0-9]+\.(docx|pdf)$/.test(candidate) && !before.has(candidate))) {
     try {
       const contents = await fs.readFile(path.join(os.tmpdir(), name));
       if (contents.equals(buffer)) {
@@ -122,6 +139,7 @@ describe.sequential('Hardening: template processing timeout', () => {
       const rowsBefore = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, ctx.projectId!));
+      const tempBefore = await existingTempNames();
 
       const response = await request(ctx.baseURL)
         .post(`/api/projects/${ctx.projectId!}/templates`)
@@ -137,7 +155,7 @@ describe.sequential('Hardening: template processing timeout', () => {
         expect(processingMocks.unlockPdf).toHaveBeenCalledTimes(1);
         expect(processingMocks.extractFields).not.toHaveBeenCalled();
       }
-      expect(await leakedCopiesOf(buffer)).toEqual([]);
+      expect(await leakedCopiesOf(buffer, tempBefore)).toEqual([]);
       const rowsAfter = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, ctx.projectId!));
@@ -154,6 +172,7 @@ describe.sequential('Hardening: template processing timeout', () => {
       const templateBefore = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
+      const tempBefore = await existingTempNames();
 
       const response = await request(ctx.baseURL)
         .patch(`/api/templates/${templateId}`)
@@ -169,7 +188,7 @@ describe.sequential('Hardening: template processing timeout', () => {
         expect(processingMocks.unlockPdf).toHaveBeenCalledTimes(1);
         expect(processingMocks.extractFields).not.toHaveBeenCalled();
       }
-      expect(await leakedCopiesOf(buffer)).toEqual([]);
+      expect(await leakedCopiesOf(buffer, tempBefore)).toEqual([]);
       const templateAfter = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
