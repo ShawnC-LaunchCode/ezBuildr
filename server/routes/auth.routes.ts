@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 
 import { serialize } from "cookie";
-import { eq, and, gt, ne, desc } from "drizzle-orm";
+import { eq, and, gt, ne, desc, sql } from "drizzle-orm";
 import { rateLimit } from 'express-rate-limit';
 
 import type { AuthUserPayload, User } from "@shared/schema";
@@ -247,18 +247,46 @@ export function registerAuthRoutes(app: Express): void {
       // from an unauthenticated body — and `users`' WITH CHECK is NULL-safe
       // (migration 0027), so `tenant_id IS NULL` with no GUC set is precisely
       // the case it permits. Pinning anything here would reject the insert.
-      const user = await userRepository.create({
-        id: userId,
-        email,
-        firstName: firstName ?? null,
-        lastName: lastName ?? null,
-        fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
-        profileImageUrl: null,
-        tenantId: null,
-        role: 'creator',
-        tenantRole: null,
-        authProvider: 'local',
-        defaultMode: 'easy',
+      //
+      // The plain `db.transaction` wrapper is NOT a tenant scope — it sets no
+      // GUC, so `app_current_tenant()` is still NULL here and WITH CHECK still
+      // sees exactly the case it permits. It exists so the diagnostic below
+      // runs on the SAME physical connection as the insert. RLS-5 is chasing an
+      // intermittent "new row violates row-level security policy for table
+      // users" here (~half of full restricted runs, a different suite each
+      // time), and a probe issued as its own pool query proved nothing: it
+      // lands on a different backend. Leave this in place until that is
+      // closed — it costs one extra round trip only on the failure path.
+      const user = await db.transaction(async (tx) => {
+        try {
+          return await userRepository.create({
+            id: userId,
+            email,
+            firstName: firstName ?? null,
+            lastName: lastName ?? null,
+            fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
+            profileImageUrl: null,
+            tenantId: null,
+            role: 'creator',
+            tenantRole: null,
+            authProvider: 'local',
+            defaultMode: 'easy',
+          }, tx);
+        } catch (err) {
+          try {
+            const state = await tx.execute(sql`
+              SELECT current_setting('app.current_tenant_id', true) AS tenant_guc,
+                     current_schema() AS schema,
+                     current_user AS db_role,
+                     pg_backend_pid() AS pid
+            `);
+            logger.error({ connectionState: state.rows[0], email },
+              'RLS-5: registration insert rejected — same-connection state');
+          } catch {
+            // The transaction is already aborted; nothing more to learn.
+          }
+          throw err;
+        }
       });
       const passwordHash = await authService.hashPassword(password);
       await userCredentialsRepository.createCredentials(userId, passwordHash);
