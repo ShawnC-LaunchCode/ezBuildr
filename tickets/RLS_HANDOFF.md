@@ -161,10 +161,16 @@ run test:integration`, which is exactly what RLS-4 creates:
 
 | | 08-20 start | 08-20 end | 08-21 end | **08-22 end** |
 |---|---|---|---|---|
-| Files | 98 failed / 26 passed | 85 failed / 39 passed | 70 failed / 54 passed | **22 failed / 102 passed** |
-| Tests passed | 423 | 770 | 869 | **see pass 12** |
+| Files | 98 failed / 26 passed | 85 failed / 39 passed | 70 failed / 54 passed | **0 failed / 124 passed** |
+| Tests passed | 423 | 770 | 869 | **1183 (all)** |
 | Tests skipped (suite died in setup) | 463 | 113 | 97 | **0** |
-| Raw "violates row-level security" hits | 100 | 20 | 22 | **~0 production** |
+| Raw "violates row-level security" hits | 100 | 20 | 22 | **0** |
+
+✅ **The restricted suite is fully green, and `.rls-allowlist.json` is EMPTY.**
+`npm run test:rls-gate` passes with nothing excused. Normal mode is green too —
+both were verified on every change, because a fix that passes in only one mode
+is not a fix (hardcoding the 404 contract change turned normal mode red
+immediately, which is how that rule got learned).
 
 ⚠️ **The 2026-08-20 numbers are not directly comparable to these.** Until the
 schema-fingerprint fix (§4), 11 of 124 worker schemas were silently running
@@ -549,6 +555,19 @@ appears where the old one was. That is usually not noise; it is the next layer.
 ---
 
 ## 7. The gate (RLS-5) — and why the allowlist can only shrink
+
+**Status 2026-08-22: the allowlist is EMPTY and the gate passes.** 124/124
+files, 1183/1183 tests, under a genuine non-owner role.
+
+Note what that does and does not mean. The static audit still reports ~32 call
+sites, and the two numbers measure different things: the gate says "nothing the
+test suite exercises is broken", the audit says "these call sites are still
+shaped the way broken ones were". Neither subsumes the other. Three of the
+biggest finds this initiative were invisible to the audit (a field alias, a
+multi-line `db.select`, a lost async context) and one whole class — background
+jobs — is exercised by no test at all. **Do not read an empty allowlist as
+"RLS Phase 2 is finished."**
+
 
 `npm run test:rls-gate` runs the integration suite as a non-owner role and
 compares the failing files to `.rls-allowlist.json`.
