@@ -766,6 +766,9 @@ export class DatavaultRowsService {
   ): Promise<void> {
     const row = await this.verifyRowOwnership(rowId, tenantId, tx);
     const columns = await this.columnsRepo.findByTableId(row.tableId, tx);
+
+    await this.assertRestorableWithoutConflict([rowId], row.tableId, columns, tx);
+
     try {
       await this.rowsRepo.unarchiveRow(rowId, tx);
     } catch (error) {
@@ -808,6 +811,50 @@ export class DatavaultRowsService {
       this._bulkUnarchiveRowsImpl(rowIds, tenantId, scopedTx));
   }
 
+  /**
+   * Refuse to restore an archived row whose unique values are taken, naming the
+   * column from the DATA rather than from the driver's error DETAIL.
+   *
+   * Postgres redacts that DETAIL for a role without privileges on the
+   * conflicting row — deliberately, so a constraint message cannot be used to
+   * read values you cannot select. Under the non-owner application role the
+   * regex in `handleUniqueConstraintError` therefore matched nothing and
+   * `resolveColumnName` fell through to "the first unique-ish column", naming
+   * the wrong column in a user-facing 409: "a row with this column 'ID'
+   * already exists" for a collision on 'Employee ID'. Callers keep their catch
+   * as a backstop for a race between this check and the write.
+   */
+  private async assertRestorableWithoutConflict(
+    rowIds: string[],
+    tableId: string,
+    columns: DatavaultColumn[],
+    tx: DbTransaction
+  ): Promise<void> {
+    const columnMap = new Map(columns.map((c) => [c.id, c]));
+    for (const rowId of rowIds) {
+      const uniqueValues = (await this.rowsRepo.findValuesByRowId(rowId, tx))
+        .filter(({ columnId, value }) => {
+          const column = columnMap.get(columnId);
+          return value !== null && (column?.isUnique === true || column?.isPrimaryKey === true);
+        })
+        .map(({ columnId, value }) => ({ columnId, value }));
+      if (uniqueValues.length === 0) { continue; }
+
+      const conflicts = await this.rowsRepo.findUniqueValueConflicts(
+        tableId,
+        uniqueValues,
+        rowId,
+        tx
+      );
+      if (conflicts.length > 0) {
+        const conflictingColumn = columnMap.get(conflicts[0].columnId);
+        throw new ConflictError(
+          `A row with this column '${conflictingColumn?.name ?? conflicts[0].columnId}' already exists`
+        );
+      }
+    }
+  }
+
   private async _bulkUnarchiveRowsImpl(
     rowIds: string[],
     tenantId: string,
@@ -816,6 +863,9 @@ export class DatavaultRowsService {
     const rowMap = await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
     const tableId = rowMap.values().next().value;
     const columns = tableId ? await this.columnsRepo.findByTableId(tableId, tx) : [];
+    if (typeof tableId === 'string') {
+      await this.assertRestorableWithoutConflict(rowIds, tableId, columns, tx);
+    }
     try {
       await this.rowsRepo.bulkUnarchiveRows(rowIds, tx);
     } catch (error) {

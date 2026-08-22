@@ -245,6 +245,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       // Query rows with filters
       const limit = tableConfig.limit ?? 100;
       const rows = await this.queryTableRows({
+        tenantId,
         tableId: tableConfig.tableId,
         filters: filterConditions,
         sort: tableConfig.sort,
@@ -328,6 +329,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
    * Internal helper method for read_table block
    */
   private async queryTableRows(params: {
+    tenantId: string;
     tableId: string;
     filters: ReadTableQueryFilter[];
     sort?: { columnId: string; direction: "asc" | "desc" };
@@ -376,25 +378,25 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
     if (params.sort && sortColumn && /^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
       const sortValue = alias(datavaultValues, 'read_sort_value');
       const direction = params.sort.direction === 'desc' ? desc : asc;
-      selectedRows = await db
+      selectedRows = await withTenant(params.tenantId, (tx) => tx
         .select({ id: datavaultRows.id })
         .from(datavaultRows)
         .leftJoin(sortValue, and(
           eq(sortValue.rowId, datavaultRows.id),
-          eq(sortValue.columnId, params.sort.columnId)
+          eq(sortValue.columnId, params.sort!.columnId)
         ))
         .where(and(...whereConditions))
         .orderBy(direction(sortExpression(sortValue.value, sortColumn)))
-        .limit(params.limit);
+        .limit(params.limit));
     } else {
       if (params.sort && !/^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
         logger.warn({ columnId: params.sort.columnId }, 'Invalid sort columnId detected - skipping sort');
       }
-      selectedRows = await db
+      selectedRows = await withTenant(params.tenantId, (tx) => tx
         .select({ id: datavaultRows.id })
         .from(datavaultRows)
         .where(and(...whereConditions))
-        .limit(params.limit);
+        .limit(params.limit));
     }
 
     if (selectedRows.length === 0) {
@@ -407,14 +409,21 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       valuesConditions.push(inArray(datavaultValues.columnId, params.selectedColumnIds));
     }
 
-    const values = await db
+    // `datavault_rows` and `datavault_values` are both RLS-covered, and this
+    // whole method ran on the bare pool until 2026-08-22 — so under enforcement
+    // every Read Table block returned an EMPTY list rather than an error, which
+    // in a workflow reads as "the table has no matching rows". The scanner could
+    // not see it: `await db` sits on its own line, which its single-line
+    // `db.select(` pattern missed. The `exists(...)` subqueries above need no
+    // scoping of their own — they are inlined into these outer queries.
+    const values = await withTenant(params.tenantId, (tx) => tx
       .select({
         rowId: datavaultValues.rowId,
         columnId: datavaultValues.columnId,
         value: datavaultValues.value,
       })
       .from(datavaultValues)
-      .where(and(...valuesConditions));
+      .where(and(...valuesConditions)));
     const valuesByRow = new Map<string, Record<string, unknown>>();
     for (const value of values) {
       const rowValues = valuesByRow.get(value.rowId) ?? {};

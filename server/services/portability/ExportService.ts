@@ -1,4 +1,3 @@
-import { db } from '../../db';
 import { withCurrentTenant } from '../../utils/rlsContext';
 import {
   projects, workflows, datavaultDatabases, datavaultTables, datavaultColumns,
@@ -299,11 +298,14 @@ export class ExportService {
    * and have always exported without one.
    */
   private async collectWorkflowRefs(workflowId: string, userId: string, state: ExportState): Promise<void> {
-    const templateRows = await db
+    // `workflow_versions` is not RLS-covered but this join reaches it through
+    // `workflow_templates`; scoped for consistency with the database read
+    // below, which IS covered and was returning nothing.
+    const templateRows = await withCurrentTenant((tx) => tx
       .select({ templateId: workflowTemplates.templateId })
       .from(workflowTemplates)
       .innerJoin(workflowVersions, eq(workflowTemplates.workflowVersionId, workflowVersions.id))
-      .where(eq(workflowVersions.workflowId, workflowId));
+      .where(eq(workflowVersions.workflowId, workflowId)));
     for (const row of templateRows) {
       state.workflowRefs.templateIds.add(row.templateId);
     }
@@ -313,7 +315,12 @@ export class ExportService {
       return;
     }
 
-    const candidates = await db
+    // `datavault_databases` is RLS-covered. Unscoped this came back EMPTY, so
+    // every referenced database was silently dropped from the bundle — an
+    // export that succeeds and quietly omits data, which is worse than a
+    // failure. It also skipped the warning below, because a database that is
+    // invisible is not a database the caller "cannot export".
+    const candidates = await withCurrentTenant((tx) => tx
       .select({
         id: datavaultDatabases.id,
         name: datavaultDatabases.name,
@@ -321,13 +328,19 @@ export class ExportService {
         scopeId: datavaultDatabases.scopeId
       })
       .from(datavaultDatabases)
-      .where(inArray(datavaultDatabases.id, Array.from(candidateDatabaseIds)));
+      .where(inArray(datavaultDatabases.id, Array.from(candidateDatabaseIds))));
 
     for (const candidate of candidates) {
       if (candidate.scopeType === 'workflow' && candidate.scopeId === workflowId) {
         continue; // already selected by the ownership predicate
       }
-      const canExport = await datavaultAclService.hasDatabaseRole(userId, candidate.id, 'edit');
+      // Scoped: this resolves the role by reading the database row itself, so
+      // unscoped it saw nothing, returned "none", and quietly demoted a
+      // database the caller owns into the "cannot export" warning below. Each
+      // check gets its own transaction — the candidates read above has already
+      // completed, so this nests nothing.
+      const canExport = await withCurrentTenant((tx) =>
+        datavaultAclService.hasDatabaseRole(userId, candidate.id, 'edit', tx));
       if (canExport) {
         state.workflowRefs.allowedDatabaseIds.add(candidate.id);
       } else {
