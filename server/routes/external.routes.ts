@@ -7,6 +7,7 @@ import { db } from "../db";
 import { requireExternalAuth, type ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { createLogger } from "../logger";
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Router as RouterType } from "express";
 const logger = createLogger({ module: 'external-routes' });
@@ -22,9 +23,12 @@ router.get("/workflows", asyncHandler(async (req, res) => {
         // Ensure isolation
         // Only fetch workflows in the authorized workspace (assuming workspaceId maps to projectId for now, or we filter by tenant)
         // Note: This needs verification if workspaceId == projectId.
-        const workflowList = await db.query.workflows.findMany({
+        // RLS-5: `workflows` is covered. `requireExternalAuth` binds this
+        // workspace's tenant into the async context, so read inside the scoped
+        // transaction — unscoped this silently returns an empty list.
+        const workflowList = await withCurrentTenant((tx) => tx.query.workflows.findMany({
             where: eq(workflows.projectId, workspaceId)
-        });
+        }));
         res.json({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: workflowList.map((w: any) => ({
@@ -54,7 +58,7 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
         const _body = req.body; // { initialValues, metadata }
         // Verify workflow exists in workspace
 
-        const workflow = await db.query.workflows.findFirst({
+        const workflow = await withCurrentTenant((tx) => tx.query.workflows.findFirst({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             where: (workflows: any, { and, eq }: any) =>
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
@@ -64,7 +68,7 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                     eq(workflows.projectId, workspaceId)
                 )
-        });
+        }));
         if (!workflow) {
             res.status(404).json({ error: "Workflow not found" });
             return;
