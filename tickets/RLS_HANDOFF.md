@@ -303,6 +303,56 @@ each test body**; `beforeAll` and `beforeEach` both fail to propagate through
 
 ## 4. Traps that have each cost real time
 
+**⚠️ OPEN BLOCKER — the restricted suite is NOT deterministic.** Roughly two
+files per full run die in `setupIntegrationTest` with a bare **"Registration
+failed"**, and *which* files differ every run. Measured across three
+consecutive gate runs on the same commit:
+
+| Run | Unlisted failures | "Registration failed" hits |
+|---|---|---|
+| 1 | `api.marketplace` | 3 |
+| 2 | `metrics`, `rls2b-datavault` | 0 — a different cause, since fixed |
+| 3 | `finalBlock.download.durability`, `rls2c-collectionsCluster` | 5 |
+
+The underlying error is `new row violates row-level security policy for table
+"users"` on registration's insert, which writes `tenant_id = NULL`. That insert
+is deliberately unscoped and `users`' WITH CHECK is NULL-safe (0027), so it can
+only fail if `app_current_tenant()` is **non-NULL on the connection at that
+moment**.
+
+Two explanations were tested and eliminated, so do not re-test them:
+
+- **Not an async-context leak.** `enterTenantContextForTests` uses `enterWith`,
+  which has no scope to exit — but `setupIntegrationTest` mounts `rlsContext`,
+  and that opens a FRESH store per request via `storage.run`. A leaked ambient
+  tenant cannot reach the registration route.
+- **Not a session-level GUC.** Every `set_config('app.current_tenant_id', …)`
+  in the repo passes `true` (transaction-local). Grepped; there are no
+  exceptions.
+
+**The surviving hypothesis is a leaked OPEN transaction.** The test pool is
+`max: 1`, so there is exactly one physical connection. A transaction-local GUC
+reverts at COMMIT or ROLLBACK — but a transaction that is never awaited to
+completion leaves the connection *in* that transaction with the GUC still set,
+and every later query joins it. That fits every observed property: intermittent,
+lands on whichever file comes next, clears itself after a file or two.
+
+To chase it: log `current_setting('app.current_tenant_id', true)` and
+`pg_current_xact_id_if_assigned()` immediately before the registration insert,
+run the full gate, and read what the connection actually carries. Then find the
+un-awaited `db.transaction(...)`.
+
+**This blocks RLS-5 becoming a merge gate** — an intermittently red gate is
+worse than none, because people learn to re-run it. The gate itself is correct
+and should stay; it is what made the nondeterminism visible at all, after
+months of the suite looking green under the owner role, which bypasses RLS
+entirely and so can never surface this.
+
+`tests/setup.ts`'s `afterEach` calls `clearTenantContextForTests()`. That closes
+the documented `enterWith` leak path on principle, but **it is not the fix for
+the above and did not change it** — proven by run 3 having the same signature as
+run 1. Do not mistake it for a fix.
+
 **The async store and the transaction GUC are INDEPENDENT.** This cost two
 separate wasted fixes. `runWithTenantContext` populates the `AsyncLocalStorage`
 store, which only *converted services* consult when they call

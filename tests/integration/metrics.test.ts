@@ -9,6 +9,8 @@ import { registerMetricsRoutes } from '../../server/routes/metrics';
 describe('Metrics Integration', () => {
     let app: express.Express;
 
+    const originalNodeEnv = process.env.NODE_ENV;
+
     beforeEach(() => {
         // Reset env vars and modules
         vi.resetModules();
@@ -28,6 +30,17 @@ describe('Metrics Integration', () => {
     afterEach(async () => {
         await shutdownTelemetry();
         delete process.env.ENABLE_TELEMETRY;
+        // Restore NODE_ENV. Every integration file shares one process, so
+        // leaving it at 'production' does not just affect this suite — it
+        // changes the behaviour of every file scheduled after it, including
+        // the test-only guards in server/utils/rlsContext.ts, which throw
+        // outside test/development. Measured: this leak made unrelated suites
+        // fail in teardown once an afterEach started touching those helpers.
+        if (originalNodeEnv === undefined) {
+            delete process.env.NODE_ENV;
+        } else {
+            process.env.NODE_ENV = originalNodeEnv;
+        }
     });
 
     it('should expose /metrics endpoint', async () => {

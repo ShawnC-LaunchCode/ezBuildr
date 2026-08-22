@@ -113,6 +113,36 @@ export function enterTenantContextForTests(tenantId: string): void {
   storage.enterWith({ tenantId });
 }
 
+/**
+ * Undo {@link enterTenantContextForTests}. Test-only, and the reason it exists
+ * is in that function's own warning: `enterWith` binds a tenant with **no scope
+ * to exit**, so the binding outlives the test that made it.
+ *
+ * In a single-fork run every integration file shares one process, and vitest's
+ * continuation between files inherits the async context — so a tenant entered
+ * by file A is still ambient when file Z runs. That is not theoretical: it made
+ * `api.marketplace` fail in a full run while passing in isolation and in every
+ * subset tried, because `POST /api/auth/register` writes `tenant_id = NULL` and
+ * a leaked tenant makes that violate `users`' WITH CHECK. Which file it hits
+ * depends on scheduling, so it moves whenever the suite list changes — the
+ * worst kind of flake to chase from a failure message.
+ *
+ * Setting the store to `undefined` restores the pristine "no request context"
+ * state exactly, rather than an empty store: with an empty store
+ * `setCurrentTenantId` would silently start working outside a request, which is
+ * precisely the no-op that several suites depend on being a no-op.
+ */
+export function clearTenantContextForTests(): void {
+  // Deliberately NOT guarded on NODE_ENV, unlike its counterpart above.
+  // Entering a tenant outside a request scope is dangerous and must throw;
+  // CLEARING one is safe everywhere, and it is called from an unconditional
+  // `afterEach`. A guard here threw for real: `metrics.test.ts` sets
+  // `NODE_ENV = 'production'` and never restores it, so every file scheduled
+  // after it hit the throw inside a teardown hook — which then cascaded into
+  // failed cleanup in unrelated suites.
+  storage.enterWith(undefined as unknown as TenantStore);
+}
+
 export function setCurrentTenantId(tenantId: string): void {
   const store = storage.getStore();
   if (store) {

@@ -482,6 +482,17 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   vi.restoreAllMocks();
+  // RLS-5: drop any ambient tenant a test bound with
+  // `enterTenantContextForTests`. That helper uses `enterWith`, which has no
+  // scope to exit, so without this the binding survives into the NEXT FILE —
+  // every integration file shares one process under single-fork. A leaked
+  // tenant makes `POST /api/auth/register` (which writes `tenant_id = NULL`)
+  // violate `users`' WITH CHECK, so an unrelated suite dies in setup with
+  // "Registration failed". Whichever file that lands on depends on scheduling,
+  // so it moves as the suite list changes. Caught by the RLS gate on its first
+  // full run, having passed in isolation and in every subset tried.
+  const { clearTenantContextForTests } = await import('../server/utils/rlsContext');
+  clearTenantContextForTests();
 });
 // Helper to apply manual migrations. Accepts either the real drizzle `db`
 // (the normal path) or a thin `{ execute }` adapter over a raw owner `pg`
