@@ -18,7 +18,7 @@ import {
   cleanupOAuth2State,
 } from '../services/oauth2';
 import { asyncHandler } from '../utils/asyncHandler';
-import { withCurrentTenant } from "../utils/rlsContext";
+import { runWithTenantContext, withCurrentTenant } from "../utils/rlsContext";
 
 
 import type { Express, Request, Response } from 'express';
@@ -376,8 +376,17 @@ export function registerConnectionsV2Routes(app: Express): void {
         return;
       }
 
-      // Handle OAuth2 callback
-      await handleOAuth2Callback(connection.projectId, stateRecord.connectionId, code);
+      // Handle OAuth2 callback.
+      //
+      // The provider redirects a bare browser here — no session, so no ambient
+      // tenant. `getConnectionById` above ran on migration 0034's single-row
+      // self-identification clause to learn one; pin it for the rest of the
+      // flow, which reads and then WRITES the connection's `oauth_state`. Both
+      // sides are RLS-covered, and the write is unreachable through the
+      // self-id clause (USING only, by design), so without this the tokens are
+      // exchanged with the provider and then silently not stored.
+      await runWithTenantContext(connection.tenantId, () =>
+        handleOAuth2Callback(connection.projectId, stateRecord.connectionId, code));
 
       // Clean up state
       cleanupOAuth2State(state);

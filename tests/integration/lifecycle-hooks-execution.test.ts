@@ -31,6 +31,10 @@ import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/in
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: `lifecycleHookService.executeHooksForPhase` is called
+// DIRECTLY here, so no middleware opens a tenant context for its scoped
+// reads of hooks and the step-alias map.
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 
 describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
@@ -94,6 +98,7 @@ describe('Lifecycle Hooks Execution', () => {
 
   describe('Phase: beforePage', () => {
     it('should execute beforePage hook and capture console output', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create beforePage hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -158,6 +163,8 @@ describe('Lifecycle Hooks Execution', () => {
     });
 
     it('should execute beforePage hook with mutation mode enabled', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create beforePage hook with mutation mode
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -208,6 +215,8 @@ describe('Lifecycle Hooks Execution', () => {
     });
 
     it('should handle errors gracefully without breaking workflow', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook with intentional error
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -265,6 +274,7 @@ describe('Lifecycle Hooks Execution', () => {
 
   describe('Phase: afterPage', () => {
     it('should execute afterPage hook with user input data', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create afterPage hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -322,6 +332,8 @@ describe('Lifecycle Hooks Execution', () => {
     });
 
     it('should execute Python afterPage hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create Python hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -377,6 +389,7 @@ emit(result)
 
   describe('Phase: beforeFinalBlock', () => {
     it('should execute beforeFinalBlock hook before document generation', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create beforeFinalBlock hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -430,6 +443,7 @@ emit(result)
 
   describe('Phase: afterDocumentsGenerated', () => {
     it('should execute afterDocumentsGenerated hook for cleanup', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create afterDocumentsGenerated hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -483,6 +497,7 @@ emit(result)
 
   describe('Timeout Enforcement', () => {
     it('should timeout hook that exceeds timeoutMs limit', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook with short timeout and infinite loop
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -540,6 +555,7 @@ emit(result)
 
   describe('Multiple Hooks Execution Order', () => {
     it('should execute multiple hooks in correct order', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create 3 hooks with different orders
       const hook1Res = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -631,6 +647,7 @@ emit(result)
 
   describe('Hook Management API', () => {
     it('should list all hooks for a workflow', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create a hook first
       await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -656,6 +673,8 @@ emit(result)
     });
 
     it('should update a hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook first
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -688,6 +707,8 @@ emit(result)
     });
 
     it('should delete a hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook to delete
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -719,6 +740,8 @@ emit(result)
     });
 
     it('should test a hook with sample data', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -757,6 +780,7 @@ emit(result)
 
   describe('Script Console Logs', () => {
     it('should retrieve execution logs for a run', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create run with hooks that have console output
       const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
@@ -785,6 +809,8 @@ emit(result)
     });
 
     it('should clear execution logs for a run', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create run
       const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
