@@ -27,8 +27,19 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Find user by email address
    */
-  async findByEmail(email: string, tx?: DbTransaction): Promise<User | undefined> {
-    const database = this.getDb(tx);
+  /**
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed explicitly by `AdminAccessService` (the only module allowed to
+   * import it). Added per-method rather than to `BaseRepository.getDb` on
+   * purpose — a bypass hook on every repository method is the opposite of the
+   * containment RLS-6 exists to create.
+   */
+  async findByEmail(
+    email: string,
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
+  ): Promise<User | undefined> {
+    const database = adminDbOverride ?? this.getDb(tx);
     const [user] = await database
       .select()
       .from(users)
@@ -146,6 +157,25 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Find multiple users by IDs (batch fetch)
    */
+  /**
+   * `findById` for the admin console's cross-tenant path.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed by `AdminAccessService` (the only module allowed to import it).
+   * A separate method rather than an extra parameter on `BaseRepository
+   * .findById`, because a bypass hook on every repository method is the
+   * opposite of the containment RLS-6 exists to create. With no override it
+   * degrades to the ordinary scoped read.
+   */
+  async findByIdForAdmin(
+    id: string,
+    adminDbOverride?: DrizzleDB
+  ): Promise<User | undefined> {
+    if (!adminDbOverride) { return this.findById(id); }
+    const [row] = await adminDbOverride.select().from(users).where(eq(users.id, id)).limit(1);
+    return row;
+  }
+
   async findByIds(ids: string[], tx?: DbTransaction): Promise<User[]> {
     if (ids.length === 0) {return [];}
     const database = this.getDb(tx);

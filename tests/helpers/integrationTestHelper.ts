@@ -21,6 +21,7 @@ import * as schema from '@shared/schema';
 
 import { db, initializeDatabase } from '../../server/db';
 import { rlsContext } from '../../server/middleware/rlsContext';
+import { invalidateUserCache } from '../../server/middleware/userCache';
 import { registerRoutes } from '../../server/routes';
 import { withTenantAsUser } from '../../server/utils/rlsContext';
 
@@ -178,6 +179,15 @@ export async function setupIntegrationTest(
 
       return { orgId: org.id };
     });
+
+    // `POST /api/auth/register` above already cached this user with its
+    // registration role ('creator'), and the UPDATE just made that cache entry
+    // wrong. Production never hits this because every role-changing ENDPOINT
+    // calls `invalidateUserCache` itself — a fixture that writes the column
+    // directly has to do the same. Without it `requireAdmin` reads the stale
+    // row and denies every /api/admin route with "User is not an admin",
+    // which looks exactly like an RLS visibility failure and is not one.
+    invalidateUserCache(userId);
 
     let projectId: string | undefined;
 

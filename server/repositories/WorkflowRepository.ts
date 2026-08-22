@@ -310,6 +310,25 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   /**
    * Find workflow by ID or slug (helper for UUID/slug resolution)
    */
+  /**
+   * `findById` for the admin console's cross-tenant path.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed by `AdminAccessService` (the only module allowed to import it).
+   * A separate method rather than an extra parameter on `BaseRepository
+   * .findById`, because a bypass hook on every repository method is the
+   * opposite of the containment RLS-6 exists to create. With no override it
+   * degrades to the ordinary scoped read.
+   */
+  async findByIdForAdmin(
+    id: string,
+    adminDbOverride?: DrizzleDB
+  ): Promise<Workflow | undefined> {
+    if (!adminDbOverride) { return this.findById(id); }
+    const [row] = await adminDbOverride.select().from(workflows).where(eq(workflows.id, id)).limit(1);
+    return row;
+  }
+
   async findByIdOrSlug(idOrSlug: string, tx?: DbTransaction): Promise<Workflow | null> {
     // Try UUID first (faster and more common)
     const _database = this.getDb(tx);

@@ -1,3 +1,8 @@
+import { eq } from "drizzle-orm";
+
+import { projects, users } from "@shared/schema";
+
+import { db } from "../db";
 import { adminDb, isAdminDbConfigured } from "../db/adminDb";
 import {
   adminAccessLogRepository,
@@ -8,7 +13,7 @@ import {
   type AdminOrgStatsRepository,
   type AdminOrgStatsQueryRow,
 } from "../repositories/AdminOrgStatsRepository";
-import { isRlsEnforced } from "../utils/rlsContext";
+import { isRlsEnforced, withTenant } from "../utils/rlsContext";
 import {
   userRepository,
   type UserRepository,
@@ -16,8 +21,9 @@ import {
   type AdminUserWorkflowCountsRow,
 } from "../repositories/UserRepository";
 import { workflowRepository as defaultWorkflowRepository, type WorkflowRepository } from "../repositories/WorkflowRepository";
+import { workflowRunRepository as defaultWorkflowRunRepository, type WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 
-import type { Workflow } from "@shared/schema";
+import type { User, Workflow, WorkflowRun } from "@shared/schema";
 
 /**
  * RLS-6: the ONLY service allowed to import `server/db/adminDb.ts` (see
@@ -40,17 +46,20 @@ export class AdminAccessService {
   private readonly workflowRepo: WorkflowRepository;
   private readonly auditRepo: AdminAccessLogRepository;
   private readonly orgStatsRepo: AdminOrgStatsRepository;
+  private readonly runRepo: WorkflowRunRepository;
 
   constructor(
     userRepo?: UserRepository,
     workflowRepo?: WorkflowRepository,
     auditRepo?: AdminAccessLogRepository,
-    orgStatsRepo?: AdminOrgStatsRepository
+    orgStatsRepo?: AdminOrgStatsRepository,
+    runRepo?: WorkflowRunRepository
   ) {
     this.userRepo = userRepo ?? userRepository;
     this.workflowRepo = workflowRepo ?? defaultWorkflowRepository;
     this.auditRepo = auditRepo ?? adminAccessLogRepository;
     this.orgStatsRepo = orgStatsRepo ?? adminOrgStatsRepository;
+    this.runRepo = runRepo ?? defaultWorkflowRunRepository;
   }
 
   /**
@@ -141,6 +150,151 @@ export class AdminAccessService {
       requestId: requestId ?? null,
     });
     return users;
+  }
+
+  /**
+   * One user, regardless of tenant. Backs the "verify the target exists" step
+   * every `/api/admin/users/:userId/...` route starts with.
+   *
+   * Those lookups ran on the normal pool, so under a non-owner role a target
+   * in another tenant was simply invisible and the route answered **404 "User
+   * not found"** for an account that plainly exists — the admin console's
+   * central job (managing OTHER people's accounts) failing in the way hardest
+   * to distinguish from a genuinely deleted user.
+   */
+  async getUser(actorUserId: string, targetUserId: string, requestId: string | undefined): Promise<User | undefined> {
+    const user = await this.userRepo.findByIdForAdmin(targetUserId, this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.get",
+      targetTenantId: user?.tenantId ?? null,
+      // Null on a miss, not the requested id: `admin_access_log.target_user_id`
+      // carries an FK, so recording a lookup of an id that does not exist
+      // fails the insert and turns an honest 404 into a 500.
+      targetUserId: user?.id ?? null,
+      requestId: requestId ?? null,
+    });
+    return user;
+  }
+
+  /** One user by email, regardless of tenant. Backs the admin create-user
+   * duplicate check, which would otherwise miss an address already taken in
+   * another tenant and fail on the unique constraint instead. */
+  async findUserByEmail(actorUserId: string, email: string, requestId: string | undefined): Promise<User | undefined> {
+    const user = await this.userRepo.findByEmail(email, undefined, this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.findByEmail",
+      targetTenantId: user?.tenantId ?? null,
+      targetUserId: user?.id ?? null,
+      requestId: requestId ?? null,
+    });
+    return user;
+  }
+
+  /** One workflow, regardless of tenant. Backs the admin copy/delete/detail
+   * routes, all of which exist precisely to reach another user's workflow. */
+  async getWorkflow(actorUserId: string, workflowId: string, requestId: string | undefined): Promise<Workflow | undefined> {
+    const workflow = await this.workflowRepo.findByIdForAdmin(workflowId, this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.workflow.get",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return workflow;
+  }
+
+  /** Run counts for a set of workflows, regardless of tenant. Unscoped these
+   * came back as an empty map, so every admin listing showed 0 runs. */
+  async countRunsByWorkflowIds(actorUserId: string, workflowIds: string[], requestId: string | undefined): Promise<Map<string, number>> {
+    const counts = await this.runRepo.countByWorkflowIds(workflowIds, undefined, this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.workflows.countRuns",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return counts;
+  }
+
+  /** Every run of one workflow, regardless of tenant. Backs the admin
+   * workflow-detail and delete routes. */
+  async listRunsForWorkflow(actorUserId: string, workflowId: string, requestId: string | undefined): Promise<WorkflowRun[]> {
+    const runs = await this.runRepo.findByWorkflowId(workflowId, undefined, undefined, this.adminDbOrUndefined());
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.workflow.listRuns",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return runs;
+  }
+
+  /**
+   * Resolve the tenant that owns a workflow, reading cross-tenant.
+   *
+   * `workflows` carries no `tenant_id` — its policy derives one via
+   * `app_owner_tenant(owner_type, owner_uuid, owner_id, creator_id,
+   * project_id)` — so a tenant-pinned WRITE against another user's workflow
+   * needs that value resolved first, and resolving it means reading rows the
+   * acting admin cannot see. Mirrors the SQL helper's precedence: the
+   * workflow's project, then its creator.
+   */
+  private async resolveTenantForWorkflow(workflow: Workflow): Promise<string | null> {
+    const database = this.adminDbOrUndefined() ?? db;
+    if (workflow.projectId != null) {
+      const [project] = await database
+        .select({ tenantId: projects.tenantId })
+        .from(projects)
+        .where(eq(projects.id, workflow.projectId))
+        .limit(1);
+      if (project?.tenantId != null) { return project.tenantId; }
+    }
+    const ownerId = workflow.ownerUuid ?? workflow.creatorId;
+    if (ownerId != null) {
+      const [owner] = await database
+        .select({ tenantId: users.tenantId })
+        .from(users)
+        .where(eq(users.id, ownerId))
+        .limit(1);
+      if (owner?.tenantId != null) { return owner.tenantId; }
+    }
+    return null;
+  }
+
+  /**
+   * Delete any workflow, regardless of tenant.
+   *
+   * The BYPASSRLS pool is READ-ONLY by decision: it resolves WHICH tenant owns
+   * the target, and the DELETE itself then runs on the NORMAL pool pinned to
+   * that tenant. So the write is still checked by the same policy every other
+   * write is checked by — an admin cannot write outside a tenant that actually
+   * owns the row, and a bug here fails closed rather than silently writing
+   * across the whole system.
+   *
+   * Before this, the delete ran unscoped and matched ZERO rows under
+   * enforcement: no error, a 200 response, and the workflow still there.
+   */
+  async deleteWorkflow(actorUserId: string, workflow: Workflow, requestId: string | undefined): Promise<void> {
+    const tenantId = await this.resolveTenantForWorkflow(workflow);
+    if (tenantId == null) {
+      throw new Error(
+        `Cannot delete workflow ${workflow.id} as admin: no tenant could be resolved for it, ` +
+        `so there is no scope to perform the write in.`
+      );
+    }
+    await withTenant(tenantId, (tx) => this.workflowRepo.delete(workflow.id, tx));
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.workflow.delete",
+      targetTenantId: tenantId,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
   }
 
   /** Every workflow attributable to one user, regardless of that user's tenant.

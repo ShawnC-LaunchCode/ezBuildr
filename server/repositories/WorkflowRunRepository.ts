@@ -2,7 +2,7 @@ import { eq, and, or, desc, inArray, count, sql } from "drizzle-orm";
 
 import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
 
-import { db } from "../db";
+import { db, type DrizzleDB } from "../db";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
 
@@ -29,9 +29,10 @@ export class WorkflowRunRepository extends BaseRepository<
   async findByWorkflowId(
     workflowId: string,
     options?: { limit?: number; offset?: number },
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<WorkflowRun[]> {
-    const database = this.getDb(tx);
+    const database = adminDbOverride ?? this.getDb(tx);
     let query = database
       .select()
       .from(workflowRuns)
@@ -72,12 +73,13 @@ export class WorkflowRunRepository extends BaseRepository<
    */
   async countByWorkflowIds(
     workflowIds: string[],
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<Map<string, number>> {
     if (workflowIds.length === 0) {
       return new Map();
     }
-    const database = this.getDb(tx);
+    const database = adminDbOverride ?? this.getDb(tx);
     const rows = await database
       .select({
         workflowId: workflowRuns.workflowId,

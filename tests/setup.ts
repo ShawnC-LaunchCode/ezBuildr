@@ -157,6 +157,16 @@ const shouldConnectToDb = () => {
 const RLS_RESTRICTED = process.env.RLS_RESTRICTED === "true";
 const RLS5_ROLE = "rls5_app_role";
 const RLS5_PASSWORD = "rls5_app_role_pw";
+// RLS-6/RLS-7: the admin console's cross-tenant read path connects as a
+// SEPARATE role holding BYPASSRLS (`server/db/adminDb.ts`). Production sets
+// `ADMIN_DATABASE_URL` to it; without one, `AdminAccessService` falls back to
+// the normal pool, which under a non-owner role gives every `/api/admin` route
+// a tenant-scoped view — five 404s in `api.admin-user-workflows.test.ts` for
+// resources that plainly exist. Provisioning it here means the restricted run
+// exercises the path production actually uses instead of a fallback that only
+// works while nothing enforces RLS.
+const RLS_ADMIN_ROLE = "rls6_admin_bypass_role";
+const RLS_ADMIN_PASSWORD = "rls6_admin_bypass_pw";
 
 function toRestrictedUrl(base: string, user: string, password: string): string {
   const url = new URL(base);
@@ -192,6 +202,32 @@ async function provisionRestrictedRole(
   );
   await ownerClient.query(
     `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS5_ROLE}"`
+  );
+}
+
+async function provisionAdminBypassRole(
+  ownerClient: { query: (sql: string) => Promise<unknown> },
+  schema: string
+): Promise<void> {
+  // Same idempotency reasoning as the restricted role: cluster-level, outlives
+  // the database. BYPASSRLS is re-asserted every run rather than trusted.
+  await ownerClient.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${RLS_ADMIN_ROLE}') THEN
+        CREATE ROLE "${RLS_ADMIN_ROLE}" LOGIN;
+      END IF;
+    END $$;
+  `);
+  await ownerClient.query(
+    `ALTER ROLE "${RLS_ADMIN_ROLE}" WITH PASSWORD '${RLS_ADMIN_PASSWORD}' BYPASSRLS NOSUPERUSER`
+  );
+  await ownerClient.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`);
+  await ownerClient.query(
+    `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
+  );
+  await ownerClient.query(
+    `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
   );
 }
 
@@ -298,9 +334,20 @@ beforeAll(async () => {
         // that already has every table migrations will ever create in this
         // run — hence provisioning last, after migrations, not before.
         await provisionRestrictedRole(ownerClient, schemaName);
+        await provisionAdminBypassRole(ownerClient, schemaName);
         await ownerClient.end();
 
         process.env.DATABASE_URL = toRestrictedUrl(connectionString, RLS5_ROLE, RLS5_PASSWORD);
+        process.env.ADMIN_DATABASE_URL = toRestrictedUrl(
+          connectionString, RLS_ADMIN_ROLE, RLS_ADMIN_PASSWORD
+        );
+        // The admin pool is normally opened by server/index.ts (or
+        // production.ts) at boot; integration suites never run either, so it
+        // has to be opened here or `adminDb` throws "not initialized" the first
+        // time an admin route touches it. Must come AFTER `__TEST_SCHEMA__` is
+        // set — adminDb reads it to pin `search_path` per connection.
+        const { initializeAdminDb } = await import('../server/db/adminDb');
+        await initializeAdminDb();
         (global as any).__RLS_RESTRICTED_ROLE__ = RLS5_ROLE;
         console.log(`🔐 RLS-5: running as restricted role "${RLS5_ROLE}" (not the schema owner)`);
       } else {

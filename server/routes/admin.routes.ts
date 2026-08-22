@@ -244,8 +244,11 @@ export function registerAdminRoutes(app: Express): void {
 
       const { userId } = req.params;
 
-      // Verify user exists
-      const user = await userRepository.findById(userId);
+      // Verify user exists. RLS-6: the target is routinely in ANOTHER tenant —
+      // that is what the admin console is for — so this goes through the
+      // audited BYPASSRLS path. Unscoped on the normal pool it returned
+      // nothing and answered 404 for an account that plainly exists.
+      const user = await adminAccessService.getUser(req.adminUser.id, userId, req.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -298,8 +301,11 @@ export function registerAdminRoutes(app: Express): void {
 
       const { userId } = req.params;
 
-      // Verify user exists
-      const user = await userRepository.findById(userId);
+      // Verify user exists. RLS-6: the target is routinely in ANOTHER tenant —
+      // that is what the admin console is for — so this goes through the
+      // audited BYPASSRLS path. Unscoped on the normal pool it returned
+      // nothing and answered 404 for an account that plainly exists.
+      const user = await adminAccessService.getUser(req.adminUser.id, userId, req.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -351,8 +357,11 @@ export function registerAdminRoutes(app: Express): void {
 
       const { userId } = req.params;
 
-      // Verify user exists
-      const user = await userRepository.findById(userId);
+      // Verify user exists. RLS-6: the target is routinely in ANOTHER tenant —
+      // that is what the admin console is for — so this goes through the
+      // audited BYPASSRLS path. Unscoped on the normal pool it returned
+      // nothing and answered 404 for an account that plainly exists.
+      const user = await adminAccessService.getUser(req.adminUser.id, userId, req.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -360,7 +369,7 @@ export function registerAdminRoutes(app: Express): void {
       // RLS-6: the target user may be in a different tenant than the acting
       // admin — goes through the admin-only BYPASSRLS path, audited.
       const workflows = await adminAccessService.listWorkflowsForUser(req.adminUser.id, userId, req.id);
-      const runCounts = await workflowRunRepository.countByWorkflowIds(workflows.map(w => w.id));
+      const runCounts = await adminAccessService.countRunsByWorkflowIds(req.adminUser.id, workflows.map(w => w.id), req.id);
 
       logger.info(
         { adminId: req.adminUser.id, targetUserId: userId, workflowCount: workflows.length },
@@ -409,7 +418,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // Check if user already exists
-      const existingUser = await userRepository.findByEmail(email);
+      const existingUser = await adminAccessService.findUserByEmail(req.adminUser.id, email, req.id);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists with this email" });
       }
@@ -471,7 +480,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       const { userId } = req.params;
-      const user = await userRepository.findById(userId);
+      const user = await adminAccessService.getUser(req.adminUser.id, userId, req.id);
 
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -564,7 +573,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const workflow = await workflowRepository.findById(req.params.workflowId);
+      const workflow = await adminAccessService.getWorkflow(req.adminUser.id, req.params.workflowId, req.id);
 
       if (!workflow) {
         return res.status(404).json({ message: "Workflow not found" });
@@ -595,13 +604,13 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const workflow = await workflowRepository.findById(req.params.workflowId);
+      const workflow = await adminAccessService.getWorkflow(req.adminUser.id, req.params.workflowId, req.id);
 
       if (!workflow) {
         return res.status(404).json({ message: "Workflow not found" });
       }
 
-      const runs = await workflowRunRepository.findByWorkflowId(req.params.workflowId);
+      const runs = await adminAccessService.listRunsForWorkflow(req.adminUser.id, req.params.workflowId, req.id);
 
       logger.info(
         { adminId: req.adminUser.id, workflowId: req.params.workflowId, runCount: runs.length },
@@ -684,18 +693,22 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const workflow = await workflowRepository.findById(req.params.workflowId);
+      const workflow = await adminAccessService.getWorkflow(req.adminUser.id, req.params.workflowId, req.id);
 
       if (!workflow) {
         return res.status(404).json({ message: "Workflow not found" });
       }
 
       // Count runs before deletion (they'll be cascade deleted)
-      const runs = await workflowRunRepository.findByWorkflowId(req.params.workflowId);
+      const runs = await adminAccessService.listRunsForWorkflow(req.adminUser.id, req.params.workflowId, req.id);
       const runCount = runs.length;
 
-      // Delete the workflow (cascade deletes sections, steps, runs, etc.)
-      await workflowRepository.delete(req.params.workflowId);
+      // Delete the workflow (cascade deletes sections, steps, runs, etc.).
+      // RLS-7: the BYPASSRLS pool stays read-only — this resolves the target's
+      // tenant through it and then writes on the NORMAL pool pinned to that
+      // tenant, so the delete is checked by the same policy as every other
+      // write. Unscoped it matched zero rows and still answered 200.
+      await adminAccessService.deleteWorkflow(req.adminUser.id, workflow, req.id);
 
       logger.warn(
         {

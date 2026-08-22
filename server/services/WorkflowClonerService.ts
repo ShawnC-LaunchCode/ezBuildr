@@ -326,30 +326,24 @@ export class WorkflowClonerService {
    * validated normally — resolveTargetOwnerForWorkflowCopy confines the copy
    * to the admin themselves or an org they administer.
    *
-   * RLS-2e: deliberately NOT converted to `withTx`. This is a genuine
-   * cross-tenant admin operation (RLS-6's class, not this cluster's) — the
-   * source workflow can belong to ANY tenant, while the copy is written
-   * under the admin's own (or a target org's) tenant. A single ambient-tenant
-   * transaction cannot serve both sides correctly: scoping the transaction
-   * to the admin's tenant would make every read of the SOURCE workflow's
-   * sections/steps (inside `copyWorkflowCore`, which runs on this same `tx`)
-   * see ZERO rows once FORCE is on, because those rows resolve to the
-   * source's tenant, not the admin's — silently producing an EMPTY copy
-   * instead of throwing. That is worse than today's behaviour (which has no
-   * GUC either way and is authorized by `isAdmin` + the caller-responsibility
-   * contract above, not by RLS). Fixing this properly needs the same
-   * admin-bypass treatment RLS-6 built for `AdminOrgStatsService`
-   * (`adminDb` allowlist) applied to the source-side reads here, which is
-   * out of this cluster's scope — flagged as an RLS-4 precondition, same as
-   * `AdminOrgStatsService`.
+   * RLS-7: scoped to the AMBIENT tenant, like everything else. An earlier
+   * revision of this comment argued the opposite — that this is a genuine
+   * cross-tenant operation and must not be scoped. That over-read what the
+   * feature does. It reaches across OWNERSHIP (an admin has no ACL grant on
+   * another user's workflow), not across tenants: the route exists so an
+   * admin can salvage a departing colleague's work before deleting the
+   * account, and colleagues share a tenant. Both sides of the copy are
+   * therefore in the admin's own tenant, and one scoped transaction serves
+   * them correctly. Left unscoped it did exactly what that comment predicted
+   * — 404 "Workflow not found" on every admin copy under enforcement.
    *
-   * Post-FORCE behaviour if shipped unchanged: every query in this method
-   * (the pre-transaction `findByIdOrSlug`, and everything inside the plain
-   * `db.transaction` below) runs with no `app.current_tenant_id` GUC set at
-   * all, on tables whose RLS policies deny with no tenant in context. So the
-   * admin-copy feature fails closed across the board — "Workflow not found"
-   * or an empty copy — rather than leaking across tenants. It breaks, but it
-   * does not leak.
+   * The residual limitation is real and deliberate: a PLATFORM admin copying
+   * out of a tenant they are not a member of still fails, because a single
+   * transaction cannot see two tenants and RLS is what guarantees that. The
+   * bypass pool is not the answer either — it is read-only by decision
+   * (RLS-7), so it could fetch the source but never write the copy. Such a
+   * copy would need an explicit two-phase read-then-write design, and there
+   * is no caller asking for one. It fails closed; it does not leak.
    */
   async copyWorkflowAsAdmin(
     workflowId: string,
@@ -358,12 +352,13 @@ export class WorkflowClonerService {
   ): Promise<CopyAssetResult> {
     logger.warn({ workflowId, adminUserId }, "Admin copying workflow, bypassing source ACL");
 
-    const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId);
-    if (!sourceWorkflow) {
-      throw new Error("Workflow not found");
-    }
-
-    return db.transaction((tx) => this.performWorkflowCopy(sourceWorkflow, adminUserId, options, tx));
+    return withCurrentTenant(async (tx) => {
+      const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId, tx);
+      if (!sourceWorkflow) {
+        throw new Error("Workflow not found");
+      }
+      return this.performWorkflowCopy(sourceWorkflow, adminUserId, options, tx);
+    });
   }
 
   /**
