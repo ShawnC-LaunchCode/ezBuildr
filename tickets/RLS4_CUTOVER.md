@@ -31,117 +31,171 @@ prevent.
 
 ---
 
-## 1. ⚠️ The bypass role does not exist yet
+## 1. What Neon's actual configuration changes (measured 2026-08-22)
 
-`server/db/adminDb.ts` says the role is *"created in migration
-0024_certain_nightcrawler.sql"*. **That is wrong.** Migration 0024 in this repo
-is `0024_repair_rls_coverage.sql`, and no migration in the chain creates a
-BYPASSRLS role. Grepped the whole `migrations/` tree: the only hits for
-`BYPASSRLS` are prose in 0034's header.
-
-So step one is creating it. Deliberately NOT as a migration — roles are
-cluster-level, migrations run per-database, and the password must not live in
-git. Run it once per environment as an admin:
+Inspected on the `dev` branch of project `billowing-base-67211686`. Two facts
+here invalidate the obvious plan, so check them again before you start rather
+than trusting this file:
 
 ```sql
-CREATE ROLE ezbuildr_admin_bypass LOGIN PASSWORD '<generated>' BYPASSRLS NOSUPERUSER;
-GRANT USAGE ON SCHEMA public TO ezbuildr_admin_bypass;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO ezbuildr_admin_bypass;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ezbuildr_admin_bypass;
+SELECT rolname, rolsuper, rolbypassrls, rolcreaterole FROM pg_roles WHERE rolcanlogin;
+--  neondb_owner | f | TRUE | t
+SELECT g.rolname FROM pg_auth_members m
+  JOIN pg_roles r ON r.oid=m.member JOIN pg_roles g ON g.oid=m.roleid
+ WHERE r.rolname='neondb_owner';
+--  neon_superuser        (which itself has rolbypassrls = true)
+SELECT tableowner, count(*) FROM pg_tables WHERE schemaname='public' GROUP BY 1;
+--  neondb_owner | 107
 ```
 
-**SELECT only.** RLS-7's ruling is that the bypass pool is read-only: it
-resolves *which* tenant owns a target, and every admin write then runs on the
-normal pool pinned to that tenant. Granting it write access would quietly
-delete that property. (`tests/setup.ts`'s `provisionAdminBypassRole` grants
-more than this because the test harness reuses one role for setup; production
-should not copy it.)
+**(a) `FORCE ROW LEVEL SECURITY` on its own would achieve NOTHING here.**
+`neondb_owner` — the role the app connects as, and the owner of all 107 tables
+— has `BYPASSRLS` directly, and **BYPASSRLS beats FORCE**. Setting FORCE and
+changing nothing else leaves the app seeing every tenant, while every dashboard
+says RLS is on. An earlier version of this document offered FORCE as a
+"backstop"; against a BYPASSRLS role it is not one.
 
-Then set `ADMIN_DATABASE_URL` in Railway for that environment, pointing at this
-role. Note `VITE_`-style build-arg problems do not apply — this is server-side.
+So the app MUST move to a new role that has neither BYPASSRLS nor membership in
+`neon_superuser`. That is not the belt-and-braces option, it is the only one.
+
+**(b) The admin bypass role already exists — it is `neondb_owner`.** It has
+BYPASSRLS today, which is exactly what `ADMIN_DATABASE_URL` needs. So
+`ADMIN_DATABASE_URL` is simply **the current value of `DATABASE_URL`**, and no
+new role is created for it at all.
+
+The trade-off, stated plainly: RLS-7's design wants the bypass pool read-only,
+and `neondb_owner` can obviously write. Neon does not really offer a
+"BYPASSRLS but read-only" role — `CREATE ROLE … BYPASSRLS` requires superuser,
+which `neondb_owner` is not, so the only way to confer it is
+`GRANT neon_superuser`, which also brings `pg_write_all_data`. The read-only
+property therefore rests on code containment (`adminDb.containment.test.ts`
+allows exactly one importer) rather than on database privileges. Worth knowing;
+not worth blocking on.
+
+> ⚠️ **Do not create the app role through the Neon Console, API, or CLI.**
+> `neondb_owner`, which Neon created for this project, is a member of
+> `neon_superuser` — so assume a console-created role inherits the same and
+> silently bypasses RLS. Create it with SQL, then VERIFY (§2). A role that
+> bypasses RLS looks identical to a working one until a tenant sees another
+> tenant's data.
 
 ---
 
-## 2. Choose how the app stops being the table owner
+## 2. Create the application role (per Neon branch)
 
-Postgres exempts a table's OWNER from RLS unless `FORCE` is set. Prod currently
-connects to Neon **as the owner**, so policies are defined and inert. Two ways
-to fix that, and they are not equivalent:
+Neon branches copy roles from the parent at branch time, so a role created on
+`dev` does **not** appear on `test` or `production`. Run this once per branch:
+`dev` (br-shy-rain-ahpucki7), then `test` (br-cool-tree-ah2jvrqf), then
+`production` (br-fancy-band-ahrwpxhj).
 
-**Option A — least-privilege app role (recommended).** Create a non-owner role,
-grant it DML only, repoint `DATABASE_URL`. This is exactly what the test
-harness does (`rls5_app_role`, `NOBYPASSRLS NOSUPERUSER`), so it is the shape
-124/124 tests have actually proven.
+Run it as `neondb_owner` — it has CREATEROLE and owns every table, so it can
+both create the role and grant on them.
 
 ```sql
-CREATE ROLE ezbuildr_app LOGIN PASSWORD '<generated>' NOBYPASSRLS NOSUPERUSER;
+CREATE ROLE ezbuildr_app LOGIN PASSWORD '<generate a strong one>'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+
 GRANT USAGE ON SCHEMA public TO ezbuildr_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ezbuildr_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ezbuildr_app;
+
+-- Future tables created by migrations (which keep running as neondb_owner).
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ezbuildr_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO ezbuildr_app;
 ```
 
-Migrations keep using the owner connection — they must, since the app role
-cannot run DDL. That is already true of `db:migrate`.
+Deliberately no DDL rights: migrations continue to run as `neondb_owner`, which
+is already how `db:migrate` is wired.
 
-**Option B — `FORCE ROW LEVEL SECURITY` on every covered table.** Keeps one
-role, makes the owner subject to its own policies. Simpler to roll out, but it
-also applies to anything else using that connection, including migrations and
-one-off scripts, which then need the tenant GUC or they silently see nothing.
+**Verify before going further — this is the step that catches the UI mistake:**
 
-**Do both, in this order: A first, then B.** A is the isolation; B is the
-backstop that stops a future owner-credentialled process from bypassing it.
-Doing B alone is the riskier half.
+```sql
+SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname='ezbuildr_app';
+-- MUST be: f | f
+
+SELECT g.rolname FROM pg_auth_members m
+  JOIN pg_roles r ON r.oid=m.member JOIN pg_roles g ON g.oid=m.roleid
+ WHERE r.rolname='ezbuildr_app';
+-- MUST be EMPTY. Any row here — especially neon_superuser — means it bypasses RLS.
+```
+
+Then prove it actually enforces, rather than assuming:
+
+```sql
+SET ROLE ezbuildr_app;
+SELECT count(*) FROM projects;                      -- expect 0 (no tenant GUC set)
+SELECT set_config('app.current_tenant_id', '<a real tenant uuid>', false);
+SELECT count(*) FROM projects;                      -- expect only that tenant's rows
+RESET ROLE;
+```
+
+A zero on the first count is the whole initiative working. If it returns
+everything, the role bypasses RLS and nothing below is safe to do.
 
 ---
 
-## 3. Sequence
+## 3. Sequence, per environment
 
-1. Create the bypass role (§1) in **dev**. Set `ADMIN_DATABASE_URL`.
-2. Redeploy dev (`railway redeploy` — env-var changes need it) and confirm the
-   log line `Admin DB: initialized.` appears at boot. If it does not, stop.
-3. Create the app role (§2 Option A) in dev. Repoint `DATABASE_URL`. Redeploy.
-4. Set `RLS_ENFORCED=true` in dev **in the same deploy** as the `FORCE`
-   statements if you are doing Option B, or immediately after step 3 for A.
-5. Exercise dev for a day: the admin console, a document run, an upload, a
-   DocuSign webhook if reachable. Watch for "not found" on things that exist —
-   that is what an unscoped read looks like now.
-6. Repeat 1-5 on **test**, then **production**.
+Do **dev** end to end and live on it before touching `test`, then `production`.
 
-Each Railway environment has its **own Neon database and secrets**, so every
-role must be created three times. Verify the branch → environment mapping in
-Railway's Settings → Source pane rather than assuming it.
+1. **Neon:** create and verify `ezbuildr_app` on the branch (§2).
+2. **Railway** (that environment's variables):
+   - `ADMIN_DATABASE_URL` = the **current** `DATABASE_URL` value (the
+     `neondb_owner` string). Copy it before changing anything.
+   - `DATABASE_URL` = the new `ezbuildr_app` string.
+   - `RLS_ENFORCED` = `true`.
+   Set all three, then `railway redeploy` — env-var changes do not take effect
+   without it.
+3. **Confirm at boot:** the log must contain `Admin DB: initialized.` If it
+   does not, `ADMIN_DATABASE_URL` did not take and the admin console is about
+   to show one tenant. Stop and fix before anyone uses it.
+4. **Exercise it** (§4).
+
+Use the same connection host as the existing `DATABASE_URL` — if it is a
+`-pooler` host, keep the pooler. The app's tenant GUC is set with
+`set_config(…, is_local => true)`, which is transaction-scoped and therefore
+safe under PgBouncer transaction pooling. (A session-level `SET` would not be,
+which is why CLAUDE.md forbids one. Nothing to change here — just do not
+"simplify" it later.)
 
 ---
 
 ## 4. Verification, per environment
 
-```sql
--- The app role must NOT be able to bypass.
-SELECT rolname, rolbypassrls, rolsuper FROM pg_roles
-WHERE rolname IN ('ezbuildr_app', 'ezbuildr_admin_bypass');
---   ezbuildr_app          | f | f
---   ezbuildr_admin_bypass | t | f
+Database side:
 
--- Every covered table still has its policy.
-SELECT relname, relrowsecurity, relforcerowsecurity
-FROM pg_class WHERE relname IN ('projects','users','connections','signature_requests');
+```sql
+SELECT rolname, rolsuper, rolbypassrls FROM pg_roles
+ WHERE rolname IN ('ezbuildr_app','neondb_owner');
+--  ezbuildr_app | f | f     <- the app
+--  neondb_owner | f | t     <- the admin bypass path
 ```
 
-And the real check, from the app: log in as a user in tenant A and confirm you
-cannot see tenant B's projects — then confirm the admin console still lists
-**all** tenants. The second half is the one that fails quietly.
+Application side — both halves matter, and the second is the one that fails
+quietly:
+
+- Sign in as a user in tenant A: you must **not** see tenant B's projects.
+- Open the admin console: it must still list **all** tenants. A short but
+  plausible list here means `ADMIN_DATABASE_URL` is not in effect.
+- Run one interview end to end, upload a template, and generate a document.
+  Those exercise the multipart, run-token and background paths that this
+  initiative found the most bugs in.
+
+Watch the logs for `not found` on things that plainly exist — under
+enforcement that is what an unscoped read looks like, and it is the signature
+of anything still missed.
 
 ---
 
 ## 5. Rollback
 
-Fast and total: set `RLS_ENFORCED=false` and repoint `DATABASE_URL` back to the
-owner role, then redeploy. Owner + no FORCE = policies inert, exactly as today.
-If Option B was applied, also `ALTER TABLE … NO FORCE ROW LEVEL SECURITY`.
+Fast and total: repoint `DATABASE_URL` back to the `neondb_owner` string you
+copied in §3, set `RLS_ENFORCED=false`, redeploy. `neondb_owner` has BYPASSRLS,
+so every policy goes inert immediately — exactly today's behaviour. Nothing is
+dropped and no data moves, so the rollback is a variable change and a redeploy,
+not a migration.
 
 No migration needs reverting. Every policy added in 0026-0036 is inert while
 the connection is the owner and FORCE is off, which is why they have been safe
