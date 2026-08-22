@@ -15,6 +15,7 @@ import multer from "multer";
 import { z } from "zod";
 
 import type { Express, Request, Response, NextFunction } from "express";
+import { rlsContext } from "../middleware/rlsContext";
 
 const logger = createLogger({ module: "portability-routes" });
 
@@ -258,7 +259,7 @@ export function registerPortabilityRoutes(app: Express): void {
   // Import is a two-step interaction: preview tells the user what a bundle will
   // do, apply performs it. Middleware order matches the export routes above —
   // `hybridAuth` first so anonymous 401s cannot burn the per-IP rate budget.
-  app.post('/api/portability/import/preview', hybridAuth, strictLimiter, uploadBundle,
+  app.post('/api/portability/import/preview', hybridAuth, strictLimiter, uploadBundle, rlsContext,
     asyncHandler(async (req: Request, res: Response) => {
       const filePath = req.file?.path;
       try {
@@ -303,7 +304,7 @@ export function registerPortabilityRoutes(app: Express): void {
       }
     }));
 
-  app.post('/api/portability/import/apply', hybridAuth, strictLimiter, uploadBundle,
+  app.post('/api/portability/import/apply', hybridAuth, strictLimiter, uploadBundle, rlsContext,
     asyncHandler(async (req: Request, res: Response) => {
       const filePath = req.file?.path;
       try {

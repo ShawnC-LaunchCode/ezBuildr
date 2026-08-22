@@ -15,6 +15,7 @@ import {
   redactDeliveryConfig,
 } from '../../../utils/documentDeliverySecrets';
 import { storageProvider } from '../../storage';
+import { withCurrentTenant } from '../../../utils/rlsContext';
 import { workflowTenantResolver } from '../../WorkflowTenantResolver';
 import { runDataService } from '../../workflow-runs/RunDataService';
 
@@ -365,13 +366,31 @@ export class DocumentDeliveryService {
     return run;
   }
 
+  /**
+   * RLS-5: the three tenant-facing methods below open a scoped transaction and
+   * thread it down. `run_document_deliveries` is RLS-covered, and
+   * `verifyRunTenantOwnership` additionally reads `workflows` (also covered,
+   * ownership-derived) — so unscoped, the listing came back EMPTY for the very
+   * tenant that owns the rows, and the ownership check saw no workflow. Reached
+   * from `documentDelivery.routes`, which mounts `hybridAuth`, so the ambient
+   * tenant is always populated here.
+   *
+   * The worker paths (`processPendingDeliveries`, `claimBatch`, the `mark*`
+   * calls) are deliberately NOT converted here: they run with no request and no
+   * tenant, and belong to the background-job class that `forEachTenant` covers.
+   * Converting them piecemeal would give them an ambient tenant that happens to
+   * be whoever triggered the worker.
+   */
   async listDeliveriesForRun(runId: string, tenantId: string): Promise<RunDocumentDelivery[]> {
-    await this.verifyRunTenantOwnership(runId, tenantId);
-    return this.deliveryRepo.findByRunIdAndTenantId(runId, tenantId);
+    return withCurrentTenant(async (tx) => {
+      await this.verifyRunTenantOwnership(runId, tenantId, tx);
+      return this.deliveryRepo.findByRunIdAndTenantId(runId, tenantId, tx);
+    });
   }
 
   async getDeliveryForTenant(deliveryId: string, tenantId: string): Promise<RunDocumentDelivery> {
-    const delivery = await this.deliveryRepo.findByIdAndTenantId(deliveryId, tenantId);
+    const delivery = await withCurrentTenant((tx) =>
+      this.deliveryRepo.findByIdAndTenantId(deliveryId, tenantId, tx));
     if (!delivery) {
       throw new Error('Document delivery not found');
     }
@@ -386,7 +405,8 @@ export class DocumentDeliveryService {
         statusCode: 400,
       });
     }
-    const updated = await this.deliveryRepo.resetForRetry(deliveryId, tenantId);
+    const updated = await withCurrentTenant((tx) =>
+      this.deliveryRepo.resetForRetry(deliveryId, tenantId, tx));
     if (!updated) {
       throw new Error('Document delivery not found');
     }

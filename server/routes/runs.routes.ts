@@ -50,6 +50,7 @@ const RunHandoffBodySchema = z.object({
 );
 
 import type { Express, NextFunction, Request, Response } from "express";
+import { rlsContext } from "../middleware/rlsContext";
 const logger = createLogger({ module: "runs-routes" });
 
 // Common error messages
@@ -312,6 +313,11 @@ export function registerRunRoutes(app: Express): void {
     optionalHybridAuth,
     creatorOrRunTokenAuth,
     acceptRunFileUpload,
+  // RLS-5: re-open the tenant async context after multer. Multer resumes the
+  // chain from a stream callback, outside the store the app-level `rlsContext`
+  // opened, so every `withCurrentTenant` downstream runs unscoped. See the
+  // full explanation on the templates upload route.
+    rlsContext,
     asyncHandler(async (req: Request, res: Response): Promise<void> => {
       const files = (req.files as Express.Multer.File[] | undefined) ?? [];
       try {

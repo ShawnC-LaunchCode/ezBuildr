@@ -26,6 +26,7 @@ import { aclService } from '../services/AclService';
 import { createError } from '../utils/errors';
 import type { AuthRequest } from '../middleware/auth';
 import { withCurrentTenant } from "../utils/rlsContext";
+import { rlsContext } from "../middleware/rlsContext";
 
 const ACCESS_DENIED_ERROR = 'Access denied to project';
 const router = express.Router();
@@ -208,6 +209,11 @@ const upload = multer({
 router.post(
   '/:templateId/analyze-update',
   upload.single('file'),
+  // RLS-5: re-open the tenant async context after multer. Multer resumes the
+  // chain from a stream callback, outside the store the app-level `rlsContext`
+  // opened, so every `withCurrentTenant` downstream runs unscoped. See the
+  // full explanation on the templates upload route.
+  rlsContext,
   asyncHandler(async (req, res) => {
     const { templateId } = req.params;
     const projectId = requireProjectId(req);
