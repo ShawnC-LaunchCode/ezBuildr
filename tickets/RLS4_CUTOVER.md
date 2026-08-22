@@ -154,6 +154,23 @@ everything, the role bypasses RLS and nothing below is safe to do.
 
 ## 3. Sequence, per environment
 
+> ✅ **`dev` IS CUT OVER — enforcement is live there as of 2026-08-22 21:19 UTC.**
+>
+> | | |
+> |---|---|
+> | `DATABASE_URL` | `ezbuildr_app` (NOBYPASSRLS) |
+> | `ADMIN_DATABASE_URL` | `neondb_owner` (BYPASSRLS) |
+> | `MIGRATION_DATABASE_URL` | `neondb_owner` |
+> | `RLS_ENFORCED` | `true` |
+> | boot log | `Admin DB: initialized.` ✅ |
+> | `/health` | healthy, `database.connected: true` |
+> | live connections | `ezbuildr_app` ×4 (app), `neondb_owner` ×5 (admin + migrations) |
+>
+> It took **two** deploys. The first FAILED on
+> `CREATE SCHEMA IF NOT EXISTS "drizzle"` — see §3 step 2 on
+> `MIGRATION_DATABASE_URL`. `test` and `production` are untouched.
+
+
 Do **dev** end to end and live on it before touching `test`, then `production`.
 
 1. **Neon:** create and verify `ezbuildr_app` on the branch (§2).
