@@ -85,6 +85,25 @@ describe('GH-168: real Gotenberg layout fidelity', () => {
     await new ApiStrategy(CONVERTER_URL).convert({ docxPath, outputPath: pdfPath });
 
     const bytes = await fs.readFile(pdfPath);
+
+    // Validate the container BEFORE parsing. `pdfParse` throws
+    // "UnknownErrorException: bad XRef entry" with a stack made entirely of
+    // pdf.js module-init frames, which says nothing about what Gotenberg
+    // actually returned — and this test fails in CI while passing locally, so
+    // the failure message is the only evidence available. Assert the magic
+    // bytes first and put the size and a readable head/tail in the message.
+    const head = bytes.subarray(0, 8).toString('latin1');
+    const tail = bytes.subarray(-24).toString('latin1');
+    expect(
+      head.startsWith('%PDF-'),
+      `Gotenberg did not return a PDF: ${bytes.length} bytes, head=${JSON.stringify(head)}, ` +
+      `tail=${JSON.stringify(tail)}`
+    ).toBe(true);
+    expect(
+      tail.includes('%%EOF'),
+      `PDF looks truncated: ${bytes.length} bytes, tail=${JSON.stringify(tail)}`
+    ).toBe(true);
+
     const pageTexts: string[] = [];
     const parsed = await pdfParse(bytes, {
       pagerender: async (page) => {
@@ -97,7 +116,6 @@ describe('GH-168: real Gotenberg layout fidelity', () => {
     const pdfDocument = await PDFDocument.load(bytes);
     const fontNames = embeddedFontNames(pdfDocument);
 
-    expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
     expect(parsed.numpages).toBe(2);
     expect(pdfDocument.getPageCount()).toBe(2);
     expect(pageTexts).toHaveLength(2);
