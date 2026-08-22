@@ -23,6 +23,9 @@ import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/in
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe('Portability round trip — logic rules (LU-6c)', () => {
   let ctx: IntegrationTestContext;
@@ -36,6 +39,8 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
   });
 
   it("preserves a rule's `when` ConditionExpression and remaps conditionStepId/targetStepId across export/import", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     if (ctx.projectId === undefined) {
       throw new Error('Integration test project was not created');
     }

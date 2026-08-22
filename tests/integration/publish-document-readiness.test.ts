@@ -29,6 +29,9 @@ import { workflowLintService } from "../../server/services/WorkflowLintService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 const MISSING_TEMPLATE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
@@ -132,11 +135,15 @@ describe("GH-152 publish is gated on document readiness", () => {
   });
 
   it("refuses to publish when a final document references a template that does not exist", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(workflowId, userId))
       .rejects.toThrow(/Cannot publish workflow:.*references a template that does not exist/i);
   });
 
   it("surfaces the refusal as a 400 and creates no version", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(workflowId, userId))
       .rejects.toMatchObject({ statusCode: 400 });
 
@@ -150,6 +157,8 @@ describe("GH-152 publish is gated on document readiness", () => {
   });
 
   it("shows the builder's Review tab the same document finding the publish gate blocks on", async () => {
+
+    enterTenantContextForTests(tenantId);
     // Regression guard for the Review/publish split: `WorkflowLintService.lint`
     // used to run only `lintWorkflowContent`, which never looks at documents, so
     // the Review tab reported this workflow clean and publishing then failed on
@@ -178,6 +187,8 @@ describe("GH-152 publish is gated on document readiness", () => {
   });
 
   it("publishes the same workflow once the document points at a real template", async () => {
+
+    enterTenantContextForTests(tenantId);
     // The only change is the template id — proving the gate resolves against the
     // project's actual templates rather than rejecting final blocks wholesale.
     await getOwnerDb().update(steps).set({
@@ -198,6 +209,8 @@ describe("GH-152 publish is gated on document readiness", () => {
   });
 
   it("refuses a template belonging to a different project", async () => {
+
+    enterTenantContextForTests(tenantId);
     // Tenancy/scoping guard: an id that exists but not in this workflow's project
     // must be treated as missing, exactly as findByIdAndProjectId would at run time.
     const [otherProject] = await getOwnerDb().insert(projects).values({

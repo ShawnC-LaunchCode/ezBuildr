@@ -19,6 +19,9 @@ import { runRuntimeService } from "../../server/services/workflow-runs/RunRuntim
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("RUN2-7 publish is gated on lint", () => {
   let tenantId: string;
@@ -114,6 +117,8 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("refuses to publish a workflow with lint errors, and creates no version", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(invalidWorkflowId, userId))
       .rejects.toThrow(/Cannot publish workflow:.*at least one question/i);
 
@@ -127,11 +132,15 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("surfaces the failure as a 400, not a 500", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(invalidWorkflowId, userId))
       .rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("force: true publishes anyway and records the overridden lint errors", async () => {
+
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(invalidWorkflowId, userId, "forced past lint", true);
     expect(version.published).toBe(true);
 
@@ -148,6 +157,8 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("publishes a lint-clean workflow normally", async () => {
+
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(validWorkflowId, userId, "clean");
     expect(version.published).toBe(true);
 
@@ -157,6 +168,8 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("guarantees a workflow that passes the gate also loads at run time (RUN2-9 AC3)", async () => {
+
+    enterTenantContextForTests(tenantId);
     // The structural gate requires UUID ids specifically so that anything it
     // admits parses against RunRuntimeService's VersionRuntimeSchema. Prove the
     // loop closes: publish -> start a run -> load the pinned runtime.
@@ -172,6 +185,8 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("checks authorization before doing any serialization work", async () => {
+
+    enterTenantContextForTests(tenantId);
     const serializeSpy = vi.spyOn(VersionService.prototype, "serializeWorkflow");
     try {
       await expect(versionService.publishVersion(validWorkflowId, outsiderId))

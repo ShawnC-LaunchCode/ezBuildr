@@ -9,6 +9,9 @@ import { versionService } from "../../server/services/VersionService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 describe("Workflow Versioning & Lineage", () => {
     let tenantId: string;
     let projectId: string;
@@ -93,6 +96,7 @@ describe("Workflow Versioning & Lineage", () => {
         expect(diff.removed.length).toBe(0);
     });
     it("should create a version from relational tables and populate changelog", async () => {
+      enterTenantContextForTests(tenantId);
         const [section] = await getOwnerDb().insert(sections).values({
             workflowId, title: "Page 1", order: 0
         }).returning();
@@ -125,6 +129,7 @@ describe("Workflow Versioning & Lineage", () => {
         expect(changelog.added[0].id).toBe(step2.id);
     });
     it("should track execution lineage via snapshot", async () => {
+      enterTenantContextForTests(tenantId);
         // Use v2 from previous test (it is the current version)
         // Create Snapshot
         const snapshot = await snapshotService.createSnapshot(workflowId, "Test Snapshot", (await versionService.listVersions(workflowId))[0].id);

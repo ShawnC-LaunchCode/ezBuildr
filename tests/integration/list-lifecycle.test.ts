@@ -20,6 +20,9 @@ import { TestFactory } from '../helpers/testFactory';
 // RLS-5: fixture writes and verification reads are the OBSERVER, not the
 // application under test — see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 
@@ -116,6 +119,8 @@ describe.sequential('LIST2-9: list lifecycle', () => {
   });
 
   it('creates, saves, validates, completes, and renders a nested list through the real APIs', { timeout: 30_000 }, async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     const workflowResponse = await agent
       .post('/api/workflows')
       .send({ title: 'List lifecycle workflow', projectId: ctx.projectId });

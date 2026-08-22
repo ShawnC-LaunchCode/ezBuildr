@@ -26,6 +26,9 @@ import { versionService } from "../../server/services/VersionService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("RVP-6 pin every new run at creation (Option B)", () => {
   let tenantId: string;
@@ -102,6 +105,8 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   }
 
   it("AC1: pins an authenticated creator's run to a newly created draft version when the workflow has none", async () => {
+
+    enterTenantContextForTests(tenantId);
     const workflow = await makeVersionlessWorkflow();
     try {
       const run = await runService.createRun(workflow.id, userId, {});
@@ -120,6 +125,8 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   });
 
   it("AC2: reuses the latest existing version on a second unchanged run instead of creating another one", async () => {
+
+    enterTenantContextForTests(tenantId);
     const workflow = await makeVersionlessWorkflow();
     try {
       const firstRun = await runService.createRun(workflow.id, userId, {});
@@ -141,6 +148,8 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   });
 
   it("AC3: does not create a version when the workflow already resolves a published version", async () => {
+
+    enterTenantContextForTests(tenantId);
     const workflow = await makeVersionlessWorkflow();
     try {
       const published = await versionService.publishVersion(workflow.id, userId, "rvp6 publish");
@@ -160,6 +169,8 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   });
 
   it("AC4: still refuses an anonymous run on a workflow with no published version, and creates no version", async () => {
+
+    enterTenantContextForTests(tenantId);
     // Must be active + public: that's the only way RunAuthResolver.verifyCreateAccess
     // lets an anonymous (userId undefined) caller past the workflow lookup and
     // down into the version check this test is targeting.

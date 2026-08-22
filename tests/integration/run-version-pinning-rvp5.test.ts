@@ -50,6 +50,9 @@ import { versionService } from "../../server/services/VersionService";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () => {
   let tenantId: string;
@@ -190,6 +193,8 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   it(
     "survives a deleted question, a mid-run required question, a deleted section, and an edited logic rule -- and completes",
     async () => {
+
+    enterTenantContextForTests(tenantId);
       const {
         workflowId, section1, section2, section3,
         stepName, stepToDelete, stepWantsExtra, stepExtraDetail, stepDetail1, stepFinal1,
