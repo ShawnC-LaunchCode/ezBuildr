@@ -100,7 +100,7 @@ export class ReviewTaskService {
       }
 
       // Verify user has at least view access to the project (Dec 2025 - Security fix)
-      const hasAccess = await this.aclService.hasProjectRole(userId, task.projectId, 'view');
+      const hasAccess = await this.aclService.hasProjectRole(userId, task.projectId, 'view', scopedTx);
       if (!hasAccess) {
         throw createError.forbidden("Access denied - insufficient permissions for this project");
       }
@@ -128,7 +128,7 @@ export class ReviewTaskService {
       }
 
       // Verify user has at least view access to the project (Dec 2025 - Security fix)
-      const hasAccess = await this.aclService.hasProjectRole(userId, projectId, 'view');
+      const hasAccess = await this.aclService.hasProjectRole(userId, projectId, 'view', scopedTx);
       if (!hasAccess) {
         throw createError.forbidden("Access denied - insufficient permissions for this project");
       }

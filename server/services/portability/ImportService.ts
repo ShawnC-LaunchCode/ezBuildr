@@ -581,7 +581,7 @@ export class ImportService {
       withCurrentTenant((tx) => projectRepository.findById(targetProjectId, tx)));
     if (project === undefined) { throw new Error('Target project not found'); }
 
-    const hasProjectEdit = await aclService.hasProjectRole(userId, targetProjectId, 'edit');
+    const hasProjectEdit = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, targetProjectId, 'edit', aclTx));
     if (!hasProjectEdit) { throw new Error('Access denied - insufficient permissions for target project'); }
 
     if (project.ownerType === 'org' && project.ownerUuid !== null && !(await canManageOrg(userId, project.ownerUuid))) {
@@ -963,7 +963,7 @@ export class ImportService {
       const project = await withTenant(targetOwner.tenantId, (tx) =>
         projectRepository.findById(projectId, tx));
       const sameTenant = project !== undefined && project.tenantId === targetOwner.tenantId;
-      const canEdit = sameTenant && await aclService.hasProjectRole(userId, projectId, 'edit');
+      const canEdit = sameTenant && await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'edit', aclTx));
       if (!canEdit) {
         adjustments.push(
           `Imported workflow was left without a project: the bundle referenced project ${projectId}, ` +

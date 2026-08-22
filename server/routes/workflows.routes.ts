@@ -22,6 +22,7 @@ import { workflowService } from "../services/WorkflowService";
 import { workflowLintService } from "../services/WorkflowLintService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 
 
@@ -660,7 +661,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const { workflowId } = req.params;
       const [access, currentUserRole] = await Promise.all([
         workflowService.getWorkflowAccess(workflowId, userId),
-        aclService.resolveRoleForWorkflow(userId, workflowId),
+        withCurrentTenant((aclTx) => aclService.resolveRoleForWorkflow(userId, workflowId, aclTx)),
       ]);
       res.json({ success: true, data: access, currentUserRole });
     } catch (error) {

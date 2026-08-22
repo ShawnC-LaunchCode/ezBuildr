@@ -17,6 +17,7 @@ import { createLogger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { aclService } from '../services/AclService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Express, Request, Response } from 'express';
 const logger = createLogger({ module: 'documents-routes' });
@@ -57,7 +58,7 @@ export function registerDocumentRoutes(app: Express): void {
       // If projectId is specified, verify user has access to that project
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- checking for truthy string
       if (projectId && typeof projectId === 'string') {
-        const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+        const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'view', aclTx));
         if (!hasAccess) {
           logger.warn({ userId, projectId }, 'User denied access to project documents');
           res.status(403).json({ message: 'Forbidden - insufficient permissions for this project' });
@@ -126,7 +127,7 @@ export function registerDocumentRoutes(app: Express): void {
       }
       // Check ACL based on document's project
       if (document.projectId) {
-        const hasAccess = await aclService.hasProjectRole(userId, document.projectId, 'view');
+        const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, document.projectId, 'view', aclTx));
         if (!hasAccess) {
           logger.warn({ userId, projectId: document.projectId, documentId: id }, 'User denied access to document');
           res.status(403).json({ message: 'Forbidden - insufficient permissions for this document' });

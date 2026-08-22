@@ -18,6 +18,7 @@ import { aclService } from '../services/AclService';
 import { workflowService } from '../services/WorkflowService';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Express } from 'express';
 
@@ -142,7 +143,7 @@ workflowVersionTemplatesRouter.post(
     // project the template lives in — otherwise a caller who knows another
     // tenant's templateId + projectId could attach that template to their own
     // workflow (cross-tenant template disclosure at document generation).
-    const hasProjectAccess = await aclService.hasProjectRole(userId, body.projectId, 'view');
+    const hasProjectAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, body.projectId, 'view', aclTx));
     if (!hasProjectAccess) {
       throw createError.notFound('Template');
     }

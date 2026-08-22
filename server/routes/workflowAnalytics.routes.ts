@@ -107,7 +107,7 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -206,7 +206,7 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -264,7 +264,7 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -315,7 +315,7 @@ router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
     if (body.workflowId) {
       await workflowService.verifyAccess(body.workflowId, userId, 'edit');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, body.projectId, 'edit');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, body.projectId, 'edit', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -377,7 +377,7 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
       if (existingConfig.workflowId) {
         await workflowService.verifyAccess(existingConfig.workflowId, userId, 'edit');
       } else if (existingConfig.projectId) {
-        const hasAccess = await aclService.hasProjectRole(userId, existingConfig.projectId, 'edit');
+        const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, existingConfig.projectId, 'edit', aclTx));
         if (!hasAccess) {
           return res.status(403).json({ error: ACCESS_DENIED_ERROR });
         }

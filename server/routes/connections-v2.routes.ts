@@ -18,6 +18,7 @@ import {
   cleanupOAuth2State,
 } from '../services/oauth2';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 
 import type { Express, Request, Response } from 'express';
@@ -303,7 +304,7 @@ export function registerConnectionsV2Routes(app: Express): void {
       // SECURITY: projectId arrives via query string here, so requireProjectRole (which reads
       // route params) cannot guard this route. Enforce project access manually.
       const userId = (req as { userId?: string }).userId;
-      if (!userId || !(await aclService.hasProjectRole(userId, projectId, 'edit'))) {
+      if (!userId || !(await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'edit', aclTx)))) {
         res.status(403).json({ error: 'Forbidden - edit access to this project is required' });
         return;
       }

@@ -16,6 +16,7 @@ import type { CursorPosition } from "../utils/pagination";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { UserRequest } from '../middleware/requireUser';
+import { withCurrentTenant } from "../utils/rlsContext";
 import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
@@ -355,7 +356,7 @@ export function registerProjectRoutes(app: Express): void {
 
       const [access, currentUserRole] = await Promise.all([
         projectService.getProjectAccess(projectId, user.id),
-        aclService.resolveRoleForProject(user.id, projectId),
+        withCurrentTenant((aclTx) => aclService.resolveRoleForProject(user.id, projectId, aclTx)),
       ]);
       res.json({ success: true, data: access, currentUserRole });
     } catch (error) {

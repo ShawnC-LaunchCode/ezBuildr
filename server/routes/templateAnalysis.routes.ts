@@ -25,6 +25,7 @@ import {
 import { aclService } from '../services/AclService';
 import { createError } from '../utils/errors';
 import type { AuthRequest } from '../middleware/auth';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 const ACCESS_DENIED_ERROR = 'Access denied to project';
 const router = express.Router();
@@ -66,7 +67,7 @@ router.get(
     const projectId = requireProjectId(req);
 
     const userId = requireAuthenticatedUserId(req);
-    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'view', aclTx));
     if (!hasAccess) {
       throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
@@ -101,7 +102,7 @@ router.post(
     const projectId = requireProjectId(req);
 
     const userId = requireAuthenticatedUserId(req);
-    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'view', aclTx));
     if (!hasAccess) {
       throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
@@ -133,7 +134,7 @@ router.post(
     const projectId = requireProjectId(req);
 
     const userId = requireAuthenticatedUserId(req);
-    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'view', aclTx));
     if (!hasAccess) {
       throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
@@ -167,7 +168,7 @@ router.post(
     const projectId = requireProjectId(req);
 
     const userId = requireAuthenticatedUserId(req);
-    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'view', aclTx));
     if (!hasAccess) {
       throw createError.forbidden(ACCESS_DENIED_ERROR);
     }
@@ -212,7 +213,7 @@ router.post(
     const projectId = requireProjectId(req);
 
     const userId = requireAuthenticatedUserId(req);
-    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'edit');
+    const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'edit', aclTx));
     if (!hasAccess) {
       if (req.file) {await fs.unlink(req.file.path).catch(() => {});}
       throw createError.forbidden(ACCESS_DENIED_ERROR);
