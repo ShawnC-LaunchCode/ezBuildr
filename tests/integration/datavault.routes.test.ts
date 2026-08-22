@@ -11,7 +11,7 @@ import { datavaultRowsRepository } from '../../server/repositories/DatavaultRows
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
-import { runWithTenantContext } from '../../server/utils/rlsContext';
+import { runWithTenantContext, withTenant } from '../../server/utils/rlsContext';
 import {
   createTestUser,
   setupIntegrationTest,
@@ -509,7 +509,8 @@ describe('DataVault unique row constraints', () => {
     expect(secondResponse.status).toBe(201);
 
     await expect(
-      datavaultRowsRepository.checkColumnHasDuplicates(uniqueColumnId)
+      withTenant(ctx.tenantId, (tx) =>
+        datavaultRowsRepository.checkColumnHasDuplicates(uniqueColumnId, tx))
     ).resolves.toBe(false);
   });
 });
@@ -957,7 +958,11 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
   });
 
   it('AC2: countRows (via countByTableId) reports 3 for the same fixture', async () => {
-    const repoCount = await datavaultRowsRepository.countByTableId(tableId);
+    // Repository calls carry no scoping of their own — that lives at the
+    // service boundary — so a bare call runs with no tenant and counts 0 under
+    // a non-owner role. Open the transaction the service would have opened.
+    const repoCount = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, false, tx));
     expect(repoCount).toBe(3);
 
     const serviceCount = await runWithTenantContext(ctx.tenantId, () =>
@@ -966,10 +971,12 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
   });
 
   it('AC3: passing showArchived: true reports 5, so archived view has correct total', async () => {
-    const repoCountArchivedObj = await datavaultRowsRepository.countByTableId(tableId, { showArchived: true });
+    const repoCountArchivedObj = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, { showArchived: true }, tx));
     expect(repoCountArchivedObj).toBe(5);
 
-    const repoCountArchivedBool = await datavaultRowsRepository.countByTableId(tableId, true);
+    const repoCountArchivedBool = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, true, tx));
     expect(repoCountArchivedBool).toBe(5);
 
     const resArchived = await request(ctx.baseURL)
@@ -1862,7 +1869,7 @@ describe('DataVault blank value coercion (DVH-1)', () => {
     // Belt-and-braces: assert directly on the jsonb type in SQL, not just what
     // drizzle deserializes JS-side, so a stored '""' or JSON 'null' literal
     // (which would also deserialize oddly) can't hide behind the ORM mapping.
-    const raw = await db.execute<{ is_sql_null: boolean; jsonb_type: string | null }>(sql`
+    const raw = await getOwnerDb().execute<{ is_sql_null: boolean; jsonb_type: string | null }>(sql`
       SELECT (value IS NULL) AS is_sql_null, jsonb_typeof(value) AS jsonb_type
       FROM datavault_values
       WHERE row_id = ${rowId}::uuid AND column_id = ${uniqueColumnId}::uuid
