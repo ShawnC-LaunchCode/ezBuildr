@@ -1,7 +1,19 @@
 # RLS Phase 2 — state, patterns and traps
 
-**Updated 2026-08-21 (second session).** Assumes no prior context. Everything
+**Updated 2026-08-22 (third session).** Assumes no prior context. Everything
 described here is **committed** on `dev`.
+
+**What changed in the third session, in one paragraph.** The restricted run went
+from 54 passing files to **102 of 124**. The static audit gained a seventh
+detector and the worklist went 35 → 70 → 31 — it went *up* first because
+`DB_CALL` only matched `db.select(` on ONE line, so the ordinary
+`await db
+  .select()` form was invisible and had been all along. RLS-7 is
+built (admin console; read-only bypass, tenant-pinned writes). Background jobs
+now iterate tenants (`server/utils/forEachTenant.ts`). The 403-vs-404 question
+below has a **decision**, marked reversible. And there is now a **gate**:
+`npm run test:rls-gate` / `.github/workflows/rls-gate.yml`, which is what keeps
+all of the above from silently rotting — read §7 before touching the allowlist.
 
 - **Plan and estimates:** [`RLS_COMPLETION_PLAN.md`](RLS_COMPLETION_PLAN.md) —
   phased scope against the ~2026-10-21 client-data date. Read that for *what to
@@ -147,12 +159,12 @@ predicates, as it always was.
 **Do not set `FORCE` yet.** Measured, not predicted — `RLS_RESTRICTED=true npm
 run test:integration`, which is exactly what RLS-4 creates:
 
-| | 2026-08-20 start | 2026-08-20 end | **2026-08-21 end** |
-|---|---|---|---|
-| Files | 98 failed / 26 passed | 85 failed / 39 passed | **70 failed / 54 passed** |
-| Tests passed | 423 | 770 | **869** |
-| Tests skipped (suite died in setup) | 463 | 113 | **97** |
-| Raw "violates row-level security" hits | 100 | 20 | **22** (8 production / 14 fixtures) |
+| | 08-20 start | 08-20 end | 08-21 end | **08-22 end** |
+|---|---|---|---|---|
+| Files | 98 failed / 26 passed | 85 failed / 39 passed | 70 failed / 54 passed | **22 failed / 102 passed** |
+| Tests passed | 423 | 770 | 869 | **see pass 12** |
+| Tests skipped (suite died in setup) | 463 | 113 | 97 | **0** |
+| Raw "violates row-level security" hits | 100 | 20 | 22 | **~0 production** |
 
 ⚠️ **The 2026-08-20 numbers are not directly comparable to these.** Until the
 schema-fingerprint fix (§4), 11 of 124 worker schemas were silently running
@@ -174,8 +186,20 @@ proceeds to a write. Attributed by caller (the grep in §4):
   **correct** — those suites exist to observe what a restricted role cannot
   do. The real fixture remainder is ~10.
 
-Judge progress by **passed** (770 → 869) and by the production-attributable
-violation count, never by the raw grep.
+Judge progress by **passed** (770 → 869 → 102 files) and by the
+production-attributable violation count, never by the raw grep.
+
+**Update 2026-08-22.** The 8 production violations above are closed. The
+characterisation in that bullet was wrong and is worth correcting rather than
+deleting, because the wrong reading cost time: they were NOT "a write that is
+scoped and still fails WITH CHECK". `withCurrentTenant` **degrades to an
+unscoped `db.transaction`** when there is no ambient tenant and `RLS_ENFORCED`
+is false, so those writes were never scoped in the first place. It was recipe
+step 3 again, wearing a more interesting costume.
+
+The failure mode that replaced it is bigger and is described in §2: services
+that reach the pool through a **field alias** (`this.repo`, `this.database`)
+rather than `db.`, which the static audit cannot see at all.
 
 **The dominant remaining failure is still the QUIET mode** — a SELECT filtered
 to zero rows, surfacing as "Access denied - insufficient permissions" or "not
@@ -471,3 +495,43 @@ table list against the migrations.
 
 When a fix here looks done, run it once more and see whether a *different* error
 appears where the old one was. That is usually not noise; it is the next layer.
+
+---
+
+## 7. The gate (RLS-5) — and why the allowlist can only shrink
+
+`npm run test:rls-gate` runs the integration suite as a non-owner role and
+compares the failing files to `.rls-allowlist.json`.
+`.github/workflows/rls-gate.yml` runs it on `dev`, `test` and `main`.
+
+It exists because **nothing else holds the 102 passing files in place.** RLS
+regressions are not loud: a read that loses its tenant scope comes back EMPTY,
+so the regression presents as a feature returning no data, not as a stack
+trace. Without a gate, every fix in this initiative is one careless commit from
+reverting invisibly.
+
+**The ratchet runs both ways, and the second direction is the whole point:**
+
+| Condition | Result |
+|---|---|
+| A file fails and is **not** allowlisted | ❌ build fails — no new breakage lands |
+| A file is allowlisted and **passes** | ❌ build fails — *delete the entry* |
+| An allowlisted file did not run at all | ❌ build fails — the list names a ghost |
+| Results file missing or empty | ❌ build fails — a crashed run is not a pass |
+
+Direction two is not pedantry. An allowlist that only ever grows stops
+describing reality, and this repo has been burned repeatedly by checks that
+were green while proving nothing — a guard matching its own commented-out
+target, a test leaning on a role that outlived its migration, a suite whose
+mock asserted its own fixture. A gate is trusted; that is exactly what makes a
+rotted one expensive.
+
+**Every entry needs a `reason`.** The script refuses to run without one. An
+unexplained entry added "just to make the build green" is how a temporary
+exception becomes permanent, and the next reader has no way to tell the two
+apart.
+
+**Do not add an entry to unblock yourself.** If a file starts failing, that is
+the gate doing its job — the fix is the scoping, not the list. The list is for
+the known tail that predates the gate, and for genuine, understood, written-down
+exceptions.

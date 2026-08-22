@@ -1,0 +1,90 @@
+name: RLS Enforcement Gate
+
+# RLS-5. Runs the integration suite against a genuine NON-OWNER Postgres role,
+# which is the only way to find out whether tenant isolation actually holds.
+#
+# This is a SEPARATE workflow rather than another step in ci.yml's test job on
+# purpose. The two runs answer different questions — "do the tests pass?" and
+# "do they still pass when the app cannot see other tenants' rows?" — and a red
+# RLS gate needs to be legible as its own thing rather than one more failure
+# inside a job that was already red for an unrelated reason.
+#
+# Same branch coverage as ci.yml: the whole promotion chain, not just main.
+# Gating main alone means a break sits undetected on dev and test and only
+# announces itself on the branch that deploys.
+on:
+  push:
+    branches: [ "main", "test", "dev" ]
+  pull_request:
+    branches: [ "main", "test" ]
+
+jobs:
+  rls-gate:
+    name: RLS Enforcement Gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespw
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      # The integration suite reaches document generation on run completion, so
+      # without this several unrelated suites fail with a bare
+      # "expected 500 to be 200" and look like code defects. See the run-tests
+      # skill — this cost real time once already.
+      gotenberg:
+        image: gotenberg/gotenberg:8
+        ports:
+          - 3009:3000
+        options: >-
+          --health-cmd "curl --fail http://localhost:3000/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install system dependencies (qpdf)
+      run: sudo apt-get update && sudo apt-get install -y qpdf
+
+    - name: Use Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    # tests/setup.ts builds its own per-worker schema and replays the migration
+    # chain itself, including the RLS policies and the restricted/bypass roles.
+    # No separate db:migrate step is needed or wanted here — the point is to
+    # exercise exactly the path the local restricted run uses.
+    - name: Run the RLS gate
+      run: npx tsx scripts/rls-gate.ts
+      env:
+        NODE_ENV: test
+        DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        TEST_DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        PDF_CONVERTER_API_URL: "http://localhost:3009"
+        SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"
+        JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
+        VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: rls-gate-results
+        path: rls-gate-results.json
+        if-no-files-found: warn

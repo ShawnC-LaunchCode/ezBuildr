@@ -67,3 +67,6 @@ tools/skill-trigger-eval/results/
 
 # Playwright MCP output (snapshots, console logs, screenshots) — see the verify skill
 .playwright-mcp/
+
+# RLS-5 gate output (scripts/rls-gate.ts) — a run artifact, never committed.
+rls-gate-results.json
