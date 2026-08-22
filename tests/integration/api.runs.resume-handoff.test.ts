@@ -16,6 +16,7 @@ import { TestFactory } from '../helpers/testFactory';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 describe.sequential('GH-147 save, resume, and staff handoff', () => {
   let ctx: IntegrationTestContext;
@@ -225,11 +226,16 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ clientEmail: 'forwarded@example.com', expiryMinutes: 60 })
       .expect(403);
 
-    await request(ctx.baseURL)
+    // Cross-tenant assignee: refused either way. Under RLS the other tenant's
+    // user is invisible, so this is "not found" rather than "outside this
+    // tenant" — the contract decision in RLS_HANDOFF.md §0b. The 403 asserted
+    // just above is a DIFFERENT case (an in-tenant caller without edit rights)
+    // and stays a plain 403.
+    const crossTenant = await request(ctx.baseURL)
       .post(`/api/runs/${runId}/handoff`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
-      .send({ assigneeUserId: otherTenantUserId, expiryMinutes: 60 })
-      .expect(403);
+      .send({ assigneeUserId: otherTenantUserId, expiryMinutes: 60 });
+    expectCrossTenantDenied(crossTenant.status);
 
     const auditRows = await getOwnerDb().select({ action: schema.auditLogs.action })
       .from(schema.auditLogs)

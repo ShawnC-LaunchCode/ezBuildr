@@ -4,7 +4,7 @@ import { workflowRepository, workflowRunRepository, projectRepository, type DbTr
 import { createError } from "../../utils/errors";
 import { workflowService } from "../WorkflowService";
 import { workflowTenantResolver } from "../WorkflowTenantResolver";
-import { getCurrentTenantId, setCurrentTenantId, withCurrentTenant } from "../../utils/rlsContext";
+import { getCurrentTenantId, setCurrentTenantId, withCurrentTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 export interface RunAuthContext {
     run?: WorkflowRun;
     mode: 'live' | 'preview';
@@ -73,12 +73,30 @@ export class RunAuthResolver {
     /**
      * Get tenant ID for a workflow
      */
+    /**
+     * RLS-5: this is a tenant DISCOVERY function, so it must not require a
+     * tenant to already be in context — and it used to read `workflows` and
+     * `projects` (both RLS-covered) on the bare pool. Under enforcement both
+     * came back empty, `tenantId` was undefined, and `RunResumeService.authorize`
+     * refused every legitimate caller with "Access denied - run has no tenant":
+     * the fail-closed direction, where an isolation bug denies the owner rather
+     * than leaking to a stranger.
+     *
+     * Delegates to the shared `WorkflowTenantResolver` rather than re-deriving
+     * project -> tenant here. That resolver also handles `ownerType`/`ownerUuid`,
+     * which this copy ignored — so a transferred workflow resolved to the wrong
+     * tenant even before RLS. It runs under `app.current_workflow_id`
+     * (migration 0030) so the ownership-derived read succeeds with no ambient
+     * tenant, which is exactly the run-token and webhook case.
+     */
     private async getTenantId(workflowId: string): Promise<string | undefined> {
         try {
-            const workflow = await this.workflowRepo.findById(workflowId);
-            if (!workflow?.projectId) {return undefined;}
-            const project = await this.projectRepo.findById(workflow.projectId);
-            return project?.tenantId ?? undefined;
+            const tenantId = await withVerifiedIdentifier(
+                'app.current_workflow_id',
+                workflowId,
+                (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+            );
+            return tenantId ?? undefined;
         } catch {
             return undefined;
         }

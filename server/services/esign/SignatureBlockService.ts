@@ -196,6 +196,21 @@ export class SignatureBlockService {
   }
 
   /**
+   * Discover the tenant that owns a provider envelope, with no tenant in
+   * context. Used only by the webhook path — see the note at the call site and
+   * migration 0036's header for why the envelope id is trustworthy here (the
+   * webhook signature is verified before this runs).
+   */
+  private static async resolveTenantForEnvelope(envelopeId: string): Promise<string | undefined> {
+    const found = await withVerifiedIdentifier(
+      'app.current_envelope_id',
+      envelopeId,
+      (tx) => signatureRequestRepository.findByProviderRequestId(envelopeId, tx)
+    );
+    return found?.tenantId ?? undefined;
+  }
+
+  /**
    * Run `fn` scoped to `tenantId` when one could be resolved.
    *
    * ⚠️ KNOWN GAP, deliberately left visible rather than papered over: the
@@ -225,7 +240,17 @@ export class SignatureBlockService {
     stepId: string | undefined,
     callbackData: SignatureCallbackData
   ): Promise<void> {
-    const tenantId = runId === undefined ? undefined : await this.resolveTenantForRun(runId);
+    // A provider webhook arrives with no run id at all (see esign.routes'
+    // `/webhook/docusign`, which calls this with `runId: undefined`), so the
+    // usual run-based resolution yields nothing and everything below would run
+    // unscoped — the envelope's row invisible, "not found" thrown, and a 500
+    // returned, which tells DocuSign Connect to retry a delivery that can never
+    // succeed. Fall back to a bootstrap read keyed on the envelope id
+    // (migration 0036, USING-only) purely to discover the tenant; every write
+    // afterwards is ordinary tenant-scoped work.
+    const tenantId = runId === undefined
+      ? await this.resolveTenantForEnvelope(callbackData.envelopeId)
+      : await this.resolveTenantForRun(runId);
 
     // The read and the two status writes are one logical operation, so they
     // share one transaction. Document storage happens after it commits: it

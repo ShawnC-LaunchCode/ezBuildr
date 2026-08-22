@@ -1,21 +1,11 @@
 {
   "$comment": "RLS-5 gate (scripts/rls-gate.ts). Integration files that still fail under a non-owner Postgres role. THE LIST CAN ONLY SHRINK — the gate fails the build if an entry here starts passing, so a fix must delete its entry in the same commit. Every entry needs a diagnosed `reason`; do not add one to unblock yourself. Read tickets/RLS_HANDOFF.md §7 first.",
-  "$baseline": "2026-08-22 — 118 of 124 files pass under RLS_RESTRICTED=true; these are the remaining 6.",
+  "$baseline": "2026-08-22 — 120 of 124 files pass under RLS_RESTRICTED=true; these are the remaining 4.",
   "allow": [
-    {
-      "file": "tests/integration/esign.docusign.test.ts",
-      "reason": "4 failures. The DocuSign webhook (server/routes/esign.routes.ts '/webhook/docusign') is an unauthenticated provider callback with no tenant in context, same shape as the Stripe webhook fixed in 94285423 — envelope creation returns null and the webhook 500s. Needs the same treatment: a bootstrap read that resolves the tenant, then everything else inside withTenant().",
-      "followUp": "RLS-2f — convert the e-sign webhook path; likely a self-identification clause on signature_requests (0029 already added one) rather than a new migration."
-    },
     {
       "file": "tests/integration/hardening/processingTimeout.test.ts",
       "reason": "2 failures. Asserts no temp file is left behind after a timed-out template upload ('expected [ …(4) ] to deeply equal []'), so the cleanup path leaves 4 artifacts. Not yet diagnosed as RLS vs a genuine cleanup bug — the assertion is about the filesystem, not the database, so it may be an unrelated defect this run merely surfaced.",
       "followUp": "Diagnose first: confirm whether this also fails in normal mode before treating it as RLS work."
-    },
-    {
-      "file": "tests/integration/api.runs.resume-handoff.test.ts",
-      "reason": "2 failures, and both are the INVERSE of the usual shape: legitimate actions are being refused (expected 202 got 403, expected 200 got 403). An ACL check is denying a same-tenant operation, which points at an authorization read that lost its scope and now fails closed rather than at row invisibility.",
-      "followUp": "GH-147 resume/handoff path — check the ACL calls in the resume-link and assignee routes for a missing tx."
     },
     {
       "file": "tests/integration/auth/protected.routes.test.ts",

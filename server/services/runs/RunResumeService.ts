@@ -12,6 +12,8 @@ import { hashToken } from '../../utils/encryption';
 import { createError } from '../../utils/errors';
 import { auditLogService } from '../AuditLogService';
 import { sendRunResumeEmail } from '../emailService';
+import { withTenant, withVerifiedIdentifier } from '../../utils/rlsContext';
+import { workflowTenantResolver } from '../WorkflowTenantResolver';
 import { workflowService } from '../WorkflowService';
 import { RunAuthResolver, runAuthResolver } from './RunAuthResolver';
 
@@ -89,7 +91,10 @@ export class RunResumeService {
     this.assertIncomplete(authorized.run);
     const recipientEmail = input.email.trim().toLowerCase();
     const expiryMinutes = this.validateExpiry(input.expiryMinutes);
-    const created = await this.resumeRepo.transaction(async (tx) => {
+    // `run_resume_links` is RLS-covered and `.transaction()` on a repository is
+    // a BARE transaction with no tenant GUC, so every insert here failed WITH
+    // CHECK under enforcement.
+    const created = await withTenant(authorized.tenantId, async (tx) => {
       const now = this.now();
       await this.resumeRepo.revokeActiveForRun(input.runId, now, tx);
       return this.createLink({
@@ -122,7 +127,7 @@ export class RunResumeService {
       input.clientEmail,
     );
     const expiryMinutes = this.validateExpiry(input.expiryMinutes);
-    const created = await this.resumeRepo.transaction(async (tx) => {
+    const created = await withTenant(authorized.tenantId, async (tx) => {
       const now = this.now();
       await this.runRepo.updateIfIncomplete(input.runId, {
         assignedToUserId: target.userId,
@@ -178,7 +183,17 @@ export class RunResumeService {
     const now = this.now();
     const tokenExpiresAt = new Date(now.getTime() + RUN_TOKEN_CONFIG.EXPIRY_MS);
 
-    const restored = await this.resumeRepo.transaction(async (tx) => {
+    // Redemption is the ANONYMOUS path — the holder presents a token and no
+    // session, so there is no ambient tenant and `authorize` is not called.
+    // `run_resume_links` is RLS-covered, so this needs one anyway. Resolve it
+    // from the run: `workflow_runs` carries no policy, so reading it needs no
+    // scope, and the workflow's tenant then comes from the shared resolver
+    // under migration 0030's clause. No new policy is required.
+    const redeemTenantId = await this.resolveTenantForRunId(input.runId);
+    if (!redeemTenantId) {
+      throw createError.unauthorized('Resume link is invalid or expired');
+    }
+    const restored = await withTenant(redeemTenantId, async (tx) => {
       const link = await this.resumeRepo.consumeActive(input.runId, hashToken(input.token), now, tx);
       if (!link) {
         throw createError.unauthorized('Resume link is invalid or expired');
@@ -216,8 +231,8 @@ export class RunResumeService {
   }
 
   async revokeRunAccess(runId: string, userId: string): Promise<void> {
-    await this.authorize(runId, { userId }, true);
-    await this.resumeRepo.transaction(async (tx) => {
+    const revokeAuth = await this.authorize(runId, { userId }, true);
+    await withTenant(revokeAuth.tenantId, async (tx) => {
       const now = this.now();
       await this.runRepo.revokeToken(runId, tx);
       await this.resumeRepo.revokeActiveForRun(runId, now, tx);
@@ -273,6 +288,21 @@ export class RunResumeService {
     return expiryMinutes;
   }
 
+  /**
+   * Discover the tenant that owns a run, with nothing in context. Used by the
+   * anonymous resume-redemption path — see the note at its call site.
+   */
+  private async resolveTenantForRunId(runId: string): Promise<string | undefined> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) { return undefined; }
+    const tenantId = await withVerifiedIdentifier(
+      'app.current_workflow_id',
+      run.workflowId,
+      (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+    );
+    return tenantId ?? undefined;
+  }
+
   private async resolveHandoffTarget(
     tenantId: string,
     assigneeUserId?: string,
@@ -282,7 +312,11 @@ export class RunResumeService {
       throw createError.validation('Choose exactly one assignee user or client email');
     }
     if (assigneeUserId) {
-      const user = await this.userRepo.findById(assigneeUserId);
+      // `users` is RLS-covered — unscoped this found nobody and every handoff
+      // answered "Assignee user not found" for a colleague who plainly exists.
+      // Scoped to `tenantId`, which is also the tenant the check below requires,
+      // so an assignee outside it is invisible AND rejected.
+      const user = await withTenant(tenantId, (tx) => this.userRepo.findById(assigneeUserId, tx));
       if (!user) {
         throw createError.notFound('Assignee user');
       }
