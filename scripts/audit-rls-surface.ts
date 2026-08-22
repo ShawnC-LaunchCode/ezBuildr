@@ -124,6 +124,39 @@ const RELATIONAL_READ = new RegExp(
   'g',
 );
 
+/**
+ * A relational read whose `with: { … }` JOINS a covered table, even though the
+ * table named at the call site is not covered.
+ *
+ * The sixth blind spot, and the subtlest: `db.query.templates.findFirst({ with:
+ * { project: true } })` names `templates`, which has no policy — so every
+ * scanner above, including the relational one, correctly ignores it. But the
+ * join pulls `projects`, which IS covered. Unscoped, `project` comes back NULL
+ * and the next line (`template.project.tenantId !== tenantId`) throws a
+ * TypeError: the route returns **500**, so an authorization check becomes a
+ * crash. 14 sites in `templates.routes.ts` alone, and it accounted for a whole
+ * cluster of failing suites.
+ *
+ * Detection is a heuristic — a `db.query.…` block containing both `with:` and a
+ * relation key naming something covered. Relation keys are singular or plural
+ * depending on cardinality, so both spellings are listed.
+ */
+const COVERED_RELATION_KEYS = [
+  'project', 'projects', 'workflow', 'workflows', 'user', 'users',
+  'organization', 'organizations', 'section', 'sections', 'step', 'steps',
+  'team', 'teams', 'record', 'records', 'collection', 'collections',
+  'tenantDomain', 'tenantDomains', 'datavaultTable', 'datavaultDatabase',
+];
+// Deliberately NOT a balanced-brace regex: the nested-quantifier version of
+// this tripped `security/detect-unsafe-regex` (catastrophic backtracking on a
+// long file is a real risk in a script anyone can point at a big tree). Match
+// the call opening only, then inspect a bounded window after it.
+const RELATIONAL_BLOCK = /db\.query\.[A-Za-z]+\.find\w+\(\{/g;
+const RELATIONAL_WINDOW = 400;
+const COVERED_RELATION_RE = new RegExp(
+  String.raw`\b(${COVERED_RELATION_KEYS.join('|')})\s*:\s*true`,
+);
+
 const REPO_CALL = new RegExp(
   String.raw`\b(?:${RLS_REPOS}|datavault[A-Za-z]*)Repository\.([a-zA-Z]\w*)\(([^;]{0,400})`,
   'gs',
@@ -154,6 +187,7 @@ function main(): void {
   const rawRows: Array<{ hits: number; file: string }> = [];
   const txRows: Array<{ hits: number; file: string }> = [];
   const relRows: Array<{ hits: number; file: string }> = [];
+  const joinRows: Array<{ hits: number; file: string }> = [];
 
   for (const abs of walk('server')) {
     const file = relative('.', abs).split('\\').join('/');
@@ -195,6 +229,19 @@ function main(): void {
     for (const _m of src.matchAll(RELATIONAL_READ)) { relHits += 1; }
     if (relHits > 0) { relRows.push({ hits: relHits, file }); }
 
+    let joinHits = 0;
+    for (const m of src.matchAll(RELATIONAL_BLOCK)) {
+      const block = src.slice(m.index ?? 0, (m.index ?? 0) + RELATIONAL_WINDOW);
+      if (!block.includes('with:') || !COVERED_RELATION_RE.test(block)) { continue; }
+      // Skip matches inside comments — this file's own doc comment describing
+      // the hazard was the last remaining "hit" after the real ones were fixed,
+      // which is a nice demonstration that a scanner reports text, not code.
+      const lineStart = src.lastIndexOf('\n', m.index ?? 0) + 1;
+      if (/^\s*(\*|\/\/)/.test(src.slice(lineStart, m.index ?? 0))) { continue; }
+      joinHits += 1;
+    }
+    if (joinHits > 0) { joinRows.push({ hits: joinHits, file }); }
+
     // Raw SQL. The window looks BACKWARDS as well as forwards, because the
     // query is usually built into a `const query = sql`…`` above and only
     // passed at the call site.
@@ -211,12 +258,14 @@ function main(): void {
   rawRows.sort((a, b) => b.hits - a.hits);
   txRows.sort((a, b) => b.hits - a.hits);
   relRows.sort((a, b) => b.hits - a.hits);
+  joinRows.sort((a, b) => b.hits - a.hits);
 
   const repoTotal = repoRows.reduce((n, r) => n + r.unthreaded, 0);
   const dbTotal = dbRows.reduce((n, r) => n + r.hits, 0);
   const rawTotal = rawRows.reduce((n, r) => n + r.hits, 0);
   const txTotal = txRows.reduce((n, r) => n + r.hits, 0);
   const relTotal = relRows.reduce((n, r) => n + r.hits, 0);
+  const joinTotal = joinRows.reduce((n, r) => n + r.hits, 0);
 
   console.log('=== RLS surface audit ===\n');
   console.log(`Repository calls on RLS-covered tables with no tx argument: ${repoTotal} across ${repoRows.length} files`);
@@ -224,7 +273,8 @@ function main(): void {
   console.log(`Raw db.execute() SQL naming a covered table:                ${rawTotal} across ${rawRows.length} files`);
   console.log(`Bare db.transaction() in application code:                  ${txTotal} across ${txRows.length} files`);
   console.log(`Relational db.query.<table> reads on covered tables:      ${relTotal} across ${relRows.length} files`);
-  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal + rawTotal + txTotal + relTotal}\n`);
+  console.log(`Relational reads JOINING a covered table (with: {…}):     ${joinTotal} across ${joinRows.length} files`);
+  console.log(`TOTAL call sites to triage:                                 ${repoTotal + dbTotal + rawTotal + txTotal + relTotal + joinTotal}\n`);
 
   console.log('--- repository calls: files with NO scoping helper at all (highest risk) ---');
   for (const r of repoRows.filter((r) => !r.scoped)) {
@@ -236,6 +286,10 @@ function main(): void {
   }
   console.log('\n--- direct db.* calls on covered tables ---');
   for (const r of dbRows) {
+    console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
+  }
+  console.log('\n--- relational reads JOINING a covered table via with: {…} ---');
+  for (const r of joinRows) {
     console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
   }
   console.log('\n--- relational db.query.<table> reads on covered tables ---');

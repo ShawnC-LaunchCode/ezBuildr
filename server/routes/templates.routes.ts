@@ -174,10 +174,10 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         logger.error({ templateId: params.id }, 'Template not found');
         throw createError.notFound('Template', params.id);
@@ -245,11 +245,11 @@ router.get(
           whereConditions.push(lt(schema.templates.createdAt, new Date(decoded.timestamp)));
         }
       }
-      const templates = await db.query.templates.findMany({
+      const templates = await withCurrentTenant((tplTx) => tplTx.query.templates.findMany({
         where: and(...whereConditions),
         orderBy: [desc(schema.templates.createdAt)],
         limit: limit + 1,
-      });
+      }));
       const response = createPaginatedResponse(templates, limit);
       res.json(response);
     } catch (error) {
@@ -445,10 +445,10 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -481,10 +481,10 @@ router.patch(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -663,10 +663,10 @@ router.delete(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -697,10 +697,10 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -772,10 +772,10 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -828,6 +828,21 @@ router.post(
  * POST /templates/:id/test-mapping
  * Test field mapping with sample data (validation only, no generation)
  */
+/**
+ * ⚠️ Every `db.query.templates.findFirst({ with: { project: true } })` in this
+ * file runs inside `withCurrentTenant` — 14 of them — and it is the JOIN that
+ * makes it necessary, not the base table.
+ *
+ * `templates` carries no RLS policy, so a naive reading says these reads are
+ * fine. But the relational `with: { project: true }` pulls `projects`, which IS
+ * covered: unscoped, `project` comes back NULL, and the very next line
+ * (`template.project.tenantId !== tenantId`) throws a TypeError. The route
+ * returns **500**, not 403 — an authorization check turning into a crash.
+ *
+ * That shape is invisible to every scanner in scripts/audit-rls-surface.ts:
+ * the table named at the call site is uncovered, and the covered one appears
+ * only as a relation key.
+ */
 router.post(
   '/templates/:id/test-mapping',
   hybridAuth,
@@ -838,10 +853,10 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -888,10 +903,10 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -926,10 +941,10 @@ router.get(
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -964,10 +979,10 @@ router.post(
         throw createError.unauthorized('User ID required to create version');
       }
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -1009,10 +1024,10 @@ router.post(
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -1050,10 +1065,10 @@ router.get(
       if (isNaN(from) || isNaN(to)) {
         throw createError.validation('Invalid version numbers');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
@@ -1084,10 +1099,10 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
