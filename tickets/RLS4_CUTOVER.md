@@ -83,6 +83,22 @@ not worth blocking on.
 
 ## 2. Create the application role (per Neon branch)
 
+> ✅ **DONE ON `dev` (branch `br-shy-rain-ahpucki7`) on 2026-08-22.** The role
+> `ezbuildr_app` exists there and was proven to enforce, connecting as it
+> directly rather than via `SET ROLE`:
+>
+> | Check | Result |
+> |---|---|
+> | `rolbypassrls` / `rolsuper` | `false` / `false` |
+> | role memberships | none — **not** in `neon_superuser` |
+> | `SELECT count(*)` with no tenant GUC | `projects`, `users`, `connections`, `datavault_databases` all **0** |
+> | with a tenant pinned | 2 of 3 projects — exactly that tenant's |
+> | rows from other tenants | **0** |
+>
+> That is tenant isolation actually enforced by Postgres rather than by
+> application predicates. `test` and `production` still need the same treatment.
+
+
 Neon branches copy roles from the parent at branch time, so a role created on
 `dev` does **not** appear on `test` or `production`. Run this once per branch:
 `dev` (br-shy-rain-ahpucki7), then `test` (br-cool-tree-ah2jvrqf), then
