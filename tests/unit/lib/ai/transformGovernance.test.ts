@@ -10,6 +10,15 @@ import type { AiUsage } from "../../../../shared/schema/ai";
 import type { AiUsageRepository } from "../../../../server/repositories/AiUsageRepository";
 import type { IAIProvider } from "../../../../server/services/ai/providers/types";
 import type { TaskType } from "../../../../server/services/ai/types";
+
+// RLS-5: AI usage rows go through `withTenant` now (`ai_usage` is covered),
+// so the governed client opens a transaction and pins the GUC on it. These
+// suites spy on the repository rather than the db, so the db needs a stub.
+vi.mock('../../../../server/db', () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ execute: vi.fn() })),
+  },
+}));
 import type { MockInstance } from "vitest";
 
 describe("transform AI governance (AISL-5)", () => {
@@ -81,12 +90,12 @@ describe("transform AI governance (AISL-5)", () => {
       taskType,
       expect.any(String),
     );
-    expect(getTokenUsageSince).toHaveBeenCalledWith(tenantId, expect.any(Date));
+    expect(getTokenUsageSince).toHaveBeenCalledWith(tenantId, expect.any(Date), expect.anything());
     expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({
       tenantId,
       taskType,
       inputTokens: 120,
       outputTokens: 30,
-    }));
+    }), expect.anything());
   });
 });

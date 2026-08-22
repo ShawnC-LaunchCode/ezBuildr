@@ -7,6 +7,15 @@ import { GeminiService } from '../../../server/services/geminiService';
 import type { IAIProvider } from '../../../server/services/ai/providers/types';
 import type { AiUsage } from '../../../shared/schema';
 
+// RLS-5: AI usage rows go through `withTenant` now (`ai_usage` is covered),
+// so the governed client opens a transaction and pins the GUC on it. These
+// suites spy on the repository rather than the db, so the db needs a stub.
+vi.mock('../../../server/db', () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ execute: vi.fn() })),
+  },
+}));
+
 describe('GeminiService sentiment analysis (AISL-8)', () => {
   const generateResponse = vi.fn<IAIProvider['generateResponse']>();
 
@@ -56,7 +65,7 @@ describe('GeminiService sentiment analysis (AISL-8)', () => {
       taskType: 'sentiment_analysis',
       inputTokens: 40,
       outputTokens: 15,
-    }));
+    }), expect.anything());
   });
 
   it('returns the unchanged neutral fallback when provider JSON fails validation', async () => {

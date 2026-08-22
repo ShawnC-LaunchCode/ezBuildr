@@ -13,6 +13,15 @@ import type { AiUsageRepository } from '../../../../server/repositories/AiUsageR
 import type { IAIProvider } from '../../../../server/services/ai/providers/types';
 import type { AiUsage, Step } from '../../../../shared/schema';
 
+// RLS-5: usage rows and the budget read now run inside `withTenant`
+// (`ai_usage` is covered), so the client opens a transaction and pins the GUC
+// on it. This suite spies on the repository, so the db itself needs a stub.
+vi.mock('../../../../server/db', () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ execute: vi.fn() })),
+  },
+}));
+
 const loggerMock = vi.hoisted(() => {
   const mock = {
     info: vi.fn(),
@@ -200,13 +209,14 @@ describe('AIProviderClient usage & budget (ICW2-B7)', () => {
     expect(getTokenUsageSince).toHaveBeenCalledWith(
       'tenant-random-fill',
       expect.any(Date),
+    expect.anything(),
     );
     expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-random-fill',
       taskType: 'value_suggestion',
       inputTokens: 120,
       outputTokens: 20,
-    }));
+    }), expect.anything());
   });
 
   it('falls back to the char/4 estimate only when the provider omits usage (AC4)', async () => {
