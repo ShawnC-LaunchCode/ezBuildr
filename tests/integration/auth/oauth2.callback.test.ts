@@ -24,7 +24,7 @@ import type { Express } from 'express';
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../../helpers/ownerDb";
 import { setCurrentTenantId } from "../../../server/utils/rlsContext";
-import { createTestApp } from "../../helpers/testApp";
+import { createBareTestApp } from "../../helpers/testApp";
 
 // The connections route runs validateSafeUrl(baseUrl), which does real DNS
 // resolution as SSRF protection. The example hosts used here (api.example.com)
@@ -44,7 +44,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let authToken: string;
   beforeAll(async () => {
     // Create test Express app
-    app = createTestApp();
+    app = createBareTestApp();
     app.set('trust proxy', 1);
     // Mock auth middleware for tests
 

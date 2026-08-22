@@ -12,7 +12,7 @@ import { buildTestWhen } from '../../helpers/conditionFixtures';
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../../helpers/ownerDb";
 import { setCurrentTenantId } from "../../../server/utils/rlsContext";
-import { createTestApp } from "../../helpers/testApp";
+import { createBareTestApp } from "../../helpers/testApp";
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -86,7 +86,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // Set mock API key
     process.env.GEMINI_API_KEY = 'test-api-key';
     // Setup Express app
-    app = createTestApp();
+    app = createBareTestApp();
     registerAiWorkflowEditRoutes(app);
     // Create test tenant (with valid UUID to avoid syntax error)
     const [tenant] = await getOwnerDb().insert(tenants).values({

@@ -1,0 +1,56 @@
+{
+  "$comment": "RLS-5 gate (scripts/rls-gate.ts). Integration files that still fail under a non-owner Postgres role. THE LIST CAN ONLY SHRINK — the gate fails the build if an entry here starts passing, so a fix must delete its entry in the same commit. Every entry needs a diagnosed `reason`; do not add one to unblock yourself. Read tickets/RLS_HANDOFF.md §7 first.",
+  "$baseline": "2026-08-22 — 104 of 124 files pass under RLS_RESTRICTED=true; these are the remaining 10.",
+  "allow": [
+    {
+      "file": "tests/integration/esign.docusign.test.ts",
+      "reason": "4 failures. The DocuSign webhook (server/routes/esign.routes.ts '/webhook/docusign') is an unauthenticated provider callback with no tenant in context, same shape as the Stripe webhook fixed in 94285423 — envelope creation returns null and the webhook 500s. Needs the same treatment: a bootstrap read that resolves the tenant, then everything else inside withTenant().",
+      "followUp": "RLS-2f — convert the e-sign webhook path; likely a self-identification clause on signature_requests (0029 already added one) rather than a new migration."
+    },
+    {
+      "file": "tests/integration/hardening/processingTimeout.test.ts",
+      "reason": "2 failures. Asserts no temp file is left behind after a timed-out template upload ('expected [ …(4) ] to deeply equal []'), so the cleanup path leaves 4 artifacts. Not yet diagnosed as RLS vs a genuine cleanup bug — the assertion is about the filesystem, not the database, so it may be an unrelated defect this run merely surfaced.",
+      "followUp": "Diagnose first: confirm whether this also fails in normal mode before treating it as RLS work."
+    },
+    {
+      "file": "tests/integration/api.templates-runs.test.ts",
+      "reason": "2 failures. 'reject without file' returns 404 instead of 400 (a project or template lookup filtered to zero rows before validation runs), and 'PATCH should update template name' returns 500 — a 500 is a crash, not a contract change, so there is real unconverted code behind it.",
+      "followUp": "Start with the 500; templates.routes had 14 relational joins converted already, so this is likely a site that pass missed."
+    },
+    {
+      "file": "tests/integration/api.runs.resume-handoff.test.ts",
+      "reason": "2 failures, and both are the INVERSE of the usual shape: legitimate actions are being refused (expected 202 got 403, expected 200 got 403). An ACL check is denying a same-tenant operation, which points at an authorization read that lost its scope and now fails closed rather than at row invisibility.",
+      "followUp": "GH-147 resume/handoff path — check the ACL calls in the resume-link and assignee routes for a missing tx."
+    },
+    {
+      "file": "tests/integration/templates.e2e.test.ts",
+      "reason": "1 failure. 'Signed URL issuance happens only after auth' expects 403, gets 500. The denial path itself is crashing — almost certainly a null dereference after an unscoped read returned nothing, the same shape as the templates.routes relational joins (a project comes back NULL and the next line reads .tenantId off it).",
+      "followUp": "Same cluster as templates.mapping-workbench below; fix together."
+    },
+    {
+      "file": "tests/integration/templates.mapping-workbench.test.ts",
+      "reason": "1 failure. 'denies a mapping save from a different tenant' expects 403, gets 500 — same crashing-denial-path shape as templates.e2e. The authorization decision is turning into an exception instead of a refusal, which is a real defect and NOT covered by the 403-vs-404 decision.",
+      "followUp": "Fix with templates.e2e."
+    },
+    {
+      "file": "tests/integration/auth/protected.routes.test.ts",
+      "reason": "1 failure. 'should allow PUT with valid Bearer token' returns 404 — a legitimate authenticated request finding nothing. Same fail-closed direction as resume-handoff rather than the cross-tenant contract change.",
+      "followUp": "Likely a fixture with no tenant, or an unconverted read on the PUT route."
+    },
+    {
+      "file": "tests/integration/document-delivery.routes.test.ts",
+      "reason": "1 failure. 'returns sanitized delivery records to the owning tenant' gets an empty array — the classic quiet mode, an unscoped read on run_document_deliveries (RLS-covered) filtered to zero rows for the tenant that owns them.",
+      "followUp": "Straight recipe application; should be a small fix."
+    },
+    {
+      "file": "tests/integration/analytics_service.test.ts",
+      "reason": "1 failure. 'should generate events and metrics on run completion' — no events are written. Diagnosed: BlockRunner passes `context.versionId ?? 'draft'` into workflow_run_events.version_id, which is `uuid NOT NULL` with an FK — so the literal 'draft' can NEVER insert, and AnalyticsService.recordEvent swallows the error. Under RLS the version fails to resolve, versionId is undefined, and that dead fallback fires. TWO defects: the version resolution (RLS) and the fallback itself, which has never worked in production either — any run without a version silently records zero analytics events.",
+      "followUp": "Fix the version resolution first; then make the no-version case skip recording explicitly rather than inventing an unstorable id."
+    },
+    {
+      "file": "tests/integration/api.workflow-intake-config.test.ts",
+      "reason": "1 failure. 'removes only legacy persisted values when the cleanup migration runs' — the cleanup left extra keys behind. Not obviously RLS-shaped; the assertion is about a config object's contents, so this may be an unrelated defect surfaced by the run.",
+      "followUp": "Confirm against normal mode before treating as RLS work."
+    }
+  ]
+}

@@ -11,7 +11,7 @@ import { aiUsage, tenants, userPersonalizationSettings, users, workflows, workfl
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
 import { setCurrentTenantId } from "../../server/utils/rlsContext";
-import { createTestApp } from "../helpers/testApp";
+import { createBareTestApp } from "../helpers/testApp";
 
 // Mock Google Generative AI
 const { mockGenerateContent, mockTenantId } = vi.hoisted(() => ({
@@ -72,7 +72,7 @@ describe("Personalization API Integration Tests", () => {
             process.stdout.write(`[CAPTURED ERROR] ${args.map(a => JSON.stringify(a)).join(' ')}\n`);
         });
 
-        app = createTestApp();
+        app = createBareTestApp();
         registerAllRoutes(app);
 
         const port = 0;

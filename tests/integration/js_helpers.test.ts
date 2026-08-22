@@ -12,7 +12,7 @@ import { registerRoutes } from "../../server/routes";
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
 import { setCurrentTenantId } from "../../server/utils/rlsContext";
-import { createTestApp } from "../helpers/testApp";
+import { createBareTestApp } from "../helpers/testApp";
 // Hoisted state for auth
 const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
 // Mock auth middleware to allow bypassing Google auth
@@ -79,7 +79,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
     let userId: string;
     let workflowId: string;
     beforeAll(async () => {
-        app = createTestApp();
+        app = createBareTestApp();
         app.use(express.urlencoded({ extended: false }));
         setupAuth(app); // Call setupAuth to attach the middleware
         await registerRoutes(app);
