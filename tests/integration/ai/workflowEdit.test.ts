@@ -11,6 +11,8 @@ import { buildTestWhen } from '../../helpers/conditionFixtures';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../../helpers/ownerDb";
+import { setCurrentTenantId } from "../../../server/utils/rlsContext";
+import { createTestApp } from "../../helpers/testApp";
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -34,6 +36,11 @@ vi.mock('../../../server/middleware/auth', () => ({
     req.userId = user.id;
     req.tenantId = user.tenantId;
     req.user = user;
+    // The REAL hybridAuth does this, and it is the only thing that populates
+    // the ambient tenant every RLS-scoped service read depends on. A mock that
+    // sets `req.tenantId` alone looks equivalent and is not: under a non-owner
+    // role every one of these tests failed with "Workflow not found".
+    setCurrentTenantId(user.tenantId);
     next();
   },
 
@@ -50,6 +57,11 @@ vi.mock('../../../server/middleware/auth', () => ({
     req.userId = user.id;
     req.tenantId = user.tenantId;
     req.user = user;
+    // The REAL hybridAuth does this, and it is the only thing that populates
+    // the ambient tenant every RLS-scoped service read depends on. A mock that
+    // sets `req.tenantId` alone looks equivalent and is not: under a non-owner
+    // role every one of these tests failed with "Workflow not found".
+    setCurrentTenantId(user.tenantId);
     next();
   },
 }));
@@ -74,8 +86,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // Set mock API key
     process.env.GEMINI_API_KEY = 'test-api-key';
     // Setup Express app
-    app = express();
-    app.use(express.json());
+    app = createTestApp();
     registerAiWorkflowEditRoutes(app);
     // Create test tenant (with valid UUID to avoid syntax error)
     const [tenant] = await getOwnerDb().insert(tenants).values({

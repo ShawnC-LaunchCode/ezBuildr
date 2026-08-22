@@ -161,7 +161,27 @@ const REPO_CALL = new RegExp(
   String.raw`\b(?:${RLS_REPOS}|datavault[A-Za-z]*)Repository\.([a-zA-Z]\w*)\(([^;]{0,400})`,
   'gs',
 );
-const DB_CALL = /\bdb\.(select|insert|update|delete)\(/g;
+/**
+ * A direct query-builder call on the bare pool.
+ *
+ * The `\s*` around the dot is load-bearing — a SEVENTH blind spot, and the one
+ * that hid an entire broken feature. This was `\bdb\.(select|…)\(` until
+ * 2026-08-22, which cannot see the extremely common
+ *
+ *     const results = await db
+ *       .select()
+ *       .from(connections)
+ *
+ * because `db` and `.select(` are on different lines. Every one of the ~12
+ * reads and writes in `server/services/connections.ts` is written that way, so
+ * the file scored ZERO hits while API integrations were broken end to end
+ * under enforcement: connection setup 404'd, and three id-only UPDATEs matched
+ * no rows silently. Found by attributing a runtime failure, not by this script
+ * — the same way `DataSourceService` was.
+ *
+ * (No ReDoS risk: `\s*` is anchored on both sides by literals, no nesting.)
+ */
+const DB_CALL = /\bdb\s*\.\s*(select|insert|update|delete)\(/g;
 const COVERED_RE = new RegExp(String.raw`\b(${COVERED_TABLES.join('|')})\b`);
 /** Any of the scoping helpers appearing anywhere in the file. */
 const SCOPES = /withTx|withCurrentTenant|withTenant|applyTenantToTransaction|runWithTenantContext|withVerifiedIdentifier|withCurrentUserId|withLoginEmail/;

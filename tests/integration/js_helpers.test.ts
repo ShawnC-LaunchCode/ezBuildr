@@ -11,6 +11,8 @@ import { registerRoutes } from "../../server/routes";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { setCurrentTenantId } from "../../server/utils/rlsContext";
+import { createTestApp } from "../helpers/testApp";
 // Hoisted state for auth
 const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
 // Mock auth middleware to allow bypassing Google auth
@@ -49,6 +51,8 @@ vi.mock("../../server/middleware/auth", async (importOriginal) => {
             if (req.user) {
                 req.tenantId = req.user.tenantId;
                 req.userId = req.user.id;
+                // What the real hybridAuth does — see tests/helpers/testApp.ts.
+                setCurrentTenantId(req.user.tenantId);
                 return next();
             }
             console.log("JS_HELPERS MOCK AUTH: No req.user found!");
@@ -60,6 +64,8 @@ vi.mock("../../server/middleware/auth", async (importOriginal) => {
                 // (e.g. POST /api/workflows/:id/runs) read req.userId
                 req.tenantId = req.user.tenantId;
                 req.userId = req.user.id;
+                // What the real hybridAuth does — see tests/helpers/testApp.ts.
+                setCurrentTenantId(req.user.tenantId);
                 return next();
             }
             return actual.optionalHybridAuth(req, res, next);
@@ -73,8 +79,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
     let userId: string;
     let workflowId: string;
     beforeAll(async () => {
-        app = express();
-        app.use(express.json());
+        app = createTestApp();
         app.use(express.urlencoded({ extended: false }));
         setupAuth(app); // Call setupAuth to attach the middleware
         await registerRoutes(app);

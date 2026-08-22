@@ -5,7 +5,6 @@
  * for third-party API integrations (e.g., external services)
  */
 import { eq } from 'drizzle-orm';
-import express from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
@@ -24,6 +23,8 @@ import type { Express } from 'express';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../../helpers/ownerDb";
+import { setCurrentTenantId } from "../../../server/utils/rlsContext";
+import { createTestApp } from "../../helpers/testApp";
 
 // The connections route runs validateSafeUrl(baseUrl), which does real DNS
 // resolution as SSRF protection. The example hosts used here (api.example.com)
@@ -43,14 +44,16 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let authToken: string;
   beforeAll(async () => {
     // Create test Express app
-    app = express();
-    app.use(express.json());
+    app = createTestApp();
     app.set('trust proxy', 1);
     // Mock auth middleware for tests
 
     app.use((req: any, res, next) => {
       req.userId = testUserId;
       req.tenantId = testTenantId;
+      // What the real hybridAuth does — see tests/helpers/testApp.ts. Without
+      // it every RLS-scoped read in the connections routes runs with no tenant.
+      setCurrentTenantId(testTenantId);
       next();
     });
     // Register routes

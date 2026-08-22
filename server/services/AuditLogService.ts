@@ -5,7 +5,7 @@ import { auditLogs, type AuditLog } from "@shared/schema";
 import { db } from "../db";
 import { createLogger } from "../logger";
 import type { DbTransaction } from "../repositories";
-import { getCurrentTenantId, withTenant } from "../utils/rlsContext";
+import { getCurrentTenantId, withCurrentTenant, withTenant } from "../utils/rlsContext";
 
 const logger = createLogger({ module: "audit-log-service" });
 
@@ -514,37 +514,25 @@ export class AuditLogService {
     const { limit = 50, offset = 0, eventTypes } = options;
 
     try {
-      let query = db
+      // `audit_logs` is RLS-covered, so this must run tenant-scoped or it
+      // returns nothing under enforcement. Building the filter as a condition
+      // list also collapses the two near-identical builders this used to
+      // reassign between.
+      const logs = await withCurrentTenant((tx) => tx
         .select()
         .from(auditLogs)
         .where(
           and(
             eq(auditLogs.userId, userId),
-            eq(auditLogs.resourceType, "security")
+            eq(auditLogs.resourceType, "security"),
+            ...(eventTypes && eventTypes.length > 0
+              ? [inArray(auditLogs.action, eventTypes)]
+              : [])
           )
         )
         .orderBy(desc(auditLogs.timestamp))
         .limit(limit)
-        .offset(offset);
-
-      // Apply event type filter if provided
-      if (eventTypes && eventTypes.length > 0) {
-        query = db
-          .select()
-          .from(auditLogs)
-          .where(
-            and(
-              eq(auditLogs.userId, userId),
-              eq(auditLogs.resourceType, "security"),
-              inArray(auditLogs.action, eventTypes)
-            )
-          )
-          .orderBy(desc(auditLogs.timestamp))
-          .limit(limit)
-          .offset(offset);
-      }
-
-      const logs = await query;
+        .offset(offset));
 
       logger.info(
         {
@@ -580,30 +568,18 @@ export class AuditLogService {
     eventTypes?: SecurityEventType[]
   ): Promise<number> {
     try {
-      let query = db
+      const [result] = await withCurrentTenant((tx) => tx
         .select({ count: sql<number>`count(*)` })
         .from(auditLogs)
         .where(
           and(
             eq(auditLogs.userId, userId),
-            eq(auditLogs.resourceType, "security")
+            eq(auditLogs.resourceType, "security"),
+            ...(eventTypes && eventTypes.length > 0
+              ? [inArray(auditLogs.action, eventTypes)]
+              : [])
           )
-        );
-
-      if (eventTypes && eventTypes.length > 0) {
-        query = db
-          .select({ count: sql<number>`count(*)` })
-          .from(auditLogs)
-          .where(
-            and(
-              eq(auditLogs.userId, userId),
-              eq(auditLogs.resourceType, "security"),
-              inArray(auditLogs.action, eventTypes)
-            )
-          );
-      }
-
-      const [result] = await query;
+        ));
       return Number(result?.count ?? 0);
     } catch (error) {
       logger.error(
@@ -628,13 +604,17 @@ export class AuditLogService {
     offset: number = 0
   ): Promise<AuditLog[]> {
     try {
-      const logs = await db
+      // "across all users" means across the CALLER'S TENANT, not the system:
+      // no caller exists in `server/` today, and the admin console's genuine
+      // cross-tenant reads go through `adminDb` (RLS-6) with an
+      // `admin_access_log` row, never through a service on the normal pool.
+      const logs = await withCurrentTenant((tx) => tx
         .select()
         .from(auditLogs)
         .where(eq(auditLogs.resourceType, "security"))
         .orderBy(desc(auditLogs.timestamp))
         .limit(limit)
-        .offset(offset);
+        .offset(offset));
 
       logger.info(
         {

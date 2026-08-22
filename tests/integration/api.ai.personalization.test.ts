@@ -1,6 +1,6 @@
 process.env.GEMINI_API_KEY = 'test-key';
 import { eq } from "drizzle-orm";
-import express, { type Express } from "express";
+import { type Express } from "express";
 import { nanoid } from 'nanoid';
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, vi, afterEach, beforeEach } from "vitest";
@@ -10,6 +10,8 @@ import { aiUsage, tenants, userPersonalizationSettings, users, workflows, workfl
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { setCurrentTenantId } from "../../server/utils/rlsContext";
+import { createTestApp } from "../helpers/testApp";
 
 // Mock Google Generative AI
 const { mockGenerateContent, mockTenantId } = vi.hoisted(() => ({
@@ -39,6 +41,8 @@ vi.mock('../../server/middleware/auth', () => ({
         req.userId = 'test-user-id-integration';
         req.tenantId = mockTenantId;
         req.user = { id: 'test-user-id-integration', email: 'test@example.com', tenantId: mockTenantId };
+        // What the real hybridAuth does — see tests/helpers/testApp.ts.
+        setCurrentTenantId(mockTenantId);
         next();
     },
 
@@ -48,6 +52,8 @@ vi.mock('../../server/middleware/auth', () => ({
         req.userId = 'test-user-id-integration';
         req.tenantId = mockTenantId;
         req.user = { id: 'test-user-id-integration', email: 'test@example.com', tenantId: mockTenantId };
+        // What the real hybridAuth does — see tests/helpers/testApp.ts.
+        setCurrentTenantId(mockTenantId);
         next();
     },
 
@@ -66,8 +72,7 @@ describe("Personalization API Integration Tests", () => {
             process.stdout.write(`[CAPTURED ERROR] ${args.map(a => JSON.stringify(a)).join(' ')}\n`);
         });
 
-        app = express();
-        app.use(express.json());
+        app = createTestApp();
         registerAllRoutes(app);
 
         const port = 0;
