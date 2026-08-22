@@ -157,9 +157,15 @@ everything, the role bypasses RLS and nothing below is safe to do.
 Do **dev** end to end and live on it before touching `test`, then `production`.
 
 1. **Neon:** create and verify `ezbuildr_app` on the branch (§2).
-2. **Railway** (that environment's variables):
+2. **Railway** (that environment's variables). Set all four in ONE change, so
+   there is never a window where the app role is live without the admin URL:
    - `ADMIN_DATABASE_URL` = the **current** `DATABASE_URL` value (the
      `neondb_owner` string). Copy it before changing anything.
+   - `MIGRATION_DATABASE_URL` = the same owner string. **Do not skip this.**
+     Container start runs `npm run db:migrate`, which needs DDL; the app role
+     has none, so without it the deploy dies on
+     `CREATE SCHEMA IF NOT EXISTS "drizzle"` and the release never boots.
+     Measured on dev — production would have failed identically.
    - `DATABASE_URL` = the new `ezbuildr_app` string.
    - `RLS_ENFORCED` = `true`.
    Set all three, then `railway redeploy` — env-var changes do not take effect
