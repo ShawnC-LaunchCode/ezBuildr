@@ -6,6 +6,7 @@ import * as schema from '@shared/schema';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { withTenant } from '../../server/utils/rlsContext';
 
 describe('DataVault Filter Performance Benchmark (DVP-2)', () => {
   let cleanSeedData: SeedDatavaultResult | undefined;
@@ -276,26 +277,29 @@ LIMIT 100 OFFSET 0;
     });
 
     // Query with 220-char prefix (> 200 chars)
+    // Hoisted: TS narrowing of `cleanSeedData` does not carry into the
+    // `withTenant` callback below.
+    const seeded = cleanSeedData;
     const longPrefixSearch = longString250.slice(0, 220);
-    const foundRowsLong = await datavaultRowsRepository.findByTableId(cleanSeedData.tableId, {
+    const foundRowsLong = await withTenant(seeded.tenantId, (tx) => datavaultRowsRepository.findByTableId(seeded.tableId, {
       filters: [{
-        columnId: cleanSeedData.columns.description.id,
+        columnId: seeded.columns.description.id,
         operator: 'starts_with',
         value: longPrefixSearch,
       }],
-    });
+    }, tx));
     expect(foundRowsLong.some(r => r.id === longRow.id)).toBe(true);
     console.log(`  [ok] Verified starts_with > 200 chars successfully matches long row without false negatives!`);
 
     // Query with short prefix (<= 200 chars)
     const shortPrefixSearch = 'PrefixSpecial';
-    const foundRowsShort = await datavaultRowsRepository.findByTableId(cleanSeedData.tableId, {
+    const foundRowsShort = await withTenant(seeded.tenantId, (tx) => datavaultRowsRepository.findByTableId(seeded.tableId, {
       filters: [{
-        columnId: cleanSeedData.columns.description.id,
+        columnId: seeded.columns.description.id,
         operator: 'starts_with',
         value: shortPrefixSearch,
       }],
-    });
+    }, tx));
     expect(foundRowsShort.some(r => r.id === longRow.id)).toBe(true);
     console.log(`  [ok] Verified starts_with <= 200 chars successfully matches long row!`);
 
@@ -312,7 +316,7 @@ LIMIT 100 OFFSET 0;
 
     const insertPromise = getOwnerDb().insert(schema.datavaultValues).values({
       rowId: testRow.id,
-      columnId: cleanSeedData.columns.description.id,
+      columnId: seeded.columns.description.id,
       value: largeStringValue,
     }).returning();
 

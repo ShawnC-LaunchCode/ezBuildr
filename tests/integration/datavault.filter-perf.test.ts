@@ -3,6 +3,10 @@ import { sql } from 'drizzle-orm';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { seedLargeDatavaultTable, type SeedDatavaultResult } from '../helpers/datavaultSeeder';
 import { getOwnerDb } from '../helpers/ownerDb';
+// RLS-5: the repository read must be scoped, or under the restricted role it
+// measures an EMPTY table — which is also what the application does now, so
+// the benchmark stays faithful rather than being weakened.
+import { withTenant } from '../../server/utils/rlsContext';
 
 describe('DataVault Filter Performance Harness (DVP-1)', () => {
   let seededData: SeedDatavaultResult;
@@ -54,11 +58,11 @@ describe('DataVault Filter Performance Harness (DVP-1)', () => {
 
     // 2. Measure Equality Filter (status = 'PENDING')
     const equalityFilter = [{ columnId: seededData.columns.status.id, operator: 'equals' as const, value: 'PENDING' }];
-    const equalityRows = await datavaultRowsRepository.findByTableId(seededData.tableId, {
+    const equalityRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.findByTableId(seededData.tableId, {
       filters: equalityFilter,
       limit: 100,
       offset: 0,
-    });
+    }, tx));
     expect(equalityRows.length).toBe(100);
 
     const equalitySql = `
@@ -87,11 +91,11 @@ LIMIT 100 OFFSET 0;
 
     // 3. Measure Contains Filter (description contains 'audit review')
     const containsFilter = [{ columnId: seededData.columns.description.id, operator: 'contains' as const, value: 'audit review' }];
-    const containsRows = await datavaultRowsRepository.findByTableId(seededData.tableId, {
+    const containsRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.findByTableId(seededData.tableId, {
       filters: containsFilter,
       limit: 100,
       offset: 0,
-    });
+    }, tx));
     expect(containsRows.length).toBe(100);
 
     const containsSql = `
@@ -120,11 +124,11 @@ LIMIT 100 OFFSET 0;
 
     // 4. Measure Numeric Range Filter (amount > 25000)
     const numericFilter = [{ columnId: seededData.columns.amount.id, operator: 'greater_than' as const, value: 25000 }];
-    const numericRows = await datavaultRowsRepository.findByTableId(seededData.tableId, {
+    const numericRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.findByTableId(seededData.tableId, {
       filters: numericFilter,
       limit: 100,
       offset: 0,
-    });
+    }, tx));
     expect(numericRows.length).toBe(100);
 
     const numericSql = `
@@ -153,11 +157,11 @@ LIMIT 100 OFFSET 0;
 
     // 5. Measure Date Range Filter (event_date > '2025-06-01')
     const dateFilter = [{ columnId: seededData.columns.eventDate.id, operator: 'greater_than' as const, value: '2025-06-01' }];
-    const dateRows = await datavaultRowsRepository.findByTableId(seededData.tableId, {
+    const dateRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.findByTableId(seededData.tableId, {
       filters: dateFilter,
       limit: 100,
       offset: 0,
-    });
+    }, tx));
     expect(dateRows.length).toBe(100);
 
     const dateSql = `
@@ -186,11 +190,11 @@ LIMIT 100 OFFSET 0;
 
     // 6. Measure Is Empty Filter (notes is_empty)
     const emptyFilter = [{ columnId: seededData.columns.notes.id, operator: 'is_empty' as const }];
-    const emptyRows = await datavaultRowsRepository.findByTableId(seededData.tableId, {
+    const emptyRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.findByTableId(seededData.tableId, {
       filters: emptyFilter,
       limit: 100,
       offset: 0,
-    });
+    }, tx));
     expect(emptyRows.length).toBe(100);
 
     const emptySql = `
