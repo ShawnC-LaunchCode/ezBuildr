@@ -19,12 +19,21 @@ import type { Pool, PoolClient } from 'pg';
  * tenant. Not an error: a truncated list that looks correct. This module is
  * the escape hatch, and containment is the entire point of it:
  *
- *   - It connects as `ezbuildr_admin_bypass` (created in migration
- *     0024_certain_nightcrawler.sql), a role granted BYPASSRLS — distinct
+ *   - It connects as `ezbuildr_admin_bypass`, a role granted BYPASSRLS —
+ *     distinct
  *     from BOTH the table owner the normal pool uses today AND RLS-4's
  *     future least-privilege application role, which must NEVER get
  *     BYPASSRLS (that would return the whole system to "one connection sees
  *     everything" and delete the property Phase 2 exists to create).
+ *
+ *     ⚠️ **That role does not exist yet in any environment.** An earlier
+ *     version of this comment said it was "created in migration
+ *     0024_certain_nightcrawler.sql"; there is no such migration here (0024 is
+ *     `0024_repair_rls_coverage.sql`) and nothing in the chain creates it —
+ *     grep `BYPASSRLS` in migrations/ and the only hits are prose. It is
+ *     created per-environment as an operational step, deliberately not as a
+ *     migration: roles are cluster-level, migrations are per-database, and the
+ *     password must not live in git. See `tickets/RLS4_CUTOVER.md` §1.
  *   - `ADMIN_DATABASE_URL` is a separate env var (see .env.example),
  *     independent of `DATABASE_URL`.
  *   - This module exports exactly one thing callers should use — `adminDb` —

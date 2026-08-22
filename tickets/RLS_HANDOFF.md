@@ -98,10 +98,11 @@ from a suite that was wrong all along.
 
 #### DECISION (2026-08-22): accept the 404. Reversible — read this first.
 
-Taken by Claude, as the acting senior, because the session could not prompt
-for a ruling and the alternative was leaving ~6 suites red indefinitely.
-**Shawn has not signed off on this. Reverse it if you disagree** — the
-reversal is mechanical and named below.
+Proposed by Claude (the session could not prompt for a ruling), then put to
+the repo owner explicitly on 2026-08-22 with the trade-off spelled out. **The
+owner delegated the call rather than overriding it, so this now stands as a
+deliberate decision, not an unreviewed default.** It remains reversible; the
+reversal is named below.
 
 Accepted, for two reasons:
 
@@ -555,6 +556,18 @@ appears where the old one was. That is usually not noise; it is the next layer.
 ---
 
 ## 7. The gate (RLS-5) — and why the allowlist can only shrink
+
+**Advisory, deliberately, until the registration flake in §4 is understood.**
+`RLS Enforcement Gate` is NOT in `main-protection`'s required checks (those are
+Quality Gates, Validate Strict Zones, Tests (24.x), Security Scan) — verified,
+not assumed. It runs on dev/test/main and reports, but does not block a merge.
+
+That is the right setting for now and the reasoning should survive: a gate that
+goes red for reasons unrelated to the change under test teaches people to
+re-run it, and a check people habitually re-run is worse than no check because
+it still carries authority. Adding a retry would be worse still — it would mask
+exactly the nondeterminism worth seeing. Promote it to a required check once
+§4's flake is closed.
 
 **Status 2026-08-22: the allowlist is EMPTY and the gate passes.** 124/124
 files, 1183/1183 tests, under a genuine non-owner role.
