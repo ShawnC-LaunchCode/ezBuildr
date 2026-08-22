@@ -12,6 +12,7 @@ import { TestFactory } from '../helpers/testFactory';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 describe.sequential('public run access policy', () => {
   let ownerCtx: IntegrationTestContext | null = null;
@@ -93,10 +94,10 @@ describe.sequential('public run access policy', () => {
   });
 
   it('denies a cross-tenant authenticated UUID launch for a private workflow', async () => {
-    await request(ownerCtx!.baseURL)
+    const denied = await request(ownerCtx!.baseURL)
       .post(`/api/workflows/${privateWorkflowId}/runs`)
       .set('Authorization', `Bearer ${outsiderCtx!.authToken}`)
-      .send({})
-      .expect(403);
+      .send({});
+    expectCrossTenantDenied(denied.status);
   });
 });

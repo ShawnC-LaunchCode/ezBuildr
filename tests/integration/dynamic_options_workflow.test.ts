@@ -23,6 +23,7 @@ import type { Server } from 'http';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 interface OptionsResponse {
   options: Array<{ value: string; label: string }>;
@@ -261,7 +262,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     expect((await getOptions(userToken, { columnId: valueColumnId }, randomUUID())).status).toBe(404);
   });
 
-  it('allows a same-tenant run token and denies a different-tenant run token with 403', async () => {
+  it('allows a same-tenant run token and denies a different-tenant run token', async () => {
     const allowed = await getOptions(runToken, { columnId: valueColumnId, labelColumnId });
     expect(allowed.status).toBe(200);
     expect(await allowed.json() as OptionsResponse).toEqual({
@@ -269,6 +270,6 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     });
 
     const denied = await getOptions(otherTenantRunToken, { columnId: valueColumnId, labelColumnId });
-    expect(denied.status).toBe(403);
+    expectCrossTenantDenied(denied.status);
   });
 });

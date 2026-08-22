@@ -20,6 +20,7 @@ import {
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 interface AuditChangeSet {
   before?: Record<string, unknown>;
@@ -1175,7 +1176,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
     expect(getAuditChanges(unarchiveLogs[0]).after?.tableId).toBe(tableId);
   });
 
-  it('DV-14 AC4: missing rows return 404 and cross-tenant archived rows return 403', async () => {
+  it('DV-14 AC4: missing rows return 404 and cross-tenant archived rows are refused', async () => {
     const missingResponse = await request(ctx.baseURL)
       .patch('/api/datavault/rows/00000000-0000-0000-0000-000000000000/unarchive')
       .set('Authorization', `Bearer ${ownerToken}`);
@@ -1190,7 +1191,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
     const crossTenantResponse = await request(ctx.baseURL)
       .patch(`/api/datavault/rows/${rowId}/unarchive`)
       .set('Authorization', `Bearer ${otherTenantToken}`);
-    expect(crossTenantResponse.status).toBe(403);
+    expectCrossTenantDenied(crossTenantResponse.status);
 
     const [stillArchivedRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })

@@ -17,6 +17,7 @@ import { seedWorkflow, seedTemplate, seedDatavault } from "../helpers/bundleTest
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 describe.sequential("Portability Export API Integration Tests", () => {
   let app: Express;
@@ -225,10 +226,8 @@ describe.sequential("Portability Export API Integration Tests", () => {
 
     const response = await request(baseURL)
       .get(`/api/portability/export/project/${projectId}`)
-      .set("Authorization", `Bearer ${otherAuthToken}`)
-      .expect(403);
-      
-    expect(response.body.message).toMatch(/Access denied/i);
+      .set("Authorization", `Bearer ${otherAuthToken}`);
+    expectCrossTenantDenied(response.status);
     
     await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenant.id));
   });

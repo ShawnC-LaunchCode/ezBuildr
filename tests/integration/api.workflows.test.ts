@@ -185,6 +185,18 @@ describe.sequential("Workflow Move API Integration Tests", () => {
 
       const authToken2 = registerResponse2.body.token;
 
+      // `POST /api/auth/register` deliberately leaves `tenant_id` NULL — the
+      // `tenantId` sent in the body above is ignored. That left user 2
+      // TENANTLESS, which under RLS sees nothing at all, so this asserted a
+      // cross-tenant-style 404 while claiming to test in-tenant ownership.
+      // Put user 2 in the same tenant, which is what the case has always
+      // meant: the workflow IS visible to them, and the ACL is what refuses.
+      // A genuine 403, not the 404 contract change (RLS_HANDOFF.md §0b).
+      await getOwnerDb()
+        .update(schema.users)
+        .set({ tenantId: ctx.tenantId, tenantRole: "builder" })
+        .where(eq(schema.users.id, registerResponse2.body.user.id));
+
       // Try to move the first user's workflow as the second user
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)

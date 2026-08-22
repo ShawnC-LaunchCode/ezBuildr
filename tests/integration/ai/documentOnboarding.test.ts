@@ -19,6 +19,7 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 
 import { setupIntegrationTest, type IntegrationTestContext } from '../../helpers/integrationTestHelper';
+import { expectCrossTenantDenied } from '../../helpers/expectDenied';
 
 const generateWorkflowMock = vi.fn();
 
@@ -254,10 +255,10 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
         projectId: ctx.projectId,
         documentName: 'Intake.docx',
         variables: APPROVED_VARIABLES,
-      })
-      .expect(403);
+      });
 
-    expect(String(response.body.error)).toMatch(/access denied/i);
+    expectCrossTenantDenied(response.status);
+    // The assertion that actually matters: the model was never reached.
     expect(generateWorkflowMock).not.toHaveBeenCalled();
   });
 

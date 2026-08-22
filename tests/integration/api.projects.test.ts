@@ -15,6 +15,7 @@ import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 /**
  * Projects API Integration Tests
  *
@@ -446,10 +447,10 @@ describe.sequential("Projects API Integration Tests", () => {
       }
     });
     it("should not allow cross-tenant access", async () => {
-      await request(baseURL)
+      const res = await request(baseURL)
         .get(`/api/projects/${projectId}`)
-        .set("Authorization", `Bearer ${otherAuthToken}`)
-        .expect(403);
+        .set("Authorization", `Bearer ${otherAuthToken}`);
+      expectCrossTenantDenied(res.status);
     });
   });
   describe("PROJ-1: org-admin archive gate on updateProject", () => {

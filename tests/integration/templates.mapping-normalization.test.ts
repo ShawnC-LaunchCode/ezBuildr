@@ -8,6 +8,7 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 const OWNER_ITEM_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -178,13 +179,13 @@ describe.sequential('Template mapping normalization', () => {
           mapping: { ownerRows: { type: 'variable', source: 'owners' } },
           testData: { owners },
         })
-        .expect(403);
+        .then((r) => { expectCrossTenantDenied(r.status); });
 
       await request(ctx.baseURL)
         .post(`/api/templates/${templateId}/preview`)
         .set('Authorization', `Bearer ${ctx.authToken}`)
         .send({ workflowId: otherWorkflowId, sampleData: { owners } })
-        .expect(403);
+        .then((r) => { expectCrossTenantDenied(r.status); });
 
       expect(getStepsSpy).not.toHaveBeenCalled();
     } finally {

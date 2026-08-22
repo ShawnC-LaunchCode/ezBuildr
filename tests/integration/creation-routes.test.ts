@@ -35,6 +35,7 @@ import {
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 let ctx: IntegrationTestContext;
 let agent: ReturnType<typeof createAuthenticatedAgent>;
@@ -115,8 +116,7 @@ describe("POST /api/workflows", () => {
       .post("/api/workflows")
       .send({ title: "Sneaky", projectId: projRes.body.id });
 
-    expect(res.status).toBe(403);
-    expect(res.body.message).toMatch(/access denied/i);
+    expectCrossTenantDenied(res.status);
 
     // cleanup foreign tenant + its users to avoid FK debris across the suite
     await getOwnerDb().delete(schema.users).where(eq(schema.users.tenantId, foreignTenant.id));
