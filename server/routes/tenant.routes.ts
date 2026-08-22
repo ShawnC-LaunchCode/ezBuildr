@@ -57,6 +57,21 @@ async function createTenantHandler(req: Request, res: Response): Promise<void> {
           tenantId: newTenant.id,
           tenantRole: 'owner',
         }, tx));
+
+      // The row just changed, so the 30-second TTL copy in `userCache` is now
+      // wrong. `hybridAuth` re-hydrates tenant/role from that cache on every
+      // request, so without this the user keeps their pre-tenant identity for
+      // up to 30s and the very next call fails with "User does not have a
+      // tenant assigned" — i.e. a brand-new account creates its workspace and
+      // then cannot do anything for half a minute.
+      //
+      // Reproduced end to end on dev: POST /api/tenants -> 201, immediate
+      // POST /api/projects -> 400, the identical request 30s later -> 201,
+      // with `users.tenant_id` correctly set in the database the whole time.
+      // `userCache.ts` already states the rule ("role-changing endpoints
+      // invalidate this cache"); this endpoint assigns a tenant AND a role and
+      // was not honouring it.
+      invalidateUserCache(authReq.userId);
     }
 
     logger.info({ tenantId: newTenant.id, userId: authReq.userId }, 'Tenant created');
