@@ -200,11 +200,11 @@ export async function updateConfig(params: {
   if (params.window !== undefined) {
     updateData.window = params.window;
   }
-  const [updated] = await db
+  const [updated] = await withCurrentTenant((tx) => tx
     .update(sliConfigs)
     .set(updateData)
     .where(eq(sliConfigs.id, params.id))
-    .returning();
+    .returning());
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!updated) {
     throw new Error(`SLI config not found: ${params.id}`);
@@ -225,11 +225,14 @@ export async function getConfig(params: {
   } else {
     conditions.push(isNull(sliConfigs.workflowId));
   }
-  const result = await db
+  // `sli_configs` is RLS-covered; `createConfig`/`saveSLIWindow` above are
+  // already scoped and these two were not, so an SLI target could be created
+  // and then never read back.
+  const result = await withCurrentTenant((tx) => tx
     .select()
     .from(sliConfigs)
     .where(and(...conditions))
-    .limit(1);
+    .limit(1));
   return result.length > 0 ? result[0] : null;
 }
 /**

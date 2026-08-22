@@ -84,6 +84,47 @@ not a test fix. Collect them for RLS-4 rather than silently making them
 green — a suite edited to match new behaviour is indistinguishable, later,
 from a suite that was wrong all along.
 
+#### DECISION (2026-08-22): accept the 404. Reversible — read this first.
+
+Taken by Claude, as the acting senior, because the session could not prompt
+for a ruling and the alternative was leaving ~6 suites red indefinitely.
+**Shawn has not signed off on this. Reverse it if you disagree** — the
+reversal is mechanical and named below.
+
+Accepted, for two reasons:
+
+1. **The security property is unchanged.** Cross-tenant access is denied
+   either way. Only the discriminability of "exists but forbidden" from
+   "does not exist" changes, and losing it is a strict reduction in what an
+   attacker learns.
+2. **The alternative is worse than the problem.** Preserving 403 requires a
+   second, deliberately-unscoped existence probe on every denial path — new
+   bypass surface on precisely the code paths that must fail closed, added
+   to re-introduce an information leak on purpose.
+
+Scope of the change: cross-tenant reads ONLY. **In-tenant RBAC denials still
+return 403 and their assertions are untouched** — a viewer who cannot edit is
+denied by the ACL layer, which sees the row perfectly well. When editing a
+403 assertion, confirm which of the two it is; most 403s in `tests/integration`
+are the RBAC kind and must stay.
+
+To reverse: `git log --grep="403.*404"` finds the commits that changed the
+assertions; each one names the route. There is no production code to revert —
+the 404 is what the policy does, so restoring 403 means *adding* the probe
+described above, not undoing an edit.
+
+**The client audit is done, and it is clean.** Exactly two places in
+`client/src` branch on 403, and neither is affected:
+
+| Site | Why it is unaffected |
+|---|---|
+| `lib/connectors/interface.ts:132` | Inspects a **third-party** API's response during a connection test. Not an ezBuildr status code at all. |
+| `pages/AdminLogs.tsx:285` | The admin-role gate. That 403 comes from `isAdmin` middleware on a role check — in-tenant RBAC, not row visibility. Unchanged. |
+
+So no client handler changes behaviour when a cross-tenant read starts
+answering 404. Re-run `grep -rn "403" client/src` if this ages; the check
+costs a minute and is the part of the decision with real user-facing risk.
+
 ### The remaining 81 files, classified by first error
 
 | Files | Class | What it means |

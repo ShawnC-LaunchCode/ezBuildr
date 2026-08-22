@@ -7,9 +7,9 @@
 import { sql } from 'drizzle-orm';
 
 import { type InsertMetricsRollup } from '../../shared/schema';
-import { db } from '../db';
 import logger from '../logger';
 import sli from '../services/sli';
+import { forEachTenant } from '../utils/forEachTenant';
 export type BucketSize = '1m' | '5m' | '1h' | '1d';
 interface RollupParams {
   bucketSize: BucketSize;
@@ -91,6 +91,13 @@ async function rollupSingleBucket(params: {
   bucketStart: Date;
   bucketEnd: Date;
 }): Promise<void> {
+  // RLS-7: `metrics_events` and `metrics_rollups` are both RLS-covered, and a
+  // cron job carries no tenant. Unscoped, the SELECT below returned nothing
+  // under enforcement and this job rolled up SILENCE — it completed
+  // successfully, wrote no rollups, and every dashboard and SLI downstream
+  // read zeros as if the platform had gone quiet. Iterate tenants explicitly
+  // rather than granting a scheduled job system-wide reach; see forEachTenant.
+  await forEachTenant('metricsRollup', async (_tenantId, tx) => {
   // Query all events in this bucket, grouped by tenant/project/workflow
   const query = sql`
     SELECT
@@ -112,7 +119,7 @@ async function rollupSingleBucket(params: {
     WHERE ts >= ${params.bucketStart} AND ts < ${params.bucketEnd}
     GROUP BY tenant_id, project_id, workflow_id
   `;
-  const results = await db.execute(query);
+  const results = await tx.execute(query);
   // Upsert rollups for each group
   for (const row of results.rows as unknown as RollupQueryRow[]) {
     const rollupData: InsertMetricsRollup = {
@@ -134,7 +141,7 @@ async function rollupSingleBucket(params: {
       queueDequeued: parseInt(row.queue_dequeued) || 0,
     };
     // Upsert rollup using raw SQL (Drizzle doesn't support sql expressions in target array)
-    await db.execute(sql`
+    await tx.execute(sql`
       INSERT INTO metrics_rollups (
         tenant_id, project_id, workflow_id, bucket_start, bucket,
         runs_count, runs_success, runs_error, dur_p50, dur_p95,
@@ -187,6 +194,7 @@ async function rollupSingleBucket(params: {
   //   bucketStart: params.bucketStart,
   //   groupCount: results.rows.length,
   // }, 'Bucket rollup completed');
+  });
 }
 /**
  * Compute and save SLI windows after rollup
@@ -201,8 +209,13 @@ export async function computeAndSaveSLIs(): Promise<void> {
     FROM metrics_rollups
     WHERE bucket_start >= NOW() - INTERVAL '30 days'
   `;
-  const results = await db.execute(query);
-  const targetRows = results.rows as unknown as Array<Pick<RollupQueryRow, 'tenant_id' | 'project_id' | 'workflow_id'>>;
+  // Same reasoning as rollupSingleBucket: `metrics_rollups` is RLS-covered, so
+  // this DISTINCT scan found no targets and no SLI window was ever saved.
+  const { results: perTenantRows } = await forEachTenant('computeAndSaveSLIs', async (_tenantId, tx) => {
+    const res = await tx.execute(query);
+    return res.rows as unknown as Array<Pick<RollupQueryRow, 'tenant_id' | 'project_id' | 'workflow_id'>>;
+  });
+  const targetRows = perTenantRows.flat();
   for (const row of targetRows) {
     try {
       const sliResult = await sli.computeSLI({

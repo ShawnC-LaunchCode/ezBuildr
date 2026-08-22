@@ -10,7 +10,7 @@ import { requireOwner, requirePermission } from "../middleware/rbac";
 import { requireTenant, validateTenantParam } from "../middleware/tenant";
 import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories";
-import { withTenantAsUser } from "../utils/rlsContext";
+import { withCurrentTenant, withTenantAsUser } from "../utils/rlsContext";
 import { authService } from "../services/AuthService";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -250,8 +250,10 @@ export function registerTenantRoutes(app: Express): void {
     try {
       const { tenantId } = req.params;
 
-      // Get all users in the tenant
-      const tenantUsers = await db
+      // Get all users in the tenant. `users` is RLS-covered, so unscoped this
+      // returned an EMPTY member list — a tenant settings page showing no
+      // members at all rather than an error.
+      const tenantUsers = await withCurrentTenant((tx) => tx
         .select({
           id: users.id,
           email: users.email,
@@ -264,7 +266,7 @@ export function registerTenantRoutes(app: Express): void {
           createdAt: users.createdAt,
         })
         .from(users)
-        .where(eq(users.tenantId, tenantId));
+        .where(eq(users.tenantId, tenantId)));
 
       res.json({
         users: tenantUsers,
@@ -287,11 +289,12 @@ export function registerTenantRoutes(app: Express): void {
     try {
       const { tenantId } = req.params;
 
-      // Get all projects in the tenant
-      const tenantProjects = await db
+      // Get all projects in the tenant. `projects` is RLS-covered — same
+      // silent-empty shape as the member list above.
+      const tenantProjects = await withCurrentTenant((tx) => tx
         .select()
         .from(projects)
-        .where(eq(projects.tenantId, tenantId));
+        .where(eq(projects.tenantId, tenantId)));
 
       res.json({
         projects: tenantProjects,

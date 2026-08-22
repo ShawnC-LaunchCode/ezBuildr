@@ -135,7 +135,10 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
       GROUP BY day
       ORDER BY day ASC
     `;
-    const runsPerDay = await db.execute(runsPerDayQuery);
+    // `metrics_events` is RLS-covered, so these two ran on the bare pool and
+    // returned no rows under enforcement — the analytics page rendered an
+    // empty chart and a zeroed doc-stats panel rather than an error.
+    const runsPerDay = await withCurrentTenant((tx) => tx.execute(runsPerDayQuery));
     // Get PDF/DOCX generation stats
     const docStatsQuery = sql`
       SELECT
@@ -148,7 +151,7 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
         ${query.workflowId ? sql`AND ${metricsEvents.workflowId} = ${query.workflowId}` : sql``}
         AND ${metricsEvents.ts} >= ${windowStart}
     `;
-    const docStatsResult = await db.execute(docStatsQuery);
+    const docStatsResult = await withCurrentTenant((tx) => tx.execute(docStatsQuery));
     const docStats = (docStatsResult.rows[0] as unknown) as DocStatsRow;
     const pdfTotal = safeParseInt(docStats.pdf_success) + safeParseInt(docStats.pdf_failed);
     const docxTotal = safeParseInt(docStats.docx_success) + safeParseInt(docStats.docx_failed);

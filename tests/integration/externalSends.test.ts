@@ -10,6 +10,7 @@ import { runPersistenceWriter } from '../../server/services/runs/RunPersistenceW
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 
 // Mock global fetch
 const fetchMock = vi.fn();
@@ -173,6 +174,12 @@ describe('External Send Block Integration', () => {
             runToken: uuidv4() // Add runToken
         } as any);
 
+        // RLS-2b recipe step 3: this suite calls the coordinator DIRECTLY, with
+        // no HTTP request, so no middleware populates the ambient tenant that
+        // every converted service reads. `enterWith` does not propagate out of
+        // a hook into a test body, so it has to be set here, per test.
+        enterTenantContextForTests(tenantId);
+
         const context: ExecutionContext = {
             workflowId,
             runId,
@@ -237,6 +244,12 @@ describe('External Send Block Integration', () => {
             status: 'pending',
             runToken: uuidv4() // Add runToken
         } as any);
+
+        // RLS-2b recipe step 3: this suite calls the coordinator DIRECTLY, with
+        // no HTTP request, so no middleware populates the ambient tenant that
+        // every converted service reads. `enterWith` does not propagate out of
+        // a hook into a test body, so it has to be set here, per test.
+        enterTenantContextForTests(tenantId);
 
         const context: ExecutionContext = {
             workflowId,
