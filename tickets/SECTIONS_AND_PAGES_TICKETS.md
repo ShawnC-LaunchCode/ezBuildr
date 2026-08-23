@@ -919,7 +919,22 @@ phase that makes the feature *User-reachable*.
 standing instruction is that it is loaded for any UI work; a turn-in that
 skipped it is sent back regardless of how the UI looks.
 
-## SECT-5 — Document Outline nests pages under Sections 🔲
+## SECT-5 — Document Outline nests pages under Sections 🔄
+
+**Dispatched:** 2026-08-23 · Follows the accepted Phase 1 gate commit
+`a7fae7d5`. Senior review found the ticket's old `sections.map(SectionItem)`,
+pre-existing `expandedSections`, `SectionSettingsDialog`, and `vault-hooks.ts`
+implementation claims stale: the current tree is a flat `PageItem` map with
+`expandedPages`, the Section dialog is new work, and hooks live under
+`client/src/hooks/api/`. Implementation must order each Section by its first
+member page, keep a literal unchanged zero-Section page branch, and use a fixed
+rail plus a denser nested Page presentation instead of a fourth raw `ml-4`.
+Create is constrained to a contiguous non-empty span of ungrouped pages; rename
+sends only editable fields; delete copy must say pages are kept, retain order,
+and become ungrouped. Section create/delete and reorder-driven empty-Section
+deletion invalidate both Section and Page queries. The 164px compact breakpoint
+must be measured in the browser, with two design review cycles at normal and
+minimum widths. Server state remains exclusively in TanStack Query.
 
 **Priority: ENH** · Size: M · File: `client/src/components/builder/SidebarTree.tsx`
 
