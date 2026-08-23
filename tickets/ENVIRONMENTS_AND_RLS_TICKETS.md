@@ -1553,7 +1553,24 @@ without a policy fails CI rather than shipping.
 
 ---
 
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔲
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev DONE 2026-08-22
+
+### Progress — 2026-08-22 · **dev is cut over and enforcing**
+
+Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](RLS4_CUTOVER.md).
+
+| AC | State |
+|---|---|
+| 1. Migration sets `FORCE` on every policy table | ❌ **not done — and read this before doing it.** `neondb_owner` holds `BYPASSRLS` *directly*, and BYPASSRLS beats FORCE, so a FORCE migration alone changes nothing here. The isolation comes from AC2. FORCE is still worth adding as defence against a future non-bypassing owner, but it is not what makes this work. |
+| 2. Least-privilege role, not owner, no BYPASSRLS | ✅ `ezbuildr_app` on the dev branch — `rolbypassrls=false`, no role memberships |
+| 3. `DATABASE_URL` uses it in dev and test | 🔄 **dev only**; `test` and `production` outstanding |
+| 4. Cross-tenant read proven impossible | ✅ as the app role with tenant A pinned: that tenant's rows only, **0** from any other |
+| 5. Proven non-vacuous, incl. the empty-string trap | ✅ GUC unset → **0**; GUC `''` → **0**; real tenant → its rows. Both fail-closed |
+| 6. Documented rollback | ✅ `RLS4_CUTOVER.md` §5 — variable change + redeploy, no migration to revert |
+
+⚠️ Cutting over broke the first deploy: container start runs `db:migrate`, which
+needs DDL the app role does not have. Fixed by `MIGRATION_DATABASE_URL`
+(`scripts/runMigrations.ts`), which `test`/`production` must also set.
 
 **Priority: P0** · Size: M · **BLOCKED on RLS-2, RLS-3, and now the admin-access path below** · Files: a new migration, Railway/Neon role configuration, `.env.example`
 
@@ -1702,7 +1719,28 @@ take the product down, and the blast radius is "every query returns zero rows".
 
 ---
 
-## RLS-5 — Gate: full integration as the non-owner role 🔲
+## RLS-5 — Gate: full integration as the non-owner role ✅ DONE 2026-08-22 (AC3 deliberately deferred)
+
+### Progress — 2026-08-22
+
+`scripts/rls-gate.ts` + `.github/workflows/rls-gate.yml`, documented in
+`RLS_HANDOFF.md` §7.
+
+| AC | State |
+|---|---|
+| 1. CI job runs full integration as the restricted role | ✅ on dev/test/main |
+| 2. Green, or every failure triaged | ✅ **124/124 files, 1183/1183 tests, allowlist EMPTY** |
+| 3. Required by branch protection | 🔲 **deliberately advisory for now** — see below |
+| 4. Output for both owner and restricted runs | ✅ both green; recorded in `RLS_HANDOFF.md` §1 |
+
+AC3 is held back on purpose, not forgotten. §4's intermittent "Registration
+failed" is still unexplained, and a gate that goes red for reasons unrelated to
+the change under test teaches people to re-run it — which is worse than no gate,
+because it still carries authority. Promote it to required once that is closed.
+
+The ratchet runs both ways: an unlisted failure fails the build, and so does an
+allowlisted file that starts passing. All six behaviours were proven to fire
+against synthetic fixtures before it was trusted.
 
 **Priority: P0** · Size: M · Files: `vitest.config.ts` or CI configuration; `.github/workflows/ci.yml`
 
@@ -1991,7 +2029,32 @@ Ranked by failure shape, because every one of these would have failed **silently
 
 ---
 
-## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` 🔲
+## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` 🔄 built 2026-08-22, **AC 2b outstanding**
+
+### Progress — 2026-08-22 · built to the owner's ruling
+
+Reads go through `AdminAccessService` (`getUser`, `findUserByEmail`,
+`getWorkflow`, `countRunsByWorkflowIds`, `listRunsForWorkflow`), each paired
+with an `admin_access_log` row. `deleteWorkflow` resolves the target's tenant
+through the bypass pool and then writes on the **normal** pool inside
+`withTenant` — the read-only-bypass shape that was ruled.
+
+| AC | State |
+|---|---|
+| 1. Every cross-tenant admin op via `AdminAccessService` | ✅ |
+| 2. Each writes an `admin_access_log` row | ✅ |
+| **2b. No write on the `adminDb` connection — asserted by a TEST** | ❌ **OUTSTANDING** |
+| 3. Containment test passes and is non-vacuous | 🔄 passes; not re-proven vacuous-negative this session |
+| 4. Behaves as today with `ADMIN_DATABASE_URL` unset | ✅ admin suites green in normal mode |
+| 5. Gates | ✅ tsc 0 · lint 0 · restricted + normal integration green |
+
+**AC 2b is the one that matters and it is not done.** The whole argument for
+this design is a property statable in one sentence — *the bypass connection
+cannot write* — and right now that rests on review, which is exactly what the
+AC forbids. Two things also turned up that make it easy to get wrong: the
+bypass role is `neondb_owner` (it CAN write, so nothing at the database level
+stops it), and `adminDb.ts` claimed a migration created a dedicated role that
+has never existed.
 
 > ### ✅ RULED BY THE REPO OWNER 2026-08-21 — the shape is settled, build it this way
 >
