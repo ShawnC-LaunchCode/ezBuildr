@@ -221,7 +221,7 @@ export class SignatureBlockService {
    * will fail. Closing it needs a decision, not a refactor: either a bootstrap
    * clause on `signature_requests.provider_request_id` keyed on a GUC pinned
    * only after the webhook signature verifies (0029's shape, weaker proof), or
-   * routing it through RLS-6's adminDb. Flagged in tickets/RLS_HANDOFF.md for
+   * routing it through RLS-6's adminDb. Flagged in docs/architecture/RLS_HANDOFF.md for
    * the enforcement ticket; the HMAC callback route below, which does carry a
    * run id, is scoped properly today.
    */

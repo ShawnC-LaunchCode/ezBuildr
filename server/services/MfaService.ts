@@ -348,7 +348,7 @@ export class MfaService {
      * ⚠️ `adminResetMfa` reaches `disableMfa` for ANOTHER user, which is a
      * cross-tenant admin write and does not belong on this path — it is part of
      * the admin.routes/adminDb cluster still outstanding in
-     * tickets/RLS_HANDOFF.md, and is the reason this reads the row rather than
+     * docs/architecture/RLS_HANDOFF.md, and is the reason this reads the row rather than
      * assuming the caller's own tenant.
      */
     private async setUserMfaFlag(userId: string, enabled: boolean): Promise<void> {

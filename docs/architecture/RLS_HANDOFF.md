@@ -15,10 +15,12 @@ below has a **decision**, marked reversible. And there is now a **gate**:
 `npm run test:rls-gate` / `.github/workflows/rls-gate.yml`, which is what keeps
 all of the above from silently rotting — read §7 before touching the allowlist.
 
-- **Plan and estimates:** [`RLS_COMPLETION_PLAN.md`](RLS_COMPLETION_PLAN.md) —
-  phased scope against the ~2026-10-21 client-data date. Read that for *what to
-  do and when*. Read **this** file for *state, patterns and hazards*.
-- **Board:** [`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md)
+- **The cutover procedure:** [`RLS4_CUTOVER.md`](../deployment/RLS4_CUTOVER.md) —
+  per-environment steps, the measured Neon facts, and the rollback. Read that for
+  *how to turn enforcement on*. Read **this** file for *state, patterns and
+  hazards*. (The old `RLS_COMPLETION_PLAN.md` was retired 2026-08-23 — its
+  phases 1–4 all shipped; see `tickets/backlog/ENVIRONMENTS_AND_RLS.md`.)
+- **Board:** [`ENVIRONMENTS_AND_RLS_TICKETS.md`](../../tickets/ENVIRONMENTS_AND_RLS_TICKETS.md)
   — slimmed 2026-08-23 to its **one remaining ticket, RLS-4 for production**.
   Every other ENV/RLS ticket is closed; the closure record, the withdrawn
   findings and the parked observations are in
@@ -540,7 +542,9 @@ tenant id lands in the async context, and was proven non-vacuous by breaking
 read-only `OR` keyed on a GUC **application code sets**. Five auditable clauses
 beats every query site — but it is no longer "the database enforces it
 regardless of the app," which is what this phase was originally sold on. That
-trade is discussed in `RLS_COMPLETION_PLAN.md` §6.
+trade is discussed in `tickets/backlog/ENVIRONMENTS_AND_RLS.md`
+("How the scope got bounded"), which is where that retired plan's reasoning
+lives now.
 
 ---
 

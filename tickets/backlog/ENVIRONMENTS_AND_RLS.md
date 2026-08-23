@@ -17,8 +17,8 @@ That works whether or not the file still exists.
 
 **Durable engineering lessons are NOT here.** They are in
 [`docs/architecture/TENANT_ISOLATION_RLS.md`](../../docs/architecture/TENANT_ISOLATION_RLS.md)
-(§2a–§2g: the patterns), [`tickets/RLS_HANDOFF.md`](../RLS_HANDOFF.md) (state and
-the traps that cost real time) and [`tickets/RLS4_CUTOVER.md`](../RLS4_CUTOVER.md)
+(§2a–§2g: the patterns), [`docs/architecture/RLS_HANDOFF.md`](../RLS_HANDOFF.md) (state and
+the traps that cost real time) and [`docs/deployment/RLS4_CUTOVER.md`](../RLS4_CUTOVER.md)
 (the enforcement cutover procedure). This file is the closure record.
 
 ---
@@ -41,6 +41,41 @@ fail by going quiet. API integrations 404'd, Read Table blocks returned empty
 lists, every background job processed nothing while reporting success, the admin
 console showed one tenant, external sends could not find their destination,
 DocuSign webhooks retried forever, and run analytics silently stopped recording.
+
+---
+
+## How the scope got bounded (from the retired `RLS_COMPLETION_PLAN.md`)
+
+That plan is retired — phases 1–4 all shipped, and phase 5's remaining half is
+RLS-4 for production. Its one durable idea is worth keeping, because it is the
+thing that turned an apparently open-ended epic into a finite checklist:
+
+> **The failure mode is discovery-by-execution.** An unscoped read is invisible
+> until some test drives that exact path, so "what's left" could only be
+> answered by running the suite, fixing, and running again. Every pass found
+> more because every pass got further.
+
+Three things closed that off, and any similar initiative should copy them:
+
+1. **Name the categories the first sweep was blind to.** The original rollout
+   scoped itself to "services that reference `tenantId`" and structurally could
+   not see ownership-derived tables (`sections`/`steps`/`workflows` have no
+   `tenant_id`, so their services never mention it), services outside
+   `server/services/*.ts`, or route middleware — a whole layer.
+2. **Make the surface statically bounded**, so it is a checklist rather than a
+   search: `scripts/audit-rls-surface.ts`.
+3. **Remove the largest confounder.** `tests/helpers/ownerDb.ts` split the test
+   observer from the application, so a failing test means "the app could not do
+   this under RLS" rather than "the harness could not see it."
+
+The caveat learned afterwards, which that plan did not anticipate: the static
+bound is a **floor, not a ceiling**. Three of the largest defects were invisible
+to it — a field alias (`this.database`), a multi-line `db
+  .select()`, and a
+lost async context after multer. Two more categories had no test coverage at all
+(background jobs, multipart routes).
+
+Full text: `git log -p -- tickets/RLS_COMPLETION_PLAN.md`.
 
 ---
 

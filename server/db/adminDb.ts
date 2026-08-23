@@ -33,7 +33,7 @@ import type { Pool, PoolClient } from 'pg';
  *     grep `BYPASSRLS` in migrations/ and the only hits are prose. It is
  *     created per-environment as an operational step, deliberately not as a
  *     migration: roles are cluster-level, migrations are per-database, and the
- *     password must not live in git. See `tickets/RLS4_CUTOVER.md` §1.
+ *     password must not live in git. See `docs/deployment/RLS4_CUTOVER.md` §1.
  *   - `ADMIN_DATABASE_URL` is a separate env var (see .env.example),
  *     independent of `DATABASE_URL`.
  *   - This module exports exactly one thing callers should use — `adminDb` —

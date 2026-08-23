@@ -17,9 +17,9 @@
 | | |
 |---|---|
 | The patterns, §2a–§2g | [`docs/architecture/TENANT_ISOLATION_RLS.md`](../docs/architecture/TENANT_ISOLATION_RLS.md) |
-| Current state + the traps that cost real time | [`tickets/RLS_HANDOFF.md`](RLS_HANDOFF.md) |
-| The cutover procedure, per environment | [`tickets/RLS4_CUTOVER.md`](RLS4_CUTOVER.md) |
-| Phased scope against the client date | [`tickets/RLS_COMPLETION_PLAN.md`](RLS_COMPLETION_PLAN.md) |
+| Current state + the traps that cost real time | [`docs/architecture/RLS_HANDOFF.md`](RLS_HANDOFF.md) |
+| The cutover procedure, per environment | [`docs/deployment/RLS4_CUTOVER.md`](RLS4_CUTOVER.md) |
+| How the scope was bounded (retired plan) | [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md) |
 
 ## Where enforcement actually stands
 

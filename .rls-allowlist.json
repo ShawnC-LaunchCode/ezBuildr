@@ -1,5 +1,5 @@
 {
-  "$comment": "RLS-5 gate (scripts/rls-gate.ts). Integration files that still fail under a non-owner Postgres role. THE LIST IS EMPTY AND MUST STAY THAT WAY — the gate fails the build both for an unlisted failure and for a listed file that passes, so adding an entry is a deliberate, reviewable act. Every entry needs a diagnosed `reason`; never add one merely to go green. See tickets/RLS_HANDOFF.md §7.",
+  "$comment": "RLS-5 gate (scripts/rls-gate.ts). Integration files that still fail under a non-owner Postgres role. THE LIST IS EMPTY AND MUST STAY THAT WAY — the gate fails the build both for an unlisted failure and for a listed file that passes, so adding an entry is a deliberate, reviewable act. Every entry needs a diagnosed `reason`; never add one merely to go green. See docs/architecture/RLS_HANDOFF.md §7.",
   "$baseline": "2026-08-22 — EMPTY. All 124 integration files pass under RLS_RESTRICTED=true.",
   "allow": []
 }

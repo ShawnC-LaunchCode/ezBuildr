@@ -1,7 +1,7 @@
 # RLS-4 — turning enforcement ON
 
 **Written 2026-08-22, after the restricted suite went 124/124 green.** This is
-the procedure, the order, and the rollback. Read `RLS_HANDOFF.md` §1 and §7
+the procedure, the order, and the rollback. Read [`RLS_HANDOFF.md`](../architecture/RLS_HANDOFF.md) §1 and §7
 first for state.
 
 Everything below has been rehearsed once already: `tests/setup.ts` does exactly
@@ -244,7 +244,7 @@ to ship incrementally all along.
 
 ## 6. Known open item
 
-`RLS_HANDOFF.md` §4 documents an intermittent "Registration failed" in full
+[`RLS_HANDOFF.md`](../architecture/RLS_HANDOFF.md) §4 documents an intermittent "Registration failed" in full
 restricted test runs, cause not yet found, with same-connection instrumentation
 left in `auth.routes.ts` to catch it. It has never been observed outside the
 test harness. **It is not a reason to delay dev**, but get it understood before

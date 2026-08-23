@@ -20,8 +20,8 @@
  *    `AclService`) needs its CALLERS fixed, not itself.
  *  - So treat the output as a worklist to triage, not a defect count.
  *
- * Companion docs: tickets/RLS_COMPLETION_PLAN.md (the phased plan built on this
- * output) and tickets/RLS_HANDOFF.md (state, patterns and traps).
+ * Companion docs: tickets/backlog/ENVIRONMENTS_AND_RLS.md (how the scope was bounded, from the retired plan built on this
+ * output) and docs/architecture/RLS_HANDOFF.md (state, patterns and traps).
  */
 
 import { readFileSync, readdirSync, statSync } from 'fs';

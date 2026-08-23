@@ -23,7 +23,7 @@ import { expect } from 'vitest';
  * honest trade — the property these cases exist to protect is "a caller from
  * another tenant does not get the resource", which both codes satisfy. The
  * exact code is a contract detail recorded as a decision in
- * `tickets/RLS_HANDOFF.md` §0b (404 accepted; it leaks strictly less).
+ * `docs/architecture/RLS_HANDOFF.md` §0b (404 accepted; it leaks strictly less).
  *
  * **Tighten this to 404 alone once `FORCE` is set everywhere** — grep for
  * `expectCrossTenantDenied` to find every site in one pass. Until then, a test

@@ -26,7 +26,7 @@ import type { NextFunction, Response } from 'express';
  * working NO test showed it: `req.runAuth` was still set, the route still ran,
  * and only the RLS-scoped reads downstream came back empty.
  *
- * `tickets/RLS_HANDOFF.md` flagged exactly this as "worth verifying, not
+ * `docs/architecture/RLS_HANDOFF.md` flagged exactly this as "worth verifying, not
  * assumed" before enforcement. This is that verification: it asserts the
  * resolved tenant id, so a regression in the resolution — or in migration
  * 0030's `app.current_workflow_id` clause that makes the workflow readable

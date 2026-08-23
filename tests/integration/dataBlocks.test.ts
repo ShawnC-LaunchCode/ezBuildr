@@ -9,7 +9,7 @@ import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } fr
 
 // RLS-5 recipe step 3: every test here drives runService/blockService DIRECTLY,
 // so nothing opens a tenant context for them; a hook entry would not reach a
-// test body. See tickets/RLS_HANDOFF.md §0b.
+// test body. See docs/architecture/RLS_HANDOFF.md §0b.
 import { enterTenantContextForTests, runWithTenantContext } from '../../server/utils/rlsContext';
 import { WriteRunner } from '../../server/lib/writes/WriteRunner';
 import { stepValueRepository } from '../../server/repositories';
