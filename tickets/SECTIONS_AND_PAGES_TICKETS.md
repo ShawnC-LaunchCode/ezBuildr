@@ -349,7 +349,11 @@ right here is what makes SECT-7 readable.
 
 ---
 
-## SECT-2 — Physical DB rename: `sections` → `pages`, and drop the name pins 🔲
+## SECT-2 — Physical DB rename: `sections` → `pages`, and drop the name pins 🔄
+
+**In progress:** 2026-08-23 · dispatched by the Senior in dedicated worktree
+`sect-2` from verified `dev` head `36c86f38`. Migration work is isolated; no
+other epic ticket may generate a migration concurrently.
 
 **Priority: P1** · Size: M · File: `migrations/0038_*.sql`, `shared/schema/workflow.ts`
 
