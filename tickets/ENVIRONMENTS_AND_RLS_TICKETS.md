@@ -311,7 +311,7 @@ silently "fix" production.
 
 ---
 
-## ENV-3 — Per-environment secrets, and fix the live storage misconfiguration 🔄 mostly done
+## ENV-3 — Per-environment secrets, and fix the live storage misconfiguration ✅ DONE 2026-08-22
 
 **Priority: P1** · Size: S · Files: Railway variables per environment, `.env.example`
 
@@ -356,7 +356,48 @@ production cutover rather than after, because it proves the storage path works
 while the variables are still the known-good ones — if it were run afterwards
 and failed, the cause would be ambiguous between storage and RLS.
 
-**I cannot close this myself.** Production has exactly 2 users, both real
+### ✅ AC4 CLOSED 2026-08-22 — a generated document downloaded from production
+
+Signup was temporarily enabled on production with the owner's explicit
+authorisation, the probe run below performed, and signup then **removed and
+verified closed again** (`POST /api/auth/register` -> `403 registration_closed`).
+The variable was ABSENT before, so restoring meant deleting it rather than
+setting it to `false` — a distinction worth noting for anyone repeating this.
+
+| step | result |
+|---|---|
+| upload a DOCX template (S3 write) | **201**, `fileRef` issued, placeholders parsed |
+| download it back (S3 read) | **200**, 900 bytes — byte-identical to the upload, `PK` |
+| render a PDF (`POST /templates/:id/preview`) | **200**, signed S3 URL returned |
+| **download the generated PDF** | **200**, 12,448 bytes, `application/pdf` |
+| the bytes | `%PDF-1.7` … `%%EOF` — complete, not truncated |
+
+```
+https://t3.storageapi.dev/integrated-flask-bf4igkar/previews/preview-eCBvYsr4vw2NAANF.pdf
+```
+
+So the production document path works end to end: template into S3, render
+through Gotenberg, generated PDF back out of S3 over a signed URL. **`DEBT-OPS1`
+now has the evidence it always needed** rather than a set variable.
+
+Two things this run also established, neither of them the AC:
+
+- **The onboarding cache bug is live in production.** `POST /api/tenants` -> 201,
+  then an immediate `POST /api/projects` -> **400 "User does not have a tenant
+  assigned"**, and the identical request 35s later -> 201. Fixed on `dev`, not
+  yet promoted.
+- **The marketplace catalog is EMPTY on production** (`GET /api/templates` -> `[]`)
+  while dev serves three curated templates. The catalog ships in
+  `dist/marketplace/`, so production's build simply predates it.
+
+Left behind in production: one tenant `ENV3 AC4 Probe Tenant`
+(`93cff37a-8b24-401a-84c2-7c5261e5be97`) containing exactly 1 user, 1 project and
+1 template, plus two S3 objects. Nothing else was touched; the 2 real users are
+outside that tenant.
+
+---
+
+**Original blocker, retained for context.** Production has exactly 2 users, both real
 accounts whose passwords I do not hold, and `VITE_PUBLIC_SIGNUP_ENABLED` is not
 set there, so registering is not available either. Closing AC4 needs one of:
 the owner running it and pasting the result; a production account for the
