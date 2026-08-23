@@ -223,11 +223,23 @@ async function provisionAdminBypassRole(
     `ALTER ROLE "${RLS_ADMIN_ROLE}" WITH PASSWORD '${RLS_ADMIN_PASSWORD}' BYPASSRLS NOSUPERUSER`
   );
   await ownerClient.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`);
+  // SELECT ONLY — this is RLS-7 AC 2b, enforced by the database rather than by
+  // review. The ruling is that the BYPASSRLS pool is a READ path: it resolves
+  // which tenant owns a target, and the write then happens on the normal pool
+  // inside `withTenant`. Granting this role write access in tests would let a
+  // regression route a write through the bypass connection and still go green,
+  // which is exactly the property the AC refuses to take on trust.
+  //
+  // A violation therefore surfaces as `permission denied for table …` naming
+  // the bypass role — loud, and pointing straight at the offending write.
   await ownerClient.query(
-    `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
+    `GRANT SELECT ON ALL TABLES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
   );
   await ownerClient.query(
-    `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
+    `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA "${schema}" FROM "${RLS_ADMIN_ROLE}"`
+  );
+  await ownerClient.query(
+    `GRANT SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
   );
 }
 

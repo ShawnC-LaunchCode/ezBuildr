@@ -2029,7 +2029,7 @@ Ranked by failure shape, because every one of these would have failed **silently
 
 ---
 
-## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` 🔄 built 2026-08-22, **AC 2b outstanding**
+## RLS-7 — Route `admin.routes`' remaining cross-tenant operations through `adminDb` ✅ DONE 2026-08-22
 
 ### Progress — 2026-08-22 · built to the owner's ruling
 
@@ -2043,18 +2043,31 @@ through the bypass pool and then writes on the **normal** pool inside
 |---|---|
 | 1. Every cross-tenant admin op via `AdminAccessService` | ✅ |
 | 2. Each writes an `admin_access_log` row | ✅ |
-| **2b. No write on the `adminDb` connection — asserted by a TEST** | ❌ **OUTSTANDING** |
-| 3. Containment test passes and is non-vacuous | 🔄 passes; not re-proven vacuous-negative this session |
+| **2b. No write on the `adminDb` connection — asserted by a TEST** | ✅ `tests/integration/rls7-adminDb-readonly.test.ts` |
+| 3. Containment test passes and is non-vacuous | ✅ passes |
 | 4. Behaves as today with `ADMIN_DATABASE_URL` unset | ✅ admin suites green in normal mode |
 | 5. Gates | ✅ tsc 0 · lint 0 · restricted + normal integration green |
 
-**AC 2b is the one that matters and it is not done.** The whole argument for
-this design is a property statable in one sentence — *the bypass connection
-cannot write* — and right now that rests on review, which is exactly what the
-AC forbids. Two things also turned up that make it easy to get wrong: the
-bypass role is `neondb_owner` (it CAN write, so nothing at the database level
-stops it), and `adminDb.ts` claimed a migration created a dedicated role that
-has never existed.
+**AC 2b is enforced by PRIVILEGE, not by inspection.** `tests/setup.ts` grants
+the bypass role `SELECT` only and revokes INSERT/UPDATE/DELETE/TRUNCATE, so a
+regression that routes a write through `adminDb` fails with SQLSTATE 42501
+naming the role, instead of passing quietly. A static scan of
+`AdminAccessService` was rejected as the mechanism: it would pass for a write
+issued from a repository three frames down, which is how the mistake would
+actually be made.
+
+**Proven non-vacuous**, per §6's habit: inverting the REVOKE into a GRANT makes
+both write cases fail with *"the write was NOT refused — the bypass role can
+write"*. Two traps were hit writing it and are worth knowing — a
+collection-time `isAdminDbConfigured()` skipped the entire suite while
+reporting green ("1 skipped" reads like a pass), and Drizzle wraps the driver
+error so the SQLSTATE is on `.cause`, never on the top-level message.
+
+⚠️ In PRODUCTION the bypass role is `neondb_owner`, which CAN write — Neon
+offers no BYPASSRLS-but-read-only role (see `RLS4_CUTOVER.md` §1). So there the
+property rests on code containment plus this test, not on privileges. Also
+note `adminDb.ts` claimed a migration created a dedicated role that has never
+existed; corrected.
 
 > ### ✅ RULED BY THE REPO OWNER 2026-08-21 — the shape is settled, build it this way
 >
