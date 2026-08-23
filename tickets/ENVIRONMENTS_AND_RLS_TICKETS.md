@@ -601,14 +601,17 @@ in Railway → service → Settings → Source, and it is the repo owner's call.
 
 ## Phase 1 Gate
 
-- [ ] ENV-1..4 ✅ each with a dated verification note — **ENV-2 ✅, ENV-4 ✅; ENV-1 and
-      ENV-3 are at AC-level partial (docs + the production document-download proof)**
+- [x] ENV-1..4 ✅ each with a dated verification note — **all four closed**
+      (ENV-2/ENV-4 2026-08-15, ENV-1/ENV-3 2026-08-22)
 - [x] Local `.env` demonstrably points away from production — repointed to the dev Neon
       endpoint 2026-08-15; `schema-snapshot.ts` reading `.env` connects to `ep-frosty-firefly`
       and returns a full 107-table snapshot
-- [ ] A generated document downloads from production — **still unproven** (ENV-3 AC4).
-      Note the original premise was wrong: `STORAGE_DRIVER=s3` has been set since
-      2026-08-04, so there is no 404 incident to fix; this is now just missing evidence
+- [x] A generated document downloads from production — **PROVEN 2026-08-22** (ENV-3 AC4).
+      `preview-eCBvYsr4vw2NAANF.pdf`, 200, 12,448 bytes, `%PDF-1.7` … `%%EOF`.
+      The original premise was indeed wrong (`STORAGE_DRIVER=s3` set since 2026-08-04,
+      no 404 incident) — but the evidence mattered anyway: production had 10 completed
+      runs and had never recorded a single generated document, so a set variable could
+      not distinguish a working path from an unexercised one
 - [x] ~~`gh api …/branches/main/protection` returns 200~~ — **unsatisfiable by design.**
       Replaced by `gh api …/rulesets`; `main-protection` verified active 2026-08-15
 - [x] Schema-drift comparison written — ENV-2 done. **Drift found: RLS policies only**
@@ -2314,15 +2317,27 @@ BYPASSRLS pool that can also write is a materially larger blast radius than one 
 
 ## Phase 2 Gate
 
-- [ ] RLS-1 ✅ (2026-08-18, `bc90cc3e`), RLS-2a, RLS-2b, RLS-3, RLS-4, RLS-5, RLS-6 ✅, RLS-2f ✅ (2026-08-21), RLS-7 each with a dated verification note
+- [~] RLS-1 ✅, RLS-2a ✅, RLS-2b ✅, RLS-2c ✅, RLS-2d ✅, RLS-2e ✅, RLS-2f ✅, RLS-3 ✅,
+      RLS-5 ✅, RLS-6 ✅, RLS-7 ✅ (2026-08-22) — **RLS-4 is the only ticket still open**,
+      and only for `test`/`production`, both gated on the promotion chain
 - [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
       needs delivering
-- [ ] A cross-tenant read proven impossible at the database level, with fail-closed evidence
-- [ ] **The admin console still shows every tenant** after `FORCE` — the same test that proves
-      the line above must prove admin crosses it and nothing else does (RLS-6 AC3/AC4)
-- [ ] Full integration green as the restricted role in CI, and required by branch protection
-- [ ] `docs/architecture/TENANT_ISOLATION_RLS.md` matches reality, **including the admin
-      `BYPASSRLS` role and why it exists**
+- [x] A cross-tenant read proven impossible at the database level, with fail-closed evidence
+      — **dev, 2026-08-22.** As `ezbuildr_app`: tenant pinned -> that tenant's rows only,
+      0 from any other; GUC unset -> 0; GUC `''` -> 0. Both fail-closed, covering the
+      empty-string trap. Not yet true of `test`/`production` (no policies there yet)
+- [~] **The admin console still shows every tenant** after `FORCE` — proven in the test
+      suite (`api.admin-user-workflows` green under `RLS_RESTRICTED=true` with a real
+      BYPASSRLS pool, and `rls7-adminDb-readonly` proves that pool cannot write).
+      **Not yet exercised against the live dev environment**, which is the remaining half
+- [~] Full integration green as the restricted role in CI — **yes, 124/124, allowlist
+      empty**. NOT required by branch protection: deliberately advisory until the
+      "Registration failed" flake in RLS_HANDOFF §4 is understood (see RLS-5)
+- [~] `docs/architecture/TENANT_ISOLATION_RLS.md` covers §2a–§2g and the admin
+      `BYPASSRLS` path. **Needs a pass for what 2026-08-22 changed**: the multer
+      async-context hazard, `forEachTenant` for background jobs, and the fact that in
+      Neon the bypass role is `neondb_owner` (so the read-only property rests on code
+      containment plus a test, not on privileges)
 - [ ] Reviewer has committed each passed ticket
 
 **Dispatch order (updated 2026-08-18 after RLS-1 landed and RLS-2 was split):**
