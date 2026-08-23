@@ -3,7 +3,9 @@
  * + a `tenant_isolation` policy.
  *
  * Context (measured against `dev`, a byte-identical Neon branch of production,
- * 2026-08-18 — see `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` RLS-3): `0001` and
+ * 2026-08-18 — RLS-3, closed; its detail is in
+ * `tickets/backlog/ENVIRONMENTS_AND_RLS.md`, full text via
+ * `git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`): `0001` and
  * `0004` are not broken — a scratch database built from the migration chain
  * alone gets all 27 policies they define (ENV-2). Production's tables were
  * created out of band by `db:push` before those migrations first ran for

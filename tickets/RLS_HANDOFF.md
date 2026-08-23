@@ -19,8 +19,10 @@ all of the above from silently rotting — read §7 before touching the allowlis
   phased scope against the ~2026-10-21 client-data date. Read that for *what to
   do and when*. Read **this** file for *state, patterns and hazards*.
 - **Board:** [`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md)
-  — RLS-2f (this sweep, done) and **RLS-7** (the one piece of production
-  conversion still open) are the two entries that matter now.
+  — slimmed 2026-08-23 to its **one remaining ticket, RLS-4 for production**.
+  Every other ENV/RLS ticket is closed; the closure record, the withdrawn
+  findings and the parked observations are in
+  [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md).
 
 ---
 

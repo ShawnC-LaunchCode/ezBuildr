@@ -149,6 +149,41 @@ IDs are stable, heading anchors are not.
 
 ---
 
+## Environment split & tenant isolation (ENV / RLS) — [detail](backlog/ENVIRONMENTS_AND_RLS.md) — **partially** retired 2026-08-23
+
+**⚠️ Still open: `RLS-4` for PRODUCTION**, on the live board at
+[`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md). ENV-1..4 and
+RLS-1, 2a–2f, 3, 5, 6, 7 all shipped. RLS enforcement is live on dev and test;
+production still connects as `neondb_owner` (BYPASSRLS) and is 12 migrations
+behind, so it is gated on a `test` → `main` promotion, not on RLS work.
+
+The detail file's **Withdrawn findings** table is the important part: five claims
+from earlier audits were disproved, and two of them ("branch protection is off",
+"migration 0001 is broken") misled multiple passes before being caught.
+
+- **RLS-B1 — the restricted integration suite is not deterministic** · `needs-initiative`.
+  ~2 files per full run die in setup with `Registration failed`, different files each
+  time. Three causes eliminated (async-context leak, session GUC, leaked transaction);
+  same-connection instrumentation left in `auth.routes.ts` to catch the next occurrence.
+  **This is why the RLS gate is advisory rather than a required check.**
+- **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
+  above); this initiative only adds that it now carries an RLS policy. Recorded here so the
+  next audit does not file it a third time — it has already been filed twice.
+- **RLS-B3 — `DEBT-11` is superseded** · `wont-fix`. "RLS policies defined but not enforced"
+  described exactly the state this initiative removed. Strike it from `backlog/TECH_DEBT.md`
+  once production is cut over, or the next audit re-files it.
+- **RLS-B4 — background workers are not requests** · `informational`, **delivered**. Predicted
+  the failure and it happened; `server/utils/forEachTenant.ts` is the answer. Kept because the
+  reasoning governs any new scheduled job and the failure mode is silent.
+- **ENV-B1/B2 — `dev.`/`test.ezbuildr.com` do not resolve** · `operational`. DNS records were
+  never created at the registrar. Owner decision 2026-08-15: leave. If ever activated,
+  `BASE_URL`/`ALLOWED_ORIGIN` must move in the same change or OAuth and CORS break.
+- **ENV-B3 — `/health` cannot tell you which environment you are on** · `informational`. All
+  three run `NODE_ENV=production` and report `"environment": "production"`. Compare the host
+  or the database instead.
+
+---
+
 ## GH-171 template versioning (G171) — [detail](backlog/TEMPLATE_VERSIONING.md) — retired 2026-08-12
 
 **GH-171 closed with all 4 ACs met; follow-ups G171-0..6 all closed — and every parked
