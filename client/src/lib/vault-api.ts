@@ -473,14 +473,24 @@ export interface ApiWorkflowVersion {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration metadata has varying structure
   migrationInfo?: any; // Metadata including AI generation info
 }
+export interface ApiVersionDiffItem {
+  id: string;
+  title?: string;
+  type?: string;
+  changeType: 'added' | 'removed' | 'modified' | 'moved';
+  propertyChanges?: Record<string, { oldValue: unknown; newValue: unknown }>;
+}
 export interface ApiVersionDiff {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
-  pages: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
-  steps: any[];
+  sections: ApiVersionDiffItem[];
+  pages: ApiVersionDiffItem[];
+  steps: ApiVersionDiffItem[];
   summary: {
+    sectionsAdded: number;
+    sectionsRemoved: number;
+    sectionsModified: number;
     pagesAdded: number;
     pagesRemoved: number;
+    pagesModified: number;
     stepsAdded: number;
     stepsRemoved: number;
     stepsModified: number;
@@ -999,6 +1009,14 @@ export interface ApiRunRuntime {
     generationStatus: string | null;
   };
   workflow: Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
+  sections: Array<{
+    id: string;
+    workflowId: string;
+    title: string;
+    description: string | null;
+    visibleIf?: unknown;
+    createdAt: string;
+  }>;
   pages: ApiPage[];
   steps: ApiStep[];
   logicRules: Array<{

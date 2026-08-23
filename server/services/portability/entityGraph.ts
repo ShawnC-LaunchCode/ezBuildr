@@ -115,12 +115,23 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fieldSchemas: { settings: businessDaySettingsSchema },
   },
   {
+    table: schema.sections,
+    name: 'sections',
+    scopes: ["project","workflow"],
+    parent: {"name":"workflows","fk":"workflowId"},
+    fields: ["id","workflowId","title","description","visibleIf"],
+    refs: ["workflowId"],
+    jsonRefs: ["visibleIf"],
+  },
+  {
     table: schema.pages,
     name: 'pages',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","title","description","order","config","visibleIf"],
-    refs: ["workflowId"],
+    fields: ["id","workflowId","sectionId","title","description","order","config","visibleIf"],
+    // sectionId is nullable. ImportService's existing nullable-reference path
+    // warns and clears an absent Section instead of dropping the page.
+    refs: ["workflowId", "sectionId"],
     jsonRefs: ["config","visibleIf"],
     scanPaths: ["config"]
   },
@@ -303,7 +314,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
 ];
 
 export const EXCLUDED_TABLES: Record<string, string> = {
-  'sections': 'Section publish/export/import support is deferred to SECT-4; omit it rather than emit a partial bundle.',
   'project_access': 'Access control lists are instance-bound and never exported.',
   'workflow_access': 'Access control lists are instance-bound and never exported.',
   'datavault_database_access': 'Access control lists are instance-bound and never exported.',

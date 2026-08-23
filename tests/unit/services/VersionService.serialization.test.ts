@@ -5,6 +5,7 @@ import { buildTestWhen } from "../../helpers/conditionFixtures";
 const TEST_TENANT_ID = "tenant-version-service-serialization-test";
 
 const getWorkflowWithDetails = vi.fn();
+const findSections = vi.fn();
 const findBlocks = vi.fn();
 const findDocumentHooks = vi.fn();
 const findLifecycleHooks = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("../../../server/services/WorkflowService", () => ({
 // `db` itself, plus a no-op `execute` (applyTenantToTransaction's GUC set).
 vi.mock("../../../server/db", () => {
   const query = {
+    sections: { findMany: findSections },
     blocks: { findMany: findBlocks },
     documentHooks: { findMany: findDocumentHooks },
     lifecycleHooks: { findMany: findLifecycleHooks },
@@ -45,6 +47,7 @@ vi.mock("../../../server/services/diff/WorkflowDiffService", () => ({
 describe("VersionService.serializeWorkflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    findSections.mockResolvedValue([]);
   });
 
   it("preserves runtime-critical workflow, logic, block, and hook fields", async () => {
@@ -62,6 +65,15 @@ describe("VersionService.serializeWorkflow", () => {
     // is passed through verbatim by VersionService.
     const ruleWhen = buildTestWhen("step-1", "equals", conditionValue);
 
+    findSections.mockResolvedValue([{
+      id: "section-1",
+      workflowId: "workflow-1",
+      title: "Applicant information",
+      description: "Identity and eligibility",
+      visibleIf,
+      createdAt: new Date("2026-08-23T00:00:00.000Z"),
+    }]);
+
     getWorkflowWithDetails.mockResolvedValue({
       id: "workflow-1",
       title: "Pinned interview",
@@ -70,6 +82,7 @@ describe("VersionService.serializeWorkflow", () => {
       intakeConfig: { allowPrefill: true, completionMessage: "Done" },
       pages: [{
         id: "page-1",
+        sectionId: "section-1",
         alias: "page-1",
         title: "Applicant",
         description: "Applicant details",
@@ -164,7 +177,13 @@ describe("VersionService.serializeWorkflow", () => {
 
     expect(result.settings).toEqual({ theme: "midnight", progress: "compact" });
     expect(result.intakeConfig).toEqual({ allowPrefill: true, completionMessage: "Done" });
-    expect(result.pages?.[0]).toMatchObject({ visibleIf });
+    expect(result.sections).toEqual([{
+      id: "section-1",
+      title: "Applicant information",
+      description: "Identity and eligibility",
+      visibleIf,
+    }]);
+    expect(result.pages?.[0]).toMatchObject({ sectionId: "section-1", visibleIf });
     expect(result.pages?.[0]?.steps?.[0]?.defaultValue).toEqual(["yes", 2]);
     expect(result.logicRules).toEqual([expect.objectContaining({
       id: "rule-1",

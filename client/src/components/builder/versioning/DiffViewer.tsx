@@ -34,16 +34,21 @@ interface DiffItem {
     id: string;
     title?: string;
     type?: string;
-    changeType: 'added' | 'removed' | 'modified';
+    changeType: 'added' | 'removed' | 'modified' | 'moved';
     propertyChanges?: Record<string, PropertyChange>;
 }
 
 interface DiffResult {
+    sections: DiffItem[];
     pages: DiffItem[];
     steps: DiffItem[];
     summary: {
+        sectionsAdded: number;
+        sectionsRemoved: number;
+        sectionsModified: number;
         pagesAdded: number;
         pagesRemoved: number;
+        pagesModified: number;
         stepsAdded: number;
         stepsRemoved: number;
         stepsModified: number;
@@ -80,6 +85,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
             case 'added': return <Badge className="bg-green-500">Added</Badge>;
             case 'removed': return <Badge variant="destructive">Removed</Badge>;
             case 'modified': return <Badge variant="outline" className="border-yellow-500 text-yellow-600">Modified</Badge>;
+            case 'moved': return <Badge variant="outline">Moved</Badge>;
             default: return null;
         }
     };
@@ -100,28 +106,75 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                     <ScrollArea className="flex-1 -mx-6 px-6">
                         <div className="space-y-6 py-4">
                             {/* Summary */}
-                            <div className="grid grid-cols-5 gap-4 text-center">
+                            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
+                                <div className="rounded border bg-muted p-2">
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.sectionsAdded}</div>
+                                    <div className="text-xs text-muted-foreground">Sections Added</div>
+                                </div>
+                                <div className="rounded border bg-muted p-2">
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.sectionsRemoved}</div>
+                                    <div className="text-xs text-muted-foreground">Sections Removed</div>
+                                </div>
+                                <div className="rounded border bg-muted p-2">
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.sectionsModified}</div>
+                                    <div className="text-xs text-muted-foreground">Sections Modified</div>
+                                </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.pagesAdded}</div>
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.pagesAdded}</div>
                                     <div className="text-xs text-muted-foreground">Pages Added</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.pagesRemoved}</div>
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.pagesRemoved}</div>
                                     <div className="text-xs text-muted-foreground">Pages Removed</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.stepsAdded}</div>
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.pagesModified}</div>
+                                    <div className="text-xs text-muted-foreground">Pages Modified</div>
+                                </div>
+                                <div className="p-2 bg-muted rounded">
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.stepsAdded}</div>
                                     <div className="text-xs text-muted-foreground">Steps Added</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.stepsRemoved}</div>
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.stepsRemoved}</div>
                                     <div className="text-xs text-muted-foreground">Steps Removed</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.stepsModified}</div>
+                                    <div className="text-2xl font-bold tabular-nums">{diff.summary.stepsModified}</div>
                                     <div className="text-xs text-muted-foreground">Steps Modified</div>
                                 </div>
                             </div>
+                            {/* Sections Diff */}
+                            {diff.sections.length > 0 && (
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg">Sections</h3>
+                                    {diff.sections.map(section => (
+                                        <Card key={section.id} className="border-l-4 border-l-primary">
+                                            <CardHeader className="py-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        {renderChangeBadge(section.changeType)}
+                                                        <span className="font-medium">{section.title ?? "Untitled Section"}</span>
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground font-mono">{section.id.slice(0, 8)}</span>
+                                                </div>
+                                            </CardHeader>
+                                            {section.propertyChanges && (
+                                                <CardContent className="py-2 text-sm bg-muted/20">
+                                                    {Object.entries(section.propertyChanges).map(([prop, change]) => (
+                                                        <div key={prop} className="grid grid-cols-[100px_1fr_20px_1fr] items-center gap-2">
+                                                            <span className="font-semibold text-muted-foreground">{prop}:</span>
+                                                            <span className="truncate text-red-600 bg-red-50 p-1 rounded">{String(change.oldValue)}</span>
+                                                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                                            <span className="truncate text-green-600 bg-green-50 p-1 rounded">{String(change.newValue)}</span>
+                                                        </div>
+                                                    ))}
+                                                </CardContent>
+                                            )}
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
                             {/* Pages Diff */}
                             {diff.pages.length > 0 && (
                                 <div className="space-y-2">

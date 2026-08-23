@@ -31,6 +31,7 @@ vi.mock("../../../server/db", () => {
     }),
   });
   const query = {
+    sections: { findMany: vi.fn().mockResolvedValue([]) },
     blocks: { findMany: vi.fn().mockResolvedValue([]) },
     documentHooks: { findMany: vi.fn().mockResolvedValue([]) },
     lifecycleHooks: { findMany: vi.fn().mockResolvedValue([]) },

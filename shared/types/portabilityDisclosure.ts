@@ -25,12 +25,6 @@ export interface ExclusionCategory {
 
 export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
   {
-    title: 'Section grouping',
-    summary:
-      'Page grouping metadata stays behind until Section-aware publishing and portability are enabled; pages and their order still travel normally.',
-    tables: ['sections'],
-  },
-  {
     title: 'Responses and run history',
     summary:
       'Every submission, answer, generated document, signature and execution log stays here. A bundle carries the design of the workflow, never the data people entered into it.',

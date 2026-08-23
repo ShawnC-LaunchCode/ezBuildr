@@ -121,6 +121,7 @@ export interface WorkflowBlockData {
 
 export interface WorkflowPageData {
   id?: string;
+  sectionId?: string | null;
   title: string;
   description?: string;
   order?: number;
@@ -130,12 +131,25 @@ export interface WorkflowPageData {
   steps?: WorkflowStepData[];
 }
 
+/**
+ * Published Section metadata. Template/blueprint ingestion intentionally does
+ * not create Sections yet; this shape exists so the version graph can carry
+ * the new sibling collection without weakening its type boundary.
+ */
+export interface WorkflowSectionData {
+  id: string;
+  title: string;
+  description?: string;
+  visibleIf?: ConditionExpression | null;
+}
+
 export interface WorkflowContentData {
   title?: string;
   description?: string;
   projectId?: string | null;
   settings?: Record<string, unknown>;
   intakeConfig?: Record<string, unknown>;
+  sections?: WorkflowSectionData[];
   pages?: WorkflowPageData[];
   logicRules?: WorkflowLogicRuleData[];
   blocks?: WorkflowBlockData[];

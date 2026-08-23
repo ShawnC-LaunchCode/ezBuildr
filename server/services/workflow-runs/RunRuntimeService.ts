@@ -25,9 +25,18 @@ export interface RunRuntimeDefinition {
     intakeConfig?: unknown;
     settings?: unknown;
   };
+  sections: Array<{
+    id: string;
+    workflowId: string;
+    title: string;
+    description: string | null;
+    visibleIf?: unknown;
+    createdAt: Date;
+  }>;
   pages: Array<{
     id: string;
     workflowId: string;
+    sectionId: string | null;
     title: string;
     description: string | null;
     order: number;
@@ -120,6 +129,7 @@ export class RunRuntimeService {
         intakeConfig: graph.intakeConfig,
         settings: graph.settings,
       },
+      sections: definition.sections,
       pages: definition.pages,
       steps: definition.steps,
       logicRules: definition.logicRules,

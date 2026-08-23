@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-import type { LogicRule, Page, Step, WorkflowRun } from "@shared/schema";
+import type { LogicRule, Page, Section, Step, WorkflowRun } from "@shared/schema";
 
 import { logger } from "../../logger";
 import {
   logicRuleRepository,
   pageRepository,
+  sectionRepository,
   stepRepository,
   workflowVersionRepository,
 } from "../../repositories";
@@ -35,12 +36,20 @@ const VersionStepSchema = z.object({
 
 const VersionPageSchema = z.object({
   id: z.string().uuid(),
+  sectionId: z.string().uuid().nullish().default(null),
   title: z.string(),
   description: z.string().nullish(),
   order: z.number().nullish(),
   visibleIf: z.unknown().optional(),
   config: z.unknown().optional(),
   steps: z.array(VersionStepSchema).nullish(),
+}).passthrough();
+
+const VersionSectionSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullish(),
+  visibleIf: z.unknown().optional(),
 }).passthrough();
 
 // LU-6c: a rule's trigger condition is `when` (a ConditionExpression),
@@ -70,6 +79,7 @@ const VersionRuntimeSchema = z.object({
   projectId: z.string().nullable().optional(),
   intakeConfig: z.unknown().optional(),
   settings: z.unknown().optional(),
+  sections: z.array(VersionSectionSchema).default([]),
   pages: z.array(VersionPageSchema),
   logicRules: z.array(VersionLogicRuleSchema).nullish(),
 }).passthrough();
@@ -89,11 +99,21 @@ export interface RunDefinitionGraph {
 export interface RunPage {
   id: string;
   workflowId: string;
+  sectionId: string | null;
   title: string;
   description: string | null;
   order: number;
   visibleIf?: unknown;
   config?: unknown;
+  createdAt: Date;
+}
+
+export interface RunSection {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
+  visibleIf?: unknown;
   createdAt: Date;
 }
 
@@ -116,6 +136,7 @@ export interface RunStep {
 }
 
 export interface RunDefinition {
+  sections: RunSection[];
   pages: RunPage[];
   steps: RunStep[];
   logicRules: LogicRule[];
@@ -144,6 +165,7 @@ export class RunDefinitionProvider {
     private pageRepo = pageRepository,
     private stepRepo = stepRepository,
     private logicRuleRepo = logicRuleRepository,
+    private sectionRepo = sectionRepository,
   ) {}
 
   async getDefinition(run: WorkflowRun): Promise<RunDefinition> {
@@ -258,6 +280,7 @@ export class RunDefinitionProvider {
     const pages: RunPage[] = graph.pages.map((page) => ({
       id: page.id,
       workflowId: run.workflowId,
+      sectionId: page.sectionId,
       title: page.title,
       description: page.description ?? null,
       order: page.order ?? 0,
@@ -266,7 +289,17 @@ export class RunDefinitionProvider {
       createdAt: timestamp,
     }));
 
+    const sections: RunSection[] = graph.sections.map((section) => ({
+      id: section.id,
+      workflowId: run.workflowId,
+      title: section.title,
+      description: section.description ?? null,
+      visibleIf: section.visibleIf,
+      createdAt: timestamp,
+    }));
+
     return {
+      sections,
       pages,
       steps,
       logicRules,
@@ -288,19 +321,30 @@ export class RunDefinitionProvider {
     // workflow with no pages and no questions, and for document generation a
     // silent "0 documents generated, success: true". One tenant transaction
     // for all three reads, so they also see a consistent snapshot.
-    const { livePages, liveSteps, logicRules } = await withCurrentTenant(async (tx) => {
+    const { liveSections, livePages, liveSteps, logicRules } = await withCurrentTenant(async (tx) => {
+      const sectionsRead: Section[] = await this.sectionRepo.findByWorkflowId(run.workflowId, tx);
       const pagesRead: Page[] = await this.pageRepo.findByWorkflowId(run.workflowId, tx);
       const stepsRead: Step[] = await this.stepRepo.findByPageIds(
         pagesRead.map((page) => page.id),
         tx
       );
       const rulesRead = await this.logicRuleRepo.findByWorkflowId(run.workflowId, tx);
-      return { livePages: pagesRead, liveSteps: stepsRead, logicRules: rulesRead };
+      return { liveSections: sectionsRead, livePages: pagesRead, liveSteps: stepsRead, logicRules: rulesRead };
     });
+
+    const sections: RunSection[] = liveSections.map((section) => ({
+      id: section.id,
+      workflowId: section.workflowId,
+      title: section.title,
+      description: section.description ?? null,
+      visibleIf: section.visibleIf,
+      createdAt: section.createdAt ?? new Date(0),
+    }));
 
     const pages: RunPage[] = livePages.map((page) => ({
       id: page.id,
       workflowId: page.workflowId,
+      sectionId: page.sectionId ?? null,
       title: page.title,
       description: page.description ?? null,
       order: page.order,
@@ -327,7 +371,7 @@ export class RunDefinitionProvider {
       updatedAt: step.updatedAt ?? new Date(0),
     }));
 
-    return { pages, steps, logicRules, source: "live" };
+    return { sections, pages, steps, logicRules, source: "live" };
   }
 }
 

@@ -20,6 +20,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   let versionId: string;
+  let sectionId: string;
   let pageId: string;
   let stepId: string;
   let runId: string;
@@ -50,6 +51,16 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     });
     stepId = step.id;
 
+    const [section] = await getOwnerDb().insert(schema.sections).values({
+      workflowId,
+      title: 'Mutable live Section',
+      description: 'This title must not reach the pinned runtime',
+    }).returning();
+    sectionId = section.id;
+    await getOwnerDb().update(schema.pages)
+      .set({ sectionId })
+      .where(eq(schema.pages.id, pageId));
+
     await getOwnerDb().update(schema.workflowVersions)
       .set({
         graphJson: {
@@ -58,8 +69,14 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
           projectId: ctx.projectId,
           settings: { progressBar: true },
           internalSecret: 'must-not-leak',
+          sections: [{
+            id: sectionId,
+            title: 'Pinned Section',
+            description: 'Pinned Section description',
+          }],
           pages: [{
             id: pageId,
+            sectionId,
             title: 'Pinned page',
             description: 'Pinned page description',
             order: 0,
@@ -145,9 +162,16 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
         projectId: ctx.projectId,
         settings: { progressBar: true },
       },
+      sections: [{
+        id: sectionId,
+        workflowId,
+        title: 'Pinned Section',
+        description: 'Pinned Section description',
+      }],
       pages: [{
         id: pageId,
         workflowId,
+        sectionId,
         title: 'Pinned page',
         description: 'Pinned page description',
         order: 0,
@@ -227,6 +251,9 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     await getOwnerDb().update(schema.pages)
       .set({ title: 'Changed live page', description: 'Changed live description' })
       .where(eq(schema.pages.id, pageId));
+    await getOwnerDb().update(schema.sections)
+      .set({ title: 'Changed live Section' })
+      .where(eq(schema.sections.id, sectionId));
     await getOwnerDb().update(schema.steps)
       .set({ title: 'Changed live step', required: false, config: { placeholder: 'Changed' } })
       .where(eq(schema.steps.id, stepId));
@@ -241,6 +268,9 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       title: 'Pinned page',
       description: 'Pinned page description',
     });
+    expect(response.body.data.sections).toEqual([
+      expect.objectContaining({ id: sectionId, title: 'Pinned Section' }),
+    ]);
     expect(response.body.data.steps[0]).toMatchObject({
       id: stepId,
       title: 'Pinned name question',

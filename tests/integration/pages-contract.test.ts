@@ -312,6 +312,13 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       .send({ type: "short_text", title: "Legal name", alias: "legalName" })
       .expect(201);
 
+    const sectionResponse = await request(owner.baseURL)
+      .post(`/api/workflows/${workflowId}/sections`)
+      .set("Authorization", `Bearer ${owner.authToken}`)
+      .send({ title: "Applicant", pageIds: [pageId] })
+      .expect(201);
+    const sectionId = sectionResponse.body.id as string;
+
     const pagesResponse = await request(owner.baseURL)
       .get(`/api/workflows/${workflowId}/pages`)
       .set("Authorization", `Bearer ${owner.authToken}`)
@@ -340,9 +347,17 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       .where(eq(schema.workflowVersions.id, versionId));
     const graph = publishedVersion.graphJson as Record<string, unknown>;
     expect(graph.pages).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: pageId, title: "Identity" }),
+      expect.objectContaining({ id: pageId, sectionId, title: "Identity" }),
     ]));
-    expect(graph).not.toHaveProperty("sections");
+    expect(graph.sections).toEqual([
+      expect.objectContaining({ id: sectionId, title: "Applicant" }),
+    ]);
+
+    await request(owner.baseURL)
+      .put(`/api/sections/${sectionId}`)
+      .set("Authorization", `Bearer ${owner.authToken}`)
+      .send({ title: "Changed after publish" })
+      .expect(200);
 
     const runResponse = await request(owner.baseURL)
       .post(`/api/workflows/${workflowId}/runs`)
@@ -361,9 +376,12 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       .set("Authorization", `Bearer ${runToken}`)
       .expect(200);
     expect(runtimeResponse.body.data.pages).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: pageId, workflowId, title: "Identity" }),
+      expect.objectContaining({ id: pageId, workflowId, sectionId, title: "Identity" }),
     ]));
-    expect(runtimeResponse.body.data).not.toHaveProperty("sections");
+    expect(runtimeResponse.body.data.sections).toEqual([
+      expect.objectContaining({ id: sectionId, title: "Applicant" }),
+    ]);
+    expect(JSON.stringify(runtimeResponse.body.data)).not.toContain("Changed after publish");
 
     const completionResponse = await request(owner.baseURL)
       .put(`/api/runs/${runId}/complete`)
@@ -383,7 +401,9 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       .get(`/api/workflows/${workflowId}/sections`)
       .set("Authorization", `Bearer ${owner.authToken}`)
       .expect(200);
-    expect(sectionList.body).toEqual([]);
+    expect(sectionList.body).toEqual([
+      expect.objectContaining({ id: sectionId, title: "Changed after publish" }),
+    ]);
     await request(owner.baseURL)
       .put(`/api/sections/${pageId}`)
       .set("Authorization", `Bearer ${owner.authToken}`)

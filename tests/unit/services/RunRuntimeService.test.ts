@@ -14,6 +14,7 @@ const runId = '11111111-1111-4111-8111-111111111111';
 const workflowId = '22222222-2222-4222-8222-222222222222';
 const versionId = '33333333-3333-4333-8333-333333333333';
 const pageId = '44444444-4444-4444-8444-444444444444';
+const sectionId = '77777777-7777-4777-8777-777777777777';
 const controllerId = '55555555-5555-4555-8555-555555555555';
 const targetId = '66666666-6666-4666-8666-666666666666';
 
@@ -50,8 +51,10 @@ function makeService(overrides: {
         title: 'Pinned interview',
         description: 'Versioned definition',
         projectId: null,
+        sections: [{ id: sectionId, title: 'Pinned Section', description: null }],
         pages: [{
           id: pageId,
+          sectionId,
           title: 'Questions',
           order: 1,
           steps: [
@@ -112,6 +115,10 @@ describe('RunRuntimeService', () => {
       generationStatus: null,
     });
     expect(runtime.workflow.title).toBe('Pinned interview');
+    expect(runtime.sections).toEqual([
+      expect.objectContaining({ id: sectionId, title: 'Pinned Section' }),
+    ]);
+    expect(runtime.pages[0]).toMatchObject({ id: pageId, sectionId });
     expect(runtime.steps).toHaveLength(2);
     expect(runtime.logicRules[0]).toMatchObject({
       conditionStepId: controllerId,

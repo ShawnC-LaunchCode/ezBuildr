@@ -49,9 +49,11 @@ function makeStep(overrides: Partial<RunStep>): RunStep {
 
 function makeDefinition(step: RunStep): RunDefinition {
     return {
+        sections: [],
         pages: [{
             id: 'page-1',
             workflowId: 'workflow-1',
+            sectionId: null,
             title: 'Household',
             description: null,
             order: 0,

@@ -113,7 +113,8 @@ describe('Logic query counts', () => {
             undefined,
             pageRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[1],
             stepRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[2],
-            logicRuleRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[3]
+            logicRuleRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[3],
+            { findByWorkflowId: vi.fn().mockResolvedValue([]) } as unknown as ConstructorParameters<typeof RunDefinitionProvider>[4]
         );
 
         logicSvc = new LogicService(

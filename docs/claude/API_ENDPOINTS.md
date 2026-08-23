@@ -36,7 +36,7 @@ POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public sta
 POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
 GET         /api/workflows/:workflowId/runs               # List runs for workflow
 GET         /api/runs/:runId                              # Creator session OR run token
-GET         /api/runs/:runId/runtime                      # Sanitized pinned definition + cursor + values
+GET         /api/runs/:runId/runtime                      # Sanitized pinned Sections/Pages/Steps + cursor + values
 POST        /api/runs/:runId/revoke-token
 POST        /api/runs/:runId/resume-links                # Queue respondent email; run token or creator auth
 POST        /api/runs/:runId/resume                      # Redeem one-time link; rotates run token
@@ -55,6 +55,7 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 ```
 
 > The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
+> Runtime Sections and each page's nullable `sectionId` come from the pinned workflow version. Legacy pinned graphs remain valid and return `sections: []` with null page membership.
 > Resume/handoff credentials are stored only as SHA-256 hashes in `run_resume_links`. A successful one-time redemption rotates the ordinary run bearer token before the pinned runtime restores its saved values and cursor.
 >
 > **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active page. This is an intentional out-of-page write allowance, supporting scenarios like computed fields or external integrations writing ahead.

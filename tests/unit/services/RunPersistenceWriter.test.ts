@@ -53,6 +53,7 @@ vi.mock('../../../server/repositories', () => ({
     stepValueRepository: {},
     stepRepository: { findByPageIds: vi.fn() },
     pageRepository: { findByWorkflowId: vi.fn() },
+    sectionRepository: { findByWorkflowId: vi.fn().mockResolvedValue([]) },
     logicRuleRepository: { findByWorkflowId: vi.fn().mockResolvedValue([]) },
     workflowVersionRepository: { findById: vi.fn() },
 }));

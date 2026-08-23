@@ -18,7 +18,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | WorkflowClonerService / WorkflowExportService / WorkflowBundleService | Clone, export, bundle |
 | WorkflowPatchService | Patch-style workflow edits (used by AI edit) |
 | WorkflowQualityValidator | Workflow quality checks |
-| VersionService / SnapshotService | Version history, test-data snapshots |
+| VersionService / SnapshotService | Version history and pinned sibling Section/Page graphs; test-data snapshots |
 
 ## Execution & Runtime
 
@@ -26,7 +26,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 |---------|---------|
 | RunService | Run lifecycle management |
 | RunResumeService | Expiring email resume links, token rotation, assignment/handoff, and audit events |
-| RunRuntimeService | Authorized, sanitized runtime definition pinned to a run version |
+| RunDefinitionProvider / RunRuntimeService | Pinned (or legacy live-fallback) Sections, nullable page membership, Steps and logic; authorized sanitized runtime payload |
 | RunDataService | Canonical run data views: step-id keyed for runtime logic, alias-keyed for document generation |
 | BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |
 | TransformBlockService | JS/Python transform execution |

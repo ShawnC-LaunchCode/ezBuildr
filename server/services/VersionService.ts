@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { CURRENT_VERSION_ID } from "@shared/config";
@@ -169,7 +169,11 @@ export class VersionService {
     scopedTx: DbTransaction
   ): Promise<WorkflowContentData> {
     const fullData = await workflowService.getWorkflowWithDetails(workflowId, userId, scopedTx);
-    const [blocks, documentHooks, lifecycleHooks] = await Promise.all([
+    const [sections, blocks, documentHooks, lifecycleHooks] = await Promise.all([
+      scopedTx.query.sections.findMany({
+        where: (section, { eq: eqOp }) => eqOp(section.workflowId, workflowId),
+        orderBy: (section) => [asc(section.createdAt), asc(section.id)],
+      }),
       scopedTx.query.blocks.findMany({ where: (block, { eq: eqOp }) => eqOp(block.workflowId, workflowId), orderBy: (block, { asc }) => [asc(block.order)] }),
       scopedTx.query.documentHooks.findMany({ where: (dh, { eq: eqOp }) => eqOp(dh.workflowId, workflowId), orderBy: (dh, { asc }) => [asc(dh.order)] }),
       scopedTx.query.lifecycleHooks.findMany({ where: (lh, { eq: eqOp }) => eqOp(lh.workflowId, workflowId), orderBy: (lh, { asc }) => [asc(lh.order)] }),
@@ -191,8 +195,15 @@ export class VersionService {
       projectId: fullData.projectId,
       settings: fullData.settings as Record<string, unknown>,
       intakeConfig: fullData.intakeConfig as Record<string, unknown>,
+      sections: sections.map(section => ({
+        id: section.id,
+        title: section.title,
+        description: section.description ?? undefined,
+        visibleIf: (section.visibleIf ?? null) as ConditionExpression,
+      })),
       pages: fullData.pages.map(page => ({
         id: page.id,
+        sectionId: page.sectionId ?? null,
         title: page.title,
         description: page.description ?? undefined,
         order: page.order,

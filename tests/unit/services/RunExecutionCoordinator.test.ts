@@ -85,6 +85,9 @@ vi.mock('../../../server/repositories', () => ({
         findById: vi.fn(),
         findByWorkflowId: vi.fn()
     },
+    sectionRepository: {
+        findByWorkflowId: vi.fn().mockResolvedValue([])
+    },
     workflowRepository: {},
     logicRuleRepository: {
         findByWorkflowId: vi.fn()
@@ -114,6 +117,7 @@ function makeDefinition(
     logicRules: LogicRule[] = []
 ): RunDefinition {
     return {
+        sections: [],
         pages: pages as unknown as RunDefinition['pages'],
         steps: steps.map((step) => ({
             workflowId: 'wf-1',

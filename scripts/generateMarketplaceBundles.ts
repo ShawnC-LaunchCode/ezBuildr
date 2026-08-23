@@ -215,6 +215,7 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
     const row = buildRow(pagesDesc, {
       id: pageId,
       workflowId,
+      sectionId: null,
       title: page.title,
       description: null,
       order: pageIndex,
@@ -224,6 +225,7 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
 
     const graph = {
       id: pageId,
+      sectionId: null,
       title: page.title,
       description: null,
       order: pageIndex,

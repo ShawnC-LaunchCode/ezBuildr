@@ -724,7 +724,21 @@ DELETE /api/sections/:sectionId
 
 ---
 
-## SECT-4 — Sections travel: publish, run runtime, export/import, diff 🔄
+## SECT-4 — Sections travel: publish, run runtime, export/import, diff ✅
+
+**Passed:** 2026-08-23 · Senior-reviewed from `dev` dispatch head `9af1091d`.
+Published graphs and runtime now carry sibling Sections plus explicit nullable
+page membership, including legacy-version fallback and pinned-title immunity.
+The real project-scope vertical published and ran two Sections/five pages, then
+round-tripped them from tenant A to tenant B with order, membership, and fully
+remapped ids intact. A missing bundled Section warns, retains the page, and
+clears its membership. Section add/remove/rename diffing and distinct
+Section/Page viewer counters are covered while the legacy changelog contract
+remains intact. Independent gates: type-check 0, lint 0, fast 3,294/3,294
+(baseline 3,289), unit 3,454/3,454, integration 1,202 passed + 3 existing
+admin-DB skips, focused unit 92/92, and focused integration 31/31. Senior grade:
+A; no ticket-scope deviations. Template/blueprint Section ingestion remains
+intentionally unsupported because it is outside SECT-4.
 
 **Dispatched:** 2026-08-23 · Follows accepted SECT-3 commit `d52af401`.
 Senior review additionally requires the pinned `RunDefinitionProvider` to carry

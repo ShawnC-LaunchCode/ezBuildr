@@ -112,6 +112,9 @@ function makeHarness() {
   const logicRuleRepo = {
     findByWorkflowId: vi.fn().mockResolvedValue([] as LogicRule[]),
   };
+  const sectionRepo = {
+    findByWorkflowId: vi.fn().mockResolvedValue([]),
+  };
   const runRepo = {
     findById: vi.fn(),
   };
@@ -124,6 +127,7 @@ function makeHarness() {
     pageRepo as never,
     stepRepo as never,
     logicRuleRepo as never,
+    sectionRepo as never,
   );
   const logicSvc = new LogicService(runRepo as never, definitionProvider, valueRepo as never);
 

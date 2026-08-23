@@ -36,6 +36,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   // A second tenant, for the cross-tenant denial case.
   let otherToken: string;
   let otherTenantId: string;
+  let otherUserId: string;
   let otherProjectId: string;
 
   async function downloadBundle(scope: string, id: string, token: string): Promise<Buffer> {
@@ -114,6 +115,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       })
       .expect(201);
     otherToken = otherRegister.body.token;
+    otherUserId = otherRegister.body.user.id;
 
     // RLS-5: same shape as the update above.
     await withTenantAsUser(otherTenantId, otherRegister.body.user.id, (tx) =>
@@ -132,6 +134,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   afterAll(async () => {
     for (const id of [tenantId, otherTenantId]) {
       if (id) {
+        await odb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, id));
         await odb().delete(schema.tenants).where(eq(schema.tenants.id, id));
       }
     }
@@ -506,6 +509,167 @@ describe.sequential("Portability Import API Integration Tests", () => {
     async function exportWorkflowBundle(workflowId: string): Promise<Buffer> {
       return downloadBundle("workflow", workflowId, authToken);
     }
+
+    it("SECT-4: imports two Sections and five ordered pages into tenant B with every id remapped", async () => {
+      const source = await db.transaction(async (tx) => {
+        await applyTenantToTransaction(tx, tenantId);
+        const [existingPage] = await tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, workflowId));
+        const insertedSections = await tx.insert(schema.sections).values([
+          { workflowId, title: 'Identity' },
+          { workflowId, title: 'Review' },
+        ]).returning();
+        const [firstPage] = await tx.update(schema.pages).set({
+          sectionId: insertedSections[0].id,
+          title: 'Name',
+          order: 0,
+        }).where(eq(schema.pages.id, existingPage.id)).returning();
+        const additionalPages = await tx.insert(schema.pages).values([
+          { workflowId, sectionId: insertedSections[0].id, title: 'Address', order: 1 },
+          { workflowId, sectionId: null, title: 'Ungrouped consent', order: 2 },
+          { workflowId, sectionId: insertedSections[1].id, title: 'Summary', order: 3 },
+          { workflowId, sectionId: insertedSections[1].id, title: 'Signature', order: 4 },
+        ]).returning();
+        return { sections: insertedSections, pages: [firstPage, ...additionalPages] };
+      });
+
+      const published = await request(baseURL)
+        .post(`/api/workflows/${workflowId}/publish`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ notes: 'SECT-4 vertical proof' })
+        .expect(200);
+      const publishedGraph = published.body.data.graphJson as {
+        sections: Array<{ id: string }>;
+        pages: Array<{ id: string; sectionId: string | null }>;
+      };
+      expect(publishedGraph.sections).toHaveLength(2);
+      expect(publishedGraph.pages).toHaveLength(5);
+      expect(publishedGraph.pages.find(page => page.id === source.pages[2].id)?.sectionId).toBeNull();
+
+      const started = await request(baseURL)
+        .post(`/api/workflows/${workflowId}/runs`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({})
+        .expect(201);
+      const runtime = await request(baseURL)
+        .get(`/api/runs/${started.body.data.runId}/runtime`)
+        .set("Authorization", `Bearer ${started.body.data.runToken}`)
+        .expect(200);
+      expect(runtime.body.data.sections).toHaveLength(2);
+      expect(runtime.body.data.pages).toHaveLength(5);
+
+      const exported = await downloadBundle("project", projectId, authToken);
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .attach("file", exported, "sections.ezb")
+        .expect(200);
+      expect(preview.body).toMatchObject({ canProceed: true, errors: [] });
+      expect(preview.body.entityCounts).toMatchObject({ sections: 2, pages: 5 });
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .attach("file", exported, "sections.ezb")
+        .expect(201);
+
+      const imported = await withTenantAsUser(otherTenantId, otherUserId, async (tx) => {
+        const [project] = await tx.select().from(schema.projects)
+          .where(eq(schema.projects.id, applied.body.rootId));
+        const [workflow] = await tx.select().from(schema.workflows)
+          .where(eq(schema.workflows.projectId, project.id));
+        const importedSections = await tx.select().from(schema.sections)
+          .where(eq(schema.sections.workflowId, workflow.id));
+        const importedPages = await tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, workflow.id));
+        return { project, workflow, sections: importedSections, pages: importedPages };
+      });
+
+      expect(imported.project.tenantId).toBe(otherTenantId);
+      expect(imported.project.id).not.toBe(projectId);
+      expect(imported.workflow.id).not.toBe(workflowId);
+      expect(imported.sections).toHaveLength(2);
+      expect(imported.pages).toHaveLength(5);
+
+      const sourceSectionIds = new Set(source.sections.map(section => section.id));
+      const importedSectionIds = new Set(imported.sections.map(section => section.id));
+      for (const section of imported.sections) {
+        expect(sourceSectionIds.has(section.id)).toBe(false);
+      }
+
+      const importedByTitle = new Map(imported.pages.map(page => [page.title, page]));
+      expect(imported.pages.map(page => page.order).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4]);
+      expect(importedByTitle.get('Ungrouped consent')?.sectionId).toBeNull();
+      for (const title of ['Name', 'Address', 'Summary', 'Signature']) {
+        const membership = importedByTitle.get(title)?.sectionId;
+        expect(membership).toEqual(expect.any(String));
+        expect(importedSectionIds.has(membership!)).toBe(true);
+        expect(sourceSectionIds.has(membership!)).toBe(false);
+      }
+      expect(imported.pages.some(page => page.sectionId !== null && sourceSectionIds.has(page.sectionId))).toBe(false);
+      expect(imported.pages.every(page => !source.pages.some(sourcePage => sourcePage.id === page.id))).toBe(true);
+    });
+
+    it("SECT-4: warns and retains a page with null membership when its Section is absent", async () => {
+      const [sourcePage] = await odb().select().from(schema.pages)
+        .where(eq(schema.pages.workflowId, workflowId));
+      const [sourceSection] = await odb().insert(schema.sections).values({
+        workflowId,
+        title: 'Will be omitted',
+      }).returning();
+      await odb().update(schema.pages)
+        .set({ sectionId: sourceSection.id })
+        .where(eq(schema.pages.id, sourcePage.id));
+
+      const exported = await exportWorkflowBundle(workflowId);
+      const zip = new AdmZip(exported);
+      // adm-zip cannot re-read a zero-byte updated entry reliably; a blank
+      // JSONL line is semantically empty and retains a valid CRC.
+      zip.updateFile("entities/sections.jsonl", Buffer.from("\n"));
+      const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+      manifest.entityCounts.sections = 0;
+      recomputeChecksum(zip, manifest);
+      zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+      const missingSectionBundle = zip.toBuffer();
+
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .field("targetProjectId", otherProjectId)
+        .attach("file", missingSectionBundle, "missing-section.ezb")
+        .expect(200);
+      expect(preview.body.canProceed).toBe(true);
+      expect(preview.body.warnings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'dangling_reference',
+          entity: 'pages',
+          column: 'sectionId',
+          missingId: sourceSection.id,
+        }),
+      ]));
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .field("targetProjectId", otherProjectId)
+        .attach("file", missingSectionBundle, "missing-section.ezb")
+        .expect(201);
+      const importedPages = await withTenantAsUser(otherTenantId, otherUserId, (tx) =>
+        tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, applied.body.rootId))
+      );
+      expect(importedPages).toHaveLength(1);
+      expect(importedPages[0]).toMatchObject({ title: sourcePage.title, sectionId: null });
+      expect(importedPages[0].id).not.toBe(sourcePage.id);
+      expect(applied.body.warnings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'dangling_reference',
+          entity: 'pages',
+          column: 'sectionId',
+          missingId: sourceSection.id,
+        }),
+      ]));
+    });
 
     it("AC 2: a workflow with a document template previews clean and applies 201", async () => {
       const { workflowId } = await seedWorkflow({ projectId, userId });
