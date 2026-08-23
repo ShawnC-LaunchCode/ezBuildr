@@ -532,7 +532,13 @@ authoring reads/writes, publish, run runtime, export/import, and diff. **No UI
 in this phase** — Phase 1 closes at *Code complete*, not *User-reachable*, and
 its tickets are titled accordingly.
 
-## SECT-3 — Non-empty `sections`, nullable `pages.section_id`, and contiguous membership 🔲
+## SECT-3 — Non-empty `sections`, nullable `pages.section_id`, and contiguous membership 🔄
+
+**Dispatched:** 2026-08-23 · Phase 0 gate committed at `706b54f8`. Migration
+`0039` is reserved for this ticket. Senior review additionally requires
+serialization of concurrent membership changes, immutable `sectionId` on
+generic page CRUD, restricted-role RLS proof, and compatibility updates for
+the existing builder reorder payload.
 
 **Priority: ENH** · Size: L · File: `shared/schema/workflow.ts`, `server/services/SectionService.ts` (new)
 
