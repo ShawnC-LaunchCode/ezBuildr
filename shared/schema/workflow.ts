@@ -238,10 +238,25 @@ export const workflowTemplates = pgTable("workflow_templates", {
     index("workflow_templates_version_key_unique").on(table.workflowVersionId, table.key),
 ]);
 
+// Sections group contiguous spans of pages. Their position is derived from
+// the first member page; pages.order remains the only run-order source.
+export const sections = pgTable("sections", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+    title: varchar("title").notNull(),
+    description: text("description"),
+    visibleIf: jsonb("visible_if"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+    index("sections_workflow_idx").on(table.workflowId),
+]);
+
 // Pages
 export const pages = pgTable("pages", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+    sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'set null' }),
     title: varchar("title").notNull(),
     description: text("description"),
     order: integer("order").notNull(),
@@ -468,6 +483,7 @@ export const insertWorkflowBlueprintSchema = createInsertSchema(workflowBlueprin
 export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions);
 export const insertTemplateSchema = createInsertSchema(templates);
 export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates);
+export const insertSectionSchema = createInsertSchema(sections);
 export const insertPageSchema = createInsertSchema(pages);
 export const insertStepSchema = createInsertSchema(steps);
 export const insertLogicRuleSchema = createInsertSchema(logicRules);
@@ -493,6 +509,8 @@ export type Template = InferSelectModel<typeof templates>;
 export type InsertTemplate = InferInsertModel<typeof templates>;
 export type WorkflowTemplate = InferSelectModel<typeof workflowTemplates>;
 export type InsertWorkflowTemplate = InferInsertModel<typeof workflowTemplates>;
+export type Section = InferSelectModel<typeof sections>;
+export type InsertSection = InferInsertModel<typeof sections>;
 export type Page = InferSelectModel<typeof pages>;
 export type InsertPage = InferInsertModel<typeof pages>;
 export type Step = InferSelectModel<typeof steps>;

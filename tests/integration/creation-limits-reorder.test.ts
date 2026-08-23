@@ -68,8 +68,8 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
 
     await expect(
       pageService.reorderPages(workflowId, ctx.userId, [
-        { id: s1.id, order: 10 },
-        { id: randomUUID(), order: 11 }, // nonexistent → updateOrder throws mid-batch
+        { id: s1.id, order: 10, sectionId: null },
+        { id: randomUUID(), order: 11, sectionId: null },
       ])
     ).rejects.toThrow();
 
@@ -111,8 +111,8 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
     const s2 = await factory.createPage(workflowId, { title: "S2", order: 1 });
 
     await pageService.reorderPages(workflowId, ctx.userId, [
-      { id: s1.id, order: 1 },
-      { id: s2.id, order: 0 },
+      { id: s1.id, order: 1, sectionId: null },
+      { id: s2.id, order: 0, sectionId: null },
     ]);
 
     const rows = await getOwnerDb()

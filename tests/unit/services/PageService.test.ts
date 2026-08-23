@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { PageService } from "../../../server/services/PageService";
-import { pageRepository, workflowRepository, stepRepository, stepValueRepository, logicRuleRepository } from "../../../server/repositories";
+import { pageRepository, workflowRepository, stepRepository, stepValueRepository, logicRuleRepository, sectionRepository } from "../../../server/repositories";
 import { createTestPage, createTestStep, createTestLogicRule, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
 import { LIMITS } from "@shared/limits";
 
-import type { Page, Step } from "@shared/schema";
+import type { Page, Section, Step } from "@shared/schema";
 
 // duplicatePage wraps its writes in db.transaction; the fake just invokes
 // the callback with a stub tx (the mocked repos below ignore it).
@@ -29,6 +29,7 @@ vi.mock("../../../server/repositories", () => ({
     softDelete: vi.fn(),
     restore: vi.fn(),
     updateOrder: vi.fn(),
+    updateLayout: vi.fn(),
   },
   workflowRepository: {
     findById: vi.fn(),
@@ -49,6 +50,11 @@ vi.mock("../../../server/repositories", () => ({
     findByWorkflowId: vi.fn(),
     create: vi.fn(),
   },
+  sectionRepository: {
+    lockWorkflowStructure: vi.fn(),
+    findByWorkflowId: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: {
@@ -63,6 +69,7 @@ describe("PageService", () => {
   let mockStepRepo: Mocked<typeof stepRepository>;
   let mockStepValueRepo: Mocked<typeof stepValueRepository>;
   let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
+  let mockSectionRepo: Mocked<typeof sectionRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -72,6 +79,7 @@ describe("PageService", () => {
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
     mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
     mockLogicRuleRepo = logicRuleRepository as Mocked<typeof logicRuleRepository>;
+    mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
 
     mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
     mockPageRepo.findByWorkflowId.mockResolvedValue([]);
@@ -80,6 +88,8 @@ describe("PageService", () => {
     mockStepRepo.findByWorkflowId.mockResolvedValue([]);
     mockStepRepo.countByWorkflowId.mockResolvedValue(0);
     mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+    mockSectionRepo.lockWorkflowStructure.mockResolvedValue();
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
     service = new PageService({
       pageRepo: mockPageRepo,
@@ -88,6 +98,7 @@ describe("PageService", () => {
       workflowSvc: mockWorkflowSvc,
       stepValueRepo: mockStepValueRepo,
       logicRuleRepo: mockLogicRuleRepo,
+      sectionRepo: mockSectionRepo,
     });
   });
 
@@ -489,9 +500,10 @@ describe("PageService", () => {
       const workflow = createTestWorkflow();
       // Post-reorder state: the condition's page (A) now sits AFTER the
       // rule's target page (C) — a forward skip turned backward.
-      const pageA = createTestPage(workflow.id, { id: "page-a", order: 2, title: "Page A" });
-      const pageB = createTestPage(workflow.id, { id: "page-b", order: 1, title: "Page B" });
-      const pageC = createTestPage(workflow.id, { id: "page-c", order: 0, title: "Page C" });
+      const sectionId = "section-a";
+      const pageA = createTestPage(workflow.id, { id: "page-a", order: 2, title: "Page A", sectionId });
+      const pageB = createTestPage(workflow.id, { id: "page-b", order: 1, title: "Page B", sectionId });
+      const pageC = createTestPage(workflow.id, { id: "page-c", order: 0, title: "Page C", sectionId });
       const conditionStep = createTestStep(pageA.id, {
         id: "step-q1",
         workflowId: workflow.id,
@@ -511,18 +523,27 @@ describe("PageService", () => {
       );
       mockStepRepo.findByWorkflowId.mockResolvedValue([conditionStep] as unknown as Step[]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([rule]);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([{
+        id: sectionId,
+        workflowId: workflow.id,
+        title: "Grouped pages",
+        description: null,
+        visibleIf: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }] as Section[]);
 
       const result = await service.reorderPages(workflow.id, "user-123", [
-        { id: pageA.id, order: 2 },
-        { id: pageB.id, order: 1 },
-        { id: pageC.id, order: 0 },
+        { id: pageA.id, order: 2, sectionId },
+        { id: pageB.id, order: 1, sectionId },
+        { id: pageC.id, order: 0, sectionId },
       ]);
 
       expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit", expect.anything());
       // The reorder itself is not gated by the finding — every order write happens.
-      expect(mockPageRepo.updateOrder).toHaveBeenCalledWith(pageA.id, workflow.id, 2, expect.anything());
-      expect(mockPageRepo.updateOrder).toHaveBeenCalledWith(pageB.id, workflow.id, 1, expect.anything());
-      expect(mockPageRepo.updateOrder).toHaveBeenCalledWith(pageC.id, workflow.id, 0, expect.anything());
+      expect(mockPageRepo.updateLayout).toHaveBeenCalledWith(pageA.id, workflow.id, 2, sectionId, expect.anything());
+      expect(mockPageRepo.updateLayout).toHaveBeenCalledWith(pageB.id, workflow.id, 1, sectionId, expect.anything());
+      expect(mockPageRepo.updateLayout).toHaveBeenCalledWith(pageC.id, workflow.id, 0, sectionId, expect.anything());
 
       expect(result.affectedSkipRules).toEqual([
         {
@@ -566,12 +587,13 @@ describe("PageService", () => {
       expect(rule.action).toBe("skip_to");
 
       const result = await service.reorderPages(workflow.id, "user-123", [
-        { id: pageB.id, order: 1 },
-        { id: pageC.id, order: 2 },
+        { id: pageA.id, order: 0, sectionId: null },
+        { id: pageB.id, order: 1, sectionId: null },
+        { id: pageC.id, order: 2, sectionId: null },
       ]);
 
       expect(result.affectedSkipRules).toEqual([]);
-      expect(mockPageRepo.updateOrder).toHaveBeenCalled();
+      expect(mockPageRepo.updateLayout).toHaveBeenCalled();
     });
 
     it("ignores rules that are not a page-targeting skip_to (show/hide/require, or targeting a step)", async () => {
@@ -605,8 +627,8 @@ describe("PageService", () => {
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([showRule, stepSkipRule]);
 
       const result = await service.reorderPages(workflow.id, "user-123", [
-        { id: pageA.id, order: 1 },
-        { id: pageB.id, order: 0 },
+        { id: pageA.id, order: 1, sectionId: null },
+        { id: pageB.id, order: 0, sectionId: null },
       ]);
 
       expect(result.affectedSkipRules).toEqual([]);
@@ -616,9 +638,9 @@ describe("PageService", () => {
       mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied"));
 
       await expect(
-        service.reorderPages("wf-1", "user-123", [{ id: "page-a", order: 0 }])
+        service.reorderPages("wf-1", "user-123", [{ id: "page-a", order: 0, sectionId: null }])
       ).rejects.toThrow("Access denied");
-      expect(mockPageRepo.updateOrder).not.toHaveBeenCalled();
+      expect(mockPageRepo.updateLayout).not.toHaveBeenCalled();
     });
   });
 });

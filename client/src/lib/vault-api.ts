@@ -645,6 +645,7 @@ export interface ApiPage {
   title: string;
   description: string | null;
   order: number;
+  sectionId?: string | null;
   visibleIf?: unknown; // Condition expression for visibility
   config?: unknown;
   createdAt: string;
@@ -676,12 +677,16 @@ export const pageAPI = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  reorder: (workflowId: string, pages: Array<{ id: string; order: number }>) =>
+  reorder: (
+    workflowId: string,
+    pages: Array<{ id: string; order: number; sectionId: string | null }>,
+    deleteEmptySectionIds: string[] = [],
+  ) =>
     fetchAPI<{ message: string; affectedSkipRules: ApiReorderSkipRuleWarning[] }>(
       `/api/workflows/${workflowId}/pages/reorder`,
       {
         method: "PUT",
-        body: JSON.stringify({ pages }),
+        body: JSON.stringify({ pages, deleteEmptySectionIds }),
       }
     ),
   delete: (id: string) =>

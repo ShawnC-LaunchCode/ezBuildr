@@ -96,13 +96,48 @@ export class PageRepository extends BaseRepository<typeof pages, Page, InsertPag
    * Update page order
    */
   async updateOrder(pageId: string, workflowId: string, order: number, tx?: DbTransaction): Promise<Page> {
+    return this.updateLayout(pageId, workflowId, order, undefined, tx);
+  }
+
+  /** Atomically update page order and, when supplied, Section membership. */
+  async updateLayout(
+    pageId: string,
+    workflowId: string,
+    order: number,
+    sectionId: string | null | undefined,
+    tx?: DbTransaction,
+  ): Promise<Page> {
     const database = this.getDb(tx);
     const [updated] = await database
       .update(pages)
-      .set({ order })
-      .where(and(eq(pages.id, pageId), eq(pages.workflowId, workflowId)))
+      .set(sectionId === undefined ? { order } : { order, sectionId })
+      .where(and(
+        eq(pages.id, pageId),
+        eq(pages.workflowId, workflowId),
+        isNull(pages.deletedAt),
+      ))
       .returning();
     if (updated == null) {throw new Error("Page not found");}
+    return updated;
+  }
+
+  async updateSectionId(
+    pageId: string,
+    workflowId: string,
+    sectionId: string | null,
+    tx?: DbTransaction,
+  ): Promise<Page> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(pages)
+      .set({ sectionId })
+      .where(and(
+        eq(pages.id, pageId),
+        eq(pages.workflowId, workflowId),
+        isNull(pages.deletedAt),
+      ))
+      .returning();
+    if (updated == null) { throw new Error("Page not found"); }
     return updated;
   }
 

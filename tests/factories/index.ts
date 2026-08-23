@@ -214,6 +214,7 @@ export function createTestPage(overrides?: DeepPartial<Page>): Omit<Page, 'id' |
     title: overrides?.title || `Page ${uniqueId}`,
     description: overrides?.description || null,
     order: overrides?.order ?? 0,
+    sectionId: overrides?.sectionId ?? null,
     visibleIf: overrides?.visibleIf || null,
     config: overrides?.config || {},
     deletedAt: overrides?.deletedAt ?? null,

@@ -168,7 +168,8 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       FROM information_schema.columns
       WHERE table_schema = current_schema()
         AND (
-          (table_name = 'pages' AND column_name = 'id')
+          (table_name = 'pages' AND column_name IN ('id', 'section_id'))
+          OR (table_name = 'sections' AND column_name IN ('id', 'workflow_id'))
           OR (table_name = 'steps' AND column_name = 'page_id')
           OR (table_name = 'blocks' AND column_name = 'page_id')
           OR (table_name = 'lifecycle_hooks' AND column_name = 'page_id')
@@ -185,6 +186,9 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       { table_name: "lifecycle_hooks", column_name: "page_id", column_default: null },
       { table_name: "logic_rules", column_name: "target_page_id", column_default: null },
       { table_name: "pages", column_name: "id", column_default: "gen_random_uuid()" },
+      { table_name: "pages", column_name: "section_id", column_default: null },
+      { table_name: "sections", column_name: "id", column_default: "gen_random_uuid()" },
+      { table_name: "sections", column_name: "workflow_id", column_default: null },
       { table_name: "steps", column_name: "page_id", column_default: null },
       { table_name: "transform_blocks", column_name: "page_id", column_default: null },
       { table_name: "transform_blocks", column_name: "phase", column_default: "'onPageSubmit'::block_phase" },
@@ -196,8 +200,9 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       FROM information_schema.columns
       WHERE table_schema = current_schema()
         AND (
-          table_name = 'sections'
-          OR column_name IN ('section_id', 'target_section_id', 'current_section_id', 'generated_sections')
+          column_name IN ('target_section_id', 'current_section_id', 'generated_sections')
+          OR (column_name = 'section_id' AND table_name <> 'pages')
+          OR (table_name = 'sections' AND column_name IN ('order', 'deleted_at'))
         )
     `);
     expect(legacyCatalog.rows).toEqual([]);
@@ -216,6 +221,7 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
     expect(indexResult.rows).toEqual([
       { indexname: "pages_deleted_at_idx" },
       { indexname: "pages_workflow_idx" },
+      { indexname: "sections_workflow_idx" },
       { indexname: "steps_page_idx" },
       { indexname: "workflow_runs_current_page_idx" },
     ]);
@@ -244,7 +250,10 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       "lifecycle_hooks_page_id_pages_id_fk",
       "logic_rules_target_page_id_pages_id_fk",
       "pages_pkey",
+      "pages_section_id_sections_id_fk",
       "pages_workflow_id_workflows_id_fk",
+      "sections_pkey",
+      "sections_workflow_id_workflows_id_fk",
       "steps_page_id_pages_id_fk",
       "transform_blocks_page_id_pages_id_fk",
       "workflow_runs_current_page_id_pages_id_fk",
@@ -253,7 +262,10 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       constraints.map(({ conname, definition }) => [conname, definition]),
     );
     expect(definitions.pages_pkey).toBe("PRIMARY KEY (id)");
+    expect(definitions.sections_pkey).toBe("PRIMARY KEY (id)");
     expect(definitions.pages_workflow_id_workflows_id_fk).toContain("FOREIGN KEY (workflow_id) REFERENCES workflows(id)");
+    expect(definitions.pages_section_id_sections_id_fk).toContain("FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL");
+    expect(definitions.sections_workflow_id_workflows_id_fk).toContain("FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE");
     expect(definitions.blocks_page_id_pages_id_fk).toContain("FOREIGN KEY (page_id) REFERENCES pages(id)");
     expect(definitions.lifecycle_hooks_page_id_pages_id_fk).toContain("FOREIGN KEY (page_id) REFERENCES pages(id)");
     expect(definitions.logic_rules_target_page_id_pages_id_fk).toContain("FOREIGN KEY (target_page_id) REFERENCES pages(id)");
@@ -365,11 +377,13 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       .where(eq(schema.workflowRuns.id, runId));
     expect(completedRun).toEqual({ currentPageId, completed: true });
 
-    // There is no compatibility route for any old path family.
-    await request(owner.baseURL)
+    // The new Section data-layer route is distinct from the retired runtime
+    // path family and does not reinterpret page ids as Section ids.
+    const sectionList = await request(owner.baseURL)
       .get(`/api/workflows/${workflowId}/sections`)
       .set("Authorization", `Bearer ${owner.authToken}`)
-      .expect(404);
+      .expect(200);
+    expect(sectionList.body).toEqual([]);
     await request(owner.baseURL)
       .put(`/api/sections/${pageId}`)
       .set("Authorization", `Bearer ${owner.authToken}`)

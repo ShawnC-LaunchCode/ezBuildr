@@ -50,6 +50,8 @@ const orgB = randomUUID();
 const wfUserA = randomUUID();
 const wfUserB = randomUUID();
 const wfOrgB = randomUUID();
+const sectionA = randomUUID();
+const sectionB = randomUUID();
 const pageA = randomUUID();
 const pageB = randomUUID();
 const stepA = randomUUID();
@@ -105,7 +107,7 @@ beforeAll(async () => {
   await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
   await getOwnerDb().execute(sql.raw(
     `GRANT SELECT, INSERT ON `
-    + `"${schema}".workflows, "${schema}".pages, "${schema}".steps, `
+    + `"${schema}".workflows, "${schema}".sections, "${schema}".pages, "${schema}".steps, `
     + `"${schema}".users, "${schema}".organizations, "${schema}".projects `
     + `TO "${TEST_ROLE}"`,
   ));
@@ -123,7 +125,8 @@ beforeAll(async () => {
   // workflow owned by org B (tenant B) — exercises the org resolution branch
   await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfOrgB}, ${"WF Org B"}, 'org', ${orgB}, ${userB}, ${userB})`);
 
-  await getOwnerDb().execute(sql`INSERT INTO pages (id, workflow_id, title, "order") VALUES (${pageA}, ${wfUserA}, 'Page A', 1), (${pageB}, ${wfUserB}, 'Page B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title) VALUES (${sectionA}, ${wfUserA}, 'Section A'), (${sectionB}, ${wfUserB}, 'Section B')`);
+  await getOwnerDb().execute(sql`INSERT INTO pages (id, workflow_id, section_id, title, "order") VALUES (${pageA}, ${wfUserA}, ${sectionA}, 'Page A', 1), (${pageB}, ${wfUserB}, ${sectionB}, 'Page B', 1)`);
   await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, page_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'short_text', 'Step B', 1)`);
 });
 
@@ -132,6 +135,7 @@ afterAll(async () => {
   try {
     await getOwnerDb().execute(sql`DELETE FROM steps WHERE id IN (${stepA}, ${stepB})`);
     await getOwnerDb().execute(sql`DELETE FROM pages WHERE id IN (${pageA}, ${pageB})`);
+    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id IN (${sectionA}, ${sectionB})`);
     await getOwnerDb().execute(sql`DELETE FROM workflows WHERE id IN (${wfUserA}, ${wfUserB}, ${wfOrgB})`);
     await getOwnerDb().execute(sql`DELETE FROM organizations WHERE id = ${orgB}`);
     await getOwnerDb().execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
@@ -168,15 +172,17 @@ describe("RLS phase 4: app_owner_tenant resolution (SEC-051 / ICW-B2)", () => {
 });
 
 describe("RLS phase 4: cross-tenant row isolation", () => {
-  test("tenant A sees only its own workflow / page / step", async () => {
-    const { wf, pageIds, st } = await asTenant(tenantA, async (tx) => ({
+  test("tenant A sees only its own workflow / Section / page / step", async () => {
+    const { wf, sectionIds, pageIds, st } = await asTenant(tenantA, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).map((r) => r.id),
+      sectionIds: rows(await tx.execute(sql`SELECT id FROM sections`)).map((r) => r.id),
       pageIds: rows(await tx.execute(sql`SELECT id FROM pages`)).map((r) => r.id),
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).map((r) => r.id),
     }));
     expect(wf).toContain(wfUserA);
     expect(wf).not.toContain(wfUserB);
     expect(wf).not.toContain(wfOrgB);
+    expect(sectionIds).toEqual([sectionA]);
     expect(pageIds).toEqual([pageA]);
     expect(st).toEqual([stepA]);
   });
@@ -193,14 +199,31 @@ describe("RLS phase 4: cross-tenant row isolation", () => {
   test("no tenant context => zero rows (fail-closed)", async () => {
     const counts = await asTenant(null, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).length,
+      sections: rows(await tx.execute(sql`SELECT id FROM sections`)).length,
       pages: rows(await tx.execute(sql`SELECT id FROM pages`)).length,
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).length,
     }));
-    expect(counts).toEqual({ wf: 0, pages: 0, st: 0 });
+    expect(counts).toEqual({ wf: 0, sections: 0, pages: 0, st: 0 });
   });
 });
 
 describe("RLS phase 4: WITH CHECK blocks cross-tenant writes", () => {
+  test("Sections enforce workflow-derived tenancy under the restricted role", async () => {
+    await expect(
+      asTenant(tenantA, async (tx) => {
+        await tx.execute(sql`INSERT INTO sections (id, workflow_id, title) VALUES (${randomUUID()}, ${wfUserB}, 'sneaky Section')`);
+      }),
+    ).rejects.toThrow();
+
+    const ownId = randomUUID();
+    await asTenant(tenantA, async (tx) => {
+      await tx.execute(sql`INSERT INTO sections (id, workflow_id, title) VALUES (${ownId}, ${wfUserA}, 'legit Section')`);
+    });
+    const seen = rows(await getOwnerDb().execute(sql`SELECT id FROM sections WHERE id = ${ownId}`));
+    expect(seen).toHaveLength(1);
+    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id = ${ownId}`);
+  });
+
   test("inserting a workflow that resolves to another tenant is rejected", async () => {
     await expect(
       asTenant(tenantA, async (tx) => {

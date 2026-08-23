@@ -1,12 +1,12 @@
 # Database Schema Reference
 
-Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
+Inventory of all **107 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `pages` / `steps` tables (no `tenant_id`) have ownership/join-based `tenant_isolation` policies that migration `0038` preserves while physically renaming `sections` to `pages`. See [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
+> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `pages` / `sections` / `steps` tables (no `tenant_id`) have ownership/join-based `tenant_isolation` policies; migration `0039` adds the Section policy. See [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
-## Workflow Core — `shared/schema/workflow.ts` (20 tables)
+## Workflow Core — `shared/schema/workflow.ts` (21 tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -17,7 +17,8 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `templates` / `template_versions` | Document templates + versioning |
 | `workflow_blueprints` | Template blueprint structures (JSONB) |
 | `workflow_templates` | Reusable workflow templates |
-| `pages` | Workflow pages: order, visibleIf. |
+| `sections` | Optional named spans of contiguous pages; position is derived from the member pages and Sections cannot be empty. |
+| `pages` | Workflow pages: order, optional `section_id`, visibleIf. Membership changes only through atomic Section creation or page reorder. |
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |

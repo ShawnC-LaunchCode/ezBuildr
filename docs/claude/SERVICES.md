@@ -10,7 +10,8 @@ Conventions: services export a module-level singleton (`export const fooService 
 |---------|---------|
 | WorkflowService | Workflow CRUD, status management |
 | WorkflowContentIngestService | Normalizes structural blueprints |
-| PageService / StepService | Page and step management |
+| SectionService | Section CRUD and atomic non-empty contiguous page-span assignment |
+| PageService / StepService | Page and step management; page reorder is the authoritative full-layout Section membership operation |
 | LogicService | Conditional logic rules |
 | VariableService / AliasResolver / AliasRenameService | Step alias management |
 | BlockService | Reusable block management |

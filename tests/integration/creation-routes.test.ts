@@ -421,7 +421,7 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
 
     const reorder = await sharedAgent
       .put(`/api/workflows/${workflowId}/pages/reorder`)
-      .send({ pages: [{ id: pageId, order: 3 }] });
+      .send({ pages: [{ id: pageId, order: 3, sectionId: null }] });
     expect(reorder.status).toBe(403);
   });
 
@@ -462,8 +462,8 @@ describe("reorder ids are scoped to their workflow/page (ICW2-1)", () => {
       .put(`/api/workflows/${mine.workflowId}/pages/reorder`)
       .send({
         pages: [
-          { id: mine.pageId, order: 7 },
-          { id: other.pageId, order: 9 },
+          { id: mine.pageId, order: 7, sectionId: null },
+          { id: other.pageId, order: 9, sectionId: null },
         ],
       });
     expect(res.status).toBe(404);

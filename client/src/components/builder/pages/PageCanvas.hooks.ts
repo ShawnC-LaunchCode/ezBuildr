@@ -82,6 +82,7 @@ export function usePageDragAndDrop(
             const updates = reordered.map((page, index) => ({
                 id: page.id,
                 order: index,
+                sectionId: page.sectionId ?? null,
             }));
             reorderPagesMutation.mutate(
                 { workflowId, pages: updates },

@@ -104,13 +104,17 @@ export function useUpdatePage(): UseMutationResult<ApiPage, unknown, Partial<Api
 export function useReorderPages(): UseMutationResult<
     { message: string; affectedSkipRules: ApiReorderSkipRuleWarning[] },
     unknown,
-    { workflowId: string; pages: Array<{ id: string; order: number }> }
+    {
+        workflowId: string;
+        pages: Array<{ id: string; order: number; sectionId: string | null }>;
+        deleteEmptySectionIds?: string[];
+    }
 > {
     const queryClient = useQueryClient();
     return useMutation({
         meta: { errorMessage: "Failed to reorder pages. The order has been reverted." },
-        mutationFn: ({ workflowId, pages }: { workflowId: string; pages: Array<{ id: string; order: number }> }) =>
-            pageAPI.reorder(workflowId, pages),
+        mutationFn: ({ workflowId, pages, deleteEmptySectionIds }) =>
+            pageAPI.reorder(workflowId, pages, deleteEmptySectionIds ?? []),
         onMutate: async (variables) => {
             // Cancel outgoing refetches
             await queryClient.cancelQueries({ queryKey: queryKeys.pages(variables.workflowId) });
@@ -121,7 +125,9 @@ export function useReorderPages(): UseMutationResult<
                 const updatedPages = previousPages
                     .map((page) => {
                         const newOrder = variables.pages.find((s) => s.id === page.id);
-                        return newOrder ? { ...page, order: newOrder.order } : page;
+                        return newOrder
+                            ? { ...page, order: newOrder.order, sectionId: newOrder.sectionId }
+                            : page;
                     })
                     .sort((a, b) => a.order - b.order); // Sort by order to match backend behavior
                 queryClient.setQueryData(queryKeys.pages(variables.workflowId), updatedPages);

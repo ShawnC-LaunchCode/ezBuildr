@@ -303,6 +303,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
 ];
 
 export const EXCLUDED_TABLES: Record<string, string> = {
+  'sections': 'Section publish/export/import support is deferred to SECT-4; omit it rather than emit a partial bundle.',
   'project_access': 'Access control lists are instance-bound and never exported.',
   'workflow_access': 'Access control lists are instance-bound and never exported.',
   'datavault_database_access': 'Access control lists are instance-bound and never exported.',

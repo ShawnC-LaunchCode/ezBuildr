@@ -48,6 +48,7 @@ export function createTestPage(workflowId: string, overrides?: Partial<Page>): P
     title: "Test Page",
     description: null,
     order: 1,
+    sectionId: null,
     config: {},
     visibleIf: null,
     deletedAt: null,

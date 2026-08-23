@@ -28,6 +28,7 @@ export { ProjectRepository, projectRepository, type ProjectListOptions, type Pro
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
 export { WorkflowVersionRepository, workflowVersionRepository } from "./WorkflowVersionRepository";
 export { PageRepository, pageRepository } from "./PageRepository";
+export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
 export { RunResumeLinkRepository, runResumeLinkRepository } from "./RunResumeLinkRepository";

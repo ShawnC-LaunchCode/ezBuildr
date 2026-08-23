@@ -157,13 +157,13 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
     }
   });
 
-  // workflows/pages/steps carry no tenant_id column (tenancy is ownership-
+  // workflows/sections/pages/steps carry no tenant_id column (tenancy is ownership-
   // derived), so they fall outside the tenant_id-column query above by
   // construction. They are covered by 0001 Part 3 / 0024 Part 2 all the same,
   // and by tests/integration/rls-phase4-workflows.test.ts for behaviour — this
   // is just coverage, kept here because 0024 is what actually applies it on a
   // database that predates this ticket.
-  test.each(["workflows", "pages", "steps"])(
+  test.each(["workflows", "sections", "pages", "steps"])(
     "ownership-derived table %s has RLS enabled and a tenant_isolation policy",
     async (tableName) => {
       const state = await tableRlsState(schema, tableName);

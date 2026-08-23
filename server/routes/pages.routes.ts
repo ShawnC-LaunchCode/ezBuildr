@@ -1,5 +1,4 @@
-import { insertPageSchema } from "@shared/schema";
-import type { InsertPage } from "@shared/schema";
+import { z } from "zod";
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
@@ -16,6 +15,34 @@ import type { Express, Request, Response, NextFunction } from "express";
 const logger = createLogger({ module: "pages-routes" });
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+
+const createPageBodySchema = z.object({
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  order: z.number().int().optional(),
+  config: z.unknown().optional(),
+  visibleIf: z.unknown().optional(),
+});
+
+const updatePageBodySchema = createPageBodySchema.partial();
+
+const reorderPagesBodySchema = z.object({
+  pages: z.array(z.object({
+    id: z.string().uuid(),
+    order: z.number().int(),
+    sectionId: z.string().uuid().nullable(),
+  }).strict()),
+  deleteEmptySectionIds: z.array(z.string().uuid()).default([]),
+}).strict();
+
+function sendPageRouteError(error: unknown, res: Response, fallback: string): void {
+  if (error instanceof z.ZodError) {
+    res.status(400).json({ message: "Invalid input", errors: error.errors });
+    return;
+  }
+  const { status, message } = classifyRouteError(error, fallback);
+  res.status(status).json({ message });
+}
 /**
  * Middleware helper: Look up workflowId from pageId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -98,13 +125,12 @@ export function registerPageRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
-      const pageData = insertPageSchema.partial().parse(req.body) as Omit<InsertPage, 'workflowId'>;
+      const pageData = createPageBodySchema.parse(req.body);
       const page = await pageService.createPage(workflowId, userId, pageData);
       res.status(201).json(page);
     } catch (error) {
       logger.error({ error }, "Error creating page");
-      const { status, message } = classifyRouteError(error, "Failed to create page");
-      res.status(status).json({ message });
+      sendPageRouteError(error, res, "Failed to create page");
     }
   }));
 
@@ -161,28 +187,18 @@ export function registerPageRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
-      const { pages } = req.body as { pages: unknown };
-      if (!Array.isArray(pages)) {
-        return res.status(400).json({ message: "Invalid pages array" });
-      }
+      const { pages, deleteEmptySectionIds } = reorderPagesBodySchema.parse(req.body);
       logger.info({ pages, workflowId }, "Reordering pages");
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const typedPages = pages as Array<{ id: string; order: number }>;
-      for (const page of typedPages) {
-        if (!page.id || !uuidRegex.test(page.id)) {
-          logger.error({ invalidPage: page }, "Invalid page ID format");
-          return res.status(400).json({
-            message: `Invalid page ID format: ${page.id}`,
-            details: "Page ID must be a valid UUID"
-          });
-        }
-      }
-      const { affectedSkipRules } = await pageService.reorderPages(workflowId, userId, typedPages);
+      const { affectedSkipRules } = await pageService.reorderPages(
+        workflowId,
+        userId,
+        pages,
+        deleteEmptySectionIds,
+      );
       res.status(200).json({ message: "Pages reordered successfully", affectedSkipRules });
     } catch (error) {
       logger.error({ error }, "Error reordering pages");
-      const { status, message } = classifyRouteError(error, "Failed to reorder pages");
-      res.status(status).json({ message });
+      sendPageRouteError(error, res, "Failed to reorder pages");
     }
   }));
 
@@ -198,13 +214,12 @@ export function registerPageRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, pageId } = req.params;
-      const updateData = insertPageSchema.partial().parse(req.body);
+      const updateData = updatePageBodySchema.parse(req.body);
       const page = await pageService.updatePage(pageId, workflowId, userId, updateData);
       res.json(page);
     } catch (error) {
       logger.error({ error }, "Error updating page");
-      const { status, message } = classifyRouteError(error, "Failed to update page");
-      res.status(status).json({ message });
+      sendPageRouteError(error, res, "Failed to update page");
     }
   }));
 
@@ -246,13 +261,12 @@ export function registerPageRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { pageId } = req.params;
-      const updateData = insertPageSchema.partial().parse(req.body);
+      const updateData = updatePageBodySchema.parse(req.body);
       const updatedPage = await pageService.updatePageById(pageId, userId, updateData);
       res.json(updatedPage);
     } catch (error) {
       logger.error({ error }, "Error updating page");
-      const { status, message } = classifyRouteError(error, "Failed to update page");
-      res.status(status).json({ message });
+      sendPageRouteError(error, res, "Failed to update page");
     }
   }));
 

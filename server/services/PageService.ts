@@ -6,6 +6,7 @@ import {
   stepRepository,
   stepValueRepository,
   logicRuleRepository,
+  sectionRepository,
   type DeleteImpact,
   type DbTransaction,
 } from "../repositories";
@@ -14,6 +15,7 @@ import { withCurrentTenant } from "../utils/rlsContext";
 import { remapJsonIds } from "../utils/remapJsonIds";
 
 import { generateAliasCopy } from "./stepAlias";
+import { assertValidSectionSpans, SectionLayoutError } from "./sectionSpans";
 import { workflowService } from "./WorkflowService";
 import { isBackwardSkipTarget } from "./workflowStructureRules";
 
@@ -48,6 +50,7 @@ export interface PageServiceDeps {
   workflowSvc?: typeof workflowService;
   stepValueRepo?: typeof stepValueRepository;
   logicRuleRepo?: typeof logicRuleRepository;
+  sectionRepo?: typeof sectionRepository;
 }
 
 /**
@@ -60,6 +63,7 @@ export class PageService {
   private workflowSvc: typeof workflowService;
   private stepValueRepo: typeof stepValueRepository;
   private logicRuleRepo: typeof logicRuleRepository;
+  private sectionRepo: typeof sectionRepository;
 
   constructor(deps: PageServiceDeps = {}) {
     this.pageRepo = deps.pageRepo ?? pageRepository;
@@ -68,6 +72,7 @@ export class PageService {
     this.workflowSvc = deps.workflowSvc ?? workflowService;
     this.stepValueRepo = deps.stepValueRepo ?? stepValueRepository;
     this.logicRuleRepo = deps.logicRuleRepo ?? logicRuleRepository;
+    this.sectionRepo = deps.sectionRepo ?? sectionRepository;
   }
 
   /**
@@ -107,6 +112,7 @@ export class PageService {
   ): Promise<Page> {
     return this.withTx(tx, async (scopedTx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, scopedTx);
 
       // Get current pages to determine next order
       const existingPages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
@@ -120,15 +126,27 @@ export class PageService {
         : 1;
 
       // Strip a client-supplied `id` so the server owns the primary key.
-      const { id: _ignoredId, ...safeData } = data;
-      return this.pageRepo.create({
+      const {
+        id: _ignoredId,
+        sectionId: _ignoredSectionId,
+        deletedAt: _ignoredDeletedAt,
+        createdAt: _ignoredCreatedAt,
+        updatedAt: _ignoredUpdatedAt,
+        ...safeData
+      } = data;
+      const page = await this.pageRepo.create({
         ...safeData,
         workflowId,
         order: data.order ?? nextOrder,
+        sectionId: null,
         // Server-controlled: never let a client-supplied value mark a
         // freshly created page as already soft-deleted (ICW2-B1).
         deletedAt: null,
       }, scopedTx);
+      const persistedPages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, scopedTx);
+      assertValidSectionSpans(persistedPages, workflowSections);
+      return page;
     });
   }
 
@@ -200,8 +218,13 @@ export class PageService {
       }
 
       await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
+      await this.sectionRepo.lockWorkflowStructure(page.workflowId, tx);
+      const lockedPage = await this.pageRepo.findById(pageId, tx);
+      if (!lockedPage) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-      const existingPages = await this.pageRepo.findByWorkflowId(page.workflowId, tx);
+      const existingPages = await this.pageRepo.findByWorkflowId(lockedPage.workflowId, tx);
       if (existingPages.length >= LIMITS.MAX_PAGES_PER_WORKFLOW) {
         throw new LimitExceededError(
           `Page limit reached (${LIMITS.MAX_PAGES_PER_WORKFLOW} per workflow)`
@@ -211,28 +234,36 @@ export class PageService {
       // Include virtual (computed) steps too — duplicating the page duplicates all of them.
       const sourceSteps = await this.stepRepo.findByPageId(pageId, tx, true);
 
-      const currentStepCount = await this.stepRepo.countByWorkflowId(page.workflowId, tx);
+      const currentStepCount = await this.stepRepo.countByWorkflowId(lockedPage.workflowId, tx);
       if (currentStepCount + sourceSteps.length > LIMITS.MAX_STEPS_PER_WORKFLOW) {
         throw new LimitExceededError(
           `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
         );
       }
 
-      const taken = await this.getWorkflowAliases(page.workflowId, tx);
+      const taken = await this.getWorkflowAliases(lockedPage.workflowId, tx);
 
-      const toShift = existingPages.filter((s) => s.order > page.order);
+      const insertionOrder = lockedPage.sectionId === null
+        ? lockedPage.order + 1
+        : Math.max(
+          ...existingPages
+            .filter((existingPage) => existingPage.sectionId === lockedPage.sectionId)
+            .map((existingPage) => existingPage.order),
+        ) + 1;
+      const toShift = existingPages.filter((s) => s.order >= insertionOrder);
       for (const sibling of toShift) {
         await this.pageRepo.updateOrder(sibling.id, page.workflowId, sibling.order + 1, tx);
       }
 
       const newPage = await this.pageRepo.create(
         {
-          workflowId: page.workflowId,
-          title: page.title,
-          description: page.description,
-          order: page.order + 1,
-          config: page.config,
-          visibleIf: page.visibleIf,
+          workflowId: lockedPage.workflowId,
+          title: lockedPage.title,
+          description: lockedPage.description,
+          order: insertionOrder,
+          sectionId: null,
+          config: lockedPage.config,
+          visibleIf: lockedPage.visibleIf,
         },
         tx
       );
@@ -246,7 +277,7 @@ export class PageService {
         }
         const newStep = await this.stepRepo.create(
           {
-            workflowId: page.workflowId,
+            workflowId: lockedPage.workflowId,
             pageId: newPage.id,
             type: step.type,
             title: step.title,
@@ -264,7 +295,11 @@ export class PageService {
         idMap.set(step.id, newStep.id);
       }
 
-      await this.copyPageLogicRules(tx, page.workflowId, pageId, sourceSteps, idMap);
+      await this.copyPageLogicRules(tx, lockedPage.workflowId, pageId, sourceSteps, idMap);
+
+      const persistedPages = await this.pageRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      assertValidSectionSpans(persistedPages, workflowSections);
 
       return newPage;
     });
@@ -286,6 +321,7 @@ export class PageService {
     delete updates.createdAt;
     delete updates.updatedAt;
     delete updates.deletedAt;
+    delete updates.sectionId;
     return updates;
   }
 
@@ -301,13 +337,18 @@ export class PageService {
   ): Promise<Page> {
     return this.withTx(tx, async (scopedTx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, scopedTx);
 
       const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, scopedTx);
       if (!page) {
         throw new Error(PAGE_NOT_FOUND);
       }
 
-      return this.pageRepo.update(pageId, PageService.stripImmutableFields(data), scopedTx);
+      const updated = await this.pageRepo.update(pageId, PageService.stripImmutableFields(data), scopedTx);
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, scopedTx);
+      assertValidSectionSpans(activePages, workflowSections);
+      return updated;
     });
   }
 
@@ -320,6 +361,7 @@ export class PageService {
   async deletePage(pageId: string, workflowId: string, userId: string, callerTx?: DbTransaction): Promise<void> {
     await this.withTx(callerTx, async (tx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, tx);
 
       const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, tx);
       if (!page) {
@@ -328,6 +370,9 @@ export class PageService {
 
       await this.stepRepo.softDeleteByPageId(pageId, tx);
       await this.pageRepo.softDelete(pageId, tx);
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+      assertValidSectionSpans(activePages, workflowSections, { emptyStatusCode: 409 });
     });
   }
 
@@ -345,12 +390,20 @@ export class PageService {
       }
 
       await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
+      await this.sectionRepo.lockWorkflowStructure(page.workflowId, tx);
+      const lockedPage = await this.pageRepo.findByIdIncludingDeleted(pageId, tx);
+      if (!lockedPage?.deletedAt) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
       await this.stepRepo.restoreByPageId(pageId, tx);
       const restored = await this.pageRepo.restore(pageId, tx);
       if (!restored) {
         throw new Error(PAGE_NOT_FOUND);
       }
+      const activePages = await this.pageRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      assertValidSectionSpans(activePages, workflowSections);
       return restored;
     });
   }
@@ -403,19 +456,111 @@ export class PageService {
   async reorderPages(
     workflowId: string,
     userId: string,
-    pageOrders: Array<{ id: string; order: number }>,
+    pageOrders: Array<{ id: string; order: number; sectionId: string | null }>,
+    deleteEmptySectionIds: string[] = [],
     callerTx?: DbTransaction
   ): Promise<{ affectedSkipRules: ReorderSkipRuleWarning[] }> {
     return this.withTx(callerTx, async (tx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, tx);
 
-      // Update each page's order
-      for (const { id, order } of pageOrders) {
-        await this.pageRepo.updateOrder(id, workflowId, order, tx);
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+      PageService.assertCompleteLayout(activePages, workflowSections, pageOrders);
+
+      if (new Set(deleteEmptySectionIds).size !== deleteEmptySectionIds.length) {
+        throw new SectionLayoutError("deleteEmptySectionIds must not contain duplicates");
+      }
+
+      const sectionById = new Map(workflowSections.map((section) => [section.id, section]));
+      const proposedCount = new Map(workflowSections.map((section) => [section.id, 0]));
+      for (const page of pageOrders) {
+        if (page.sectionId !== null) {
+          proposedCount.set(page.sectionId, (proposedCount.get(page.sectionId) ?? 0) + 1);
+        }
+      }
+      const emptySectionIds = new Set(
+        workflowSections
+          .filter((section) => proposedCount.get(section.id) === 0)
+          .map((section) => section.id),
+      );
+
+      for (const sectionId of deleteEmptySectionIds) {
+        const section = sectionById.get(sectionId);
+        if (!section) {
+          throw new SectionLayoutError(
+            `Section ${sectionId} no longer exists; deletion authorization is stale`,
+            409,
+          );
+        }
+        if (!emptySectionIds.has(sectionId)) {
+          throw new SectionLayoutError(
+            `Section "${section.title}" did not become empty; deletion authorization is stale`,
+            409,
+          );
+        }
+      }
+
+      const authorizedDeletionIds = new Set(deleteEmptySectionIds);
+      for (const sectionId of emptySectionIds) {
+        if (!authorizedDeletionIds.has(sectionId)) {
+          const section = sectionById.get(sectionId);
+          throw new SectionLayoutError(
+            `Section "${section?.title ?? sectionId}" cannot be empty; confirm its deletion and retry`,
+            409,
+          );
+        }
+      }
+
+      const retainedSections = workflowSections.filter(
+        (section) => !emptySectionIds.has(section.id),
+      );
+      assertValidSectionSpans(pageOrders, retainedSections);
+
+      for (const { id, order, sectionId } of pageOrders) {
+        await this.pageRepo.updateLayout(id, workflowId, order, sectionId, tx);
+      }
+      for (const sectionId of emptySectionIds) {
+        await this.sectionRepo.delete(sectionId, tx);
       }
 
       return { affectedSkipRules: await this.findBackwardSkipRules(workflowId, tx) };
     });
+  }
+
+  private static assertCompleteLayout(
+    activePages: Page[],
+    workflowSections: Array<{ id: string; title: string }>,
+    pageOrders: Array<{ id: string; order: number; sectionId: string | null }>,
+  ): void {
+    const inputIds = new Set(pageOrders.map((page) => page.id));
+    if (inputIds.size !== pageOrders.length) {
+      throw new SectionLayoutError("Page reorder contains duplicate page IDs");
+    }
+    const activeIds = new Set(activePages.map((page) => page.id));
+    for (const page of pageOrders) {
+      if (!activeIds.has(page.id)) {
+        throw new Error("Page not found");
+      }
+    }
+    if (pageOrders.length !== activePages.length) {
+      throw new SectionLayoutError("Page reorder must include the complete active page layout");
+    }
+    for (const page of activePages) {
+      if (!inputIds.has(page.id)) {
+        throw new SectionLayoutError(`Page ${page.id} is missing from the final layout`);
+      }
+    }
+    const orders = new Set(pageOrders.map((page) => page.order));
+    if (orders.size !== pageOrders.length) {
+      throw new SectionLayoutError("Page reorder contains duplicate order values");
+    }
+    const validSectionIds = new Set(workflowSections.map((section) => section.id));
+    for (const page of pageOrders) {
+      if (page.sectionId !== null && !validSectionIds.has(page.sectionId)) {
+        throw new Error("Section not found");
+      }
+    }
   }
 
   /**
@@ -519,7 +664,16 @@ export class PageService {
       }
 
       await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', scopedTx);
-      return this.pageRepo.update(pageId, PageService.stripImmutableFields(data), scopedTx);
+      await this.sectionRepo.lockWorkflowStructure(page.workflowId, scopedTx);
+      const lockedPage = await this.pageRepo.findById(pageId, scopedTx);
+      if (!lockedPage) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
+      const updated = await this.pageRepo.update(pageId, PageService.stripImmutableFields(data), scopedTx);
+      const activePages = await this.pageRepo.findByWorkflowId(lockedPage.workflowId, scopedTx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(lockedPage.workflowId, scopedTx);
+      assertValidSectionSpans(activePages, workflowSections);
+      return updated;
     });
   }
 
@@ -535,8 +689,16 @@ export class PageService {
       }
 
       await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
+      await this.sectionRepo.lockWorkflowStructure(page.workflowId, tx);
+      const lockedPage = await this.pageRepo.findById(pageId, tx);
+      if (!lockedPage) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
       await this.stepRepo.softDeleteByPageId(pageId, tx);
       await this.pageRepo.softDelete(pageId, tx);
+      const activePages = await this.pageRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      const workflowSections = await this.sectionRepo.findByWorkflowId(lockedPage.workflowId, tx);
+      assertValidSectionSpans(activePages, workflowSections, { emptyStatusCode: 409 });
     });
   }
 }

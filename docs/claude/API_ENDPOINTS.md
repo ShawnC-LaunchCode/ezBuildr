@@ -4,7 +4,7 @@ Map of API domains → route files (verified August 2026). **Source of truth is 
 
 New endpoints follow the 3-tier pattern in the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`).
 
-## Workflows & Structure — `workflows.routes.ts`, `pages.routes.ts`, `steps.routes.ts`
+## Workflows & Structure — `workflows.routes.ts`, `sections.routes.ts`, `pages.routes.ts`, `steps.routes.ts`
 
 ```
 GET/POST    /api/workflows                        # List / create
@@ -22,9 +22,12 @@ GET/PUT/DEL /api/workflows/:workflowId/access     # Workflow ACL
 PUT         /api/workflows/:workflowId/owner
 POST        /api/workflows/:workflowId/transfer
 POST        /api/workflows/:workflowId/templates/:templateId/test
+GET/POST    /api/workflows/:workflowId/sections   # List/create Sections; create requires a non-empty contiguous pageIds span
+PUT/DEL     /api/sections/:sectionId              # Update/delete Section metadata; delete leaves pages in place and ungrouped
+PUT         /api/workflows/:workflowId/pages/reorder # Full ordered page layout with explicit nullable sectionId per page
 ```
 
-Pages and steps CRUD live in `pages.routes.ts` / `steps.routes.ts`. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
+Pages and steps CRUD live in `pages.routes.ts` / `steps.routes.ts`. Generic page create/update cannot set `sectionId`; membership changes atomically through Section creation or page reorder. Reorder accepts the full active-page layout plus `deleteEmptySectionIds` (default `[]`) and rejects split, missing, duplicate, foreign, or stale layouts. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
 
 ## Workflow Runs — `runs.routes.ts`
 

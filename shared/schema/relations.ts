@@ -29,7 +29,7 @@ import {
 import { runDocumentDeliveries } from './document_delivery';
 import {
     projects, workflows, workflowVersions, templates, templateVersions,
-    workflowTemplates, pages, steps, logicRules, blocks, transformBlocks,
+    workflowTemplates, sections, pages, steps, logicRules, blocks, transformBlocks,
     lifecycleHooks, documentHooks, projectAccess, workflowAccess,
     collabDocs, collabUpdates, collabSnapshots
 } from './workflow';
@@ -128,6 +128,7 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
         references: [workflowVersions.id],
     }),
     versions: many(workflowVersions),
+    sections: many(sections),
     pages: many(pages),
     logicRules: many(logicRules),
     runs: many(workflowRuns),
@@ -188,10 +189,22 @@ export const workflowTemplatesRelations = relations(workflowTemplates, ({ one })
     }),
 }));
 
+export const sectionsRelations = relations(sections, ({ one, many }) => ({
+    workflow: one(workflows, {
+        fields: [sections.workflowId],
+        references: [workflows.id],
+    }),
+    pages: many(pages),
+}));
+
 export const pagesRelations = relations(pages, ({ one, many }) => ({
     workflow: one(workflows, {
         fields: [pages.workflowId],
         references: [workflows.id],
+    }),
+    section: one(sections, {
+        fields: [pages.sectionId],
+        references: [sections.id],
     }),
     steps: many(steps),
     blocks: many(blocks),
