@@ -238,8 +238,8 @@ export const workflowTemplates = pgTable("workflow_templates", {
     index("workflow_templates_version_key_unique").on(table.workflowVersionId, table.key),
 ]);
 
-// Pages (physical table remains "sections" until SECT-2)
-export const pages = pgTable("sections", {
+// Pages
+export const pages = pgTable("pages", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     title: varchar("title").notNull(),
@@ -254,15 +254,15 @@ export const pages = pgTable("sections", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-    index("sections_workflow_idx").on(table.workflowId),
-    index("sections_deleted_at_idx").on(table.deletedAt),
+    index("pages_workflow_idx").on(table.workflowId),
+    index("pages_deleted_at_idx").on(table.deletedAt),
 ]);
 
 // Steps
 export const steps = pgTable("steps", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
     type: stepTypeEnum("type").notNull(),
     title: varchar("title").notNull(),
     description: text("description"),
@@ -280,7 +280,7 @@ export const steps = pgTable("steps", {
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("steps_workflow_idx").on(table.workflowId),
-    index("steps_section_idx").on(table.pageId),
+    index("steps_page_idx").on(table.pageId),
     index("steps_deleted_at_idx").on(table.deletedAt),
     // `deleted_at IS NULL` is part of the uniqueness scope so a soft-deleted
     // step's alias frees up immediately — re-creating or restoring a step
@@ -311,7 +311,7 @@ export const logicRules = pgTable("logic_rules", {
     when: jsonb("when"),
     targetType: logicRuleTargetTypeEnum("target_type").notNull(),
     targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
-    targetPageId: uuid("target_section_id").references(() => pages.id, { onDelete: 'cascade' }),
+    targetPageId: uuid("target_page_id").references(() => pages.id, { onDelete: 'cascade' }),
     action: conditionalActionEnum("action").notNull(),
     order: integer("order").notNull().default(1),
     createdAt: timestamp("created_at").defaultNow(),
@@ -324,7 +324,7 @@ export const logicRules = pgTable("logic_rules", {
 export const blocks = pgTable("blocks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }),
     type: blockTypeEnum("type").notNull(),
     phase: blockPhaseEnum("phase").notNull(),
     config: jsonb("config").notNull(),
@@ -341,7 +341,7 @@ export const blocks = pgTable("blocks", {
 export const transformBlocks = pgTable("transform_blocks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }),
     name: varchar("name").notNull(),
     language: transformBlockLanguageEnum("language").notNull(),
     code: text("code").notNull(),
@@ -362,7 +362,7 @@ export const transformBlocks = pgTable("transform_blocks", {
 export const lifecycleHooks = pgTable("lifecycle_hooks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }),
     name: varchar("name", { length: 255 }).notNull(),
     phase: lifecycleHookPhaseEnum("phase").notNull(),
     language: transformBlockLanguageEnum("language").notNull(),

@@ -1,15 +1,12 @@
+import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { pages, steps, workflows } from "@shared/schema";
-
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
-// RLS-5: fixture setup and verification reads are the OBSERVER, not the
-// application under test - see tests/helpers/ownerDb.ts.
 import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential("workflow intake configuration contract", () => {
@@ -85,60 +82,51 @@ describe.sequential("workflow intake configuration contract", () => {
     expect(dedicatedResponse.body.message).toBe("Invalid input");
   });
 
-  it("removes only legacy persisted values when the cleanup migration runs", async () => {
-    const page = await getOwnerDb().query.pages.findFirst({
-      where: eq(pages.workflowId, workflowId),
-    });
-    expect(page).toBeDefined();
-    if (!page) {
-      throw new Error("Expected the workflow's default page");
+  it("removes only legacy persisted values when 0006 runs in its pre-rename schema", async () => {
+    const fixtureSchema = `intake_0006_${randomUUID().replaceAll("-", "")}`;
+    const migrationSql = readFileSync(
+      resolve(process.cwd(), "migrations", "0006_remove_legacy_intake_reuse.sql"),
+      "utf8",
+    );
+    const ownerDb = getOwnerDb();
+    await ownerDb.execute(sql.raw(`CREATE SCHEMA "${fixtureSchema}"`));
+    try {
+      await ownerDb.transaction(async (tx) => {
+        await tx.execute(sql.raw(`SET LOCAL search_path TO "${fixtureSchema}", public`));
+        await tx.execute(sql.raw(`
+          CREATE TABLE workflows (id integer PRIMARY KEY, intake_config jsonb);
+          CREATE TABLE sections (id integer PRIMARY KEY, config jsonb);
+          CREATE TABLE steps (id integer PRIMARY KEY, default_value jsonb);
+          INSERT INTO workflows VALUES
+            (1, '{"allowPrefill":true,"isIntake":true,"upstreamWorkflowId":"wf","assignments":[{"enabled":true}]}'),
+            (2, '{"allowPrefill":false,"custom":"keep"}');
+          INSERT INTO sections VALUES
+            (1, '{"keep":true,"intakeAssignment":true}'),
+            (2, '{"keep":true}');
+          INSERT INTO steps VALUES
+            (1, '{"source":"intake","variable":"clientName"}'),
+            (2, '"static default"');
+        `));
+        await tx.execute(sql.raw(migrationSql));
+
+        const workflows = await tx.execute(sql.raw("SELECT id, intake_config FROM workflows ORDER BY id"));
+        const pages = await tx.execute(sql.raw("SELECT id, config FROM sections ORDER BY id"));
+        const steps = await tx.execute(sql.raw("SELECT id, default_value FROM steps ORDER BY id"));
+        expect(workflows.rows).toEqual([
+          { id: 1, intake_config: { allowPrefill: true } },
+          { id: 2, intake_config: { allowPrefill: false, custom: "keep" } },
+        ]);
+        expect(pages.rows).toEqual([
+          { id: 1, config: { keep: true } },
+          { id: 2, config: { keep: true } },
+        ]);
+        expect(steps.rows).toEqual([
+          { id: 1, default_value: null },
+          { id: 2, default_value: "static default" },
+        ]);
+      });
+    } finally {
+      await ownerDb.execute(sql.raw(`DROP SCHEMA IF EXISTS "${fixtureSchema}" CASCADE`));
     }
-
-    await getOwnerDb().update(workflows)
-      .set({
-        intakeConfig: {
-          allowPrefill: true,
-          isIntake: true,
-          upstreamWorkflowId: workflowId,
-          assignments: [{ targetWorkflowId: workflowId, enabled: true }],
-        },
-      })
-      .where(eq(workflows.id, workflowId));
-
-    await getOwnerDb().update(pages)
-      .set({ config: { keep: true, intakeAssignment: true } })
-      .where(eq(pages.id, page.id));
-
-    const [legacyStep] = await getOwnerDb().insert(steps).values({
-      workflowId,
-      pageId: page.id,
-      type: "short_text",
-      title: "Legacy intake-linked default",
-      order: 99,
-      defaultValue: { source: "intake", variable: "clientName" },
-    }).returning();
-
-    const migrationPath = resolve(process.cwd(), "migrations", "0006_remove_legacy_intake_reuse.sql");
-    const migrationSql = readFileSync(migrationPath, "utf8").replaceAll("--> statement-breakpoint", "");
-    // RLS-5: a MIGRATION runs as the schema owner in every real environment, so
-    // it must run on the owner connection here too. Through the application
-    // pool its UPDATEs are tenant-scoped, match zero rows with no tenant in
-    // context, and the cleanup silently does nothing — the assertions below
-    // then report stale data as a migration bug.
-    await getOwnerDb().execute(sql.raw(migrationSql));
-
-    const cleanedWorkflow = await getOwnerDb().query.workflows.findFirst({
-      where: eq(workflows.id, workflowId),
-    });
-    const cleanedPage = await getOwnerDb().query.pages.findFirst({
-      where: eq(pages.id, page.id),
-    });
-    const cleanedStep = await getOwnerDb().query.steps.findFirst({
-      where: eq(steps.id, legacyStep.id),
-    });
-
-    expect(cleanedWorkflow?.intakeConfig).toEqual({ allowPrefill: true });
-    expect(cleanedPage?.config).toEqual({ keep: true });
-    expect(cleanedStep?.defaultValue).toBeNull();
   });
 });

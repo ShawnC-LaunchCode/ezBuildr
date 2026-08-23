@@ -54,7 +54,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     // (never expires); set on new runs so leaked run links stop working eventually.
     tokenExpiresAt: timestamp("token_expires_at"),
     createdBy: text("created_by"), // "creator:<userId>" or "anon"
-    currentPageId: uuid("current_section_id").references(() => pages.id, { onDelete: 'set null' }),
+    currentPageId: uuid("current_page_id").references(() => pages.id, { onDelete: 'set null' }),
     progress: integer("progress").default(0),
     completed: boolean("completed").default(false),
     completedAt: timestamp("completed_at"),
@@ -78,7 +78,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     index("workflow_runs_completed_idx").on(table.completed),
     index("workflow_runs_run_token_idx").on(table.runToken),
     index("workflow_runs_share_token_idx").on(table.shareTokenHash),
-    index("workflow_runs_current_section_idx").on(table.currentPageId),
+    index("workflow_runs_current_page_idx").on(table.currentPageId),
     index("workflow_runs_created_at_idx").on(table.createdAt),
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
     index("workflow_runs_assigned_user_idx").on(table.assignedToUserId),
@@ -336,7 +336,7 @@ export const aiWorkflowFeedback = pgTable("ai_workflow_feedback", {
     qualityPassed: boolean("quality_passed"),
     issuesCount: integer("issues_count"),
     requestDescription: text("request_description"),
-    generatedPages: integer("generated_sections"),
+    generatedPages: integer("generated_pages"),
     generatedSteps: integer("generated_steps"),
     wasEdited: boolean("was_edited").default(false),
     editCount: integer("edit_count").default(0),

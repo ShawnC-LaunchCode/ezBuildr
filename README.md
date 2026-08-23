@@ -156,7 +156,7 @@ CREATE DATABASE ezbuildr;
 
 ### **Workflows (ezBuildr Core)** ⭐ Primary System
 - Modern workflow automation engine
-- Database tables: `workflows`, `sections`, `steps`, `workflowRuns`, `stepValues`
+- Database tables: `workflows`, `pages`, `steps`, `workflowRuns`, `stepValues`
 - API paths: `/api/workflows/*`, `/api/runs/*`
 - **Status:** Production ready, active development
 
@@ -186,8 +186,8 @@ CREATE DATABASE ezbuildr;
 
 ```mermaid
 graph TD
-A[Creator Builds Workflow] --> B[Sections Pages]
-B --> C[Steps Questions]
+A[Creator Builds Workflow] --> B[Pages]
+B --> C[Steps]
 C --> D[Conditional Logic Engine]
 D --> E[Workflow Run Execution]
 E --> F[Data Export JSON/CSV]
@@ -209,9 +209,9 @@ Routes → Services → Repositories → Database
 ## ⚙️ Key Features
 
 ### Core Workflow Features
-- 🔀 **Workflow Builder** — Section/step builder with 7-tab navigation and inspector panel
+- 🔀 **Workflow Builder** — Page/step builder with 7-tab navigation and inspector panel
 - 📋 **15+ Question Types** — Text, email, phone, number, currency, address, boolean, choice, scale, date, time, signature, file upload, display, multi-field, computed
-- 📄 **Sections & Steps** — Multi-page workflows with dynamic navigation and progress tracking
+- 📄 **Pages & Steps** — Multi-page workflows with dynamic navigation and progress tracking
 - ⚡ **Two-Tier Visibility Logic** — Workflow rules + step-level `visibleIf` expressions with real-time evaluation 🆕
 - 🏷️ **Step Aliases** — Human-friendly variable names (e.g., `firstName`, `totalCost`)
 - 📝 **Default Values** — Pre-fill with defaults, overridable via URL parameters 🆕
@@ -232,7 +232,7 @@ Routes → Services → Repositories → Database
 - 🔁 **Mutation Mode** — Transform workflow data between execution phases 🆕
 
 ### Logic & Conditional Flow
-- 🎛️ **Conditional Logic** — Show/hide/require/skip sections with 8+ operators
+- 🎛️ **Conditional Logic** — Show/hide/require/skip pages with 8+ operators
 - 🌳 **Branching Analysis** — Track conditional paths and user flows
 - 👁️ **Visual Logic Editor** — Build complex logic with drag-and-drop interface
 
@@ -311,24 +311,24 @@ Routes → Services → Repositories → Database
 |--------|------|-------------|
 | `POST` | `/api/workflows` | Create workflow |
 | `GET` | `/api/workflows` | List all workflows |
-| `GET` | `/api/workflows/:id` | Fetch workflow with sections & steps |
+| `GET` | `/api/workflows/:id` | Fetch workflow with pages & steps |
 | `PUT` | `/api/workflows/:id` | Update workflow |
 | `DELETE` | `/api/workflows/:id` | Delete workflow |
 | `PATCH` | `/api/workflows/:id/status` | Update workflow status |
 | `GET` | `/api/workflows/:id/variables` | Get all step aliases (variables) |
 
-#### Sections
+#### Pages
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/workflows/:id/sections` | Create section |
-| `PUT` | `/api/sections/:id` | Update section |
-| `DELETE` | `/api/sections/:id` | Delete section |
-| `PUT` | `/api/workflows/:id/sections/reorder` | Bulk reorder sections |
+| `POST` | `/api/workflows/:id/pages` | Create page |
+| `PUT` | `/api/pages/:id` | Update page |
+| `DELETE` | `/api/pages/:id` | Delete page |
+| `PUT` | `/api/workflows/:id/pages/reorder` | Bulk reorder pages |
 
 #### Steps
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/workflows/:wid/sections/:sid/steps` | Create step |
+| `POST` | `/api/workflows/:wid/pages/:pid/steps` | Create step |
 | `PUT` | `/api/steps/:id` | Update step (including alias) |
 | `DELETE` | `/api/steps/:id` | Delete step |
 | `PUT` | `/api/workflows/:id/steps/reorder` | Bulk reorder steps |
@@ -350,8 +350,8 @@ Routes → Services → Repositories → Database
 | `GET` | `/api/runs/:id/values` | Get step values | Session or Bearer Token |
 | `POST` | `/api/runs/:id/values` | Save single value | Bearer Token |
 | `POST` | `/api/runs/:id/values/bulk` | Bulk save values | Bearer Token |
-| `POST` | `/api/runs/:id/sections/:sid/submit` | Submit section | Bearer Token |
-| `POST` | `/api/runs/:id/next` | Navigate to next section | Bearer Token |
+| `POST` | `/api/runs/:id/pages/:pid/submit` | Submit page | Bearer Token |
+| `POST` | `/api/runs/:id/next` | Navigate to next page | Bearer Token |
 | `PUT` | `/api/runs/:id/complete` | Complete run (executes transforms) | Bearer Token |
 
 #### Logic Rules
@@ -421,7 +421,7 @@ For legacy survey endpoints, use `/api/surveys/*` paths. See CLAUDE.md for detai
 The database uses **Drizzle ORM** with **80+ PostgreSQL tables** organized by domain:
 
 **Core Workflow Tables (6):**
-- `projects`, `workflows`, `sections`, `steps`, `workflowRuns`, `stepValues`
+- `projects`, `workflows`, `pages`, `steps`, `workflowRuns`, `stepValues`
 
 **DataVault Tables (6):**
 - `databases`, `tables`, `table_rows`, `table_permissions`, `api_tokens`, `row_notes`

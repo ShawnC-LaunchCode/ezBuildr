@@ -35,14 +35,14 @@ async function checkWorkflow() {
 
   // Check pages
   const pages = await client.query(
-    'SELECT COUNT(*) as count FROM sections WHERE workflow_id = $1',
+    'SELECT COUNT(*) as count FROM pages WHERE workflow_id = $1',
     [workflowId]
   );
   console.log(`\n📄 Pages: ${pages.rows[0].count}`);
 
   // Check steps
   const steps = await client.query(
-    'SELECT COUNT(*) as count FROM steps WHERE section_id IN (SELECT id FROM sections WHERE workflow_id = $1)',
+    'SELECT COUNT(*) as count FROM steps WHERE page_id IN (SELECT id FROM pages WHERE workflow_id = $1)',
     [workflowId]
   );
   console.log(`📝 Steps: ${steps.rows[0].count}`);

@@ -76,7 +76,7 @@ const COVERED_TABLES_SQL = [
   'datavault_tables', 'datavault_unique_keys', 'datavault_values',
   'external_destinations', 'metrics_events', 'metrics_rollups', 'organizations',
   'projects', 'records', 'review_tasks', 'run_document_deliveries',
-  'run_resume_links', 'sections', 'signature_requests', 'sli_configs',
+  'run_resume_links', 'pages', 'signature_requests', 'sli_configs',
   'sli_windows', 'steps', 'teams', 'tenant_domains', 'users',
   'workflow_blueprints', 'workflows',
 ];

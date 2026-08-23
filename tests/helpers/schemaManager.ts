@@ -149,8 +149,10 @@ export class SchemaManager {
     // comment on `migrationsFingerprint`. The bump forces one clean rebuild so
     // every schema starts fingerprinted; from here on the token is a
     // human-readable generation marker, NOT the correctness mechanism.
+    // Bumped to _v38 for SECT-2 migration 0038, which physically renames the
+    // workflow page table, columns, indexes, and constraints.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v37`;
+        return `test_schema_w${this.workerId}_v38`;
     }
 
     /**

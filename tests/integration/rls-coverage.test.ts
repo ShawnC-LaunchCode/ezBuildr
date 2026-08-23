@@ -21,13 +21,10 @@
  * `information_schema`/`pg_catalog` for the current state, not the migration
  * source, so it would have caught this exact defect.
  *
- * The 0024 migration is applied here in beforeAll (idempotent) so the suite
- * does not depend on the shared per-worker schema having been built with it —
- * which also serves as proof the migration SQL applies cleanly.
+ * Global integration setup applies the complete migration chain. Replaying
+ * 0024 here would overwrite newer policy definitions and refers to the former
+ * physical table name.
  */
-import { readFileSync } from "fs";
-import { join } from "path";
-
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -37,18 +34,13 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
  * suites asserting what a restricted role can SEE — handing those an owner
  * handle makes them pass unconditionally.
  *
- * This suite asserts SCHEMA STRUCTURE, not visibility: it applies a migration,
- * creates and drops probe tables, and reads `information_schema`. Every one of
+ * This suite asserts SCHEMA STRUCTURE, not visibility: it creates and drops
+ * probe tables and reads `information_schema`. Every one of
  * those needs ownership (`must be owner of table ai_usage` is exactly how it
  * failed under RLS_RESTRICTED), and none of them is an application path. The
  * coverage assertions read the catalog, which the owner sees identically.
  */
 import { getOwnerDb } from "../helpers/ownerDb";
-
-const MIGRATION_SQL = readFileSync(
-  join(process.cwd(), "migrations", "0024_repair_rls_coverage.sql"),
-  "utf-8",
-);
 
 // Resolved at runtime in beforeAll (per-worker schema is not yet populated in
 // process.env when this module is first evaluated) — same lookup as the other
@@ -119,9 +111,6 @@ beforeAll(async () => {
       ?? "public",
   ).replace(/[^a-zA-Z0-9_]/g, "_");
 
-  // Apply 0024 into the current schema (idempotent: DROP POLICY IF EXISTS +
-  // CREATE POLICY, ALTER TABLE ENABLE ROW LEVEL SECURITY is a safe re-run).
-  await getOwnerDb().execute(sql.raw(MIGRATION_SQL));
 });
 
 describe("RLS coverage (RLS-3 / SEC-051)", () => {
@@ -174,7 +163,7 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
   // and by tests/integration/rls-phase4-workflows.test.ts for behaviour — this
   // is just coverage, kept here because 0024 is what actually applies it on a
   // database that predates this ticket.
-  test.each(["workflows", "sections", "steps"])(
+  test.each(["workflows", "pages", "steps"])(
     "ownership-derived table %s has RLS enabled and a tenant_isolation policy",
     async (tableName) => {
       const state = await tableRlsState(schema, tableName);

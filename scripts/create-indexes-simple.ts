@@ -25,8 +25,8 @@ const indexes = [
     table: 'logic_rules'
   },
   {
-    name: 'idx_logic_rules_target_section',
-    sql: 'CREATE INDEX IF NOT EXISTS idx_logic_rules_target_section ON logic_rules(target_section_id) WHERE target_section_id IS NOT NULL',
+    name: 'idx_logic_rules_target_page',
+    sql: 'CREATE INDEX IF NOT EXISTS idx_logic_rules_target_page ON logic_rules(target_page_id) WHERE target_page_id IS NOT NULL',
     table: 'logic_rules'
   },
   {

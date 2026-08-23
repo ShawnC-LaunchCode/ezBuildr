@@ -19,7 +19,7 @@ ALTER TABLE steps ADD COLUMN alias TEXT;
 -- Create unique partial index for non-null aliases per workflow
 CREATE UNIQUE INDEX idx_steps_alias_unique_per_workflow
 ON steps (alias, (
-  SELECT workflow_id FROM sections WHERE sections.id = steps.section_id
+  SELECT workflow_id FROM pages WHERE pages.id = steps.page_id
 ))
 WHERE alias IS NOT NULL;
 

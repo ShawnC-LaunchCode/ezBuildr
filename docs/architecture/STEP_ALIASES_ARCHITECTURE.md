@@ -14,7 +14,7 @@ VaultLogic is a workflow automation platform with a three-part architecture: Cli
 ```typescript
 export const steps = pgTable("steps", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
+  pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
   type: stepTypeEnum("type").notNull(),
   title: varchar("title").notNull(),
   description: text("description"),
@@ -23,7 +23,7 @@ export const steps = pgTable("steps", {
   order: integer("order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("steps_section_idx").on(table.pageId),
+  index("steps_page_idx").on(table.pageId),
 ]);
 ```
 
@@ -44,7 +44,7 @@ export const stepTypeEnum = pgEnum('step_type', [
 
 #### Pages Table (Lines 765-774)
 ```typescript
-export const pages = pgTable("sections", {
+export const pages = pgTable("pages", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   title: varchar("title").notNull(),
@@ -52,7 +52,7 @@ export const pages = pgTable("sections", {
   order: integer("order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("sections_workflow_idx").on(table.workflowId),
+  index("pages_workflow_idx").on(table.workflowId),
 ]);
 ```
 
@@ -221,7 +221,7 @@ export const logicRules = pgTable("logic_rules", {
   conditionValue: jsonb("condition_value").notNull(),
   targetType: logicRuleTargetTypeEnum("target_type").notNull(), // 'page' or 'step'
   targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
-  targetPageId: uuid("target_section_id").references(() => pages.id, { onDelete: 'cascade' }),
+  targetPageId: uuid("target_page_id").references(() => pages.id, { onDelete: 'cascade' }),
   action: conditionalActionEnum("action").notNull(),
   logicalOperator: varchar("logical_operator").default("AND"),
   order: integer("order").notNull().default(1),
@@ -590,7 +590,7 @@ export const workflowRuns = pgTable("workflow_runs", {
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   runToken: text("run_token").notNull().unique(),
   createdBy: text("created_by"), // "creator:<userId>" or "anon"
-  currentPageId: uuid("current_section_id").references(() => pages.id),
+  currentPageId: uuid("current_page_id").references(() => pages.id),
   progress: integer("progress").default(0), // 0-100
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),
@@ -633,7 +633,7 @@ type BlockPhase =
 export const blocks = pgTable("blocks", {
   id: uuid("id").primaryKey(),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-  pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }), // nullable
+  pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }), // nullable
   type: blockTypeEnum("type").notNull(),
   phase: blockPhaseEnum("phase").notNull(),
   config: jsonb("config").notNull(), // type-specific config

@@ -16,7 +16,7 @@ This document describes the backend enhancements implemented for Vault-Logic's w
 - `progress` (integer, default 0) - Progress percentage (0-100)
 
 **New Index:**
-- `workflow_runs_current_section_idx` on `currentPageId`
+- `workflow_runs_current_page_idx` on `currentPageId`
 
 #### `conditional_action` Enum
 **New Value:**

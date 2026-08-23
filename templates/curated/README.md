@@ -30,7 +30,7 @@ reads from here; this ticket only authors the content and proves it renders.
 templates/curated/
   README.md                       this file
   nda/
-    workflow.json                 curated starter workflow: title, settings, sections/steps
+    workflow.json                 curated starter workflow: title, settings, pages/steps
     mapping.md                    alias -> docx tag table + notes
     template.docx                 sample DOCX using the shipped grammar
   retainer-agreement/
@@ -44,9 +44,9 @@ templates/curated/
 ```
 
 `workflow.json` is **descriptive content**, not an import format: a
-`{ title, description, settings, sections: [{ title, steps: [{ alias, type,
+`{ title, description, settings, pages: [{ title, steps: [{ alias, type,
 title, required, config?, visibleIf? }] }] }` shape that mirrors the real
-`sections`/`steps` schema (`shared/schema/workflow.ts`) closely enough to be a
+`pages`/`steps` schema (`shared/schema/workflow.ts`) closely enough to be a
 faithful spec for someone building the workflow by hand in the builder UI, or
 for a future importer to consume — but nothing here imports it today. No
 route, service, or repository reads these files.

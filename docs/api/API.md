@@ -554,7 +554,7 @@ CREATE TABLE workflows (
 );
 
 -- Pages
-CREATE TABLE sections (
+CREATE TABLE pages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE NOT NULL,
   title VARCHAR NOT NULL,
@@ -566,7 +566,7 @@ CREATE TABLE sections (
 -- Steps
 CREATE TABLE steps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  section_id UUID REFERENCES sections(id) ON DELETE CASCADE NOT NULL,
+  page_id UUID REFERENCES pages(id) ON DELETE CASCADE NOT NULL,
   type step_type NOT NULL,
   title VARCHAR NOT NULL,
   description TEXT,
@@ -585,7 +585,7 @@ CREATE TABLE logic_rules (
   condition_value JSONB NOT NULL,
   target_type logic_rule_target_type NOT NULL,
   target_step_id UUID REFERENCES steps(id) ON DELETE CASCADE,
-  target_section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+  target_page_id UUID REFERENCES pages(id) ON DELETE CASCADE,
   action conditional_action NOT NULL,
   logical_operator VARCHAR DEFAULT 'AND',
   order INTEGER DEFAULT 1 NOT NULL,

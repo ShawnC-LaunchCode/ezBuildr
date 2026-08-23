@@ -167,6 +167,12 @@ worktree `sect-1`. Clean type-check and lint; fast 3,283/3,283; unit
 migration and exact catalog assertions passed. Senior review corrected Slack,
 DOCX and non-entity UI `section` false positives before acceptance.
 
+**Corrective verification:** 2026-08-23 · removed the remaining legacy page
+vocabulary from `README.md`, `openapi.yaml`, and the curated-template README.
+The OpenAPI document now parses with one `components` map and one `paths` map;
+all 33 paths and 28 schemas resolve without retired Section contracts. Uncached
+type-check, lint, and fast 3,283/3,283 are green after the correction.
+
 **Priority: P1** · Size: L · File: repo-wide (~511 files)
 
 ### Finding
@@ -349,11 +355,15 @@ right here is what makes SECT-7 readable.
 
 ---
 
-## SECT-2 — Physical DB rename: `sections` → `pages`, and drop the name pins 🔄
+## SECT-2 — Physical DB rename: `sections` → `pages`, and drop the name pins ✅
 
-**In progress:** 2026-08-23 · dispatched by the Senior in dedicated worktree
-`sect-2` from verified `dev` head `36c86f38`. Migration work is isolated; no
-other epic ticket may generate a migration concurrently.
+**Passed:** 2026-08-23 · Senior-reviewed in the dedicated `sect-2` worktree
+from `dev` dispatch head `7486fa4c`. Migration `0038` is metadata-only and was
+proved from both a fresh chain and the exact `0037` pre-head using only local
+PostgreSQL. Independent gates: type-check 0, lint 0, fast 3,283, unit 3,443
+(160 DB), integration 1,187 passed + 3 skipped, restricted-role RLS 1,190/1,190
+with zero allowlisted failures, and strict zones 6/6. Independent acceptance
+audit passed; verification used no remote DB or `db:push`.
 
 **Priority: P1** · Size: M · File: `migrations/0038_*.sql`, `shared/schema/workflow.ts`
 

@@ -77,7 +77,7 @@ async function createDemoWorkflow() {
     const page4Id = randomUUID();
 
     await client.query(`
-      INSERT INTO sections (id, workflow_id, title, description, "order", created_at, updated_at)
+      INSERT INTO pages (id, workflow_id, title, description, "order", created_at, updated_at)
       VALUES
         ($1, $2, 'Personal Information', 'Tell us about yourself', 0, NOW(), NOW()),
         ($3, $2, 'Event Preferences', 'Choose your event options', 1, NOW(), NOW()),
@@ -98,7 +98,7 @@ async function createDemoWorkflow() {
     const step1_6 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, section_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
         ($1, $2, 'short_text', 'Full Name', 'Enter your first and last name', true, 0, 'fullName', '{}', NOW(), NOW()),
         ($3, $2, 'short_text', 'Email Address', 'We''ll send confirmation to this email', true, 1, 'email', '{"validation": "email"}', NOW(), NOW()),
@@ -115,7 +115,7 @@ async function createDemoWorkflow() {
     const step2_4 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, section_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
         ($1, $2, 'radio', 'Ticket Type', 'Choose your registration tier', true, 0, 'ticketType', '{"options": [{"label": "Early Bird - $99", "value": "early_bird"}, {"label": "Standard - $149", "value": "standard"}, {"label": "VIP - $299", "value": "vip"}]}', NOW(), NOW()),
         ($3, $2, 'checkbox', 'Workshop Sessions', 'Select workshops you''d like to attend (max 3)', false, 1, 'workshops', '{"options": [{"label": "AI & Machine Learning", "value": "ai_ml"}, {"label": "Cloud Architecture", "value": "cloud"}, {"label": "DevOps Best Practices", "value": "devops"}, {"label": "Security Fundamentals", "value": "security"}]}', NOW(), NOW()),
@@ -129,7 +129,7 @@ async function createDemoWorkflow() {
     const step3_3 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, section_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
         ($1, $2, 'yes_no', 'Airport Shuttle', 'Do you need airport pickup? ($50)', false, 0, 'needsShuttle', '{}', NOW(), NOW()),
         ($3, $2, 'yes_no', 'Hotel Accommodation', 'Reserve a hotel room? ($200/night)', false, 1, 'needsHotel', '{}', NOW(), NOW()),
@@ -141,7 +141,7 @@ async function createDemoWorkflow() {
     const step4_2 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, section_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
         ($1, $2, 'file_upload', 'Profile Photo', 'Upload a photo for your badge (optional)', false, 0, 'profilePhoto', '{"maxFiles": 1, "allowedTypes": ["image/jpeg", "image/png"]}', NOW(), NOW()),
         ($3, $2, 'long_text', 'Special Requests', 'Any other requirements or questions?', false, 1, 'specialRequests', '{}', NOW(), NOW())
@@ -247,14 +247,14 @@ async function createDemoWorkflow() {
 
     // Create virtual step for total price
     await client.query(`
-      INSERT INTO steps (id, section_id, type, title, alias, required, "order", is_virtual, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, type, title, alias, required, "order", is_virtual, config, created_at, updated_at)
       VALUES ($1, $2, 'computed', 'Total Price', 'totalPrice', false, 999, true, '{}', NOW(), NOW())
     `, [virtualStep1Id, page4Id]);
 
     // Transform block to calculate total price
     await client.query(`
       INSERT INTO transform_blocks (
-        id, workflow_id, section_id, name, language, code,
+        id, workflow_id, page_id, name, language, code,
         input_keys, output_key, virtual_step_id, phase, enabled, "order", timeout_ms,
         created_at, updated_at
       )

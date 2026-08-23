@@ -85,7 +85,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | Table | Purpose |
 |-------|---------|
 | `workflows` | Workflow definitions |
-| `sections` (TS: `pages`) | Physical storage for workflow pages with order and visibleIf; the DB name stays pinned until SECT-2 |
+| `pages` | Physical storage for workflow pages with order and visibleIf |
 | `steps` | Individual steps with type, alias, config, visibleIf |
 | `workflow_runs` / `run_resume_links` / `step_values` | Execution instances, expiring resume credentials, and run data (the only run model — graph run tables were dropped) |
 | `datavault_databases` / `datavault_tables` / `datavault_rows` | DataVault (all `datavault_`-prefixed) |

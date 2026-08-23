@@ -12,13 +12,10 @@
  * a transaction under `SET LOCAL ROLE <non-owner role>` with a transaction-local
  * `app.current_tenant_id`, exactly as production enforcement will (doc §6).
  *
- * The migration is applied here in beforeAll (it is idempotent) so the test does
- * not depend on the shared per-worker schema having been built with it — which
- * also serves as proof the migration SQL applies cleanly.
+ * Global integration setup applies the complete migration chain. Replaying the
+ * obsolete baseline policy SQL here would overwrite the current policy.
  */
 import { randomUUID } from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 import { sql } from "drizzle-orm";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
@@ -30,21 +27,12 @@ import { beforeAll, afterAll, describe, expect, test } from "vitest";
  * the APP's restricted pool can see. This suite does not work that way: it
  * creates its own non-owner role and asserts visibility under `SET LOCAL ROLE`
  * inside a transaction, which is a stronger and self-contained mechanism. Both
- * halves REQUIRE ownership — creating a role, applying a migration, and
- * `SET LOCAL ROLE` itself are all owner operations, so under RLS_RESTRICTED
+ * halves REQUIRE ownership — creating a role and `SET LOCAL ROLE` itself are
+ * owner operations, so under RLS_RESTRICTED
  * this suite failed at setup with `must be owner of table ...` and every test
  * was skipped.
  */
 import { getOwnerDb } from "../helpers/ownerDb";
-
-// The phase-4 workflows/pages/steps policies (+ app_current_tenant /
-// app_owner_tenant) were consolidated into 0001_enable_rls.sql when the
-// migration chain was regenerated. Applying the whole file here is idempotent
-// (DROP POLICY IF EXISTS + to_regclass guards + CREATE OR REPLACE).
-const MIGRATION_SQL = readFileSync(
-  join(process.cwd(), "migrations", "0001_enable_rls.sql"),
-  "utf-8",
-);
 
 // Unique suffix so reruns against a reused per-worker schema don't collide.
 const RUN = randomUUID().slice(0, 8);
@@ -105,10 +93,7 @@ beforeAll(async () => {
   ).replace(/[^a-zA-Z0-9_]/g, "_");
   TEST_ROLE = `rls_tester_${schema}`;
 
-  // 1. Apply the phase-4 migration (idempotent) into the current schema.
-  await getOwnerDb().execute(sql.raw(MIGRATION_SQL));
-
-  // 2. A non-owner, non-superuser role so RLS is actually enforced for it.
+  // 1. A non-owner, non-superuser role so RLS is actually enforced for it.
   await getOwnerDb().execute(sql.raw(`
     DO $$
     BEGIN
@@ -120,12 +105,12 @@ beforeAll(async () => {
   await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
   await getOwnerDb().execute(sql.raw(
     `GRANT SELECT, INSERT ON `
-    + `"${schema}".workflows, "${schema}".sections, "${schema}".steps, `
+    + `"${schema}".workflows, "${schema}".pages, "${schema}".steps, `
     + `"${schema}".users, "${schema}".organizations, "${schema}".projects `
     + `TO "${TEST_ROLE}"`,
   ));
 
-  // 3. Seed two tenants with user-owned + org-owned workflows (as superuser,
+  // 2. Seed two tenants with user-owned + org-owned workflows (as superuser,
   //    which bypasses RLS for the insert).
   await getOwnerDb().execute(sql`INSERT INTO tenants (id, name) VALUES (${tenantA}, ${tenantAName}), (${tenantB}, ${tenantBName})`);
   await getOwnerDb().execute(sql`INSERT INTO users (id, email, tenant_id) VALUES (${userA}, ${emailA}, ${tenantA}), (${userB}, ${emailB}, ${tenantB})`);
@@ -138,15 +123,15 @@ beforeAll(async () => {
   // workflow owned by org B (tenant B) — exercises the org resolution branch
   await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfOrgB}, ${"WF Org B"}, 'org', ${orgB}, ${userB}, ${userB})`);
 
-  await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title, "order") VALUES (${pageA}, ${wfUserA}, 'Page A', 1), (${pageB}, ${wfUserB}, 'Page B', 1)`);
-  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, section_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'short_text', 'Step B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO pages (id, workflow_id, title, "order") VALUES (${pageA}, ${wfUserA}, 'Page A', 1), (${pageB}, ${wfUserB}, 'Page B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, page_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'short_text', 'Step B', 1)`);
 });
 
 afterAll(async () => {
   // Clean up seeded rows (as superuser; ignore if already gone).
   try {
     await getOwnerDb().execute(sql`DELETE FROM steps WHERE id IN (${stepA}, ${stepB})`);
-    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id IN (${pageA}, ${pageB})`);
+    await getOwnerDb().execute(sql`DELETE FROM pages WHERE id IN (${pageA}, ${pageB})`);
     await getOwnerDb().execute(sql`DELETE FROM workflows WHERE id IN (${wfUserA}, ${wfUserB}, ${wfOrgB})`);
     await getOwnerDb().execute(sql`DELETE FROM organizations WHERE id = ${orgB}`);
     await getOwnerDb().execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
@@ -186,7 +171,7 @@ describe("RLS phase 4: cross-tenant row isolation", () => {
   test("tenant A sees only its own workflow / page / step", async () => {
     const { wf, pageIds, st } = await asTenant(tenantA, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).map((r) => r.id),
-      pageIds: rows(await tx.execute(sql`SELECT id FROM sections`)).map((r) => r.id),
+      pageIds: rows(await tx.execute(sql`SELECT id FROM pages`)).map((r) => r.id),
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).map((r) => r.id),
     }));
     expect(wf).toContain(wfUserA);
@@ -208,7 +193,7 @@ describe("RLS phase 4: cross-tenant row isolation", () => {
   test("no tenant context => zero rows (fail-closed)", async () => {
     const counts = await asTenant(null, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).length,
-      pages: rows(await tx.execute(sql`SELECT id FROM sections`)).length,
+      pages: rows(await tx.execute(sql`SELECT id FROM pages`)).length,
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).length,
     }));
     expect(counts).toEqual({ wf: 0, pages: 0, st: 0 });
