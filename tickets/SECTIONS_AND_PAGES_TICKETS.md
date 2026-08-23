@@ -873,17 +873,40 @@ Four small, matching extensions:
 
 ## Phase 1 Gate
 
-- [ ] SECT-3 and SECT-4 ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
-- [ ] `npm run test:unit` and `npm run test:integration` green
-- [ ] Fresh `db:migrate` succeeds; catalog assertions prove schema/policy parity
+**Verified and committed by the senior reviewer:** 2026-08-23 · SECT-3
+(`d52af401`) and SECT-4 (`1c6f85ca`) are accepted. Independent SECT-4 gates
+were type-check 0, lint 0, fast 3,294/3,294, unit 3,454/3,454, and integration
+1,202 passed + 3 existing admin-DB skips. A fresh PostgreSQL 16 database applied
+all 40 migration ledger entries. Catalog assertions found the complete Section
+shape, nullable `pages.section_id`, `SET NULL`/`CASCADE` foreign keys, enabled
+`tenant_isolation` policies on workflows/Sections/pages/steps, and both tenant
+helper functions. No `db:push` was used.
+
+The local app reported healthy on port 5174 against that fresh database. With
+two real JWT users, the API created two Sections and five ordered pages with
+membership `[A, A, null, B, B]`, added a publishable Step, and published a graph
+containing all Sections and explicit page membership. After the live Section
+title changed, a started run still returned the pinned title. Project export
+returned 200 (3,443 bytes); tenant B previewed it with 200 and applied it with
+201. The imported project/workflow/Sections/pages had destination-only ids,
+preserved membership and order, and denied tenant A with 403. Teardown proved
+zero tenant/user leftovers; the local server was stopped and the disposable
+database removed.
+
+**Phase 1 closes at Code complete. Sections are not yet user-reachable. Phase 2
+delivers that.**
+
+- [x] SECT-3 and SECT-4 ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; `npm run lint` → clean
+- [x] `npm run test:unit` and `npm run test:integration` green
+- [x] Fresh `db:migrate` succeeds; catalog assertions prove schema/policy parity
       without applying `db:push`'s destructive unmanaged-RLS proposals
-- [ ] Live check via the `verify` skill: Sections created over the API survive
+- [x] Live check via the `verify` skill: Sections created over the API survive
       publish, appear in `GET /api/runs/:runId/runtime`, and round-trip through
       export/import — real JWT, real DB, output pasted
-- [ ] **Stated explicitly in the gate note:** Phase 1 closes at *Code complete*.
+- [x] **Stated explicitly in the gate note:** Phase 1 closes at *Code complete*.
       Sections are not yet reachable by a user. Phase 2 delivers that.
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
