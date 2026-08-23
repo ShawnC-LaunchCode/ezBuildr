@@ -486,17 +486,42 @@ local `.env` points at the dev Neon branch before running it (see LU-B1 in
 
 ## Phase 0 Gate
 
-- [ ] SECT-1 and SECT-2 both ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
-- [ ] `npm run test:fast`, `test:unit`, `test:integration` all green, with test
+**Verified and committed by the senior reviewer:** 2026-08-23 · Independent
+gates are green: type-check 0, lint 0, fast 3,283/3,283, unit 3,443/3,443 (DB unit
+160/160), and integration 1,194 passed + 3 skipped across 128 files. A fresh
+local PostgreSQL 16 database accepted the complete migration chain; catalog
+checks found `pages`, no legacy `sections` table, and the current
+`tenant_isolation` policies attached to workflows/pages/steps. The restricted
+RLS integration gate was included in the green integration run; PostgreSQL
+reported zero signal-11 crashes.
+
+The shared dev Neon branch already contained all three physical SECT-1 enum
+renames but was missing the 0037 ledger record. Following the schema-change
+playbook, the reviewer verified the exact enum/table preconditions, stamped
+only that already-applied migration, and then `npm run db:migrate` applied
+0038 normally. No `db:push` was used.
+
+Live local proof added a second page, renamed the pages, persisted the reordered
+`Details → Welcome` sequence across reload, published, and completed a run that
+walked both pages. Evidence:
+`.playwright-mcp/phase0-builder-pages-reordered.png`,
+`.playwright-mcp/phase0-published.png`,
+`.playwright-mcp/phase0-run-details.png`,
+`.playwright-mcp/phase0-run-welcome.png`, and
+`.playwright-mcp/phase0-run-complete.png`. The disposable tenant, user,
+workflow, run, and audit rows were removed and verified absent.
+
+- [x] SECT-1 and SECT-2 both ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; `npm run lint` → clean
+- [x] `npm run test:fast`, `test:unit`, `test:integration` all green, with test
       counts equal to or greater than the pre-Phase-0 baseline
-- [ ] Fresh `db:migrate` succeeds; catalog assertions prove enum/object parity
+- [x] Fresh `db:migrate` succeeds; catalog assertions prove enum/object parity
       and the restricted-role RLS gate remains green (`db:push` is not applied
       because it proposes removal of unmanaged RLS policies)
-- [ ] Live check via the `verify` skill: builder loads a workflow, adds a page,
+- [x] Live check via the `verify` skill: builder loads a workflow, adds a page,
       reorders pages, publishes, and a run walks them — screenshots attached
-- [ ] `CLAUDE.md` reflects the new vocabulary
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] `CLAUDE.md` reflects the new vocabulary
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
