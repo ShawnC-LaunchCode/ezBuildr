@@ -5,8 +5,8 @@ import type { ConditionExpression, ComparisonOperator } from "@shared/types/cond
 import { generateConditionId } from "@shared/types/conditions";
 import {
   evaluateRules,
-  calculateNextSection,
-  resolveNextSection,
+  calculateNextPage,
+  resolveNextPage,
   validateRequiredSteps,
   getEffectiveRequiredSteps,
   evaluateWorkflowVisibility,
@@ -52,7 +52,7 @@ function cond(variable: string, operator: string, value?: unknown): ConditionExp
 }
 
 describe("evaluateWorkflowVisibility parity contract", () => {
-  const sections = [
+  const pages = [
     { id: "intro" },
     {
       id: "details",
@@ -70,20 +70,20 @@ describe("evaluateWorkflowVisibility parity contract", () => {
     },
   ];
   const steps = [
-    { id: "controller", sectionId: "intro", required: true },
-    { id: "detail", sectionId: "details", required: true },
+    { id: "controller", pageId: "intro", required: true },
+    { id: "detail", pageId: "details", required: true },
   ];
 
-  it("fails closed for section visibleIf and excludes its required steps", () => {
+  it("fails closed for page visibleIf and excludes its required steps", () => {
     const result = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules: [],
       data: {},
       resolveAlias: (name) => name,
     });
 
-    expect(Array.from(result.visibleSections)).toEqual(["intro"]);
+    expect(Array.from(result.visiblePages)).toEqual(["intro"]);
     expect(Array.from(result.visibleSteps)).toEqual(["controller"]);
     expect(Array.from(result.requiredSteps)).toEqual(["controller"]);
   });
@@ -94,8 +94,8 @@ describe("evaluateWorkflowVisibility parity contract", () => {
       workflowId: "workflow-1",
       conditionStepId: "controller",
       when: cond("controller", "equals", "yes"),
-      targetType: "section",
-      targetSectionId: "details",
+      targetType: "page",
+      targetPageId: "details",
       targetStepId: null,
       action: "show",
       order: 1,
@@ -103,35 +103,35 @@ describe("evaluateWorkflowVisibility parity contract", () => {
       updatedAt: null,
     }];
 
-    const hidden = evaluateWorkflowVisibility({ sections, steps, rules, data: {}, resolveAlias: (name) => name });
+    const hidden = evaluateWorkflowVisibility({ pages, steps, rules, data: {}, resolveAlias: (name) => name });
     const shown = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules,
       data: { controller: "yes" },
       resolveAlias: (name) => name,
     });
 
-    expect(hidden.visibleSections.has("details")).toBe(false);
-    expect(shown.visibleSections.has("details")).toBe(true);
+    expect(hidden.visiblePages.has("details")).toBe(false);
+    expect(shown.visiblePages.has("details")).toBe(true);
   });
 });
 describe("evaluateWorkflowVisibility classifies runner-requirable step types", () => {
-  // requiredSteps is the one place navigation, section-submit validation, and
+  // requiredSteps is the one place navigation, page-submit validation, and
   // run completion all derive "what must have a value" from. A required step
   // of a type the runner cannot render (or
   // an unrecognized type) can never be satisfied by a respondent, so it must
   // never end up in requiredSteps here - fixing it in this one function fixes
   // all three call sites at once.
-  const sections = [{ id: "sec-1" }];
+  const pages = [{ id: "page-1" }];
 
   it("includes a required file_upload step now that the runner supports it", () => {
     const steps = [
-      { id: "upload-step", sectionId: "sec-1", required: true, type: "file_upload" },
+      { id: "upload-step", pageId: "page-1", required: true, type: "file_upload" },
     ];
 
     const result = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules: [],
       data: {},
@@ -144,11 +144,11 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
 
   it("still includes a required short_text step in requiredSteps (unchanged behavior)", () => {
     const steps = [
-      { id: "text-step", sectionId: "sec-1", required: true, type: "short_text" },
+      { id: "text-step", pageId: "page-1", required: true, type: "short_text" },
     ];
 
     const result = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules: [],
       data: {},
@@ -160,8 +160,8 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
 
   it("includes a file upload made required by a rule", () => {
     const steps = [
-      { id: "trigger", sectionId: "sec-1", required: false, type: "short_text" },
-      { id: "upload-step", sectionId: "sec-1", required: false, type: "file_upload" },
+      { id: "trigger", pageId: "page-1", required: false, type: "short_text" },
+      { id: "upload-step", pageId: "page-1", required: false, type: "file_upload" },
     ];
     const rules: LogicRule[] = [{
       id: "require-upload",
@@ -170,7 +170,7 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
       when: cond("trigger", "equals", "yes"),
       targetType: "step",
       targetStepId: "upload-step",
-      targetSectionId: null,
+      targetPageId: null,
       action: "require",
       order: 1,
       createdAt: null,
@@ -178,7 +178,7 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
     }];
 
     const result = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules,
       data: { trigger: "yes" },
@@ -190,11 +190,11 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
 
   it("treats a step definition with no type as requirable (fail-open on missing classification, not silently dropped)", () => {
     const steps = [
-      { id: "legacy-step", sectionId: "sec-1", required: true },
+      { id: "legacy-step", pageId: "page-1", required: true },
     ];
 
     const result = evaluateWorkflowVisibility({
-      sections,
+      pages,
       steps,
       rules: [],
       data: {},
@@ -206,14 +206,14 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
 });
 describe("workflowLogic", () => {
   describe("evaluateRules", () => {
-    describe("Section-level rules", () => {
-      it("should show section when condition is met", () => {
+    describe("Page-level rules", () => {
+      it("should show page when condition is met", () => {
         const rules: LogicRule[] = [
           {
             id: "rule-1",
             workflowId: "wf-1",
-            targetType: "section",
-            targetSectionId: "sec-1", targetStepId: null,
+            targetType: "page",
+            targetPageId: "page-1", targetStepId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "show",
@@ -222,35 +222,35 @@ describe("workflowLogic", () => {
         ];
         const data = { "step-1": "yes" };
         const result = evaluateRules(rules, data);
-        expect(result.visibleSections.has("sec-1")).toBe(true);
+        expect(result.visiblePages.has("page-1")).toBe(true);
       });
-      it("should hide section when hide action is triggered", () => {
+      it("should hide page when hide action is triggered", () => {
         const rules: LogicRule[] = [
           {
             id: "rule-1",
             workflowId: "wf-1",
-            targetType: "section",
-            targetSectionId: "sec-1", targetStepId: null,
+            targetType: "page",
+            targetPageId: "page-1", targetStepId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "no"),
             action: "hide",
             order: 1, createdAt: null, updatedAt: null,
           },
         ];
-        // First, add the section to visible set
+        // First, add the page to visible set
         const data = { "step-1": "no" };
         const result = evaluateRules(rules, data);
-        // Should not be in visible sections (delete doesn't error if not present)
-        expect(result.visibleSections.has("sec-1")).toBe(false);
-        expect(result.hiddenSections.has("sec-1")).toBe(true);
+        // Should not be in visible pages (delete doesn't error if not present)
+        expect(result.visiblePages.has("page-1")).toBe(false);
+        expect(result.hiddenPages.has("page-1")).toBe(true);
       });
       it("should set skip target when skip_to action is triggered", () => {
         const rules: LogicRule[] = [
           {
             id: "rule-1",
             workflowId: "wf-1",
-            targetType: "section",
-            targetSectionId: "sec-3", targetStepId: null,
+            targetType: "page",
+            targetPageId: "page-3", targetStepId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "skip"),
             action: "skip_to",
@@ -259,7 +259,7 @@ describe("workflowLogic", () => {
         ];
         const data = { "step-1": "skip" };
         const result = evaluateRules(rules, data);
-        expect(result.skipToSectionId).toBe("sec-3");
+        expect(result.skipToPageId).toBe("page-3");
       });
       it("should deterministically keep the lower-order rule when two skip_to rules both fire", () => {
         // RUN2-2: multiple firing skip_to rules must not "last one wins" by
@@ -268,8 +268,8 @@ describe("workflowLogic", () => {
         const higherOrderRule: LogicRule = {
           id: "rule-high-order",
           workflowId: "wf-1",
-          targetType: "section",
-          targetSectionId: "sec-4", targetStepId: null,
+          targetType: "page",
+          targetPageId: "page-4", targetStepId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "skip"),
           action: "skip_to",
@@ -278,8 +278,8 @@ describe("workflowLogic", () => {
         const lowerOrderRule: LogicRule = {
           id: "rule-low-order",
           workflowId: "wf-1",
-          targetType: "section",
-          targetSectionId: "sec-2", targetStepId: null,
+          targetType: "page",
+          targetPageId: "page-2", targetStepId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "skip"),
           action: "skip_to",
@@ -289,19 +289,19 @@ describe("workflowLogic", () => {
 
         // Passed in ascending order already.
         const ascending = evaluateRules([lowerOrderRule, higherOrderRule], data);
-        expect(ascending.skipToSectionId).toBe("sec-2");
+        expect(ascending.skipToPageId).toBe("page-2");
 
         // Passed in reverse (descending) array order - result must be identical.
         const descending = evaluateRules([higherOrderRule, lowerOrderRule], data);
-        expect(descending.skipToSectionId).toBe("sec-2");
+        expect(descending.skipToPageId).toBe("page-2");
       });
-      it("should ignore rule with missing targetSectionId", () => {
+      it("should ignore rule with missing targetPageId", () => {
         const rules: LogicRule[] = [
           {
             id: "rule-1",
             workflowId: "wf-1",
-            targetType: "section",
-            targetSectionId: null as unknown as string,
+            targetType: "page",
+            targetPageId: null as unknown as string,
             targetStepId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
@@ -311,7 +311,7 @@ describe("workflowLogic", () => {
         ];
         const data = { "step-1": "yes" };
         const result = evaluateRules(rules, data);
-        expect(result.visibleSections.size).toBe(0);
+        expect(result.visiblePages.size).toBe(0);
       });
     });
     describe("Step-level rules", () => {
@@ -321,7 +321,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "show",
@@ -338,7 +338,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "no"),
             action: "hide",
@@ -357,7 +357,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "require",
@@ -374,7 +374,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "make_optional",
@@ -392,7 +392,7 @@ describe("workflowLogic", () => {
             workflowId: "wf-1",
             targetType: "step",
             targetStepId: null as unknown as string,
-            targetSectionId: null,
+            targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "show",
@@ -412,7 +412,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "equals", "YES"),
               action: "show",
@@ -429,7 +429,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "equals", true),
               action: "show",
@@ -446,7 +446,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "equals", ["a", "b"]),
               action: "show",
@@ -471,7 +471,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "equals", ["b", "a"]),
               action: "show",
@@ -488,7 +488,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "equals", 42),
               action: "show",
@@ -510,7 +510,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when,
               action: "show",
@@ -538,7 +538,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "not_equals", "no"),
               action: "show",
@@ -557,7 +557,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "contains", "WORLD"),
               action: "show",
@@ -574,7 +574,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "contains", "apple"),
               action: "show",
@@ -591,7 +591,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "contains", "test"),
               action: "show",
@@ -610,7 +610,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "not_contains", "xyz"),
               action: "show",
@@ -629,7 +629,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "greater_than", 10),
               action: "show",
@@ -646,7 +646,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "greater_than", "10"),
               action: "show",
@@ -663,7 +663,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "greater_than", 10),
               action: "show",
@@ -682,7 +682,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "less_than", 30),
               action: "show",
@@ -701,7 +701,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
@@ -718,7 +718,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
@@ -738,7 +738,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
@@ -755,7 +755,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "between", "invalid"),
               action: "show",
@@ -772,7 +772,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
@@ -791,7 +791,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -808,7 +808,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -825,7 +825,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -842,7 +842,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -859,7 +859,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -876,7 +876,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_empty", null),
               action: "show",
@@ -895,7 +895,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_not_empty", null),
               action: "show",
@@ -912,7 +912,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "is_not_empty", null),
               action: "show",
@@ -934,8 +934,8 @@ describe("workflowLogic", () => {
             {
               id: "rule-1",
               workflowId: "wf-1",
-              targetType: "section",
-              targetSectionId: "B", targetStepId: null,
+              targetType: "page",
+              targetPageId: "B", targetStepId: null,
               conditionStepId: "",
               when: cond("", "is_empty", null),
               action: "hide",
@@ -944,7 +944,7 @@ describe("workflowLogic", () => {
           ];
           const data = { q1: "anything" };
           const result = evaluateRules(rules, data);
-          expect(result.hiddenSections.has("B")).toBe(false);
+          expect(result.hiddenPages.has("B")).toBe(false);
         });
         it("does not fire is_not_empty for an empty conditionStepId", () => {
           const rules: LogicRule[] = [
@@ -952,7 +952,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "",
               when: cond("", "is_not_empty", null),
               action: "show",
@@ -967,7 +967,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step" as const,
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "",
             action: "show" as const,
             order: 1, createdAt: null, updatedAt: null,
@@ -985,8 +985,8 @@ describe("workflowLogic", () => {
             {
               id: "rule-1",
               workflowId: "wf-1",
-              targetType: "section",
-              targetSectionId: "B", targetStepId: null,
+              targetType: "page",
+              targetPageId: "B", targetStepId: null,
               conditionStepId: "q1",
               when: cond("q1", "is_empty", null),
               action: "hide",
@@ -994,7 +994,7 @@ describe("workflowLogic", () => {
             },
           ];
           const result = evaluateRules(rules, {});
-          expect(result.hiddenSections.has("B")).toBe(true);
+          expect(result.hiddenPages.has("B")).toBe(true);
         });
       });
       describe("Unknown operator", () => {
@@ -1004,7 +1004,7 @@ describe("workflowLogic", () => {
               id: "rule-1",
               workflowId: "wf-1",
               targetType: "step",
-              targetStepId: "step-2", targetSectionId: null,
+              targetStepId: "step-2", targetPageId: null,
               conditionStepId: "step-1",
               when: cond("step-1", "unknown_operator", "test"),
               action: "show",
@@ -1020,8 +1020,8 @@ describe("workflowLogic", () => {
     describe("Edge cases", () => {
       it("should handle empty rules array", () => {
         const result = evaluateRules([], {});
-        expect(result.visibleSections.size).toBe(0);
-        expect(result.hiddenSections.size).toBe(0);
+        expect(result.visiblePages.size).toBe(0);
+        expect(result.hiddenPages.size).toBe(0);
         expect(result.visibleSteps.size).toBe(0);
         expect(result.hiddenSteps.size).toBe(0);
         expect(result.requiredSteps.size).toBe(0);
@@ -1032,7 +1032,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "show",
@@ -1048,7 +1048,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-missing",
             when: cond("step-missing", "equals", "yes"),
             action: "show",
@@ -1065,7 +1065,7 @@ describe("workflowLogic", () => {
             id: "rule-1",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-2", targetSectionId: null,
+            targetStepId: "step-2", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "show",
@@ -1075,7 +1075,7 @@ describe("workflowLogic", () => {
             id: "rule-2",
             workflowId: "wf-1",
             targetType: "step",
-            targetStepId: "step-3", targetSectionId: null,
+            targetStepId: "step-3", targetPageId: null,
             conditionStepId: "step-1",
             when: cond("step-1", "equals", "yes"),
             action: "require",
@@ -1089,123 +1089,123 @@ describe("workflowLogic", () => {
       });
     });
   });
-  describe("calculateNextSection", () => {
-    const sections = [
-      { id: "sec-1", order: 1 },
-      { id: "sec-2", order: 2 },
-      { id: "sec-3", order: 3 },
-      { id: "sec-4", order: 4 },
+  describe("calculateNextPage", () => {
+    const pages = [
+      { id: "page-1", order: 1 },
+      { id: "page-2", order: 2 },
+      { id: "page-3", order: 3 },
+      { id: "page-4", order: 4 },
     ];
-    it("should return first visible section when currentSectionId is null", () => {
-      const visibleSections = new Set(["sec-1", "sec-3"]);
-      const result = calculateNextSection(null, sections, visibleSections);
-      expect(result).toBe("sec-1");
+    it("should return first visible page when currentPageId is null", () => {
+      const visiblePages = new Set(["page-1", "page-3"]);
+      const result = calculateNextPage(null, pages, visiblePages);
+      expect(result).toBe("page-1");
     });
-    it("should return next visible section", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-4"]);
-      const result = calculateNextSection("sec-1", sections, visibleSections);
-      expect(result).toBe("sec-2");
+    it("should return next visible page", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-4"]);
+      const result = calculateNextPage("page-1", pages, visiblePages);
+      expect(result).toBe("page-2");
     });
-    it("should skip hidden sections", () => {
-      const visibleSections = new Set(["sec-1", "sec-4"]);
-      const result = calculateNextSection("sec-1", sections, visibleSections);
-      expect(result).toBe("sec-4");
+    it("should skip hidden pages", () => {
+      const visiblePages = new Set(["page-1", "page-4"]);
+      const result = calculateNextPage("page-1", pages, visiblePages);
+      expect(result).toBe("page-4");
     });
-    it("should return null when no more visible sections", () => {
-      const visibleSections = new Set(["sec-1", "sec-2"]);
-      const result = calculateNextSection("sec-2", sections, visibleSections);
+    it("should return null when no more visible pages", () => {
+      const visiblePages = new Set(["page-1", "page-2"]);
+      const result = calculateNextPage("page-2", pages, visiblePages);
       expect(result).toBe(null);
     });
-    it("should return null for non-existent current section", () => {
-      const visibleSections = new Set(["sec-1", "sec-2"]);
-      const result = calculateNextSection("sec-999", sections, visibleSections);
+    it("should return null for non-existent current page", () => {
+      const visiblePages = new Set(["page-1", "page-2"]);
+      const result = calculateNextPage("page-999", pages, visiblePages);
       expect(result).toBe(null);
     });
-    it("should handle empty visible sections", () => {
-      const visibleSections = new Set<string>();
-      const result = calculateNextSection(null, sections, visibleSections);
+    it("should handle empty visible pages", () => {
+      const visiblePages = new Set<string>();
+      const result = calculateNextPage(null, pages, visiblePages);
       expect(result).toBe(null);
     });
-    it("should handle sections in random order", () => {
-      const unorderedSections = [
-        { id: "sec-3", order: 3 },
-        { id: "sec-1", order: 1 },
-        { id: "sec-2", order: 2 },
+    it("should handle pages in random order", () => {
+      const unorderedPages = [
+        { id: "page-3", order: 3 },
+        { id: "page-1", order: 1 },
+        { id: "page-2", order: 2 },
       ];
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3"]);
-      const result = calculateNextSection("sec-1", unorderedSections, visibleSections);
-      expect(result).toBe("sec-2");
+      const visiblePages = new Set(["page-1", "page-2", "page-3"]);
+      const result = calculateNextPage("page-1", unorderedPages, visiblePages);
+      expect(result).toBe("page-2");
     });
   });
-  describe("resolveNextSection", () => {
-    const sections = [
-      { id: "sec-1", order: 1 },
-      { id: "sec-2", order: 2 },
-      { id: "sec-3", order: 3 },
-      { id: "sec-4", order: 4 },
+  describe("resolveNextPage", () => {
+    const pages = [
+      { id: "page-1", order: 1 },
+      { id: "page-2", order: 2 },
+      { id: "page-3", order: 3 },
+      { id: "page-4", order: 4 },
     ];
-    it("should use skipToSectionId when provided, visible, and forward of current", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection("sec-1", "sec-2", "sec-4", sections, visibleSections);
-      expect(result).toBe("sec-4");
+    it("should use skipToPageId when provided, visible, and forward of current", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-3", "page-4"]);
+      const result = resolveNextPage("page-1", "page-2", "page-4", pages, visiblePages);
+      expect(result).toBe("page-4");
     });
-    it("should find next visible section when forward skip target is not visible", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-4"]);
-      const result = resolveNextSection("sec-1", "sec-2", "sec-3", sections, visibleSections);
-      // sec-3 is not visible, so should get next visible after sec-3, which is sec-4
-      expect(result).toBe("sec-4");
+    it("should find next visible page when forward skip target is not visible", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-4"]);
+      const result = resolveNextPage("page-1", "page-2", "page-3", pages, visiblePages);
+      // page-3 is not visible, so should get next visible after page-3, which is page-4
+      expect(result).toBe("page-4");
     });
-    it("should use normal next section when no skip target", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3"]);
-      const result = resolveNextSection("sec-1", "sec-2", undefined, sections, visibleSections);
-      expect(result).toBe("sec-2");
+    it("should use normal next page when no skip target", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-3"]);
+      const result = resolveNextPage("page-1", "page-2", undefined, pages, visiblePages);
+      expect(result).toBe("page-2");
     });
-    it("should return null when forward skip target has no visible sections after", () => {
-      const visibleSections = new Set(["sec-1", "sec-2"]);
-      const result = resolveNextSection("sec-2", "sec-2", "sec-4", sections, visibleSections);
+    it("should return null when forward skip target has no visible pages after", () => {
+      const visiblePages = new Set(["page-1", "page-2"]);
+      const result = resolveNextPage("page-2", "page-2", "page-4", pages, visiblePages);
       expect(result).toBe(null);
     });
-    it("should treat a skip target at or before the current section as a no-op (backwards skip)", () => {
+    it("should treat a skip target at or before the current page as a no-op (backwards skip)", () => {
       // RUN2-2: a backwards skip_to (target order < current order) must not
-      // override normal flow, or the run loops forever on the same section.
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-3", "sec-1", sections, visibleSections);
-      // Falls through to the normal next section, ignoring the backwards skip.
-      expect(result).toBe("sec-3");
+      // override normal flow, or the run loops forever on the same page.
+      const visiblePages = new Set(["page-1", "page-2", "page-3", "page-4"]);
+      const result = resolveNextPage("page-2", "page-3", "page-1", pages, visiblePages);
+      // Falls through to the normal next page, ignoring the backwards skip.
+      expect(result).toBe("page-3");
     });
-    it("should treat a skip target equal to the current section as a no-op (same-order skip)", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-3", "sec-2", sections, visibleSections);
-      expect(result).toBe("sec-3");
+    it("should treat a skip target equal to the current page as a no-op (same-order skip)", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-3", "page-4"]);
+      const result = resolveNextPage("page-2", "page-3", "page-2", pages, visiblePages);
+      expect(result).toBe("page-3");
     });
-    it("should allow a skip target at the start of the run (no current section) regardless of order", () => {
-      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection(null, "sec-1", "sec-3", sections, visibleSections);
-      expect(result).toBe("sec-3");
+    it("should allow a skip target at the start of the run (no current page) regardless of order", () => {
+      const visiblePages = new Set(["page-1", "page-2", "page-3", "page-4"]);
+      const result = resolveNextPage(null, "page-1", "page-3", pages, visiblePages);
+      expect(result).toBe("page-3");
     });
     it("regression: six consecutive calls from a backwards-skip workflow terminate rather than repeating one id", () => {
-      // Mirrors the audit probe: sections A(1), B(2), C(3), all visible, one
+      // Mirrors the audit probe: pages A(1), B(2), C(3), all visible, one
       // rule "skip_to A" that keeps firing (its trigger condition never
       // changes). Before the fix this produced A -> A -> A -> A -> A -> A
       // forever. After the fix the run must progress and terminate.
-      const loopSections = [
+      const loopPages = [
         { id: "A", order: 1 },
         { id: "B", order: 2 },
         { id: "C", order: 3 },
       ];
-      const visibleSections = new Set(["A", "B", "C"]);
-      const skipToSectionId = "A";
+      const visiblePages = new Set(["A", "B", "C"]);
+      const skipToPageId = "A";
 
       const visited: (string | null)[] = [];
       let current: string | null = "B";
       for (let i = 0; i < 6; i++) {
-        const nextSectionId = calculateNextSection(current, loopSections, visibleSections);
-        const resolved: string | null = resolveNextSection(
+        const nextPageId = calculateNextPage(current, loopPages, visiblePages);
+        const resolved: string | null = resolveNextPage(
           current,
-          nextSectionId,
-          skipToSectionId,
-          loopSections,
-          visibleSections
+          nextPageId,
+          skipToPageId,
+          loopPages,
+          visiblePages
         );
         visited.push(resolved);
         if (resolved !== null) {
@@ -1302,7 +1302,7 @@ describe("workflowLogic", () => {
           id: "rule-1",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "require",
@@ -1321,7 +1321,7 @@ describe("workflowLogic", () => {
           id: "rule-1",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "make_optional",
@@ -1340,7 +1340,7 @@ describe("workflowLogic", () => {
           id: "rule-1",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "show",
@@ -1351,14 +1351,14 @@ describe("workflowLogic", () => {
       const result = getEffectiveRequiredSteps(initialRequired, rules, data);
       expect(result).toEqual(initialRequired);
     });
-    it("should ignore section-level rules", () => {
+    it("should ignore page-level rules", () => {
       const initialRequired = new Set(["step-1"]);
       const rules: LogicRule[] = [
         {
           id: "rule-1",
           workflowId: "wf-1",
-          targetType: "section",
-          targetSectionId: "sec-1", targetStepId: null,
+          targetType: "page",
+          targetPageId: "page-1", targetStepId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "require" as "require" | "show" | "hide" | "make_optional" | "skip_to",
@@ -1376,7 +1376,7 @@ describe("workflowLogic", () => {
           id: "rule-1",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "require",
@@ -1397,7 +1397,7 @@ describe("workflowLogic", () => {
           id: "rule-1",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-1",
           when: cond("step-1", "equals", "yes"),
           action: "require",
@@ -1407,7 +1407,7 @@ describe("workflowLogic", () => {
           id: "rule-2",
           workflowId: "wf-1",
           targetType: "step",
-          targetStepId: "step-2", targetSectionId: null,
+          targetStepId: "step-2", targetPageId: null,
           conditionStepId: "step-3",
           when: cond("step-3", "equals", "no"),
           action: "make_optional",

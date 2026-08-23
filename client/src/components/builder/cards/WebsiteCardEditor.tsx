@@ -26,7 +26,7 @@ interface WebsiteCardState {
   validate: boolean;
 }
 
-export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function WebsiteCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as WebsiteConfig | undefined;
@@ -51,15 +51,15 @@ export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepE
       requireProtocol: newConfig.requireProtocol,
     };
 
-    updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+    updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -125,7 +125,7 @@ export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepE
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

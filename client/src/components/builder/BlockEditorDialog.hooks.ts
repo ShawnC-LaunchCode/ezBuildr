@@ -52,7 +52,7 @@ export function getTitleForBlock(block: UniversalBlock | null): string {
 function getDefaultPhase(blockType: string): BlockPhase {
     const isReadTable = blockType === 'read_table';
     const isWriteBlock = blockType === 'write' || blockType === 'send_table';
-    return isReadTable ? "onSectionEnter" : isWriteBlock ? "onSectionSubmit" : "onRunStart";
+    return isReadTable ? "onPageEnter" : isWriteBlock ? "onPageSubmit" : "onRunStart";
 }
 
 function getInitialFormData(block: UniversalBlock | null, source: 'regular' | 'transform'): BlockFormData {
@@ -139,7 +139,7 @@ export function useBlockSave(
                     enabled: formData.enabled,
                     order,
 
-                    sectionId: (block?.raw?.sectionId as string | null) ?? null
+                    pageId: (block?.raw?.pageId as string | null) ?? null
                 };
 
                 if (block && block.source === 'regular') {
@@ -150,7 +150,7 @@ export function useBlockSave(
                         type: data.type as BlockType,
                         phase: data.phase as BlockPhase,
 
-                        sectionId: data.sectionId
+                        pageId: data.pageId
                     });
                 } else {
                     await createBlockMutation.mutateAsync({
@@ -159,7 +159,7 @@ export function useBlockSave(
                         type: data.type as BlockType,
                         phase: data.phase as BlockPhase,
 
-                        sectionId: data.sectionId
+                        pageId: data.pageId
                     });
                 }
             } else {
@@ -175,7 +175,7 @@ export function useBlockSave(
                     enabled: formData.enabled,
                     order,
 
-                    sectionId: (block?.raw?.sectionId as string | null) ?? null
+                    pageId: (block?.raw?.pageId as string | null) ?? null
                 };
 
                 if (block && block.source === 'transform') {

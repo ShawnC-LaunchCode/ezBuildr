@@ -88,7 +88,7 @@ export function RegularBlockForm({ formData, setFormData, mode, block, workflowI
                                     ...formData,
                                     type: v,
                                     config: {} as Record<string, unknown>,
-                                    phase: isRead ? 'onSectionEnter' : isWrite ? 'onSectionSubmit' : 'onRunStart'
+                                    phase: isRead ? 'onPageEnter' : isWrite ? 'onPageSubmit' : 'onRunStart'
                                 });
                             }} // Reset config and set default phase on type change
                             disabled={!!block} // If editing, likely shouldn't change type unless we want to allow it (risky for config)
@@ -116,8 +116,8 @@ export function RegularBlockForm({ formData, setFormData, mode, block, workflowI
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="onRunStart">On Run Start</SelectItem>
-                                <SelectItem value="onSectionEnter">On Section Enter</SelectItem>
-                                <SelectItem value="onSectionSubmit">On Section Submit</SelectItem>
+                                <SelectItem value="onPageEnter">On Page Enter</SelectItem>
+                                <SelectItem value="onPageSubmit">On Page Submit</SelectItem>
                                 <SelectItem value="onNext">On Next</SelectItem>
                                 <SelectItem value="onRunComplete">On Run Complete</SelectItem>
                             </SelectContent>

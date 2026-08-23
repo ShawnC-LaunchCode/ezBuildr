@@ -65,7 +65,7 @@ describe("VersionService.diffVersions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hasWorkflowRole.mockResolvedValue(true);
-    diff.mockReturnValue({ sections: [], steps: [], summary: {} });
+    diff.mockReturnValue({ pages: [], steps: [], summary: {} });
     getWorkflowWithDetails.mockResolvedValue({
       id: "workflow-1",
       title: "Live title",
@@ -73,7 +73,7 @@ describe("VersionService.diffVersions", () => {
       projectId: "project-1",
       settings: {},
       intakeConfig: {},
-      sections: [],
+      pages: [],
       logicRules: [],
       transformBlocks: [],
     });

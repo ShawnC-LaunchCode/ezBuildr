@@ -20,7 +20,7 @@ describeWithDb('StepService DB', () => {
   let testUserId: string;
   let _testProjectId: string;
   let testWorkflowId: string;
-  let testSectionId: string;
+  let testPageId: string;
   let txFactory: TestFactory;
 
   beforeEach(async () => {
@@ -37,14 +37,14 @@ describeWithDb('StepService DB', () => {
       });
       testWorkflowId = workflow.id;
 
-      const section = await txFactory.createSection(testWorkflowId, { title: 'Test Section' });
-      testSectionId = section.id;
+      const page = await txFactory.createPage(testWorkflowId, { title: 'Test Page' });
+      testPageId = page.id;
     });
   });
 
   it('rewrites logic rules on choice alias change', async () => {
     // 1. Create a choice step
-    const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Choice',
       type: 'choice',
       config: {
@@ -112,7 +112,7 @@ describeWithDb('StepService DB', () => {
 
   it('scans visibleIf for old alias occurrences and returns warnings', async () => {
     // 1. Create a choice step
-    const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Choice',
       type: 'choice',
       config: {
@@ -128,7 +128,7 @@ describeWithDb('StepService DB', () => {
     });
 
     // 2. Create another step with visibleIf referencing 'old_val1'
-    await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Dependent Step',
       type: 'short_text',
       visibleIf: { '===': [{ var: `steps.${choiceStep.alias}` }, 'old_val1'] }
@@ -156,7 +156,7 @@ describeWithDb('StepService DB', () => {
   });
 
   it('does not rewrite logic rules for a different step with a coincidentally equal condition value', async () => {
-    const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Choice',
       type: 'choice',
       config: {
@@ -169,7 +169,7 @@ describeWithDb('StepService DB', () => {
       }
     });
 
-    const otherChoiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const otherChoiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Other Choice',
       type: 'choice',
       config: {
@@ -212,7 +212,7 @@ describeWithDb('StepService DB', () => {
   });
 
   it('does not rewrite rules if step update fails', async () => {
-    const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Choice',
       type: 'choice',
       config: {
@@ -256,7 +256,7 @@ describeWithDb('StepService DB', () => {
   });
 
   it('rolls back the step alias update when propagation fails atomically (DEBT-16)', async () => {
-    const step = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Contact Email',
       type: 'short_text',
       alias: 'contactEmail',
@@ -281,7 +281,7 @@ describeWithDb('StepService DB', () => {
   });
 
   it('no-ops when renaming an option that has no logic rules', async () => {
-    const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+    const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Choice',
       type: 'choice',
       config: {

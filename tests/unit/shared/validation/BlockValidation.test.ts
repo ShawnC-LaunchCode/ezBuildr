@@ -5,7 +5,7 @@ import { getValidationSchema, type StepLike } from '../../../../shared/validatio
 /**
  * RUN2-3: a required question of a type the runner cannot render or does not
  * recognize at all previously still pushed
- * a "required" rule, making the section unfinishable — the Next button would
+ * a "required" rule, making the page unfinishable — the Next button would
  * report the field as required for a control that never appears on screen.
  * `getValidationSchema` must never require these types, regardless of
  * `step.required`.

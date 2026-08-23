@@ -44,7 +44,7 @@ function makeTableColumnStep(): Step {
   return {
     id: "step-table",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Pick a row",
     description: null,
@@ -70,7 +70,7 @@ function makeListStep(): Step {
   return {
     id: "step-list",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Pick from list",
     description: null,
@@ -211,7 +211,7 @@ function makeStaticStep(display: "radio" | "dropdown" | "multiple", allowMultipl
   return {
     id: "step-choice",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Pick one",
     description: null,

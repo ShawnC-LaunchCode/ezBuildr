@@ -3,7 +3,7 @@
  *
  * Handles workflow run state transitions and management.
  * Responsibilities:
- * - Update current section
+ * - Update current page
  * - Update progress percentage
  * - Mark run as completed
  * - Manage run status transitions
@@ -38,15 +38,15 @@ export class RunStateService {
   ) {}
 
   /**
-   * Update run current section and progress
+   * Update run current page and progress
    */
   async updateProgress(
     runId: string,
-    currentSectionId: string | null,
+    currentPageId: string | null,
     progress?: number
   ): Promise<void> {
     const updates: Partial<WorkflowRun> = {
-      currentSectionId,
+      currentPageId,
     };
 
     if (progress !== undefined) {
@@ -179,7 +179,7 @@ export class RunStateService {
 
     if (run.workflowVersionId) {
       // Fetch the pinned version's serialized content. VersionService.serializeWorkflow
-      // emits `sections[].steps[]` (there is no `nodes[]` graph shape anymore — the
+      // emits `pages[].steps[]` (there is no `nodes[]` graph shape anymore — the
       // graph builder was removed), so find the first Final Block step in there,
       // mirroring RunLifecycleService.generateDocuments' 'final'/'final_documents' handling.
       const [version] = await db
@@ -190,8 +190,8 @@ export class RunStateService {
 
       if (version?.graphJson) {
         const content = version.graphJson as WorkflowContentData;
-        const finalStep = (content.sections ?? [])
-          .flatMap(section => section.steps ?? [])
+        const finalStep = (content.pages ?? [])
+          .flatMap(page => page.steps ?? [])
           .find(step => step.type === 'final' || step.type === 'final_documents');
         if (finalStep?.config) {
           finalBlockConfig = finalStep.config;

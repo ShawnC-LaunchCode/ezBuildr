@@ -91,7 +91,7 @@ export class WorkflowGenerationService {
             const duration = Date.now() - startTime;
             logger.info({
                 duration,
-                sectionsCount: validated.sections.length,
+                pagesCount: validated.pages.length,
                 rulesCount: validated.logicRules.length,
                 blocksCount: validated.transformBlocks.length,
                 qualityScore: qualityScore.overall,

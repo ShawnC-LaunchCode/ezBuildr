@@ -18,7 +18,7 @@ import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCa
 
 type TextEditorConfig = Partial<TextAdvancedConfig>;
 
-export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
@@ -144,9 +144,9 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
     // If variant changed in advanced mode, also update the config
     // eslint-disable-next-line sonarjs/no-all-duplicated-branches
     if (isAdvancedMode) {
-      updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
     } else {
-      updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
     }
   };
 
@@ -154,7 +154,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
     if (isEasyMode) {
       // In easy mode, changing variant means changing the step type
       const newType = newVariant === "short" ? "short_text" : "long_text";
-      updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+      updateStepMutation.mutate({ id: stepId, pageId, type: newType });
     } else {
       // In advanced mode, just update the config
       handleUpdate({ variant: newVariant });
@@ -162,11 +162,11 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -210,14 +210,14 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
         <>
           <DefaultValueField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
           <VisibilityField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
           />

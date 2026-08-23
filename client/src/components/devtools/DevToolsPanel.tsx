@@ -27,18 +27,18 @@ export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelP
         // Map steps to variables
         return env.getSteps()
             .map(step => {
-                const section = env.getSections().find(s => s.id === step.sectionId);
+                const page = env.getPages().find(s => s.id === step.pageId);
                 return {
                     key: step.id,
                     alias: step.alias ?? null,
                     label: step.title,
                     type: step.type,
-                    sectionId: step.sectionId,
-                    sectionTitle: section?.title ?? "Unknown Section",
+                    pageId: step.pageId,
+                    pageTitle: page?.title ?? "Unknown Page",
                     stepId: step.id
                 };
             })
-            .filter(v => v.sectionTitle !== "Final Documents");
+            .filter(v => v.pageTitle !== "Final Documents");
     }, [state, env]);
 
     // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS

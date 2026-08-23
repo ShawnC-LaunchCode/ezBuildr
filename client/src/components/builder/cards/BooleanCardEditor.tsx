@@ -20,7 +20,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function BooleanCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   // Determine if this is advanced mode (type === "boolean") or easy mode (yes_no/true_false)
@@ -88,7 +88,7 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
         }
       }
 
-      updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
     } else {
       // Easy mode - just save labels
       const configToSave: TrueFalseConfig = {
@@ -96,16 +96,16 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
         falseLabel: newConfig.falseLabel,
       };
 
-      updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
     }
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -198,14 +198,14 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
         <>
           <DefaultValueField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
           <VisibilityField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
           />

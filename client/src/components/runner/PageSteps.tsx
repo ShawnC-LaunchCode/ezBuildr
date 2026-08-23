@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { BlockRenderer } from "@/components/runner/blocks";
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
-import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
+import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
 import type { ApiStep } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
 import type { Step } from "@/types";
@@ -11,11 +11,11 @@ import type { RunnerAnswerDefinitions } from "@/components/runner/runnerInterpol
 import type { LogicRule } from "@shared/schema";
 
 
-interface SectionStepsProps {
-    sectionId: string;
+interface PageStepsProps {
+    pageId: string;
     steps?: ApiStep[];
     /**
-     * Every step in the workflow (not just this section's), used only to
+     * Every step in the workflow (not just this page's), used only to
      * build the alias->step id map for runner `{{alias}}` interpolation.
      * Aliases are workflow-wide, but rendering (visibility,
      * ordering) stays scoped to `steps`. Falls back to `steps` when the
@@ -31,8 +31,8 @@ interface SectionStepsProps {
     preview?: boolean;
 }
 
-export function SectionSteps({
-    sectionId,
+export function PageSteps({
+    pageId,
     steps: providedSteps,
     allSteps: providedAllSteps,
     values,
@@ -42,8 +42,8 @@ export function SectionSteps({
     runId,
     runToken,
     preview = false,
-}: SectionStepsProps) {
-    const { data: rawSteps } = useSteps(sectionId, {
+}: PageStepsProps) {
+    const { data: rawSteps } = useSteps(pageId, {
         enabled: !providedSteps
     });
 
@@ -64,16 +64,16 @@ export function SectionSteps({
     }, [sourceSteps]);
 
     // Use visibility hook to evaluate which steps should be shown
-    // Casting steps to any here because useSectionVisibility expects strict Step types which might differ slightly from ApiStep
+    // Casting steps to any here because usePageVisibility expects strict Step types which might differ slightly from ApiStep
     // TODO: unify Step types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-    const { getVisibleSectionSteps } = useSectionVisibility(undefined, steps as any, values, logicRules);
+    const { getVisiblePageSteps } = usePageVisibility(undefined, steps as any, values, logicRules);
 
     // Alias -> step id map for display-block {{alias}} interpolation. Aliases
     // are workflow-wide (a display block on page 3 routinely references an
     // answer from page 1), so this is built from the whole-workflow step list
-    // when the caller supplies one, falling back to this section's own steps
-    // otherwise (still correct, just unable to resolve cross-section aliases).
+    // when the caller supplies one, falling back to this page's own steps
+    // otherwise (still correct, just unable to resolve cross-page aliases).
     const aliasSourceSteps = providedAllSteps ?? steps;
     const aliasMap = useMemo(() => {
         const map: Record<string, string> = {};
@@ -94,20 +94,20 @@ export function SectionSteps({
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
-        return <p className="text-muted-foreground text-sm">No steps in this section</p>;
+        return <p className="text-muted-foreground text-sm">No steps in this page</p>;
     }
 
     // Filter steps to only show visible ones
-    const visibleSteps = getVisibleSectionSteps(sectionId) as unknown as typeof steps;
+    const visibleSteps = getVisiblePageSteps(pageId) as unknown as typeof steps;
 
 
 
     if (visibleSteps.length === 0) {
-        return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
+        return <p className="text-muted-foreground text-sm">No visible steps in this page</p>;
     }
 
     return (
-        <div data-testid="runner-section-steps" className="space-y-8">
+        <div data-testid="runner-page-steps" className="space-y-8">
             {visibleSteps.map((step) => (
                 <BlockErrorBoundary key={step.id} stepId={step.id}>
                     <StepField

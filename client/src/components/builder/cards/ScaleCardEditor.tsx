@@ -12,21 +12,21 @@ import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { ScaleSettingsSection } from "./ScaleCardEditor.components";
 
 
-export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function ScaleCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as ScaleAdvancedConfig | undefined;
 
   const handleConfigChange = (nextConfig: ScaleAdvancedConfig) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, config: nextConfig });
+    updateStepMutation.mutate({ id: stepId, pageId, config: nextConfig });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -48,7 +48,7 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

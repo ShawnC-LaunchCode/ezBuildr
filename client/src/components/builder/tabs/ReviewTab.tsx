@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSections, useAllSteps, ApiStep, useWorkflow } from "@/lib/vault-hooks";
+import { usePages, useAllSteps, ApiStep, useWorkflow } from "@/lib/vault-hooks";
 import { useWorkflowLint } from "@/hooks/api/useWorkflowLint";
 import { fetchAPI } from "@/lib/vault-api";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,9 @@ interface ReviewTabProps {
 }
 
 export function ReviewTab({ workflowId }: ReviewTabProps) {
-    const { data: sections } = useSections(workflowId);
+    const { data: pages } = usePages(workflowId);
     const { data: workflow, refetch: refetchWorkflow } = useWorkflow(workflowId);
-    const allStepsMap = useAllSteps(sections ?? []);
+    const allStepsMap = useAllSteps(pages ?? []);
     const [, setLocation] = useLocation();
     const { toast } = useToast();
 
@@ -37,14 +37,14 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
 
     const { data: lintIssues = [], refetch: refetchLint, isLoading: isLinting } = useWorkflowLint(workflowId);
 
-    const totalSections = sections?.length ?? 0;
+    const totalPages = pages?.length ?? 0;
     let totalQuestions = 0;
     let conditionalQuestions = 0;
 
     // Analyze structure for basic stats only
-    if (sections) {
-        sections.forEach(section => {
-            const steps = allStepsMap[section.id] ?? [];
+    if (pages) {
+        pages.forEach(page => {
+            const steps = allStepsMap[page.id] ?? [];
             totalQuestions += steps.length;
             steps.forEach((step: ApiStep) => {
                 if ((step.visibleIf as string | null | undefined)) {
@@ -107,7 +107,7 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
 
                     {/* Key Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <ReviewStatsCard label="Pages" value={totalSections} icon={FileText} />
+                        <ReviewStatsCard label="Pages" value={totalPages} icon={FileText} />
                         <ReviewStatsCard label="Questions" value={totalQuestions} icon={HelpCircle} />
                         <ReviewStatsCard
                             label="Branching"

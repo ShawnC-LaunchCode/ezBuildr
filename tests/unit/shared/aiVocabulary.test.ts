@@ -79,7 +79,7 @@ describe('AI vocabulary derivation', () => {
         }
         expect(catalog.split('\n')).toHaveLength(opNames.length);
         // Ops added in ICW2-12 are taught automatically.
-        expect(catalog).toContain('- section.setVisibleIf');
+        expect(catalog).toContain('- page.setVisibleIf');
         expect(catalog).toContain('- step.reorder');
     });
 

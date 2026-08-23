@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * HND-7 keyboard checklist for this representative runner section:
+ * HND-7 keyboard checklist for this representative runner page:
  * - Tab/Shift+Tab: text, validated inputs, boolean buttons, choice checkboxes,
  *   address fields, grouped fields, final download, and signature actions remain reachable.
  * - Enter/Space: button, checkbox, and action controls expose native keyboard activation.
@@ -13,13 +13,13 @@ import { axe } from 'vitest-axe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ListDrillProvider } from '../../../client/src/components/runner/list/ListDrillContext';
-import { SectionSteps } from '../../../client/src/components/runner/SectionSteps';
+import { PageSteps } from '../../../client/src/components/runner/PageSteps';
 import { RUNNER_RENDERED_STEP_TYPES } from '../../../client/src/components/runner/blocks/stepTypeRouting';
 
 import type { ApiStep, StepType } from '../../../client/src/lib/vault-api';
 
 const createdAt = '2026-07-14T00:00:00.000Z';
-const sectionId = 'runner-a11y-section';
+const pageId = 'runner-a11y-page';
 const workflowId = 'runner-a11y-workflow';
 
 function createStep(
@@ -32,7 +32,7 @@ function createStep(
   return {
     id: type,
     workflowId,
-    sectionId,
+    pageId,
     type,
     title,
     description: `${title} help text`,
@@ -143,7 +143,7 @@ const values: Record<string, unknown> = {
   list: { items: [{ itemId: 'item-1', values: { name: 'Ava' } }] },
 };
 
-function renderSection(errors: Record<string, string[]> = {}) {
+function renderPage(errors: Record<string, string[]> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -155,8 +155,8 @@ function renderSection(errors: Record<string, string[]> = {}) {
     <QueryClientProvider client={queryClient}>
       <main>
         <ListDrillProvider>
-          <SectionSteps
-            sectionId={sectionId}
+          <PageSteps
+            pageId={pageId}
             steps={steps}
             values={values}
             logicRules={[]}
@@ -175,11 +175,11 @@ afterEach(() => {
   cleanup();
 });
 
-describe('SectionSteps accessibility smoke', () => {
+describe('PageSteps accessibility smoke', () => {
   it('visually separates each runner question', () => {
-    renderSection();
+    renderPage();
 
-    expect(screen.getByTestId('runner-section-steps')).toHaveClass('space-y-8');
+    expect(screen.getByTestId('runner-page-steps')).toHaveClass('space-y-8');
   });
 
   it('covers every rendered runner step type in the fixture', () => {
@@ -189,7 +189,7 @@ describe('SectionSteps accessibility smoke', () => {
   });
 
   it('has no serious or critical axe violations for representative runner blocks', async () => {
-    const { container } = renderSection({
+    const { container } = renderPage({
       short_text: ['Short text is required'],
     });
 
@@ -211,7 +211,7 @@ describe('SectionSteps accessibility smoke', () => {
 
   it('keeps primary runner controls operable from the keyboard', async () => {
     const user = userEvent.setup();
-    const { onChange } = renderSection();
+    const { onChange } = renderPage();
 
     await screen.findByRole('checkbox', { name: 'Choice Alpha' });
 
@@ -252,8 +252,8 @@ describe('SectionSteps accessibility smoke', () => {
       <QueryClientProvider client={queryClient}>
         <main>
           <ListDrillProvider>
-            <SectionSteps
-              sectionId={sectionId}
+            <PageSteps
+              pageId={pageId}
               steps={starSteps}
               values={{ scale: 3 }}
               logicRules={[]}
@@ -310,7 +310,7 @@ describe('SectionSteps accessibility smoke', () => {
   });
 
   it('gives list item controls explicit focus-visible indicators', async () => {
-    renderSection();
+    renderPage();
 
     const reorderButton = await screen.findByRole('button', { name: 'Reorder Ava' });
     const openButton = screen.getByRole('button', { name: /^Ava/ });
@@ -325,7 +325,7 @@ describe('SectionSteps accessibility smoke', () => {
   });
 
   it('associates validation errors with inputs and exposes role=alert', () => {
-    renderSection({
+    renderPage({
       short_text: ['Please provide a valid short answer'],
       email: ['Must be a valid email address'],
     });

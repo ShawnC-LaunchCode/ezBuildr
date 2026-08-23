@@ -49,7 +49,7 @@ export function TransformBlockCard({
                             </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground space-y-0.5">
-                            <div>Phase: {block.phase || "onSectionSubmit"}</div>
+                            <div>Phase: {block.phase || "onPageSubmit"}</div>
                             <div>Inputs: {displayInputKeys}</div>
                             <div>Output: {block.outputKey}</div>
                             <div>Order: {block.order} • {block.enabled ? "Enabled" : "Disabled"}</div>

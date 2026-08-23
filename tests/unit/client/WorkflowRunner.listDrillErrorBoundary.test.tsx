@@ -2,7 +2,7 @@
 /**
  * LIST2-5 AC5 — `ListDrillEditor` was the one step renderer in the runner not
  * wrapped in `BlockErrorBoundary`, so anything it threw took down the whole
- * section body instead of just the block. `QuestionCardContent` in
+ * page body instead of just the block. `QuestionCardContent` in
  * WorkflowRunner.tsx now wraps its render site.
  *
  * The fault is injected by mocking `ListDrillEditor` to throw, rather than by
@@ -34,7 +34,7 @@ function makeListStep(): ApiStep {
   return {
     id: "step-list-1",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "list",
     title: "Team",
     description: null,
@@ -59,16 +59,16 @@ function Harness() {
 
   return (
     <QuestionCardContent
-      currentSection={{ id: "sec-1", workflowId: "wf-1", title: "Section", description: null, order: 0, createdAt: "2026-08-01T00:00:00.000Z" }}
-      visibleSectionSteps={[step]}
+      currentPage={{ id: "page-1", workflowId: "wf-1", title: "Page", description: null, order: 0, createdAt: "2026-08-01T00:00:00.000Z" }}
+      visiblePageSteps={[step]}
       allSteps={[step]}
       effectiveValues={{ [step.id]: { items: [{ itemId: "item-1", values: {} }] } }}
       handleUpdateValue={() => undefined}
       fieldErrors={{}}
       effectiveLogicRules={[]}
       errors={[]}
-      currentSectionIndex={0}
-      isLastSection={false}
+      currentPageIndex={0}
+      isLastPage={false}
       handlePrev={async () => undefined}
       handleNext={async () => undefined}
     />
@@ -80,7 +80,7 @@ describe("QuestionCardContent — LIST2-5 AC5 BlockErrorBoundary wrap", () => {
     cleanup();
   });
 
-  it("contains a ListDrillEditor render crash instead of taking down the section", () => {
+  it("contains a ListDrillEditor render crash instead of taking down the page", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

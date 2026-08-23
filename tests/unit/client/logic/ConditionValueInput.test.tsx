@@ -37,8 +37,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'First name',
     title: 'First name',
     type: 'short_text',
-    sectionId: 'sec1',
-    sectionTitle: 'Page 1',
+    pageId: 'sec1',
+    pageTitle: 'Page 1',
   },
   {
     id: 's2',
@@ -46,8 +46,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'Last name',
     title: 'Last name',
     type: 'short_text',
-    sectionId: 'sec1',
-    sectionTitle: 'Page 1',
+    pageId: 'sec1',
+    pageTitle: 'Page 1',
   },
 ];
 

@@ -108,7 +108,7 @@ export class RunPersistenceWriter {
         // RVP-7: membership (which steps belong to this run) is sourced from
         // the run's own definition -- the pinned version's graph when it has
         // one, the live tables otherwise -- via `RunDefinitionProvider`,
-        // instead of re-deriving it from the live `steps`/`sections` tables.
+        // instead of re-deriving it from the live `steps`/`pages` tables.
         // Re-deriving from live tables filtered out steps the author had
         // soft-deleted mid-run even though the run's pinned definition (and
         // therefore the respondent's client) still legitimately included
@@ -118,7 +118,7 @@ export class RunPersistenceWriter {
     ) { }
 
     /**
-     * Resolve the run and its sections/steps/logic-rules from
+     * Resolve the run and its pages/steps/logic-rules from
      * `RunDefinitionProvider` (RVP-1): the pinned version's graph when the
      * run has one, the live tables otherwise (`source: 'live'`). Mirrors
      * `RunExecutionCoordinator.getDefinition` -- the membership guard below
@@ -176,7 +176,7 @@ export class RunPersistenceWriter {
     /**
      * Bulk save values.
      * One workflow-membership prefetch + one batched upsert, instead of
-     * (step lookup + section lookup + upsert) sequentially per value.
+     * (step lookup + page lookup + upsert) sequentially per value.
      */
     async bulkSaveValues(runId: string, values: Array<{ stepId: string, value: unknown }>, workflowId: string): Promise<void> {
         await this.bulkSave(runId, values, workflowId, true);

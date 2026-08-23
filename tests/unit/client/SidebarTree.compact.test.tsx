@@ -8,18 +8,18 @@ import { TooltipProvider } from '../../../client/src/components/ui/tooltip';
 
 vi.mock('@/lib/vault-hooks', () => ({
   useWorkflow: () => ({ data: { id: 'workflow-1', modeOverride: 'easy', projectId: null } }),
-  useSections: () => ({ data: [] }),
+  usePages: () => ({ data: [] }),
   useBlocks: () => ({ data: [] }),
-  useCreateSectionAtEnd: () => ({ createSectionAtEnd: vi.fn(), isPending: false }),
+  useCreatePageAtEnd: () => ({ createPageAtEnd: vi.fn(), isPending: false }),
   useCreateStep: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock('@/components/builder/ai/AiAssistantDialog', () => ({ AiAssistantDialog: () => null }));
 vi.mock('@/components/builder/AddSnipDialog', () => ({ AddSnipDialog: () => null }));
 vi.mock('@/components/builder/BlockEditorDialog', () => ({ BlockEditorDialog: () => null }));
-vi.mock('@/components/builder/SectionSettingsDialog', () => ({ SectionSettingsDialog: () => null }));
+vi.mock('@/components/builder/PageSettingsDialog', () => ({ PageSettingsDialog: () => null }));
 vi.mock('@/components/builder/sidebar/DocumentStatusPanel', () => ({ DocumentStatusPanel: () => null }));
-vi.mock('@/components/builder/sidebar/SectionItem', () => ({ SectionItem: () => null }));
+vi.mock('@/components/builder/sidebar/PageItem', () => ({ PageItem: () => null }));
 
 /**
  * The panel is a percent-sized ResizablePanel, so its width is driven by the

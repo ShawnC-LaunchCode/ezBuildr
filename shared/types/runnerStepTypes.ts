@@ -5,7 +5,7 @@
  * actually present a fillable control for. Consumed by:
  * - `client/src/components/runner/blocks/stepTypeRouting.ts` (render routing)
  * - `shared/validation/BlockValidation.ts` (client-side required-rule generation)
- * - `server/workflows/validation.ts` (server-side section-submit validation)
+ * - `server/workflows/validation.ts` (server-side page-submit validation)
  *
  * Do not duplicate these lists elsewhere — a step type that is "unsupported"
  * or "unknown" here has no input a respondent can fill in, so neither

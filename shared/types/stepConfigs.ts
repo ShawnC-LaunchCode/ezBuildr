@@ -590,7 +590,7 @@ export interface FinalBlockConfig {
     alias: string;            // Short name for this document (e.g., "contract", "receipt")
     pinnedVersionId?: string | null; // Selected version of the template (GH-171)
     // LU-5: the same ConditionExpression language steps.visible_if /
-    // sections.visible_if already use (28 operators, nested AND/OR groups),
+    // pages.visible_if already use (28 operators, nested AND/OR groups),
     // evaluated directly by shared/conditionEvaluator.ts - not the flat
     // `{key, op}` LogicExpression this superseded. See EnhancedDocumentEngine.
     conditions?: ConditionExpression | null;  // Optional conditional logic for this document

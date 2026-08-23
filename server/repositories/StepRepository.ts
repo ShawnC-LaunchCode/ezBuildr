@@ -1,6 +1,6 @@
 import { eq, asc, inArray, and, sql, isNull } from "drizzle-orm";
 
-import { steps, sections, type Step, type InsertStep } from "@shared/schema";
+import { steps, pages, type Step, type InsertStep } from "@shared/schema";
 
 import { db } from "../db";
 import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
@@ -69,15 +69,15 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   }
 
   /**
-   * Soft-delete every step under a section (used when soft-deleting the
-   * section itself, so its steps disappear too — ICW2-B1).
+   * Soft-delete every step under a page (used when soft-deleting the
+   * page itself, so its steps disappear too — ICW2-B1).
    */
-  async softDeleteBySectionId(sectionId: string, tx?: DbTransaction): Promise<void> {
+  async softDeleteByPageId(pageId: string, tx?: DbTransaction): Promise<void> {
     const database = this.getDb(tx);
     await database
       .update(steps)
       .set({ deletedAt: new Date() })
-      .where(and(eq(steps.sectionId, sectionId), isNull(steps.deletedAt)));
+      .where(and(eq(steps.pageId, pageId), isNull(steps.deletedAt)));
   }
 
   /** Restore a soft-deleted step by clearing `deletedAt` (ICW2-B1). Idempotent. */
@@ -92,32 +92,32 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   }
 
   /**
-   * Restore every step under a section (used when restoring the section
+   * Restore every step under a page (used when restoring the page
    * itself, mirroring the soft-delete cascade — ICW2-B1). Idempotent for
    * steps that are not currently deleted.
    */
-  async restoreBySectionId(sectionId: string, tx?: DbTransaction): Promise<void> {
+  async restoreByPageId(pageId: string, tx?: DbTransaction): Promise<void> {
     const database = this.getDb(tx);
     await database
       .update(steps)
       .set({ deletedAt: null, updatedAt: new Date() })
-      .where(eq(steps.sectionId, sectionId));
+      .where(eq(steps.pageId, pageId));
   }
 
   /**
-   * Find steps by section ID (ordered by order field), excluding
+   * Find steps by page ID (ordered by order field), excluding
    * soft-deleted rows (ICW2-B1).
    * By default, excludes virtual steps (computed steps from transform blocks)
    * Set includeVirtual=true to include virtual steps
    */
-  async findBySectionId(
-    sectionId: string,
+  async findByPageId(
+    pageId: string,
     tx?: DbTransaction,
     includeVirtual = false
   ): Promise<Step[]> {
     const database = this.getDb(tx);
 
-    const conditions = [eq(steps.sectionId, sectionId), isNull(steps.deletedAt)];
+    const conditions = [eq(steps.pageId, pageId), isNull(steps.deletedAt)];
     if (!includeVirtual) {
       conditions.push(eq(steps.isVirtual, false));
     }
@@ -130,19 +130,19 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   }
 
   /**
-   * Find steps by multiple section IDs, excluding soft-deleted rows (ICW2-B1).
+   * Find steps by multiple page IDs, excluding soft-deleted rows (ICW2-B1).
    * By default, excludes virtual steps (computed steps from transform blocks)
    * Set includeVirtual=true to include virtual steps
    */
-  async findBySectionIds(
-    sectionIds: string[],
+  async findByPageIds(
+    pageIds: string[],
     tx?: DbTransaction,
     includeVirtual = false
   ): Promise<Step[]> {
     const database = this.getDb(tx);
-    if (sectionIds.length === 0) { return []; }
+    if (pageIds.length === 0) { return []; }
 
-    const conditions = [inArray(steps.sectionId, sectionIds), isNull(steps.deletedAt)];
+    const conditions = [inArray(steps.pageId, pageIds), isNull(steps.deletedAt)];
     if (!includeVirtual) {
       conditions.push(eq(steps.isVirtual, false));
     }
@@ -155,7 +155,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   }
 
   /**
-   * Find all steps for a workflow (by joining with sections), excluding
+   * Find all steps for a workflow (by joining with pages), excluding
    * soft-deleted rows (ICW2-B1).
    * By default, excludes virtual steps (computed steps from transform blocks)
    * Set includeVirtual=true to include virtual steps
@@ -167,7 +167,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   ): Promise<Step[]> {
     const database = this.getDb(tx);
 
-    const conditions = [eq(sections.workflowId, workflowId), isNull(steps.deletedAt)];
+    const conditions = [eq(pages.workflowId, workflowId), isNull(steps.deletedAt)];
     if (!includeVirtual) {
       conditions.push(eq(steps.isVirtual, false));
     }
@@ -176,7 +176,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .select({
         id: steps.id,
         workflowId: steps.workflowId,
-        sectionId: steps.sectionId,
+        pageId: steps.pageId,
         type: steps.type,
         title: steps.title,
         description: steps.description,
@@ -192,18 +192,18 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
         updatedAt: steps.updatedAt,
       })
       .from(steps)
-      .innerJoin(sections, eq(steps.sectionId, sections.id))
+      .innerJoin(pages, eq(steps.pageId, pages.id))
       .where(and(...conditions))
       .orderBy(asc(steps.order));
   }
 
   /**
-   * Find a step by ID and verify it belongs to the section, excluding
+   * Find a step by ID and verify it belongs to the page, excluding
    * soft-deleted rows (ICW2-B1)
    */
-  async findByIdAndSection(
+  async findByIdAndPage(
     stepId: string,
-    sectionId: string,
+    pageId: string,
     tx?: DbTransaction
   ): Promise<Step | undefined> {
     const database = this.getDb(tx);
@@ -212,7 +212,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .from(steps)
       .where(and(eq(steps.id, stepId), isNull(steps.deletedAt)));
 
-    if (step !== undefined && step.sectionId === sectionId) {
+    if (step !== undefined && step.pageId === pageId) {
       return step;
     }
     return undefined;
@@ -221,19 +221,19 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   /**
    * Update step order
    */
-  async updateOrder(stepId: string, sectionId: string, order: number, tx?: DbTransaction): Promise<Step> {
+  async updateOrder(stepId: string, pageId: string, order: number, tx?: DbTransaction): Promise<Step> {
     const database = this.getDb(tx);
     const [updated] = await database
       .update(steps)
       .set({ order })
-      .where(and(eq(steps.id, stepId), eq(steps.sectionId, sectionId)))
+      .where(and(eq(steps.id, stepId), eq(steps.pageId, pageId)))
       .returning();
     if (updated == null) {throw new Error("Step not found");}
     return updated;
   }
 
   /**
-   * Find all steps for a workflow (by joining with sections), excluding
+   * Find all steps for a workflow (by joining with pages), excluding
    * soft-deleted rows (ICW2-B1)
    * Includes aliases for easy reference
    * By default, includes virtual steps
@@ -245,8 +245,8 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   ): Promise<Step[]> {
     const database = this.getDb(tx);
 
-    // Join steps with sections to filter by workflowId
-    const conditions = [eq(sections.workflowId, workflowId), isNull(steps.deletedAt)];
+    // Join steps with pages to filter by workflowId
+    const conditions = [eq(pages.workflowId, workflowId), isNull(steps.deletedAt)];
     if (!includeVirtual) {
       conditions.push(eq(steps.isVirtual, false));
     }
@@ -254,7 +254,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
     const result = await database
       .select()
       .from(steps)
-      .innerJoin(sections, eq(steps.sectionId, sections.id))
+      .innerJoin(pages, eq(steps.pageId, pages.id))
       .where(and(...conditions))
       .orderBy(asc(steps.order));
 

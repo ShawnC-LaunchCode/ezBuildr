@@ -95,7 +95,7 @@ export default function BentoFeatures() {
               icon={Sparkles}
               eyebrow="ai import"
               title="Start from the document you already have"
-              body="Paste a link or upload the form — blank or previously filled out. AI maps every field to a step, detects sections and required rules, and drafts about 90% of the workflow before you touch the canvas."
+              body="Paste a link or upload the form — blank or previously filled out. AI maps every field to a step, detects pages and required rules, and drafts about 90% of the workflow before you touch the canvas."
               className="md:col-span-4 min-h-[280px]"
             >
               <ImportPreview />
@@ -104,7 +104,7 @@ export default function BentoFeatures() {
               icon={GitBranch}
               eyebrow="visual builder"
               title="A canvas for the last 10%"
-              body="Refine the draft the way you'd whiteboard it — sections, steps, and two-tier visibility rules that keep the flow legible."
+              body="Refine the draft the way you'd whiteboard it — pages, steps, and two-tier visibility rules that keep the flow legible."
               className="md:col-span-2"
             />
             <Tile

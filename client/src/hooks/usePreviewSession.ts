@@ -103,14 +103,14 @@ export function usePreviewSessionValue(
 }
 
 /**
- * Hook to manage current section index
+ * Hook to manage current page index
  *
  * @deprecated Use PreviewEnvironment + usePreviewEnvironment instead for better performance
  * and to avoid infinite loop issues.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function usePreviewSessionSection(session: PreviewSession | null) {
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+export function usePreviewSessionPage(session: PreviewSession | null) {
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
   // Subscribe to session changes
   useEffect(() => {
@@ -119,23 +119,23 @@ export function usePreviewSessionSection(session: PreviewSession | null) {
     }
 
     const unsubscribe = session.subscribe(() => {
-      setCurrentSectionIndex(session.getCurrentSectionIndex());
+      setCurrentPageIndex(session.getCurrentPageIndex());
     });
 
     // Initialize with current value
-    setCurrentSectionIndex(session.getCurrentSectionIndex());
+    setCurrentPageIndex(session.getCurrentPageIndex());
 
     return unsubscribe;
   }, [session]);
 
-  const setSectionIndex = useCallback(
+  const setPageIndex = useCallback(
     (index: number) => {
       if (session) {
-        session.setCurrentSectionIndex(index);
+        session.setCurrentPageIndex(index);
       }
     },
     [session]
   );
 
-  return [currentSectionIndex, setSectionIndex] as const;
+  return [currentPageIndex, setPageIndex] as const;
 }

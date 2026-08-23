@@ -57,10 +57,10 @@ export interface WorkflowReadinessContext {
   availableEsignProviders?: ReadonlySet<string>;
 }
 
-/** Serialized sections carry `steps` as untyped jsonb-derived data; read it once, typed. */
+/** Serialized pages carry `steps` as untyped jsonb-derived data; read it once, typed. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function stepsOf(section: Record<string, any>): Record<string, any>[] {
-  const steps: unknown = section.steps;
+function stepsOf(page: Record<string, any>): Record<string, any>[] {
+  const steps: unknown = page.steps;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   return Array.isArray(steps) ? steps as Record<string, any>[] : [];
 }
@@ -71,8 +71,8 @@ function stepLabel(step: Record<string, any>): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function sectionLabel(section: Record<string, any>): string {
-  return String(section.title ?? section.id ?? "untitled section");
+function pageLabel(page: Record<string, any>): string {
+  return String(page.title ?? page.id ?? "untitled page");
 }
 
 function issue(
@@ -85,55 +85,55 @@ function issue(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function sectionTarget(section: Record<string, any>): WorkflowLintTarget {
-  return { tab: "sections", sectionId: String(section.id) };
+function pageTarget(page: Record<string, any>): WorkflowLintTarget {
+  return { tab: "pages", pageId: String(page.id) };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function stepTarget(section: Record<string, any>, step: Record<string, any>): WorkflowLintTarget {
-  return { tab: "sections", sectionId: String(section.id), stepId: String(step.id) };
+function stepTarget(page: Record<string, any>, step: Record<string, any>): WorkflowLintTarget {
+  return { tab: "pages", pageId: String(page.id), stepId: String(step.id) };
 }
 
-/** Check 1 — a workflow with no sections, or no real questions, cannot be run. */
+/** Check 1 — a workflow with no pages, or no real questions, cannot be run. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function checkHasContent(sections: Record<string, any>[], results: LintResult[]): void {
-  if (sections.length === 0) {
-    results.push(issue("error", "questions", "Workflow must have at least one section.", { tab: "sections" }));
+function checkHasContent(pages: Record<string, any>[], results: LintResult[]): void {
+  if (pages.length === 0) {
+    results.push(issue("error", "questions", "Workflow must have at least one page.", { tab: "pages" }));
     return;
   }
 
-  const hasRealStep = sections.some(section =>
-    stepsOf(section).some(step => step.isVirtual !== true)
+  const hasRealStep = pages.some(page =>
+    stepsOf(page).some(step => step.isVirtual !== true)
   );
   if (!hasRealStep) {
-    results.push(issue("error", "questions", "Workflow must have at least one question.", { tab: "sections" }));
+    results.push(issue("error", "questions", "Workflow must have at least one question.", { tab: "pages" }));
   }
 }
 
 /**
  * Check 2 — ids must be UUIDs, because `RunRuntimeService`'s
- * `VersionStepSchema`/`VersionSectionSchema` parse them with `z.string().uuid()`.
+ * `VersionStepSchema`/`VersionPageSchema` parse them with `z.string().uuid()`.
  * A non-UUID id published here fails that parse at run time and takes the whole
  * runner down for the respondent with an opaque error (see RUN2-10).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]): void {
-  for (const section of sections) {
-    if (!UUID_PATTERN.test(String(section.id))) {
+function checkIdsAreUuids(pages: Record<string, any>[], results: LintResult[]): void {
+  for (const page of pages) {
+    if (!UUID_PATTERN.test(String(page.id))) {
       results.push(issue(
         "error",
         "questions",
-        `Section "${sectionLabel(section)}" has an id that is not a UUID: "${String(section.id)}"`,
-        sectionTarget(section)
+        `Page "${pageLabel(page)}" has an id that is not a UUID: "${String(page.id)}"`,
+        pageTarget(page)
       ));
     }
-    for (const step of stepsOf(section)) {
+    for (const step of stepsOf(page)) {
       if (!UUID_PATTERN.test(String(step.id))) {
         results.push(issue(
           "error",
           "questions",
           `Question "${stepLabel(step)}" has an id that is not a UUID: "${String(step.id)}"`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
     }
@@ -142,9 +142,9 @@ function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]
 
 /** Checks 3 and 4 — every type is real and every respondent-facing step is renderable. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function checkStepTypes(sections: Record<string, any>[], results: LintResult[]): void {
-  for (const section of sections) {
-    for (const step of stepsOf(section)) {
+function checkStepTypes(pages: Record<string, any>[], results: LintResult[]): void {
+  for (const page of pages) {
+    for (const step of stepsOf(page)) {
       const type = String(step.type ?? "");
 
       if (!VALID_STEP_TYPES.has(type)) {
@@ -152,7 +152,7 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
           "error",
           "questions",
           `Question "${stepLabel(step)}" has an unrecognized type: "${type}"`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
         continue;
       }
@@ -163,7 +163,7 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
           "error",
           "questions",
           `Question "${stepLabel(step)}" has a type ("${type}") the runner cannot display. Remove it or use a supported question type before publishing.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
         continue;
       }
@@ -173,7 +173,7 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
           "error",
           "questions",
           `Question "${stepLabel(step)}" is required but its type ("${type}") cannot be answered in the runner, so the interview could never be completed.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
     }
@@ -181,10 +181,10 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
 }
 
 interface RuleContext {
-  sectionOrderById: Map<string, number>;
-  sectionRefs: Set<string>;
+  pageOrderById: Map<string, number>;
+  pageRefs: Set<string>;
   stepRefs: Set<string>;
-  sectionOrderByStepRef: Map<string, number>;
+  pageOrderByStepRef: Map<string, number>;
   /**
    * Alias-only set (no ids), matching the universe `lintWorkflowContent` checks
    * `inputKeys` against. Transform-block outputs are included because they are
@@ -194,31 +194,31 @@ interface RuleContext {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function buildRuleContext(sections: Record<string, any>[]): RuleContext {
-  const sectionOrderById = new Map<string, number>();
-  const sectionRefs = new Set<string>();
+function buildRuleContext(pages: Record<string, any>[]): RuleContext {
+  const pageOrderById = new Map<string, number>();
+  const pageRefs = new Set<string>();
   const stepRefs = new Set<string>();
-  const sectionOrderByStepRef = new Map<string, number>();
+  const pageOrderByStepRef = new Map<string, number>();
   const stepAliases = new Set<string>();
 
-  sections.forEach((section, index) => {
-    const order = typeof section.order === "number" ? section.order : index;
-    sectionOrderById.set(String(section.id), order);
-    sectionRefs.add(String(section.id));
-    if (section.title) { sectionRefs.add(String(section.title)); }
+  pages.forEach((page, index) => {
+    const order = typeof page.order === "number" ? page.order : index;
+    pageOrderById.set(String(page.id), order);
+    pageRefs.add(String(page.id));
+    if (page.title) { pageRefs.add(String(page.title)); }
 
-    for (const step of stepsOf(section)) {
+    for (const step of stepsOf(page)) {
       stepRefs.add(String(step.id));
-      sectionOrderByStepRef.set(String(step.id), order);
+      pageOrderByStepRef.set(String(step.id), order);
       if (step.alias) {
         stepRefs.add(String(step.alias));
         stepAliases.add(String(step.alias));
-        sectionOrderByStepRef.set(String(step.alias), order);
+        pageOrderByStepRef.set(String(step.alias), order);
       }
     }
   });
 
-  return { sectionOrderById, sectionRefs, stepRefs, sectionOrderByStepRef, stepAliases };
+  return { pageOrderById, pageRefs, stepRefs, pageOrderByStepRef, stepAliases };
 }
 
 /**
@@ -243,59 +243,59 @@ function checkLogicRules(
         "error",
         "logic",
         `A ${String(rule.action ?? "logic")} rule has no condition question, so it would always fire at run time.`,
-        { tab: "sections", panel: "logic" }
+        { tab: "pages", panel: "logic" }
       ));
     } else if (!ctx.stepRefs.has(conditionRef)) {
       results.push(issue(
         "error",
         "logic",
         `Logic rule condition references a question that does not exist: "${conditionRef}"`,
-        { tab: "sections", panel: "logic" }
+        { tab: "pages", panel: "logic" }
       ));
     }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
     const targetRef = rule.targetId ?? rule.targetAlias;
     const hasTarget = typeof targetRef === "string" && targetRef.length > 0;
-    const targetsSection = rule.targetType === "section";
+    const targetsPage = rule.targetType === "page";
     if (!hasTarget) {
       results.push(issue(
         "error",
         "logic",
         `A ${String(rule.action ?? "logic")} rule has no target, so it can never take effect.`,
-        { tab: "sections", panel: "logic" }
+        { tab: "pages", panel: "logic" }
       ));
       continue;
     }
 
-    const knownTarget = targetsSection ? ctx.sectionRefs.has(targetRef) : ctx.stepRefs.has(targetRef);
+    const knownTarget = targetsPage ? ctx.pageRefs.has(targetRef) : ctx.stepRefs.has(targetRef);
     if (!knownTarget) {
       results.push(issue(
         "error",
         "logic",
-        `Logic rule target references a ${targetsSection ? "section" : "question"} that does not exist: "${targetRef}"`,
-        { tab: "sections", panel: "logic" }
+        `Logic rule target references a ${targetsPage ? "page" : "question"} that does not exist: "${targetRef}"`,
+        { tab: "pages", panel: "logic" }
       ));
       continue;
     }
 
-    if (rule.action === "skip_to" && targetsSection && hasCondition) {
+    if (rule.action === "skip_to" && targetsPage && hasCondition) {
       checkSkipDirection(targetRef, conditionRef, ctx, results);
     }
   }
 }
 
 /**
- * Whether a `skip_to` rule's target section can never fire, because it sits
- * at or before the section holding the rule's condition question. Exported
- * so `SectionService.reorderSections` (MAP-B4) can detect the same condition
- * right after a drag-and-drop reorder, using the DB's live section orders
+ * Whether a `skip_to` rule's target page can never fire, because it sits
+ * at or before the page holding the rule's condition question. Exported
+ * so `PageService.reorderPages` (MAP-B4) can detect the same condition
+ * right after a drag-and-drop reorder, using the DB's live page orders
  * instead of this module's serialized-content shape — without re-deriving
  * the comparison or duplicating `checkSkipDirection`'s publish-blocking
  * finding.
  */
-export function isBackwardSkipTarget(targetOrder: number, conditionSectionOrder: number): boolean {
-  return targetOrder <= conditionSectionOrder;
+export function isBackwardSkipTarget(targetOrder: number, conditionPageOrder: number): boolean {
+  return targetOrder <= conditionPageOrder;
 }
 
 function checkSkipDirection(
@@ -304,27 +304,27 @@ function checkSkipDirection(
   ctx: RuleContext,
   results: LintResult[]
 ): void {
-  const targetOrder = ctx.sectionOrderById.get(targetRef);
-  const conditionSectionOrder = ctx.sectionOrderByStepRef.get(conditionRef);
-  if (targetOrder === undefined || conditionSectionOrder === undefined) {
+  const targetOrder = ctx.pageOrderById.get(targetRef);
+  const conditionPageOrder = ctx.pageOrderByStepRef.get(conditionRef);
+  if (targetOrder === undefined || conditionPageOrder === undefined) {
     return;
   }
 
-  if (isBackwardSkipTarget(targetOrder, conditionSectionOrder)) {
+  if (isBackwardSkipTarget(targetOrder, conditionPageOrder)) {
     results.push(issue(
       "error",
       "logic",
-      `A "skip to" rule targets a section at or before the question that triggers it, so it can never fire. This usually happens after sections get reordered. Point it at a later section.`,
-      { tab: "sections", panel: "logic" }
+      `A "skip to" rule targets a page at or before the question that triggers it, so it can never fire. This usually happens after pages get reordered. Point it at a later page.`,
+      { tab: "pages", panel: "logic" }
     ));
   }
 }
 
 /** Check 7 — a choice question with nothing to choose, or an unsupported display, cannot be answered. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]): void {
-  for (const section of sections) {
-    for (const step of stepsOf(section)) {
+function checkChoiceSteps(pages: Record<string, any>[], results: LintResult[]): void {
+  for (const page of pages) {
+    for (const step of stepsOf(page)) {
       if (step.isVirtual === true) { continue; }
       if (normalizeRunnerStepType(String(step.type ?? "")) !== "choice") { continue; }
 
@@ -345,7 +345,7 @@ function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]
           "error",
           "questions",
           `Choice question "${stepLabel(step)}" has no options and no dynamic option source, so it cannot be answered.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
 
@@ -356,7 +356,7 @@ function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]
           "error",
           "questions",
           `Choice question "${stepLabel(step)}" has an unsupported display mode: "${String(display)}". Use radio, dropdown, or multiple.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
     }
@@ -543,13 +543,13 @@ function checkMappingBinding(
 /** Check 9 — final-block steps (`final` / `final_documents`) carry usable documents. */
 function checkFinalBlockSteps(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  sections: Record<string, any>[],
+  pages: Record<string, any>[],
   ctx: RuleContext,
   context: WorkflowReadinessContext,
   results: LintResult[]
 ): void {
-  for (const section of sections) {
-    for (const step of stepsOf(section)) {
+  for (const page of pages) {
+    for (const step of stepsOf(page)) {
       if (!FINAL_BLOCK_STEP_TYPES.has(String(step.type ?? ""))) { continue; }
 
       const label = `Final block "${stepLabel(step)}"`;
@@ -563,7 +563,7 @@ function checkFinalBlockSteps(
           "warning",
           "documents",
           `${label} has no documents configured, so no documents will be generated for it.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
         continue;
       }
@@ -572,7 +572,7 @@ function checkFinalBlockSteps(
         checkDocumentEntry(entry, label, {
           ruleContext: ctx,
           readiness: context,
-          target: stepTarget(section, step),
+          target: stepTarget(page, step),
         }, results);
       }
     }
@@ -580,9 +580,9 @@ function checkFinalBlockSteps(
 }
 
 /**
- * Check 10 — legacy Final Documents sections (`section.config.finalBlock`).
+ * Check 10 — legacy Final Documents pages (`page.config.finalBlock`).
  *
- * This is the shape the live `FinalDocumentsSectionEditor` writes: a
+ * This is the shape the live `FinalDocumentsPageEditor` writes: a
  * `templates` array read back by
  * `RunLifecycleService.buildLegacyFinalBlockConfig`. Each entry is either the
  * legacy bare template-id string or LU-5's widened
@@ -592,15 +592,15 @@ function checkFinalBlockSteps(
  * It is still the primary authoring path, so it gets the same
  * template-existence guarantee.
  */
-function checkLegacyFinalSections(
+function checkLegacyFinalPages(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  sections: Record<string, any>[],
+  pages: Record<string, any>[],
   context: WorkflowReadinessContext,
   results: LintResult[]
 ): void {
-  for (const section of sections) {
+  for (const page of pages) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-    const config = (section.config ?? {}) as Record<string, any>;
+    const config = (page.config ?? {}) as Record<string, any>;
     if (config.finalBlock !== true) { continue; }
 
     const templates: unknown = config.templates;
@@ -610,8 +610,8 @@ function checkLegacyFinalSections(
       results.push(issue(
         "warning",
         "documents",
-        `Final documents section "${sectionLabel(section)}" has no templates selected, so no documents will be generated.`,
-        sectionTarget(section)
+        `Final documents page "${pageLabel(page)}" has no templates selected, so no documents will be generated.`,
+        pageTarget(page)
       ));
       continue;
     }
@@ -623,15 +623,15 @@ function checkLegacyFinalSections(
         results.push(issue(
           "error",
           "documents",
-          `Final documents section "${sectionLabel(section)}" has an empty template reference.`,
-          sectionTarget(section)
+          `Final documents page "${pageLabel(page)}" has an empty template reference.`,
+          pageTarget(page)
         ));
       } else if (context.knownTemplateIds !== undefined && !context.knownTemplateIds.has(templateId)) {
         results.push(issue(
           "error",
           "documents",
-          `Final documents section "${sectionLabel(section)}" references a template that does not exist in this project: "${templateId}"`,
-          sectionTarget(section)
+          `Final documents page "${pageLabel(page)}" references a template that does not exist in this project: "${templateId}"`,
+          pageTarget(page)
         ));
       }
     }
@@ -651,13 +651,13 @@ function checkLegacyFinalSections(
  */
 function checkSignatureBlocks(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  sections: Record<string, any>[],
+  pages: Record<string, any>[],
   ctx: RuleContext,
   context: WorkflowReadinessContext,
   results: LintResult[]
 ): void {
-  for (const section of sections) {
-    for (const step of stepsOf(section)) {
+  for (const page of pages) {
+    for (const step of stepsOf(page)) {
       if (String(step.type ?? "") !== "signature_block") { continue; }
 
       const label = `Signature block "${stepLabel(step)}"`;
@@ -668,7 +668,7 @@ function checkSignatureBlocks(
           "error",
           "documents",
           `${label} has no documents to sign, so the respondent would reach a signing step with nothing to sign.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
 
@@ -676,7 +676,7 @@ function checkSignatureBlocks(
         checkDocumentEntry(entry, label, {
           ruleContext: ctx,
           readiness: context,
-          target: stepTarget(section, step),
+          target: stepTarget(page, step),
         }, results);
       }
 
@@ -692,7 +692,7 @@ function checkSignatureBlocks(
           "warning",
           "integrations",
           `${label} uses e-signature provider "${provider}", which is not configured on this server — signing will fail until it is enabled.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
     }
@@ -701,9 +701,9 @@ function checkSignatureBlocks(
 
 /** Warnings — worth telling the author about, never worth blocking a publish. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-function collectStructureWarnings(sections: Record<string, any>[], results: LintResult[]): void {
-  for (const section of sections) {
-    for (const step of stepsOf(section)) {
+function collectStructureWarnings(pages: Record<string, any>[], results: LintResult[]): void {
+  for (const page of pages) {
+    for (const step of stepsOf(page)) {
       if (step.isVirtual === true) { continue; }
 
       if (step.required === true && step.visibleIf !== null && step.visibleIf !== undefined && step.visibleIf !== "") {
@@ -711,7 +711,7 @@ function collectStructureWarnings(sections: Record<string, any>[], results: Lint
           "warning",
           "logic",
           `Question "${stepLabel(step)}" is required but has a visibility condition — it is only required while visible.`,
-          stepTarget(section, step)
+          stepTarget(page, step)
         ));
       }
 
@@ -734,18 +734,18 @@ export function validateWorkflowStructure(
   context: WorkflowReadinessContext = {}
 ): LintResult[] {
   const results: LintResult[] = [];
-  const sections = data.sections ?? [];
-  const ruleContext = buildRuleContext(sections);
+  const pages = data.pages ?? [];
+  const ruleContext = buildRuleContext(pages);
 
-  checkHasContent(sections, results);
-  checkIdsAreUuids(sections, results);
-  checkStepTypes(sections, results);
+  checkHasContent(pages, results);
+  checkIdsAreUuids(pages, results);
+  checkStepTypes(pages, results);
   checkLogicRules(data.logicRules ?? [], ruleContext, results);
-  checkChoiceSteps(sections, results);
-  checkFinalBlockSteps(sections, ruleContext, context, results);
-  checkLegacyFinalSections(sections, context, results);
-  checkSignatureBlocks(sections, ruleContext, context, results);
-  collectStructureWarnings(sections, results);
+  checkChoiceSteps(pages, results);
+  checkFinalBlockSteps(pages, ruleContext, context, results);
+  checkLegacyFinalPages(pages, context, results);
+  checkSignatureBlocks(pages, ruleContext, context, results);
+  collectStructureWarnings(pages, results);
 
   return results;
 }

@@ -74,7 +74,7 @@ export function LogicGeneratorTab({ workflowId, currentWorkflow }: LogicGenerato
                 <ul className="list-disc pl-5 mt-2 space-y-1">
                     <li>Be specific about variable names if possible.</li>
                     <li>You can describe multiple rules at once.</li>
-                    <li>Say &quot;Skip section X&quot; to hide pages.</li>
+                    <li>Say &quot;Skip page X&quot; to hide pages.</li>
                 </ul>
             </div>
         </>

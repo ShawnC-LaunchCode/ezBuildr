@@ -76,7 +76,7 @@ function buildConfig(type: StepType, state: DateTimeCardState): Record<string, u
     return out as Record<string, unknown>;
 }
 
-export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
@@ -93,15 +93,15 @@ export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: Step
     const handleUpdate = (updates: Partial<DateTimeCardState>) => {
         const next = { ...localConfig, ...updates };
         setLocalConfig(next);
-        updateStepMutation.mutate({ id: stepId, sectionId, config: buildConfig(step.type, next) });
+        updateStepMutation.mutate({ id: stepId, pageId, config: buildConfig(step.type, next) });
     };
 
     const handleAliasChange = (alias: string | null) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, alias });
+        updateStepMutation.mutate({ id: stepId, pageId, alias });
     };
 
     const handleRequiredChange = (required: boolean) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, required });
+        updateStepMutation.mutate({ id: stepId, pageId, required });
     };
 
     return (
@@ -113,7 +113,7 @@ export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: Step
             <RequiredToggle checked={step.required} onChange={handleRequiredChange} />
 
             {/* Description / Help Text */}
-            <DescriptionField stepId={stepId} sectionId={sectionId} description={step.description} />
+            <DescriptionField stepId={stepId} pageId={pageId} description={step.description} />
 
             <Separator />
 
@@ -191,7 +191,7 @@ export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: Step
             {/* Default Value */}
             <DefaultValueField
                 stepId={stepId}
-                sectionId={sectionId}
+                pageId={pageId}
                 defaultValue={step.defaultValue as DefaultValueType}
                 type={step.type}
                 mode={mode}
@@ -201,7 +201,7 @@ export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: Step
             {workflowId && (
                 <VisibilityField
                     stepId={stepId}
-                    sectionId={sectionId}
+                    pageId={pageId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
                 />

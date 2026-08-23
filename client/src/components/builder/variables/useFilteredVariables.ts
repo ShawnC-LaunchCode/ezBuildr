@@ -35,11 +35,11 @@ export function useFilteredVariables(
 
     const groupedVariables = useMemo(() => {
         return filteredVariables.reduce((acc, variable) => {
-            const section = variable.sectionTitle ?? "Other";
-            if (acc[section] === undefined) {
-                acc[section] = [];
+            const page = variable.pageTitle ?? "Other";
+            if (acc[page] === undefined) {
+                acc[page] = [];
             }
-            acc[section].push(variable);
+            acc[page].push(variable);
             return acc;
         }, {} as Record<string, ApiWorkflowVariable[]>);
     }, [filteredVariables]);

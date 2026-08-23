@@ -1,8 +1,8 @@
 /**
- * SectionLogicSheet - Sheet (slide-out panel) for editing section visibility logic
+ * PageLogicSheet - Sheet (slide-out panel) for editing page visibility logic
  *
- * Wraps the LogicBuilder in a Sheet component for section-level visibility configuration.
- * Opens from the section/page card gear menu.
+ * Wraps the LogicBuilder in a Sheet component for page-level visibility configuration.
+ * Opens from the page card gear menu.
  */
 
 import {
@@ -13,39 +13,39 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiSection } from "@/lib/vault-api";
-import { useUpdateSection } from "@/lib/vault-hooks";
+import type { ApiPage } from "@/lib/vault-api";
+import { useUpdatePage } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
 
 import { LogicBuilder } from "./LogicBuilder";
 
-interface SectionLogicSheetProps {
+interface PageLogicSheetProps {
   /** Whether the sheet is open */
   open: boolean;
   /** Callback when open state changes */
   onOpenChange: (open: boolean) => void;
-  /** The section being edited */
-  section: ApiSection;
+  /** The page being edited */
+  page: ApiPage;
   /** The workflow ID */
   workflowId: string;
 }
 
-export function SectionLogicSheet({
+export function PageLogicSheet({
   open,
   onOpenChange,
-  section,
+  page,
   workflowId,
-}: SectionLogicSheetProps) {
+}: PageLogicSheetProps) {
   const { toast } = useToast();
-  const updateSectionMutation = useUpdateSection();
+  const updatePageMutation = useUpdatePage();
 
   const handleLogicChange = (expression: ConditionExpression) => {
-    updateSectionMutation.mutate(
+    updatePageMutation.mutate(
       {
-        id: section.id,
-        workflowId: section.workflowId,
+        id: page.id,
+        workflowId: page.workflowId,
         visibleIf: expression,
       },
       {
@@ -71,21 +71,21 @@ export function SectionLogicSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto" data-testid="section-logic-sheet">
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto" data-testid="page-logic-sheet">
         <SheetHeader className="mb-6">
           <SheetTitle>Page Visibility</SheetTitle>
           <SheetDescription>
-            Configure when &quot;{section.title}&quot; should be visible based on answers to other questions.
+            Configure when &quot;{page.title}&quot; should be visible based on answers to other questions.
           </SheetDescription>
         </SheetHeader>
 
         <LogicBuilder
           workflowId={workflowId}
-          elementId={section.id}
-          elementType="section"
-          value={(section.visibleIf as ConditionExpression) ?? null}
+          elementId={page.id}
+          elementType="page"
+          value={(page.visibleIf as ConditionExpression) ?? null}
           onChange={handleLogicChange}
-          isSaving={updateSectionMutation.isPending}
+          isSaving={updatePageMutation.isPending}
         />
       </SheetContent>
     </Sheet>

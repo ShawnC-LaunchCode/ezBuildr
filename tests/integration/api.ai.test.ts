@@ -10,11 +10,11 @@ vi.mock('../../server/services/AIService', () => ({
     generateWorkflow: vi.fn(async (request) => ({
       name: 'Generated Workflow',
       description: 'AI generated workflow',
-      sections: [
+      pages: [
         {
-          id: 'section_1',
-          title: 'Section 1',
-          description: 'First section',
+          id: 'page_1',
+          title: 'Page 1',
+          description: 'First page',
           order: 0,
           steps: [
             {
@@ -32,7 +32,7 @@ vi.mock('../../server/services/AIService', () => ({
       notes: `Generated from: ${  request.description}`,
     })),
     suggestWorkflowImprovements: vi.fn(async () => ({
-      newSections: [],
+      newPages: [],
       newLogicRules: [],
       newTransformBlocks: [],
       modifications: [],

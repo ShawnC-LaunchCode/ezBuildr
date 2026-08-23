@@ -21,7 +21,7 @@ import {
   organizations,
   projectAccess,
   projects,
-  sections,
+  pages,
   steps,
   templateVersions,
   templates,
@@ -564,7 +564,7 @@ export class WorkflowClonerService {
     idMap.set(sourceWorkflow.id, newWorkflow.id);
     workflowIdMap.set(sourceWorkflow.id, newWorkflow.id);
 
-    await this.copySectionsAndSteps(tx, sourceWorkflow.id, newWorkflow.id, idMap);
+    await this.copyPagesAndSteps(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyLogicRules(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyTransformBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
@@ -579,41 +579,41 @@ export class WorkflowClonerService {
     return { workflow: newWorkflow, workflowIdMap, versionIdMap, idMap };
   }
 
-  private async copySectionsAndSteps(
+  private async copyPagesAndSteps(
     tx: DbTransaction,
     sourceWorkflowId: string,
     targetWorkflowId: string,
     idMap: Map<string, string>
   ): Promise<void> {
-    const sourceSections = await tx
+    const sourcePages = await tx
       .select()
-      .from(sections)
-      .where(eq(sections.workflowId, sourceWorkflowId))
-      .orderBy(asc(sections.order));
+      .from(pages)
+      .where(eq(pages.workflowId, sourceWorkflowId))
+      .orderBy(asc(pages.order));
 
-    for (const sourceSection of sourceSections) {
-      const [newSection] = await tx
-        .insert(sections)
+    for (const sourcePage of sourcePages) {
+      const [newPage] = await tx
+        .insert(pages)
         .values({
           workflowId: targetWorkflowId,
-          title: sourceSection.title,
-          description: sourceSection.description,
-          order: sourceSection.order,
-          config: sourceSection.config,
-          visibleIf: sourceSection.visibleIf,
+          title: sourcePage.title,
+          description: sourcePage.description,
+          order: sourcePage.order,
+          config: sourcePage.config,
+          visibleIf: sourcePage.visibleIf,
         })
         .returning();
 
-      if (newSection === undefined) {
-        throw new Error("Failed to copy section");
+      if (newPage === undefined) {
+        throw new Error("Failed to copy page");
       }
 
-      idMap.set(sourceSection.id, newSection.id);
+      idMap.set(sourcePage.id, newPage.id);
 
       const sourceSteps = await tx
         .select()
         .from(steps)
-        .where(eq(steps.sectionId, sourceSection.id))
+        .where(eq(steps.pageId, sourcePage.id))
         .orderBy(asc(steps.order));
 
       for (const sourceStep of sourceSteps) {
@@ -621,7 +621,7 @@ export class WorkflowClonerService {
           .insert(steps)
           .values({
             workflowId: targetWorkflowId,
-            sectionId: newSection.id,
+            pageId: newPage.id,
             type: sourceStep.type,
             title: sourceStep.title,
             description: sourceStep.description,
@@ -674,7 +674,7 @@ export class WorkflowClonerService {
           when: remapJsonIds(rule.when, idMap),
           targetType: rule.targetType,
           targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
-          targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
+          targetPageId: rule.targetPageId ? idMap.get(rule.targetPageId) ?? null : null,
           action: rule.action,
           order: rule.order,
           };
@@ -702,7 +702,7 @@ export class WorkflowClonerService {
         .insert(blocks)
         .values({
           workflowId: targetWorkflowId,
-          sectionId: block.sectionId ? idMap.get(block.sectionId) ?? null : null,
+          pageId: block.pageId ? idMap.get(block.pageId) ?? null : null,
           type: block.type,
           phase: block.phase,
           config: remapJsonIds(block.config, idMap),
@@ -735,7 +735,7 @@ export class WorkflowClonerService {
         .insert(transformBlocks)
         .values({
           workflowId: targetWorkflowId,
-          sectionId: block.sectionId ? idMap.get(block.sectionId) ?? null : null,
+          pageId: block.pageId ? idMap.get(block.pageId) ?? null : null,
           name: block.name,
           language: block.language,
           code: block.code,
@@ -772,7 +772,7 @@ export class WorkflowClonerService {
         .insert(lifecycleHooks)
         .values({
           workflowId: targetWorkflowId,
-          sectionId: hook.sectionId ? idMap.get(hook.sectionId) ?? null : null,
+          pageId: hook.pageId ? idMap.get(hook.pageId) ?? null : null,
           name: hook.name,
           phase: hook.phase,
           language: hook.language,
@@ -1232,14 +1232,14 @@ export class WorkflowClonerService {
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
-    const [workflowRows, sectionRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
+    const [workflowRows, pageRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
       tx.select().from(workflows).where(inArray(workflows.id, workflowIds)),
-      tx.select().from(sections).where(inArray(sections.workflowId, workflowIds)),
+      tx.select().from(pages).where(inArray(pages.workflowId, workflowIds)),
       tx
         .select()
         .from(steps)
-        .innerJoin(sections, eq(steps.sectionId, sections.id))
-        .where(inArray(sections.workflowId, workflowIds)),
+        .innerJoin(pages, eq(steps.pageId, pages.id))
+        .where(inArray(pages.workflowId, workflowIds)),
       tx.select().from(blocks).where(inArray(blocks.workflowId, workflowIds)),
       tx.select().from(transformBlocks).where(inArray(transformBlocks.workflowId, workflowIds)),
       tx.select().from(workflowVersions).where(inArray(workflowVersions.workflowId, workflowIds)),
@@ -1247,7 +1247,7 @@ export class WorkflowClonerService {
 
     const inspectValues: unknown[] = [
       ...workflowRows.map((workflow) => workflow.intakeConfig),
-      ...sectionRows.flatMap((section) => [section.config, section.visibleIf]),
+      ...pageRows.flatMap((page) => [page.config, page.visibleIf]),
       ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf]),
       ...blockRows.map((block) => block.config),
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
@@ -1624,22 +1624,22 @@ export class WorkflowClonerService {
         .where(eq(workflows.id, workflow.id));
     }
 
-    const copiedSections = await tx.select().from(sections).where(inArray(sections.workflowId, workflowIds));
-    for (const section of copiedSections) {
+    const copiedPages = await tx.select().from(pages).where(inArray(pages.workflowId, workflowIds));
+    for (const page of copiedPages) {
       await tx
-        .update(sections)
+        .update(pages)
         .set({
-          config: remapJsonIds(section.config, idMap),
-          visibleIf: remapJsonIds(section.visibleIf, idMap),
+          config: remapJsonIds(page.config, idMap),
+          visibleIf: remapJsonIds(page.visibleIf, idMap),
         })
-        .where(eq(sections.id, section.id));
+        .where(eq(pages.id, page.id));
     }
 
-    if (copiedSections.length > 0) {
+    if (copiedPages.length > 0) {
       const copiedSteps = await tx
         .select()
         .from(steps)
-        .where(inArray(steps.sectionId, copiedSections.map((section) => section.id)));
+        .where(inArray(steps.pageId, copiedPages.map((page) => page.id)));
       for (const step of copiedSteps) {
         await tx
           .update(steps)

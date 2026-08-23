@@ -15,7 +15,7 @@ import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * Workflow Move API Integration Tests
  *
- * Covers PUT /api/workflows/:id/move (section workflow relocation between
+ * Covers PUT /api/workflows/:id/move (page workflow relocation between
  * projects / Main Folder, with ownership and access checks).
  *
  * Uses describe.sequential because tests share project/tenant setup.

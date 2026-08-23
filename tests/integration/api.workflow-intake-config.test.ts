@@ -5,7 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { sections, steps, workflows } from "@shared/schema";
+import { pages, steps, workflows } from "@shared/schema";
 
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
@@ -86,12 +86,12 @@ describe.sequential("workflow intake configuration contract", () => {
   });
 
   it("removes only legacy persisted values when the cleanup migration runs", async () => {
-    const section = await getOwnerDb().query.sections.findFirst({
-      where: eq(sections.workflowId, workflowId),
+    const page = await getOwnerDb().query.pages.findFirst({
+      where: eq(pages.workflowId, workflowId),
     });
-    expect(section).toBeDefined();
-    if (!section) {
-      throw new Error("Expected the workflow's default section");
+    expect(page).toBeDefined();
+    if (!page) {
+      throw new Error("Expected the workflow's default page");
     }
 
     await getOwnerDb().update(workflows)
@@ -105,13 +105,13 @@ describe.sequential("workflow intake configuration contract", () => {
       })
       .where(eq(workflows.id, workflowId));
 
-    await getOwnerDb().update(sections)
+    await getOwnerDb().update(pages)
       .set({ config: { keep: true, intakeAssignment: true } })
-      .where(eq(sections.id, section.id));
+      .where(eq(pages.id, page.id));
 
     const [legacyStep] = await getOwnerDb().insert(steps).values({
       workflowId,
-      sectionId: section.id,
+      pageId: page.id,
       type: "short_text",
       title: "Legacy intake-linked default",
       order: 99,
@@ -130,15 +130,15 @@ describe.sequential("workflow intake configuration contract", () => {
     const cleanedWorkflow = await getOwnerDb().query.workflows.findFirst({
       where: eq(workflows.id, workflowId),
     });
-    const cleanedSection = await getOwnerDb().query.sections.findFirst({
-      where: eq(sections.id, section.id),
+    const cleanedPage = await getOwnerDb().query.pages.findFirst({
+      where: eq(pages.id, page.id),
     });
     const cleanedStep = await getOwnerDb().query.steps.findFirst({
       where: eq(steps.id, legacyStep.id),
     });
 
     expect(cleanedWorkflow?.intakeConfig).toEqual({ allowPrefill: true });
-    expect(cleanedSection?.config).toEqual({ keep: true });
+    expect(cleanedPage?.config).toEqual({ keep: true });
     expect(cleanedStep?.defaultValue).toBeNull();
   });
 });

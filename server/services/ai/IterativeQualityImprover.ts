@@ -266,7 +266,7 @@ export class IterativeQualityImprover {
     }
 
     if (score.breakdown.structure < 80) {
-      categoryGuidance.push(`STRUCTURE (score: ${score.breakdown.structure}/100): Organize into logical sections. Avoid empty sections or sections with too many steps (max 15). Group related questions together.`);
+      categoryGuidance.push(`STRUCTURE (score: ${score.breakdown.structure}/100): Organize into logical pages. Avoid empty pages or pages with too many steps (max 15). Group related questions together.`);
     }
 
     if (score.breakdown.ux < 80) {
@@ -305,7 +305,7 @@ Return ONLY a valid JSON object with the improved workflow structure:
 {
   "title": "...",
   "description": "...",
-  "sections": [...],
+  "pages": [...],
   "logicRules": [...],
   "transformBlocks": [...]
 }
@@ -338,8 +338,8 @@ Do NOT include any explanation or markdown - just the JSON object.`;
 
       // Validate basic structure
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
-      if (!parsed.sections || !Array.isArray(parsed.sections)) {
-        logger.warn('Improved workflow missing sections array, using fallback');
+      if (!parsed.pages || !Array.isArray(parsed.pages)) {
+        logger.warn('Improved workflow missing pages array, using fallback');
         return fallback;
       }
 
@@ -350,7 +350,7 @@ Do NOT include any explanation or markdown - just the JSON object.`;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         description: parsed.description || fallback.description,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
-        sections: parsed.sections,
+        pages: parsed.pages,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.

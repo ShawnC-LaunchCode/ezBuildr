@@ -261,7 +261,7 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
   it("fails closed: the restricted role with no tenant GUC sees no cross-tenant row, even under FORCE", async () => {
     // 0001_enable_rls.sql's policy for direct-tenant_id tables (users
     // included) is the raw `current_setting(...)::uuid` cast, with no
-    // NULLIF guard — unlike the ownership-derived workflows/sections/steps
+    // NULLIF guard — unlike the ownership-derived workflows/pages/steps
     // policies, which route through app_current_tenant() specifically to
     // collapse '' to NULL (see RLS-4 AC5's "known trap: an empty-string GUC
     // behaves differently from an unset one"). A pooled connection can carry

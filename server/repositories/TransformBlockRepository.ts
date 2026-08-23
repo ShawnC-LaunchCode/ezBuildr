@@ -45,26 +45,26 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
   async findEnabledByPhase(
     workflowId: string,
     phase: BlockPhase,
-    sectionId?: string | null,
+    pageId?: string | null,
     tx?: DbTransaction
   ): Promise<TransformBlock[]> {
     const database = this.getDb(tx);
 
-    // Build conditions based on whether sectionId is provided
+    // Build conditions based on whether pageId is provided
     const conditions = [
       eq(transformBlocks.workflowId, workflowId),
       eq(transformBlocks.phase, phase),
       eq(transformBlocks.enabled, true),
     ];
 
-    // If sectionId is provided, match section-specific blocks OR workflow-scoped blocks (null sectionId)
-    // If sectionId is not provided (null), only match workflow-scoped blocks
-    if (sectionId) {
-      // For section-specific phases, include both section-specific and workflow-scoped blocks
-      // This is handled by not filtering on sectionId, as workflow-scoped blocks apply everywhere
+    // If pageId is provided, match page-specific blocks OR workflow-scoped blocks (null pageId)
+    // If pageId is not provided (null), only match workflow-scoped blocks
+    if (pageId) {
+      // For page-specific phases, include both page-specific and workflow-scoped blocks
+      // This is handled by not filtering on pageId, as workflow-scoped blocks apply everywhere
     } else {
       // For workflow-scoped phases (onRunStart, onRunComplete), only use workflow-scoped blocks
-      conditions.push(isNull(transformBlocks.sectionId));
+      conditions.push(isNull(transformBlocks.pageId));
     }
 
     return database

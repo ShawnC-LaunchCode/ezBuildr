@@ -3,24 +3,24 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ReviewSection } from '../../../client/src/components/runner/sections/ReviewSection';
+import { ReviewPage } from '../../../client/src/components/runner/pages/ReviewPage';
 
-const sections = [
+const pages = [
   { id: 'contact', title: 'Contact' },
-  { id: 'hidden-section', title: 'Hidden section' },
+  { id: 'hidden-page', title: 'Hidden page' },
 ];
 
 const steps = [
   {
     id: 'address',
-    sectionId: 'contact',
+    pageId: 'contact',
     title: 'Mailing address',
     type: 'address',
     config: {},
   },
   {
     id: 'interests',
-    sectionId: 'contact',
+    pageId: 'contact',
     title: 'Interests',
     type: 'multiple_choice',
     config: {
@@ -32,7 +32,7 @@ const steps = [
   },
   {
     id: 'international-address',
-    sectionId: 'contact',
+    pageId: 'contact',
     title: 'International address',
     type: 'address_advanced',
     config: {
@@ -44,7 +44,7 @@ const steps = [
   },
   {
     id: 'children',
-    sectionId: 'contact',
+    pageId: 'contact',
     title: 'Children',
     type: 'list',
     config: {
@@ -56,15 +56,15 @@ const steps = [
   },
   {
     id: 'conditional-secret',
-    sectionId: 'contact',
+    pageId: 'contact',
     title: 'Conditional secret',
     type: 'short_text',
     config: {},
   },
   {
-    id: 'hidden-section-answer',
-    sectionId: 'hidden-section',
-    title: 'Hidden section answer',
+    id: 'hidden-page-answer',
+    pageId: 'hidden-page',
+    title: 'Hidden page answer',
     type: 'short_text',
     config: {},
   },
@@ -87,19 +87,19 @@ const values = {
     ],
   },
   'conditional-secret': 'stale hidden value',
-  'hidden-section-answer': 'not on this branch',
+  'hidden-page-answer': 'not on this branch',
 };
 
 afterEach(cleanup);
 
-describe('ReviewSection (GH-162)', () => {
+describe('ReviewPage (GH-162)', () => {
   it('renders only the currently visible conditional branch', () => {
     render(
-      <ReviewSection
-        sections={sections}
+      <ReviewPage
+        pages={pages}
         allSteps={steps}
         values={values}
-        visibleSectionIds={['contact']}
+        visiblePageIds={['contact']}
         visibleStepIds={['address', 'interests', 'international-address', 'children']}
         onEditStep={vi.fn()}
       />
@@ -108,17 +108,17 @@ describe('ReviewSection (GH-162)', () => {
     expect(screen.getByText('Mailing address')).toBeInTheDocument();
     expect(screen.queryByText('Conditional secret')).not.toBeInTheDocument();
     expect(screen.queryByText('stale hidden value')).not.toBeInTheDocument();
-    expect(screen.queryByText('Hidden section')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hidden page')).not.toBeInTheDocument();
     expect(screen.queryByText('not on this branch')).not.toBeInTheDocument();
   });
 
   it('formats addresses, choice labels, and repeating items without raw JSON', () => {
     const { container } = render(
-      <ReviewSection
-        sections={sections}
+      <ReviewPage
+        pages={pages}
         allSteps={steps}
         values={values}
-        visibleSectionIds={['contact']}
+        visiblePageIds={['contact']}
         visibleStepIds={['address', 'interests', 'international-address', 'children']}
         onEditStep={vi.fn()}
       />
@@ -136,7 +136,7 @@ describe('ReviewSection (GH-162)', () => {
   it('uses the same structured formatter for address and choice fields inside a List', () => {
     const structuredListStep = {
       id: 'household',
-      sectionId: 'contact',
+      pageId: 'contact',
       title: 'Household',
       type: 'list',
       config: {
@@ -170,8 +170,8 @@ describe('ReviewSection (GH-162)', () => {
       },
     };
     const { container } = render(
-      <ReviewSection
-        sections={[sections[0]]}
+      <ReviewPage
+        pages={[pages[0]]}
         allSteps={[structuredListStep]}
         values={{
           household: {
@@ -184,7 +184,7 @@ describe('ReviewSection (GH-162)', () => {
             }],
           },
         }}
-        visibleSectionIds={['contact']}
+        visiblePageIds={['contact']}
         visibleStepIds={['household']}
         onEditStep={vi.fn()}
       />
@@ -196,20 +196,20 @@ describe('ReviewSection (GH-162)', () => {
     expect(container).not.toHaveTextContent('a-id');
   });
 
-  it('omits a visible section card when none of its steps are visible', () => {
+  it('omits a visible page card when none of its steps are visible', () => {
     render(
-      <ReviewSection
-        sections={[sections[0]]}
+      <ReviewPage
+        pages={[pages[0]]}
         allSteps={[steps[4]]}
         values={{ 'conditional-secret': 'stale hidden value' }}
-        visibleSectionIds={['contact']}
+        visiblePageIds={['contact']}
         visibleStepIds={[]}
         onEditStep={vi.fn()}
       />
     );
 
     expect(screen.queryByText('Contact')).not.toBeInTheDocument();
-    expect(screen.queryByText('No questions answered in this section.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No questions answered in this page.')).not.toBeInTheDocument();
     expect(screen.queryByText('stale hidden value')).not.toBeInTheDocument();
   });
 
@@ -217,11 +217,11 @@ describe('ReviewSection (GH-162)', () => {
     const user = userEvent.setup();
     const onEditStep = vi.fn();
     render(
-      <ReviewSection
-        sections={sections}
+      <ReviewPage
+        pages={pages}
         allSteps={steps}
         values={values}
-        visibleSectionIds={['contact']}
+        visiblePageIds={['contact']}
         visibleStepIds={['address', 'interests', 'children']}
         onEditStep={onEditStep}
       />

@@ -21,7 +21,7 @@ import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface LogicAddMenuProps {
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   nextOrder: number;
 }
 
@@ -62,7 +62,7 @@ const LOGIC_TYPES = {
   ],
 };
 
-export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuProps) {
+export function LogicAddMenu({ workflowId, pageId, nextOrder }: LogicAddMenuProps) {
   const createBlockMutation = useCreateBlock();
   const createTransformBlockMutation = useCreateTransformBlock();
   const { data: workflowMode } = useWorkflowMode(workflowId);
@@ -78,10 +78,10 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
       if (type === "js") {
         const block = await createTransformBlockMutation.mutateAsync({
           workflowId,
-          sectionId,
+          pageId,
           name: "JS Transform",
           language: "javascript",
-          phase: "onSectionSubmit",
+          phase: "onPageSubmit",
           code: "// Write your custom JavaScript here\n// Access variables via input.variableName\n// Return an object with your transformed data\n\nreturn {\n  // your computed values\n};",
           inputKeys: [],
           outputKey: "computed_value",
@@ -96,7 +96,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
 
       // Handle regular blocks
       let config: Record<string, unknown> = {};
-      let phase: BlockPhase = "onSectionSubmit";
+      let phase: BlockPhase = "onPageSubmit";
       const blockType = type as BlockType;
 
       // New Block Defaults
@@ -115,7 +115,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
           outputKey: 'list_data',
           filters: []
         };
-        phase = 'onSectionEnter';
+        phase = 'onPageEnter';
       } else if (type === 'external_send') {
         config = {
           destinationId: '',
@@ -128,12 +128,12 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
           outputKey: 'processed_list'
         };
       } else if (type === 'branch') {
-        config = { conditions: [], targetSectionId: null };
+        config = { conditions: [], targetPageId: null };
       }
 
       const block = await createBlockMutation.mutateAsync({
         workflowId,
-        sectionId,
+        pageId,
         type: blockType,
         phase,
         config,

@@ -19,7 +19,7 @@ import {
   workflowRunRepository,
   stepValueRepository,
   workflowRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
   logicRuleRepository,
   projectRepository,
@@ -55,7 +55,7 @@ export class RunService {
   private runRepo: typeof workflowRunRepository;
   private valueRepo: typeof stepValueRepository;
   private workflowRepo: typeof workflowRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private projectRepo: typeof projectRepository;
@@ -77,7 +77,7 @@ export class RunService {
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
     projectRepo?: typeof projectRepository,
@@ -97,7 +97,7 @@ export class RunService {
     this.runRepo = runRepo ?? workflowRunRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.stepRepo = stepRepo ?? stepRepository;
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.projectRepo = projectRepo ?? projectRepository;
@@ -124,7 +124,7 @@ export class RunService {
     this.lifecycleService = lifecycleService ?? new RunLifecycleService(
       this.valueRepo,
       this.stepRepo,
-      this.sectionRepo,
+      this.pageRepo,
       this.persistenceWriter,
       this.logicSvc
     );
@@ -230,19 +230,19 @@ export class RunService {
     await this.lifecycleService.populateInitialValues(run.id, workflowId, {
       initialValues: mergedInitialValues
     });
-    // Determine start section with auto-advance logic
-    let startSectionId: string | null = run.currentSectionId;
+    // Determine start page with auto-advance logic
+    let startPageId: string | null = run.currentPageId;
     if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
-      startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
-      await this.stateService.updateProgress(run.id, startSectionId);
+      startPageId = await this.lifecycleService.determineStartPage(run.id, workflowId, snapshotValueMap);
+      await this.stateService.updateProgress(run.id, startPageId);
     } else {
-      // ICW2-B9: initialize currentSectionId to the first visible section so the
+      // ICW2-B9: initialize currentPageId to the first visible page so the
       // first POST /next advances from it instead of re-resolving to where the
-      // user already is (calculateNextSection treats a null current section as
-      // "return the first visible section").
-      startSectionId = await this.resolveInitialSectionId(run.id, workflowId);
-      if (startSectionId) {
-        await this.stateService.updateProgress(run.id, startSectionId);
+      // user already is (calculateNextPage treats a null current page as
+      // "return the first visible page").
+      startPageId = await this.resolveInitialPageId(run.id, workflowId);
+      if (startPageId) {
+        await this.stateService.updateProgress(run.id, startPageId);
       }
     }
     // Capture metrics
@@ -256,9 +256,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    // currentSectionId reflects the resolved starting section (see above), not
+    // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentSectionId: startSectionId };
+    return { ...run, runToken, currentPageId: startPageId };
   }
   /**
    * Get run by ID
@@ -372,21 +372,21 @@ export class RunService {
     return this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
-   * Execute JS questions for a section
+   * Execute JS questions for a page
    * Finds all js_question steps, executes their code, and persists outputs
    *
    * @param runId - Run ID
-   * @param sectionId - Section ID to execute JS questions for
+   * @param pageId - Page ID to execute JS questions for
    * @param dataMap - Current data map (stepId -> value)
    * @returns Object with success flag and any errors
    */
   /**
-   * Submit section values with validation
-   * Executes onSectionSubmit blocks (transform + validate)
+   * Submit page values with validation
+   * Executes onPageSubmit blocks (transform + validate)
    */
-  async submitSection(
+  async submitPage(
     runId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
     values: Array<{ stepId: string; value: unknown }>
   ): Promise<{ success: boolean; errors?: string[] }> {
@@ -396,42 +396,42 @@ export class RunService {
     }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    return this.executionCoordinator.submitSection(
+    return this.executionCoordinator.submitPage(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
-      sectionId,
+      pageId,
       values
     );
   }
   /**
-   * Submit section values with validation without ownership check
+   * Submit page values with validation without ownership check
    * Used for preview/run token authentication
    */
-  async submitSectionNoAuth(
+  async submitPageNoAuth(
     runId: string,
-    sectionId: string,
+    pageId: string,
     values: Array<{ stepId: string; value: unknown }>
   ): Promise<{ success: boolean; errors?: string[] }> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    return this.executionCoordinator.submitSection(
+    return this.executionCoordinator.submitPage(
       { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
-      sectionId,
+      pageId,
       values
     );
   }
   /**
-   * Resolve the section a fresh run should start at: the first visible
-   * section by order (same rule `calculateNextSection` applies for a null
-   * current section). Used to initialize `run.currentSectionId` at creation
+   * Resolve the page a fresh run should start at: the first visible
+   * page by order (same rule `calculateNextPage` applies for a null
+   * current page). Used to initialize `run.currentPageId` at creation
    * time so the first `next()` call advances from a real position instead of
    * re-resolving to where the user already is (ICW2-B9). Returns null only
-   * when the workflow has no visible sections at all.
+   * when the workflow has no visible pages at all.
    */
-  private async resolveInitialSectionId(runId: string, workflowId: string): Promise<string | null> {
+  private async resolveInitialPageId(runId: string, workflowId: string): Promise<string | null> {
     const navigation = await this.logicSvc.evaluateNavigation(workflowId, runId, null);
-    return navigation.nextSectionId;
+    return navigation.nextPageId;
   }
   /**
    * RVP-6 (Option B): resolve the version an authenticated creator's run
@@ -462,12 +462,12 @@ export class RunService {
     return parsed.success ? parsed.data : {};
   }
   /**
-   * Calculate next section and update run state
+   * Calculate next page and update run state
    * Executes onNext blocks (transform + branch)
    *
    * @param runId - Run ID
    * @param userId - User ID (for authorization)
-   * @returns Navigation result with next section info
+   * @returns Navigation result with next page info
    */
   async next(runId: string, userId: string): Promise<NavigationResult> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
@@ -477,11 +477,11 @@ export class RunService {
     if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
-      run.currentSectionId
+      run.currentPageId
     );
   }
   /**
-   * Calculate next section without ownership check
+   * Calculate next page without ownership check
    * Used for preview/run token authentication
    */
   async nextNoAuth(runId: string): Promise<NavigationResult> {
@@ -490,7 +490,7 @@ export class RunService {
     if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, mode: 'live' },
-      run.currentSectionId
+      run.currentPageId
     );
   }
   /**
@@ -551,11 +551,11 @@ export class RunService {
     await this.lifecycleService.populateInitialValues(run.id, workflow.id, {
       initialValues: filterPrefillValues(anonIntakeConfig, initialValues)
     });
-    // ICW2-B9: initialize currentSectionId to the first visible section (see
+    // ICW2-B9: initialize currentPageId to the first visible page (see
     // createRun for the full rationale).
-    const initialSectionId = await this.resolveInitialSectionId(run.id, workflow.id);
-    if (initialSectionId) {
-      await this.stateService.updateProgress(run.id, initialSectionId);
+    const initialPageId = await this.resolveInitialPageId(run.id, workflow.id);
+    if (initialPageId) {
+      await this.stateService.updateProgress(run.id, initialPageId);
     }
     // Capture metrics
     await this.metricsService.captureRunStarted(
@@ -568,9 +568,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    // currentSectionId reflects the resolved starting section (see above), not
+    // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentSectionId: initialSectionId };
+    return { ...run, runToken, currentPageId: initialPageId };
   }
   /**
    * List runs for a workflow
@@ -599,7 +599,7 @@ export class RunService {
   /**
    * Generate documents for a run (can be called before completion)
    * Idempotent - checks if documents already exist before generating
-   * Used for Final Documents sections
+   * Used for Final Documents pages
    */
   async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const run = await this.runRepo.findById(runId);
@@ -620,20 +620,20 @@ export class RunService {
     return result;
   }
   /**
-   * Determine the appropriate start section for a run
+   * Determine the appropriate start page for a run
    * Used for auto-advance when creating runs from snapshots
    *
    * @param runId - The run ID
    * @param workflowId - The workflow ID
    * @param snapshotValues - Optional snapshot value map for version checking
-   * @returns The section ID to start from
+   * @returns The page ID to start from
    */
-  async determineStartSection(
+  async determineStartPage(
     runId: string,
     workflowId: string,
     snapshotValues?: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }>
   ): Promise<string> {
-    return this.lifecycleService.determineStartSection(runId, workflowId, snapshotValues);
+    return this.lifecycleService.determineStartPage(runId, workflowId, snapshotValues);
   }
   /**
    * Generate a share token for a completed run

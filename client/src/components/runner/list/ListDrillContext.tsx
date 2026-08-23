@@ -1,7 +1,7 @@
 /**
  * Drill-in navigation state for the runner's List block (LIST-8). Only one
- * List step can be drilled into at a time per section — entering a list
- * takes over the whole section body (see ListDrillEditor / WorkflowRunner),
+ * List step can be drilled into at a time per page — entering a list
+ * takes over the whole page body (see ListDrillEditor / WorkflowRunner),
  * so a single stack, not one per step, is all that's needed.
  *
  * Browser back support (AC9): every level entered pushes one history entry;

@@ -2,14 +2,14 @@ import { ApiBlock, ApiTransformBlock, BlockPhase } from "@/lib/vault-api";
 
 export function mapTransformToBlock(
     transformBlocks: ApiTransformBlock[],
-    sectionId: string
+    pageId: string
 ): ApiBlock[] {
     return transformBlocks
-        .filter((tb) => tb.sectionId === sectionId)
+        .filter((tb) => tb.pageId === pageId)
         .map((tb) => ({
             id: tb.id,
             workflowId: tb.workflowId,
-            sectionId: tb.sectionId ?? null,
+            pageId: tb.pageId ?? null,
             type: "js",
             phase: tb.phase as BlockPhase,
             config: {

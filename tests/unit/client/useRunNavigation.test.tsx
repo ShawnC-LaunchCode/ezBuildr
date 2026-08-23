@@ -2,9 +2,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { nextMock, submitSectionMock, validatePageMock, toastMock } = vi.hoisted(() => ({
+const { nextMock, submitPageMock, validatePageMock, toastMock } = vi.hoisted(() => ({
   nextMock: vi.fn(),
-  submitSectionMock: vi.fn(),
+  submitPageMock: vi.fn(),
   validatePageMock: vi.fn(),
   toastMock: vi.fn(),
 }));
@@ -15,7 +15,7 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitSection: () => ({ mutateAsync: submitSectionMock }),
+  useSubmitPage: () => ({ mutateAsync: submitPageMock }),
   useNext: () => ({ mutateAsync: nextMock }),
 }));
 
@@ -32,10 +32,10 @@ import {
   useRunNavigationTransport,
   type RunNavigationTransport,
 } from '../../../client/src/hooks/runner/useRunNavigation';
-import type { ApiSection, ApiStep } from '../../../client/src/lib/vault-api';
+import type { ApiPage, ApiStep } from '../../../client/src/lib/vault-api';
 
-const section: ApiSection = {
-  id: 'section-1',
+const page: ApiPage = {
+  id: 'page-1',
   workflowId: 'workflow-1',
   title: 'Contact details',
   description: null,
@@ -46,7 +46,7 @@ const section: ApiSection = {
 const phoneStep: ApiStep = {
   id: 'phone-step',
   workflowId: 'workflow-1',
-  sectionId: section.id,
+  pageId: page.id,
   type: 'phone',
   title: 'Phone',
   description: null,
@@ -62,7 +62,7 @@ describe('useRunNavigation validation state', () => {
   beforeEach(() => {
     validatePageMock.mockReset();
     toastMock.mockReset();
-    submitSectionMock.mockReset();
+    submitPageMock.mockReset();
     nextMock.mockReset();
     window.scrollTo = vi.fn();
   });
@@ -76,8 +76,8 @@ describe('useRunNavigation validation state', () => {
       .mockResolvedValueOnce({ valid: true, blockErrors: {} });
 
     const transport: RunNavigationTransport = {
-      getVisibleSectionSteps: () => [phoneStep],
-      saveBeforeLeavingSection: vi.fn().mockResolvedValue(undefined),
+      getVisiblePageSteps: () => [phoneStep],
+      saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
       recordValidationPassed: vi.fn().mockResolvedValue(undefined),
       recordValidationException: vi.fn().mockResolvedValue(undefined),
       advanceAfterValidation: vi.fn().mockResolvedValue(undefined),
@@ -86,7 +86,7 @@ describe('useRunNavigation validation state', () => {
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'phone-step': '312-555-1212' },
         transport,
       })
@@ -108,41 +108,41 @@ describe('useRunNavigation validation state', () => {
     expect(transport.advanceAfterValidation).toHaveBeenCalledTimes(1);
   });
 
-  it('submits an edited section and returns directly to review without advancing', async () => {
-    submitSectionMock.mockResolvedValue({ success: true });
-    const setCurrentSectionIndex = vi.fn();
+  it('submits an edited page and returns directly to review without advancing', async () => {
+    submitPageMock.mockResolvedValue({ success: true });
+    const setCurrentPageIndex = vi.fn();
     const setShowReview = vi.fn();
     const saveNow = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useRunNavigationTransport({
       mode: 'production',
       previewEnvironment: null,
-      getVisibleSectionSteps: () => [phoneStep],
+      getVisiblePageSteps: () => [phoneStep],
       saveNow,
     }));
 
     await act(async () => {
       await result.current.advanceAfterValidation({
         runId: 'run-1',
-        currentSection: section,
-        currentSectionIndex: 0,
-        visibleSections: [section],
-        visibleSectionSteps: [phoneStep],
+        currentPage: page,
+        currentPageIndex: 0,
+        visiblePages: [page],
+        visiblePageSteps: [phoneStep],
         effectiveValues: { 'phone-step': '312-555-1212' },
-        isLastSection: false,
-        setCurrentSectionIndex,
+        isLastPage: false,
+        setCurrentPageIndex,
         setShowReview,
         returnToReviewAfterValidation: true,
       });
     });
 
     expect(saveNow).toHaveBeenCalledTimes(1);
-    expect(submitSectionMock).toHaveBeenCalledWith({
+    expect(submitPageMock).toHaveBeenCalledWith({
       runId: 'run-1',
-      sectionId: 'section-1',
+      pageId: 'page-1',
       values: [{ stepId: 'phone-step', value: '312-555-1212' }],
     });
     expect(nextMock).not.toHaveBeenCalled();
-    expect(setCurrentSectionIndex).not.toHaveBeenCalled();
+    expect(setCurrentPageIndex).not.toHaveBeenCalled();
     expect(setShowReview).toHaveBeenCalledWith(true);
   });
 });

@@ -64,7 +64,7 @@ describe('RunCompletionService', () => {
             captureRunFailed: vi.fn().mockResolvedValue(undefined),
         };
         const steps = [
-            { id: 'step-1', alias: 'clientName', type: 'short_text', sectionId: 'section-1', isVirtual: false },
+            { id: 'step-1', alias: 'clientName', type: 'short_text', pageId: 'page-1', isVirtual: false },
         ];
         runDataSvc = {
             buildForRun: vi.fn().mockResolvedValue({

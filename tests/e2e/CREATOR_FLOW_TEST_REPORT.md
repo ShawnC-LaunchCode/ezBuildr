@@ -38,9 +38,9 @@ This is the primary integration test that validates the entire creator flow from
    - Workflow ID: `cdaaf3b6-dc35-4c16-9f18-0a8c2358ead2`
    - Title: "E2E Creator Flow Test"
 
-3. **Section (Page) Creation** ✓
-   - POST `/api/workflows/{id}/sections` → 201 Created
-   - Section ID: `5231f76f-5c55-4016-928d-4c13e5f81286`
+3. **Page (Page) Creation** ✓
+   - POST `/api/workflows/{id}/pages` → 201 Created
+   - Page ID: `5231f76f-5c55-4016-928d-4c13e5f81286`
    - Title: "Personal Information"
 
 4. **Question/Step Creation** ✓
@@ -87,8 +87,8 @@ This is the primary integration test that validates the entire creator flow from
 
 - ✅ `POST /api/auth/dev-login`
 - ✅ `POST /api/workflows`
-- ✅ `POST /api/workflows/:workflowId/sections`
-- ✅ `POST /api/sections/:sectionId/steps`
+- ✅ `POST /api/workflows/:workflowId/pages`
+- ✅ `POST /api/pages/:pageId/steps`
 - ✅ `PUT /api/steps/:stepId`
 - ✅ `POST /api/workflows/:workflowId/runs`
 - ✅ `POST /api/runs/:runId/values` (with Bearer token)
@@ -152,7 +152,7 @@ This is the primary integration test that validates the entire creator flow from
 
 - ✅ **Authentication** - Dev login establishes proper sessions
 - ✅ **Workflow CRUD** - Create, read, update operations functional
-- ✅ **Section Management** - Section CRUD operations work correctly
+- ✅ **Page Management** - Page CRUD operations work correctly
 - ✅ **Step Management** - Step CRUD and ordering functional
 - ✅ **Run Management** - Run creation, value storage, completion functional
 - ✅ **Bearer Token Auth** - RunToken authentication works for preview mode
@@ -160,7 +160,7 @@ This is the primary integration test that validates the entire creator flow from
 ### Database (Neon/PostgreSQL)
 
 - ✅ **Data Persistence** - All entities persist correctly
-- ✅ **Foreign Keys** - Relationships maintained (workflows → sections → steps)
+- ✅ **Foreign Keys** - Relationships maintained (workflows → pages → steps)
 - ✅ **Step Values** - Run values stored and retrieved accurately
 
 ---
@@ -211,7 +211,7 @@ All critical paths are working correctly. The system is production-ready for cre
 
 2. **Performance Testing**
    - Add performance benchmarks for large workflows
-   - Test with 50+ sections and 200+ steps
+   - Test with 50+ pages and 200+ steps
 
 3. **Mobile Testing**
    - Validate creator flow on mobile viewports
@@ -249,7 +249,7 @@ All critical paths are working correctly. The system is production-ready for cre
 
 The end-to-end test suite successfully validates:
 - Workflow creation and management
-- Section and step CRUD operations
+- Page and step CRUD operations
 - Preview run creation with bearer token auth
 - Data submission and persistence
 - Run completion

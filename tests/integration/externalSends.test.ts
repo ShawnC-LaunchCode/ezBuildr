@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeEach, afterAll, beforeAll, vi } from 'vitest';
 
-import { tenants, projects, workflows, sections, steps, blocks, users, workspaces, externalDestinations, workflowVersions } from '@shared/schema';
+import { tenants, projects, workflows, pages, steps, blocks, users, workspaces, externalDestinations, workflowVersions } from '@shared/schema';
 
 import { runExecutionCoordinator, type ExecutionContext } from '../../server/services/runs/RunExecutionCoordinator';
 import { runPersistenceWriter } from '../../server/services/runs/RunPersistenceWriter';
@@ -22,7 +22,7 @@ describe('External Send Block Integration', () => {
     let projectId: string;
     let workflowId: string;
     let workflowVersionId: string;
-    let sectionId: string;
+    let pageId: string;
     let destinationId: string;
     let workspaceId: string;
 
@@ -84,7 +84,7 @@ describe('External Send Block Integration', () => {
             text: async () => JSON.stringify({ status: 'received' })
         });
 
-        // 4. Setup Workflow & Version & Section
+        // 4. Setup Workflow & Version & Page
         const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId,
             title: 'Send Workflow',
@@ -100,7 +100,7 @@ describe('External Send Block Integration', () => {
             // Schema-valid placeholder: RVP-1 parses a pinned version's
             // graphJson, so `{}` is no longer inert. The runs below are
             // deliberately versionless, so this is never actually read.
-            graphJson: { title: 'External Send Workflow', sections: [] },
+            graphJson: { title: 'External Send Workflow', pages: [] },
             createdBy: userId,
             published: true
         } as any).returning();
@@ -109,12 +109,12 @@ describe('External Send Block Integration', () => {
         // Update workflow current version
         await getOwnerDb().update(workflows).set({ currentVersionId: workflowVersionId }).where(eq(workflows.id, workflowId));
 
-        const [section] = await getOwnerDb().insert(sections).values({
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId,
-            title: 'Send Section',
+            title: 'Send Page',
             order: 0
         } as any).returning();
-        sectionId = section.id;
+        pageId = page.id;
 
         // 5. Setup External Destination
         const [dest] = await getOwnerDb().insert(externalDestinations).values({
@@ -132,7 +132,7 @@ describe('External Send Block Integration', () => {
         await getOwnerDb().insert(steps).values({
             id: inputStepId,
             workflowId,
-            sectionId,
+            pageId,
             type: 'short_text',
             title: 'Input',
             order: 0
@@ -143,9 +143,9 @@ describe('External Send Block Integration', () => {
         await getOwnerDb().insert(blocks).values({
             id: blockId,
             workflowId,
-            sectionId,
+            pageId,
             type: 'external_send',
-            phase: 'onSectionSubmit',
+            phase: 'onPageSubmit',
             config: {
                 destinationId,
                 payloadMappings: [ // Matches corrected types
@@ -187,9 +187,9 @@ describe('External Send Block Integration', () => {
             mode: 'preview' // Enforce Preview
         };
 
-        const result = await runExecutionCoordinator.submitSection(
+        const result = await runExecutionCoordinator.submitPage(
             context,
-            sectionId,
+            pageId,
             [{ stepId: inputStepId, value: 'Hello Preview' }]
         );
 
@@ -203,7 +203,7 @@ describe('External Send Block Integration', () => {
         await getOwnerDb().insert(steps).values({
             id: inputStepId,
             workflowId,
-            sectionId,
+            pageId,
             type: 'short_text',
             title: 'Input',
             order: 0
@@ -214,9 +214,9 @@ describe('External Send Block Integration', () => {
         await getOwnerDb().insert(blocks).values({
             id: blockId,
             workflowId,
-            sectionId,
+            pageId,
             type: 'external_send',
-            phase: 'onSectionSubmit',
+            phase: 'onPageSubmit',
             config: {
                 destinationId,
                 payloadMappings: [
@@ -258,9 +258,9 @@ describe('External Send Block Integration', () => {
             mode: 'live'
         };
 
-        const result = await runExecutionCoordinator.submitSection(
+        const result = await runExecutionCoordinator.submitPage(
             context,
-            sectionId,
+            pageId,
             [{ stepId: inputStepId, value: 'Hello Live' }]
         );
 

@@ -27,7 +27,7 @@ interface PhoneCardState {
   showFormattingMask: boolean;
 }
 
-export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function PhoneCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as PhoneConfig | undefined;
@@ -54,15 +54,15 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
       format: newConfig.format,
     };
 
-    updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+    updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -110,7 +110,7 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

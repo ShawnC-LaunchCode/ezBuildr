@@ -1,7 +1,11 @@
-# Interview Structure — Sections above Pages (SECT-1..9 + backlog)
+# Interview Structure — Sections above Pages (SECT-1..10 + backlog)
 
 Source: feature request from the repo owner + a codebase audit of the workflow
 hierarchy, 2026-08-18.
+Owner rulings refreshed 2026-08-23: all environment data is disposable test
+data; the RLS implementation is complete in code and dev is free for this epic;
+Sections cannot be empty; and removing a Section's last page requires explicit
+user confirmation because it deletes the Section.
 Scope: `shared/schema/workflow.ts`, `server/services/SectionService.ts`,
 `server/repositories/SectionRepository.ts`, `server/routes/sections.routes.ts`,
 `server/services/VersionService.ts`, `server/services/portability/entityGraph.ts`,
@@ -104,7 +108,7 @@ Phases 1–4 legible.
 | 1 | Sections exist and persist end-to-end | SECT-3..4 | ~2 days |
 | 2 | Builder authoring | SECT-5..6 | ~2 days |
 | 3 | Section-level visibility logic | SECT-7 | ~1.5 days |
-| 4 | Runner navigation | SECT-8..9 | ~2.5 days |
+| 4 | Reached-state persistence + runner navigation | SECT-8A, SECT-8B, SECT-9 | ~3 days |
 | 5 | Documentation alignment (carried from GH-174) | SECT-10 | ~2 hours |
 | Backlog | Not phase-gated | SECT-B1..B6 | |
 
@@ -119,8 +123,9 @@ Phases 1–4 legible.
 | SECT-5 | `client/src/components/builder/sidebar/`, `SidebarTree.tsx` | SECT-6 |
 | SECT-6 | `client/src/components/builder/pages/PageCanvas*` | SECT-5 (adjacent; sequence) |
 | SECT-7 | `shared/workflowLogic.ts`, `LogicService.ts`, map, simulator | none in-phase |
-| SECT-8 | `client/src/components/runner/ClientRunnerLayout.tsx` + new nav | SECT-9 |
-| SECT-9 | `client/src/hooks/runner/`, `WorkflowRunRepository`, `runs.routes.ts` | SECT-8 (must follow it) |
+| SECT-8A | `shared/schema/run.ts`, run repository/service/routes | none; must precede SECT-8B/9 |
+| SECT-8B | runner layout + new nav | SECT-9 (must precede it) |
+| SECT-9 | `client/src/hooks/runner/`, runner nav, preview | SECT-8A/8B (must follow both) |
 | SECT-10 | `docs/`, `README.md`, `CLAUDE.md` | none — but must run last |
 
 ---
@@ -130,13 +135,15 @@ Phases 1–4 legible.
 | # | Decision |
 |---|---|
 | **D-1** | **Rename first.** `sections` → `pages` lands as Phase 0, before any feature work. The new group layer is then called `sections` in **both** code and UI, so the two vocabularies match permanently. The alternative (build as `chapters`, live with a split vocabulary) was measured at ~511 files either way and rejected — the rename is the same size whenever it happens, and doing it first means the feature is never written in the wrong words. |
-| **D-2** | **One flat page order; a Section is a contiguous span over it.** `pages.order` stays the single source of truth for run order, exactly as `sections.order` is today. A Section is a label over a contiguous run of it. Nothing that consumes run order today (`skip_to`, the reorder warning, the workflow map, the simulator) has to learn a composite sort. |
+| **D-2** | **One flat page order; a Section is a contiguous span over it.** `pages.order` stays the single source of truth for run order. A Section is a label over a contiguous run of it, and its position is derived from its first page. There is no `sections.order` column or Section-reorder endpoint: reordering a Section moves its page span through the atomic page-reorder endpoint. Nothing that consumes run order today (`skip_to`, the reorder warning, the workflow map, the simulator) learns a composite sort. |
 | **D-3** | **A page does not need a Section.** `pages.section_id` is nullable. An ungrouped page can sit anywhere in the order — before, between, or after Sections. It renders at the top level of the outline and the runner nav. |
 | **D-4** | **Runner nav: jump back freely, forward only to reached pages.** Unreached pages and Sections are **shown but greyed out and non-interactive** — not hidden. The respondent can see the whole shape of the interview; they just cannot skip ahead. This preserves the existing validate-then-advance contract, where forward movement runs server-side submit + `skip_to` resolution that decides the real next page. |
 | **D-5** | **Sections carry their own `visible_if` in v1.** Precedence is explicit and one-directional: **a hidden Section hides every page inside it, regardless of that page's own `visibleIf`.** A visible Section does not override a page's own `visibleIf`. |
-| **D-6** | **Greyed ≠ hidden.** A page excluded by `visibleIf` is not part of this run and does not appear in the nav at all. A page that is *visible but not yet reached* appears greyed. Conflating these is the most likely way SECT-8 gets sent back. |
+| **D-6** | **Greyed ≠ hidden.** A page excluded by `visibleIf` is not part of this run and does not appear in the nav at all. A page that is *visible but not yet reached* appears greyed. Conflating these is the most likely way SECT-8B gets sent back. |
 | **D-7** | **Deleting a Section unassigns its pages; it never deletes them.** Pages keep their order and become ungrouped. Sections are **hard**-deleted — the soft-delete on `pages`/`steps` exists to protect cascaded `step_values` (ICW2-B1), and a Section holds no respondent answers, so copying that pattern here would be cargo-culting. |
 | **D-8** | **Logic *rules* cannot target a Section in v1.** `logic_rules.targetType` stays `page`/`step`. Section-level show/hide is expressed through `sections.visible_if` only. Extending the rule engine is backlog SECT-B2. |
+| **D-9** | **Sections are never empty.** Creating a Section assigns at least one page in the same transaction. A reorder that would remove a Section's last page is rejected unless the request explicitly names that Section for deletion; the UI obtains confirmation before retrying with that authorization. On confirmation the Section is hard-deleted and the moved page completes its requested move. This keeps the invariant enforceable for API clients and concurrent edits, not merely as UI etiquette. |
+| **D-10** | **Visibility lint is conservative, not a theorem prover.** V1 does not attempt to prove whether an arbitrary condition can ever be true. A Section may reference answers only from pages strictly before its first page; self/later dependencies and script conditions (whose dependencies are opaque) are publish-blocking. Existing structural, dangling-reference and cycle lints also apply. A `skip_to` page inside any conditionally visible Section is publish-blocking; authors must target an unconditional Section or remove the Section condition. These rules may reject a logically safe advanced case, but cannot approve a Section the respondent cannot reveal or a jump that strands the run. Smarter implication/script dependency analysis is future work. |
 
 ---
 
@@ -152,7 +159,13 @@ current object names via Drizzle's name mapping; SECT-2 then performs the
 physical DDL rename and removes the mapping. Doing both at once produces a
 single unreviewable commit spanning 511 files *and* a migration.
 
-## SECT-1 — Rename `sections` → `pages` in TypeScript, API paths and JSON contracts 🔲
+## SECT-1 — Rename `sections` → `pages` in TypeScript, API paths and JSON contracts ✅
+
+**Done and independently verified:** 2026-08-23 · implemented in dedicated
+worktree `sect-1`. Clean type-check and lint; fast 3,283/3,283; unit
+3,443/3,443; integration 1,185 passed + 3 skipped; strict zones 6/6. Fresh
+migration and exact catalog assertions passed. Senior review corrected Slack,
+DOCX and non-entity UI `section` false positives before acceptance.
 
 **Priority: P1** · Size: L · File: repo-wide (~511 files)
 
@@ -178,8 +191,9 @@ Measured blast radius at audit time:
 | Persisted JSON keys | `graph_json.sections[]` (`VersionService.serializeWorkflow`, `workflow_versions` + `workflow_blueprints`); `sections` in the AI output schema (`shared/types/ai.ts`); the portability entity name `'sections'` (`entityGraph.ts`) |
 | Docs / scripts | 39 + 38 files, plus `CLAUDE.md` |
 
-The persisted-JSON hop is normally where a rename gets expensive, but **the
-databases hold only test data** (confirmed 2026-07-31; the marketplace bundles
+The persisted-JSON hop is normally where a rename gets expensive, but **all
+three environment databases hold only disposable test data** (reconfirmed by
+the repo owner 2026-08-23; the marketplace bundles
 in `scripts/generateMarketplaceBundles.ts` are build-time generated, not
 committed artifacts). So the keys can be renamed outright — **no compat reader,
 no jsonb backfill.** Do not build one.
@@ -207,6 +221,25 @@ export const steps = pgTable("steps", {
 The same pinning applies to `blocks.section_id`, `lifecycle_hooks.section_id`,
 `logic_rules.target_section_id`, `transform_blocks.section_id` and
 `workflow_runs.current_section_id`. SECT-2 removes every pin.
+
+**Persisted enum labels are the exception to “no physical DB change.”**
+PostgreSQL enum labels cannot be name-pinned independently from their
+application values. Two enums contain page-as-Section vocabulary and migration
+`0037_*` renames all three labels in place:
+
+```sql
+ALTER TYPE "logic_rule_target_type" RENAME VALUE 'section' TO 'page';
+ALTER TYPE "block_phase" RENAME VALUE 'onSectionEnter' TO 'onPageEnter';
+ALTER TYPE "block_phase" RENAME VALUE 'onSectionSubmit' TO 'onPageSubmit';
+```
+
+Those operations update existing test rows in place. `onRunStart`, `onNext`,
+`onRunComplete`, and the already-correct lifecycle phases `beforePage`/
+`afterPage` do not change. Rename the phase unions, defaults, UI values/labels,
+serialized definitions, AI schema, scripts, docs and tests with the rest of the
+contract. Do not add a repository translation layer or leave both labels
+behind; either would create temporary vocabulary that SECT-2 then has to
+discover and remove.
 
 Rename in this order, running `npm run type-check` after each to keep the
 error list small and attributable: `shared/` → `server/` → `client/src/` →
@@ -241,21 +274,20 @@ right here is what makes SECT-7 readable.
 
 - **Blocks the entire rest of this file.** Nothing else starts until SECT-1 and
   SECT-2 are committed.
-- **Dispatch alone.** This ticket invalidates the quoted-code anchors of every
-  other open ticket in the repo. As of 2026-08-18 that is
-  `ENVIRONMENTS_AND_RLS_TICKETS.md` (RLS-2/3/4/5 touch the repository layer and
-  the `sections` RLS policies). ~~and `TEMPLATE_MARKETPLACE_TICKETS.md` (TM-5)~~ —
-  **TM shipped and retired 2026-08-18**, so RLS Phase 2 is now the only board that
-  must finish first. Note TM-5 already typed the `graph_json` runtime snapshot as
-  `WorkflowContentData` (`WorkflowContentIngestService`), so that is the shape this
-  rename touches. **See the ordering note in the Escalations section.** Confirm with the repo owner that no
-  other board is mid-dispatch, and that their second IDE has no uncommitted work,
-  **before** starting.
+- **Dispatch alone.** This ticket invalidates quoted-code anchors across the
+  repo. The RLS implementation and Template Marketplace work that previously
+  blocked it are complete in code as of 2026-08-23; test-server human QA and
+  production promotion do not block `dev`. Still confirm no other board is
+  mid-dispatch and the repo owner's second IDE has no overlapping uncommitted
+  work before starting. TM-5 already typed the `graph_json` runtime snapshot as
+  `WorkflowContentData` (`WorkflowContentIngestService`), so that is the shape
+  this rename touches.
 - Load `db-schema-change` (the Drizzle name-pinning above), `add-api-endpoint`
   (route/service/repository conventions), and `run-tests`.
 - Work in a dedicated worktree: `pwsh scripts/new-worktree.ps1 -Name sect-1`.
   Do **not** use `-LinkModules` — this ticket runs Vitest heavily.
-- File footprint: repo-wide. No parallel work is possible alongside it.
+- File footprint: repo-wide plus `migrations/0037_*.sql` and migration metadata.
+  No parallel work is possible alongside it.
 
 ### Vertical proof
 
@@ -266,8 +298,12 @@ right here is what makes SECT-7 readable.
 - **Real, not mocked:** the DB hop and the publish→runtime hop. A rename that
   compiles but breaks the pinned-definition read is exactly the failure this
   proof exists to catch.
-- **Cross-tenant denial:** `GET /api/workflows/:id/pages` with tenant B's
-  workflow id → 404, unchanged from the pre-rename behavior.
+- **Cross-tenant denial:** `GET /api/workflows/:id/pages` as a user without
+  access to that workflow → 403 `Access denied`, unchanged from the pre-rename
+  `WorkflowService.verifyAccess`/`classifyRouteError` contract. The original
+  draft said 404, but an unmodified-baseline integration proof on 2026-08-23
+  established that claim was wrong; this vocabulary ticket must not alter auth
+  semantics to manufacture it.
 - **Suite:** `npm run test:integration` in full — specifically the workflow,
   run and portability integration tests. `test:fast` cannot close this ticket.
 
@@ -285,9 +321,15 @@ right here is what makes SECT-7 readable.
    `pages`; the AI output schema in `shared/types/ai.ts` uses `pages`; the
    portability `ENTITY_GRAPH` entity is named `pages` and its child descriptor's
    `parent.fk` is `pageId`. No back-compat reader for the old keys exists.
-4. `shared/schema/workflow.ts` exports `pages` (not `sections`), with every DB
-   object name pinned to its current value, so **no migration is added by this
-   ticket** and `npm run db:push` reports no drift.
+4. `shared/schema/workflow.ts` exports `pages` (not `sections`), with table,
+   column, index and constraint names pinned to their current DB names. The only
+   physical changes are migration `0037_*` renaming
+   `logic_rule_target_type.section` → `page` and `block_phase` values
+   `onSectionEnter`/`onSectionSubmit` → `onPageEnter`/`onPageSubmit`. A fresh
+   `db:migrate` plus catalog assertions prove the three exact enum labels and
+   pinned physical table/column names. Do **not** apply `db:push`: after the RLS
+   rollout it treats unmanaged policies as drift and proposes destructive
+   policy removal, so it is no longer a valid parity gate.
 5. `shared/workflowLogic.ts` exports `visiblePages`/`hiddenPages`/`skipToPageId`
    in place of the `*Sections`/`skipToSectionId` names, and every consumer is
    updated.
@@ -309,7 +351,7 @@ right here is what makes SECT-7 readable.
 
 ## SECT-2 — Physical DB rename: `sections` → `pages`, and drop the name pins 🔲
 
-**Priority: P1** · Size: M · File: `migrations/0024_*.sql`, `shared/schema/workflow.ts`
+**Priority: P1** · Size: M · File: `migrations/0038_*.sql`, `shared/schema/workflow.ts`
 
 ### Finding
 
@@ -331,7 +373,10 @@ The physical objects still carrying the old name, from
   `steps_section_idx`, `workflow_runs_current_section_idx`
 - every FK constraint named `*_section_id_sections_id_fk`
 
-And, critically, **RLS policies reference the table by name in SQL text**:
+RLS is now fully implemented in code (RLS-1..7, 2026-08-23). PostgreSQL stores
+policy expressions as object/column references, not loose SQL strings, so an
+`ALTER TABLE/ALTER COLUMN ... RENAME` preserves the attached policies. The old
+baseline migrations contain text such as:
 
 ```sql
 -- migrations/0001_enable_rls.sql
@@ -342,14 +387,15 @@ IF to_regclass('sections') IS NOT NULL THEN
       ... WHERE w.id = sections.workflow_id
 ```
 
-A rename that misses the policies leaves tenant isolation defined on a table
-name that no longer exists. `migrations/0005` adds ownership-derived policies
-over the same table and has the same exposure.
+Do **not** copy or re-issue those obsolete `0001`/`0005` definitions: later RLS
+migrations replaced and extended them. Instead, prove after the rename that the
+current policies remain attached to `pages` and still enforce through the
+restricted application-role gate.
 
 ### Preferred fix
 
-One migration at the current head (`0023_condemned_hannibal_king.sql`, so this
-is `0024_*`). `ALTER TABLE ... RENAME` preserves data, constraints and indexes,
+One migration after SECT-1 (`0037_*`, so this is `0038_*`). `ALTER TABLE ...
+RENAME` preserves data, constraints, indexes and policies,
 so this is a metadata-only change — but constraint and index *names* do not
 follow, and must be renamed explicitly so the schema stays legible and matches
 what `db:generate` would produce.
@@ -360,10 +406,6 @@ journal** — load `db-schema-change` first; the migration chain was regenerated
 `DROP TABLE`/`CREATE TABLE` for a rename it cannot infer, so verify the
 generated SQL is `ALTER TABLE ... RENAME TO ...` and correct it if not — a
 generated drop-and-recreate on this table is data loss and an automatic F.
-
-Re-issue the RLS policies against the new table name in the same migration,
-mirroring the `to_regclass` guard style already used in `0001` so the migration
-is safe against a database where the table is absent.
 
 Then delete every pin SECT-1 added, so the Drizzle definition reads plainly:
 
@@ -382,8 +424,9 @@ local `.env` points at the dev Neon branch before running it (see LU-B1 in
 - **Must follow SECT-1.** It is meaningless before it and trivial after it.
 - Load `db-schema-change` **first** — this is exactly the work it exists for.
 - Also load `run-tests`: the test harness applies `.sql` files its own way, and
-  a rename migration that passes `db:push` can still break test setup.
-- File footprint: `migrations/0024_*.sql`, `migrations/meta/`,
+  a rename migration that looks correct in Drizzle metadata can still break
+  fresh test-schema setup.
+- File footprint: `migrations/0038_*.sql`, `migrations/meta/`,
   `shared/schema/workflow.ts`. Small, but it collides with any other migration
   authored in parallel — see the migration-index-collision note in
   `tickets/BACKLOG.md`. Check for unmerged migrations before starting.
@@ -395,27 +438,32 @@ local `.env` points at the dev Neon branch before running it (see LU-B1 in
   → a run completes and writes `workflow_runs.current_page_id`.
 - **Real, not mocked:** the migration itself and the DB hop. This ticket is DDL;
   there is nothing to prove without a real database.
-- **Cross-tenant denial:** with RLS re-issued on `pages`, a query executed as a
-  non-owner role returns zero rows — reuse the non-owner-role test pattern
-  established for the workflows/sections/steps RLS work (ICW-B2, `0005`).
+- **Cross-tenant denial:** after the rename, a query executed as the restricted
+  application role returns zero rows for another tenant — use the current RLS
+  gate rather than an obsolete baseline-policy fixture.
 - **Suite:** `npm run test:integration` (needs DB; start it with
   `npm run test:docker:up`).
 
 ### Acceptance criteria
 
-1. Migration `0024_*.sql` renames the table, all six FK columns, all four
+1. Migration `0038_*.sql` renames the table, all six FK columns, all four
    indexes, and every `*_section_id_sections_id_fk` constraint to the `page`
    vocabulary, using `ALTER TABLE ... RENAME` — the file contains no
    `DROP TABLE "sections"`.
-2. The same migration re-issues the RLS policies from `0001` and `0005` against
-   `pages`, guarded by `to_regclass` in the established style.
+2. The migration does not recreate policies from obsolete migrations. A test
+   queries the post-migration catalog to prove the current policies remain
+   attached to `pages`, and the restricted-role RLS gate proves they still
+   enforce after the rename.
 3. `shared/schema/workflow.ts` contains no pinned legacy names — every
    `pgTable`/column name argument matches its TypeScript identifier.
-4. `npm run db:migrate` applies cleanly to a database at the pre-migration head,
-   and `npm run db:push` afterwards reports **no drift**.
-5. A test asserts RLS still denies a non-owner role on `pages` after the rename,
-   following the `0005` non-owner-role pattern. It fails if the policy re-issue
-   is removed from the migration — the dev demonstrates this.
+4. `npm run db:migrate` applies cleanly to a database at the pre-migration head.
+   Catalog assertions prove the renamed objects match the Drizzle schema and
+   current RLS policies remain attached. `db:push` is not applied because it
+   does not model the current RLS policy layer and proposes destructive false
+   drift.
+5. A catalog test proves the current policies survived attached to `pages`, and
+   the restricted-role RLS gate still denies another tenant after the rename.
+   No acceptance criterion depends on recreating obsolete policy SQL.
 6. The Vertical proof path passes with a real migration run against a real DB.
 7. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
    `npm run test:unit` and `npm run test:integration` green.
@@ -428,7 +476,9 @@ local `.env` points at the dev Neon branch before running it (see LU-B1 in
 - [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
 - [ ] `npm run test:fast`, `test:unit`, `test:integration` all green, with test
       counts equal to or greater than the pre-Phase-0 baseline
-- [ ] `npm run db:push` reports no drift
+- [ ] Fresh `db:migrate` succeeds; catalog assertions prove enum/object parity
+      and the restricted-role RLS gate remains green (`db:push` is not applied
+      because it proposes removal of unmanaged RLS policies)
 - [ ] Live check via the `verify` skill: builder loads a workflow, adds a page,
       reorders pages, publishes, and a run walks them — screenshots attached
 - [ ] `CLAUDE.md` reflects the new vocabulary
@@ -443,7 +493,7 @@ authoring reads/writes, publish, run runtime, export/import, and diff. **No UI
 in this phase** — Phase 1 closes at *Code complete*, not *User-reachable*, and
 its tickets are titled accordingly.
 
-## SECT-3 — `sections` table, nullable `pages.section_id`, and the contiguity invariant 🔲
+## SECT-3 — Non-empty `sections`, nullable `pages.section_id`, and contiguous membership 🔲
 
 **Priority: ENH** · Size: L · File: `shared/schema/workflow.ts`, `server/services/SectionService.ts` (new)
 
@@ -478,7 +528,6 @@ export const sections = pgTable("sections", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     title: varchar("title").notNull(),
     description: text("description"),
-    order: integer("order").notNull(),
     visibleIf: jsonb("visible_if"),          // evaluated in SECT-7, stored here
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -496,26 +545,45 @@ Section orphans its pages rather than destroying respondent-bearing content.
 
 **The invariant, enforced in the service and tested:**
 
-> Pages grouped by `section_id` form **contiguous, non-overlapping spans** of
-> `pages.order`, and those spans appear in `sections.order` sequence. Ungrouped
-> pages (`section_id IS NULL`) may sit anywhere between spans.
+> Every Section owns at least one page. Pages grouped by `section_id` form
+> **contiguous, non-overlapping spans** of `pages.order`. Ungrouped pages
+> (`section_id IS NULL`) may sit anywhere between spans.
 
 `pages.order` remains the only thing that determines run order (D-2).
-`sections.order` exists so an *empty* Section still has a position; the service
-keeps the two consistent on every mutation.
+There is deliberately no `sections.order`: a Section's position is the order of
+its first page, and moving a Section means moving that whole page span. This
+removes redundant order state that could drift.
 
 Postgres cannot express this as a constraint, so it is a service-layer
 validation with its own unit tests — write a single exported helper
-(e.g. `assertContiguousSections`) called from every mutating path, rather than
-open-coding the check in each handler.
+(e.g. `assertValidSectionSpans`) called from every mutating path, rather than
+open-coding the check in each handler. The helper checks both contiguity and the
+non-empty invariant.
+
+Section creation and initial membership are one transaction. `POST
+/api/workflows/:workflowId/sections` requires a non-empty `pageIds` array; the
+named pages must belong to that workflow and the resulting layout must satisfy
+the invariant. The builder's Add Section dialog requires at least one page
+selection rather than persisting an empty placeholder.
 
 **Membership and order change together, in one call.** Extend the existing
 reorder endpoint rather than adding a second endpoint that can desync:
 
 ```
 PUT /api/workflows/:workflowId/pages/reorder
-  { pages: [{ id, order, sectionId }] }      // sectionId optional, null = ungrouped
+  {
+    pages: [{ id, order, sectionId }],       // sectionId required; null = ungrouped
+    deleteEmptySectionIds: []                // explicit authorization, normally empty
+  }
 ```
+
+If the proposed layout empties a Section not named in
+`deleteEmptySectionIds`, reject the transaction with **409** and name it. The UI
+uses that response to ask, “Moving the last page will also delete Section X.
+Continue?” If confirmed, it retries with that Section id; the server verifies
+the Section really becomes empty, hard-deletes it, and commits the page move in
+the same transaction. This is the API expression of D-9 and protects direct API
+clients and concurrent sessions as well as the builder.
 
 Add CRUD mirroring `pages.routes.ts` exactly — same `hybridAuth`, same
 `createLimiter` on POST, same `autoRevertToDraft`, same `classifyRouteError`
@@ -524,7 +592,6 @@ error-string contract:
 ```
 POST   /api/workflows/:workflowId/sections
 GET    /api/workflows/:workflowId/sections
-PUT    /api/workflows/:workflowId/sections/reorder
 PUT    /api/sections/:sectionId
 DELETE /api/sections/:sectionId
 ```
@@ -539,16 +606,17 @@ DELETE /api/sections/:sectionId
 - Donor patterns to copy, not reinvent: `server/routes/pages.routes.ts`,
   `server/services/PageService.ts`, `server/repositories/PageRepository.ts`
   (all three are the Phase-0 renames of the `Section*` files).
-- File footprint: `shared/schema/workflow.ts`, `migrations/0025_*.sql`,
+- File footprint: `shared/schema/workflow.ts`, `migrations/0039_*.sql`,
   `server/routes/sections.routes.ts` (new), `server/services/SectionService.ts`
   (new), `server/repositories/SectionRepository.ts` (new), plus the reorder
   handler in `pages.routes.ts`/`PageService.ts`. Collides with SECT-4.
 
 ### Vertical proof
 
-- **Path:** `POST /api/workflows/:id/sections` → `SectionService.createSection()`
-  → real `sections` row → `PUT /api/workflows/:id/pages/reorder` assigning three
-  pages into it → `GET /api/workflows/:id/pages` returns them with
+- **Path:** `POST /api/workflows/:id/sections` with one initial page id →
+  `SectionService.createSection()` → real `sections` row and membership in one
+  transaction → `PUT /api/workflows/:id/pages/reorder` assigning two more
+  pages into it → `GET /api/workflows/:id/pages` returns all three with
   `sectionId` set and contiguous `order` → `DELETE /api/sections/:id` → the same
   three pages come back with `sectionId: null` and **unchanged `order`**.
 - **Real, not mocked:** the DB hop throughout. The contiguity invariant is a
@@ -562,31 +630,42 @@ DELETE /api/sections/:sectionId
 
 ### Acceptance criteria
 
-1. `sections` table exists with the columns above, a `sections_workflow_idx`
-   index, and a `0025_*` migration authored via `npm run db:generate`.
+1. `sections` table exists with the columns above, **no `order` column**, a
+   `sections_workflow_idx` index, and a `0039_*` migration authored via `npm run
+   db:generate`.
 2. `pages.section_id` is nullable with `ON DELETE SET NULL`; a page with no
    Section is valid and round-trips through every endpoint.
-3. Migration `0025_*` adds an RLS policy for `sections` in the established
-   `to_regclass`-guarded style — a new tenant-scoped table without one is a
-   standing violation of convention 7 in `CLAUDE.md`.
-4. All five section endpoints exist with `hybridAuth`, tenancy checks in the
+3. Migration `0039_*` adds an RLS policy for `sections` using the current
+   post-RLS-7 pattern in `docs/architecture/TENANT_ISOLATION_RLS.md` — do not
+   copy the obsolete baseline policy. A new tenant-scoped table without one is
+   a standing violation of convention 7 in `CLAUDE.md`.
+4. All four section endpoints exist with `hybridAuth`, tenancy checks in the
    service layer, Zod-validated bodies, and `classifyRouteError` mapping —
    matching `pages.routes.ts` handler-for-handler.
-5. `PUT /api/workflows/:workflowId/pages/reorder` accepts an optional
+5. Creating a Section requires at least one page id and writes the Section plus
+   initial membership atomically. Empty `pageIds`, cross-workflow ids and a
+   resulting non-contiguous span are rejected with no row left behind.
+6. `PUT /api/workflows/:workflowId/pages/reorder` requires an explicit nullable
    `sectionId` per page and sets membership and order atomically in one
-   transaction.
-6. A reorder or assignment that would break contiguity is **rejected with 400**
+   transaction; omitted membership is a validation error, not an implicit
+   ungroup.
+7. A reorder or assignment that would break contiguity is **rejected with 400**
    and a message naming the offending Section; the transaction rolls back and no
    partial write survives. A unit test asserts the rejection, and a second test
    asserts the rollback by reading the rows back.
-7. Deleting a Section sets `section_id = null` on its pages and leaves their
+8. A reorder that would empty a Section returns 409 and rolls back unless that
+   exact id is present in `deleteEmptySectionIds`. With explicit authorization,
+   the page move and hard-delete commit atomically. Tests cover refusal,
+   confirmed deletion, and a stale/concurrent authorization naming a Section
+   that did not become empty.
+9. Deleting a Section sets `section_id = null` on its pages and leaves their
    `order` values untouched (D-7), proven by reading the rows back.
-8. `findBackwardSkipRules`' reorder warning still fires after a
+10. `findBackwardSkipRules`' reorder warning still fires after a
    section-assigning reorder — grouping does not silently disable it.
-9. The Vertical proof path passes end to end in
+11. The Vertical proof path passes end to end in
    `tests/integration/api.sections.test.ts`, with the DB unmocked and the
    cross-tenant denial case included.
-10. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
+12. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
     `npm run test:unit` and `npm run test:integration` green.
 
 ---
@@ -639,10 +718,12 @@ workflow; and `WorkflowDiffService`/`DiffViewer`, which report "Sections Added"
 Four small, matching extensions:
 
 1. **`serializeWorkflow`** — emit a top-level `sections: [...]` array (id, title,
-   description, order, visibleIf) alongside `pages`, and add `sectionId` to each
+   description, visibleIf) alongside `pages`, and add `sectionId` to each
    serialized page. Keep it a *sibling* array rather than nesting pages inside
    sections: nesting would make run order depend on traversal order, contradicting
    D-2, and would force every existing consumer of `graph_json.pages[]` to change.
+   The array's own order is not semantic; consumers position each Section by its
+   first page in `pages.order`.
 2. **`RunRuntimeService`** — pass `definition.sections` through to the runtime
    payload, mirroring the existing `sections: definition.sections` line.
 3. **`entityGraph.ts`** — add a `sections` descriptor with
@@ -660,7 +741,7 @@ Four small, matching extensions:
 ### Ties
 
 - **Must follow SECT-3** — it serializes what SECT-3 creates.
-- Blocks SECT-8/SECT-9: production runs read the pinned definition, so the nav
+- Blocks SECT-8A/SECT-8B/SECT-9: production runs read the pinned definition, so the nav
   has no data until this lands.
 - Load `add-api-endpoint`; read `docs/architecture/SECURITY_THREAT_MODEL.md` for
   the mass-assignment invariants before extending an import path.
@@ -718,7 +799,8 @@ Four small, matching extensions:
 - [ ] SECT-3 and SECT-4 ✅ with dated verification notes
 - [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
 - [ ] `npm run test:unit` and `npm run test:integration` green
-- [ ] `npm run db:push` reports no drift
+- [ ] Fresh `db:migrate` succeeds; catalog assertions prove schema/policy parity
+      without applying `db:push`'s destructive unmanaged-RLS proposals
 - [ ] Live check via the `verify` skill: Sections created over the API survive
       publish, appear in `GET /api/runs/:runId/runtime`, and round-trip through
       export/import — real JWT, real DB, output pasted
@@ -791,6 +873,8 @@ structure rather than inventing a second disclosure idiom:
   `COMPACT_WIDTH_PX` in `SidebarTree.tsx` before touching that header, and
   re-measure the compact-width breakpoint if the widest action label changes.
 - Section create/rename/delete reuses `SectionSettingsDialog`'s dialog pattern.
+  Create requires selecting at least one page; no empty Section is persisted
+  (D-9).
   On delete, the confirmation must state that pages will be kept and ungrouped
   (D-7) — a user who reads "delete section" and assumes their 11 pages go with
   it will not click it.
@@ -818,7 +902,8 @@ structure rather than inventing a second disclosure idiom:
 
 1. The outline renders Sections as a collapsible level containing their pages,
    with ungrouped pages at the top level in `order` position.
-2. A Section can be created, renamed, and deleted from the outline; delete
+2. A Section can be created around at least one selected page, renamed, and
+   deleted from the outline; the UI cannot submit an empty Section, and delete
    confirmation states that pages are kept and become ungrouped.
 3. Collapse/expand state is independent per Section and per page, and persists
    across re-renders within a session.
@@ -872,10 +957,17 @@ a parallel drag context. Two new capabilities:
    shows which Section the page will land in.
 2. **Reorder Sections**, moving their pages with them as a block.
 
-The server rejects an order that breaks contiguity (SECT-3, AC6). The client's
+The server rejects an order that breaks contiguity (SECT-3, AC7). The client's
 job is to make that unreachable by construction rather than to surface a 400 —
 but handle the 400 anyway, with the optimistic update rolled back, because a
 concurrent edit from another session can still produce one.
+
+Removing the last page from a Section is the deliberate exception (D-9). The
+first request receives SECT-3's 409 with the Section id and title; roll back the
+optimistic state and ask the user to confirm that the move will also delete the
+Section. Cancel leaves both untouched. Confirm retries with that id in
+`deleteEmptySectionIds`, so the move and Section deletion commit atomically.
+Never delete the Section optimistically before the server accepts both changes.
 
 Preserve the `findBackwardSkipRules` warning on every path, including
 section-level reorders — moving a Section moves its pages, so it can break a
@@ -902,15 +994,21 @@ section-level reorders — moving a Section moves its pages, so it can break a
 4. A server 400 from a contiguity violation rolls the optimistic update back and
    surfaces a toast naming the Section — the UI never persists a state the
    server rejected.
-5. The `findBackwardSkipRules` warning still fires for page moves **and** for
+5. Moving the last page out receives a 409, rolls back, and opens a confirmation
+   naming the Section. Cancel changes nothing; confirm retries with
+   `deleteEmptySectionIds` and removes the Section atomically with the page
+   move. Component tests cover both choices.
+6. The `findBackwardSkipRules` warning still fires for page moves **and** for
    Section moves that relocate a `skip_to` target.
-6. Keyboard-accessible drag is preserved at parity with today's behavior (dnd-kit
+7. Keyboard-accessible drag is preserved at parity with today's behavior (dnd-kit
    keyboard sensor), and the new Section drag handles are reachable by keyboard.
-7. Component tests cover: page into Section, page out of Section, page between
-   Sections, Section reorder, and the 400-rollback path.
-8. Live proof via the `verify` skill: a screen recording or before/after
-   screenshots of each of the four drag operations in AC7.
-9. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
+8. Component tests cover: page into Section, page out of a multi-page Section,
+   last-page cancel, last-page confirm/delete, page between Sections, Section
+   reorder, and the 400-rollback path.
+9. Live proof via the `verify` skill: a screen recording or before/after
+   screenshots of the drag operations in AC8, including last-page cancellation
+   and confirmed Section deletion.
+10. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
    `npm run test:fast` green.
 
 ---
@@ -996,9 +1094,22 @@ do another:
   at parity with `LogicService.evaluateNavigation`, and **that parity is a
   standing invariant**; a change here that only lands in the engine breaks it.
 
-Add a publish-time lint for the failure this makes newly possible: a Section
-whose condition can never be true, and a Section that hides a page that is a
-`skip_to` target — a skip into a hidden Section strands the run.
+Extend the existing condition-dependency lint to Section expressions so
+dangling aliases and dependency cycles are caught using the same machinery as
+pages and steps. Every referenced question must belong to a page strictly
+before the Section's first page; a reference inside the same Section or on a
+later page is publish-blocking because the respondent cannot reliably answer a
+question before the Section is revealed. Script conditions are publish-blocking
+for Section `visibleIf` in v1 because their dependencies cannot be extracted.
+Do **not** add a satisfiability solver or claim to prove that an arbitrary
+expression can never be true (D-10).
+
+Add one conservative publish blocker for the failure this makes newly possible:
+if a `skip_to` target page belongs to any Section with a non-null, non-empty
+`visibleIf`, publishing fails. V1 deliberately does not try to prove that the
+skip condition implies the Section condition; the author must target a page in
+an unconditional Section or remove the Section condition. This rule is simple
+enough to explain in the lint message and cannot strand the run.
 
 ### Ties
 
@@ -1019,10 +1130,11 @@ whose condition can never be true, and a Section that hides a page that is a
 
 ### Vertical proof
 
-- **Path:** author a Section with `visibleIf: answer("filed_jointly") == true`
-  containing three pages, one of which has its own `visibleIf: false` → publish →
-  start a run → answer `false` → all three pages absent from the run → answer
-  `true` → two pages present, the third still absent (its own condition).
+- **Path:** author an earlier ungrouped page containing `filed_jointly`, then a
+  Section with `visibleIf: answer("filed_jointly") == true` containing three
+  pages, one of which has its own `visibleIf: false` → publish → run A answers
+  `false` and all three Section pages are absent → run B answers `true` and two
+  pages are present while the third stays absent (its own condition).
 - **Real, not mocked:** the evaluator and the run's page walk. A test that stubs
   `evaluateWorkflowVisibility` proves the stub works — that is the layer being
   changed.
@@ -1047,13 +1159,19 @@ whose condition can never be true, and a Section that hides a page that is a
    MAP-7's existing parity test rather than adding a parallel one.
 5. The Section condition is editable from the Section settings dialog, reusing
    the existing visibility-editor component.
-6. Publish-time lint flags (a) a Section whose condition can never be true and
-   (b) a `skip_to` whose target page sits in a Section that the same rule set can
-   hide. Each has a test asserting the lint fires, and one asserting it does not
-   fire on a valid workflow.
-7. The Vertical proof path passes end to end in the integration project with the
+6. Existing condition-dependency lint covers Section `visibleIf` expressions:
+   dangling aliases and cycles are publish-blocking, with tests using the same
+   fixtures as page/step conditions. References to a question in the same
+   Section or any later page are also rejected; a question on an earlier page
+   passes. Script conditions are rejected for Section visibility in v1 because
+   their dependencies are opaque. No “can never be true” solver is added.
+7. Publish-time lint rejects every `skip_to` target page whose Section has a
+   non-null, non-empty `visibleIf`, with an actionable message. Tests prove a
+   conditional-Section target is rejected and targets in an unconditional
+   Section or ungrouped pages pass; no implication inference is attempted.
+8. The Vertical proof path passes end to end in the integration project with the
    evaluator unmocked.
-8. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
+9. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
    `npm run test:unit` and `npm run test:integration` green.
 
 ---
@@ -1063,19 +1181,102 @@ whose condition can never be true, and a Section that hides a page that is a
 - [ ] SECT-7 ✅ with a dated verification note
 - [ ] Engine / server / client / simulator parity test green
 - [ ] `npm run test:unit` and `npm run test:integration` green
-- [ ] Live check: a run with a Section condition toggling on a real answer,
-      driven through the app — screenshots attached
+- [ ] Live check: two runs of the same published workflow, one taking the false
+      branch and one the true branch of a Section condition driven by a real
+      earlier answer — screenshots attached
 - [ ] Reviewer has committed the passed ticket + this gate
 
 ---
 
 # Phase 4 — Runner navigation
 
-The respondent-facing half of the feature. **Both tickets require the `design`
-skill**, and SECT-8 changes the runner's whole layout shell, so it also carries
-responsive obligations.
+The respondent-facing half of the feature. **Both UI tickets require the
+`design` skill**, and SECT-8B changes the runner's whole layout shell, so it also
+carries responsive obligations.
 
-## SECT-8 — Persistent left-hand Section nav in the runner (read-only) 🔲
+Reachedness must exist before a rail can truthfully distinguish a page the
+respondent may revisit from one they have not reached. Phase 4 therefore lands
+the persisted fact first (SECT-8A), renders it second (SECT-8B), and makes the
+rendered items interactive last (SECT-9).
+
+## SECT-8A — Persist reached pages on the run 🔲
+
+**Priority: ENH** · Size: M · File: `shared/schema/run.ts`, `server/repositories/WorkflowRunRepository.ts`
+
+### Finding
+
+The run persists only one `currentPageId` after Phase 0. There is no durable
+record of the pages the respondent already entered, so a reload cannot tell the
+difference between a previously reached page and a visible page that forward
+navigation skipped. Deriving reachedness from `step_values` is wrong: a page
+whose optional questions are left blank writes no values.
+
+### Preferred fix
+
+Add `workflow_runs.visited_page_ids` (`uuid[]`, not null, default `'{}'`) in
+migration `0040_*`. Treat it as an insertion-ordered set: repository updates
+append only when the id is absent.
+
+The server, never the client, records entry:
+
+- Run creation appends the resolved initial page in the same transaction that
+  stores `current_page_id`.
+- `next` appends the **server-resolved destination page**, not the
+  client-supplied current page, in the same transaction that advances the run.
+- Resume ensures the restored `current_page_id` is present idempotently. It does
+  not guess older history that was never stored. All environments contain only
+  test data, so no historical backfill is required.
+
+Return `visitedPageIds` in the authenticated run/runtime payload consumed by
+`WorkflowRunner`. Keep it as TanStack Query server state; do not mirror it into
+zustand (convention 8).
+
+### Ties
+
+- **Must follow SECT-7** and blocks SECT-8B/SECT-9.
+- Load `add-api-endpoint`, `db-schema-change`, and `run-tests`.
+- File footprint: `shared/schema/run.ts`, `migrations/0040_*.sql`,
+  `server/repositories/WorkflowRunRepository.ts`, `server/services/RunService.ts`,
+  `server/services/runs/RunResumeService.ts`, the existing `next` coordinator/
+  route, `server/services/workflow-runs/RunRuntimeService.ts`, and the run API
+  response types.
+- Use the post-RLS service/transaction pattern; tenant context and the visited
+  append must share the same transaction as the run-state update.
+
+### Vertical proof
+
+- **Path:** start a run → initial page id is persisted → advance through pages
+  1→2→3, including a `skip_to` over another visible page → reload → runtime
+  returns exactly pages 1, 2 and 3 as visited and does not mark the skipped page
+  reached → resume by resume link → the same ordered set returns.
+- **Real, not mocked:** the DB writes, server-side next-page resolution, reload,
+  and resume-link hop.
+- **Cross-tenant denial:** attempt `next` with credentials that cannot access
+  the victim run → 404 and the victim's `visited_page_ids` is unchanged.
+- **Suite:** integration project with the DB unmocked.
+
+### Acceptance criteria
+
+1. `workflow_runs.visited_page_ids` exists as a non-null `uuid[]` defaulting to
+   empty, with migration `0040_*` authored via `npm run db:generate`.
+2. Run creation stores the resolved first page as visited atomically with
+   `current_page_id`; a test proves a newly started run does not begin with an
+   empty reached set.
+3. `next` appends the server-resolved destination id exactly once and atomically
+   with advancement. Repeating/resuming does not duplicate ids, and a visible
+   page bypassed by `skip_to` is not added.
+4. Reload and resume-link resume return the same ordered reached set from the
+   DB. Tests perform the reload/resume hop rather than inspecting in-memory
+   state.
+5. The runtime/run response exposes `visitedPageIds`; its source is the run row,
+   not inferred step values or page order.
+6. Cross-tenant denial leaves the victim array byte-for-byte unchanged.
+7. Gates: `npm run type-check` 0 errors, `npm run lint` clean, and `npm run
+   test:unit` plus `npm run test:integration` green.
+
+---
+
+## SECT-8B — Persistent left-hand Section nav in the runner (read-only) 🔲
 
 **Priority: ENH** · Size: L · File: `client/src/components/runner/ClientRunnerLayout.tsx`
 
@@ -1142,10 +1343,16 @@ Branding: the rail sits inside the branded surface — respect
 `useBrandingStyle`/`ResolvedBranding` exactly as the header does, and honor
 `branding.whiteLabel`.
 
+Preview has no run row, so `PreviewRunner` maintains an ephemeral in-memory
+visited set, appending the resolved page whenever preview navigation enters it.
+This is the preview analogue of SECT-8A, is discarded when preview closes, and
+must not be placed in a global zustand store.
+
 ### Ties
 
-- **Must follow SECT-4** (the runtime payload must carry Sections) and **SECT-7**
-  (visibility determines what the rail may show).
+- **Must follow SECT-4** (the runtime payload must carry Sections), **SECT-7**
+  (visibility determines what the rail may show), and **SECT-8A** (the reached
+  set determines enabled/disabled state).
 - **Blocks SECT-9.**
 - **Load the `design` skill** — this is the most visible surface in the product
   and the one a client of the repo owner's customer actually sees.
@@ -1168,9 +1375,11 @@ Branding: the rail sits inside the branded surface — respect
    unreached pages appear greyed and non-interactive; the current page is
    distinctly marked (D-4/D-6). A test asserts an excluded page's title is absent
    from the DOM — with a fixture that *would* have rendered it absent the
-   exclusion, so the assertion cannot pass trivially.
-5. Each Section shows a completed-count indicator over its **visible** pages
-   only, so counts never include pages logic removed.
+   exclusion, so the assertion cannot pass trivially. A Section with zero
+   visible pages for this run is omitted rather than rendered as an empty label.
+5. Each Section shows a **reached/visible** progress indicator over its visible
+   pages only. Do not label reached pages “completed”: entering a page does not
+   prove its validation was submitted. Counts never include pages logic removed.
 6. A workflow with zero Sections renders every page at the top level of the rail
    and looks deliberate, not broken.
 7. The rail respects resolved branding and `whiteLabel`, matching the header.
@@ -1178,7 +1387,8 @@ Branding: the rail sits inside the branded surface — respect
    greyed items are exposed as disabled rather than merely dimmed, and the
    current page carries `aria-current`.
 9. Component tests cover: grouped rendering, the three visibility states, the
-   zero-Section case, and the mobile collapse.
+   zero-Section case, the mobile collapse, and preview accumulating reached
+   pages without marking a skipped visible page reached.
 10. Live proof via the `verify` skill: screenshots at desktop and mobile widths,
     of a run with at least two Sections, one ungrouped page, and one page
     excluded by logic.
@@ -1187,14 +1397,14 @@ Branding: the rail sits inside the branded surface — respect
 
 ---
 
-## SECT-9 — Navigate by clicking reached pages; track reached state on the run 🔲
+## SECT-9 — Navigate by clicking reached pages 🔲
 
 **Priority: ENH** · Size: M · File: `client/src/hooks/runner/useRunNavigation.ts`
 
 ### Finding
 
-Navigation is index arithmetic over `visibleSections` (→ `visiblePages`), and
-there is no record of which pages a run has already been through:
+SECT-8A makes reachedness durable and SECT-8B renders it, but navigation is
+still index arithmetic over `visiblePages`:
 
 ```ts
   const handlePrev = useCallback(async () => {
@@ -1220,20 +1430,12 @@ The only jump that exists today is Review → edit an answer:
     const sectionIndex = respondentSections.findIndex((section) => section.id === sectionId);
 ```
 
-and the run persists a single `currentSectionId`, not a history. So "which pages
-may I click?" is currently unanswerable — which is precisely why D-4 restricts
-clicking to reached pages.
+SECT-8A now answers “which pages may I click?”; this ticket provides the guarded
+jump without weakening the existing validate-then-advance path.
 
 ### Preferred fix
 
-**Persist the reached set on the run.** Add `workflow_runs.visited_page_ids`
-(`uuid[]`, default `'{}'`), appended server-side in the existing `next` handler
-and on resume — the same place `currentSectionId` is written today. Deriving
-reachedness from `step_values` instead is tempting and wrong: a page whose
-questions are all optional and left blank writes no values and would render
-permanently locked.
-
-Then make clicking work, reusing the jump machinery that already exists:
+Make clicking work by reusing the jump machinery that already exists:
 `onEditReviewStep` is the donor pattern — it calls `setCurrentSectionIndex` +
 `setShowReview(false)` and is proven. Generalize it into a `jumpToPage(pageId)`
 on `useRunNavigation` and have both the Review edit buttons and the rail call it.
@@ -1248,7 +1450,7 @@ Rules the jump must obey:
   the run and re-resolve `skip_to`. A jump only moves the view.
 - **Clicking a Section** lands on its first reached page (or its first page if
   the whole Section is reached).
-- **Unreached targets are refused** — the rail already disables them (SECT-8),
+- **Unreached targets are refused** — the rail already disables them (SECT-8B),
   but `jumpToPage` validates independently, because the rail's state can be one
   render behind the run's.
 - Clear `reviewEditStepId` on any jump so the "return to review after next"
@@ -1260,66 +1462,57 @@ the classic seam defect this repo keeps paying for.
 
 ### Ties
 
-- **Must follow SECT-8** (it makes the rail's items live).
-- Load `add-api-endpoint` (the `next` handler change), `db-schema-change`
-  (the `visited_page_ids` column + migration), and the `design` skill for the
-  interactive/hover/focus states the rail's items gain.
-- File footprint: `shared/schema/run.ts`, `migrations/0026_*.sql`,
-  `server/repositories/WorkflowRunRepository.ts`,
-  `server/services/RunService.ts`, `server/routes/runs.routes.ts`,
-  `client/src/hooks/runner/useRunNavigation.ts`,
+- **Must follow SECT-8A and SECT-8B** (persisted reached state + the rendered
+  rail it makes interactive).
+- Load the `design` skill for the interactive/hover/focus states the rail's
+  items gain, plus `run-tests`.
+- File footprint: `client/src/hooks/runner/useRunNavigation.ts`,
   `client/src/pages/WorkflowRunner.tsx`,
-  `client/src/components/runner/RunnerSectionNav.tsx`.
+  `client/src/components/runner/RunnerSectionNav.tsx`, and
+  `client/src/components/preview/`.
 - Read `tickets/backlog/WORKFLOW_MAP.md` D-5: backward *navigation* is a runner
   feature (this ticket), while a backward `skip_to` **rule** stays a
   publish-blocking error. Do not "fix" the latter here.
 
 ### Vertical proof
 
-- **Path:** start a run → advance through pages 1→2→3 (each appending to
-  `visited_page_ids`) → the rail shows 1–3 reached and 4+ greyed → click page 1
-  → the view moves back, un-flushed answers on page 3 are persisted first →
-  reload the browser → the run resumes with the same reached set and the rail is
-  unchanged.
-- **Real, not mocked:** the DB write of `visited_page_ids`, and the reload. The
-  reload is the hop that proves reachedness is persisted rather than held in
-  component state — which is the whole point of the column.
-- **Cross-tenant denial:** `POST /api/runs/:runId/next` with another tenant's run
-  id → 404, and `visited_page_ids` on the victim run is unchanged.
-- **Suite:** `tests/integration/` for the persistence + resume path;
-  `tests/unit/client/` for the jump guards.
+- **Path:** load SECT-8A's persisted reached set → rail shows reached pages as
+  enabled and future pages disabled → type without blurring → click a reached
+  page → pending answer saves before the view moves → reload → reached state is
+  unchanged and the server's forward resume position remains authoritative.
+- **Real, not mocked:** the autosave transport in the live drive-through. DB
+  persistence/reload itself was closed by SECT-8A and is not reimplemented here.
+- **Cross-tenant denial:** N/A — this ticket adds no endpoint or data access;
+  state that explicitly in the turn-in.
+- **Suite:** `tests/unit/client/` for jump guards and preview parity, plus live
+  proof through the local app.
 
 ### Acceptance criteria
 
-1. `workflow_runs.visited_page_ids` exists (`uuid[]`, default empty) with a
-   `0026_*` migration authored via `npm run db:generate`, and is appended
-   server-side whenever a run enters a page.
-2. Reached state survives a page reload and a resume-link resume — proven by a
-   test that reloads rather than by inspecting component state.
-3. `jumpToPage(pageId)` exists on `useRunNavigation`, flushes pending autosaves
+1. `jumpToPage(pageId)` exists on `useRunNavigation`, flushes pending autosaves
    before moving, and does **not** call `submitSection` or `next`.
-4. Clicking a reached page in the rail navigates to it; clicking a Section lands
+2. Clicking a reached page in the rail navigates to it; clicking a Section lands
    on its first reached page; unreached targets are refused by `jumpToPage`
    itself, not only by the rail's disabled state. A unit test calls
    `jumpToPage` with an unreached id directly and asserts no navigation occurs.
-5. The Review screen's existing edit-an-answer jump is re-implemented on top of
+3. The Review screen's existing edit-an-answer jump is re-implemented on top of
    `jumpToPage` and still returns to Review after Next
    (`returnToReviewAfterNext`) — an existing behavior that must not regress.
-6. Preview mode supports jumping with identical semantics to production; a test
-   exercises the preview transport branch, not only the production one.
-7. Un-flushed answers on the page being left are persisted before the jump — a
+4. Preview mode consumes SECT-8B's in-memory reached set and supports jumping
+   with identical guards to production; a test exercises the preview branch,
+   not only production.
+5. Un-flushed answers on the page being left are persisted before the jump — a
    test types into a field and jumps without blurring, then asserts the value
    was saved.
-8. The Vertical proof path passes end to end in the integration project with the
-   DB write and the reload unmocked, including the cross-tenant denial case.
-9. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
-   `npm run test:fast`, `test:unit` and `test:integration` green.
+6. The Vertical proof path passes through the local app with autosave unmocked.
+7. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
+   `npm run test:fast` and `test:unit` green.
 
 ---
 
 ## Phase 4 Gate
 
-- [ ] SECT-8 and SECT-9 ✅ with dated verification notes
+- [ ] SECT-8A, SECT-8B and SECT-9 ✅ with dated verification notes
 - [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
 - [ ] Full suite green: `test:fast`, `test:unit`, `test:integration`
 - [ ] **One batched live drive-through:** a published ~15-page workflow with
@@ -1416,7 +1609,7 @@ these are deliberate v1 exclusions, not oversights.
 - **SECT-B1 — Review screen grouped by Section.** `ReviewSection.tsx` lists
   every answer flat. Once Sections exist, grouping the review by Section is the
   obvious follow-on, and it is where a respondent checking a 100-page petition
-  actually spends their time. Deliberately out of Phase 4 to keep SECT-8/9
+  actually spends their time. Deliberately out of Phase 4 to keep SECT-8B/9
   reviewable.
 
 - **SECT-B2 — `logic_rules` targeting a Section.** D-8 restricts v1 to
@@ -1444,7 +1637,7 @@ these are deliberate v1 exclusions, not oversights.
 
 - **SECT-B6 — Per-Section progress in the runner header.** The header shows
   `Step N of M` over the whole workflow. With Sections, "Page 3 of 11 in Assets"
-  is a better signal. Left out of SECT-8 to keep that ticket's scope on the rail
+  is a better signal. Left out of SECT-8B to keep that ticket's scope on the rail
   itself.
 
 ---
@@ -1458,47 +1651,31 @@ Per the ticket-flow skill's Size-L rule, flagged to the repo owner before dispat
 | **SECT-1** | L | ~511 files. **Indivisible** — a half-applied rename leaves the tree red, and splitting it by layer manufactures exactly the seam this process warns about. Recommendation: keep as one ticket, dispatch alone in a dedicated worktree with every other board paused, and budget a full day. The Drizzle name-pinning is what keeps it from also being a migration. |
 | **SECT-3** | L | Schema + service + repository + routes + a non-trivial invariant. **Could** be split into "table + CRUD" and "reorder + contiguity", but the contiguity rule is the only interesting part and splitting it would land a reorder endpoint that permits invalid states. Recommendation: keep whole; if it runs long, the fallback split is by endpoint group, never by layer. |
 | **SECT-7** | L | Four consumers must stay in parity (engine, server, client, simulator), and MAP-7's parity invariant makes partial delivery worse than none. Recommendation: keep whole. |
-| **SECT-8** | L | Restructures the runner's layout shell *and* adds a new component *and* carries responsive + branding + a11y obligations. Recommendation: keep whole — the layout change and the rail are one design problem, and splitting them ships a rail into a shell that cannot hold it. SECT-9 already carries the interactive half. |
+| **SECT-8B** | L | Restructures the runner's layout shell *and* adds a new component *and* carries responsive + branding + a11y obligations. Recommendation: keep whole — the layout change and the rail are one design problem. SECT-8A now supplies reached state first; SECT-9 carries the interactive half. |
 
-## Ordering against the other open boards — settled 2026-08-18
+## Ordering against the other boards — refreshed 2026-08-23
 
-Phase 0 invalidates the quoted-code anchors of any board touching the same
-files, so the repo owner ruled on the order rather than leaving it to dispatch:
+The RLS implementation is complete in code and deployed to the test server.
+Human acceptance there and the later production promotion continue on their own
+operational track; per the repo owner's 2026-08-23 ruling, they do **not** block
+work on this epic in `dev`. SECT-3 must use the now-established RLS pattern for
+its new tenant table rather than copying an early migration.
+
+Template Marketplace and the Roadmap board are retired and impose no remaining
+ordering constraint. The active order is therefore:
 
 ```
-1. RLS-1 → RLS-2 → RLS-3 → RLS-4 → RLS-5     ENVIRONMENTS_AND_RLS_TICKETS.md
-2. ~~TM-5~~                                   ✅ DONE 2026-08-18, board retired
-3. SECT-1 → SECT-2                            the rename
-4. SECT-3..9                                  the feature
-5. SECT-10                                    docs, last
+1. SECT-1 → SECT-2                  vocabulary + physical rename
+2. SECT-3 → SECT-4                  persistence and travel
+3. SECT-5 → SECT-6                  builder authoring
+4. SECT-7                           visibility
+5. SECT-8A → SECT-8B → SECT-9       reached state, rail, interaction
+6. SECT-10                          docs, last
 ```
 
-**Step 2 is closed.** TM-1..5 all shipped and the board retired into
-`backlog/TEMPLATE_MARKETPLACE.md` on 2026-08-18, so **RLS Phase 2 is the only thing standing
-between here and the rename.** RLS Phase 2 is itself blocked on the repo owner ruling on
-RLS-2's transaction shape.
-
-**RLS Phase 2 goes first**, for three reasons:
-
-1. It is the more valuable work. Measured against production 2026-08-12: 24 of
-   26 tenant-bearing tables have no RLS at all, and the 9 policies that do exist
-   are bypassed because the app connects as the table owner with no `FORCE`.
-   Tenant isolation in production is service-layer discipline alone.
-2. **SECT-3 adds a new tenant-scoped table** (`sections`) that needs an RLS
-   policy — its AC3 says so. Writing that against an established, working pattern
-   is far easier than against the current half-state.
-3. **RLS-3 and SECT-2 both rewrite the `sections` RLS policies.** RLS first means
-   SECT-2 simply renames what RLS-3 established; SECT first means RLS-3 gets
-   re-authored mid-flight against renamed tables.
-
-**TM-5 goes second** because it re-types `TemplateManifest.workflow` as the
-`graph_json` shape, whose `sections` key SECT-1 renames. It is Size S; doing it
-before the rename is cheaper than re-anchoring it after.
-
-Unblocked at any point, colliding with nothing here: **ENV-1** and **ENV-3**
-remainders (`.env.example`, a `db:push` smoke check, one live prod-download
-proof) and **TM-3/TM-4** (marketplace install).
-
-The Roadmap epics board retired on 2026-08-18 → `tickets/backlog/ROADMAP.md`,
-so it is no longer a scheduling constraint. Its one evidence-backed open ticket
-came here as SECT-10.
+The migration head is `0036` at this refresh. This board reserves `0037` for
+SECT-1's enum value rename, `0038` for SECT-2's physical page rename, `0039`
+for SECT-3's new Sections table, and `0040` for SECT-8A's reached-page state.
+Before dispatching each migration ticket, confirm no intervening migration has
+landed; if one has, renumber the remaining reservations together and update
+their acceptance criteria before the dev starts.

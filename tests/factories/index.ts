@@ -24,7 +24,7 @@ import type {
   organizations,
   projects,
   workflows,
-  sections,
+  pages,
   steps,
   workflowRuns,
   stepValues,
@@ -38,7 +38,7 @@ type Tenant = typeof tenants.$inferSelect;
 type Organization = typeof organizations.$inferSelect;
 type Project = typeof projects.$inferSelect;
 type Workflow = typeof workflows.$inferSelect;
-type Section = typeof sections.$inferSelect;
+type Page = typeof pages.$inferSelect;
 type Step = typeof steps.$inferSelect;
 type WorkflowRun = typeof workflowRuns.$inferSelect;
 type StepValue = typeof stepValues.$inferSelect;
@@ -203,15 +203,15 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): Omit<Work
 }
 
 /**
- * Creates a test section (page) for a workflow
- * @param overrides Partial section properties to override defaults
- * @returns Section object ready for database insertion
+ * Creates a test page (page) for a workflow
+ * @param overrides Partial page properties to override defaults
+ * @returns Page object ready for database insertion
  */
-export function createTestSection(overrides?: DeepPartial<Section>): Omit<Section, 'id' | 'createdAt' | 'updatedAt'> {
+export function createTestPage(overrides?: DeepPartial<Page>): Omit<Page, 'id' | 'createdAt' | 'updatedAt'> {
   const uniqueId = nanoid(8);
   return {
     workflowId: overrides?.workflowId || uuidv4(), // Fix: wf-${uniqueId} -> uuidv4
-    title: overrides?.title || `Section ${uniqueId}`,
+    title: overrides?.title || `Page ${uniqueId}`,
     description: overrides?.description || null,
     order: overrides?.order ?? 0,
     visibleIf: overrides?.visibleIf || null,
@@ -222,7 +222,7 @@ export function createTestSection(overrides?: DeepPartial<Section>): Omit<Sectio
 }
 
 /**
- * Creates a test step (question/action) for a section
+ * Creates a test step (question/action) for a page
  * @param overrides Partial step properties to override defaults
  * @returns Step object ready for database insertion
  */
@@ -231,7 +231,7 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
 
   return {
     workflowId: overrides?.workflowId || uuidv4(),
-    sectionId: overrides?.sectionId || uuidv4(), // Fix: sec-${uniqueId} -> uuidv4
+    pageId: overrides?.pageId || uuidv4(), // Fix: page-${uniqueId} -> uuidv4
     type: overrides?.type || 'short_text',
     title: overrides?.title || `Step ${uniqueId}`,
     description: overrides?.description || null,
@@ -267,7 +267,7 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     progress: 0,
     completed: false,
     completedAt: null,
-    currentSectionId: null,
+    currentPageId: null,
     metadata: {},
     clientEmail: null,
     assignedToUserId: null,
@@ -313,7 +313,7 @@ export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<Lo
     when: overrides?.when ?? buildTestWhen(conditionStepId, 'equals', 'test_value'),
     targetType: overrides?.targetType || 'step',
     targetStepId: overrides?.targetStepId || uuidv4(),
-    targetSectionId: overrides?.targetSectionId || null,
+    targetPageId: overrides?.targetPageId || null,
     action: overrides?.action || 'show',
     order: overrides?.order ?? 1,
   };
@@ -326,14 +326,14 @@ export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<Lo
 export function createTestTransformBlock(overrides?: DeepPartial<TransformBlock>): Omit<TransformBlock, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     workflowId: overrides?.workflowId || uuidv4(),
-    sectionId: overrides?.sectionId || null,
+    pageId: overrides?.pageId || null,
     name: overrides?.name || `Transform ${nanoid(6)}`,
     code: overrides?.code || 'emit({ result: input.value * 2 });',
     language: overrides?.language || 'javascript',
     inputKeys: (overrides?.inputKeys as string[]) || ['value'],
     outputKey: overrides?.outputKey || 'doubled',
     virtualStepId: overrides?.virtualStepId || null,
-    phase: overrides?.phase || 'onSectionSubmit',
+    phase: overrides?.phase || 'onPageSubmit',
     enabled: overrides?.enabled ?? true,
     order: overrides?.order ?? 0,
     timeoutMs: overrides?.timeoutMs || 1000,
@@ -363,21 +363,21 @@ export function createTestProjects(count: number, overrides?: DeepPartial<Projec
 }
 
 /**
- * Creates multiple test sections at once
- * @param count Number of sections to create
- * @param workflowId Workflow ID to associate sections with
- * @param overrides Common overrides for all sections
+ * Creates multiple test pages at once
+ * @param count Number of pages to create
+ * @param workflowId Workflow ID to associate pages with
+ * @param overrides Common overrides for all pages
  */
-export function createTestSections(
+export function createTestPages(
   count: number,
   workflowId: string,
-  overrides?: DeepPartial<Section>
-): Array<Omit<Section, 'id' | 'createdAt' | 'updatedAt'>> {
+  overrides?: DeepPartial<Page>
+): Array<Omit<Page, 'id' | 'createdAt' | 'updatedAt'>> {
   return Array.from({ length: count }, (_, index) =>
-    createTestSection({
+    createTestPage({
       workflowId,
       order: index,
-      title: `Section ${index + 1}`,
+      title: `Page ${index + 1}`,
       ...overrides,
     })
   );
@@ -386,18 +386,18 @@ export function createTestSections(
 /**
  * Creates multiple test steps at once
  * @param count Number of steps to create
- * @param sectionId Section ID to associate steps with
+ * @param pageId Page ID to associate steps with
  * @param overrides Common overrides for all steps
  */
 export function createTestSteps(
   count: number,
-  sectionId: string,
+  pageId: string,
   overrides?: DeepPartial<Step>
 ): Array<Omit<Step, 'id' | 'createdAt' | 'updatedAt'>> {
   const workflowId = overrides?.workflowId || uuidv4();
   return Array.from({ length: count }, (_, index) =>
     createTestStep({
-      sectionId,
+      pageId,
       workflowId,
       order: index,
       alias: `step_${index + 1}`,

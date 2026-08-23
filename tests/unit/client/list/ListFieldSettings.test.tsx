@@ -197,7 +197,7 @@ describe('ListFieldSettings — visibility scoped to sibling fields (LIST2-7 AC6
   // rendering LogicBuilder directly (fed the sibling list via its injected
   // `variables` prop). LogicBuilder commits on an explicit "Apply Changes"
   // click rather than per-toggle, matching how VisibilityField.tsx /
-  // SectionLogicSheet.tsx already behave for steps/sections.
+  // PageLogicSheet.tsx already behave for steps/pages.
   it('enabling conditional visibility, picking a sibling operand, and applying round-trips an expression through onChange', async () => {
     const field = questionField({ id: 'f1', alias: 'target', title: 'Target', order: 1, type: 'short_text' });
     const sibling = questionField({ id: 'f0', alias: 'trigger', title: 'Trigger', order: 0, type: 'short_text' });

@@ -27,7 +27,7 @@ vi.mock('../../../client/src/lib/vault-hooks', () => ({
 
 const CLEAN_PREVIEW = {
   canProceed: true,
-  entityCounts: { workflows: 1, sections: 2, steps: 9 },
+  entityCounts: { workflows: 1, pages: 2, steps: 9 },
   collisions: [],
   requiresReentry: [],
   hasExecutableCode: false,
@@ -37,7 +37,7 @@ const CLEAN_PREVIEW = {
 
 const LOADED_PREVIEW = {
   canProceed: true,
-  entityCounts: { workflows: 1, sections: 2, steps: 9, transform_blocks: 2, lifecycle_hooks: 1 },
+  entityCounts: { workflows: 1, pages: 2, steps: 9, transform_blocks: 2, lifecycle_hooks: 1 },
   collisions: [
     { entity: 'workflows', name: 'Client Intake', type: 'workflow' },
     { entity: 'datavault_tables', name: 'states-ab12', type: 'table_slug' },

@@ -13,7 +13,7 @@
  * rather than synced: a mirror could only ever have been accidentally right.
  *
  * O-11: the preview fields went the same way. `startPreview` had no callers, so
- * `isPreviewOpen` was always false, so SectionsTab's inline preview pane never
+ * `isPreviewOpen` was always false, so PagesTab's inline preview pane never
  * rendered, so `RunnerPreview` never mounted and its `stopPreview` never fired
  * — a whole cluster kept alive only by references between its own dead parts.
  * `PreviewRunner` (rendered from WorkflowBuilder) is the live preview, so the
@@ -24,7 +24,7 @@
 
 import { create } from "zustand";
 
-export type EntityType = "workflow" | "section" | "step" | "block";
+export type EntityType = "workflow" | "page" | "step" | "block";
 export type InspectorTab = "properties" | "blocks" | "logic" | "transform";
 
 interface Selection {
@@ -35,7 +35,7 @@ interface Selection {
 interface WorkflowBuilderState {
   // Selection
   selection: Selection | null;
-  selectSection: (id: string) => void;
+  selectPage: (id: string) => void;
   selectStep: (id: string) => void;
   selectBlock: (id: string) => void;
 
@@ -47,7 +47,7 @@ interface WorkflowBuilderState {
 export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
   // Selection
   selection: null,
-  selectSection: (id) => set({ selection: { type: "section", id } }),
+  selectPage: (id) => set({ selection: { type: "page", id } }),
   selectStep: (id) => set({ selection: { type: "step", id } }),
   selectBlock: (id) => set({ selection: { type: "block", id } }),
 

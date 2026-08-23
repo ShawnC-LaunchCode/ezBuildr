@@ -156,23 +156,23 @@ async function main(): Promise<void> {
   await ok(wfRes, 'create workflow');
   const workflow = await wfRes.json() as { id: string };
 
-  const secRes = await fetch(`${BASE}/api/workflows/${workflow.id}/sections`, {
+  const pageResponse = await fetch(`${BASE}/api/workflows/${workflow.id}/pages`, {
     method: 'POST', headers: JH, body: JSON.stringify({ title: 'Applicant Details', order: 0 })
   });
-  await ok(secRes, 'create section');
-  const section = await secRes.json() as { id: string; title: string };
+  await ok(pageResponse, 'create page');
+  const page = await pageResponse.json() as { id: string; title: string };
 
   const sourceStepIds: string[] = [];
   const stepTitles = ['Full name', 'Email address'];
   for (const [i, title] of stepTitles.entries()) {
-    const stepRes = await fetch(`${BASE}/api/workflows/${workflow.id}/sections/${section.id}/steps`, {
+    const stepRes = await fetch(`${BASE}/api/workflows/${workflow.id}/pages/${page.id}/steps`, {
       method: 'POST', headers: JH, body: JSON.stringify({ type: 'text', title, order: i })
     });
     await ok(stepRes, `create step "${title}"`);
     const step = await stepRes.json() as { id: string };
     sourceStepIds.push(step.id);
   }
-  log(`2. source workflow ${workflow.id} with section "${section.title}" and ${stepTitles.length} steps`);
+  log(`2. source workflow ${workflow.id} with page "${page.title}" and ${stepTitles.length} steps`);
 
   // ---------------------------------------------------------------------------
   // IEX2-15 Seeding Requirements:
@@ -249,7 +249,7 @@ async function main(): Promise<void> {
   // 4. Add secret_scan warning generator and reference-mapped blocks
   const [extBlock] = await db.insert(schema.blocks).values({
     workflowId: workflow.id,
-    sectionId: section.id,
+    pageId: page.id,
     type: 'external_send',
     phase: 'onNext',
     config: { headers: [], bodyTemplate: 'My secret is sk-1234567890abcdefABCDEF' }
@@ -266,7 +266,7 @@ async function main(): Promise<void> {
 
   const [transformBlock] = await db.insert(schema.transformBlocks).values({
     workflowId: workflow.id,
-    sectionId: section.id,
+    pageId: page.id,
     name: 'test_transform',
     language: 'javascript',
     code: 'return {};',
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
   log(`   seeded datavault, blocks with secrets, logic rules and transform blocks`);
 
   const sourceIds = new Set([
-    project.id, workflow.id, section.id, ...sourceStepIds,
+    project.id, workflow.id, page.id, ...sourceStepIds,
     version.id, template.id,
     dvDb.id, dvTable.id, dvCol.id, dvRow1.id, dvRow2.id, dvRow3.id,
     extBlock.id, logicRule.id, transformBlock.id
@@ -375,42 +375,42 @@ async function main(): Promise<void> {
   }
 
   // Read both workflows back through the endpoints the builder itself calls.
-  const readSections = async (id: string): Promise<Array<{ id: string; title: string }>> => {
-    const r = await fetch(`${BASE}/api/workflows/${id}/sections`, { headers: H });
-    await ok(r, 'read sections');
+  const readPages = async (id: string): Promise<Array<{ id: string; title: string }>> => {
+    const r = await fetch(`${BASE}/api/workflows/${id}/pages`, { headers: H });
+    await ok(r, 'read pages');
     return await r.json() as Array<{ id: string; title: string }>;
   };
 
-  const sourceSections = await readSections(workflow.id);
-  const importedSections = await readSections(appliedRootId);
+  const sourcePages = await readPages(workflow.id);
+  const importedPages = await readPages(appliedRootId);
 
   let importedStepCount = 0;
-  for (const s of importedSections) {
-    const r = await fetch(`${BASE}/api/sections/${s.id}/steps`, { headers: H });
+  for (const s of importedPages) {
+    const r = await fetch(`${BASE}/api/pages/${s.id}/steps`, { headers: H });
     await ok(r, 'read steps');
-    const steps = await r.json() as Array<{ id: string; title: string; sectionId: string }>;
+    const steps = await r.json() as Array<{ id: string; title: string; pageId: string }>;
     importedStepCount += steps.length;
     const titles = steps.map(x => `"${x.title}"`).join(', ');
     log(`   "${s.title}" -> ${steps.length} step(s): ${titles}`);
     for (const st of steps) {
-      if (st.sectionId !== s.id) {throw new Error('FAIL: imported step points at the wrong section');}
+      if (st.pageId !== s.id) {throw new Error('FAIL: imported step points at the wrong page');}
       if (sourceIds.has(st.id)) {throw new Error('FAIL: imported step reused a source id');}
     }
   }
 
-  const sourceTitles = sourceSections.map(s => s.title).sort().join('|');
-  const importedTitles = importedSections.map(s => s.title).sort().join('|');
+  const sourceTitles = sourcePages.map(s => s.title).sort().join('|');
+  const importedTitles = importedPages.map(s => s.title).sort().join('|');
   if (sourceTitles !== importedTitles) {
-    throw new Error(`FAIL: section titles differ. source=[${sourceTitles}] imported=[${importedTitles}]`);
+    throw new Error(`FAIL: page titles differ. source=[${sourceTitles}] imported=[${importedTitles}]`);
   }
   if (importedStepCount !== stepTitles.length) {
     throw new Error(`FAIL: expected ${stepTitles.length} steps, got ${importedStepCount}`);
   }
-  for (const s of sourceSections) {
+  for (const s of sourcePages) {
     sourceIds.add(s.id);
   }
-  for (const s of importedSections) {
-    if (sourceIds.has(s.id)) {throw new Error('FAIL: imported section reused a source id');}
+  for (const s of importedPages) {
+    if (sourceIds.has(s.id)) {throw new Error('FAIL: imported page reused a source id');}
   }
 
   const auditRows = await db.select().from(schema.auditLogs).where(eq(schema.auditLogs.userId, user.id));
@@ -428,7 +428,7 @@ async function main(): Promise<void> {
   log(`  IMPORTED builder: ${BASE}/workflows/${appliedRootId}/builder`);
   log('─────────────────────────────────────────────────────────────');
   log('  Screenshot the IMPORTED builder URL: it must show the same');
-  log('  sections and steps as the source, with different ids.');
+  log('  pages and steps as the source, with different ids.');
 
   // Teardown is opt-out, not unconditional (IEX3-B6). It used to drop the
   // tenant immediately after printing the credentials and URLs above, which

@@ -55,7 +55,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
       ownerUuid: ctx.userId,
     }).returning();
 
-    const [section] = await getOwnerDb().insert(schema.sections).values({
+    const [page] = await getOwnerDb().insert(schema.pages).values({
       workflowId: workflow.id,
       title: 'Page One',
       order: 0,
@@ -63,7 +63,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
 
     const [controllerStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
-      sectionId: section.id,
+      pageId: page.id,
       type: 'yes_no',
       title: 'Has pets?',
       alias: 'has_pets',
@@ -72,7 +72,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
 
     const [targetStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
-      sectionId: section.id,
+      pageId: page.id,
       type: 'short_text',
       title: 'Pet name',
       alias: 'pet_name',

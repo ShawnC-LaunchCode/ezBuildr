@@ -1,5 +1,5 @@
 /**
- * SectionsTab - Main workflow section/step builder view
+ * PagesTab - Main workflow page/step builder view
  * This is the default/primary builder interface
  */
 
@@ -8,14 +8,14 @@ import { SidebarTree } from "@/components/builder/SidebarTree";
 import { DevPanel } from "@/components/devpanel/DevPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
-interface SectionsTabProps {
+interface PagesTabProps {
   workflowId: string;
   mode: "easy" | "advanced";
 }
 
 const SIDEBAR_WIDTH_KEY = "builder-sidebar-width";
 
-export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
+export function PagesTab({ workflowId, mode }: PagesTabProps) {
   // Restore from localStorage or use default (20% of width)
   const defaultLayout = [20, 80];
   try {
@@ -31,14 +31,14 @@ export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
       }
     }
   } catch (e) {
-    console.warn("[SectionsTab] Failed to restore sidebar width from localStorage:", e);
+    console.warn("[PagesTab] Failed to restore sidebar width from localStorage:", e);
   }
 
   const handleLayoutChange = (sizes: number[]) => {
     try {
       localStorage.setItem(SIDEBAR_WIDTH_KEY, JSON.stringify(sizes));
     } catch (e) {
-      console.warn("[SectionsTab] Failed to save sidebar width to localStorage:", e);
+      console.warn("[PagesTab] Failed to save sidebar width to localStorage:", e);
     }
   };
 
@@ -48,7 +48,7 @@ export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
       className="flex-1"
       onLayout={handleLayoutChange}
     >
-      {/* Sidebar - Section/Step Tree */}
+      {/* Sidebar - Page/Step Tree */}
       <ResizablePanel
         defaultSize={defaultLayout[0]}
         minSize={15}

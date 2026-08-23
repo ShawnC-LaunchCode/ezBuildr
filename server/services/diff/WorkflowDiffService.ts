@@ -21,8 +21,7 @@ export interface WorkflowDiff {
 }
 
 type WorkflowData = {
-    pages?: { blocks?: WorkflowBlock[] }[];
-    sections?: { steps?: WorkflowBlock[] }[];
+    pages?: { blocks?: WorkflowBlock[]; steps?: WorkflowBlock[] }[];
 };
 
 export class WorkflowDiffService {
@@ -86,15 +85,11 @@ export class WorkflowDiffService {
     private flattenBlocks(workflow: WorkflowData): Map<string, WorkflowBlock> {
         const map = new Map<string, WorkflowBlock>();
         if (workflow.pages) {
-            workflow.pages.forEach((p) => {
-                p.blocks?.forEach((b) => {
+            workflow.pages.forEach((page) => {
+                page.blocks?.forEach((b) => {
                     map.set(b.id, b);
                 });
-            });
-        }
-        if (workflow.sections) {
-            workflow.sections.forEach((s) => {
-                s.steps?.forEach((b) => {
+                page.steps?.forEach((b) => {
                     map.set(b.id, b);
                 });
             });

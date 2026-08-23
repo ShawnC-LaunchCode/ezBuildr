@@ -8,7 +8,7 @@ import { BundleReader } from '../../../server/services/portability/bundleReader'
 import {
   externalConnections,
   workflows,
-  sections,
+  pages,
   steps,
   blocks,
   transformBlocks,
@@ -71,8 +71,8 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
         .returning();
       testWorkflowId = workflow.id;
 
-      const [section] = await insert(sections)
-        .values({ workflowId: testWorkflowId, title: 'Section', order: 1 })
+      const [page] = await insert(pages)
+        .values({ workflowId: testWorkflowId, title: 'Page', order: 1 })
         .returning();
 
       // Project-scoped: a header bag with one credential-ish and one benign header.
@@ -89,9 +89,9 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
       // Workflow-scoped: the external_send block's own free-form header bag.
       await insert(blocks).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'external_send',
-        phase: 'onSectionSubmit',
+        phase: 'onPageSubmit',
         config: { 
           headers: [{ key: 'Authorization', value: BLOCK_HEADER_SENTINEL }],
           auth: { token: BLOCK_AUTH_SENTINEL }
@@ -101,7 +101,7 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
 
       await insert(steps).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'text',
         title: 'Step with secret',
         order: 1,
@@ -116,18 +116,18 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
 
       await insert(transformBlocks).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         name: 'Transform',
         language: 'javascript',
         outputKey: 'transform_out',
         code: `const token = "${TRANSFORM_SENTINEL}";`,
-        phase: 'onSectionSubmit',
+        phase: 'onPageSubmit',
         order: 1,
       });
 
       await insert(lifecycleHooks).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         name: 'Lifecycle',
         language: 'javascript',
         code: `const credential = "${LIFECYCLE_SENTINEL}";`,

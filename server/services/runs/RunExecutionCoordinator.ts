@@ -22,20 +22,20 @@ export class RunExecutionCoordinator {
         private persistence = runPersistenceWriter,
         private logicSvc = logicService,
         private workflowRepo = workflowRepository,
-        // RVP-3: resolves the run so its sections/steps/logic-rules can be
+        // RVP-3: resolves the run so its pages/steps/logic-rules can be
         // sourced from `definitionProvider` below (the pinned version's
         // graph when the run has one, the live tables otherwise), instead of
-        // each helper independently re-reading `stepRepo`/`sectionRepo` --
+        // each helper independently re-reading `stepRepo`/`pageRepo` --
         // see tickets/RUN_VERSION_PINNING_TICKETS.md, RVP-3.
         private runRepo = workflowRunRepository,
         private definitionProvider: RunDefinitionProvider = runDefinitionProvider
     ) { }
 
     /**
-     * Resolve the run and its sections/steps/logic-rules from
+     * Resolve the run and its pages/steps/logic-rules from
      * `RunDefinitionProvider` (RVP-1): the pinned version's graph when the
      * run has one, the live tables otherwise (`source: 'live'`). Every
-     * helper below that used to read `stepRepo`/`sectionRepo` directly now
+     * helper below that used to read `stepRepo`/`pageRepo` directly now
      * goes through this, so a live workflow edit cannot desync an in-flight
      * run's server-side decisions from what the respondent was actually
      * shown (RVP-3).
@@ -49,16 +49,16 @@ export class RunExecutionCoordinator {
     }
 
     /**
-     * Calculate next step/section
+     * Calculate next step/page
      */
-    async next(context: ExecutionContext, currentSectionId: string | null): Promise<NavigationResult> {
+    async next(context: ExecutionContext, currentPageId: string | null): Promise<NavigationResult> {
         const { runId, workflowId, mode } = context;
         const definition = await this.getDefinition(context);
         // Get current data
         const dataMap = await this.persistence.getRunValues(runId);
-        // 1. Execute JS Questions for current section (if any)
-        if (currentSectionId) {
-            await this.executeJsQuestions(currentSectionId, dataMap, context, definition);
+        // 1. Execute JS Questions for current page (if any)
+        if (currentPageId) {
+            await this.executeJsQuestions(currentPageId, dataMap, context, definition);
         }
         // 2. Execute onNext blocks
         // Note: BlockRunner still needs refactoring to accept Mode, but for now we pass context
@@ -68,14 +68,14 @@ export class RunExecutionCoordinator {
             workflowId,
             runId,
             phase: "onNext",
-            sectionId: currentSectionId ?? undefined,
+            pageId: currentPageId ?? undefined,
             data: dataMap,
             mode, // Pass execution mode
             aliasMap,
         });
         // 3. Determine Navigation
         // Compute the logic engine's navigation first. It is the source of
-        // truth for visibleSections/visibleSteps/requiredSteps/currentProgress
+        // truth for visiblePages/visibleSteps/requiredSteps/currentProgress
         // in BOTH branches below, and it also validates a branch block's
         // target: block config is author-controlled JSONB, so a stale or
         // typo'd id must never be written to the run's cursor unchecked
@@ -84,25 +84,25 @@ export class RunExecutionCoordinator {
         const computedNavigation = await this.logicSvc.evaluateNavigation(
             workflowId,
             runId,
-            currentSectionId
+            currentPageId
         );
         let navigation: NavigationResult;
-        if (blockResult.nextSectionId && computedNavigation.visibleSections.includes(blockResult.nextSectionId)) {
+        if (blockResult.nextPageId && computedNavigation.visiblePages.includes(blockResult.nextPageId)) {
             navigation = {
                 ...computedNavigation,
-                nextSectionId: blockResult.nextSectionId,
+                nextPageId: blockResult.nextPageId,
             };
         } else {
-            if (blockResult.nextSectionId) {
+            if (blockResult.nextPageId) {
                 logger.warn(
                     {
                         workflowId,
                         runId,
-                        sectionId: currentSectionId,
-                        invalidNextSectionId: blockResult.nextSectionId,
-                        ...(blockResult.nextSectionBlockId ? { blockId: blockResult.nextSectionBlockId } : {}),
+                        pageId: currentPageId,
+                        invalidNextPageId: blockResult.nextPageId,
+                        ...(blockResult.nextPageBlockId ? { blockId: blockResult.nextPageBlockId } : {}),
                     },
-                    "Branch block targeted a section that is not visible in this workflow; falling back to computed navigation"
+                    "Branch block targeted a page that is not visible in this workflow; falling back to computed navigation"
                 );
             }
             navigation = computedNavigation;
@@ -111,33 +111,33 @@ export class RunExecutionCoordinator {
         // Coordinator returns the result, caller (RunService façade) might save state?
         // Or Coordinator delegates to Persistence?
         // Let's delegate to Persistence to keep it "Coordinator"
-        if (navigation.nextSectionId !== currentSectionId) {
+        if (navigation.nextPageId !== currentPageId) {
             await this.persistence.updateRun(runId, {
-                currentSectionId: navigation.nextSectionId,
+                currentPageId: navigation.nextPageId,
                 progress: navigation.currentProgress
             });
         }
         return navigation;
     }
     /**
-     * Submit data for a section
+     * Submit data for a page
      */
-    async submitSection(
+    async submitPage(
         context: ExecutionContext,
-        sectionId: string,
+        pageId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const { runId, workflowId } = context;
         const definition = await this.getDefinition(context);
-        const steps = definition.steps.filter(step => step.sectionId === sectionId);
-        const sectionStepIds = new Set(steps.map(step => step.id));
+        const steps = definition.steps.filter(step => step.pageId === pageId);
+        const pageStepIds = new Set(steps.map(step => step.id));
         const acceptedValues = this.partitionSubmittedValues(
             values,
-            sectionStepIds,
+            pageStepIds,
             definition,
             context,
-            sectionId
+            pageId
         );
 
         // 1. Persist Values
@@ -163,20 +163,20 @@ export class RunExecutionCoordinator {
                 // entry per failing path.
                 return `${fieldName}${fieldPath}: ${err.errors[0]}`;
             });
-            logger.warn({ runId, sectionId, errors: errorMessages }, "Section validation failed");
+            logger.warn({ runId, pageId, errors: errorMessages }, "Page validation failed");
             return { success: false, errors: errorMessages };
         }
         // 4. Execute JS Questions
-        const jsResult = await this.executeJsQuestions(sectionId, dataMap, context, definition, aliasMap);
+        const jsResult = await this.executeJsQuestions(pageId, dataMap, context, definition, aliasMap);
         if (!jsResult.success) {
             return { success: false, errors: jsResult.errors };
         }
-        // 5. Execute onSectionSubmit blocks
+        // 5. Execute onPageSubmit blocks
         const blockResult = await blockRunner.runPhase({
             workflowId,
             runId,
-            phase: "onSectionSubmit",
-            sectionId,
+            phase: "onPageSubmit",
+            pageId,
             data: dataMap,
             mode: context.mode, // Pass execution mode
             aliasMap,
@@ -190,7 +190,7 @@ export class RunExecutionCoordinator {
      * Execute JS questions using ScriptEngine
      */
     private async executeJsQuestions(
-        sectionId: string,
+        pageId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dataMap holds dynamic workflow step values
         dataMap: Record<string, any>,
         context: ExecutionContext,
@@ -198,10 +198,10 @@ export class RunExecutionCoordinator {
         aliasMap?: Record<string, string>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const errors: string[] = [];
-        // Find JS questions in this section, sourced from the run's
-        // definition (RVP-3) rather than a fresh `stepRepo.findBySectionId`.
+        // Find JS questions in this page, sourced from the run's
+        // definition (RVP-3) rather than a fresh `stepRepo.findByPageId`.
         const jsQuestions = definition.steps.filter(
-            step => step.sectionId === sectionId && step.type === 'js_question'
+            step => step.pageId === pageId && step.type === 'js_question'
         );
         for (const step of jsQuestions) {
             if (step.config === null || step.config === undefined || !isJsQuestionConfig(step.config)) { continue; }
@@ -243,13 +243,13 @@ export class RunExecutionCoordinator {
      * Determine which steps are currently visible for the workflow, using the
      * same logic-rule + visibleIf engine (`evaluateWorkflowVisibility`) that
      * navigation (`LogicService.evaluateNavigation`) and completion
-     * (`LogicService.validateCompletion`) already use. Section submit must
+     * (`LogicService.validateCompletion`) already use. Page submit must
      * not compute visibility any other way — a second engine here is what
      * let hidden-required steps block submission (RUN2-1).
      *
      * RVP-3: sourced from the run's already-resolved definition (pinned
      * version or live tables via `RunDefinitionProvider`) instead of
-     * re-reading `sectionRepo`/`stepRepo`/`logicRuleRepo` directly, so this
+     * re-reading `pageRepo`/`stepRepo`/`logicRuleRepo` directly, so this
      * agrees with what navigation/completion decided for the same run.
      */
     private getVisibleStepIds(
@@ -257,7 +257,7 @@ export class RunExecutionCoordinator {
         data: Record<string, unknown>
     ): string[] {
         const visibility = evaluateWorkflowVisibility({
-            sections: definition.sections,
+            pages: definition.pages,
             steps: definition.steps,
             rules: definition.logicRules,
             data,
@@ -266,22 +266,22 @@ export class RunExecutionCoordinator {
         return Array.from(visibility.visibleSteps);
     }
     /**
-     * Split submitted values into what this section will persist (RUN2-15).
+     * Split submitted values into what this page will persist (RUN2-15).
      *
      * The client renders from the run's pinned version snapshot. Before
      * RVP-3, this check read the LIVE tables, so the two could disagree the
      * moment an author edited a published workflow. Three cases:
      *
-     *  - id is in this section  -> persist, as before.
-     *  - id belongs to a DIFFERENT section of this workflow -> still an error.
+     *  - id is in this page  -> persist, as before.
+     *  - id belongs to a DIFFERENT page of this workflow -> still an error.
      *    That is the mass-assignment case this guard exists for: a caller must
-     *    not write values into a section they are not on.
+     *    not write values into a page they are not on.
      *  - id exists nowhere on this workflow's definition -> the author deleted
      *    the question mid-run. Drop it with a warning and let the respondent
      *    continue; throwing here bricked them on that page with no way to
      *    recover.
      *
-     * RVP-3: `definition` (and therefore `sectionStepIds`/`workflowStepIds`)
+     * RVP-3: `definition` (and therefore `pageStepIds`/`workflowStepIds`)
      * now comes from `RunDefinitionProvider`. For a PINNED run this is the
      * exact snapshot the respondent's client rendered from, so a submitted id
      * absent from it entirely is unreachable in practice -- the client cannot
@@ -295,38 +295,38 @@ export class RunExecutionCoordinator {
     private partitionSubmittedValues(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>,
-        sectionStepIds: Set<string>,
+        pageStepIds: Set<string>,
         definition: RunDefinition,
         context: ExecutionContext,
-        sectionId: string
+        pageId: string
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mirrors the values parameter
     ): Array<{ stepId: string, value: any }> {
-        const unknownToSection = values.filter(value => !sectionStepIds.has(value.stepId));
-        if (unknownToSection.length === 0) {
+        const unknownToPage = values.filter(value => !pageStepIds.has(value.stepId));
+        if (unknownToPage.length === 0) {
             return values;
         }
 
         const workflowStepIds = this.getWorkflowStepIds(definition);
-        const crossSectionIds = unknownToSection
+        const crossPageIds = unknownToPage
             .map(value => value.stepId)
             .filter(stepId => workflowStepIds.has(stepId));
 
-        if (crossSectionIds.length > 0) {
+        if (crossPageIds.length > 0) {
             throw createError.validation(
-                `Section submit contains out-of-section stepIds: ${crossSectionIds.join(', ')}`,
-                { stepIds: crossSectionIds }
+                `Page submit contains out-of-page stepIds: ${crossPageIds.join(', ')}`,
+                { stepIds: crossPageIds }
             );
         }
 
-        const droppedIds = unknownToSection.map(value => value.stepId);
+        const droppedIds = unknownToPage.map(value => value.stepId);
         logger.warn(
-            { runId: context.runId, sectionId, workflowId: context.workflowId, droppedStepIds: droppedIds },
+            { runId: context.runId, pageId, workflowId: context.workflowId, droppedStepIds: droppedIds },
             'Dropping submitted values for steps that no longer exist on this workflow (edited mid-run)'
         );
-        return values.filter(value => sectionStepIds.has(value.stepId));
+        return values.filter(value => pageStepIds.has(value.stepId));
     }
 
-    /** Every step id on the run's definition, across all its sections. */
+    /** Every step id on the run's definition, across all its pages. */
     private getWorkflowStepIds(definition: RunDefinition): Set<string> {
         return new Set(definition.steps.map(step => step.id));
     }

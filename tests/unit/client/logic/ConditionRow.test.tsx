@@ -38,8 +38,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'First name',
     title: 'First name',
     type: 'short_text',
-    sectionId: 'sec1',
-    sectionTitle: 'Page 1',
+    pageId: 'sec1',
+    pageTitle: 'Page 1',
   },
   {
     id: 's2',
@@ -47,8 +47,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'When they signed up',
     title: 'When they signed up',
     type: 'date_time',
-    sectionId: 'sec2',
-    sectionTitle: 'Page 2',
+    pageId: 'sec2',
+    pageTitle: 'Page 2',
   },
 ];
 
@@ -78,7 +78,7 @@ describe('ConditionRow — operand picker is a searchable combobox (LU-4 AC1/AC2
       />
     );
 
-    // Grouping preserved: both section titles are present once opened.
+    // Grouping preserved: both page titles are present once opened.
     await user.click(screen.getAllByRole('combobox')[0]);
     expect(await screen.findByText('Page 1')).toBeInTheDocument();
     expect(screen.getByText('Page 2')).toBeInTheDocument();
@@ -156,8 +156,8 @@ describe('ConditionRow — type-aware value inputs are unchanged (LU-4 AC3)', ()
         label: 'Age',
         title: 'Age',
         type: 'computed',
-        sectionId: 'sec1',
-        sectionTitle: 'Page 1',
+        pageId: 'sec1',
+        pageTitle: 'Page 1',
       },
     ];
 

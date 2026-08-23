@@ -27,7 +27,7 @@ interface LogicIndicatorProps {
   /** Additional class names */
   className?: string;
   /** Element type for tooltip text */
-  elementType?: "section" | "question" | "page";
+  elementType?: "page" | "question";
 }
 export function LogicIndicator({
   visibleIf,

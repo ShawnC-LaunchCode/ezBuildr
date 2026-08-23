@@ -72,7 +72,7 @@ describe('generateMarketplaceBundles (TM-1)', () => {
       expect(reader.manifest.entityCounts.templates).toBe(1);
 
       // The bundle must actually be importable content, not just a valid
-      // envelope: at least one workflows/sections/steps row each.
+      // envelope: at least one workflows/pages/steps row each.
       const workflowRows: unknown[] = [];
       for await (const row of reader.readEntityStream('workflows')) {
         workflowRows.push(row);
@@ -144,7 +144,7 @@ describe('generateMarketplaceBundles (TM-1)', () => {
     it('rejects a missing required field, naming the file and the field', async () => {
       const { curatedDir, jsonPath } = writeFixture({
         // title missing entirely
-        sections: [{ title: 'A section', steps: [{ alias: 'a', type: 'short_text', title: 'A' }] }],
+        pages: [{ title: 'A page', steps: [{ alias: 'a', type: 'short_text', title: 'A' }] }],
       });
 
       await expect(
@@ -158,7 +158,7 @@ describe('generateMarketplaceBundles (TM-1)', () => {
     it('rejects an unknown top-level field, naming the file and the field', async () => {
       const { curatedDir, jsonPath } = writeFixture({
         title: 'Broken',
-        sections: [{ title: 'A section', steps: [{ alias: 'a', type: 'short_text', title: 'A' }] }],
+        pages: [{ title: 'A page', steps: [{ alias: 'a', type: 'short_text', title: 'A' }] }],
         notAField: true,
       });
 
@@ -171,14 +171,14 @@ describe('generateMarketplaceBundles (TM-1)', () => {
     it('rejects a bad step type, naming the field', async () => {
       const { curatedDir } = writeFixture({
         title: 'Broken',
-        sections: [
-          { title: 'A section', steps: [{ alias: 'a', type: 'not_a_real_step_type', title: 'A' }] },
+        pages: [
+          { title: 'A page', steps: [{ alias: 'a', type: 'not_a_real_step_type', title: 'A' }] },
         ],
       });
 
       await expect(
         generateMarketplaceBundles({ curatedDir, outDir: makeTmpDir('ezb-marketplace-out-') })
-      ).rejects.toThrow(/sections\.0\.steps\.0\.type/);
+      ).rejects.toThrow(/pages\.0\.steps\.0\.type/);
     });
   });
 

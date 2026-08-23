@@ -42,7 +42,7 @@ import { join, relative } from 'path';
  * one), or this bound silently stops covering it.
  */
 const RLS_REPOS = [
-  'workflow', 'section', 'step', 'project', 'user', 'collection', 'record',
+  'workflow', 'page', 'step', 'project', 'user', 'collection', 'record',
   'organization', 'team', 'connection', 'reviewTask', 'signatureRequest',
   'auditLog', 'workflowBlueprint', 'tenantDomain', 'collabDoc',
   'externalDestination',
@@ -56,7 +56,7 @@ const COVERED_TABLES = [
   'metricsEvents', 'metricsRollups', 'organizations', 'projects', 'records',
   'reviewTasks', 'runDocumentDeliveries', 'runResumeLinks', 'signatureRequests',
   'sliConfigs', 'sliWindows', 'teams', 'tenantDomains', 'users',
-  'workflowBlueprints', 'workflows', 'sections', 'steps', 'datavaultRows',
+  'workflowBlueprints', 'workflows', 'pages', 'steps', 'datavaultRows',
   'datavaultValues', 'datavaultColumns',
 ];
 
@@ -92,7 +92,7 @@ const COVERED_SQL_RE = new RegExp(String.raw`\b(${COVERED_TABLES_SQL.join('|')})
  *
  * Three real examples, all silent: `WriteRunner` reported a successful write
  * while inserting nothing, `WorkflowContentIngestService` had every
- * section/step insert rejected, and `LogicRuleService` read `steps` through one
+ * page/step insert rejected, and `LogicRuleService` read `steps` through one
  * (so alias resolution would have run against an empty set).
  *
  * The correct spelling is always `withCurrentTenant` / `withTenant`, so this
@@ -143,7 +143,7 @@ const RELATIONAL_READ = new RegExp(
  */
 const COVERED_RELATION_KEYS = [
   'project', 'projects', 'workflow', 'workflows', 'user', 'users',
-  'organization', 'organizations', 'section', 'sections', 'step', 'steps',
+  'organization', 'organizations', 'page', 'pages', 'step', 'steps',
   'team', 'teams', 'record', 'records', 'collection', 'collections',
   'tenantDomain', 'tenantDomains', 'datavaultTable', 'datavaultDatabase',
 ];

@@ -15,7 +15,7 @@ import {
   users,
   projects,
   workflows,
-  sections,
+  pages,
   steps,
   workflowRuns,
   templates,
@@ -132,9 +132,9 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testWorkflowId = workflow.id;
-    // Create test section
-    const [section] = await getOwnerDb()
-      .insert(sections)
+    // Create test page
+    const [page] = await getOwnerDb()
+      .insert(pages)
       .values({
         workflowId: testWorkflowId,
         title: 'Contact Info',
@@ -146,7 +146,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'email',
         title: 'Email Address',
         alias: 'email',
@@ -159,7 +159,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'phone',
         title: 'Phone Number',
         alias: 'phone',
@@ -196,7 +196,7 @@ describe('Runtime Pipelines Integration Tests', () => {
     // Cleanup in reverse order of creation
     if (testRunId) {await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
     if (testWorkflowId) {
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, testWorkflowId));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, testWorkflowId));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));
     }
     if (testProjectId) {await getOwnerDb().delete(projects).where(eq(projects.id, testProjectId));}
@@ -207,7 +207,7 @@ describe('Runtime Pipelines Integration Tests', () => {
   describe('Document Generation Pipeline', () => {
     let testTemplateId: string;
     let testTemplateFileRef: string;
-    let testFinalSectionId: string;
+    let testFinalPageId: string;
     // Runs created by tests in this block, so cleanup can scope the shared
     // run_generated_documents table to rows this suite actually created
     // instead of a table-wide delete (see afterAll below).
@@ -242,21 +242,21 @@ describe('Runtime Pipelines Integration Tests', () => {
       // the visibleIf expression as that document's `conditions` -- the
       // shape RunLifecycleService/EnhancedDocumentEngine actually evaluate
       // (LU-5: ConditionExpression, the same nested AND/OR-group language
-      // steps.visible_if / sections.visible_if use -- not the old flat
+      // steps.visible_if / pages.visible_if use -- not the old flat
       // LogicExpression `{ operator, conditions: [{ key, op, value }] }`
       // this superseded). The old fixture put an equivalent-looking but
       // incompatible nested ConditionGroup on `template.metadata.visibleIf`
       // and never attached the template to any step at all, so it was
       // orphaned twice over.
-      const [finalSection] = await getOwnerDb()
-        .insert(sections)
+      const [finalPage] = await getOwnerDb()
+        .insert(pages)
         .values({
           workflowId: testWorkflowId,
           title: 'Final Documents',
           order: 2,
         })
         .returning();
-      testFinalSectionId = finalSection.id;
+      testFinalPageId = finalPage.id;
 
       const finalBlockConfig: FinalBlockConfig = {
         markdownHeader: '',
@@ -278,7 +278,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       };
       await getOwnerDb().insert(steps).values({
         workflowId: testWorkflowId,
-        sectionId: testFinalSectionId,
+        pageId: testFinalPageId,
         type: 'final',
         title: 'Final documents',
         order: 3,
@@ -291,9 +291,9 @@ describe('Runtime Pipelines Integration Tests', () => {
       if (docGenRunIds.length > 0) {
         await getOwnerDb().delete(runGeneratedDocuments).where(inArray(runGeneratedDocuments.runId, docGenRunIds));
       }
-      if (testFinalSectionId) {
-        await getOwnerDb().delete(steps).where(eq(steps.sectionId, testFinalSectionId));
-        await getOwnerDb().delete(sections).where(eq(sections.id, testFinalSectionId));
+      if (testFinalPageId) {
+        await getOwnerDb().delete(steps).where(eq(steps.pageId, testFinalPageId));
+        await getOwnerDb().delete(pages).where(eq(pages.id, testFinalPageId));
       }
       await getOwnerDb().delete(templates).where(sql`id = ${testTemplateId}`);
       if (testTemplateFileRef) {

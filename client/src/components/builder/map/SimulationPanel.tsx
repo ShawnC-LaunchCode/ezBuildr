@@ -41,12 +41,12 @@ export function SimulationPanel({ fields, answers, onAnswerChange, onReset, trun
   return (
     <aside
       aria-label="Simulate a path"
-      className="flex w-80 shrink-0 flex-col overflow-hidden border-l bg-[var(--map-section-bg)]"
+      className="flex w-80 shrink-0 flex-col overflow-hidden border-l bg-[var(--map-page-bg)]"
     >
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <div className="flex items-center gap-2">
-          <Route className="h-4 w-4 text-[var(--map-section-fg)] opacity-70" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-[var(--map-section-fg)]">Simulate a path</h2>
+          <Route className="h-4 w-4 text-[var(--map-page-fg)] opacity-70" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-[var(--map-page-fg)]">Simulate a path</h2>
         </div>
         <Button
           type="button"
@@ -102,7 +102,7 @@ export function SimulationPanel({ fields, answers, onAnswerChange, onReset, trun
                   aria-label={field.step.title}
                   className="flex flex-col gap-1.5"
                 >
-                  <Label className="text-xs font-medium text-[var(--map-section-fg)]">
+                  <Label className="text-xs font-medium text-[var(--map-page-fg)]">
                     {field.step.title}
                     {field.variable.alias && (
                       <span className="ml-1 font-normal text-muted-foreground">({field.variable.alias})</span>

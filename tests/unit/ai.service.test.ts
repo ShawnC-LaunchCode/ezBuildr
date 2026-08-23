@@ -100,9 +100,9 @@ describe('AIService', () => {
       const mockWorkflow = {
         title: 'Test Workflow',
         description: 'A test workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Personal Information',
             order: 0,
             steps: [
@@ -139,23 +139,23 @@ describe('AIService', () => {
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
-      expect(result.sections).toHaveLength(1);
-      expect(result.sections[0].steps).toHaveLength(2);
+      expect(result.pages).toHaveLength(1);
+      expect(result.pages[0].steps).toHaveLength(2);
     });
 
-    it('should validate unique section IDs', async () => {
+    it('should validate unique page IDs', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [],
           },
           {
-            id: 'section_1', // Duplicate ID
-            title: 'Section 2',
+            id: 'page_1', // Duplicate ID
+            title: 'Page 2',
             order: 1,
             steps: [],
           },
@@ -173,16 +173,16 @@ describe('AIService', () => {
           description: 'Test',
           projectId: 'test-project-id',
         })
-      ).rejects.toThrow('Duplicate section IDs');
+      ).rejects.toThrow('Duplicate page IDs');
     });
 
     it('should validate unique step IDs', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [
               {
@@ -219,10 +219,10 @@ describe('AIService', () => {
     it('should validate logic rules reference existing steps', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [
               {
@@ -320,9 +320,9 @@ describe('AIService', () => {
       const mockWorkflow = {
         title: 'Test Workflow',
         description: 'A test workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Personal Information',
             order: 0,
             steps: [
@@ -351,16 +351,16 @@ describe('AIService', () => {
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
-      expect(result.sections).toHaveLength(1);
+      expect(result.pages).toHaveLength(1);
     });
 
     it('should strip markdown code blocks from Anthropic responses', async () => {
       // Logic for stripping markdown is inside callLLM, so we just return markdown string from provider
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Test',
             order: 0,
             steps: [],

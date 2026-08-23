@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ExecutionValueView } from '../../../client/src/components/history/ExecutionDetailView';
-import { ReviewSection } from '../../../client/src/components/runner/sections/ReviewSection';
+import { ReviewPage } from '../../../client/src/components/runner/pages/ReviewPage';
 import type { ApiStep } from '../../../client/src/lib/vault-api';
 import type { ListConfig, ListValue } from '../../../shared/types/stepConfigs';
 
@@ -18,7 +18,7 @@ const config: ListConfig = {
 const value: ListValue = { items: [{ itemId: 'person-1', values: { name: 'Ava Chen' } }] };
 const listStep = {
   id: 'list-step',
-  sectionId: 'section-1',
+  pageId: 'page-1',
   workflowId: 'workflow-1',
   title: 'Household members',
   type: 'list',
@@ -28,11 +28,11 @@ const listStep = {
 describe('List answers in run surfaces (GH-146 AC3)', () => {
   it('renders the structured outline in respondent review', () => {
     render(
-      <ReviewSection
-        sections={[{ id: 'section-1', title: 'People' }]}
+      <ReviewPage
+        pages={[{ id: 'page-1', title: 'People' }]}
         allSteps={[listStep]}
         values={{ 'list-step': value }}
-        visibleSectionIds={['section-1']}
+        visiblePageIds={['page-1']}
         visibleStepIds={['list-step']}
         onEditStep={vi.fn()}
       />,

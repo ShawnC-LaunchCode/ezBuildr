@@ -32,7 +32,7 @@ CREATE INDEX idx_steps_alias ON steps(alias) WHERE alias IS NOT NULL;
 #### 3. Variable Service (`server/services/VariableService.ts`)
 - `listVariables(workflowId, userId)` - Fetches all variables for a workflow
 - `isAliasUnique(workflowId, alias, excludeStepId?)` - Validates alias uniqueness
-- Returns variables ordered by section → step order
+- Returns variables ordered by page → step order
 
 #### 4. Variable Resolver (`server/utils/variableResolver.ts`)
 - `resolveOperand(operand, variables)` - Resolves alias or key to canonical key
@@ -65,7 +65,7 @@ CREATE INDEX idx_steps_alias ON steps(alias) WHERE alias IS NOT NULL;
 
 #### 4. VariableSelect Component (`client/src/components/common/VariableSelect.tsx`)
 - Dropdown selector showing all workflow variables
-- Groups variables by section
+- Groups variables by page
 - Displays: alias (bold) → label (secondary)
 - Shows step type as secondary info
 - Returns canonical key on selection
@@ -93,8 +93,8 @@ GET /api/workflows/:workflowId/variables
     "alias": "firstName",
     "label": "What is your first name?",
     "type": "short_text",
-    "sectionId": "section-uuid-456",
-    "sectionTitle": "Personal Information",
+    "pageId": "page-uuid-456",
+    "pageTitle": "Personal Information",
     "stepId": "step-uuid-123"
   },
   {
@@ -102,8 +102,8 @@ GET /api/workflows/:workflowId/variables
     "alias": "age",
     "label": "How old are you?",
     "type": "short_text",
-    "sectionId": "section-uuid-456",
-    "sectionTitle": "Personal Information",
+    "pageId": "page-uuid-456",
+    "pageTitle": "Personal Information",
     "stepId": "step-uuid-789"
   }
 ]
@@ -111,7 +111,7 @@ GET /api/workflows/:workflowId/variables
 
 ### Create Step with Alias
 ```bash
-curl -X POST http://localhost:5000/api/workflows/{workflowId}/sections/{sectionId}/steps \
+curl -X POST http://localhost:5000/api/workflows/{workflowId}/pages/{pageId}/steps \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=..." \
   -d '{
@@ -162,7 +162,7 @@ curl -X GET http://localhost:5000/api/workflows/{workflowId}/variables \
 - [ ] **Variables endpoint**
   - [ ] GET /api/workflows/:id/variables → returns array
   - [ ] Variables include all steps
-  - [ ] Variables ordered by section → step order
+  - [ ] Variables ordered by page → step order
   - [ ] Alias field present (or null)
   - [ ] Unauthorized access → 401 error
 
@@ -191,14 +191,14 @@ curl -X GET http://localhost:5000/api/workflows/{workflowId}/variables \
 
 - [ ] **VariableSelect Component**
   - [ ] Component renders with workflow variables
-  - [ ] Variables grouped by section
+  - [ ] Variables grouped by page
   - [ ] Alias shown in bold, label in secondary
   - [ ] Clicking variable selects its key
   - [ ] Selected value displays correctly
   - [ ] Loading state shown while fetching
 
 - [ ] **Integration Tests**
-  - [ ] Create workflow → add section → add step → set alias
+  - [ ] Create workflow → add page → add step → set alias
   - [ ] Alias appears in sidebar immediately
   - [ ] Variables endpoint returns alias
   - [ ] Change alias → updates everywhere

@@ -28,7 +28,7 @@ import { hashToken } from '../../../server/utils/encryption';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 const tenantId = '22222222-2222-4222-8222-222222222222';
-const sectionId = '33333333-3333-4333-8333-333333333333';
+const pageId = '33333333-3333-4333-8333-333333333333';
 const fixedNow = new Date('2026-08-06T12:00:00.000Z');
 const resumeToken = 'a'.repeat(64);
 const rotatedRunToken = '44444444-4444-4444-8444-444444444444';
@@ -37,7 +37,7 @@ function makeRun(overrides: Record<string, unknown> = {}) {
   return {
     id: runId,
     workflowId: '55555555-5555-4555-8555-555555555555',
-    currentSectionId: sectionId,
+    currentPageId: pageId,
     completed: false,
     assignedToUserId: null,
     clientEmail: null,
@@ -163,7 +163,7 @@ describe('RunResumeService', () => {
       expect.objectContaining({ runToken: hashToken(rotatedRunToken) }),
       expect.anything(),
     );
-    expect(result).toMatchObject({ runId, runToken: rotatedRunToken, currentSectionId: sectionId });
+    expect(result).toMatchObject({ runId, runToken: rotatedRunToken, currentPageId: pageId });
     expect(auditService.logRunEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'run_resume_link_accessed' }),
       expect.anything(),

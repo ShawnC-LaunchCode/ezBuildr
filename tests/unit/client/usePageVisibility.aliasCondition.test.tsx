@@ -2,12 +2,12 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { useSectionVisibility } from '../../../client/src/hooks/runner/useSectionVisibility';
-import type { ApiSection, ApiStep } from '../../../client/src/lib/vault-api';
+import { usePageVisibility } from '../../../client/src/hooks/runner/usePageVisibility';
+import type { ApiPage, ApiStep } from '../../../client/src/lib/vault-api';
 
 const createdAt = '2026-07-13T00:00:00.000Z';
 
-function createSection(id: string, order: number): ApiSection {
+function createPage(id: string, order: number): ApiPage {
   return {
     id,
     workflowId: 'workflow-1',
@@ -19,13 +19,13 @@ function createSection(id: string, order: number): ApiSection {
   };
 }
 
-describe('useSectionVisibility — ICW2-B10 (step-level visibleIf referencing another step by alias)', () => {
+describe('usePageVisibility — ICW2-B10 (step-level visibleIf referencing another step by alias)', () => {
   it('reveals a step whose visibleIf references the controlling step by ALIAS, given an answer keyed by step id', () => {
-    const sections = [createSection('sec-1', 1)];
+    const pages = [createPage('page-1', 1)];
     const yesNoStep: ApiStep = {
       id: 'step-yesno-uuid',
       workflowId: 'workflow-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'yes_no',
       title: 'Do you agree?',
       description: null,
@@ -40,7 +40,7 @@ describe('useSectionVisibility — ICW2-B10 (step-level visibleIf referencing an
     const dateStep: ApiStep = {
       id: 'step-date-uuid',
       workflowId: 'workflow-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'date',
       title: 'Preferred date',
       description: null,
@@ -70,24 +70,24 @@ describe('useSectionVisibility — ICW2-B10 (step-level visibleIf referencing an
 
     const steps = [yesNoStep, dateStep];
 
-    // Answers are keyed by step id (SectionSteps' `values[step.id]`, and the
+    // Answers are keyed by step id (PageSteps' `values[step.id]`, and the
     // production `effectiveValues` map from useRunValues) — never by alias.
     const { result, rerender } = renderHook(
-      ({ values }) => useSectionVisibility(sections, steps, values, []),
+      ({ values }) => usePageVisibility(pages, steps, values, []),
       { initialProps: { values: {} as Record<string, unknown> } }
     );
 
-    expect(result.current.getVisibleSectionSteps('sec-1').map((s) => s.id)).toEqual(['step-yesno-uuid']);
+    expect(result.current.getVisiblePageSteps('page-1').map((s) => s.id)).toEqual(['step-yesno-uuid']);
 
     rerender({ values: { 'step-yesno-uuid': true } });
 
-    expect(result.current.getVisibleSectionSteps('sec-1').map((s) => s.id)).toEqual([
+    expect(result.current.getVisiblePageSteps('page-1').map((s) => s.id)).toEqual([
       'step-yesno-uuid',
       'step-date-uuid',
     ]);
 
     rerender({ values: { 'step-yesno-uuid': false } });
 
-    expect(result.current.getVisibleSectionSteps('sec-1').map((s) => s.id)).toEqual(['step-yesno-uuid']);
+    expect(result.current.getVisiblePageSteps('page-1').map((s) => s.id)).toEqual(['step-yesno-uuid']);
   });
 });

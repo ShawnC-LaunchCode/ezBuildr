@@ -258,11 +258,11 @@ describe('AI-Generated Condition Evaluation (Round-Trip Compatibility)', () => {
     it('should handle emergency contact visibility (has_emergency_contact equals true)', () => {
       const expr = createConditionExpression('has_emergency_contact', 'equals', true);
 
-      // Section visible when checkbox checked
+      // Page visible when checkbox checked
       expect(evaluateConditionExpression(expr, { has_emergency_contact: true })).toBe(true);
       expect(evaluateConditionExpression(expr, { has_emergency_contact: 'true' })).toBe(true);
 
-      // Section hidden when checkbox unchecked
+      // Page hidden when checkbox unchecked
       expect(evaluateConditionExpression(expr, { has_emergency_contact: false })).toBe(false);
       expect(evaluateConditionExpression(expr, { has_emergency_contact: 'false' })).toBe(false);
       expect(evaluateConditionExpression(expr, {})).toBe(false);

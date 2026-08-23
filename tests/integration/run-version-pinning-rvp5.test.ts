@@ -4,7 +4,7 @@
  *
  * This is the regression net for the whole Run Version Pinning initiative
  * (RVP-1/2/3/6): before those tickets, every server-side run decision
- * (navigation, section-submit, completion) re-read the LIVE `sections` /
+ * (navigation, page-submit, completion) re-read the LIVE `pages` /
  * `steps` / `logic_rules` tables instead of the version a run pinned itself
  * to at creation. The moment an author edited a published workflow, an
  * in-flight respondent was answering one interview while the server
@@ -21,7 +21,7 @@
  *      the worst consequence: pre-fix, it was unrecoverable for the
  *      respondent -- "Missing required steps: <title>" for a question that
  *      did not exist in their interview, with no action they could take.
- *   3. Delete a section mid-run        -> the run still navigates to it and
+ *   3. Delete a page mid-run        -> the run still navigates to it and
  *                                          submits it, using the pinned order.
  *   4. Edit a logic rule mid-run       -> visibility/requiredness is decided
  *      by the rule the respondent's snapshot had, not the live edit.
@@ -33,7 +33,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   workflows,
-  sections,
+  pages,
   steps,
   logicRules,
   users,
@@ -92,9 +92,9 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   });
 
   /**
-   * Build a 3-section, published workflow with real content, then pin a run
+   * Build a 3-page, published workflow with real content, then pin a run
    * to it and mutate the LIVE workflow underneath that run. The workflow is
-   * built directly against `sections`/`steps`/`logicRules` and published
+   * built directly against `pages`/`steps`/`logicRules` and published
    * with `versionService.publishVersion` AFTER all content exists (rather
    * than via `factory.createWorkflow`, which creates its version BEFORE
    * content is added -- see `api.runs.bulk-values.test.ts` for the fixture
@@ -110,40 +110,40 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     }).returning();
     const workflowId = workflow.id;
 
-    const [section1] = await getOwnerDb().insert(sections).values({
+    const [page1] = await getOwnerDb().insert(pages).values({
       workflowId, title: "Intro", order: 0,
     }).returning();
-    const [section2] = await getOwnerDb().insert(sections).values({
+    const [page2] = await getOwnerDb().insert(pages).values({
       workflowId, title: "Details", order: 1,
     }).returning();
-    const [section3] = await getOwnerDb().insert(sections).values({
+    const [page3] = await getOwnerDb().insert(pages).values({
       workflowId, title: "Final", order: 2,
     }).returning();
 
     const [stepName] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "short_text",
       title: "Your name", alias: "name", required: true, order: 0,
     }).returning();
     const [stepToDelete] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "short_text",
       title: "About to be deleted", alias: "toDelete", required: false, order: 1,
     }).returning();
     const [stepWantsExtra] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "short_text",
       title: "Want extra detail?", alias: "wantsExtra", required: true, order: 2,
     }).returning();
     const [stepExtraDetail] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "short_text",
       title: "Extra detail", alias: "extraDetail", required: false, order: 3,
     }).returning();
 
     const [stepDetail1] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section2.id, type: "short_text",
+      workflowId, pageId: page2.id, type: "short_text",
       title: "Detail", alias: "detail1", required: true, order: 0,
     }).returning();
 
     const [stepFinal1] = await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section3.id, type: "short_text",
+      workflowId, pageId: page3.id, type: "short_text",
       title: "Final answer", alias: "final1", required: true, order: 0,
     }).returning();
 
@@ -163,7 +163,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     }).returning();
 
     // Publish AFTER all content exists: publishVersion serializes the LIVE
-    // tables at call time, so this snapshot captures every section/step/rule
+    // tables at call time, so this snapshot captures every page/step/rule
     // created above.
     const publishedVersion = await versionService.publishVersion(workflowId, userId, "rvp5 publish");
 
@@ -172,7 +172,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
 
     return {
       workflowId,
-      section1, section2, section3,
+      page1, page2, page3,
       stepName, stepToDelete, stepWantsExtra, stepExtraDetail, stepDetail1, stepFinal1,
       rule,
       run,
@@ -183,7 +183,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
     await getOwnerDb().delete(logicRules).where(eq(logicRules.workflowId, workflowId));
     await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
-    await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+    await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowId));
     // workflow_versions has no direct FK cascade from workflows in this
     // schema's delete order used elsewhere in this file's sibling
     // (run-version-pinning-rvp6.test.ts); workflow delete cascades it.
@@ -191,43 +191,43 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   }
 
   it(
-    "survives a deleted question, a mid-run required question, a deleted section, and an edited logic rule -- and completes",
+    "survives a deleted question, a mid-run required question, a deleted page, and an edited logic rule -- and completes",
     async () => {
 
     enterTenantContextForTests(tenantId);
       const {
-        workflowId, section1, section2, section3,
+        workflowId, page1, page2, page3,
         stepName, stepToDelete, stepWantsExtra, stepExtraDetail, stepDetail1, stepFinal1,
         rule, run,
       } = await buildPublishedWorkflowAndRun();
 
       try {
-        // The run starts on section1, resolved from the pinned definition at
+        // The run starts on page1, resolved from the pinned definition at
         // creation (RVP-2's evaluateNavigation).
-        expect(run.currentSectionId).toBe(section1.id);
+        expect(run.currentPageId).toBe(page1.id);
 
         // ---- Mutate the LIVE workflow underneath the in-flight run ----
 
         // Consequence 1: delete a question. Soft-delete (ICW2-B1) is how the
         // app actually removes a step -- the row survives so step_values
-        // stays valid, but live-table readers (`stepRepo.findBySectionId`
+        // stays valid, but live-table readers (`stepRepo.findByPageId`
         // etc.) filter it out via `deletedAt IS NULL`.
         await getOwnerDb().update(steps).set({ deletedAt: new Date() }).where(eq(steps.id, stepToDelete.id));
 
         // Consequence 2: add a REQUIRED question mid-run, directly to the
         // live `steps` table (bypassing the version snapshot entirely --
         // exactly what an author editing the published workflow does). It
-        // belongs to section3, which the respondent has not reached yet.
+        // belongs to page3, which the respondent has not reached yet.
         const [liveOnlyRequired] = await getOwnerDb().insert(steps).values({
-          workflowId, sectionId: section3.id, type: "short_text",
+          workflowId, pageId: page3.id, type: "short_text",
           title: "Added after the run started", alias: "liveOnlyRequired",
           required: true, order: 1,
         }).returning();
 
-        // Consequence 3: delete a section. Soft-delete again -- the run's
-        // pinned graph still has section2's snapshot, so navigation and
+        // Consequence 3: delete a page. Soft-delete again -- the run's
+        // pinned graph still has page2's snapshot, so navigation and
         // submission must still walk through it.
-        await getOwnerDb().update(sections).set({ deletedAt: new Date() }).where(eq(sections.id, section2.id));
+        await getOwnerDb().update(pages).set({ deletedAt: new Date() }).where(eq(pages.id, page2.id));
 
         // Consequence 4: edit a logic rule. Flip the SAME rule's action from
         // 'hide' to 'require', keeping the same condition/target. If the
@@ -238,7 +238,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
 
         // ---- Drive the run through to completion using the PINNED definition ----
 
-        const section1Submit = await runService.submitSection(run.id, section1.id, userId, [
+        const page1Submit = await runService.submitPage(run.id, page1.id, userId, [
           { stepId: stepName.id, value: "Ada" },
           // Deleted-from-live step: the respondent's client still rendered
           // it from the pinned snapshot and submits a value. Must be
@@ -250,36 +250,36 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
           { stepId: stepWantsExtra.id, value: "no" },
           // Deliberately NOT submitting stepExtraDetail's value.
         ]);
-        expect(section1Submit).toEqual({ success: true });
+        expect(page1Submit).toEqual({ success: true });
 
-        const afterSection1 = await runService.next(run.id, userId);
-        // Deleted-from-live section2 must still be the next section, per the
+        const afterPage1 = await runService.next(run.id, userId);
+        // Deleted-from-live page2 must still be the next page, per the
         // pinned order (RVP-2/3).
-        expect(afterSection1.nextSectionId).toBe(section2.id);
-        expect(afterSection1.visibleSections).toContain(section2.id);
-        expect(afterSection1.visibleSections).toContain(section3.id);
+        expect(afterPage1.nextPageId).toBe(page2.id);
+        expect(afterPage1.visiblePages).toContain(page2.id);
+        expect(afterPage1.visiblePages).toContain(page3.id);
         // extraDetail must not be visible or required: the PINNED rule
         // (hide) must have been used, not the live-mutated one (require).
-        expect(afterSection1.visibleSteps).not.toContain(stepExtraDetail.id);
-        expect(afterSection1.requiredSteps).not.toContain(stepExtraDetail.id);
+        expect(afterPage1.visibleSteps).not.toContain(stepExtraDetail.id);
+        expect(afterPage1.requiredSteps).not.toContain(stepExtraDetail.id);
 
-        const section2Submit = await runService.submitSection(run.id, section2.id, userId, [
+        const page2Submit = await runService.submitPage(run.id, page2.id, userId, [
           { stepId: stepDetail1.id, value: "Detail answer" },
         ]);
-        expect(section2Submit).toEqual({ success: true });
+        expect(page2Submit).toEqual({ success: true });
 
-        const afterSection2 = await runService.next(run.id, userId);
-        expect(afterSection2.nextSectionId).toBe(section3.id);
+        const afterPage2 = await runService.next(run.id, userId);
+        expect(afterPage2.nextPageId).toBe(page3.id);
 
         // Only answer final1 -- never liveOnlyRequired, which did not exist
         // in this respondent's pinned interview.
-        const section3Submit = await runService.submitSection(run.id, section3.id, userId, [
+        const page3Submit = await runService.submitPage(run.id, page3.id, userId, [
           { stepId: stepFinal1.id, value: "Final answer" },
         ]);
-        expect(section3Submit).toEqual({ success: true });
+        expect(page3Submit).toEqual({ success: true });
 
-        const afterSection3 = await runService.next(run.id, userId);
-        expect(afterSection3.nextSectionId).toBeNull();
+        const afterPage3 = await runService.next(run.id, userId);
+        expect(afterPage3.nextPageId).toBeNull();
 
         // THE assertion that matters most: completion must succeed even
         // though `liveOnlyRequired` -- a required question added to the live

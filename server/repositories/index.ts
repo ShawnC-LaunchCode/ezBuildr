@@ -27,7 +27,7 @@ export { AiUsageRepository, aiUsageRepository } from "./AiUsageRepository";
 export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
 export { WorkflowVersionRepository, workflowVersionRepository } from "./WorkflowVersionRepository";
-export { SectionRepository, sectionRepository } from "./SectionRepository";
+export { PageRepository, pageRepository } from "./PageRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
 export { RunResumeLinkRepository, runResumeLinkRepository } from "./RunResumeLinkRepository";

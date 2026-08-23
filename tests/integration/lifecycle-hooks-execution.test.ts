@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import {
   workflows,
-  sections,
+  pages,
   steps,
   workflowRuns,
   stepValues,
@@ -26,7 +26,7 @@ import {
   scriptExecutionLog
 } from '@shared/schema';
 
-import { createTestWorkflow, createTestSection, createTestStep, createTestWorkflowRun } from '../factories';
+import { createTestWorkflow, createTestPage, createTestStep, createTestWorkflowRun } from '../factories';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -40,7 +40,7 @@ describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
 
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
 
   beforeAll(async () => {
@@ -54,10 +54,10 @@ describe('Lifecycle Hooks Execution', () => {
     workflowId = uuidv4();
     console.log('TEST SETUP: workflowId =', workflowId);
 
-    sectionId = uuidv4();
+    pageId = uuidv4();
     stepId = uuidv4();
 
-    // Create workflow with section and step for each test
+    // Create workflow with page and step for each test
     await getOwnerDb().insert(workflows).values(
       createTestWorkflow({
         id: workflowId,
@@ -70,11 +70,11 @@ describe('Lifecycle Hooks Execution', () => {
       })
     );
 
-    await getOwnerDb().insert(sections).values(
-      createTestSection({
-        id: sectionId,
+    await getOwnerDb().insert(pages).values(
+      createTestPage({
+        id: pageId,
         workflowId,
-        title: 'Test Section',
+        title: 'Test Page',
         order: 0,
       })
     );
@@ -83,7 +83,7 @@ describe('Lifecycle Hooks Execution', () => {
       createTestStep({
         id: stepId,
         workflowId,
-        sectionId,
+        pageId,
         type: 'short_text',
         alias: 'user_name',
         title: 'Your Name',
@@ -108,7 +108,7 @@ describe('Lifecycle Hooks Execution', () => {
           phase: 'beforePage',
           language: 'javascript',
           code: `
-            helpers.console.log('Entering page:', context.sectionId);
+            helpers.console.log('Entering page:', context.pageId);
             helpers.console.log('User:', context.userId);
             emit({ executed: true });
           `,
@@ -127,7 +127,7 @@ describe('Lifecycle Hooks Execution', () => {
         createTestWorkflowRun({
           workflowId,
           createdBy: ctx.userId,
-          currentSectionId: sectionId,
+          currentPageId: pageId,
         })
       ).returning();
 
@@ -138,7 +138,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -202,7 +202,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -247,7 +247,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: { existingData: 'preserved' },
         userId: ctx.userId,
       });
@@ -321,7 +321,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'afterPage',
-        sectionId,
+        pageId,
         data: { [stepId]: 'John Doe' }, // Simulating step values
         userId: ctx.userId,
       });
@@ -375,7 +375,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'afterPage',
-        sectionId,
+        pageId,
         data: { [stepId]: 'Jane Smith' },
         userId: ctx.userId,
       });
@@ -533,7 +533,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -627,7 +627,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -793,7 +793,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -823,7 +823,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });

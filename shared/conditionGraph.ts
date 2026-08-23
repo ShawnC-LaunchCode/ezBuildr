@@ -1,16 +1,16 @@
 /**
  * Condition dependency graph — cycle and dangling-reference detection over
  * `visibleIf` expressions (Model A: `ConditionExpression` on steps and
- * sections, evaluated by `shared/conditionEvaluator.ts`), PLUS (MAP-3)
+ * pages, evaluated by `shared/conditionEvaluator.ts`), PLUS (MAP-3)
  * workflow FLOW analysis — reachability, dead ends, and skip_to loop risk
- * over the section-to-section navigational graph.
+ * over the page-to-page navigational graph.
  *
  * These are two distinct graphs sharing one module because they share the
  * same pure, hand-testable adjacency-list discipline:
  *  - `visibleIf` dependencies (the pull model: an element carries its own
  *    condition) — `buildConditionDependencyGraph`, `detectCycles`,
  *    `detectDanglingReferences`.
- *  - The navigational flow graph (sections/terminal connected by `sequential`
+ *  - The navigational flow graph (pages/terminal connected by `sequential`
  *    order edges and `skip_to` push edges) — `analyzeWorkflowFlow`.
  * Workflow logic rules' *evaluation* (which needs run-time `data` to know
  * which rules actually fire) is `shared/workflowLogic.ts`'s job; both graphs
@@ -21,7 +21,7 @@
  *
  * Kept as pure, framework-agnostic graph algorithms operating on a plain
  * adjacency list so they can be unit-tested directly against small
- * hand-built graphs, independent of how a workflow's sections/steps get
+ * hand-built graphs, independent of how a workflow's pages/steps get
  * turned into node/edge data — that adaptation lives in
  * `server/services/workflowLintRules.ts` (and, for the client map,
  * `shared/workflowMap.ts`). `analyzeWorkflowFlow` takes plain structural
@@ -257,7 +257,7 @@ export interface WorkflowFlowDiagnostics {
 
 /**
  * Detect unreachable nodes, dead ends, and skip-cycle loop risk over a
- * workflow's navigational graph (sections/terminal, `sequential` + `skip`
+ * workflow's navigational graph (pages/terminal, `sequential` + `skip`
  * edges). GH-153 AC4 / MAP-3.
  *
  * Reachability and dead-end detection walk every supplied edge (both kinds

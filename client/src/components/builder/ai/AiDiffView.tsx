@@ -4,11 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 interface DiffChange {
     type: 'add' | 'modify' | 'remove';
-    entity: 'section' | 'step' | 'logic';
+    entity: 'page' | 'step' | 'logic';
     name: string;
     details?: string;
 }
-interface AiSuggestionSection {
+interface AiSuggestionPage {
     title: string;
     steps?: unknown[];
 }
@@ -25,7 +25,7 @@ interface AiSuggestionModification {
 }
 
 interface AiSuggestions {
-    newSections?: AiSuggestionSection[];
+    newPages?: AiSuggestionPage[];
     newSteps?: AiSuggestionStep[];
     modifications?: AiSuggestionModification[];
 }
@@ -36,9 +36,9 @@ interface AiDiffViewProps {
 export function AiDiffView({ suggestions }: AiDiffViewProps) {
     // Parse suggestions into a flat list of changes for display
     const changes: DiffChange[] = [];
-    if (suggestions.newSections) {
-        suggestions.newSections.forEach((s) => {
-            changes.push({ type: 'add', entity: 'section', name: s.title, details: `${s.steps?.length ?? 0} steps` });
+    if (suggestions.newPages) {
+        suggestions.newPages.forEach((s) => {
+            changes.push({ type: 'add', entity: 'page', name: s.title, details: `${s.steps?.length ?? 0} steps` });
         });
     }
     if (suggestions.newSteps) {

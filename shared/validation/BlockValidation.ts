@@ -276,7 +276,7 @@ function validateListItemFields(
         }
 
         // LIST2-2: run the same type-level validation (email format, number
-        // min/max, pattern, length, ...) a top-level section step gets via
+        // min/max, pattern, length, ...) a top-level page step gets via
         // `getValidationSchema`. `required: false` is passed deliberately —
         // the explicit required check above already owns the
         // field-titled required message, and letting the schema also carry

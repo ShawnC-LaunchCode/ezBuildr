@@ -49,12 +49,12 @@ export class LifecycleHookRepository extends BaseRepository<
 
   /**
    * Find enabled lifecycle hooks by workflow ID and phase, ordered by execution order
-   * Includes both section-specific and workflow-level hooks
+   * Includes both page-specific and workflow-level hooks
    */
   async findEnabledByPhase(
     workflowId: string,
     phase: LifecycleHookPhase,
-    sectionId?: string | null,
+    pageId?: string | null,
     tx?: DbTransaction
   ): Promise<LifecycleHook[]> {
     const database = this.getDb(tx);
@@ -66,10 +66,10 @@ export class LifecycleHookRepository extends BaseRepository<
       eq(lifecycleHooks.enabled, true),
     ];
 
-    // If sectionId is provided, include both section-specific AND workflow-level hooks
-    // If sectionId is null, only include workflow-level hooks
-    if (sectionId) {
-      // Include hooks that match the section OR are workflow-level (null sectionId)
+    // If pageId is provided, include both page-specific AND workflow-level hooks
+    // If pageId is null, only include workflow-level hooks
+    if (pageId) {
+      // Include hooks that match the page OR are workflow-level (null pageId)
       return database
         .select()
         .from(lifecycleHooks)
@@ -77,15 +77,15 @@ export class LifecycleHookRepository extends BaseRepository<
           and(
             ...conditions,
             or(
-              eq(lifecycleHooks.sectionId, sectionId),
-              isNull(lifecycleHooks.sectionId)
+              eq(lifecycleHooks.pageId, pageId),
+              isNull(lifecycleHooks.pageId)
             )
           )
         )
         .orderBy(asc(lifecycleHooks.order));
     } else {
       // Only workflow-level hooks
-      conditions.push(isNull(lifecycleHooks.sectionId));
+      conditions.push(isNull(lifecycleHooks.pageId));
       return database
         .select()
         .from(lifecycleHooks)

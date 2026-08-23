@@ -33,10 +33,10 @@ describe('IterativeQualityImprover', () => {
   const createMockWorkflow = (score: number): AIGeneratedWorkflow => ({
     title: 'Test Workflow',
     description: 'Test description',
-    sections: [
+    pages: [
       {
-        id: 'section-1',
-        title: 'Section 1',
+        id: 'page-1',
+        title: 'Page 1',
         order: 0,
         steps: [
           {

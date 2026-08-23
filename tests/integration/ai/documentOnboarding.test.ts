@@ -84,7 +84,7 @@ function mockGeneratedWorkflow() {
   return {
     title: 'Client Intake',
     description: 'Generated from an uploaded document',
-    sections: [
+    pages: [
       {
         id: 'sec1',
         title: 'Details',
@@ -155,7 +155,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     expect(generated.logicRules).toEqual([]);
     expect(generated.transformBlocks).toEqual([]);
 
-    const allSteps = generated.sections.flatMap((s: { steps: unknown[] }) => s.steps) as Array<{
+    const allSteps = generated.pages.flatMap((s: { steps: unknown[] }) => s.steps) as Array<{
       alias: string;
       type: string;
       title: string;
@@ -205,7 +205,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     await request(ctx.baseURL)
       .put(`/api/workflows/${workflowId}`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
-      .send({ title: generated.title, sections: generated.sections })
+      .send({ title: generated.title, pages: generated.pages })
       .expect(200);
 
     // 3. The workflow is left unpublished (Decision, Senior 2026-08-08).
@@ -215,7 +215,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
       .expect(200);
     expect(workflowResponse.body.status).toBe('draft');
 
-    const persistedSteps = (workflowResponse.body.sections as Array<{ steps: Array<{ alias: string; type: string }> }>)
+    const persistedSteps = (workflowResponse.body.pages as Array<{ steps: Array<{ alias: string; type: string }> }>)
       .flatMap((s) => s.steps);
     expect(persistedSteps.find((s) => s.alias === 'clientName')?.type).toBe('short_text');
     expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date');

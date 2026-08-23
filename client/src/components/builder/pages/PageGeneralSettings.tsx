@@ -3,19 +3,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-interface SectionGeneralSettingsProps {
+interface PageGeneralSettingsProps {
     title: string;
     setTitle: (title: string) => void;
     description: string;
     setDescription: (description: string) => void;
 }
 
-export function SectionGeneralSettings({
+export function PageGeneralSettings({
     title,
     setTitle,
     description,
     setDescription
-}: SectionGeneralSettingsProps): JSX.Element {
+}: PageGeneralSettingsProps): JSX.Element {
     return (
         <div className="space-y-4 py-4">
             <div className="space-y-2">

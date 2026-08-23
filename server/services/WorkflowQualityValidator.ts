@@ -15,7 +15,7 @@ export interface QualityIssue {
   severity: 'error' | 'warning' | 'suggestion';
   category: 'aliases' | 'types' | 'structure' | 'ux' | 'completeness' | 'validation';
   message: string;
-  location?: string; // e.g., "sections[0].steps[2]"
+  location?: string; // e.g., "pages[0].steps[2]"
   suggestion?: string;
 }
 
@@ -88,9 +88,9 @@ export class WorkflowQualityValidator {
   private checkAliasQuality(workflow: AIGeneratedWorkflow, issues: QualityIssue[]): void {
     const seenAliases = new Set<string>();
 
-    workflow.sections.forEach((section, sIdx) => {
-      section.steps.forEach((step, stepIdx) => {
-        const location = `sections[${sIdx}].steps[${stepIdx}]`;
+    workflow.pages.forEach((page, sIdx) => {
+      page.steps.forEach((step, stepIdx) => {
+        const location = `pages[${sIdx}].steps[${stepIdx}]`;
 
         // Check for missing alias
         if (!step.alias || step.alias.trim() === '') {
@@ -199,9 +199,9 @@ export class WorkflowQualityValidator {
       },
     ];
 
-    workflow.sections.forEach((section, sIdx) => {
-      section.steps.forEach((step, stepIdx) => {
-        const location = `sections[${sIdx}].steps[${stepIdx}]`;
+    workflow.pages.forEach((page, sIdx) => {
+      page.steps.forEach((step, stepIdx) => {
+        const location = `pages[${sIdx}].steps[${stepIdx}]`;
         const titleLower = step.title.toLowerCase();
 
         for (const hint of typeHints) {
@@ -238,41 +238,41 @@ export class WorkflowQualityValidator {
 
   /**
    * Check 3: Structural Quality
-   * Sections should be logically organized and reasonably sized
+   * Pages should be logically organized and reasonably sized
    */
   private checkStructuralQuality(workflow: AIGeneratedWorkflow, issues: QualityIssue[]): void {
-    // Check for empty sections
-    workflow.sections.forEach((section, sIdx) => {
+    // Check for empty pages
+    workflow.pages.forEach((page, sIdx) => {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (!section.steps || section.steps.length === 0) {
+      if (!page.steps || page.steps.length === 0) {
         issues.push({
           severity: 'error',
           category: 'structure',
-          message: `Section "${section.title}" has no steps`,
-          location: `sections[${sIdx}]`,
-          suggestion: 'Each section should have at least one step',
+          message: `Page "${page.title}" has no steps`,
+          location: `pages[${sIdx}]`,
+          suggestion: 'Each page should have at least one step',
         });
       }
 
-      // Check for overly large sections (poor UX)
-      if (section.steps.length > 15) {
+      // Check for overly large pages (poor UX)
+      if (page.steps.length > 15) {
         issues.push({
           severity: 'warning',
           category: 'structure',
-          message: `Section "${section.title}" has ${section.steps.length} steps (too many)`,
-          location: `sections[${sIdx}]`,
-          suggestion: 'Consider breaking into multiple sections for better UX',
+          message: `Page "${page.title}" has ${page.steps.length} steps (too many)`,
+          location: `pages[${sIdx}]`,
+          suggestion: 'Consider breaking into multiple pages for better UX',
         });
       }
     });
 
-    // Check for single-section workflows (may be poorly structured)
-    if (workflow.sections.length === 1 && workflow.sections[0].steps.length > 5) {
+    // Check for single-page workflows (may be poorly structured)
+    if (workflow.pages.length === 1 && workflow.pages[0].steps.length > 5) {
       issues.push({
         severity: 'suggestion',
         category: 'structure',
-        message: 'Workflow has only one section with multiple steps',
-        suggestion: 'Consider grouping related steps into logical sections',
+        message: 'Workflow has only one page with multiple steps',
+        suggestion: 'Consider grouping related steps into logical pages',
       });
     }
   }
@@ -282,9 +282,9 @@ export class WorkflowQualityValidator {
    * Questions should be clear and well-organized
    */
   private checkUserExperience(workflow: AIGeneratedWorkflow, issues: QualityIssue[]): void {
-    workflow.sections.forEach((section, sIdx) => {
-      section.steps.forEach((step, stepIdx) => {
-        const location = `sections[${sIdx}].steps[${stepIdx}]`;
+    workflow.pages.forEach((page, sIdx) => {
+      page.steps.forEach((step, stepIdx) => {
+        const location = `pages[${sIdx}].steps[${stepIdx}]`;
 
         // Check for vague titles
         if (step.title.length < 10) {
@@ -328,7 +328,7 @@ export class WorkflowQualityValidator {
     }
 
     // Check if workflow collects any data
-    const hasInputSteps = workflow.sections.some(s =>
+    const hasInputSteps = workflow.pages.some(s =>
       s.steps.some(step => !['display', 'display_advanced'].includes(step.type))
     );
 
@@ -347,9 +347,9 @@ export class WorkflowQualityValidator {
    * Steps should have appropriate validation
    */
   private checkValidationSetup(workflow: AIGeneratedWorkflow, issues: QualityIssue[]): void {
-    workflow.sections.forEach((section, sIdx) => {
-      section.steps.forEach((step, stepIdx) => {
-        const location = `sections[${sIdx}].steps[${stepIdx}]`;
+    workflow.pages.forEach((page, sIdx) => {
+      page.steps.forEach((step, stepIdx) => {
+        const location = `pages[${sIdx}].steps[${stepIdx}]`;
 
         // Check if important fields are marked required
         const titleLower = step.title.toLowerCase();

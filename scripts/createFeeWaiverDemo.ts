@@ -2,8 +2,8 @@
  * Create Fee Waiver Application Demo Workflow
  *
  * This script creates a comprehensive demonstration workflow that showcases:
- * - Multiple sections with various step types
- * - Conditional logic (show/hide, skip sections)
+ * - Multiple pages with various step types
+ * - Conditional logic (show/hide, skip pages)
  * - Transform blocks for calculations
  * - Virtual steps with computed values
  * - Step aliases (variables)
@@ -18,7 +18,7 @@ import logger from '../server/logger';
 import {
   projects,
   workflows,
-  sections,
+  pages,
   steps,
   transformBlocks,
   logicRules,
@@ -65,7 +65,7 @@ const _POVERTY_LEVELS: Record<number, number> = {
 interface DemoData {
   projectId: string;
   workflowId: string;
-  sectionIds: Record<string, string>;
+  pageIds: Record<string, string>;
   stepIds: Record<string, string>;
   transformBlockIds: Record<string, string>;
 }
@@ -130,13 +130,13 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   // @ts-expect-error - TODO: fix type
   logger.info('Created workflow', { workflowId: workflow.id });
 
-  const sectionIds: Record<string, string> = {};
+  const pageIds: Record<string, string> = {};
   const stepIds: Record<string, string> = {};
   const transformBlockIds: Record<string, string> = {};
 
-  // Step 3: Create Section 1 - Applicant Information
-  const [section1] = await db
-    .insert(sections)
+  // Step 3: Create Page 1 - Applicant Information
+  const [page1] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Applicant Information',
@@ -144,12 +144,12 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 0,
     })
     .returning();
-  sectionIds.applicantInfo = section1.id;
+  pageIds.applicantInfo = page1.id;
 
-  // Section 1 Steps
-  const section1Steps = [
+  // Page 1 Steps
+  const page1Steps = [
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'First Name',
       alias: 'firstName',
@@ -158,7 +158,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'Enter your first name' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'Middle Name',
       alias: 'middleName',
@@ -167,7 +167,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'Optional' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'Last Name',
       alias: 'lastName',
@@ -176,7 +176,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'Enter your last name' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'date_time' as const,
       title: 'Date of Birth',
       alias: 'dateOfBirth',
@@ -185,7 +185,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { includeTime: false },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'Street Address',
       alias: 'streetAddress',
@@ -194,7 +194,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '123 Main St' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'City',
       alias: 'city',
@@ -203,7 +203,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'City' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'State',
       alias: 'state',
@@ -212,7 +212,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'State' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'ZIP Code',
       alias: 'zipCode',
@@ -221,7 +221,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '12345' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'Phone Number',
       alias: 'phoneNumber',
@@ -230,7 +230,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '(555) 123-4567' },
     },
     {
-      sectionId: section1.id,
+      pageId: page1.id,
       type: 'short_text' as const,
       title: 'Email Address',
       alias: 'emailAddress',
@@ -240,20 +240,20 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section1Steps) {
+  for (const step of page1Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 1: Applicant Information', {
-    sectionId: section1.id,
-    stepCount: section1Steps.length
+  logger.info('Created Page 1: Applicant Information', {
+    pageId: page1.id,
+    stepCount: page1Steps.length
   });
 
-  // Step 4: Create Section 2 - Household & Income
-  const [section2] = await db
-    .insert(sections)
+  // Step 4: Create Page 2 - Household & Income
+  const [page2] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Household & Income',
@@ -261,11 +261,11 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 1,
     })
     .returning();
-  sectionIds.householdIncome = section2.id;
+  pageIds.householdIncome = page2.id;
 
-  const section2Steps = [
+  const page2Steps = [
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'multiple_choice' as const,
       title: 'Number of People in Household',
       description: 'Include yourself, spouse, and any dependents',
@@ -277,7 +277,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       },
     },
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'radio' as const,
       title: 'Employment Status',
       alias: 'employmentStatus',
@@ -288,7 +288,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       },
     },
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'short_text' as const,
       title: 'Employer Name',
       alias: 'employerName',
@@ -297,7 +297,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'Enter employer name' },
     },
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'short_text' as const,
       title: 'Monthly Gross Income (Before Taxes)',
       description: 'Enter your total monthly income from employment',
@@ -307,7 +307,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '2500.00', inputType: 'number' },
     },
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'short_text' as const,
       title: 'Other Monthly Income',
       description: 'Social Security, disability, child support, etc.',
@@ -317,7 +317,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'multiple_choice' as const,
       title: 'Do you receive any of the following public benefits?',
       description: 'Select all that apply',
@@ -338,20 +338,20 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section2Steps) {
+  for (const step of page2Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 2: Household & Income', {
-    sectionId: section2.id,
-    stepCount: section2Steps.length
+  logger.info('Created Page 2: Household & Income', {
+    pageId: page2.id,
+    stepCount: page2Steps.length
   });
 
-  // Step 5: Create Section 3 - Monthly Expenses
-  const [section3] = await db
-    .insert(sections)
+  // Step 5: Create Page 3 - Monthly Expenses
+  const [page3] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Monthly Expenses',
@@ -359,11 +359,11 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 2,
     })
     .returning();
-  sectionIds.expenses = section3.id;
+  pageIds.expenses = page3.id;
 
-  const section3Steps = [
+  const page3Steps = [
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Rent or Mortgage',
       alias: 'expenseRent',
@@ -372,7 +372,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '1200.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Utilities (Electric, Gas, Water)',
       alias: 'expenseUtilities',
@@ -381,7 +381,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '200.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Food & Groceries',
       alias: 'expenseFood',
@@ -390,7 +390,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '400.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Transportation (Car payment, gas, insurance)',
       alias: 'expenseTransportation',
@@ -399,7 +399,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '300.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Medical & Healthcare',
       alias: 'expenseMedical',
@@ -408,7 +408,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '150.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Childcare',
       alias: 'expenseChildcare',
@@ -417,7 +417,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'short_text' as const,
       title: 'Other Monthly Expenses',
       description: 'Clothing, personal care, phone, etc.',
@@ -428,20 +428,20 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section3Steps) {
+  for (const step of page3Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 3: Monthly Expenses', {
-    sectionId: section3.id,
-    stepCount: section3Steps.length
+  logger.info('Created Page 3: Monthly Expenses', {
+    pageId: page3.id,
+    stepCount: page3Steps.length
   });
 
-  // Step 6: Create Section 4 - Assets & Liabilities
-  const [section4] = await db
-    .insert(sections)
+  // Step 6: Create Page 4 - Assets & Liabilities
+  const [page4] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Assets & Liabilities',
@@ -449,11 +449,11 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 3,
     })
     .returning();
-  sectionIds.assets = section4.id;
+  pageIds.assets = page4.id;
 
-  const section4Steps = [
+  const page4Steps = [
     {
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'short_text' as const,
       title: 'Cash on Hand & Bank Accounts',
       alias: 'cashAndBank',
@@ -462,7 +462,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'short_text' as const,
       title: 'Value of Vehicle(s)',
       alias: 'vehicleValue',
@@ -471,7 +471,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'short_text' as const,
       title: 'Real Estate Value',
       alias: 'realEstateValue',
@@ -480,7 +480,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'short_text' as const,
       title: 'Other Assets',
       description: 'Investments, retirement accounts, valuable property',
@@ -490,7 +490,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: '0.00', inputType: 'number' },
     },
     {
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'short_text' as const,
       title: 'Total Debt',
       description: 'Credit cards, loans, medical bills',
@@ -501,20 +501,20 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section4Steps) {
+  for (const step of page4Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 4: Assets & Liabilities', {
-    sectionId: section4.id,
-    stepCount: section4Steps.length
+  logger.info('Created Page 4: Assets & Liabilities', {
+    pageId: page4.id,
+    stepCount: page4Steps.length
   });
 
-  // Step 7: Create Section 5 - Supporting Documents
-  const [section5] = await db
-    .insert(sections)
+  // Step 7: Create Page 5 - Supporting Documents
+  const [page5] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Supporting Documents',
@@ -522,11 +522,11 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 4,
     })
     .returning();
-  sectionIds.documents = section5.id;
+  pageIds.documents = page5.id;
 
-  const section5Steps = [
+  const page5Steps = [
     {
-      sectionId: section5.id,
+      pageId: page5.id,
       type: 'file_upload' as const,
       title: 'Pay Stubs (Last 2 months)',
       alias: 'payStubs',
@@ -539,7 +539,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       },
     },
     {
-      sectionId: section5.id,
+      pageId: page5.id,
       type: 'file_upload' as const,
       title: 'Bank Statements (Last 2 months)',
       alias: 'bankStatements',
@@ -552,7 +552,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       },
     },
     {
-      sectionId: section5.id,
+      pageId: page5.id,
       type: 'file_upload' as const,
       title: 'Proof of Public Benefits',
       description: 'SNAP, SSI, or other benefit documentation',
@@ -566,7 +566,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       },
     },
     {
-      sectionId: section5.id,
+      pageId: page5.id,
       type: 'file_upload' as const,
       title: 'Other Supporting Documents',
       alias: 'otherDocuments',
@@ -580,20 +580,20 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section5Steps) {
+  for (const step of page5Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 5: Supporting Documents', {
-    sectionId: section5.id,
-    stepCount: section5Steps.length
+  logger.info('Created Page 5: Supporting Documents', {
+    pageId: page5.id,
+    stepCount: page5Steps.length
   });
 
-  // Step 8: Create Section 6 - Review & Certification
-  const [section6] = await db
-    .insert(sections)
+  // Step 8: Create Page 6 - Review & Certification
+  const [page6] = await db
+    .insert(pages)
     .values({
       workflowId: workflow.id,
       title: 'Review & Certification',
@@ -601,11 +601,11 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       order: 5,
     })
     .returning();
-  sectionIds.review = section6.id;
+  pageIds.review = page6.id;
 
-  const section6Steps = [
+  const page6Steps = [
     {
-      sectionId: section6.id,
+      pageId: page6.id,
       type: 'long_text' as const,
       title: 'Additional Information',
       description: 'Provide any additional information to support your fee waiver request',
@@ -615,7 +615,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
       config: { placeholder: 'Enter any additional details...', rows: 4 },
     },
     {
-      sectionId: section6.id,
+      pageId: page6.id,
       type: 'yes_no' as const,
       title: 'Certification',
       description:
@@ -627,15 +627,15 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
   ];
 
-  for (const step of section6Steps) {
+  for (const step of page6Steps) {
     const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
   // @ts-expect-error - TODO: fix type
-  logger.info('Created Section 6: Review & Certification', {
-    sectionId: section6.id,
-    stepCount: section6Steps.length
+  logger.info('Created Page 6: Review & Certification', {
+    pageId: page6.id,
+    stepCount: page6Steps.length
   });
 
   // Step 9: Create Transform Blocks for Calculations
@@ -646,7 +646,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       name: 'Calculate Total Monthly Income',
       language: 'javascript',
       code: `// Calculate total monthly income from all sources
@@ -657,7 +657,7 @@ const totalIncome = monthlyIncome + otherIncome;
 emit(totalIncome);`,
       inputKeys: ['monthlyIncome', 'otherIncome'],
       outputKey: 'totalMonthlyIncome',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 0,
       timeoutMs: 1000,
@@ -669,7 +669,7 @@ emit(totalIncome);`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'computed',
       title: 'Total Monthly Income',
       alias: 'totalMonthlyIncome',
@@ -693,7 +693,7 @@ emit(totalIncome);`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       name: 'Calculate Poverty Level Threshold',
       language: 'javascript',
       code: `// 2024 Federal Poverty Level thresholds (monthly)
@@ -717,7 +717,7 @@ const threshold = basePoverty * 1.5;
 emit(Math.round(threshold));`,
       inputKeys: ['householdSize'],
       outputKey: 'povertyThreshold',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 1,
       timeoutMs: 1000,
@@ -728,7 +728,7 @@ emit(Math.round(threshold));`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'computed',
       title: 'Poverty Threshold (150%)',
       alias: 'povertyThreshold',
@@ -752,7 +752,7 @@ emit(Math.round(threshold));`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       name: 'Determine Qualification Status',
       language: 'javascript',
       code: `// Determine if applicant qualifies based on income
@@ -774,7 +774,7 @@ const status = qualifies ? 'Likely Qualified' : 'Additional Review Required';
 emit(status);`,
       inputKeys: ['totalMonthlyIncome', 'povertyThreshold', 'publicBenefits'],
       outputKey: 'qualificationStatus',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 2,
       timeoutMs: 1000,
@@ -785,7 +785,7 @@ emit(status);`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section2.id,
+      pageId: page2.id,
       type: 'computed',
       title: 'Qualification Status',
       alias: 'qualificationStatus',
@@ -809,7 +809,7 @@ emit(status);`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section3.id,
+      pageId: page3.id,
       name: 'Calculate Total Monthly Expenses',
       language: 'javascript',
       code: `// Sum all monthly expenses
@@ -826,7 +826,7 @@ const totalExpenses = rent + utilities + food + transportation + medical + child
 emit(totalExpenses);`,
       inputKeys: ['expenseRent', 'expenseUtilities', 'expenseFood', 'expenseTransportation', 'expenseMedical', 'expenseChildcare', 'expenseOther'],
       outputKey: 'totalMonthlyExpenses',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 0,
       timeoutMs: 1000,
@@ -837,7 +837,7 @@ emit(totalExpenses);`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'computed',
       title: 'Total Monthly Expenses',
       alias: 'totalMonthlyExpenses',
@@ -861,7 +861,7 @@ emit(totalExpenses);`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section3.id,
+      pageId: page3.id,
       name: 'Calculate Disposable Income',
       language: 'javascript',
       code: `// Calculate disposable income (income - expenses)
@@ -873,7 +873,7 @@ const disposable = income - expenses;
 emit(Math.round(disposable));`,
       inputKeys: ['totalMonthlyIncome', 'totalMonthlyExpenses'],
       outputKey: 'disposableIncome',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 1,
       timeoutMs: 1000,
@@ -884,7 +884,7 @@ emit(Math.round(disposable));`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section3.id,
+      pageId: page3.id,
       type: 'computed',
       title: 'Disposable Income',
       alias: 'disposableIncome',
@@ -908,7 +908,7 @@ emit(Math.round(disposable));`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section4.id,
+      pageId: page4.id,
       name: 'Calculate Total Assets',
       language: 'javascript',
       code: `// Sum all assets
@@ -922,7 +922,7 @@ const totalAssets = cash + vehicle + realEstate + other;
 emit(totalAssets);`,
       inputKeys: ['cashAndBank', 'vehicleValue', 'realEstateValue', 'otherAssets'],
       outputKey: 'totalAssets',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 0,
       timeoutMs: 1000,
@@ -933,7 +933,7 @@ emit(totalAssets);`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'computed',
       title: 'Total Assets',
       alias: 'totalAssets',
@@ -957,7 +957,7 @@ emit(totalAssets);`,
     .insert(transformBlocks)
     .values({
       workflowId: workflow.id,
-      sectionId: section4.id,
+      pageId: page4.id,
       name: 'Calculate Net Worth',
       language: 'javascript',
       code: `// Calculate net worth (assets - debt)
@@ -969,7 +969,7 @@ const netWorth = assets - debt;
 emit(Math.round(netWorth));`,
       inputKeys: ['totalAssets', 'totalDebt'],
       outputKey: 'netWorth',
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 1,
       timeoutMs: 1000,
@@ -980,7 +980,7 @@ emit(Math.round(netWorth));`,
     .insert(steps)
     .values({
       workflowId: workflow.id,
-      sectionId: section4.id,
+      pageId: page4.id,
       type: 'computed',
       title: 'Net Worth',
       alias: 'netWorth',
@@ -1026,14 +1026,14 @@ emit(Math.round(netWorth));`,
     order: 2,
   });
 
-  // Logic Rule 3: Hide assets section if qualified by income
+  // Logic Rule 3: Hide assets page if qualified by income
   // Note: 'skip_to' might not be supported in the current schema, using 'hide' instead
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.qualificationStatus,
     when: buildDemoWhen(stepIds.qualificationStatus, 'equals', 'Likely Qualified'),
-    targetType: 'section',
-    targetSectionId: sectionIds.assets,
+    targetType: 'page',
+    targetPageId: pageIds.assets,
     action: 'hide',
     order: 3,
   });
@@ -1066,7 +1066,7 @@ emit(Math.round(netWorth));`,
   logger.info('Fee Waiver demo workflow created successfully!', {
     projectId: project.id,
     workflowId: workflow.id,
-    sectionCount: 6,
+    pageCount: 6,
     stepCount: Object.keys(stepIds).length,
     transformBlockCount: 7,
     logicRuleCount: 5,
@@ -1075,7 +1075,7 @@ emit(Math.round(netWorth));`,
   return {
     projectId: project.id,
     workflowId: workflow.id,
-    sectionIds,
+    pageIds,
     stepIds,
     transformBlockIds,
   };
@@ -1103,16 +1103,16 @@ async function main() {
     console.log('📋 Summary:');
     console.log(`  - Project ID: ${demoData.projectId}`);
     console.log(`  - Workflow ID: ${demoData.workflowId}`);
-    console.log(`  - Sections: 6`);
+    console.log(`  - Pages: 6`);
     console.log(`  - Steps: ${Object.keys(demoData.stepIds).length}`);
     console.log(`  - Transform Blocks: 7`);
     console.log(`  - Logic Rules: 5`);
     console.log('\n🎯 Features Demonstrated:');
-    console.log('  ✓ Multiple sections with various step types');
+    console.log('  ✓ Multiple pages with various step types');
     console.log('  ✓ Step aliases (variables) for easy reference');
     console.log('  ✓ Transform blocks for calculations');
     console.log('  ✓ Virtual steps for computed values');
-    console.log('  ✓ Conditional logic (show/hide, skip sections)');
+    console.log('  ✓ Conditional logic (show/hide, skip pages)');
     console.log('  ✓ File uploads with validation');
     console.log('  ✓ Welcome and thank you screens');
     console.log('\n🚀 Next Steps:');

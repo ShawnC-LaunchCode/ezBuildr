@@ -33,7 +33,7 @@ interface CuratedWorkflowStep {
   alias: string;
 }
 
-interface CuratedWorkflowSection {
+interface CuratedWorkflowPage {
   steps: CuratedWorkflowStep[];
 }
 
@@ -44,7 +44,7 @@ interface CuratedWorkflow {
       allowedPrefillKeys?: string[];
     };
   };
-  sections: CuratedWorkflowSection[];
+  pages: CuratedWorkflowPage[];
 }
 
 function loadWorkflowJson(slug: string): CuratedWorkflow {
@@ -261,8 +261,8 @@ describe('LD-2 curated templates', () => {
       '%s workflow.json declares every alias the template uses',
       (slug) => {
         const workflow = loadWorkflowJson(slug);
-        const aliases: string[] = workflow.sections.flatMap((section) =>
-          section.steps.map((step) => step.alias)
+        const aliases: string[] = workflow.pages.flatMap((page) =>
+          page.steps.map((step) => step.alias)
         );
 
         // Every alias should appear as a bare tag reference somewhere in the

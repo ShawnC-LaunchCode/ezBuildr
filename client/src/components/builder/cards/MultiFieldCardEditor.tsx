@@ -11,21 +11,21 @@ import { VisibilityField } from "./common/VisibilityField";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { MultiFieldSettingsSection } from "./MultiFieldCardEditor.components";
 
-export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function MultiFieldCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as MultiFieldConfig | undefined;
 
   const handleConfigChange = (nextConfig: MultiFieldConfig) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, config: nextConfig });
+    updateStepMutation.mutate({ id: stepId, pageId, config: nextConfig });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -46,7 +46,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: St
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

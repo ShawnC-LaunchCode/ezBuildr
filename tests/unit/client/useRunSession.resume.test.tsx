@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 const runToken = '22222222-2222-4222-8222-222222222222';
-const sectionId = '33333333-3333-4333-8333-333333333333';
+const pageId = '33333333-3333-4333-8333-333333333333';
 const {
   fetchAPIMock,
   setRunTokenMock,
@@ -39,7 +39,7 @@ vi.mock('@/lib/vault-hooks', () => ({
         id: '11111111-1111-4111-8111-111111111111',
         workflowId: 'workflow-1',
         workflowVersionId: 'version-1',
-        currentSectionId: '33333333-3333-4333-8333-333333333333',
+        currentPageId: '33333333-3333-4333-8333-333333333333',
         completed: false,
         generationStatus: 'pending',
       },
@@ -81,7 +81,7 @@ describe('useRunSession resume-link bootstrap', () => {
     expect(setRunTokenMock).toHaveBeenCalledWith(runId, runToken);
     expect(window.location.search).toBe('');
     expect(result.current.run).toMatchObject({
-      currentSectionId: sectionId,
+      currentPageId: pageId,
       values: [expect.objectContaining({ stepId: 'step-1', value: 'Ada' })],
     });
     expect(startRunFromSlugMock).not.toHaveBeenCalled();

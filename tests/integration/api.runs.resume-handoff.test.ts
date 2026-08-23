@@ -22,7 +22,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   let versionId: string;
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
   let runId: string;
   let originalRunToken: string;
@@ -37,9 +37,9 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     });
     workflowId = created.workflow.id;
     versionId = created.version.id;
-    const section = await factory.createSection(workflowId, { title: 'Saved section', order: 0 });
-    sectionId = section.id;
-    const step = await factory.createStep(sectionId, {
+    const page = await factory.createPage(workflowId, { title: 'Saved page', order: 0 });
+    pageId = page.id;
+    const step = await factory.createStep(pageId, {
       title: 'Validated name',
       alias: 'validatedName',
       required: true,
@@ -51,9 +51,9 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
         title: 'Resume interview',
         description: null,
         projectId: ctx.projectId,
-        sections: [{
-          id: sectionId,
-          title: 'Saved section',
+        pages: [{
+          id: pageId,
+          title: 'Saved page',
           order: 0,
           steps: [{
             id: stepId,
@@ -80,7 +80,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     originalRunToken = createResponse.body.data.runToken as string;
 
     const submitResponse = await request(ctx.baseURL)
-      .post(`/api/runs/${runId}/sections/${sectionId}/submit`)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .set('Authorization', `Bearer ${originalRunToken}`)
       .send({ values: [{ stepId, value: 'Ada Lovelace' }] })
       .expect(200);
@@ -142,13 +142,13 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .expect(200);
     const restoredRunToken = redeemResponse.body.data.runToken as string;
     expect(restoredRunToken).not.toBe(originalRunToken);
-    expect(redeemResponse.body.data.currentSectionId).toBe(sectionId);
+    expect(redeemResponse.body.data.currentPageId).toBe(pageId);
 
     const runtimeResponse = await request(ctx.baseURL)
       .get(`/api/runs/${runId}/runtime`)
       .set('Authorization', `Bearer ${restoredRunToken}`)
       .expect(200);
-    expect(runtimeResponse.body.data.run.currentSectionId).toBe(sectionId);
+    expect(runtimeResponse.body.data.run.currentPageId).toBe(pageId);
     expect(runtimeResponse.body.data.values).toEqual([
       expect.objectContaining({ runId, stepId, value: 'Ada Lovelace' }),
     ]);

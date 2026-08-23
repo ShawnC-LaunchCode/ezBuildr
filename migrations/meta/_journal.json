@@ -260,6 +260,13 @@
       "when": 1787421638130,
       "tag": "0036_rls_signature_requests_envelope_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1787485154200,
+      "tag": "0037_mighty_pete_wisdom",
+      "breakpoints": true
     }
   ]
 }

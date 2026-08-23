@@ -12,7 +12,7 @@ import { VisibilityField } from "./common/VisibilityField";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { NumberSettingsSection, type NumberEditorConfig } from "./NumberCardEditor.components";
 
-export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function NumberCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const numberConfig = step.config as NumberEditorConfig | null;
@@ -21,15 +21,15 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   const isEasyMode = !isAdvancedMode && !isCurrency;
 
   const handleConfigChange = (config: NumberConfig | CurrencyConfig | NumberAdvancedConfig) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, config });
+    updateStepMutation.mutate({ id: stepId, pageId, config });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -51,14 +51,14 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         <>
           <DefaultValueField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
           <VisibilityField
             stepId={stepId}
-            sectionId={sectionId}
+            pageId={pageId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
           />

@@ -40,7 +40,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -76,7 +76,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     const { unmount } = render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -88,7 +88,7 @@ describe('QuestionAddMenu', () => {
     mockMode('advanced');
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -107,7 +107,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />

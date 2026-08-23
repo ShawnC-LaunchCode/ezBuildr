@@ -19,11 +19,11 @@ sequenceDiagram
     RunService-->>API: { runId, runToken }
     API-->>Client: 201 { runId, runToken }
 
-    %% Section 1: Navigate to First Page
+    %% Page 1: Navigate to First Page
     Client->>API: GET /api/runs/:id/next
     API->>IntakeService: getNextSection(runId)
     IntakeService->>Database: GET sections ORDER BY order
-    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, sectionId)
+    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, pageId)
 
     rect rgb(240, 230, 255)
         Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: beforePage
@@ -34,12 +34,12 @@ sequenceDiagram
     end
 
     IntakeService->>BlockRunner: evaluateVisibility(steps)
-    BlockRunner->>Database: GET steps WHERE sectionId
+    BlockRunner->>Database: GET steps WHERE pageId
     BlockRunner-->>IntakeService: visibleSteps[]
-    IntakeService-->>API: { section, steps, progress }
-    API-->>Client: 200 { section, steps }
+    IntakeService-->>API: { page, steps, progress }
+    API-->>Client: 200 { page, steps }
 
-    %% User Fills Out Section 1
+    %% User Fills Out Page 1
     Client->>Client: User inputs data
     Client->>API: POST /api/runs/:id/values/bulk
     API->>RunService: saveStepValues(runId, values[])
@@ -48,10 +48,10 @@ sequenceDiagram
     RunService-->>API: 200 OK
     API-->>Client: 200 OK
 
-    %% Submit Section 1
-    Client->>API: POST /api/runs/:id/sections/:sid/submit
-    API->>IntakeService: submitSection(runId, sectionId)
-    IntakeService->>LifecycleHooks: executeAfterPageHooks(runId, sectionId)
+    %% Submit Page 1
+    Client->>API: POST /api/runs/:id/pages/:sid/submit
+    API->>IntakeService: submitPage(runId, pageId)
+    IntakeService->>LifecycleHooks: executeAfterPageHooks(runId, pageId)
 
     rect rgb(240, 230, 255)
         Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: afterPage
@@ -67,18 +67,18 @@ sequenceDiagram
     IntakeService-->>API: 200 OK
     API-->>Client: 200 OK
 
-    %% Section 2: Navigate to Second Page (with skip logic)
+    %% Page 2: Navigate to Second Page (with skip logic)
     Client->>API: GET /api/runs/:id/next
     API->>IntakeService: getNextSection(runId)
     IntakeService->>Database: GET sections WHERE order > current
-    IntakeService->>BlockRunner: evaluateSkipLogic(sections, runData)
+    IntakeService->>BlockRunner: evaluateSkipLogic(pages, runData)
     BlockRunner->>BlockRunner: evaluate conditions
     BlockRunner-->>IntakeService: nextSection (may skip)
-    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, sectionId)
+    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, pageId)
     LifecycleHooks->>ScriptEngine: execute(hookCode, context)
     ScriptEngine-->>LifecycleHooks: { success }
-    IntakeService-->>API: { section, steps }
-    API-->>Client: 200 { section, steps }
+    IntakeService-->>API: { page, steps }
+    API-->>Client: 200 { page, steps }
 
     %% Complete Run
     Client->>API: PUT /api/runs/:id/complete

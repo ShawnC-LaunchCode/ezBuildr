@@ -20,7 +20,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   let versionId: string;
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
   let runId: string;
   let runToken: string;
@@ -39,12 +39,12 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     workflowId = workflow.id;
     versionId = version.id;
 
-    const section = await factory.createSection(workflowId, {
-      title: 'Mutable live section',
+    const page = await factory.createPage(workflowId, {
+      title: 'Mutable live page',
       description: 'This text must not reach the pinned runtime',
     });
-    sectionId = section.id;
-    const step = await factory.createStep(sectionId, {
+    pageId = page.id;
+    const step = await factory.createStep(pageId, {
       title: 'Mutable live step',
       alias: 'legalName',
     });
@@ -58,10 +58,10 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
           projectId: ctx.projectId,
           settings: { progressBar: true },
           internalSecret: 'must-not-leak',
-          sections: [{
-            id: sectionId,
-            title: 'Pinned section',
-            description: 'Pinned section description',
+          pages: [{
+            id: pageId,
+            title: 'Pinned page',
+            description: 'Pinned page description',
             order: 0,
             privateNote: 'must-not-leak',
             steps: [{
@@ -88,7 +88,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       runToken: hashToken(runToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
       createdBy: 'anon',
-      currentSectionId: sectionId,
+      currentPageId: pageId,
       metadata: { privateContext: 'must-not-leak' },
     }).returning();
     runId = run.id;
@@ -135,7 +135,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
         id: runId,
         workflowId,
         workflowVersionId: versionId,
-        currentSectionId: sectionId,
+        currentPageId: pageId,
         completed: false,
       },
       workflow: {
@@ -145,17 +145,17 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
         projectId: ctx.projectId,
         settings: { progressBar: true },
       },
-      sections: [{
-        id: sectionId,
+      pages: [{
+        id: pageId,
         workflowId,
-        title: 'Pinned section',
-        description: 'Pinned section description',
+        title: 'Pinned page',
+        description: 'Pinned page description',
         order: 0,
       }],
       steps: [{
         id: stepId,
         workflowId,
-        sectionId,
+        pageId,
         type: 'short_text',
         title: 'Pinned name question',
         required: true,
@@ -168,7 +168,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
 
     expect(Object.keys(response.body.data.run).sort()).toEqual([
       'completed',
-      'currentSectionId',
+      'currentPageId',
       'generationStatus',
       'id',
       'workflowId',
@@ -223,10 +223,10 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     expect(response.body).toMatchObject({ success: false, error: 'Invalid input' });
   });
 
-  it('keeps serving the pinned snapshot after the live section and step change', async () => {
-    await getOwnerDb().update(schema.sections)
-      .set({ title: 'Changed live section', description: 'Changed live description' })
-      .where(eq(schema.sections.id, sectionId));
+  it('keeps serving the pinned snapshot after the live page and step change', async () => {
+    await getOwnerDb().update(schema.pages)
+      .set({ title: 'Changed live page', description: 'Changed live description' })
+      .where(eq(schema.pages.id, pageId));
     await getOwnerDb().update(schema.steps)
       .set({ title: 'Changed live step', required: false, config: { placeholder: 'Changed' } })
       .where(eq(schema.steps.id, stepId));
@@ -236,10 +236,10 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       .set('Authorization', `Bearer ${runToken}`)
       .expect(200);
 
-    expect(response.body.data.sections[0]).toMatchObject({
-      id: sectionId,
-      title: 'Pinned section',
-      description: 'Pinned section description',
+    expect(response.body.data.pages[0]).toMatchObject({
+      id: pageId,
+      title: 'Pinned page',
+      description: 'Pinned page description',
     });
     expect(response.body.data.steps[0]).toMatchObject({
       id: stepId,

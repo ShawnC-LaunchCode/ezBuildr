@@ -305,7 +305,7 @@ export interface ListErrorSummaryEntry {
 
 /**
  * Turns `validateListValue`'s path-keyed errors into "<item label> — <message>"
- * lines using each item's CURRENT resolved label (LIST-9 AC6) — the section's
+ * lines using each item's CURRENT resolved label (LIST-9 AC6) — the page's
  * error summary can then name the offending row by what the respondent typed
  * ("Ben Chen — DOB is required"), not by a raw storage path
  * ("children[1].dob is required"). `fallbackLabel` (the list step's own

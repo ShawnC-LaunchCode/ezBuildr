@@ -1,7 +1,7 @@
 /**
- * Legacy Final Documents section template entries.
+ * Legacy Final Documents page template entries.
  *
- * `section.config.finalBlock === true` sections (the "legacy" authoring path
+ * `page.config.finalBlock === true` pages (the "legacy" authoring path
  * predating the Final Block step type) store selected templates as
  * `config.templates`. Historically this was always a bare template-id
  * string. LU-5 widens each entry so it can optionally carry a per-document
@@ -10,9 +10,9 @@
  * bare-string form readable — it is the documented legacy contract, and the
  * only shape any historical row can actually contain.
  *
- * Both the legacy-section editor (`FinalDocumentsSectionEditor.tsx`) and the
+ * Both the legacy-page editor (`FinalDocumentsPageEditor.tsx`) and the
  * two server readers (`RunLifecycleService.buildLegacyFinalBlockConfig`,
- * `workflowStructureRules.checkLegacyFinalSections`) go through
+ * `workflowStructureRules.checkLegacyFinalPages`) go through
  * `normalizeFinalDocumentsTemplateEntry` so there is exactly one place that
  * understands both forms.
  */

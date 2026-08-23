@@ -1,7 +1,7 @@
 export type WorkflowLintCategory = "questions" | "logic" | "documents" | "integrations";
 
 export type WorkflowLintBuilderTab =
-  | "sections"
+  | "pages"
   | "templates"
   | "data-sources"
   | "settings"
@@ -11,7 +11,7 @@ export type WorkflowLintBuilderTab =
 
 export interface WorkflowLintTarget {
   tab: WorkflowLintBuilderTab;
-  sectionId?: string;
+  pageId?: string;
   stepId?: string;
   blockId?: string;
   panel?: "logic";

@@ -239,7 +239,7 @@ export function registerPortabilityRoutes(app: Express): void {
   }));
 
   // `hybridAuth` before `strictLimiter`, matching the convention for
-  // authenticated resource routes (sections.routes.ts:87, steps.routes.ts:120).
+  // authenticated resource routes (pages.routes.ts:87, steps.routes.ts:120).
   // Limiter-first is for token/public routes that cannot identify a caller.
   // Here it would let anonymous traffic burn the per-IP budget: ten unauthorized
   // requests exhaust the window and every legitimate user behind that IP — an

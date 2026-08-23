@@ -90,7 +90,7 @@ export function mockAIService(overrides = {}) {
   return {
     generateWorkflow: vi.fn().mockResolvedValue({
       title: 'AI Generated Workflow',
-      sections: [],
+      pages: [],
       steps: [],
     }),
     suggestImprovements: vi.fn().mockResolvedValue({

@@ -68,7 +68,7 @@ export class TestFactory {
   private readonly injected?: DBInstance | DbTransaction;
   // RLS-5: the tenant most recently established by createTenant()/
   // createWorkflow() on this instance, remembered so later calls that don't
-  // otherwise know a tenant (createSection, createStep, ...) can still pin
+  // otherwise know a tenant (createPage, createStep, ...) can still pin
   // it. Opportunistic, not required — see withKnownTenant.
   private lastTenantId?: string;
   /**
@@ -82,7 +82,7 @@ export class TestFactory {
     // This class exists to build the world a test is exercised in — it is the
     // fixture layer, never the code under test. Under RLS_RESTRICTED the app's
     // pool is a genuine non-owner, so a default of `getDb()` had `users`,
-    // `workflows`, `sections` and the DataVault tables reject fixture rows,
+    // `workflows`, `pages` and the DataVault tables reject fixture rows,
     // and 22 suites failed for harness reasons that read exactly like
     // application defects.
     //
@@ -105,7 +105,7 @@ export class TestFactory {
    * has one (set by a prior createTenant()/createWorkflow() call), otherwise
    * run it exactly as before — unscoped, against `this.db` directly. Not
    * required for these helpers to work when RLS is unenforced, but needed
-   * once it is: `sections`/`steps`/`datavault_*`/`collections` are all
+   * once it is: `pages`/`steps`/`datavault_*`/`collections` are all
    * RLS-covered and reject an unscoped write the same way `workflows` did
    * (RLS-5 finding). Backward compatible by construction — a caller that
    * never established a tenant on this instance sees no behaviour change.
@@ -245,11 +245,11 @@ export class TestFactory {
           // completion validated against this graph (via
           // RunDefinitionProvider), not just the live tables. `{}` used to be
           // a harmless placeholder because nothing ever parsed it; now it
-          // fails VersionRuntimeSchema (missing `title`/`sections`) for any
+          // fails VersionRuntimeSchema (missing `title`/`pages`) for any
           // test that points currentVersionId/pinnedVersionId at this
           // version. Default to a schema-valid empty graph; tests that need
           // specific pinned content still override via `overrides.version`.
-          graphJson: { title: workflow.title, sections: [] },
+          graphJson: { title: workflow.title, pages: [] },
           createdBy: userId,
           ...overrides?.version,
         })
@@ -258,43 +258,43 @@ export class TestFactory {
     });
   }
   /**
-   * Create a section for a workflow
+   * Create a page for a workflow
    */
-  async createSection(
+  async createPage(
     workflowId: string,
-    overrides?: Partial<typeof schema.sections.$inferInsert>
+    overrides?: Partial<typeof schema.pages.$inferInsert>
   ) {
-    const [section] = await this.withKnownTenant((tx) => tx
-      .insert(schema.sections)
+    const [page] = await this.withKnownTenant((tx) => tx
+      .insert(schema.pages)
       .values({
         id: generateId(),
         workflowId,
-        title: 'Test Section',
-        description: 'Test section',
+        title: 'Test Page',
+        description: 'Test page',
         order: 0,
         ...overrides,
       })
       .returning());
-    return section;
+    return page;
   }
   /**
-   * Create a step for a section
+   * Create a step for a page
    */
   async createStep(
-    sectionId: string,
+    pageId: string,
     overrides?: Partial<typeof schema.steps.$inferInsert>
   ) {
     return this.withKnownTenant(async (tx) => {
       const workflowId = overrides?.workflowId ?? (
         await tx
-          .select({ workflowId: schema.sections.workflowId })
-          .from(schema.sections)
-          .where(eq(schema.sections.id, sectionId))
+          .select({ workflowId: schema.pages.workflowId })
+          .from(schema.pages)
+          .where(eq(schema.pages.id, pageId))
           .limit(1)
       )[0]?.workflowId;
 
       if (!workflowId) {
-        throw new Error(`Cannot create test step for unknown section ${sectionId}`);
+        throw new Error(`Cannot create test step for unknown page ${pageId}`);
       }
 
       const [step] = await tx
@@ -302,7 +302,7 @@ export class TestFactory {
         .values({
           id: generateId(),
           workflowId,
-          sectionId,
+          pageId,
           type: 'short_text',
           title: 'Test Step',
           description: 'Test step',
@@ -367,7 +367,7 @@ export class TestFactory {
     userId: string,
     overrides?: Partial<typeof schema.datavaultDatabases.$inferInsert>
   ) {
-    // tenantId is given directly here, unlike createSection/createStep — use
+    // tenantId is given directly here, unlike createPage/createStep — use
     // it rather than lastTenantId, which may not have been set (or may be
     // stale) if the caller didn't build this database's hierarchy through
     // createTenant() first.

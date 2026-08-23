@@ -28,7 +28,7 @@ async function main() {
     console.log(`  Name: ${block.name}`);
     console.log(`  Language: ${block.language}`);
     console.log(`  Phase: ${block.phase}`);
-    console.log(`  Section ID: ${block.sectionId || "null"}`);
+    console.log(`  Page ID: ${block.pageId || "null"}`);
     console.log(`  Virtual Step ID: ${block.virtualStepId || "null"}`);
     console.log(`  Output Key: ${block.outputKey}`);
     console.log(`  Input Keys: ${JSON.stringify(block.inputKeys)}`);

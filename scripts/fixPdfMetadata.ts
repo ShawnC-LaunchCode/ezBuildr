@@ -9,7 +9,7 @@ import * as schema from '../shared/schema';
 // Hardcoded template ID from user logs
 const _TEMPLATE_ID = 'ee86b75f-bac8-4f51-9b40-129227cd6d81';
 // Wait, the log said `blob:http://localhost:5000/ee86...`. Is that the template ID?
-// User request Step 32: `GET http://localhost:5000/api/sections/4471a74b...`
+// User request Step 32: `GET http://localhost:5000/api/pages/4471a74b...`
 // Let's search for the template first.
 
 async function fixTemplate() {

@@ -30,13 +30,13 @@ import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface QuestionAddMenuProps {
-  sectionId: string;
+  pageId: string;
   nextOrder: number;
   workflowId: string;
 }
 
 export function QuestionAddMenu({
-  sectionId,
+  pageId,
   nextOrder,
   workflowId,
 }: QuestionAddMenuProps) {
@@ -54,7 +54,7 @@ export function QuestionAddMenu({
 
       // Create the step
       const step = await createStepMutation.mutateAsync({
-        sectionId,
+        pageId,
         type: block.type as StepType,
         title: `New ${block.label}`,
         description: null,

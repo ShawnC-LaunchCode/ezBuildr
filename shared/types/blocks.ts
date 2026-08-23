@@ -11,9 +11,9 @@
  */
 export type BlockPhase =
   | "onRunStart"       // Run creation
-  | "onSectionEnter"   // When entering a section
-  | "onSectionSubmit"  // When submitting a section's values
-  | "onNext"           // When navigating to next section
+  | "onPageEnter"   // When entering a page
+  | "onPageSubmit"  // When submitting a page's values
+  | "onNext"           // When navigating to next page
   | "onRunComplete";   // When completing the run
 
 /**
@@ -140,16 +140,16 @@ export type ValidateConfig = {
  */
 export type BranchRule = {
   when: WhenCondition;                // Condition to evaluate
-  gotoSectionId: string;              // Section ID to navigate to if condition is met
+  gotoPageId: string;              // Page ID to navigate to if condition is met
 };
 
 /**
  * Branch Block Configuration
- * Chooses next section via ordered conditions (first match wins)
+ * Chooses next page via ordered conditions (first match wins)
  */
 export type BranchConfig = {
   branches: BranchRule[];             // Ordered list of branch conditions
-  fallbackSectionId?: string;         // Default section if no conditions match
+  fallbackPageId?: string;         // Default page if no conditions match
 };
 
 /**
@@ -481,18 +481,18 @@ export type ListToolsConfig = {
  * Each block type has its own config shape
  */
 export type BlockKind =
-  | { type: "prefill"; phase: BlockPhase; config: PrefillConfig; sectionId?: string | null }
-  | { type: "validate"; phase: BlockPhase; config: ValidateConfig; sectionId?: string | null }
-  | { type: "branch"; phase: BlockPhase; config: BranchConfig; sectionId?: string | null }
-  | { type: "create_record"; phase: BlockPhase; config: CreateRecordConfig; sectionId?: string | null }
-  | { type: "update_record"; phase: BlockPhase; config: UpdateRecordConfig; sectionId?: string | null }
-  | { type: "find_record"; phase: BlockPhase; config: FindRecordConfig; sectionId?: string | null }
-  | { type: "delete_record"; phase: BlockPhase; config: DeleteRecordConfig; sectionId?: string | null }
-  | { type: "query"; phase: BlockPhase; config: QueryBlockConfig; sectionId?: string | null }
-  | { type: "read_table"; phase: BlockPhase; config: ReadTableConfig; sectionId?: string | null }
-  | { type: "write"; phase: BlockPhase; config: WriteBlockConfig; sectionId?: string | null }
-  | { type: "external_send"; phase: BlockPhase; config: ExternalSendBlockConfig; sectionId?: string | null }
-  | { type: "list_tools"; phase: BlockPhase; config: ListToolsConfig; sectionId?: string | null };
+  | { type: "prefill"; phase: BlockPhase; config: PrefillConfig; pageId?: string | null }
+  | { type: "validate"; phase: BlockPhase; config: ValidateConfig; pageId?: string | null }
+  | { type: "branch"; phase: BlockPhase; config: BranchConfig; pageId?: string | null }
+  | { type: "create_record"; phase: BlockPhase; config: CreateRecordConfig; pageId?: string | null }
+  | { type: "update_record"; phase: BlockPhase; config: UpdateRecordConfig; pageId?: string | null }
+  | { type: "find_record"; phase: BlockPhase; config: FindRecordConfig; pageId?: string | null }
+  | { type: "delete_record"; phase: BlockPhase; config: DeleteRecordConfig; pageId?: string | null }
+  | { type: "query"; phase: BlockPhase; config: QueryBlockConfig; pageId?: string | null }
+  | { type: "read_table"; phase: BlockPhase; config: ReadTableConfig; pageId?: string | null }
+  | { type: "write"; phase: BlockPhase; config: WriteBlockConfig; pageId?: string | null }
+  | { type: "external_send"; phase: BlockPhase; config: ExternalSendBlockConfig; pageId?: string | null }
+  | { type: "list_tools"; phase: BlockPhase; config: ListToolsConfig; pageId?: string | null };
 
 /**
  * Block execution context
@@ -501,7 +501,7 @@ export type BlockKind =
 export interface BlockContext {
   workflowId: string;
   runId?: string;
-  sectionId?: string;
+  pageId?: string;
   phase: BlockPhase;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values can be any type
   data: Record<string, any>;          // Current step values (stepId -> value)
@@ -523,6 +523,6 @@ export interface BlockResult {
   data?: Record<string, any>;         // Updated data (for prefill blocks)
   errors?: string[];                  // General validation errors
   fieldErrors?: Record<string, string[]>; // Field-specific validation errors (stepId -> errors)
-  nextSectionId?: string;             // Next section decision (for branch blocks)
-  nextSectionBlockId?: string;        // Id of the branch block that set nextSectionId (diagnostics)
+  nextPageId?: string;             // Next page decision (for branch blocks)
+  nextPageBlockId?: string;        // Id of the branch block that set nextPageId (diagnostics)
 }

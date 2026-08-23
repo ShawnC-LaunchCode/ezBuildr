@@ -39,11 +39,11 @@ interface DiffItem {
 }
 
 interface DiffResult {
-    sections: DiffItem[];
+    pages: DiffItem[];
     steps: DiffItem[];
     summary: {
-        sectionsAdded: number;
-        sectionsRemoved: number;
+        pagesAdded: number;
+        pagesRemoved: number;
         stepsAdded: number;
         stepsRemoved: number;
         stepsModified: number;
@@ -102,12 +102,12 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                             {/* Summary */}
                             <div className="grid grid-cols-5 gap-4 text-center">
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.sectionsAdded}</div>
-                                    <div className="text-xs text-muted-foreground">Sections Added</div>
+                                    <div className="text-2xl font-bold">{diff.summary.pagesAdded}</div>
+                                    <div className="text-xs text-muted-foreground">Pages Added</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
-                                    <div className="text-2xl font-bold">{diff.summary.sectionsRemoved}</div>
-                                    <div className="text-xs text-muted-foreground">Sections Removed</div>
+                                    <div className="text-2xl font-bold">{diff.summary.pagesRemoved}</div>
+                                    <div className="text-xs text-muted-foreground">Pages Removed</div>
                                 </div>
                                 <div className="p-2 bg-muted rounded">
                                     <div className="text-2xl font-bold">{diff.summary.stepsAdded}</div>
@@ -122,17 +122,17 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                     <div className="text-xs text-muted-foreground">Steps Modified</div>
                                 </div>
                             </div>
-                            {/* Sections Diff */}
-                            {diff.sections.length > 0 && (
+                            {/* Pages Diff */}
+                            {diff.pages.length > 0 && (
                                 <div className="space-y-2">
-                                    <h3 className="font-semibold text-lg">Sections</h3>
-                                    {diff.sections.map(s => (
+                                    <h3 className="font-semibold text-lg">Pages</h3>
+                                    {diff.pages.map(s => (
                                         <Card key={s.id} className="border-l-4 border-l-primary">
                                             <CardHeader className="py-3">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         {renderChangeBadge(s.changeType)}
-                                                        <span className="font-medium">{s.title ?? "Untitled Section"}</span>
+                                                        <span className="font-medium">{s.title ?? "Untitled Page"}</span>
                                                     </div>
                                                     <span className="text-xs text-muted-foreground font-mono">{s.id.slice(0, 8)}</span>
                                                 </div>

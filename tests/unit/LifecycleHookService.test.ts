@@ -66,7 +66,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-1',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 1',
           phase: 'beforePage',
           language: 'javascript',
@@ -83,7 +83,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-2',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 2',
           phase: 'beforePage',
           language: 'javascript',
@@ -135,7 +135,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-1',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 1',
           phase: 'beforePage',
           language: 'javascript',
@@ -178,7 +178,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-1',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 1',
           phase: 'beforePage',
           language: 'javascript',
@@ -195,7 +195,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-2',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 2',
           phase: 'beforePage',
           language: 'javascript',
@@ -247,7 +247,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-1',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 1',
           phase: 'beforePage',
           language: 'javascript',
@@ -326,7 +326,7 @@ describe('LifecycleHookService', () => {
         {
           id: 'hook-1',
           workflowId: 'workflow-1',
-          sectionId: null,
+          pageId: null,
           name: 'Hook 1',
           phase: 'beforePage',
           language: 'javascript',

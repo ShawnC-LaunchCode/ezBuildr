@@ -18,7 +18,7 @@ function makeStep(overrides: Partial<ApiStep> = {}): ApiStep {
   return {
     id: "question-1",
     workflowId: "workflow-1",
-    sectionId: "section-1",
+    pageId: "page-1",
     type: "short_text",
     title: "Question",
     description: null,

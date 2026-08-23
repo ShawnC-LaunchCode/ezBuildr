@@ -19,7 +19,7 @@ export interface ScriptExecutionContext {
   workflowId: string;
   runId: string;
   phase: string;
-  sectionId?: string;
+  pageId?: string;
   userId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -47,7 +47,7 @@ export type LifecycleHookPhase =
 export interface LifecycleHook {
   id: string;
   workflowId: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   name: string;
   phase: LifecycleHookPhase;
   language: ScriptLanguage;
@@ -65,7 +65,7 @@ export interface LifecycleHook {
 
 export interface CreateLifecycleHookInput {
   workflowId: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   name: string;
   phase: LifecycleHookPhase;
   language: ScriptLanguage;
@@ -308,7 +308,7 @@ export interface ScriptContextAPI {
     id: string;
   };
   phase: string;
-  section?: {
+  page?: {
     id: string;
   };
   user?: {

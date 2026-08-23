@@ -96,7 +96,7 @@ describe('ReadTableBlockRunner', () => {
       id: 'block-1',
       workflowId: 'workflow-1',
       type: 'read_table',
-      phase: 'onSectionEnter',
+      phase: 'onPageEnter',
       config,
       enabled: true,
       virtualStepId: null,
@@ -104,7 +104,7 @@ describe('ReadTableBlockRunner', () => {
 
     const result = await runner.execute(config, {
       workflowId: 'workflow-1',
-      phase: 'onSectionEnter',
+      phase: 'onPageEnter',
       data: {},
     }, block);
 

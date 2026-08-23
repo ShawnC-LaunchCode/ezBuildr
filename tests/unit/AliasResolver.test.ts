@@ -93,11 +93,11 @@ describe('AliasResolver', () => {
   });
 
   describe('fromWorkflow', () => {
-    it('should create resolver from workflow with sections and steps', () => {
+    it('should create resolver from workflow with pages and steps', () => {
       const workflow = {
-        sections: [
+        pages: [
           {
-            id: 'section-1',
+            id: 'page-1',
             alias: 'personalInfo',
             title: 'Personal Information',
             steps: [
@@ -106,7 +106,7 @@ describe('AliasResolver', () => {
             ],
           },
           {
-            id: 'section-2',
+            id: 'page-2',
             alias: 'contactInfo',
             title: 'Contact Information',
             steps: [
@@ -123,10 +123,10 @@ describe('AliasResolver', () => {
       expect(resolver.resolve('lastName')).toBe('step-2');
       expect(resolver.resolve('email')).toBe('step-3');
 
-      // Sections
-      expect(resolver.resolve('personalInfo')).toBe('section-1');
-      expect(resolver.resolve('contactInfo')).toBe('section-2');
-      expect(resolver.resolve('section-1')).toBe('section-1');
+      // Pages
+      expect(resolver.resolve('personalInfo')).toBe('page-1');
+      expect(resolver.resolve('contactInfo')).toBe('page-2');
+      expect(resolver.resolve('page-1')).toBe('page-1');
     });
 
     it('should handle empty workflow', () => {

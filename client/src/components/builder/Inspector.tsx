@@ -28,14 +28,14 @@ export function Inspector({ workflowId }: { workflowId: string }) {
   // Determine which properties panel to show based on selection type
   const renderPropertiesPanel = () => {
     if (selection.type === "step") {
-      // We need the sectionId to update the step, which we can get from the step data
-      // For now, we'll pass it through. The StepPropertiesPanel will fetch the step and get sectionId
-      return <StepPropertiesPanel stepId={selection.id} sectionId="" />;
-    } else if (selection.type === "section") {
+      // We need the pageId to update the step, which we can get from the step data
+      // For now, we'll pass it through. The StepPropertiesPanel will fetch the step and get pageId
+      return <StepPropertiesPanel stepId={selection.id} pageId="" />;
+    } else if (selection.type === "page") {
       return (
         <div className="p-4">
           <p className="text-sm text-muted-foreground">
-            Section properties can be edited directly in the canvas.
+            Page properties can be edited directly in the canvas.
           </p>
         </div>
       );

@@ -23,14 +23,14 @@ import { DisplayContentSection } from "./DisplayCardEditor.components";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepEditorCommonProps) {
+export function DisplayCardEditor({ stepId, pageId, step, workflowId }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   // Parse config (works for both easy and advanced mode)
   const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
 
   const handleConfigChange = (nextConfig: DisplayConfig) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, config: nextConfig });
+    updateStepMutation.mutate({ id: stepId, pageId, config: nextConfig });
   };
 
   return (
@@ -51,7 +51,7 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

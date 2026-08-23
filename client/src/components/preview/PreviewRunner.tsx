@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hotReloadManager } from "@/lib/previewRunner/HotReloadManager";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { generateAIRandomValues, generateAIRandomValuesForSteps } from "@/lib/randomizer/aiRandomFill";
-import { ApiSection, ApiStep } from "@/lib/vault-api";
+import { ApiPage, ApiStep } from "@/lib/vault-api";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
@@ -22,7 +22,7 @@ interface PreviewRunnerProps {
     onExit: () => void;
 }
 
-interface PreviewSection extends ApiSection {
+interface PreviewPage extends ApiPage {
     steps?: ApiStep[];
 }
 
@@ -61,7 +61,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const allSteps = useMemo(() => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        return workflow?.sections?.flatMap((section: PreviewSection) => section.steps ?? []) ?? [];
+        return workflow?.pages?.flatMap((page: PreviewPage) => page.steps ?? []) ?? [];
     }, [workflow]);
 
     // Fetch snapshot values
@@ -112,7 +112,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     // Init Environment
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (workflow && allSteps && workflow.sections) {
+        if (workflow && allSteps && workflow.pages) {
             // Always recreate env when workflow/steps change to pick up schema updates (e.g., required status)
             // This fixes the bug where toggling required doesn't update in preview until reload
 
@@ -141,7 +141,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 workflowId: workflow.id,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-                sections: workflow.sections,
+                pages: workflow.pages,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 steps: allSteps,
                 initialValues,
@@ -151,7 +151,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
         }
         return () => hotReloadManager.detach();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    }, [workflow?.id, JSON.stringify(workflow?.sections?.map((s: PreviewSection) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
+    }, [workflow?.id, JSON.stringify(workflow?.pages?.map((s: PreviewPage) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
 
     const handleRandomFill = async () => {
 
@@ -167,9 +167,9 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 env.setValue(stepId, val);
             });
 
-            // Calculate visible sections to jump to the end
+            // Calculate visible pages to jump to the end
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            if (workflow.sections) {
+            if (workflow.pages) {
                 const aliasResolver = (variableName: string): string | undefined => {
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                     const step = allSteps.find((s: ApiStep) => s.alias === variableName);
@@ -178,24 +178,24 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 };
 
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-                const visibleSections = workflow.sections.filter((section: PreviewSection) => {
+                const visiblePages = workflow.pages.filter((page: PreviewPage) => {
 
-                    if (!section.visibleIf) {
+                    if (!page.visibleIf) {
                         return true;
                     }
                     try {
-                        return evaluateConditionExpression(section.visibleIf as ConditionExpression, values, aliasResolver);
+                        return evaluateConditionExpression(page.visibleIf as ConditionExpression, values, aliasResolver);
                     } catch (_e) {
-                        console.error('Error evaluating section visibility condition:', section.id, _e);
+                        console.error('Error evaluating page visibility condition:', page.id, _e);
                         return false;
                     }
                 });
 
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                if (visibleSections.length > 0) {
-                    // Jump to the last section
+                if (visiblePages.length > 0) {
+                    // Jump to the last page
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    env.setCurrentSection(visibleSections.length - 1);
+                    env.setCurrentPage(visiblePages.length - 1);
                 }
             }
 
@@ -215,14 +215,14 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
         }
         const currentState = env.getState();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const currentSectionId = workflow.sections[currentState.currentSectionIndex]?.id;
+        const currentPageId = workflow.pages[currentState.currentPageIndex]?.id;
 
-        if (!currentSectionId) {
+        if (!currentPageId) {
             return;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        const pageSteps = allSteps.filter((s: ApiStep) => s.sectionId === currentSectionId);
+        const pageSteps = allSteps.filter((s: ApiStep) => s.pageId === currentPageId);
 
         setIsAiLoading(true);
         try {

@@ -61,7 +61,7 @@ export interface TemplateValidationReport {
    * Steps that have no alias: their answers are excluded from document
    * data entirely (SnapshotService only exports aliased values)
    */
-  stepsWithoutAlias: Array<{ stepId: string; label: string; sectionTitle: string }>;
+  stepsWithoutAlias: Array<{ stepId: string; label: string; pageTitle: string }>;
   /** Malformed template tags (unclosed/mismatched); analysis is skipped */
   syntaxErrors: string[];
   /** Helpers referenced in tags but not defined in docxHelpers */
@@ -183,7 +183,7 @@ export class TemplateValidationService {
       // optional `tx` this method does and reuses `scopedTx` instead of
       // opening a second transaction — opening one here would deadlock the
       // size-1 test pool while this transaction is still open. Real
-      // tenant-scoped `sections`/`steps` reads under FORCE, not zero rows.
+      // tenant-scoped `pages`/`steps` reads under FORCE, not zero rows.
       const variables = await variableService.listVariables(workflowId, userId, scopedTx);
 
       let placeholders: PlaceholderInfo[] = [];
@@ -267,7 +267,7 @@ export class TemplateValidationService {
 
     const stepsWithoutAlias = variables
       .filter((v) => (v.alias === null || v.alias === '') && !VALUELESS_STEP_TYPES.has(v.type))
-      .map((v) => ({ stepId: v.stepId, label: v.label, sectionTitle: v.sectionTitle }));
+      .map((v) => ({ stepId: v.stepId, label: v.label, pageTitle: v.pageTitle }));
 
     const unknownHelpers = Array.from(unknownHelpersSet).sort();
     

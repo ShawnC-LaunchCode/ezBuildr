@@ -62,7 +62,7 @@ describe.sequential("Template install API (TM-3)", () => {
     });
 
     // AC1, AC2, AC5
-    it("installs into the caller's own project, creating sections/steps and a retrievable DOCX", async () => {
+    it("installs into the caller's own project, creating pages/steps and a retrievable DOCX", async () => {
         const res = await agent.post("/api/templates/nda/install").send({ projectId: projectIdA });
 
         expect(res.status).toBe(200);
@@ -79,9 +79,9 @@ describe.sequential("Template install API (TM-3)", () => {
         expect(workflow.ownerUuid).toBe(ctx.userId);
         expect(workflow.creatorId).toBe(ctx.userId);
 
-        const sections = await getOwnerDb().select().from(schema.sections)
-            .where(eq(schema.sections.workflowId, firstInstalledWorkflowId));
-        expect(sections.length).toBeGreaterThan(0);
+        const pages = await getOwnerDb().select().from(schema.pages)
+            .where(eq(schema.pages.workflowId, firstInstalledWorkflowId));
+        expect(pages.length).toBeGreaterThan(0);
 
         const steps = await getOwnerDb().select().from(schema.steps)
             .where(eq(schema.steps.workflowId, firstInstalledWorkflowId));
@@ -112,12 +112,12 @@ describe.sequential("Template install API (TM-3)", () => {
 
         expect(secondWorkflowId).not.toBe(firstInstalledWorkflowId);
 
-        const firstSections = await getOwnerDb().select().from(schema.sections)
-            .where(eq(schema.sections.workflowId, firstInstalledWorkflowId));
-        const secondSections = await getOwnerDb().select().from(schema.sections)
-            .where(eq(schema.sections.workflowId, secondWorkflowId));
-        const firstIds = new Set(firstSections.map((s) => s.id));
-        expect(secondSections.every((s) => !firstIds.has(s.id))).toBe(true);
+        const firstPages = await getOwnerDb().select().from(schema.pages)
+            .where(eq(schema.pages.workflowId, firstInstalledWorkflowId));
+        const secondPages = await getOwnerDb().select().from(schema.pages)
+            .where(eq(schema.pages.workflowId, secondWorkflowId));
+        const firstIds = new Set(firstPages.map((s) => s.id));
+        expect(secondPages.every((s) => !firstIds.has(s.id))).toBe(true);
 
         // Editing one does not affect the other.
         await getOwnerDb().update(schema.workflows)

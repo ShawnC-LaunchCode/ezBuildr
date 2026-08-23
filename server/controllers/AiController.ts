@@ -169,7 +169,7 @@ export class AiController {
                 userId,
                 projectId: requestData.projectId,
                 duration,
-                sectionsCount: generatedWorkflow.sections.length,
+                pagesCount: generatedWorkflow.pages.length,
                 rulesCount: generatedWorkflow.logicRules.length,
                 blocksCount: generatedWorkflow.transformBlocks.length,
             }, 'AI workflow generation succeeded');
@@ -183,7 +183,7 @@ export class AiController {
                 workflow: generatedWorkflow,
                 metadata: {
                     duration,
-                    sectionsGenerated: generatedWorkflow.sections.length,
+                    pagesGenerated: generatedWorkflow.pages.length,
                     logicRulesGenerated: generatedWorkflow.logicRules.length,
                     transformBlocksGenerated: generatedWorkflow.transformBlocks.length,
                 },
@@ -249,7 +249,7 @@ export class AiController {
             const suggestions = await aiService.suggestWorkflowImprovements(
                 requestData,
                 {
-                    sections: workflow.sections ?? [],
+                    pages: workflow.pages ?? [],
                     logicRules: workflow.logicRules ?? [],
                     transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks ?? [],
                 }
@@ -261,7 +261,7 @@ export class AiController {
                 userId,
                 workflowId,
                 duration,
-                newSectionsCount: suggestions.newSections.length,
+                newPagesCount: suggestions.newPages.length,
                 newRulesCount: suggestions.newLogicRules.length,
                 newBlocksCount: suggestions.newTransformBlocks.length,
                 modificationsCount: suggestions.modifications.length,
@@ -272,7 +272,7 @@ export class AiController {
                 suggestions,
                 metadata: {
                     duration,
-                    newSectionsCount: suggestions.newSections.length,
+                    newPagesCount: suggestions.newPages.length,
                     newLogicRulesCount: suggestions.newLogicRules.length,
                     newTransformBlocksCount: suggestions.newTransformBlocks.length,
                     modificationsCount: suggestions.modifications.length,

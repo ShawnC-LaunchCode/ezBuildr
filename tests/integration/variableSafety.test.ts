@@ -8,7 +8,7 @@ import {
     projects as projectsSchema,
     workflows as workflowsSchema,
     workflowVersions as workflowVersionsSchema,
-    sections as sectionsSchema,
+    pages as pagesSchema,
     steps as stepsSchema,
     workflowRuns as _workflowRunsSchema,
 } from "@shared/schema";
@@ -26,7 +26,7 @@ describe("Variable Schema Safety & Resolution", () => {
     let projectId: string;
     let workflowId: string;
     let versionId: string;
-    let sectionId: string;
+    let pageId: string;
     let runId: string;
     let runToken: string;
     let stepId1: string;
@@ -63,7 +63,7 @@ describe("Variable Schema Safety & Resolution", () => {
         } as any);
         workflowId = uuidv4();
         versionId = uuidv4();
-        sectionId = uuidv4();
+        pageId = uuidv4();
         await getOwnerDb().insert(workflowsSchema).values({
             id: workflowId,
             projectId,
@@ -79,16 +79,16 @@ describe("Variable Schema Safety & Resolution", () => {
         // doesn't match VersionRuntimeSchema (RUN2-10). An empty `{}`
         // placeholder used to be harmless here because saveStepValue read
         // the live tables directly; it now must be a real (if minimal)
-        // snapshot of the section/step this test creates below.
+        // snapshot of the page/step this test creates below.
         await getOwnerDb().insert(workflowVersionsSchema).values({
             id: versionId,
             workflowId,
             versionNumber: 1,
             graphJson: {
                 title: "Safety Workflow",
-                sections: [{
-                    id: sectionId,
-                    title: "Main Section",
+                pages: [{
+                    id: pageId,
+                    title: "Main Page",
                     order: 1,
                     steps: [{
                         id: stepId1,
@@ -101,17 +101,17 @@ describe("Variable Schema Safety & Resolution", () => {
             },
             createdBy: userId,
         } as any);
-        // 3. Setup Section & Step
-        await getOwnerDb().insert(sectionsSchema).values({
-            id: sectionId,
+        // 3. Setup Page & Step
+        await getOwnerDb().insert(pagesSchema).values({
+            id: pageId,
             workflowId,
-            title: "Main Section",
+            title: "Main Page",
             order: 1,
         } as any);
         await getOwnerDb().insert(stepsSchema).values({
             id: stepId1,
             workflowId,
-            sectionId,
+            pageId,
             type: "text",
             title: "My Step",
             alias: stepAlias1, // "input_variable"
@@ -170,7 +170,7 @@ describe("Variable Schema Safety & Resolution", () => {
             context: {
                 workflowId,
                 runId,
-                phase: "onSectionSubmit"
+                phase: "onPageSubmit"
             }
         });
         // Expectation: Execution itself succeeds (ok=true), but result is NaN because input was undefined
@@ -198,7 +198,7 @@ describe("Variable Schema Safety & Resolution", () => {
             context: {
                 workflowId,
                 runId,
-                phase: "onSectionSubmit"
+                phase: "onPageSubmit"
             }
         });
         // Expectation: Should PASS now
@@ -216,7 +216,7 @@ describe("Variable Schema Safety & Resolution", () => {
         const context: BlockContext = {
             workflowId,
             runId,
-            phase: "onSectionSubmit",
+            phase: "onPageSubmit",
             data: dataMap, // Keyed by UUID
         };
         // 3. Config using ALIAS
@@ -246,7 +246,7 @@ describe("Variable Schema Safety & Resolution", () => {
         const context: BlockContext = {
             workflowId,
             runId,
-            phase: "onSectionSubmit",
+            phase: "onPageSubmit",
             data: dataMap,
             aliasMap,
         };

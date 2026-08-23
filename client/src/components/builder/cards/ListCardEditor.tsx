@@ -25,7 +25,7 @@ const CONFIG_SAVE_DEBOUNCE_MS = 600;
 
 interface PendingConfigSave {
   stepId: string;
-  sectionId: string;
+  pageId: string;
   config: ListConfig;
 }
 
@@ -42,20 +42,20 @@ function readListConfig(config: unknown): ListConfig {
   return defaultListConfig();
 }
 
-export function ListCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function ListCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const serverValue = useMemo<PendingConfigSave>(() => ({
     stepId,
-    sectionId,
+    pageId,
     config: readListConfig(step.config),
-  }), [sectionId, step.config, stepId]);
-  const saveIdentity = useMemo(() => ({ stepId, sectionId }), [sectionId, stepId]);
+  }), [pageId, step.config, stepId]);
+  const saveIdentity = useMemo(() => ({ stepId, pageId }), [pageId, stepId]);
   const { localValue, onChange: queueConfigSave } = useDebouncedFieldMutation(
     serverValue,
     (pendingSave) => {
       updateStepMutation.mutate({
         id: pendingSave.stepId,
-        sectionId: pendingSave.sectionId,
+        pageId: pendingSave.pageId,
         config: pendingSave.config,
       });
     },
@@ -64,15 +64,15 @@ export function ListCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
   );
 
   const handleConfigChange = (config: ListConfig) => {
-    queueConfigSave({ stepId, sectionId, config });
+    queueConfigSave({ stepId, pageId, config });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -88,7 +88,7 @@ export function ListCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

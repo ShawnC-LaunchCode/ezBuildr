@@ -19,7 +19,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { workflows, users, tenants, projects, sections, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, pages, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
 
 import { runService } from "../../server/services/RunService";
 import { versionService } from "../../server/services/VersionService";
@@ -82,9 +82,9 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
       status: overrides?.status ?? "draft",
       isPublic: overrides?.isPublic ?? false,
     }).returning();
-    const [section] = await getOwnerDb().insert(sections).values({ workflowId: workflow.id, title: "Page 1", order: 0 }).returning();
+    const [page] = await getOwnerDb().insert(pages).values({ workflowId: workflow.id, title: "Page 1", order: 0 }).returning();
     await getOwnerDb().insert(steps).values({
-      workflowId: workflow.id, sectionId: section.id, title: "Your name", type: "short_text", alias: "name", order: 0,
+      workflowId: workflow.id, pageId: page.id, title: "Your name", type: "short_text", alias: "name", order: 0,
     });
     return workflow;
   }
@@ -94,13 +94,13 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
   }
 
   // Each test creates and tears down its own workflow (runs before
-  // sections/steps/versions before the workflow itself), since the
+  // pages/steps/versions before the workflow itself), since the
   // per-workflow version count is exactly what these tests assert on.
   async function cleanupWorkflow(workflowId: string): Promise<void> {
     await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
     await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
     await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
-    await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+    await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowId));
     await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId));
   }
 

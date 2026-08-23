@@ -59,11 +59,11 @@ describe("Analytics Service Integration", () => {
             // from this pinned graph (via RunDefinitionProvider) instead of
             // only the live tables, so it must satisfy VersionRuntimeSchema.
             // The legacy node/edge graph `createGraphWorkflow` produces here
-            // predates the sections-based runtime schema (the visual graph
+            // predates the pages-based runtime schema (the visual graph
             // engine was removed -- see graphFactory.ts's header) and this
-            // test never exercises sections/steps, so an empty valid graph
+            // test never exercises pages/steps, so an empty valid graph
             // is sufficient.
-            graphJson: { title: w.title, sections: [] },
+            graphJson: { title: w.title, pages: [] },
             workflowId: wfRes.id,
             published: true,
             publishedAt: new Date(),

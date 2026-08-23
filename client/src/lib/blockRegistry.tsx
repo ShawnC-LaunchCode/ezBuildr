@@ -434,7 +434,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // OUTPUT & COMPLETION
   // -------------------------------------------------------------------------
   // NOTE: final_documents and signature_block are NOT questions/steps
-  // They are special section types added via "Add Section" menu
+  // They are special page types added via "Add Page" menu
   // Removed from registry to prevent confusion (Dec 9, 2025)
 ];
 
@@ -489,7 +489,7 @@ export const CATEGORY_LABELS: Record<BlockCategory, string> = {
   numeric: "Numeric Inputs",
   display: "Display",
   advanced: "Advanced",
-  output: "Output & Completion", // Empty - final blocks are sections, not questions
+  output: "Output & Completion", // Empty - final blocks are pages, not questions
 };
 
 /**

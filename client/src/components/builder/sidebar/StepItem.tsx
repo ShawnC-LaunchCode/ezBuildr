@@ -14,10 +14,10 @@ import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface StepItemProps {
     step: ApiStep;
-    sectionId: string;
+    pageId: string;
 }
 
-export function StepItem({ step, sectionId }: StepItemProps) {
+export function StepItem({ step, pageId }: StepItemProps) {
     const { selection, selectStep } = useWorkflowBuilder();
     const deleteStepMutation = useDeleteStep();
     const isSelected = selection?.type === "step" && selection.id === step.id;
@@ -28,7 +28,7 @@ export function StepItem({ step, sectionId }: StepItemProps) {
     const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
 
     const handleDelete = () => {
-        deleteStepMutation.mutate({ id: step.id, sectionId });
+        deleteStepMutation.mutate({ id: step.id, pageId });
     };
 
     const handleConfirmDestructiveDelete = () => {

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-import { workflows, users, tenants, projects, auditLogs, sections, steps } from "@shared/schema";
+import { workflows, users, tenants, projects, auditLogs, pages, steps } from "@shared/schema";
 
 import { workflowDiffService } from "../../server/services/diff/WorkflowDiffService";
 import { snapshotService } from "../../server/services/SnapshotService";
@@ -55,7 +55,7 @@ describe("Workflow Versioning & Lineage", () => {
     afterAll(async () => {
         if (workflowId) { 
             await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
-            await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+            await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowId));
             await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId)); 
         }
         if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }
@@ -72,7 +72,7 @@ describe("Workflow Versioning & Lineage", () => {
     });
     it("should diff two versions correctly", () => {
         const v1 = {
-            sections: [{
+            pages: [{
                 id: "p1",
                 steps: [
                     { id: "b1", type: "short_text", title: "Name", alias: "name" }
@@ -80,7 +80,7 @@ describe("Workflow Versioning & Lineage", () => {
             }]
         };
         const v2 = {
-            sections: [{
+            pages: [{
                 id: "p1",
                 steps: [
                     { id: "b1", type: "short_text", title: "Name", alias: "name_updated" }, // Modified
@@ -97,30 +97,30 @@ describe("Workflow Versioning & Lineage", () => {
     });
     it("should create a version from relational tables and populate changelog", async () => {
       enterTenantContextForTests(tenantId);
-        const [section] = await getOwnerDb().insert(sections).values({
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId, title: "Page 1", order: 0
         }).returning();
         await getOwnerDb().insert(steps).values({
-            workflowId, sectionId: section.id, title: "Short Text", type: "short_text", alias: "text_1", order: 0
+            workflowId, pageId: page.id, title: "Short Text", type: "short_text", alias: "text_1", order: 0
         }).returning();
 
         const v1 = await versionService.publishVersion(workflowId, userId, "Initial version");
         expect(v1.versionNumber).toBeDefined();
         
         let graph = v1.graphJson as any;
-        expect(graph.sections.length).toBe(1);
-        expect(graph.sections[0].steps.length).toBe(1);
-        expect(graph.sections[0].steps[0].alias).toBe("text_1");
+        expect(graph.pages.length).toBe(1);
+        expect(graph.pages[0].steps.length).toBe(1);
+        expect(graph.pages[0].steps[0].alias).toBe("text_1");
 
         const [step2] = await getOwnerDb().insert(steps).values({
-            workflowId, sectionId: section.id, title: "Email", type: "email", alias: "email_1", order: 1
+            workflowId, pageId: page.id, title: "Email", type: "email", alias: "email_1", order: 1
         }).returning();
 
         const v2 = await versionService.publishVersion(workflowId, userId, "Second version");
         
         graph = v2.graphJson as any;
-        expect(graph.sections[0].steps.length).toBe(2);
-        expect(graph.sections[0].steps[1].alias).toBe("email_1");
+        expect(graph.pages[0].steps.length).toBe(2);
+        expect(graph.pages[0].steps[1].alias).toBe("email_1");
 
         // Verify changelog
         expect(v2.changelog).toBeDefined();

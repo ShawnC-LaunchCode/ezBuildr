@@ -270,8 +270,8 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                     requireLogin: false,
                 },
             });
-            const section = await factory.createSection(created.workflow.id);
-            await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
+            const page = await factory.createPage(created.workflow.id);
+            await factory.createStep(page.id, { alias: `q${nanoid(6)}` });
             // An anonymous run requires a published version to pin to.
             await getOwnerDb().update(workflows)
                 .set({ currentVersionId: created.version.id })

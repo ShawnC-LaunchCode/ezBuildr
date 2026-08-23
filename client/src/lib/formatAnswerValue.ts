@@ -1,6 +1,6 @@
 /**
  * Formats a collected answer value for read-only display. Shared by
- * ReviewSection.tsx (top-level step answers) and ListAnswerView.tsx (field
+ * ReviewPage.tsx (top-level step answers) and ListAnswerView.tsx (field
  * values inside a List item) so the two surfaces can't grow independent
  * formatting rules.
  */

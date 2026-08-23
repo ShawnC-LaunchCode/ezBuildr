@@ -115,8 +115,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fieldSchemas: { settings: businessDaySettingsSchema },
   },
   {
-    table: schema.sections,
-    name: 'sections',
+    table: schema.pages,
+    name: 'pages',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","title","description","order","config","visibleIf"],
@@ -128,9 +128,9 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     table: schema.steps,
     name: 'steps',
     scopes: ["project","workflow"],
-    parent: {"name":"sections","fk":"sectionId"},
-    fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf"],
-    refs: ["workflowId", "sectionId"],
+    parent: {"name":"pages","fk":"pageId"},
+    fields: ["id","workflowId","pageId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf"],
+    refs: ["workflowId", "pageId"],
     jsonRefs: ["config","defaultValue","visibleIf"],
     scanPaths: ["config"],
     entityRefColumns: ["config"]
@@ -140,8 +140,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'logic_rules',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","conditionStepId","when","targetType","targetStepId","targetSectionId","action","order"],
-    refs: ["workflowId", "conditionStepId", "targetStepId", "targetSectionId"],
+    fields: ["id","workflowId","conditionStepId","when","targetType","targetStepId","targetPageId","action","order"],
+    refs: ["workflowId", "conditionStepId", "targetStepId", "targetPageId"],
     jsonRefs: ["when"],
   },
   {
@@ -149,8 +149,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'blocks',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
-    refs: ["workflowId", "sectionId", "virtualStepId"],
+    fields: ["id","workflowId","pageId","type","phase","config","virtualStepId","enabled","order"],
+    refs: ["workflowId", "pageId", "virtualStepId"],
     jsonRefs: ["config"],
     redactPaths: ["config.headers[].value"],
     scanPaths: ["config"],
@@ -161,8 +161,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'transform_blocks',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","sectionId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
-    refs: ["workflowId", "sectionId", "virtualStepId"],
+    fields: ["id","workflowId","pageId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
+    refs: ["workflowId", "pageId", "virtualStepId"],
     scanPaths: ["code"]
   },
   {
@@ -170,8 +170,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'lifecycle_hooks',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","sectionId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
-    refs: ["workflowId", "sectionId"],
+    fields: ["id","workflowId","pageId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
+    refs: ["workflowId", "pageId"],
     scanPaths: ["code"]
   },
   {

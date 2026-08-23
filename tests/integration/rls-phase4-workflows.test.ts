@@ -1,5 +1,5 @@
 /**
- * ICW-B2 / SEC-051 phase 4 — RLS isolation for workflows / sections / steps.
+ * ICW-B2 / SEC-051 phase 4 — RLS isolation for workflows / pages / steps.
  *
  * These three tables carry no direct `tenant_id`; migration 0005 adds a
  * `tenant_isolation` policy that resolves the tenant through the ownership model
@@ -37,7 +37,7 @@ import { beforeAll, afterAll, describe, expect, test } from "vitest";
  */
 import { getOwnerDb } from "../helpers/ownerDb";
 
-// The phase-4 workflows/sections/steps policies (+ app_current_tenant /
+// The phase-4 workflows/pages/steps policies (+ app_current_tenant /
 // app_owner_tenant) were consolidated into 0001_enable_rls.sql when the
 // migration chain was regenerated. Applying the whole file here is idempotent
 // (DROP POLICY IF EXISTS + to_regclass guards + CREATE OR REPLACE).
@@ -62,8 +62,8 @@ const orgB = randomUUID();
 const wfUserA = randomUUID();
 const wfUserB = randomUUID();
 const wfOrgB = randomUUID();
-const secA = randomUUID();
-const secB = randomUUID();
+const pageA = randomUUID();
+const pageB = randomUUID();
 const stepA = randomUUID();
 const stepB = randomUUID();
 const emailA = `a-${RUN}@rls.test`;
@@ -138,15 +138,15 @@ beforeAll(async () => {
   // workflow owned by org B (tenant B) — exercises the org resolution branch
   await getOwnerDb().execute(sql`INSERT INTO workflows (id, title, owner_type, owner_uuid, owner_id, creator_id) VALUES (${wfOrgB}, ${"WF Org B"}, 'org', ${orgB}, ${userB}, ${userB})`);
 
-  await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title, "order") VALUES (${secA}, ${wfUserA}, 'Sec A', 1), (${secB}, ${wfUserB}, 'Sec B', 1)`);
-  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, section_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${secA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${secB}, 'short_text', 'Step B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title, "order") VALUES (${pageA}, ${wfUserA}, 'Page A', 1), (${pageB}, ${wfUserB}, 'Page B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, section_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'short_text', 'Step B', 1)`);
 });
 
 afterAll(async () => {
   // Clean up seeded rows (as superuser; ignore if already gone).
   try {
     await getOwnerDb().execute(sql`DELETE FROM steps WHERE id IN (${stepA}, ${stepB})`);
-    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id IN (${secA}, ${secB})`);
+    await getOwnerDb().execute(sql`DELETE FROM sections WHERE id IN (${pageA}, ${pageB})`);
     await getOwnerDb().execute(sql`DELETE FROM workflows WHERE id IN (${wfUserA}, ${wfUserB}, ${wfOrgB})`);
     await getOwnerDb().execute(sql`DELETE FROM organizations WHERE id = ${orgB}`);
     await getOwnerDb().execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
@@ -183,16 +183,16 @@ describe("RLS phase 4: app_owner_tenant resolution (SEC-051 / ICW-B2)", () => {
 });
 
 describe("RLS phase 4: cross-tenant row isolation", () => {
-  test("tenant A sees only its own workflow / section / step", async () => {
-    const { wf, sec, st } = await asTenant(tenantA, async (tx) => ({
+  test("tenant A sees only its own workflow / page / step", async () => {
+    const { wf, pageIds, st } = await asTenant(tenantA, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).map((r) => r.id),
-      sec: rows(await tx.execute(sql`SELECT id FROM sections`)).map((r) => r.id),
+      pageIds: rows(await tx.execute(sql`SELECT id FROM sections`)).map((r) => r.id),
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).map((r) => r.id),
     }));
     expect(wf).toContain(wfUserA);
     expect(wf).not.toContain(wfUserB);
     expect(wf).not.toContain(wfOrgB);
-    expect(sec).toEqual([secA]);
+    expect(pageIds).toEqual([pageA]);
     expect(st).toEqual([stepA]);
   });
 
@@ -208,10 +208,10 @@ describe("RLS phase 4: cross-tenant row isolation", () => {
   test("no tenant context => zero rows (fail-closed)", async () => {
     const counts = await asTenant(null, async (tx) => ({
       wf: rows(await tx.execute(sql`SELECT id FROM workflows`)).length,
-      sec: rows(await tx.execute(sql`SELECT id FROM sections`)).length,
+      pages: rows(await tx.execute(sql`SELECT id FROM sections`)).length,
       st: rows(await tx.execute(sql`SELECT id FROM steps`)).length,
     }));
-    expect(counts).toEqual({ wf: 0, sec: 0, st: 0 });
+    expect(counts).toEqual({ wf: 0, pages: 0, st: 0 });
   });
 });
 

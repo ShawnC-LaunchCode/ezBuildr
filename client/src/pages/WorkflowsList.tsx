@@ -415,7 +415,7 @@ export default function WorkflowsList() {
                                 <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   Are you sure you want to delete &quot;{workflow.title}&quot;? This action cannot be undone.
-                                  All sections, steps, and run data will be permanently deleted.
+                                  All pages, steps, and run data will be permanently deleted.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

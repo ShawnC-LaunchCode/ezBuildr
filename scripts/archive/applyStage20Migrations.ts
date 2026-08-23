@@ -3,7 +3,7 @@
  * Apply Stage 20 Migrations (0020, 0021, 0022)
  *
  * This script applies migrations for Stage 20 features:
- * - 0020: Page-level conditions (visible_if, skip_if in sections)
+ * - 0020: Page-level conditions (visible_if, skip_if in pages)
  * - 0021: Question-level conditions (visible_if in steps)
  * - 0022: Repeater type (repeater_config in steps)
  *

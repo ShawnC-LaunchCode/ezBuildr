@@ -1,5 +1,5 @@
 /**
- * Final Documents Section - Runner View
+ * Final Documents Page - Runner View
  * Displays generated documents for download
  */
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -11,10 +11,10 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-interface FinalDocumentsSectionProps {
+interface FinalDocumentsPageProps {
   runId: string;
   runToken?: string; // Optional run token for preview mode
-  sectionConfig: {
+  pageConfig: {
     screenTitle?: string;
     title?: string;
     markdownMessage?: string;
@@ -36,10 +36,10 @@ interface GeneratedDocument {
   createdAt: string;
 }
 // eslint-disable-next-line max-lines-per-function, complexity
-export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
-  const title = sectionConfig.title ?? sectionConfig.screenTitle ?? "Your Completed Documents";
-  const message = (sectionConfig.message ?? sectionConfig.markdownMessage) ?? "";
-  const { showDocuments = true, customLinks, brandingColor, redirectUrl, redirectDelaySeconds = 5 } = sectionConfig;
+export function FinalDocumentsPage({ runId, runToken, pageConfig }: FinalDocumentsPageProps) {
+  const title = pageConfig.title ?? pageConfig.screenTitle ?? "Your Completed Documents";
+  const message = (pageConfig.message ?? pageConfig.markdownMessage) ?? "";
+  const { showDocuments = true, customLinks, brandingColor, redirectUrl, redirectDelaySeconds = 5 } = pageConfig;
   // Handle Redirect
   useEffect(() => {
     if (redirectUrl) {
@@ -74,7 +74,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       return response.data;
     },
     onError: (error) => {
-      console.error('[FinalDocumentsSection] Document generation failed:', error);
+      console.error('[FinalDocumentsPage] Document generation failed:', error);
     },
   });
   // Trigger document generation when component mounts - only if runId is valid

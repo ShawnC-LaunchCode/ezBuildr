@@ -1,4 +1,4 @@
-import type { ApiSection, ApiStep } from '@/lib/vault-api';
+import type { ApiPage, ApiStep } from '@/lib/vault-api';
 
 import { createLogger } from '../logger';
 
@@ -32,14 +32,14 @@ export class HotReloadManager {
     }
 
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    updateSchema(sections: ApiSection[], steps: ApiStep[]) {
+    updateSchema(pages: ApiPage[], steps: ApiStep[]) {
         if (!this.env) {
             this.logger.warn('Cannot update schema: No environment attached');
             return;
         }
 
         // Perform hot Update
-        this.env.updateSchema(sections, steps);
+        this.env.updateSchema(pages, steps);
 
         // Optional: Notify UI (Toast is handled in UI layer, but we could emit event here)
         this.logger.info('Schema updated successfully');

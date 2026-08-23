@@ -8,7 +8,7 @@
       "allowedPrefillKeys": ["client_full_name", "client_email"]
     }
   },
-  "sections": [
+  "pages": [
     {
       "title": "Contact",
       "steps": [

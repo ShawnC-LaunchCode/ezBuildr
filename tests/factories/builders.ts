@@ -3,20 +3,20 @@
  *
  * Provides builder pattern classes for constructing complex test objects
  * with fluent interfaces. Builders are useful when you need to create
- * interconnected objects (workflows with sections and steps) or when
+ * interconnected objects (workflows with pages and steps) or when
  * you need to build up test data incrementally.
  *
  * Usage:
  * ```ts
  * const workflow = await new WorkflowBuilder()
  *   .withTitle('My Workflow')
- *   .addSection('Contact Info', (section) => {
- *     section
+ *   .addPage('Contact Info', (page) => {
+ *     page
  *       .addStep('short_text', { alias: 'name', title: 'Name' })
  *       .addStep('email', { alias: 'email', title: 'Email' });
  *   })
- *   .addSection('Details', (section) => {
- *     section.addStep('long_text', { alias: 'description' });
+ *   .addPage('Details', (page) => {
+ *     page.addStep('long_text', { alias: 'description' });
  *   })
  *   .build(db);
  * ```
@@ -25,30 +25,30 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 
-import { createTestWorkflow, createTestSection, // Added back
+import { createTestWorkflow, createTestPage, // Added back
   createTestStep, createTestProject, createTestTenant, createTestOrganization, createTestUser } from './index';
 type Database = typeof db;
 // ===================================================================
-// Section Builder
+// Page Builder
 // ===================================================================
 /**
- * Builder for creating a section with multiple steps
+ * Builder for creating a page with multiple steps
  */
-export class SectionBuilder {
-  private sectionData: ReturnType<typeof createTestSection>;
+export class PageBuilder {
+  private pageData: ReturnType<typeof createTestPage>;
   private steps: Array<ReturnType<typeof createTestStep>> = [];
   constructor(title: string, order: number = 0) {
-    this.sectionData = createTestSection({ title, order });
+    this.pageData = createTestPage({ title, order });
   }
   /**
-   * Override section properties
+   * Override page properties
    */
   with(overrides: Record<string, unknown>): this {
-    Object.assign(this.sectionData, overrides);
+    Object.assign(this.pageData, overrides);
     return this;
   }
   /**
-   * Add a step to this section
+   * Add a step to this page
    * @param type Step type (e.g., 'short_text', 'email', 'phone')
    * @param overrides Additional step properties
    */
@@ -71,31 +71,31 @@ export class SectionBuilder {
     return this;
   }
   /**
-   * Internal: Build section and steps into database
+   * Internal: Build page and steps into database
    */
-  async build(db: Database, workflowId: string): Promise<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }> {
-    // Insert section
-    const [section] = await db
-      .insert(schema.sections)
-      .values({ ...this.sectionData, workflowId })
+  async build(db: Database, workflowId: string): Promise<{ page: Record<string, unknown>; steps: Record<string, unknown>[] }> {
+    // Insert page
+    const [page] = await db
+      .insert(schema.pages)
+      .values({ ...this.pageData, workflowId })
       .returning();
     // Insert all steps
     const insertedSteps = [];
     for (const stepData of this.steps) {
       const [step] = await db
         .insert(schema.steps)
-        .values({ ...stepData, workflowId, sectionId: section.id })
+        .values({ ...stepData, workflowId, pageId: page.id })
         .returning();
       insertedSteps.push(step);
     }
-    return { section, steps: insertedSteps };
+    return { page, steps: insertedSteps };
   }
   /**
    * Get data without inserting to database
    */
   getData() {
     return {
-      section: this.sectionData,
+      page: this.pageData,
       steps: this.steps,
     };
   }
@@ -104,11 +104,11 @@ export class SectionBuilder {
 // Workflow Builder
 // ===================================================================
 /**
- * Builder for creating a complete workflow with sections and steps
+ * Builder for creating a complete workflow with pages and steps
  */
 export class WorkflowBuilder {
   private workflowData: ReturnType<typeof createTestWorkflow>;
-  private sections: SectionBuilder[] = [];
+  private pages: PageBuilder[] = [];
   private projectId?: string;
   constructor(title?: string) {
     this.workflowData = createTestWorkflow(title ? { title } : undefined);
@@ -161,41 +161,41 @@ export class WorkflowBuilder {
     return this;
   }
   /**
-   * Add a section to this workflow
-   * @param title Section title
-   * @param configureFn Optional function to configure the section
+   * Add a page to this workflow
+   * @param title Page title
+   * @param configureFn Optional function to configure the page
    */
-  addSection(title: string, configureFn?: (section: SectionBuilder) => void): this {
-    const section = new SectionBuilder(title, this.sections.length);
+  addPage(title: string, configureFn?: (page: PageBuilder) => void): this {
+    const page = new PageBuilder(title, this.pages.length);
     if (configureFn) {
-      configureFn(section);
+      configureFn(page);
     }
-    this.sections.push(section);
+    this.pages.push(page);
     return this;
   }
   /**
    * Build the complete workflow into the database
    * @param database Database instance to use
-   * @returns Complete workflow with sections and steps
+   * @returns Complete workflow with pages and steps
    */
   async build(database: Database = db): Promise<{
     workflow: Record<string, unknown>;
-    sections: Array<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }>;
+    pages: Array<{ page: Record<string, unknown>; steps: Record<string, unknown>[] }>;
   }> {
     // Insert workflow
     const [workflow] = await database
       .insert(schema.workflows)
       .values(this.workflowData)
       .returning();
-    // Insert all sections and their steps
-    const builtSections = [];
-    for (const sectionBuilder of this.sections) {
-      const result = await sectionBuilder.build(database, workflow.id);
-      builtSections.push(result);
+    // Insert all pages and their steps
+    const builtPages = [];
+    for (const pageBuilder of this.pages) {
+      const result = await pageBuilder.build(database, workflow.id);
+      builtPages.push(result);
     }
     return {
       workflow,
-      sections: builtSections,
+      pages: builtPages,
     };
   }
   /**
@@ -204,7 +204,7 @@ export class WorkflowBuilder {
   getData() {
     return {
       workflow: this.workflowData,
-      sections: this.sections.map(s => s.getData()),
+      pages: this.pages.map(s => s.getData()),
     };
   }
 }
@@ -272,7 +272,7 @@ export class TestEnvironmentBuilder {
     organization: Record<string, unknown>;
     user: Record<string, unknown>;
     project: Record<string, unknown>;
-    workflow?: { workflow: Record<string, unknown>; sections: Array<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }> };
+    workflow?: { workflow: Record<string, unknown>; pages: Array<{ page: Record<string, unknown>; steps: Record<string, unknown>[] }> };
   }> {
     // Insert tenant
     const [tenant] = await database
@@ -331,21 +331,21 @@ export async function createSimpleWorkflow(
   options?: {
     title?: string;
     projectId?: string;
-    sectionCount?: number;
-    stepsPerSection?: number;
+    pageCount?: number;
+    stepsPerPage?: number;
   }
-): Promise<{ workflow: any; sections: Array<{ section: any; steps: any[] }> }> {
+): Promise<{ workflow: any; pages: Array<{ page: any; steps: any[] }> }> {
   const builder = new WorkflowBuilder(options?.title);
   if (options?.projectId) {
     builder.inProject(options.projectId);
   }
-  const sectionCount = options?.sectionCount || 2;
-  const stepsPerSection = options?.stepsPerSection || 3;
-  for (let i = 0; i < sectionCount; i++) {
-    builder.addSection(`Section ${i + 1}`, (section) => {
-      for (let j = 0; j < stepsPerSection; j++) {
-        section.addStep('short_text', {
-          alias: `section${i + 1}_step${j + 1}`,
+  const pageCount = options?.pageCount || 2;
+  const stepsPerPage = options?.stepsPerPage || 3;
+  for (let i = 0; i < pageCount; i++) {
+    builder.addPage(`Page ${i + 1}`, (page) => {
+      for (let j = 0; j < stepsPerPage; j++) {
+        page.addStep('short_text', {
+          alias: `page${i + 1}_step${j + 1}`,
           title: `Step ${j + 1}`,
         });
       }

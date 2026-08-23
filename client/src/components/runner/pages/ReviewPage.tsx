@@ -7,23 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAnswerValue } from "@/lib/formatAnswerValue";
 
 import type { ListValue } from "@shared/types/stepConfigs";
-interface ReviewSectionProps {
-    sections: ReviewSectionData[];
+interface ReviewPageProps {
+    pages: ReviewPageData[];
     allSteps: ReviewStepData[];
     values: Record<string, unknown>;
-    onEditStep: (stepId: string, sectionId: string) => void;
-    visibleSectionIds: string[];
+    onEditStep: (stepId: string, pageId: string) => void;
+    visiblePageIds: string[];
     visibleStepIds: string[];
 }
 
-interface ReviewSectionData {
+interface ReviewPageData {
     id: string;
     title: string;
 }
 
 interface ReviewStepData {
     id: string;
-    sectionId: string;
+    pageId: string;
     title: string;
     type?: string;
     config?: Record<string, unknown> | null;
@@ -35,7 +35,7 @@ function hasReviewValue(value: unknown): boolean {
 
 function StepEditButton({ step, onEditStep }: {
     step: ReviewStepData;
-    onEditStep: ReviewSectionProps["onEditStep"];
+    onEditStep: ReviewPageProps["onEditStep"];
 }) {
     return (
         <Button
@@ -44,7 +44,7 @@ function StepEditButton({ step, onEditStep }: {
             size="sm"
             className="h-8 shrink-0 px-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
             aria-label={`Edit ${step.title}`}
-            onClick={() => { onEditStep(step.id, step.sectionId); }}
+            onClick={() => { onEditStep(step.id, step.pageId); }}
         >
             <Edit2 className="mr-1.5 h-3 w-3" aria-hidden="true" />
             Edit
@@ -52,14 +52,14 @@ function StepEditButton({ step, onEditStep }: {
     );
 }
 
-export function ReviewSection({
-    sections,
+export function ReviewPage({
+    pages,
     allSteps,
     values,
     onEditStep,
-    visibleSectionIds,
+    visiblePageIds,
     visibleStepIds,
-}: ReviewSectionProps) {
+}: ReviewPageProps) {
     const visibleStepIdSet = new Set(visibleStepIds);
 
     return (
@@ -74,27 +74,27 @@ export function ReviewSection({
                 </p>
             </div>
             <div className="space-y-6">
-                {sections.map((section) => {
-                    // Only show visible sections
-                    if (!visibleSectionIds.includes(section.id)) {
+                {pages.map((page) => {
+                    // Only show visible pages
+                    if (!visiblePageIds.includes(page.id)) {
                         return null;
                     }
-                    const sectionSteps = allSteps.filter((step) =>
-                        step.sectionId === section.id && visibleStepIdSet.has(step.id)
+                    const pageSteps = allSteps.filter((step) =>
+                        step.pageId === page.id && visibleStepIdSet.has(step.id)
                     );
-                    if (sectionSteps.length === 0) {
+                    if (pageSteps.length === 0) {
                         return null;
                     }
                     return (
-                        <Card key={section.id} className="border-slate-200 shadow-sm overflow-hidden">
+                        <Card key={page.id} className="border-slate-200 shadow-sm overflow-hidden">
                             <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 px-4">
                                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
-                                    {section.title}
+                                    {page.title}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
                                 <div className="divide-y divide-slate-100">
-                                    {sectionSteps.map(step => {
+                                    {pageSteps.map(step => {
                                         // A list answer always renders (even at zero items, as "None added"), since
                                         // an unanswered list is a meaningful confirmation state, not conciseness noise.
                                         if (step.type === "list") {
@@ -129,9 +129,9 @@ export function ReviewSection({
                                             </div>
                                         );
                                     })}
-                                    {sectionSteps.every((step) => step.type !== "list" && !hasReviewValue(values[step.id])) && (
+                                    {pageSteps.every((step) => step.type !== "list" && !hasReviewValue(values[step.id])) && (
                                         <div className="p-4 text-sm text-slate-400 italic text-center">
-                                            No questions answered in this section.
+                                            No questions answered in this page.
                                         </div>
                                     )}
                                 </div>

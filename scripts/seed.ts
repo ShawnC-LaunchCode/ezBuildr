@@ -151,12 +151,12 @@ async function seed() {
     console.log(`✅ Created template: ${template.name} (${template.id})`);
 
     // =====================================================================
-    // 7. CREATE SECTION
+    // 7. CREATE PAGE
     // =====================================================================
-    console.log('Creating section...');
+    console.log('Creating page...');
 
-    const [section] = await db
-      .insert(schema.sections)
+    const [page] = await db
+      .insert(schema.pages)
       .values({
         workflowId: workflow.id,
         title: 'Personal Information',
@@ -165,7 +165,7 @@ async function seed() {
       })
       .returning();
 
-    console.log(`✅ Created section: ${section.title} (${section.id})`);
+    console.log(`✅ Created page: ${page.title} (${page.id})`);
 
     // =====================================================================
     // 8. CREATE STEPS
@@ -176,7 +176,7 @@ async function seed() {
       .insert(schema.steps)
       .values({
         workflowId: workflow.id,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'short_text',
         title: 'Full Name',
         description: 'Enter your full legal name',
@@ -190,7 +190,7 @@ async function seed() {
       .insert(schema.steps)
       .values({
         workflowId: workflow.id,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'short_text',
         title: 'Email Address',
         description: 'Enter your work email address',
@@ -204,7 +204,7 @@ async function seed() {
       .insert(schema.steps)
       .values({
         workflowId: workflow.id,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'date_time',
         title: 'Start Date',
         description: 'When will you start?',
@@ -257,7 +257,7 @@ async function seed() {
     console.log(`   Project: ${project.name}`);
     console.log(`   Workflow: ${workflow.name}`);
     console.log(`   Template: ${template.name}`);
-    console.log(`   Sections: 1`);
+    console.log(`   Pages: 1`);
     console.log(`   Steps: 3`);
 
   } catch (error: unknown) {

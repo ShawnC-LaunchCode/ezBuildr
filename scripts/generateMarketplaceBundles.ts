@@ -48,7 +48,7 @@ const PLACEHOLDER_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * `workflow.json` carries no display taxonomy (LD-2's shape is
- * `{ title, description, settings, sections }` only, and `templates/curated/**`
+ * `{ title, description, settings, pages }` only, and `templates/curated/**`
  * is read-only for this ticket) — so the catalog metadata the marketplace UI
  * needs lives here instead. A curated template directory with no entry fails
  * the build rather than shipping with a guessed category.
@@ -129,7 +129,7 @@ interface BuiltStep {
   graph: Record<string, unknown>;
 }
 
-interface BuiltSection {
+interface BuiltPage {
   row: Record<string, unknown>;
   graph: Record<string, unknown>;
   steps: BuiltStep[];
@@ -140,23 +140,23 @@ interface BuiltWorkflow {
   workflowVersionId: string;
   workflowRow: Record<string, unknown>;
   workflowVersionRow: Record<string, unknown>;
-  sections: BuiltSection[];
+  pages: BuiltPage[];
 }
 
 /**
- * Assembles `workflows` + `sections` + `steps` + `workflow_versions` rows
+ * Assembles `workflows` + `pages` + `steps` + `workflow_versions` rows
  * from one curated `workflow.json`.
  *
  * `workflow_versions.graphJson` is NOT NULL and is not a graph-builder
  * relic here — `RunDefinitionProvider`'s `VersionRuntimeSchema` still reads
  * it to run a published workflow, so a stub value would leave the imported
- * template inert. The snapshot below is built from the exact same section/
- * step objects written to the `sections`/`steps` entity rows, so the two
+ * template inert. The snapshot below is built from the exact same page/
+ * step objects written to the `pages`/`steps` entity rows, so the two
  * representations cannot drift apart.
  */
 function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
   const workflowsDesc = getDescriptor('workflows');
-  const sectionsDesc = getDescriptor('sections');
+  const pagesDesc = getDescriptor('pages');
   const stepsDesc = getDescriptor('steps');
   const workflowVersionsDesc = getDescriptor('workflow_versions');
 
@@ -170,10 +170,10 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
   const intakeConfig = rawSettings.intakeConfig ?? {};
   delete rawSettings.intakeConfig;
 
-  const sections: BuiltSection[] = workflow.sections.map((section, sectionIndex) => {
-    const sectionId = randomUUID();
+  const pages: BuiltPage[] = workflow.pages.map((page, pageIndex) => {
+    const pageId = randomUUID();
 
-    const steps: BuiltStep[] = section.steps.map((step, stepIndex) => {
+    const steps: BuiltStep[] = page.steps.map((step, stepIndex) => {
       const stepId = randomUUID();
       const config = step.config ?? null;
       const visibleIf = step.visibleIf ?? null;
@@ -182,7 +182,7 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
       const row = buildRow(stepsDesc, {
         id: stepId,
         workflowId,
-        sectionId,
+        pageId,
         type: step.type,
         title: step.title,
         description: null,
@@ -212,21 +212,21 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
       return { row, graph };
     });
 
-    const row = buildRow(sectionsDesc, {
-      id: sectionId,
+    const row = buildRow(pagesDesc, {
+      id: pageId,
       workflowId,
-      title: section.title,
+      title: page.title,
       description: null,
-      order: sectionIndex,
+      order: pageIndex,
       config: {},
       visibleIf: null,
     });
 
     const graph = {
-      id: sectionId,
-      title: section.title,
+      id: pageId,
+      title: page.title,
       description: null,
-      order: sectionIndex,
+      order: pageIndex,
       visibleIf: null,
       config: {},
       steps: steps.map((s) => s.graph),
@@ -264,7 +264,7 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
     projectId: null,
     intakeConfig,
     settings: rawSettings,
-    sections: sections.map((s) => s.graph),
+    pages: pages.map((s) => s.graph),
     logicRules: [],
   };
 
@@ -284,7 +284,7 @@ function buildWorkflowEntities(workflow: CuratedWorkflow): BuiltWorkflow {
     publishedAt: null,
   });
 
-  return { workflowId, workflowVersionId, workflowRow, workflowVersionRow, sections };
+  return { workflowId, workflowVersionId, workflowRow, workflowVersionRow, pages };
 }
 
 interface BuiltTemplate {
@@ -382,7 +382,7 @@ async function generateBundleForTemplate(params: {
   const docxBuffer = fs.readFileSync(docxPath);
   const sha256 = createHash('sha256').update(docxBuffer).digest('hex');
 
-  const { workflowId, workflowVersionId, workflowRow, workflowVersionRow, sections } =
+  const { workflowId, workflowVersionId, workflowRow, workflowVersionRow, pages } =
     buildWorkflowEntities(workflow);
   const { fileRef, templateRow, templateVersionRow, workflowTemplateRow } = buildTemplateEntities({
     slug,
@@ -395,9 +395,9 @@ async function generateBundleForTemplate(params: {
   let success = false;
   try {
     await writer.writeEntityRow('workflows', workflowRow);
-    for (const section of sections) {
-      await writer.writeEntityRow('sections', section.row);
-      for (const step of section.steps) {
+    for (const page of pages) {
+      await writer.writeEntityRow('pages', page.row);
+      for (const step of page.steps) {
         await writer.writeEntityRow('steps', step.row);
       }
     }
@@ -412,7 +412,7 @@ async function generateBundleForTemplate(params: {
     };
     await writer.writeBlobIndex(blobIndex);
 
-    const stepCount = sections.reduce((total, section) => total + section.steps.length, 0);
+    const stepCount = pages.reduce((total, page) => total + page.steps.length, 0);
     const manifest: BundleManifest = {
       formatVersion: FORMAT_VERSION,
       appVersion: readAppVersion(),
@@ -423,7 +423,7 @@ async function generateBundleForTemplate(params: {
       createdAt: new Date().toISOString(),
       entityCounts: {
         workflows: 1,
-        sections: sections.length,
+        pages: pages.length,
         steps: stepCount,
         workflow_versions: 1,
         templates: 1,

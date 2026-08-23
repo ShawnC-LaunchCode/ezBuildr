@@ -16,8 +16,7 @@ function graphWithVisibleIfCycle(): WorkflowGraph {
   const raw = {
     id: "00000000-0000-0000-0000-000000000001",
     title: "WF",
-    pages: [],
-    sections: [{
+    pages: [{
       id: "00000000-0000-0000-0000-000000000002",
       title: "Page 1",
       steps: [

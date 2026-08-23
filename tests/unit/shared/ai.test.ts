@@ -1,6 +1,6 @@
 /**
  * LU-6c — the AI logic-rule schema's trigger condition is `when` (the same
- * `ConditionExpression` shape `steps.visible_if`/`sections.visible_if`
+ * `ConditionExpression` shape `steps.visible_if`/`pages.visible_if`
  * use), not the legacy flat `conditionStepAlias`/`operator`/`conditionValue`
  * trio. These prove the schema itself enforces that: a well-formed `when`
  * parses, and a payload still shaped as the flat legacy DSL (no `when`) is
@@ -81,10 +81,10 @@ describe("AIGeneratedWorkflowSchema", () => {
   it("round-trips a full workflow whose logic rule carries a working `when`", () => {
     const payload = {
       title: "Pet Intake",
-      sections: [
+      pages: [
         {
-          id: "section_1",
-          title: "Section 1",
+          id: "page_1",
+          title: "Page 1",
           order: 0,
           steps: [
             { id: "step_1", type: "yes_no", title: "Do you have pets?", alias: "hasPets", required: false },

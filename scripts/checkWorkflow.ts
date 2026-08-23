@@ -33,12 +33,12 @@ async function checkWorkflow() {
   console.log(`   Owner: ${workflow.rows[0].owner_id}`);
   console.log(`   Project: ${workflow.rows[0].project_id}`);
 
-  // Check sections
-  const sections = await client.query(
+  // Check pages
+  const pages = await client.query(
     'SELECT COUNT(*) as count FROM sections WHERE workflow_id = $1',
     [workflowId]
   );
-  console.log(`\n📄 Sections: ${sections.rows[0].count}`);
+  console.log(`\n📄 Pages: ${pages.rows[0].count}`);
 
   // Check steps
   const steps = await client.query(

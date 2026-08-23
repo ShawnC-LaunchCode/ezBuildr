@@ -133,9 +133,9 @@ class TemplateService {
       }
       // Reject empty/`{}` templates up front (before any workflow is created) so
       // an empty blueprint fails with a clear 400 instead of silently producing
-      // a zero-section interview (ICW2-15).
+      // a zero-page interview (ICW2-15).
       const content = template.graphJson as WorkflowContentData | null;
-      if (!content || !Array.isArray(content.sections) || content.sections.length === 0) {
+      if (!content || !Array.isArray(content.pages) || content.pages.length === 0) {
         throw createError.badRequest("Template has no content");
       }
       // 2. Create Workflow
@@ -169,7 +169,7 @@ class TemplateService {
         }
       });
 
-      // 3. Populate sections, steps, logic rules, and blocks from the template's
+      // 3. Populate pages, steps, logic rules, and blocks from the template's
       // graphJson (post-ICW2-6, blueprint snapshots are ingest-shaped
       // `WorkflowContentData`; emptiness was already rejected above). Passed
       // the SAME transaction so the ingest work stays inside the one

@@ -91,10 +91,10 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                 No variables yet. Add questions or data blocks to create variables.
               </div>
             )}
-            {Object.entries(groupedVariables).map(([sectionTitle, vars]) => (
-              <div key={sectionTitle} className="space-y-2">
+            {Object.entries(groupedVariables).map(([pageTitle, vars]) => (
+              <div key={pageTitle} className="space-y-2">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide sticky top-0 bg-background/95 backdrop-blur py-1">
-                  {sectionTitle}
+                  {pageTitle}
                 </h4>
                 <div className="space-y-1">
                   {vars.map((variable) => (

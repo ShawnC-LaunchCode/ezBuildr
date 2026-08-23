@@ -48,7 +48,7 @@ import { registerProjectRoutes } from "./projects.routes";
 import publicRouter from "./public.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
-import { registerSectionRoutes } from "./sections.routes";
+import { registerPageRoutes } from "./pages.routes";
 import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerStepRoutes } from "./steps.routes";
 import { registerStorageRoutes } from "./storage.routes";
@@ -112,9 +112,9 @@ export function registerAllRoutes(app: Express): void {
   // AI Workflow Editing (Stage 22)
   registerAiWorkflowEditRoutes(app);
 
-  // Workflow (section/form builder) routes
+  // Workflow (page/form builder) routes
   registerWorkflowRoutes(app);
-  registerSectionRoutes(app);
+  registerPageRoutes(app);
   registerStepRoutes(app);
   registerBlockRoutes(app);
   registerTransformBlockRoutes(app);

@@ -137,7 +137,7 @@ ezBuildr is committed to ensuring digital accessibility for all users, including
 ## 5. Automated Testing & Verification
 
 Automated accessibility checks are maintained across three dedicated test suites:
-- `tests/unit/client/SectionSteps.a11y.test.tsx`: Tests all runner step types, empty/filled/error states, star rating radio group keyboard navigation, roving tabindex, list-item focus indicators, and axe-core conformance.
+- `tests/unit/client/PageSteps.a11y.test.tsx`: Tests all runner step types, empty/filled/error states, star rating radio group keyboard navigation, roving tabindex, list-item focus indicators, and axe-core conformance.
 - `tests/unit/client/BuilderTabNav.a11y.test.tsx`: Tests builder tablist/tab semantics, `aria-controls` to `role="tabpanel"` associations, and roving keyboard traversal.
 - `tests/unit/client/colorContrast.test.ts`: Reads the production theme tokens and validates every declared semantic text pair plus interactive input-boundary and focus-ring pairs in light and dark mode.
 
@@ -145,5 +145,5 @@ The `Run All Tests (Unit + Integration + Auth)` job in `.github/workflows/ci.yml
 
 To run the automated accessibility test suite:
 ```bash
-npx vitest run --project unit-fast tests/unit/client/SectionSteps.a11y.test.tsx tests/unit/client/BuilderTabNav.a11y.test.tsx tests/unit/client/colorContrast.test.ts
+npx vitest run --project unit-fast tests/unit/client/PageSteps.a11y.test.tsx tests/unit/client/BuilderTabNav.a11y.test.tsx tests/unit/client/colorContrast.test.ts
 ```

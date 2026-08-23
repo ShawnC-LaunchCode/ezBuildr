@@ -15,8 +15,8 @@ import {
  * env rather than of the workflow, so both only warn.
  */
 
-const SECTION_A = "11111111-1111-4111-8111-111111111111";
-const SECTION_FINAL = "22222222-2222-4222-8222-222222222222";
+const PAGE_A = "11111111-1111-4111-8111-111111111111";
+const PAGE_FINAL = "22222222-2222-4222-8222-222222222222";
 const STEP_QUESTION = "33333333-3333-4333-8333-333333333333";
 const STEP_FINAL = "44444444-4444-4444-8444-444444444444";
 const STEP_SIGNATURE = "55555555-5555-4555-8555-555555555555";
@@ -34,36 +34,36 @@ function readiness(overrides: Partial<WorkflowReadinessContext> = {}): WorkflowR
 }
 
 type TestStep = Record<string, unknown>;
-type TestSection = Record<string, unknown> & { id: string; title: string; order: number; steps: TestStep[] };
+type TestPage = Record<string, unknown> & { id: string; title: string; order: number; steps: TestStep[] };
 
 /** A workflow that clears every pre-existing structural check. */
-function baseWorkflow(extraSections: TestSection[] = []): { sections: TestSection[]; logicRules: [] } {
+function baseWorkflow(extraPages: TestPage[] = []): { pages: TestPage[]; logicRules: [] } {
   return {
-    sections: [
+    pages: [
       {
-        id: SECTION_A,
+        id: PAGE_A,
         title: "Page 1",
         order: 0,
         steps: [{ id: STEP_QUESTION, type: "short_text", title: "Your name", alias: "name" }],
       },
-      ...extraSections,
+      ...extraPages,
     ],
     logicRules: [],
   };
 }
 
-function finalBlockSection(documents: Record<string, unknown>[]): TestSection {
+function finalBlockPage(documents: Record<string, unknown>[]): TestPage {
   return {
-    id: SECTION_FINAL,
+    id: PAGE_FINAL,
     title: "Your documents",
     order: 1,
     steps: [{ id: STEP_FINAL, type: "final_documents", title: "Final documents", config: { documents } }],
   };
 }
 
-function signatureSection(config: Record<string, unknown>): TestSection {
+function signaturePage(config: Record<string, unknown>): TestPage {
   return {
-    id: SECTION_FINAL,
+    id: PAGE_FINAL,
     title: "Sign",
     order: 1,
     steps: [{ id: STEP_SIGNATURE, type: "signature_block", title: "Sign here", config }],
@@ -92,14 +92,14 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
   describe("final block steps", () => {
     it("passes a final block whose template exists in the project", () => {
       const data = baseWorkflow([
-        finalBlockSection([{ id: "d1", documentId: REAL_TEMPLATE, alias: "contract" }]),
+        finalBlockPage([{ id: "d1", documentId: REAL_TEMPLATE, alias: "contract" }]),
       ]);
       expect(errorsOf(data, readiness())).toEqual([]);
     });
 
     it("blocks a template id that is not in the project", () => {
       const data = baseWorkflow([
-        finalBlockSection([{ id: "d1", documentId: MISSING_TEMPLATE, alias: "contract" }]),
+        finalBlockPage([{ id: "d1", documentId: MISSING_TEMPLATE, alias: "contract" }]),
       ]);
       expect(errorsOf(data, readiness())).toEqual([
         `Final block "Final documents" document "contract" references a template that does not exist in this project: "${MISSING_TEMPLATE}"`,
@@ -108,7 +108,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("blocks the retired editor's placeholder document id", () => {
       const data = baseWorkflow([
-        finalBlockSection([{ id: "d1", documentId: "placeholder", alias: "contract" }]),
+        finalBlockPage([{ id: "d1", documentId: "placeholder", alias: "contract" }]),
       ]);
       expect(errorsOf(data, readiness())).toEqual([
         'Final block "Final documents" document "contract" still has a placeholder template id. Select a real template before publishing.',
@@ -117,7 +117,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("blocks a document entry with no template selected", () => {
       const data = baseWorkflow([
-        finalBlockSection([{ id: "d1", documentId: "   ", alias: "contract" }]),
+        finalBlockPage([{ id: "d1", documentId: "   ", alias: "contract" }]),
       ]);
       expect(errorsOf(data, readiness())).toEqual([
         'Final block "Final documents" document "contract" has no template selected, so document generation would fail for every respondent.',
@@ -125,7 +125,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
     });
 
     it("warns rather than blocks when a final block has no documents", () => {
-      const data = baseWorkflow([finalBlockSection([])]);
+      const data = baseWorkflow([finalBlockPage([])]);
       expect(errorsOf(data, readiness())).toEqual([]);
       expect(warningsOf(data, readiness())).toContain(
         'Final block "Final documents" has no documents configured, so no documents will be generated for it.'
@@ -134,7 +134,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("reports every bad document in a block, not just the first", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           { id: "d1", documentId: MISSING_TEMPLATE, alias: "contract" },
           { id: "d2", documentId: "placeholder", alias: "receipt" },
           { id: "d3", documentId: REAL_TEMPLATE, alias: "invoice" },
@@ -144,11 +144,11 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
     });
   });
 
-  describe("legacy Final Documents sections (section.config.finalBlock)", () => {
+  describe("legacy Final Documents pages (page.config.finalBlock)", () => {
     it("blocks a legacy template id that is not in the project", () => {
       const data = baseWorkflow([
         {
-          id: SECTION_FINAL,
+          id: PAGE_FINAL,
           title: "Your documents",
           order: 1,
           steps: [],
@@ -156,14 +156,14 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
         },
       ]);
       expect(errorsOf(data, readiness())).toEqual([
-        `Final documents section "Your documents" references a template that does not exist in this project: "${MISSING_TEMPLATE}"`,
+        `Final documents page "Your documents" references a template that does not exist in this project: "${MISSING_TEMPLATE}"`,
       ]);
     });
 
-    it("passes a legacy section whose templates all exist", () => {
+    it("passes a legacy page whose templates all exist", () => {
       const data = baseWorkflow([
         {
-          id: SECTION_FINAL,
+          id: PAGE_FINAL,
           title: "Your documents",
           order: 1,
           steps: [],
@@ -173,10 +173,10 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
       expect(errorsOf(data, readiness())).toEqual([]);
     });
 
-    it("warns rather than blocks when a legacy section selects no templates", () => {
+    it("warns rather than blocks when a legacy page selects no templates", () => {
       const data = baseWorkflow([
         {
-          id: SECTION_FINAL,
+          id: PAGE_FINAL,
           title: "Your documents",
           order: 1,
           steps: [],
@@ -185,14 +185,14 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
       ]);
       expect(errorsOf(data, readiness())).toEqual([]);
       expect(warningsOf(data, readiness())).toContain(
-        'Final documents section "Your documents" has no templates selected, so no documents will be generated.'
+        'Final documents page "Your documents" has no templates selected, so no documents will be generated.'
       );
     });
 
-    it("ignores sections that are not final-document sections", () => {
+    it("ignores pages that are not final-document pages", () => {
       const data = baseWorkflow([
         {
-          id: SECTION_FINAL,
+          id: PAGE_FINAL,
           title: "Ordinary page",
           order: 1,
           steps: [{ id: STEP_SIGNATURE, type: "short_text", title: "Notes", alias: "notes" }],
@@ -206,7 +206,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
   describe("field mappings warn but never block", () => {
     it("warns on a mapping source that is not a known question alias", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -223,7 +223,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("accepts a mapping source that is a known question alias", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -237,7 +237,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("accepts a dotted source, because generation flattens nested values", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -251,7 +251,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("warns on an empty mapping source", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -271,7 +271,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
     // "resolves to nothing" case that must still warn, never block.
     it("never warns on a constant binding — it always resolves", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -285,7 +285,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("accepts a formula whose every {{alias}} reference is a known question alias", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -299,7 +299,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("warns on a formula referencing an unknown alias", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -316,7 +316,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("warns on an empty formula expression", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -333,7 +333,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("accepts a complete DataVault binding", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -349,7 +349,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("warns on an incomplete DataVault binding", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           {
             id: "d1",
             documentId: REAL_TEMPLATE,
@@ -369,7 +369,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
   describe("signature blocks", () => {
     it("blocks a signature block with nothing to sign", () => {
-      const data = baseWorkflow([signatureSection({ signerRole: "Client", documents: [] })]);
+      const data = baseWorkflow([signaturePage({ signerRole: "Client", documents: [] })]);
       expect(errorsOf(data, readiness())).toEqual([
         'Signature block "Sign here" has no documents to sign, so the respondent would reach a signing step with nothing to sign.',
       ]);
@@ -377,7 +377,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("blocks a signature document whose template does not exist", () => {
       const data = baseWorkflow([
-        signatureSection({
+        signaturePage({
           signerRole: "Client",
           documents: [{ id: "d1", documentId: MISSING_TEMPLATE }],
         }),
@@ -389,7 +389,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("warns, and does not block, on an unconfigured provider", () => {
       const data = baseWorkflow([
-        signatureSection({
+        signaturePage({
           signerRole: "Client",
           provider: "hellosign",
           documents: [{ id: "d1", documentId: REAL_TEMPLATE }],
@@ -403,7 +403,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("accepts a registered provider regardless of case", () => {
       const data = baseWorkflow([
-        signatureSection({
+        signaturePage({
           signerRole: "Client",
           provider: "DocuSign",
           documents: [{ id: "d1", documentId: REAL_TEMPLATE }],
@@ -415,7 +415,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
     it("stays silent about providers when the registry is unknown", () => {
       // No `availableEsignProviders` — e.g. a caller with no server context.
       const data = baseWorkflow([
-        signatureSection({
+        signaturePage({
           signerRole: "Client",
           provider: "hellosign",
           documents: [{ id: "d1", documentId: REAL_TEMPLATE }],
@@ -429,7 +429,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
   describe("context is optional", () => {
     it("skips template existence checks when no template set is supplied", () => {
       const data = baseWorkflow([
-        finalBlockSection([{ id: "d1", documentId: MISSING_TEMPLATE, alias: "contract" }]),
+        finalBlockPage([{ id: "d1", documentId: MISSING_TEMPLATE, alias: "contract" }]),
       ]);
       // Same workflow, no context: the id cannot be judged, so it must not block.
       expect(errorsOf(data)).toEqual([]);
@@ -439,7 +439,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
 
     it("still catches placeholder and empty ids with no context at all", () => {
       const data = baseWorkflow([
-        finalBlockSection([
+        finalBlockPage([
           { id: "d1", documentId: "placeholder", alias: "contract" },
           { id: "d2", documentId: "", alias: "receipt" },
         ]),

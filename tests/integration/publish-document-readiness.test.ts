@@ -20,7 +20,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  workflows, users, tenants, projects, sections, steps,
+  workflows, users, tenants, projects, pages, steps,
   workflowVersions, workflowRuns, auditLogs, templates,
 } from "@shared/schema";
 
@@ -88,11 +88,11 @@ describe("GH-152 publish is gated on document readiness", () => {
     }).returning();
     workflowId = workflow.id;
 
-    const [section] = await getOwnerDb().insert(sections)
+    const [page] = await getOwnerDb().insert(pages)
       .values({ workflowId, title: "Page 1", order: 0 }).returning();
     await getOwnerDb().insert(steps).values({
       workflowId,
-      sectionId: section.id,
+      pageId: page.id,
       title: "Your name",
       type: "short_text",
       alias: "name",
@@ -101,7 +101,7 @@ describe("GH-152 publish is gated on document readiness", () => {
 
     const [finalStep] = await getOwnerDb().insert(steps).values({
       workflowId,
-      sectionId: section.id,
+      pageId: page.id,
       title: "Your documents",
       type: "final_documents",
       alias: "final_docs",
@@ -121,7 +121,7 @@ describe("GH-152 publish is gated on document readiness", () => {
       await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
       await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, workflowId));
       await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowId));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId));
     }
     if (realTemplateId) { await getOwnerDb().delete(templates).where(eq(templates.id, realTemplateId)); }
@@ -174,7 +174,7 @@ describe("GH-152 publish is gated on document readiness", () => {
     expect(documentIssue?.message).toMatch(/references a template that does not exist/i);
 
     // The deep link has to land on something selectable, or "Fix" is decorative.
-    expect(documentIssue?.target.tab).toBe("sections");
+    expect(documentIssue?.target.tab).toBe("pages");
     expect(documentIssue?.target.stepId).toBe(finalStepId);
 
     // ...and it is the very finding that blocks publishing, not a lookalike.

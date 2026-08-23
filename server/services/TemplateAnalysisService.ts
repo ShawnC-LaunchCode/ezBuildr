@@ -502,15 +502,15 @@ function processTemplateRef(t: unknown, templateId: string, normalizeFn: (t: unk
   }
 }
 
-function checkSectionPinState(sectionsData: unknown[], templateId: string, normalizeFn: (t: unknown) => TemplateConfig | null): WorkflowPinState {
+function checkPagePinState(pagesData: unknown[], templateId: string, normalizeFn: (t: unknown) => TemplateConfig | null): WorkflowPinState {
   const result: WorkflowPinState = { isPinned: false, isUnpinned: false };
 
-  for (const sec of sectionsData) {
-    if (!sec || typeof sec !== 'object' || !('config' in sec)) {
+  for (const page of pagesData) {
+    if (!page || typeof page !== 'object' || !('config' in page)) {
       continue;
     }
     
-    const config = (sec as { config: unknown }).config;
+    const config = (page as { config: unknown }).config;
     if (!config || typeof config !== 'object' || !('finalBlock' in config) || !('templates' in config)) {
       continue;
     }
@@ -572,7 +572,7 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
   active: Array<{ id: string; name: string }>;
   pinned: Array<{ id: string; name: string }>;
 }> {
-  // RLS-5: `workflows`, `sections` and `steps` are all covered. This runs from
+  // RLS-5: `workflows`, `pages` and `steps` are all covered. This runs from
   // the authenticated template-analysis route, so the ambient tenant is set —
   // one transaction for the whole analysis, since an unscoped read here would
   // report "no workflows affected" rather than failing, which is the answer
@@ -598,13 +598,13 @@ export async function getActiveWorkflowsForTemplate(templateId: string): Promise
   const active = [];
   const pinned = [];
 
-  const { sections, steps } = await import('../../shared/schema');
+  const { pages, steps } = await import('../../shared/schema');
   const { normalizeFinalDocumentsTemplateEntry } = await import('../../shared/finalDocumentsTemplates');
 
   for (const wf of uniqueWorkflows.values()) {
-    // Fetch sections (legacy final_documents)
-    const wfSections = await tx.select({ config: sections.config }).from(sections).where(eq(sections.workflowId, wf.id));
-    const secState = checkSectionPinState(wfSections, templateId, normalizeFinalDocumentsTemplateEntry);
+    // Fetch pages (legacy final_documents)
+    const wfPages = await tx.select({ config: pages.config }).from(pages).where(eq(pages.workflowId, wf.id));
+    const secState = checkPagePinState(wfPages, templateId, normalizeFinalDocumentsTemplateEntry);
 
     // Fetch steps (final_block)
     const wfSteps = await tx.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, wf.id));

@@ -13,7 +13,7 @@ type LifecycleServiceMock = {
   loadSnapshotValues: MockFunction;
   generateRandomValues: MockFunction;
   populateInitialValues: MockFunction;
-  determineStartSection: MockFunction;
+  determineStartPage: MockFunction;
   executeOnRunStart: MockFunction;
 };
 type MetricsServiceMock = { captureRunStarted: MockFunction };
@@ -54,18 +54,18 @@ describe("RunService version pinning", () => {
       loadSnapshotValues: vi.fn(),
       generateRandomValues: vi.fn(),
       populateInitialValues: vi.fn().mockResolvedValue(undefined),
-      determineStartSection: vi.fn(),
+      determineStartPage: vi.fn(),
       executeOnRunStart: vi.fn().mockResolvedValue(undefined),
     };
     metricsService = {
       captureRunStarted: vi.fn().mockResolvedValue(undefined),
     };
-    // ICW2-B9: createRun/createAnonymousRun resolve the run's starting section
+    // ICW2-B9: createRun/createAnonymousRun resolve the run's starting page
     // via logicSvc.evaluateNavigation and persist it via stateService.updateProgress.
     logicSvc = {
       evaluateNavigation: vi.fn().mockResolvedValue({
-        nextSectionId: null,
-        visibleSections: [],
+        nextPageId: null,
+        visiblePages: [],
         visibleSteps: [],
         requiredSteps: [],
         currentProgress: 0,
@@ -198,7 +198,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
       loadSnapshotValues: vi.fn(),
       generateRandomValues: vi.fn(),
       populateInitialValues: vi.fn().mockResolvedValue(undefined),
-      determineStartSection: vi.fn(),
+      determineStartPage: vi.fn(),
       executeOnRunStart: vi.fn().mockResolvedValue(undefined),
     };
     metricsService = {
@@ -206,8 +206,8 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
     };
     logicSvc = {
       evaluateNavigation: vi.fn().mockResolvedValue({
-        nextSectionId: null,
-        visibleSections: [],
+        nextPageId: null,
+        visiblePages: [],
         visibleSteps: [],
         requiredSteps: [],
         currentProgress: 0,
@@ -314,7 +314,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
   });
 });
 
-describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
+describe("RunService ICW2-B9: initial currentPageId on run creation", () => {
   let runRepo: RunRepoMock;
   let workflowRepo: WorkflowRepoMock;
   let authResolver: AuthResolverMock;
@@ -329,7 +329,7 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     vi.clearAllMocks();
 
     runRepo = {
-      create: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentSectionId: null, ...data })),
+      create: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentPageId: null, ...data })),
     };
     workflowRepo = {
       findByPublicLink: vi.fn(),
@@ -338,13 +338,13 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       verifyCreateAccess: vi.fn(),
     };
     persistenceWriter = {
-      createRun: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentSectionId: null, ...data })),
+      createRun: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentPageId: null, ...data })),
     };
     lifecycleService = {
       loadSnapshotValues: vi.fn(),
       generateRandomValues: vi.fn(),
       populateInitialValues: vi.fn().mockResolvedValue(undefined),
-      determineStartSection: vi.fn(),
+      determineStartPage: vi.fn(),
       executeOnRunStart: vi.fn().mockResolvedValue(undefined),
     };
     metricsService = {
@@ -379,15 +379,15 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     );
   });
 
-  it("initializes createRun's currentSectionId to the first visible section instead of leaving it null", async () => {
+  it("initializes createRun's currentPageId to the first visible page instead of leaving it null", async () => {
     authResolver.verifyCreateAccess.mockResolvedValue({
       id: "wf-1",
       pinnedVersionId: null,
       currentVersionId: "version-current",
     });
     logicSvc.evaluateNavigation.mockResolvedValue({
-      nextSectionId: "section-first",
-      visibleSections: ["section-first", "section-second"],
+      nextPageId: "page-first",
+      visiblePages: ["page-first", "page-second"],
       visibleSteps: [],
       requiredSteps: [],
       currentProgress: 0,
@@ -395,24 +395,24 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
 
     const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
-    // Resolved via the same null-current-section rule `next()` uses, so the
-    // starting position matches what "first visible section" already means.
+    // Resolved via the same null-current-page rule `next()` uses, so the
+    // starting position matches what "first visible page" already means.
     expect(logicSvc.evaluateNavigation).toHaveBeenCalledWith("wf-1", "run-1", null);
-    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "section-first");
-    expect(run.currentSectionId).toBe("section-first");
+    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-first");
+    expect(run.currentPageId).toBe("page-first");
     // The snapshot/randomize auto-advance path must not be touched by a plain create.
-    expect(lifecycleService.determineStartSection).not.toHaveBeenCalled();
+    expect(lifecycleService.determineStartPage).not.toHaveBeenCalled();
   });
 
-  it("leaves createRun's currentSectionId null when the workflow has no visible sections", async () => {
+  it("leaves createRun's currentPageId null when the workflow has no visible pages", async () => {
     authResolver.verifyCreateAccess.mockResolvedValue({
       id: "wf-1",
       pinnedVersionId: null,
       currentVersionId: "version-current",
     });
     logicSvc.evaluateNavigation.mockResolvedValue({
-      nextSectionId: null,
-      visibleSections: [],
+      nextPageId: null,
+      visiblePages: [],
       visibleSteps: [],
       requiredSteps: [],
       currentProgress: 0,
@@ -421,17 +421,17 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     expect(stateService.updateProgress).not.toHaveBeenCalled();
-    expect(run.currentSectionId).toBeNull();
+    expect(run.currentPageId).toBeNull();
   });
 
-  it("uses determineStartSection (not the plain first-section resolver) when a snapshot is supplied", async () => {
+  it("uses determineStartPage (not the plain first-page resolver) when a snapshot is supplied", async () => {
     authResolver.verifyCreateAccess.mockResolvedValue({
       id: "wf-1",
       pinnedVersionId: null,
       currentVersionId: "version-current",
     });
     lifecycleService.loadSnapshotValues = vi.fn().mockResolvedValue({ values: {}, valueMap: {} });
-    lifecycleService.determineStartSection.mockResolvedValue("section-auto-advanced");
+    lifecycleService.determineStartPage.mockResolvedValue("page-auto-advanced");
 
     const run = await service.createRun(
       "wf-1",
@@ -441,13 +441,13 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       { snapshotId: "snap-1" }
     );
 
-    expect(lifecycleService.determineStartSection).toHaveBeenCalledWith("run-1", "wf-1", {});
+    expect(lifecycleService.determineStartPage).toHaveBeenCalledWith("run-1", "wf-1", {});
     expect(logicSvc.evaluateNavigation).not.toHaveBeenCalled();
-    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "section-auto-advanced");
-    expect(run.currentSectionId).toBe("section-auto-advanced");
+    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-auto-advanced");
+    expect(run.currentPageId).toBe("page-auto-advanced");
   });
 
-  it("initializes createAnonymousRun's currentSectionId to the first visible section", async () => {
+  it("initializes createAnonymousRun's currentPageId to the first visible page", async () => {
     workflowRepo.findByPublicLink.mockResolvedValue({
       id: "wf-1",
       status: "active",
@@ -456,8 +456,8 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       currentVersionId: "version-current",
     });
     logicSvc.evaluateNavigation.mockResolvedValue({
-      nextSectionId: "section-first",
-      visibleSections: ["section-first"],
+      nextPageId: "page-first",
+      visiblePages: ["page-first"],
       visibleSteps: [],
       requiredSteps: [],
       currentProgress: 0,
@@ -466,7 +466,7 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     const run = await service.createAnonymousRun("public-link");
 
     expect(logicSvc.evaluateNavigation).toHaveBeenCalledWith("wf-1", "run-1", null);
-    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "section-first");
-    expect(run.currentSectionId).toBe("section-first");
+    expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-first");
+    expect(run.currentPageId).toBe("page-first");
   });
 });

@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
-import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase } from "@shared/schema";
+import { type Step, type Page, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase } from "@shared/schema";
 import type { WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.schema';
 import type {
   StepRepository,
-  SectionRepository,
+  PageRepository,
   WorkflowRepository,
   ProjectRepository,
   DocumentTemplateRepository,
@@ -25,7 +25,7 @@ vi.mock('../../../server/db', () => ({
 }));
 // Mock repositories
 vi.mock('../../../server/repositories', () => ({
-  sectionRepository: {
+  pageRepository: {
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -38,9 +38,9 @@ vi.mock('../../../server/repositories', () => ({
     update: mockStepRepoUpdate,
     delete: mockStepRepoDelete,
     softDelete: mockStepRepoSoftDelete,
-    softDeleteBySectionId: mockStepRepoSoftDeleteBySectionId,
+    softDeleteByPageId: mockStepRepoSoftDeleteByPageId,
     findByWorkflowId: mockStepRepoFind,
-    findBySectionId: mockStepRepoFindBySection,
+    findByPageId: mockStepRepoFindByPage,
     findById: mockStepRepoFindById,
   },
   logicRuleRepository: {
@@ -71,7 +71,7 @@ vi.mock('../../../server/services/WorkflowService', () => ({
   },
 }));
 // Shared mock functions
-const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoSoftDelete, mockStepRepoSoftDeleteBySectionId, mockStepRepoFind, mockStepRepoFindBySection, mockStepRepoFindById } = vi.hoisted(() => ({
+const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoSoftDelete, mockStepRepoSoftDeleteByPageId, mockStepRepoFind, mockStepRepoFindByPage, mockStepRepoFindById } = vi.hoisted(() => ({
   mockCreateTable: vi.fn(),
   mockRequirePermission: vi.fn(),
   mockCreateColumn: vi.fn(),
@@ -80,9 +80,9 @@ const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumn
   mockStepRepoUpdate: vi.fn(),
   mockStepRepoDelete: vi.fn(),
   mockStepRepoSoftDelete: vi.fn(),
-  mockStepRepoSoftDeleteBySectionId: vi.fn(),
+  mockStepRepoSoftDeleteByPageId: vi.fn(),
   mockStepRepoFind: vi.fn(),
-  mockStepRepoFindBySection: vi.fn(),
+  mockStepRepoFindByPage: vi.fn(),
   mockStepRepoFindById: vi.fn(),
 }));
 vi.mock('../../../server/services/DatavaultTablesService', () => ({
@@ -99,7 +99,7 @@ vi.mock('../../../server/services/DatavaultColumnsService', () => ({
 }));
 describe('WorkflowPatchService', () => {
   let service: WorkflowPatchService;
-  let mockSectionRepo: Mocked<SectionRepository>;
+  let mockPageRepo: Mocked<PageRepository>;
   let mockStepRepo: Mocked<StepRepository>;
   let mockWorkflowRepo: Mocked<WorkflowRepository>;
   let mockProjectRepo: Mocked<ProjectRepository>;
@@ -116,10 +116,10 @@ describe('WorkflowPatchService', () => {
     mockStepRepoCreate.mockReset();
     mockStepRepoFindById.mockReset();
     mockStepRepoSoftDelete.mockReset();
-    mockStepRepoSoftDeleteBySectionId.mockReset();
+    mockStepRepoSoftDeleteByPageId.mockReset();
 
     const repos = await import('../../../server/repositories');
-    mockSectionRepo = repos.sectionRepository as Mocked<SectionRepository>;
+    mockPageRepo = repos.pageRepository as Mocked<PageRepository>;
     mockStepRepo = repos.stepRepository as Mocked<StepRepository>;
     mockWorkflowRepo = repos.workflowRepository as Mocked<WorkflowRepository>;
     mockProjectRepo = repos.projectRepository as Mocked<ProjectRepository>;
@@ -146,32 +146,32 @@ describe('WorkflowPatchService', () => {
     } as unknown as DatavaultDatabase);
 
     // Default mock for assertEntityBelongsToWorkflow
-    mockSectionRepo.findById.mockResolvedValue({
-      id: 'section-123',
+    mockPageRepo.findById.mockResolvedValue({
+      id: 'page-123',
       workflowId: mockWorkflowId,
-    } as unknown as Section);
+    } as unknown as Page);
 
     mockStepRepoFindById.mockResolvedValue({
       id: 'step-123',
-      sectionId: 'section-123',
+      pageId: 'page-123',
     } as unknown as Step);
   });
   describe('TempId Resolution', () => {
-    it('should resolve section tempId to real UUID when creating step', async () => {
-      // Mock section creation returning real ID
-      mockSectionRepo.create.mockResolvedValue({
-        id: 'section-real-uuid',
+    it('should resolve page tempId to real UUID when creating step', async () => {
+      // Mock page creation returning real ID
+      mockPageRepo.create.mockResolvedValue({
+        id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
         order: 1,
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as unknown as Section);
+      } as unknown as Page);
       // Mock step creation
       mockStepRepo.create.mockResolvedValue({
         id: 'step-real-uuid',
-        sectionId: 'section-real-uuid',
+        pageId: 'page-real-uuid',
         type: 'short_text',
         title: 'Email',
         alias: 'email',
@@ -181,18 +181,18 @@ describe('WorkflowPatchService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as unknown as Step);
-      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByPageId.mockResolvedValue([]);
       mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const ops: WorkflowPatchOp[] = [
         {
-          op: 'section.create',
-          tempId: 'temp-section-1',
+          op: 'page.create',
+          tempId: 'temp-page-1',
           title: 'Contact Info',
           order: 1,
         },
         {
           op: 'step.create',
-          sectionRef: 'temp-section-1', // References tempId
+          pageRef: 'temp-page-1', // References tempId
           type: 'short_text',
           title: 'Email',
           alias: 'email',
@@ -203,29 +203,29 @@ describe('WorkflowPatchService', () => {
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(2);
-      expect(result.summary[0]).toContain("Created section 'Contact Info'");
+      expect(result.summary[0]).toContain("Created page 'Contact Info'");
       expect(result.summary[1]).toContain("Created step 'Email'");
-      // Verify step was created with resolved sectionId
+      // Verify step was created with resolved pageId
       expect(mockStepRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          sectionId: 'section-real-uuid',
+          pageId: 'page-real-uuid',
         }),
         expect.anything()
       );
     });
     it('should handle multi-level tempId references', async () => {
-      mockSectionRepo.create.mockResolvedValue({
-        id: 'section-real-uuid',
+      mockPageRepo.create.mockResolvedValue({
+        id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Personal Info',
         order: 1,
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as unknown as Section);
+      } as unknown as Page);
       mockStepRepo.create.mockResolvedValueOnce({
         id: 'step-real-uuid-1',
-        sectionId: 'section-real-uuid',
+        pageId: 'page-real-uuid',
         type: 'short_text',
         title: 'Name',
         alias: 'name',
@@ -236,7 +236,7 @@ describe('WorkflowPatchService', () => {
         updatedAt: new Date(),
       } as unknown as Step).mockResolvedValueOnce({
         id: 'step-real-uuid-2',
-        sectionId: 'section-real-uuid',
+        pageId: 'page-real-uuid',
         type: 'short_text',
         title: 'Email',
         alias: 'email',
@@ -247,19 +247,19 @@ describe('WorkflowPatchService', () => {
         updatedAt: new Date(),
       } as unknown as Step);
       mockStepRepo.update.mockResolvedValue({} as unknown as Step);
-      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByPageId.mockResolvedValue([]);
       mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const ops: WorkflowPatchOp[] = [
         {
-          op: 'section.create',
-          tempId: 'temp-section-1',
+          op: 'page.create',
+          tempId: 'temp-page-1',
           title: 'Personal Info',
           order: 1,
         },
         {
           op: 'step.create',
           tempId: 'temp-step-1',
-          sectionRef: 'temp-section-1',
+          pageRef: 'temp-page-1',
           type: 'short_text',
           title: 'Name',
           alias: 'name',
@@ -267,7 +267,7 @@ describe('WorkflowPatchService', () => {
         },
         {
           op: 'step.create',
-          sectionRef: 'temp-section-1',
+          pageRef: 'temp-page-1',
           type: 'short_text',
           title: 'Email',
           alias: 'email',
@@ -308,7 +308,7 @@ describe('WorkflowPatchService', () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'existing-step-1',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'email',
           title: 'Email Address',
           alias: 'email',
@@ -322,7 +322,7 @@ describe('WorkflowPatchService', () => {
       const ops: WorkflowPatchOp[] = [
         {
           op: 'step.create',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'short_text',
           title: 'Backup Email',
           alias: 'email', // Duplicate!
@@ -341,7 +341,7 @@ describe('WorkflowPatchService', () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'email',
           title: 'Email Address',
           alias: 'email',
@@ -369,7 +369,7 @@ describe('WorkflowPatchService', () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'email',
           title: 'Email',
           alias: 'email',
@@ -381,7 +381,7 @@ describe('WorkflowPatchService', () => {
         } as unknown as Step,
         {
           id: 'step-2',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'short_text',
           title: 'Phone',
           alias: 'phone',
@@ -418,7 +418,7 @@ describe('WorkflowPatchService', () => {
     it('should reject malformed operation (missing required fields)', async () => {
       const ops: unknown[] = [
         {
-          op: 'section.create',
+          op: 'page.create',
           // Missing title!
         },
       ];
@@ -511,19 +511,19 @@ describe('WorkflowPatchService', () => {
   });
   describe('Operation Application', () => {
     it('should rollback all ops if any op fails', async () => {
-      mockSectionRepo.create.mockResolvedValue({
-        id: 'section-real-uuid',
+      mockPageRepo.create.mockResolvedValue({
+        id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
         order: 1,
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as unknown as Section);
+      } as unknown as Page);
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'existing-step',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'email',
           title: 'Email',
           alias: 'email',
@@ -536,14 +536,14 @@ describe('WorkflowPatchService', () => {
       ]);
       const ops: WorkflowPatchOp[] = [
         {
-          op: 'section.create',
-          tempId: 'temp-section-1',
+          op: 'page.create',
+          tempId: 'temp-page-1',
           title: 'Contact Info',
           order: 1,
         },
         {
           op: 'step.create',
-          sectionRef: 'temp-section-1',
+          pageRef: 'temp-page-1',
           type: 'short_text',
           title: 'Duplicate Email',
           alias: 'email', // Will fail validation!
@@ -554,22 +554,22 @@ describe('WorkflowPatchService', () => {
       // Should fail validation before applying any ops
       expect(result.errors).toHaveLength(1);
       expect(result.summary).toHaveLength(0);
-      // Section should NOT be created (validation happens before application)
-      expect(mockSectionRepo.create).not.toHaveBeenCalled();
+      // Page should NOT be created (validation happens before application)
+      expect(mockPageRepo.create).not.toHaveBeenCalled();
     });
     it('should clear tempId mappings between batch calls', async () => {
-      mockSectionRepo.create.mockResolvedValue({
-        id: 'section-real-uuid-1',
+      mockPageRepo.create.mockResolvedValue({
+        id: 'page-real-uuid-1',
         workflowId: mockWorkflowId,
-        title: 'Section 1',
+        title: 'Page 1',
         order: 1,
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as unknown as Section);
+      } as unknown as Page);
       mockStepRepo.create.mockResolvedValue({
         id: 'step-real-uuid-1',
-        sectionId: 'section-real-uuid-1',
+        pageId: 'page-real-uuid-1',
         type: 'short_text',
         title: 'Field 1',
         alias: 'field1',
@@ -579,28 +579,28 @@ describe('WorkflowPatchService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as unknown as Step);
-      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByPageId.mockResolvedValue([]);
       mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const batch1: WorkflowPatchOp[] = [
         {
-          op: 'section.create',
-          tempId: 'temp-section-1', // section-real-uuid-1
-          title: 'Section 1',
+          op: 'page.create',
+          tempId: 'temp-page-1', // page-real-uuid-1
+          title: 'Page 1',
           order: 1,
         },
       ];
-      // Reset step repository mock to fail on invalid section ID references
+      // Reset step repository mock to fail on invalid page ID references
       // This simulates DB foreign key constraints when an ID is not resolved
-      mockStepRepo.create.mockImplementation(async (data: { sectionId?: string }) => {
-        if (data.sectionId?.startsWith('temp-')) {
-          throw new Error(`Invalid section ID: ${data.sectionId}`);
+      mockStepRepo.create.mockImplementation(async (data: { pageId?: string }) => {
+        if (data.pageId?.startsWith('temp-')) {
+          throw new Error(`Invalid page ID: ${data.pageId}`);
         }
         return { id: 'step-1' } as Step;
       });
       const batch2: WorkflowPatchOp[] = [
         {
           op: 'step.create',
-          sectionRef: 'temp-section-1', // Should NOT resolve to batch1's section
+          pageRef: 'temp-page-1', // Should NOT resolve to batch1's page
           type: 'short_text',
           title: 'Field 1',
           alias: 'field1',
@@ -613,8 +613,8 @@ describe('WorkflowPatchService', () => {
       const result2 = await service.applyOps(mockWorkflowId, mockUserId, batch2);
       expect(result2.errors).toHaveLength(1);
       // Logic changed: now error comes from repository failure due to unresolved ID, or Service if I updated it
-      // Since Service passes "temp-section-1", and Repo Mock now throws "Invalid section ID"
-      expect(result2.errors[0]).toContain('section');
+      // Since Service passes "temp-page-1", and Repo Mock now throws "Invalid page ID"
+      expect(result2.errors[0]).toContain('page');
     });
   });
   describe('Delete Operations (ICW2-B11 — AI ops soft-delete)', () => {
@@ -631,21 +631,21 @@ describe('WorkflowPatchService', () => {
       expect(mockStepRepo.softDelete).toHaveBeenCalledWith('step-123', expect.anything());
       expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
-    it('soft-deletes a section AND cascades to its steps instead of hard-deleting either (section.delete)', async () => {
+    it('soft-deletes a page AND cascades to its steps instead of hard-deleting either (page.delete)', async () => {
       const ops: WorkflowPatchOp[] = [
         {
-          op: 'section.delete',
-          id: 'section-123',
+          op: 'page.delete',
+          id: 'page-123',
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
-      expect(result.summary[0]).toContain('Deleted section');
-      // Cascade: the section's own steps are soft-deleted first, mirroring
+      expect(result.summary[0]).toContain('Deleted page');
+      // Cascade: the page's own steps are soft-deleted first, mirroring
       // the manual delete path's transactional cascade.
-      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith('section-123', expect.anything());
-      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith('section-123', expect.anything());
-      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+      expect(mockStepRepo.softDeleteByPageId).toHaveBeenCalledWith('page-123', expect.anything());
+      expect(mockPageRepo.softDelete).toHaveBeenCalledWith('page-123', expect.anything());
+      expect(mockPageRepo.delete).not.toHaveBeenCalled();
       expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
   });
@@ -690,21 +690,21 @@ describe('WorkflowPatchService', () => {
       );
     });
     it('should parse complex condition expressions', async () => {
-      mockSectionRepo.update.mockResolvedValue({} as unknown as Section);
+      mockPageRepo.update.mockResolvedValue({} as unknown as Page);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'logicRule.create',
           rule: {
             condition: "age gt 18",
             action: 'show',
-            target: { type: 'section', id: 'section-123' },
+            target: { type: 'page', id: 'page-123' },
           },
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
-      expect(mockSectionRepo.update).toHaveBeenCalledWith(
-        'section-123',
+      expect(mockPageRepo.update).toHaveBeenCalledWith(
+        'page-123',
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.objectContaining({
@@ -734,19 +734,19 @@ describe('WorkflowPatchService', () => {
     ])('parses the valueless operator in %s (ICW2-12)', async (expression, variable, operator) => {
       // These end the string, so a parser that only matched ` op ` (with a
       // trailing space) rejected every boolean/emptiness rule outright.
-      mockSectionRepo.update.mockResolvedValue({} as unknown as Section);
+      mockPageRepo.update.mockResolvedValue({} as unknown as Page);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'logicRule.create',
-          rule: { condition: expression, action: 'show', target: { type: 'section', id: 'section-123' } },
+          rule: { condition: expression, action: 'show', target: { type: 'page', id: 'page-123' } },
         },
       ];
 
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
 
       expect(result.errors).toHaveLength(0);
-      expect(mockSectionRepo.update).toHaveBeenCalledWith(
-        'section-123',
+      expect(mockPageRepo.update).toHaveBeenCalledWith(
+        'page-123',
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.objectContaining({
@@ -826,7 +826,7 @@ describe('WorkflowPatchService', () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'short_text',
           title: 'Full Name',
           alias: 'fullName',
@@ -838,7 +838,7 @@ describe('WorkflowPatchService', () => {
         } as unknown as Step,
         {
           id: 'step-2',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'email',
           title: 'Email',
           alias: 'email',
@@ -875,7 +875,7 @@ describe('WorkflowPatchService', () => {
       mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
-          sectionId: 'section-1',
+          pageId: 'page-1',
           type: 'short_text',
           title: 'Full Name',
           alias: 'fullName',

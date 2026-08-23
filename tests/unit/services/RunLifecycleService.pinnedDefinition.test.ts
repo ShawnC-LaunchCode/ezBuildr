@@ -1,13 +1,13 @@
 /**
- * RunLifecycleService.determineStartSection — pinned-definition sourcing
+ * RunLifecycleService.determineStartPage — pinned-definition sourcing
  * (RVP-4, AC1).
  *
- * `determineStartSection` builds its LogicContext via
+ * `determineStartPage` builds its LogicContext via
  * `LogicService.buildContext`, which RVP-2 already sourced from the run's
  * pinned definition (`RunDefinitionProvider`, RVP-1). This test proves that
- * plumbing actually reaches `determineStartSection`: a pinned run's start
- * section is resolved from the version's graph, not the live
- * sections/steps tables, and a versionless run still falls back to the live
+ * plumbing actually reaches `determineStartPage`: a pinned run's start
+ * page is resolved from the version's graph, not the live
+ * pages/steps tables, and a versionless run still falls back to the live
  * tables unchanged (AC3).
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -40,11 +40,11 @@ vi.mock("../../../server/db", () => {
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
 const VERSION_ID = '33333333-3333-4333-8333-333333333333';
-const PINNED_SECTION_ID = '44444444-4444-4444-8444-444444444444';
+const PINNED_PAGE_ID = '44444444-4444-4444-8444-444444444444';
 const PINNED_STEP_ID = '55555555-5555-4555-8555-555555555555';
-// Exists only in the live tables -- simulates an author reorganising sections
+// Exists only in the live tables -- simulates an author reorganising pages
 // after the respondent's run started.
-const LIVE_ONLY_SECTION_ID = '66666666-6666-4666-8666-666666666666';
+const LIVE_ONLY_PAGE_ID = '66666666-6666-4666-8666-666666666666';
 
 function makePinnedRun(): WorkflowRun {
   return { id: RUN_ID, workflowId: WORKFLOW_ID, workflowVersionId: VERSION_ID } as WorkflowRun;
@@ -62,9 +62,9 @@ function makeHarness() {
       createdAt: new Date('2026-07-20T00:00:00.000Z'),
       graphJson: {
         title: 'Pinned interview',
-        sections: [{
-          id: PINNED_SECTION_ID,
-          title: 'Pinned section',
+        pages: [{
+          id: PINNED_PAGE_ID,
+          title: 'Pinned page',
           order: 0,
           steps: [
             { id: PINNED_STEP_ID, type: 'short_text', title: 'Pinned required step', order: 0, required: true },
@@ -74,16 +74,16 @@ function makeHarness() {
       },
     }),
   };
-  // Live tables carry a DIFFERENT section than the pinned graph. If
-  // determineStartSection ever fell back to reading these for a pinned run,
-  // it would land on this section instead of the pinned one.
-  const sectionRepo = {
+  // Live tables carry a DIFFERENT page than the pinned graph. If
+  // determineStartPage ever fell back to reading these for a pinned run,
+  // it would land on this page instead of the pinned one.
+  const pageRepo = {
     findByWorkflowId: vi.fn().mockResolvedValue([
-      { id: LIVE_ONLY_SECTION_ID, workflowId: WORKFLOW_ID, title: 'Live-only section', order: 0, createdAt: new Date() },
+      { id: LIVE_ONLY_PAGE_ID, workflowId: WORKFLOW_ID, title: 'Live-only page', order: 0, createdAt: new Date() },
     ]),
   };
   const stepRepo = {
-    findBySectionIds: vi.fn().mockResolvedValue([]),
+    findByPageIds: vi.fn().mockResolvedValue([]),
   };
   const logicRuleRepo = {
     findByWorkflowId: vi.fn().mockResolvedValue([]),
@@ -94,7 +94,7 @@ function makeHarness() {
 
   const definitionProvider = new RunDefinitionProvider(
     versionRepo as never,
-    sectionRepo as never,
+    pageRepo as never,
     stepRepo as never,
     logicRuleRepo as never,
   );
@@ -102,49 +102,49 @@ function makeHarness() {
   const lifecycleSvc = new RunLifecycleService(
     valueRepoForLifecycle as never,
     stepRepo as never,
-    sectionRepo as never,
+    pageRepo as never,
     {} as never,
     logicSvc,
   );
 
-  return { lifecycleSvc, runRepo, sectionRepo, stepRepo };
+  return { lifecycleSvc, runRepo, pageRepo, stepRepo };
 }
 
-describe('RunLifecycleService.determineStartSection pinned-definition sourcing (RVP-4)', () => {
-  it('AC1: resolves the start section from the pinned graph, not the live tables', async () => {
-    const { lifecycleSvc, runRepo, sectionRepo } = makeHarness();
+describe('RunLifecycleService.determineStartPage pinned-definition sourcing (RVP-4)', () => {
+  it('AC1: resolves the start page from the pinned graph, not the live tables', async () => {
+    const { lifecycleSvc, runRepo, pageRepo } = makeHarness();
     runRepo.findById.mockResolvedValue(makePinnedRun());
 
-    const result = await lifecycleSvc.determineStartSection(RUN_ID, WORKFLOW_ID);
+    const result = await lifecycleSvc.determineStartPage(RUN_ID, WORKFLOW_ID);
 
-    expect(result).toBe(PINNED_SECTION_ID);
-    expect(sectionRepo.findByWorkflowId).not.toHaveBeenCalled();
+    expect(result).toBe(PINNED_PAGE_ID);
+    expect(pageRepo.findByWorkflowId).not.toHaveBeenCalled();
   });
 
   it('editing the live workflow after the run started does not change the result', async () => {
-    const { lifecycleSvc, runRepo, sectionRepo } = makeHarness();
+    const { lifecycleSvc, runRepo, pageRepo } = makeHarness();
     runRepo.findById.mockResolvedValue(makePinnedRun());
 
-    const before = await lifecycleSvc.determineStartSection(RUN_ID, WORKFLOW_ID);
+    const before = await lifecycleSvc.determineStartPage(RUN_ID, WORKFLOW_ID);
 
     // Simulate a further live edit landing between requests -- adding a
-    // brand new section that would change the answer if it were consulted.
-    sectionRepo.findByWorkflowId.mockResolvedValue([
-      { id: 'brand-new-section', workflowId: WORKFLOW_ID, title: 'Another edit', order: 0, createdAt: new Date() },
+    // brand new page that would change the answer if it were consulted.
+    pageRepo.findByWorkflowId.mockResolvedValue([
+      { id: 'brand-new-page', workflowId: WORKFLOW_ID, title: 'Another edit', order: 0, createdAt: new Date() },
     ]);
 
-    const after = await lifecycleSvc.determineStartSection(RUN_ID, WORKFLOW_ID);
+    const after = await lifecycleSvc.determineStartPage(RUN_ID, WORKFLOW_ID);
 
     expect(after).toBe(before);
   });
 
   it('AC3: a versionless run still resolves from the live tables (unchanged today-behavior)', async () => {
-    const { lifecycleSvc, runRepo, sectionRepo } = makeHarness();
+    const { lifecycleSvc, runRepo, pageRepo } = makeHarness();
     runRepo.findById.mockResolvedValue(makeVersionlessRun());
 
-    const result = await lifecycleSvc.determineStartSection(RUN_ID, WORKFLOW_ID);
+    const result = await lifecycleSvc.determineStartPage(RUN_ID, WORKFLOW_ID);
 
-    expect(result).toBe(LIVE_ONLY_SECTION_ID);
-    expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
+    expect(result).toBe(LIVE_ONLY_PAGE_ID);
+    expect(pageRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
   });
 });

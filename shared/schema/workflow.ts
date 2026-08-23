@@ -48,7 +48,7 @@ export const stepTypeEnum = pgEnum('step_type', [
     'list'
 ]);
 
-export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);
+export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['page', 'step']);
 // LU-6c: `condition_operator` backed the flat `logic_rules.operator` column
 // LU-6a already dropped in favor of `when` (a ConditionExpression) - no
 // column anywhere uses this enum anymore. Dropped rather than left as an
@@ -59,7 +59,7 @@ export const blockTypeEnum = pgEnum('block_type', [
     'prefill', 'validate', 'branch', 'create_record', 'update_record', 'find_record', 'delete_record',
     'query', 'write', 'external_send', 'read_table', 'list_tools'
 ]);
-export const blockPhaseEnum = pgEnum('block_phase', ['onRunStart', 'onSectionEnter', 'onSectionSubmit', 'onNext', 'onRunComplete']);
+export const blockPhaseEnum = pgEnum('block_phase', ['onRunStart', 'onPageEnter', 'onPageSubmit', 'onNext', 'onRunComplete']);
 
 export const transformBlockTypeEnum = pgEnum('transform_block_type', ['map', 'rename', 'compute', 'conditional', 'loop', 'script']);
 export const transformBlockLanguageEnum = pgEnum('transform_block_language', ['javascript', 'python']);
@@ -238,8 +238,8 @@ export const workflowTemplates = pgTable("workflow_templates", {
     index("workflow_templates_version_key_unique").on(table.workflowVersionId, table.key),
 ]);
 
-// Sections
-export const sections = pgTable("sections", {
+// Pages (physical table remains "sections" until SECT-2)
+export const pages = pgTable("sections", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     title: varchar("title").notNull(),
@@ -262,7 +262,7 @@ export const sections = pgTable("sections", {
 export const steps = pgTable("steps", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }).notNull(),
+    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
     type: stepTypeEnum("type").notNull(),
     title: varchar("title").notNull(),
     description: text("description"),
@@ -280,7 +280,7 @@ export const steps = pgTable("steps", {
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("steps_workflow_idx").on(table.workflowId),
-    index("steps_section_idx").on(table.sectionId),
+    index("steps_section_idx").on(table.pageId),
     index("steps_deleted_at_idx").on(table.deletedAt),
     // `deleted_at IS NULL` is part of the uniqueness scope so a soft-deleted
     // step's alias frees up immediately — re-creating or restoring a step
@@ -293,7 +293,7 @@ export const steps = pgTable("steps", {
 // Logic Rules
 //
 // LU-6a (Decision #5): the condition a rule fires on is the same
-// `ConditionExpression` language `steps.visible_if` / `sections.visible_if`
+// `ConditionExpression` language `steps.visible_if` / `pages.visible_if`
 // already use (28 operators, nested AND/OR groups) rather than a private
 // flat operator/value/logicalOperator trio limited to 9 operators. The
 // former `operator`, `conditionValue`, and `logicalOperator` columns are
@@ -311,7 +311,7 @@ export const logicRules = pgTable("logic_rules", {
     when: jsonb("when"),
     targetType: logicRuleTargetTypeEnum("target_type").notNull(),
     targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
-    targetSectionId: uuid("target_section_id").references(() => sections.id, { onDelete: 'cascade' }),
+    targetPageId: uuid("target_section_id").references(() => pages.id, { onDelete: 'cascade' }),
     action: conditionalActionEnum("action").notNull(),
     order: integer("order").notNull().default(1),
     createdAt: timestamp("created_at").defaultNow(),
@@ -324,7 +324,7 @@ export const logicRules = pgTable("logic_rules", {
 export const blocks = pgTable("blocks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }),
+    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
     type: blockTypeEnum("type").notNull(),
     phase: blockPhaseEnum("phase").notNull(),
     config: jsonb("config").notNull(),
@@ -341,14 +341,14 @@ export const blocks = pgTable("blocks", {
 export const transformBlocks = pgTable("transform_blocks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }),
+    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
     name: varchar("name").notNull(),
     language: transformBlockLanguageEnum("language").notNull(),
     code: text("code").notNull(),
     inputKeys: text("input_keys").array().notNull().default(sql`'{}'::text[]`),
     outputKey: varchar("output_key").notNull(),
     virtualStepId: uuid("virtual_step_id").references(() => steps.id, { onDelete: 'set null' }),
-    phase: blockPhaseEnum("phase").notNull().default('onSectionSubmit'),
+    phase: blockPhaseEnum("phase").notNull().default('onPageSubmit'),
     enabled: boolean("enabled").default(true).notNull(),
     order: integer("order").notNull().default(0),
     timeoutMs: integer("timeout_ms").default(1000),
@@ -362,7 +362,7 @@ export const transformBlocks = pgTable("transform_blocks", {
 export const lifecycleHooks = pgTable("lifecycle_hooks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }),
+    pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }),
     name: varchar("name", { length: 255 }).notNull(),
     phase: lifecycleHookPhaseEnum("phase").notNull(),
     language: transformBlockLanguageEnum("language").notNull(),
@@ -468,7 +468,7 @@ export const insertWorkflowBlueprintSchema = createInsertSchema(workflowBlueprin
 export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions);
 export const insertTemplateSchema = createInsertSchema(templates);
 export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates);
-export const insertSectionSchema = createInsertSchema(sections);
+export const insertPageSchema = createInsertSchema(pages);
 export const insertStepSchema = createInsertSchema(steps);
 export const insertLogicRuleSchema = createInsertSchema(logicRules);
 export const insertBlockSchema = createInsertSchema(blocks);
@@ -493,8 +493,8 @@ export type Template = InferSelectModel<typeof templates>;
 export type InsertTemplate = InferInsertModel<typeof templates>;
 export type WorkflowTemplate = InferSelectModel<typeof workflowTemplates>;
 export type InsertWorkflowTemplate = InferInsertModel<typeof workflowTemplates>;
-export type Section = InferSelectModel<typeof sections>;
-export type InsertSection = InferInsertModel<typeof sections>;
+export type Page = InferSelectModel<typeof pages>;
+export type InsertPage = InferInsertModel<typeof pages>;
 export type Step = InferSelectModel<typeof steps>;
 export type InsertStep = InferInsertModel<typeof steps>;
 export type LogicRule = InferSelectModel<typeof logicRules>;
@@ -525,8 +525,8 @@ export interface WorkflowVariable {
     alias: string | null;
     type: string;
     label: string;
-    sectionId: string;
-    sectionTitle: string;
+    pageId: string;
+    pageTitle: string;
     stepId: string;
     /**
      * Selectable options, for step types whose config carries them (legacy

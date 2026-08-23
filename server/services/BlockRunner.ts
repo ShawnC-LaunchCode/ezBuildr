@@ -127,16 +127,16 @@ export class BlockRunner {
   async runPhase(context: BlockContext, tx?: any): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
-    let nextSectionId: string | undefined;
-    let nextSectionBlockId: string | undefined;
+    let nextPageId: string | undefined;
+    let nextPageBlockId: string | undefined;
 
     // 0. Execute lifecycle hooks BEFORE other blocks (if runId is provided)
     if (context.runId) {
       // Map block phases to lifecycle hook phases
       const lifecyclePhaseMap: Record<BlockPhase, LifecycleHookPhase | null> = {
         onRunStart: null, // No lifecycle hook phase for onRunStart (could add if needed)
-        onSectionEnter: "beforePage",
-        onSectionSubmit: "afterPage",
+        onPageEnter: "beforePage",
+        onPageSubmit: "afterPage",
         onNext: null, // No lifecycle hook phase for onNext
         onRunComplete: null, // No lifecycle hook phase for onRunComplete (could add beforeFinalBlock later)
       };
@@ -149,7 +149,7 @@ export class BlockRunner {
             workflowId: context.workflowId,
             runId: context.runId,
             phase: lifecyclePhase,
-            sectionId: context.sectionId,
+            pageId: context.pageId,
             data: currentData,
             userId: (context.queryParams?.userId as string | undefined), // Optional user ID from context
           });
@@ -190,7 +190,7 @@ export class BlockRunner {
           workflowId: context.workflowId,
           runId: context.runId,
           phase: context.phase,
-          sectionId: context.sectionId,
+          pageId: context.pageId,
           data: currentData,
         });
 
@@ -213,7 +213,7 @@ export class BlockRunner {
     const blocks = await this.blockSvc.getBlocksForPhase(
       context.workflowId,
       context.phase,
-      context.sectionId
+      context.pageId
     );
 
     if (blocks.length === 0 && allErrors.length === 0) {
@@ -237,9 +237,9 @@ export class BlockRunner {
       }
 
       // Capture branch decision (only first match wins)
-      if (result.nextSectionId && !nextSectionId) {
-        nextSectionId = result.nextSectionId;
-        nextSectionBlockId = block.id;
+      if (result.nextPageId && !nextPageId) {
+        nextPageId = result.nextPageId;
+        nextPageBlockId = block.id;
       }
     }
 
@@ -247,8 +247,8 @@ export class BlockRunner {
       success: allErrors.length === 0,
       data: currentData,
       errors: allErrors.length > 0 ? allErrors : undefined,
-      nextSectionId,
-      nextSectionBlockId,
+      nextPageId,
+      nextPageBlockId,
     };
   }
 
@@ -269,7 +269,7 @@ export class BlockRunner {
           versionId: context.versionId ?? 'draft',
           type: 'block.start',
           blockId: block.id,
-          pageId: context.sectionId,
+          pageId: context.pageId,
           timestamp: new Date().toISOString(),
           isPreview: context.mode === 'preview',
           payload: {
@@ -308,7 +308,7 @@ export class BlockRunner {
             versionId: context.versionId ?? 'draft',
             type: 'block.error',
             blockId: block.id,
-            pageId: context.sectionId,
+            pageId: context.pageId,
             timestamp: new Date().toISOString(),
             isPreview: context.mode === 'preview',
             payload: {
@@ -335,7 +335,7 @@ export class BlockRunner {
           versionId: context.versionId ?? 'draft',
           type: eventType,
           blockId: block.id,
-          pageId: context.sectionId,
+          pageId: context.pageId,
           timestamp: new Date().toISOString(),
           isPreview: context.mode === 'preview',
           payload: {

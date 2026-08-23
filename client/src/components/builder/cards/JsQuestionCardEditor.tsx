@@ -32,7 +32,7 @@ const DEFAULT_JS_CONFIG: JSQuestionConfig = {
     helpText: "",
 };
 
-export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
@@ -47,15 +47,15 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
 
     const handleConfigChange = (config: JSQuestionConfig) => {
         setLocalConfig(config);
-        updateStepMutation.mutate({ id: stepId, sectionId, config });
+        updateStepMutation.mutate({ id: stepId, pageId, config });
     };
 
     const handleAliasChange = (alias: string | null) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, alias });
+        updateStepMutation.mutate({ id: stepId, pageId, alias });
     };
 
     const handleRequiredChange = (required: boolean) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, required });
+        updateStepMutation.mutate({ id: stepId, pageId, required });
     };
 
     return (
@@ -67,7 +67,7 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             <RequiredToggle checked={step.required} onChange={handleRequiredChange} />
 
             {/* Description / Help Text */}
-            <DescriptionField stepId={stepId} sectionId={sectionId} description={step.description} />
+            <DescriptionField stepId={stepId} pageId={pageId} description={step.description} />
 
             <Separator />
 
@@ -82,7 +82,7 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             {/* Default Value */}
             <DefaultValueField
                 stepId={stepId}
-                sectionId={sectionId}
+                pageId={pageId}
                 defaultValue={step.defaultValue as DefaultValueType}
                 type={step.type}
                 mode={mode}
@@ -92,7 +92,7 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             {workflowId && (
                 <VisibilityField
                     stepId={stepId}
-                    sectionId={sectionId}
+                    pageId={pageId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
                 />

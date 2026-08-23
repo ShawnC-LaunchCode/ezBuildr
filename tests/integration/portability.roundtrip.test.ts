@@ -296,7 +296,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     }).returning();
     workflowId = workflow.id;
 
-    const [section] = await getOwnerDb().insert(schema.sections).values({
+    const [page] = await getOwnerDb().insert(schema.pages).values({
       workflowId, title: "Everything", order: 0,
     }).returning();
 
@@ -320,7 +320,7 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       const alias = `alias_${type}`;
       await getOwnerDb().insert(schema.steps).values({
         workflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type,
         title: `Step ${type}`,
         alias,

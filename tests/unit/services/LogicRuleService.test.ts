@@ -5,11 +5,11 @@ import {
   LogicRuleValidationError,
   type LogicRuleInput,
 } from "../../../server/services/LogicRuleService";
-import { logicRuleRepository, stepRepository, sectionRepository } from "../../../server/repositories";
+import { logicRuleRepository, stepRepository, pageRepository } from "../../../server/repositories";
 import { workflowService } from "../../../server/services/WorkflowService";
 import {
   createTestWorkflow,
-  createTestSection,
+  createTestPage,
   createTestStep,
   createTestLogicRule,
 } from "../../factories/workflowFactory";
@@ -37,7 +37,7 @@ vi.mock("../../../server/repositories", () => ({
   stepRepository: {
     findByWorkflowIdWithAliases: vi.fn(),
   },
-  sectionRepository: {
+  pageRepository: {
     findByIdAndWorkflow: vi.fn(),
   },
 }));
@@ -52,26 +52,26 @@ describe("LogicRuleService", () => {
   let service: LogicRuleService;
   let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
   let mockStepRepo: Mocked<typeof stepRepository>;
-  let mockSectionRepo: Mocked<typeof sectionRepository>;
+  let mockPageRepo: Mocked<typeof pageRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
 
   const workflow = createTestWorkflow();
   const stepA = createTestStep(workflow.id, { id: "step-a", alias: "triggerAlias", workflowId: workflow.id });
   const stepB = createTestStep(workflow.id, { id: "step-b", alias: null, workflowId: workflow.id });
   const targetStep = createTestStep(workflow.id, { id: "step-target", alias: "targetAlias", workflowId: workflow.id });
-  const section = createTestSection(workflow.id, { id: "section-1" });
+  const page = createTestPage(workflow.id, { id: "page-1" });
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockLogicRuleRepo = logicRuleRepository as Mocked<typeof logicRuleRepository>;
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
-    mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
+    mockPageRepo = pageRepository as Mocked<typeof pageRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
 
     mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
     mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([stepA, stepB, targetStep]);
-    mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+    mockPageRepo.findByIdAndWorkflow.mockResolvedValue(page);
     mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
     mockLogicRuleRepo.create.mockImplementation(async (data) => ({
       id: "new-rule",
@@ -90,7 +90,7 @@ describe("LogicRuleService", () => {
     service = new LogicRuleService({
       logicRuleRepo: mockLogicRuleRepo,
       stepRepo: mockStepRepo,
-      sectionRepo: mockSectionRepo,
+      pageRepo: mockPageRepo,
       workflowSvc: mockWorkflowSvc,
     });
   });
@@ -151,33 +151,33 @@ describe("LogicRuleService", () => {
       ).rejects.toThrow(/unknown step/);
     });
 
-    it("rejects skip_to against a step target (only valid for sections)", async () => {
+    it("rejects skip_to against a step target (only valid for pages)", async () => {
       await expect(
         service.createRule(workflow.id, "user-1", stepTargetInput({ action: "skip_to" }))
       ).rejects.toThrow(/not valid for a step target/);
     });
 
-    it("rejects require/make_optional against a section target", async () => {
+    it("rejects require/make_optional against a page target", async () => {
       await expect(
         service.createRule(workflow.id, "user-1", {
           when: buildTestWhen("triggerAlias", "equals", "yes"),
-          targetType: "section",
-          targetSectionId: section.id,
+          targetType: "page",
+          targetPageId: page.id,
           action: "require",
         })
-      ).rejects.toThrow(/not valid for a section target/);
+      ).rejects.toThrow(/not valid for a page target/);
     });
 
-    it("accepts skip_to against a section target", async () => {
+    it("accepts skip_to against a page target", async () => {
       await service.createRule(workflow.id, "user-1", {
         when: buildTestWhen("triggerAlias", "equals", "yes"),
-        targetType: "section",
-        targetSectionId: section.id,
+        targetType: "page",
+        targetPageId: page.id,
         action: "skip_to",
       });
 
       expect(mockLogicRuleRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ targetType: "section", targetSectionId: section.id, action: "skip_to" }),
+        expect.objectContaining({ targetType: "page", targetPageId: page.id, action: "skip_to" }),
         expect.anything()
       );
     });
@@ -188,16 +188,16 @@ describe("LogicRuleService", () => {
       ).rejects.toThrow(/target step not found/);
     });
 
-    it("rejects a target section that does not belong to the workflow", async () => {
-      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
+    it("rejects a target page that does not belong to the workflow", async () => {
+      mockPageRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
       await expect(
         service.createRule(workflow.id, "user-1", {
           when: buildTestWhen("triggerAlias", "equals", "yes"),
-          targetType: "section",
-          targetSectionId: "some-other-workflows-section",
+          targetType: "page",
+          targetPageId: "some-other-workflows-page",
           action: "show",
         })
-      ).rejects.toThrow(/target section not found/);
+      ).rejects.toThrow(/target page not found/);
     });
 
     it("auto-increments order past the current max", async () => {
@@ -230,7 +230,7 @@ describe("LogicRuleService", () => {
       when: buildTestWhen("triggerAlias", "equals", "yes"),
       targetType: "step",
       targetStepId: targetStep.id,
-      targetSectionId: null,
+      targetPageId: null,
       action: "show",
       order: 1,
     });

@@ -17,7 +17,7 @@ const router = Router();
 
 const createLifecycleHookSchema = z.object({
   workflowId: z.string().uuid(),
-  sectionId: z.string().uuid().optional().nullable(),
+  pageId: z.string().uuid().optional().nullable(),
   name: z.string().min(1).max(255),
   phase: z.enum(["beforePage", "afterPage", "beforeFinalBlock", "afterDocumentsGenerated"]),
   language: z.enum(["javascript", "python"]),
@@ -51,7 +51,7 @@ const testHookSchema = z.object({
       workflowId: z.string().uuid().optional(),
       runId: z.string().uuid().optional(),
       phase: z.string().optional(),
-      sectionId: z.string().uuid().optional(),
+      pageId: z.string().uuid().optional(),
       userId: z.string().optional(),
 
       metadata: z.record(z.any()).optional(),

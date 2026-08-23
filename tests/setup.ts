@@ -661,7 +661,7 @@ vi.mock("@google/generative-ai", () => {
         generateContent: vi.fn().mockResolvedValue({
           response: {
             text: () => JSON.stringify({
-              updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
+              updatedWorkflow: { title: "Mocked AI Workflow", pages: [] },
               explanation: ["Mocked explanation"],
               diff: { changes: [] },
               suggestions: [],

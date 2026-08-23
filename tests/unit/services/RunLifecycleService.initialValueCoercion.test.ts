@@ -14,9 +14,9 @@
  */
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
-import type { Step, Section } from '@shared/schema';
+import type { Step, Page } from '@shared/schema';
 
-import { stepRepository, sectionRepository, stepValueRepository } from '../../../server/repositories';
+import { stepRepository, pageRepository, stepValueRepository } from '../../../server/repositories';
 import type { LogicService } from '../../../server/services/LogicService';
 import type { RunDataService } from '../../../server/services/workflow-runs/RunDataService';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
@@ -33,9 +33,9 @@ vi.mock('../../../server/repositories', async (importOriginal) => {
   return {
     ...actual,
     stepRepository: {
-      findBySectionIds: vi.fn(),
+      findByPageIds: vi.fn(),
     },
-    sectionRepository: {
+    pageRepository: {
       findByWorkflowId: vi.fn(),
     },
   };
@@ -57,8 +57,8 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
   };
 });
 
-function makeSection(id: string): Section {
-  return { id } as unknown as Section;
+function makePage(id: string): Page {
+  return { id } as unknown as Page;
 }
 
 function makeStep(overrides: Partial<Step>): Step {
@@ -66,7 +66,7 @@ function makeStep(overrides: Partial<Step>): Step {
     id: overrides.id ?? 'step-id',
     alias: overrides.alias ?? null,
     type: overrides.type ?? 'short_text',
-    sectionId: 'section-1',
+    pageId: 'page-1',
     isVirtual: false,
     defaultValue: null,
     ...overrides,
@@ -76,24 +76,24 @@ function makeStep(overrides: Partial<Step>): Step {
 describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () => {
   let service: RunLifecycleService;
   let mockStepRepo: Mocked<typeof stepRepository>;
-  let mockSectionRepo: Mocked<typeof sectionRepository>;
+  let mockPageRepo: Mocked<typeof pageRepository>;
   let mockPersistence: Mocked<RunPersistenceWriter>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
     mockStepRepo = stepRepository as unknown as Mocked<typeof stepRepository>;
-    mockSectionRepo = sectionRepository as unknown as Mocked<typeof sectionRepository>;
+    mockPageRepo = pageRepository as unknown as Mocked<typeof pageRepository>;
 
     const persistenceModule = await import('../../../server/services/runs/RunPersistenceWriter');
     mockPersistence = (persistenceModule as unknown as { runPersistenceWriter: Mocked<RunPersistenceWriter> }).runPersistenceWriter;
 
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([makeSection('section-1')]);
+    mockPageRepo.findByWorkflowId.mockResolvedValue([makePage('page-1')]);
 
     service = new RunLifecycleService(
       stepValueRepository as unknown as typeof stepValueRepository,
       mockStepRepo,
-      mockSectionRepo,
+      mockPageRepo,
       mockPersistence,
       {} as unknown as LogicService,
       {} as unknown as RunDataService,
@@ -101,7 +101,7 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
   });
 
   async function runWithStep(step: Step, initialValues: Record<string, unknown>) {
-    mockStepRepo.findBySectionIds.mockResolvedValue([step]);
+    mockStepRepo.findByPageIds.mockResolvedValue([step]);
     await service.populateInitialValues('run-1', 'workflow-1', { initialValues });
     const calls = mockPersistence.bulkSaveValues.mock.calls;
     return calls[calls.length - 1]?.[1] as Array<{ stepId: string; value: unknown }> | undefined;

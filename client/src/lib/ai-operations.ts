@@ -10,7 +10,7 @@ import { toast } from "@/hooks/use-toast";
  * (like updating the sidebar or graph) happen consistently with manual edits.
  */
 export interface AiSuggestion {
-    newSections?: Array<{
+    newPages?: Array<{
         title: string;
         order?: number;
         steps?: Array<{
@@ -20,20 +20,20 @@ export interface AiSuggestion {
         }>
     }>;
     newSteps?: Array<{
-        sectionId: string; // might be "last" or "new" or a real ID if context was passed
+        pageId: string; // might be "last" or "new" or a real ID if context was passed
         title: string;
         type: string;
     }>;
     // We can expand this for modifications later
 }
-interface CreateSectionInput {
+interface CreatePageInput {
     workflowId: string;
     title: string;
     order: number;
 }
 
 interface CreateStepInput {
-    sectionId: string;
+    pageId: string;
     title: string;
     type: string;
     order: number;
@@ -43,7 +43,7 @@ interface AsyncMutation<TInput, TResult> {
     mutateAsync(input: TInput): Promise<TResult>;
 }
 
-interface SectionMutationResult {
+interface PageMutationResult {
     id: string;
 }
 // NOTE: This function needs to be used within a React component or hook context because 
@@ -56,30 +56,30 @@ export async function applyAiSuggestions(
     suggestions: AiSuggestion,
     // dependencies passed in to avoid hook rules issues
     mutations: {
-        createSection: AsyncMutation<CreateSectionInput, SectionMutationResult>;
+        createPage: AsyncMutation<CreatePageInput, PageMutationResult>;
         createStep: AsyncMutation<CreateStepInput, unknown>;
     }
 
 ): Promise<boolean> {
     // eslint-disable-next-line no-console
     console.log("Applying AI Suggestions:", suggestions);
-    const _sectionMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs
+    const _pageMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs
     try {
-        // 1. Create New Sections
-        if (suggestions.newSections) {
-            for (const section of suggestions.newSections) {
+        // 1. Create New Pages
+        if (suggestions.newPages) {
+            for (const page of suggestions.newPages) {
                 // Calculate order if not provided (append)
-                const sectionData = {
+                const pageData = {
                     workflowId,
-                    title: section.title,
-                    order: section.order ?? 999
+                    title: page.title,
+                    order: page.order ?? 999
                 };
-                const newSection = await mutations.createSection.mutateAsync(sectionData);
-                // Add Steps for this new section
-                if (section.steps) {
-                    for (const step of section.steps) {
+                const newPage = await mutations.createPage.mutateAsync(pageData);
+                // Add Steps for this new page
+                if (page.steps) {
+                    for (const step of page.steps) {
                         await mutations.createStep.mutateAsync({
-                            sectionId: newSection.id,
+                            pageId: newPage.id,
                             title: step.title,
                             type: normalizeStepType(step.type),
                             order: 999 // auto-append
@@ -88,15 +88,15 @@ export async function applyAiSuggestions(
                 }
             }
         }
-        // 2. Add Steps to Existing Sections (if any)
+        // 2. Add Steps to Existing Pages (if any)
         if (suggestions.newSteps) {
             for (const step of suggestions.newSteps) {
-                // We need a way to resolve sectionId if it's vague. 
-                // For MVP, we might assume it's adding to the currently selected section or the last one.
-                // If sectionId is missing, we skip or error.
-                if (step.sectionId) {
+                // We need a way to resolve pageId if it's vague.
+                // For MVP, we might assume it's adding to the currently selected page or the last one.
+                // If pageId is missing, we skip or error.
+                if (step.pageId) {
                     await mutations.createStep.mutateAsync({
-                        sectionId: step.sectionId,
+                        pageId: step.pageId,
                         title: step.title,
                         type: normalizeStepType(step.type),
                         order: 999

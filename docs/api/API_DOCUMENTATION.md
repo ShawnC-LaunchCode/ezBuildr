@@ -63,7 +63,7 @@ The OpenAPI specification includes:
 #### Core Resources
 - **Projects:** Top-level containers for workflows
 - **Workflows:** Complete workflow definitions
-- **Sections:** Workflow pages/sections
+- **Pages:** Ordered workflow pages
 - **Steps:** Individual workflow steps (15+ question types)
 - **Runs:** Workflow execution instances
 - **Values:** Step values and run data

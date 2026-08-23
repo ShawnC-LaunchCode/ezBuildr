@@ -13,7 +13,7 @@ export interface BlockDiff {
     changeType: 'added' | 'removed' | 'modified' | 'moved';
     propertyChanges?: Record<string, PropertyChange>;
 }
-export interface SectionDiff {
+export interface PageDiff {
     id: string;
     title: string;
     changeType: 'added' | 'removed' | 'modified' | 'moved';
@@ -22,17 +22,17 @@ export interface SectionDiff {
 export interface WorkflowDiff {
     fromVersion?: string;
     toVersion?: string;
-    sections: SectionDiff[];
+    pages: PageDiff[];
     steps: BlockDiff[];
     summary: {
-        sectionsAdded: number;
-        sectionsRemoved: number;
+        pagesAdded: number;
+        pagesRemoved: number;
         stepsAdded: number;
         stepsRemoved: number;
         stepsModified: number;
     };
 }
-interface DiffableSection {
+interface DiffablePage {
     id: string;
     title: string;
     order?: number;
@@ -44,7 +44,7 @@ interface DiffableStep {
     type: string;
     title?: string;
     required?: boolean;
-    sectionId?: string;
+    pageId?: string;
     config?: unknown;
 }
 /**
@@ -52,46 +52,46 @@ interface DiffableStep {
  */
 export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSchema): WorkflowDiff {
     const diff: WorkflowDiff = {
-        sections: [],
+        pages: [],
         steps: [],
         summary: {
-            sectionsAdded: 0,
-            sectionsRemoved: 0,
+            pagesAdded: 0,
+            pagesRemoved: 0,
             stepsAdded: 0,
             stepsRemoved: 0,
             stepsModified: 0
         }
     };
-    // 1. Diff Sections
-    const oldSections = (oldSchema.sections ?? []) as DiffableSection[];
-    const newSections = (newSchema.sections ?? []) as DiffableSection[];
-    const oldSectionMap = new Map(oldSections.map(s => [s.id, s]));
-    const newSectionMap = new Map(newSections.map(s => [s.id, s]));
-    // Removed Sections
-    oldSections.forEach(s => {
-        if (!newSectionMap.has(s.id)) {
-            diff.sections.push({
+    // 1. Diff Pages
+    const oldPages = (oldSchema.pages ?? []) as DiffablePage[];
+    const newPages = (newSchema.pages ?? []) as DiffablePage[];
+    const oldPageMap = new Map(oldPages.map(s => [s.id, s]));
+    const newPageMap = new Map(newPages.map(s => [s.id, s]));
+    // Removed Pages
+    oldPages.forEach(s => {
+        if (!newPageMap.has(s.id)) {
+            diff.pages.push({
                 id: s.id,
                 title: s.title,
                 changeType: 'removed'
             });
-            diff.summary.sectionsRemoved++;
+            diff.summary.pagesRemoved++;
         }
     });
-    // Added Sections
-    newSections.forEach(s => {
-        if (!oldSectionMap.has(s.id)) {
-            diff.sections.push({
+    // Added Pages
+    newPages.forEach(s => {
+        if (!oldPageMap.has(s.id)) {
+            diff.pages.push({
                 id: s.id,
                 title: s.title,
                 changeType: 'added'
             });
-            diff.summary.sectionsAdded++;
+            diff.summary.pagesAdded++;
         }
     });
-    // Modified Sections (Title, Order, etc.)
-    newSections.forEach(newS => {
-        const oldS = oldSectionMap.get(newS.id);
+    // Modified Pages (Title, Order, etc.)
+    newPages.forEach(newS => {
+        const oldS = oldPageMap.get(newS.id);
         if (oldS) {
             // Check for changes
             const changes: Record<string, PropertyChange> = {};
@@ -106,7 +106,7 @@ export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSche
                 changes['visibleIf'] = { oldValue: oldS.visibleIf, newValue: newS.visibleIf };
             }
             if (Object.keys(changes).length > 0) {
-                diff.sections.push({
+                diff.pages.push({
                     id: newS.id,
                     title: newS.title,
                     changeType: 'modified',
@@ -156,8 +156,8 @@ export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSche
             if (oldS.type !== newS.type) { changes['type'] = { oldValue: oldS.type, newValue: newS.type }; }
             if (oldS.required !== newS.required) { changes['required'] = { oldValue: oldS.required, newValue: newS.required }; }
             // Move check
-            if (oldS.sectionId !== newS.sectionId) {
-                changes['sectionId'] = { oldValue: oldS.sectionId, newValue: newS.sectionId };
+            if (oldS.pageId !== newS.pageId) {
+                changes['pageId'] = { oldValue: oldS.pageId, newValue: newS.pageId };
                 // Could mark as 'moved' but treating as modified prop is often simpler
             }
             // Config deep diff

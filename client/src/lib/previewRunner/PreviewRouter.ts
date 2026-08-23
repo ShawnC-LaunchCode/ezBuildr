@@ -1,4 +1,4 @@
-import type { ApiSection } from '@/lib/vault-api';
+import type { ApiPage } from '@/lib/vault-api';
 
 import { PreviewEnvironment } from './PreviewEnvironment';
 
@@ -15,44 +15,44 @@ export class PreviewRouter {
     constructor(private env: PreviewEnvironment) { }
 
     /**
-     * Move to the next valid section
+     * Move to the next valid page
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     next() {
         const currentState = this.env.getState();
-        const sections = this.env.getSections();
+        const pages = this.env.getPages();
 
-        let nextIndex = currentState.currentSectionIndex + 1;
+        let nextIndex = currentState.currentPageIndex + 1;
 
-        // Loop to find next visible section
-        while (nextIndex < sections.length) {
-            if (this.isSectionVisible(sections[nextIndex])) {
-                this.env.setCurrentSection(nextIndex);
+        // Loop to find next visible page
+        while (nextIndex < pages.length) {
+            if (this.isPageVisible(pages[nextIndex])) {
+                this.env.setCurrentPage(nextIndex);
                 return;
             }
             nextIndex++;
         }
 
-        // If no more sections, complete the run
-        if (nextIndex >= sections.length) {
+        // If no more pages, complete the run
+        if (nextIndex >= pages.length) {
             this.env.completeRun();
         }
     }
 
     /**
-     * Move to the previous valid section
+     * Move to the previous valid page
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     prev() {
         const currentState = this.env.getState();
-        const sections = this.env.getSections();
+        const pages = this.env.getPages();
 
-        let prevIndex = currentState.currentSectionIndex - 1;
+        let prevIndex = currentState.currentPageIndex - 1;
 
-        // Loop backwards to find prev visible section
+        // Loop backwards to find prev visible page
         while (prevIndex >= 0) {
-            if (this.isSectionVisible(sections[prevIndex])) {
-                this.env.setCurrentSection(prevIndex);
+            if (this.isPageVisible(pages[prevIndex])) {
+                this.env.setCurrentPage(prevIndex);
                 return;
             }
             prevIndex--;
@@ -60,16 +60,16 @@ export class PreviewRouter {
     }
 
     /**
-     * Evaluate visibility logic for a section
+     * Evaluate visibility logic for a page
      * (Placeholder: Needs integration with LogicEngine from Prompt 13)
      */
-    private isSectionVisible(_section: ApiSection): boolean {
+    private isPageVisible(_page: ApiPage): boolean {
         // TODO: Integrate real LogicEngine
-        // For now, assume all sections are visible unless explicit logic says otherwise
+        // For now, assume all pages are visible unless explicit logic says otherwise
 
         // Example placeholder logic:
-        // if (section.visibleIf) {
-        //   return evaluateLogic(section.visibleIf, this.env.getValues());
+        // if (page.visibleIf) {
+        //   return evaluateLogic(page.visibleIf, this.env.getValues());
         // }
 
         return true;

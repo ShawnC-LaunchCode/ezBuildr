@@ -492,7 +492,7 @@ export interface VariableInfo {
   label: string; // Display label (alias or title)
   title: string; // Step title
   type: ConditionSupportedStepType;
-  sectionId: string;
-  sectionTitle: string;
+  pageId: string;
+  pageTitle: string;
   choices?: Array<{ value: string; label: string }>; // For choice-based steps
 }

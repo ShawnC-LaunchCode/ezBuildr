@@ -136,8 +136,8 @@ describe('Hardening: generated documents record the real converter', () => {
 
   it('records pdf_strategy=gotenberg for a PDF produced by a real Gotenberg', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
       type: 'short_text',
       title: 'Client name',
       alias: 'clientName',
@@ -156,7 +156,7 @@ describe('Hardening: generated documents record the real converter', () => {
       fileRef,
     });
 
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       type: 'final',
       title: 'Final documents',
       order: 1,

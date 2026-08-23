@@ -496,7 +496,7 @@ export default function WorkflowDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Workflow?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All sections, steps, blocks, and runs will be permanently deleted.
+              This action cannot be undone. All pages, steps, blocks, and runs will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

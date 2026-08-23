@@ -1,5 +1,5 @@
 /**
- * Final Documents Section Editor
+ * Final Documents Page Editor
  * Configure Final Documents blocks for document generation
  */
 import { useQuery } from "@tanstack/react-query";
@@ -20,8 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { ApiSection } from "@/lib/vault-api";
-import { useUpdateSection, useWorkflowMode } from "@/lib/vault-hooks";
+import type { ApiPage } from "@/lib/vault-api";
+import { useUpdatePage, useWorkflowMode } from "@/lib/vault-hooks";
 
 import {
   normalizeFinalDocumentsTemplateEntry,
@@ -32,8 +32,8 @@ import { countConditions } from "@shared/types/conditions";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { FinalDocumentOutputFormat } from "@shared/types/stepConfigs";
 
-interface FinalDocumentsSectionEditorProps {
-  section: ApiSection;
+interface FinalDocumentsPageEditorProps {
+  page: ApiPage;
   workflowId: string;
 }
 interface WorkflowTemplate {
@@ -51,7 +51,7 @@ interface DocumentEntry {
 
 /** Collapsed-by-default per-document condition editor, built on the shared
  * `LogicBuilder` (LU-5) — the same condition language and editor
- * steps/sections already use, so a document's "generate only when..." rule
+ * steps/pages already use, so a document's "generate only when..." rule
  * is authored identically to a question's "show only when...". */
 function DocumentConditionRow({
   workflowId,
@@ -398,8 +398,8 @@ function TemplateSelectionList({
   );
 }
 
-export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
-  const updateSectionMutation = useUpdateSection();
+export function FinalDocumentsPageEditor({ page, workflowId }: FinalDocumentsPageEditorProps) {
+  const updatePageMutation = useUpdatePage();
   // O-10: mode is server-owned and per-workflow. This used to read a global
   // zustand copy that was never written, so it was permanently "easy" and the
   // Advanced branches below were unreachable. `?? 'easy'` while the query
@@ -417,8 +417,8 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     redirectUrl?: string;
   }
 
-  // Get config from section or use defaults
-  const config = (section.config ?? {
+  // Get config from page or use defaults
+  const config = (page.config ?? {
     finalBlock: true,
     templates: [],
     screenTitle: "Your Completed Documents",
@@ -463,15 +463,15 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   });
   // API returns paginated response: { items: [...], nextCursor, hasMore }
   const templates = templatesData?.items ?? [];
-  // Update section config when values change
+  // Update page config when values change
   const handleUpdate = (field: string, value: unknown) => {
     const newConfig = {
       ...draftConfig,
       [field]: value
     };
     setDraftConfig(newConfig);
-    updateSectionMutation.mutate({
-      id: section.id,
+    updatePageMutation.mutate({
+      id: page.id,
       workflowId,
       config: newConfig
     });

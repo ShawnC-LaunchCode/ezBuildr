@@ -102,7 +102,7 @@ node scripts/ci/parse-coverage.js \
   "topFiles": {
     "best": [
       { "file": "server/services/WorkflowService.ts", "pct": 100 },
-      { "file": "server/services/SectionService.ts", "pct": 98.5 }
+      { "file": "server/services/PageService.ts", "pct": 98.5 }
     ],
     "worst": [
       { "file": "server/routes/admin.ts", "pct": 12.3 },

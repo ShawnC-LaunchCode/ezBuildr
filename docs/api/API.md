@@ -1,4 +1,4 @@
-﻿# Vault-Logic Workflow API Documentation
+# Vault-Logic Workflow API Documentation
 
 **Generated:** 2025-11-05
 **Status:** ✅ Complete and Deployed
@@ -16,16 +16,16 @@ Vault-Logic Workflows is a workflow builder and execution engine integrated into
 | Table | Description |
 |-------|-------------|
 | `workflows` | Top-level workflow containers (like surveys) |
-| `sections` | Grouped pages of steps (like survey pages) |
-| `steps` | Individual fields/questions in a section |
-| `logic_rules` | Conditional logic for sections and steps |
+| `pages` | Grouped pages of steps (like survey pages) |
+| `steps` | Individual fields/questions in a page |
+| `logic_rules` | Conditional logic for pages and steps |
 | `participants` | Global participant directory |
 | `workflow_runs` | Execution instances of workflows |
 | `step_values` | Captured values per step in a run |
 
 ### Conditional Logic
 
-The system supports conditional logic for both **sections** and **steps** with the following operators:
+The system supports conditional logic for both **pages** and **steps** with the following operators:
 
 - `equals`, `not_equals`
 - `contains`, `not_contains`
@@ -55,7 +55,7 @@ Body: {
   "description": "string (optional)",
   "status": "draft" | "active" | "archived"
 }
-Response: Workflow object with generated ID and default first section
+Response: Workflow object with generated ID and default first page
 ```
 
 #### List Workflows
@@ -71,7 +71,7 @@ GET /api/workflows/:workflowId
 Authorization: Required
 Response: {
   ...workflow,
-  sections: [{ ...section, steps: [...] }],
+  pages: [{ ...page, steps: [...] }],
   logicRules: [...]
 }
 ```
@@ -88,7 +88,7 @@ Response: Updated workflow object
 ```
 DELETE /api/workflows/:workflowId
 Authorization: Required
-Response: 204 No Content (cascades to all sections, steps, runs)
+Response: 204 No Content (cascades to all pages, steps, runs)
 ```
 
 #### Copy Workflow
@@ -149,60 +149,60 @@ Notes: View access is enough to copy. Organization members can copy org-owned pr
 
 ---
 
-### Sections
+### Pages
 
-#### Create Section
+#### Create Page
 ```
-POST /api/workflows/:workflowId/sections
+POST /api/workflows/:workflowId/pages
 Authorization: Required
 Body: {
   "title": "string",
   "description": "string (optional)",
   "order": number (auto-generated if omitted)
 }
-Response: Section object
+Response: Page object
 ```
 
-#### List Sections
+#### List Pages
 ```
-GET /api/workflows/:workflowId/sections
+GET /api/workflows/:workflowId/pages
 Authorization: Required
-Response: Array of sections (ordered by 'order' field)
+Response: Array of pages (ordered by 'order' field)
 ```
 
-#### Get Section (with steps)
+#### Get Page (with steps)
 ```
-GET /api/workflows/:workflowId/sections/:sectionId
+GET /api/workflows/:workflowId/pages/:pageId
 Authorization: Required
-Response: { ...section, steps: [...] }
+Response: { ...page, steps: [...] }
 ```
 
-#### Update Section
+#### Update Page
 ```
-PUT /api/workflows/:workflowId/sections/:sectionId
+PUT /api/workflows/:workflowId/pages/:pageId
 Authorization: Required
 Body: { title?, description?, order? }
-Response: Updated section object
+Response: Updated page object
 ```
 
-#### Delete Section
+#### Delete Page
 ```
-DELETE /api/workflows/:workflowId/sections/:sectionId
+DELETE /api/workflows/:workflowId/pages/:pageId
 Authorization: Required
 Response: 204 No Content (cascades to all steps)
 ```
 
-#### Reorder Sections
+#### Reorder Pages
 ```
-PUT /api/workflows/:workflowId/sections/reorder
+PUT /api/workflows/:workflowId/pages/reorder
 Authorization: Required
 Body: {
-  "sections": [
+  "pages": [
     { "id": "uuid", "order": 1 },
     { "id": "uuid", "order": 2 }
   ]
 }
-Response: { message: "Sections reordered successfully" }
+Response: { message: "Pages reordered successfully" }
 ```
 
 ---
@@ -211,7 +211,7 @@ Response: { message: "Sections reordered successfully" }
 
 #### Create Step
 ```
-POST /api/workflows/:workflowId/sections/:sectionId/steps
+POST /api/workflows/:workflowId/pages/:pageId/steps
 Authorization: Required
 Body: {
   "type": "short_text" | "long_text" | "multiple_choice" | "radio" | "yes_no" | "date_time" | "file_upload",
@@ -226,7 +226,7 @@ Response: Step object
 
 #### List Steps
 ```
-GET /api/workflows/:workflowId/sections/:sectionId/steps
+GET /api/workflows/:workflowId/pages/:pageId/steps
 Authorization: Required
 Response: Array of steps (ordered by 'order' field)
 ```
@@ -252,7 +252,7 @@ Response: 204 No Content
 
 #### Reorder Steps
 ```
-PUT /api/workflows/:workflowId/sections/:sectionId/steps/reorder
+PUT /api/workflows/:workflowId/pages/:pageId/steps/reorder
 Authorization: Required
 Body: {
   "steps": [
@@ -387,16 +387,16 @@ curl -X POST http://localhost:4001/api/workflows \
   -d '{"title": "Customer Onboarding", "description": "New customer workflow"}'
 ```
 
-### 2. Add Sections
+### 2. Add Pages
 ```bash
-# Add Section 1
-curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections \
+# Add Page 1
+curl -X POST http://localhost:4001/api/workflows/{workflowId}/pages \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=..." \
   -d '{"title": "Basic Information", "order": 1}'
 
-# Add Section 2
-curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections \
+# Add Page 2
+curl -X POST http://localhost:4001/api/workflows/{workflowId}/pages \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=..." \
   -d '{"title": "Company Details", "order": 2}'
@@ -404,8 +404,8 @@ curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections \
 
 ### 3. Add Steps
 ```bash
-# Add step to Section 1
-curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections/{sectionId}/steps \
+# Add step to Page 1
+curl -X POST http://localhost:4001/api/workflows/{workflowId}/pages/{pageId}/steps \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=..." \
   -d '{
@@ -416,7 +416,7 @@ curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections/{sectionI
   }'
 
 # Add choice step
-curl -X POST http://localhost:4001/api/workflows/{workflowId}/sections/{sectionId}/steps \
+curl -X POST http://localhost:4001/api/workflows/{workflowId}/pages/{pageId}/steps \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=..." \
   -d '{
@@ -476,12 +476,12 @@ curl http://localhost:4001/api/workflows/{workflowId}/export?format=csv \
 ### New Files Created
 
 **Schema:**
-- `shared/schema.ts` - Extended with Vault-Logic tables (workflows, sections, steps, etc.)
+- `shared/schema.ts` - Extended with Vault-Logic tables (workflows, pages, steps, etc.)
 - `shared/workflowLogic.ts` - Conditional logic engine for workflows
 
 **Repositories:**
 - `server/repositories/WorkflowRepository.ts`
-- `server/repositories/SectionRepository.ts`
+- `server/repositories/PageRepository.ts`
 - `server/repositories/StepRepository.ts`
 - `server/repositories/WorkflowRunRepository.ts`
 - `server/repositories/StepValueRepository.ts`
@@ -491,14 +491,14 @@ curl http://localhost:4001/api/workflows/{workflowId}/export?format=csv \
 
 **Services:**
 - `server/services/WorkflowService.ts`
-- `server/services/SectionService.ts`
+- `server/services/PageService.ts`
 - `server/services/StepService.ts`
 - `server/services/RunService.ts`
 - `server/services/WorkflowExportService.ts`
 
 **Routes:**
 - `server/routes/workflows.routes.ts`
-- `server/routes/sections.routes.ts`
+- `server/routes/pages.routes.ts`
 - `server/routes/steps.routes.ts`
 - `server/routes/runs.routes.ts`
 - `server/routes/workflowExports.routes.ts`
@@ -515,7 +515,7 @@ curl http://localhost:4001/api/workflows/{workflowId}/export?format=csv \
 - Can run alongside Vault-Logic seamlessly
 
 ### ✅ Conditional Logic
-- Section-level hiding/showing
+- Page-level hiding/showing
 - Step-level visibility and requirements
 - Dynamic required field evaluation
 - Skip-to logic support
@@ -553,7 +553,7 @@ CREATE TABLE workflows (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Sections
+-- Pages
 CREATE TABLE sections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE NOT NULL,
@@ -639,7 +639,7 @@ CREATE TABLE step_values (
 
 ---
 
-✅ **Vault-Logic backend generated with section logic, run tracking, and export endpoints — isolated from Vault-Logic.**
+✅ **Vault-Logic backend generated with page logic, run tracking, and export endpoints — isolated from Vault-Logic.**
 
 **Status:** Ready for testing and integration
 **Port:** http://localhost:5000 (or your configured PORT)

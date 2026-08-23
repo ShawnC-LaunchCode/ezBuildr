@@ -151,7 +151,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     const { workflow } = await factory.createWorkflow(primary.project.id, userId, {
       workflow: { ownerType: 'user', ownerUuid: userId },
     });
-    const section = await factory.createSection(workflow.id);
+    const page = await factory.createPage(workflow.id);
     const choiceConfig: ChoiceAdvancedConfig = {
       display: 'dropdown',
       allowMultiple: false,
@@ -164,7 +164,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
         limit: 25,
       },
     };
-    const choiceStep = await factory.createStep(section.id, {
+    const choiceStep = await factory.createStep(page.id, {
       type: 'choice',
       title: 'Choose a record',
       config: choiceConfig,

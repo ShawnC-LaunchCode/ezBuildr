@@ -20,7 +20,7 @@ import type { ApiStep, ApiWorkflowVariable } from '../../../client/src/lib/vault
 function makeStep(overrides: Partial<ApiStep> & Pick<ApiStep, 'id'>): ApiStep {
   return {
     workflowId: 'wf-1',
-    sectionId: 'sec-1',
+    pageId: 'page-1',
     type: 'list',
     title: 'Children',
     description: null,
@@ -38,8 +38,8 @@ function makeVariable(overrides: Partial<ApiWorkflowVariable> & Pick<ApiWorkflow
     alias: null,
     label: 'Children',
     type: 'list',
-    sectionId: 'sec-1',
-    sectionTitle: 'Section 1',
+    pageId: 'page-1',
+    pageTitle: 'Page 1',
     stepId: overrides.key,
     ...overrides,
   };

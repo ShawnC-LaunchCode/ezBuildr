@@ -7,10 +7,10 @@
  * persisted, so this function is the only source of node position and it
  * must be a pure function of its inputs.
  *
- * Sections form the vertical "spine" (in `order`), followed by the terminal
- * node. A `final_documents` node is a branch off its owning section — found
+ * Pages form the vertical "spine" (in `order`), followed by the terminal
+ * node. A `final_documents` node is a branch off its owning page — found
  * via its incoming sequential edge, since D-2 makes it an *additional* node
- * downstream of that section, not a replacement for it. A linear chain like
+ * downstream of that page, not a replacement for it. A linear chain like
  * this needs no layout library (`dagre`/`elk` — see MAP-4 Preferred fix).
  */
 import type { WorkflowMapEdge, WorkflowMapNode } from "@shared/workflowMap";
@@ -39,8 +39,8 @@ export function computeMapLayout(
     positions[node.id] = { x: SPINE_X, y: index * ROW_HEIGHT };
   });
 
-  // Branches: placed beside the section whose sequential edge leads to them,
-  // at that section's row. A branch whose owner can't be found (shouldn't
+  // Branches: placed beside the page whose sequential edge leads to them,
+  // at that page's row. A branch whose owner can't be found (shouldn't
   // happen given how buildWorkflowMap constructs these edges) falls back to
   // its own row rather than colliding with the spine at (0, 0).
   const branchNodes = nodes.filter((node) => node.kind === "final_documents");

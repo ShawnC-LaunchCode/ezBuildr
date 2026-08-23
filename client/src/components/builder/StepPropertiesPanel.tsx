@@ -19,19 +19,19 @@ import { StepTypeSettings } from "./step-properties/StepTypeSettings";
 
 interface StepPropertiesPanelProps {
   stepId: string;
-  sectionId?: string;
+  pageId?: string;
 }
 
 type DateTimeType = "date" | "time" | "datetime";
 type TextType = "short" | "long";
 
-export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPropertiesPanelProps) {
+export function StepPropertiesPanel({ stepId, pageId: propPageId }: StepPropertiesPanelProps) {
   const { data: step } = useStep(stepId);
   const updateStepMutation = useUpdateStep();
 
 
-  // Get sectionId from prop or from the step data
-  const sectionId = (propSectionId ?? step?.sectionId) ?? "";
+  // Get pageId from prop or from the step data
+  const pageId = (propPageId ?? step?.pageId) ?? "";
 
   // Local state only for options (needed for intermediate editing state)
   const [localOptions, setLocalOptions] = useState<string[]>([]);
@@ -73,15 +73,15 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   }
 
   const handleTitleChange = (title: string) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, title });
+    updateStepMutation.mutate({ id: stepId, pageId, title });
   };
 
   const handleDescriptionChange = (description: string) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, description });
+    updateStepMutation.mutate({ id: stepId, pageId, description });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   const handleDefaultValueChange = (value: string) => {
@@ -108,7 +108,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
     updateStepMutation.mutate({
       id: stepId,
-      sectionId,
+      pageId,
       defaultValue: parsedValue
     });
   };
@@ -119,12 +119,12 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
   const handleOptionsCommitChange = (options: string[]) => {
     setLocalOptions(options);
-    updateStepMutation.mutate({ id: stepId, sectionId, config: { options } });
+    updateStepMutation.mutate({ id: stepId, pageId, config: { options } });
   };
 
   const handleDateTimeTypeChange = (type: DateTimeType) => {
     setDateTimeType(type);
-    updateStepMutation.mutate({ id: stepId, sectionId, config: { dateTimeType: type } });
+    updateStepMutation.mutate({ id: stepId, pageId, config: { dateTimeType: type } });
   };
 
   const handleTextTypeChange = (type: TextType) => {
@@ -133,7 +133,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     const newType = type === "short" ? "short_text" : "long_text";
     updateStepMutation.mutate({
       id: stepId,
-      sectionId,
+      pageId,
       type: newType,
     });
   };

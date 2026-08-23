@@ -26,7 +26,7 @@ describe("ExternalSendRunner", () => {
         workflowId: "wf-1",
         runId: "run-1",
         phase: "onNext",
-        sectionId: "sec-1",
+        pageId: "page-1",
         data: {
             user: {
                 name: "Alice",

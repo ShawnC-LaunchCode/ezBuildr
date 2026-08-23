@@ -32,7 +32,7 @@ export type {
     TruncationCheck,
     AIGeneratedWorkflow,
     AIGeneratedStep,
-    AIGeneratedSection,
+    AIGeneratedPage,
     AIGeneratedLogicRule,
     AIGeneratedTransformBlock
 } from './types';

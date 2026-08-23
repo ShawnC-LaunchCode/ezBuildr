@@ -1,6 +1,6 @@
 /**
- * A map node for a section (D-2: "a map node is a section"). MAP-4 AC5:
- * a conditional section is marked by more than color — a dashed border
+ * A map node for a page (D-2: "a map node is a page"). MAP-4 AC5:
+ * a conditional page is marked by more than color — a dashed border
  * *and* a labelled badge with its own icon and visible text, so the
  * distinction survives grayscale/colorblind rendering, not just a hover
  * tooltip. Asserted in tests by the badge's text/role, not by class name.
@@ -9,11 +9,11 @@
  * so activation (click, Enter or Space) is native, focusable and correctly
  * labelled — `data.onActivate` navigates via a URL (see `MapTab`), never the
  * builder store. The outer `role="group"` card is kept as the semantic
- * container so the section's conditional-state a11y name (used by MAP-4's
+ * container so the page's conditional-state a11y name (used by MAP-4's
  * own tests) is unaffected by the nested control.
  *
  * MAP-6: `data.findings` are lint findings the server already computed
- * (`GET /api/workflows/:id/lint`) whose `target.sectionId` is this node's id
+ * (`GET /api/workflows/:id/lint`) whose `target.pageId` is this node's id
  * — never anything this component derives itself. An error outranks a
  * warning for the badge's overall severity, but the message list underneath
  * still lists every finding. The badge is its own `<button>`, a sibling of
@@ -26,7 +26,7 @@
  * it's a className + visually-hidden note rather than a change to
  * `aria-label` (several existing tests here assert an exact accessible name).
  *
- * MAP-8 review fix: a skip edge only ever connects two sections
+ * MAP-8 review fix: a skip edge only ever connects two pages
  * (`buildWorkflowMap` never routes one to/from a `final_documents` or
  * terminal node), so this is the only node kind that needs dedicated skip
  * handles. They sit on the **left** side, declared *after* the original
@@ -35,7 +35,7 @@
  * falls back to the first handle of the matching type when no id is given.
  * `toFlowElements.ts` routes skip edges through these with a `smoothstep`
  * `pathOptions.offset` wide enough to clear this card, instead of drawing
- * straight through whatever section the skip bypasses (a real defect: the
+ * straight through whatever page the skip bypasses (a real defect: the
  * "Skip" label rendered on top of the bypassed node's own title).
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
@@ -46,10 +46,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { simulationDimmedNote, simulationNodeClassName } from "../simulationStyles";
 import type { MapFlowNode } from "../types";
 
-export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
+export function PageMapNode({ data }: NodeProps<MapFlowNode>) {
   const borderStyle = data.conditional
     ? "border-dashed border-[var(--map-conditional-border)]"
-    : "border-solid border-[var(--map-section-border)]";
+    : "border-solid border-[var(--map-page-border)]";
 
   const findings = data.findings;
   const errorCount = findings.filter((f) => f.type === "error").length;
@@ -62,8 +62,8 @@ export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
   return (
     <div
       role="group"
-      aria-label={data.conditional ? `${data.label} — conditional section` : `${data.label} — section`}
-      className={`relative min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-section-bg)] shadow-sm ${borderStyle} ${simulationClass}`}
+      aria-label={data.conditional ? `${data.label} — conditional page` : `${data.label} — page`}
+      className={`relative min-w-[200px] max-w-[240px] overflow-hidden rounded-xl border-2 bg-[var(--map-page-bg)] shadow-sm ${borderStyle} ${simulationClass}`}
     >
       {dimmedNote && <span className="sr-only">{dimmedNote}</span>}
       <Handle type="target" position={Position.Top} />
@@ -109,12 +109,12 @@ export function SectionMapNode({ data }: NodeProps<MapFlowNode>) {
           event.stopPropagation();
           data.onActivate?.();
         }}
-        aria-label={`Open ${data.label} section`}
+        aria-label={`Open ${data.label} page`}
         className="block w-full px-4 py-3 text-left outline-none transition-colors hover:bg-[var(--map-hover-bg)] focus-visible:bg-[var(--map-hover-bg)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default disabled:hover:bg-transparent"
       >
         <div className="flex items-start gap-2">
-          <Layers className="mt-0.5 h-4 w-4 shrink-0 text-[var(--map-section-fg)] opacity-60" aria-hidden="true" />
-          <span className="text-sm font-medium leading-snug text-[var(--map-section-fg)]">{data.label}</span>
+          <Layers className="mt-0.5 h-4 w-4 shrink-0 text-[var(--map-page-fg)] opacity-60" aria-hidden="true" />
+          <span className="text-sm font-medium leading-snug text-[var(--map-page-fg)]">{data.label}</span>
         </div>
         {data.conditional && (
           <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[var(--map-conditional-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--map-conditional-accent)]">

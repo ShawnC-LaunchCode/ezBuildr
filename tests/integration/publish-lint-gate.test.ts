@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { workflows, users, tenants, projects, sections, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, pages, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
 
 import { runService } from "../../server/services/RunService";
 import { VersionService, versionService } from "../../server/services/VersionService";
@@ -63,7 +63,7 @@ describe("RUN2-7 publish is gated on lint", () => {
     }).returning();
     projectId = project.id;
 
-    // Invalid: a section with no questions at all -> lint error
+    // Invalid: a page with no questions at all -> lint error
     // "Workflow must have at least one question."
     const [invalid] = await getOwnerDb().insert(workflows).values({
       title: "Empty Interview",
@@ -73,9 +73,9 @@ describe("RUN2-7 publish is gated on lint", () => {
       status: "draft",
     }).returning();
     invalidWorkflowId = invalid.id;
-    await getOwnerDb().insert(sections).values({ workflowId: invalidWorkflowId, title: "Page 1", order: 0 });
+    await getOwnerDb().insert(pages).values({ workflowId: invalidWorkflowId, title: "Page 1", order: 0 });
 
-    // Valid: a section with a real question.
+    // Valid: a page with a real question.
     const [valid] = await getOwnerDb().insert(workflows).values({
       title: "Good Interview",
       projectId,
@@ -84,12 +84,12 @@ describe("RUN2-7 publish is gated on lint", () => {
       status: "draft",
     }).returning();
     validWorkflowId = valid.id;
-    const [validSection] = await getOwnerDb().insert(sections)
+    const [validPage] = await getOwnerDb().insert(pages)
       .values({ workflowId: validWorkflowId, title: "Page 1", order: 0 })
       .returning();
     await getOwnerDb().insert(steps).values({
       workflowId: validWorkflowId,
-      sectionId: validSection.id,
+      pageId: validPage.id,
       title: "Your name",
       type: "short_text",
       alias: "name",
@@ -103,7 +103,7 @@ describe("RUN2-7 publish is gated on lint", () => {
       await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, id));
       await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, id));
       await getOwnerDb().delete(steps).where(eq(steps.workflowId, id));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, id));
     }
     if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }
@@ -178,7 +178,7 @@ describe("RUN2-7 publish is gated on lint", () => {
     const runtime = await runRuntimeService.getRuntime(run.id, { userId });
 
     expect(runtime.run.workflowVersionId).toBe(version.id);
-    expect(runtime.sections.length).toBeGreaterThan(0);
+    expect(runtime.pages.length).toBeGreaterThan(0);
     expect(runtime.steps.length).toBeGreaterThan(0);
 
     await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));

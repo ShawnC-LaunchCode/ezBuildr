@@ -10,7 +10,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 |---------|---------|
 | WorkflowService | Workflow CRUD, status management |
 | WorkflowContentIngestService | Normalizes structural blueprints |
-| SectionService / StepService | Section and step management |
+| PageService / StepService | Page and step management |
 | LogicService | Conditional logic rules |
 | VariableService / AliasResolver / AliasRenameService | Step alias management |
 | BlockService | Reusable block management |
@@ -31,7 +31,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | TransformBlockService | JS/Python transform execution |
 | IntakeService / IntakeNavigationService / IntakeQuestionVisibilityService | Intake flow, navigation, real-time visibility |
 | IntakeReceiptService | Intake receipts |
-| RepeaterService | Repeating sections |
+| RepeaterService | Repeating pages |
 | QueryService / QueryBlockService | Data queries |
 | ListToolsBlockService / ReadTableBlockService | DataVault-backed blocks |
 | WritebackExecutionService | Workflow → DataVault writeback |

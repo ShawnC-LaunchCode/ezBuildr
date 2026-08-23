@@ -11,14 +11,14 @@
  * - Final Block document mapping sources (step config.documents[].mapping)
  * - step visibleIf expressions (any step in the workflow, not just the
  *   renamed one)
- * - section visibleIf expressions
+ * - page visibleIf expressions
  *
  * Not rewritten (by design):
  * - templates.mapping (project-scoped, shared across workflows)
  * - placeholder text inside uploaded DOCX files (unreachable; the template
  *   validation panel surfaces these as missing with a rename suggestion)
- * - `logic_rules` rows: `conditionStepId`/`targetStepId`/`targetSectionId`
- *   are step/section UUID foreign keys, not alias strings — the alias is
+ * - `logic_rules` rows: `conditionStepId`/`targetStepId`/`targetPageId`
+ *   are step/page UUID foreign keys, not alias strings — the alias is
  *   only ever resolved to an id once, at ingest time
  *   (WorkflowContentIngestService.syncLogicRules), and is re-derived live
  *   from the current alias for display/lint purposes
@@ -33,11 +33,11 @@ import { logger } from '../logger';
 import {
   documentHookRepository,
   lifecycleHookRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
   transformBlockRepository,
 } from '../repositories';
-import type { Section, Step } from '../../shared/schema';
+import type { Page, Step } from '../../shared/schema';
 import type { DbTransaction } from '../repositories/BaseRepository';
 
 import type { DocumentMapping } from './document/MappingInterpreter';
@@ -48,7 +48,7 @@ export interface AliasRenameResult {
   lifecycleHooksUpdated: number;
   finalBlockStepsUpdated: number;
   stepVisibleIfUpdated: number;
-  sectionVisibleIfUpdated: number;
+  pageVisibleIfUpdated: number;
 }
 
 interface FinalBlockDocumentConfig {
@@ -132,7 +132,7 @@ export class AliasRenameService {
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
       stepVisibleIfUpdated: 0,
-      sectionVisibleIfUpdated: 0,
+      pageVisibleIfUpdated: 0,
     };
     const log = logger.child({ workflowId, oldAlias, newAlias, service: 'AliasRenameService' });
 
@@ -166,10 +166,10 @@ export class AliasRenameService {
       }
     }
 
-    // Sections + steps are shared by the Final Block, step-visibleIf, and
-    // section-visibleIf reference types below.
-    const sections: Section[] = await sectionRepository.findByWorkflowId(workflowId, tx);
-    const steps: Step[] = await stepRepository.findBySectionIds(sections.map((s) => s.id), tx);
+    // Pages + steps are shared by the Final Block, step-visibleIf, and
+    // page-visibleIf reference types below.
+    const pages: Page[] = await pageRepository.findByWorkflowId(workflowId, tx);
+    const steps: Step[] = await stepRepository.findByPageIds(pages.map((s) => s.id), tx);
 
     // Final Block document mapping sources
     for (const step of steps) {
@@ -184,7 +184,7 @@ export class AliasRenameService {
     }
 
     result.stepVisibleIfUpdated = await this.renameStepVisibleIf(steps, oldAlias, newAlias, tx);
-    result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, tx);
+    result.pageVisibleIfUpdated = await this.renamePageVisibleIf(pages, oldAlias, newAlias, tx);
 
     const total =
       result.transformBlocksUpdated +
@@ -192,7 +192,7 @@ export class AliasRenameService {
       result.lifecycleHooksUpdated +
       result.finalBlockStepsUpdated +
       result.stepVisibleIfUpdated +
-      result.sectionVisibleIfUpdated;
+      result.pageVisibleIfUpdated;
     if (total > 0) {
       log.info(result, 'Alias rename propagated to workflow references');
     }
@@ -218,18 +218,18 @@ export class AliasRenameService {
     return count;
   }
 
-  /** Rewrite section.visibleIf expressions referencing oldAlias. */
-  private async renameSectionVisibleIf(
-    sections: Section[],
+  /** Rewrite page.visibleIf expressions referencing oldAlias. */
+  private async renamePageVisibleIf(
+    pages: Page[],
     oldAlias: string,
     newAlias: string,
     tx?: DbTransaction
   ): Promise<number> {
     let count = 0;
-    for (const section of sections) {
-      const rewritten = renameAliasInExpression(section.visibleIf as ConditionExpression, oldAlias, newAlias);
-      if (rewritten !== section.visibleIf) {
-        await sectionRepository.update(section.id, { visibleIf: rewritten }, tx);
+    for (const page of pages) {
+      const rewritten = renameAliasInExpression(page.visibleIf as ConditionExpression, oldAlias, newAlias);
+      if (rewritten !== page.visibleIf) {
+        await pageRepository.update(page.id, { visibleIf: rewritten }, tx);
         count++;
       }
     }

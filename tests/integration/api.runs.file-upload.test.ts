@@ -48,14 +48,14 @@ describe('run-scoped file uploads (GH-146)', () => {
     }).returning();
     workflowId = workflow.id;
 
-    const [section] = await getOwnerDb().insert(schema.sections).values({
+    const [page] = await getOwnerDb().insert(schema.pages).values({
       workflowId,
       title: 'Files',
       order: 0,
     }).returning();
     const [step] = await getOwnerDb().insert(schema.steps).values({
       workflowId,
-      sectionId: section.id,
+      pageId: page.id,
       type: 'file_upload',
       title: 'Evidence',
       alias: 'evidence',

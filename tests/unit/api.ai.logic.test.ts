@@ -42,10 +42,10 @@ vi.mock('../../server/middleware/rbac', () => ({
 
 const mockWorkflow = {
     title: 'Test Flow',
-    sections: [
+    pages: [
         {
-            id: 'section-1',
-            title: 'Section 1',
+            id: 'page-1',
+            title: 'Page 1',
             order: 0,
             steps: []
         }
@@ -82,7 +82,7 @@ describe('AI Logic Routes', () => {
                 .send({
                     workflowId: '123e4567-e89b-12d3-a456-426614174000',
                     currentWorkflow: mockWorkflow,
-                    description: 'Show section 2 if age > 18'
+                    description: 'Show page 2 if age > 18'
                 });
 
             if (res.status !== 200) {

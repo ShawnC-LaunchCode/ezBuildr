@@ -31,7 +31,7 @@ function makeStep(overrides: Partial<RunStep>): RunStep {
     return {
         id: 'step-1',
         workflowId: 'workflow-1',
-        sectionId: 'section-1',
+        pageId: 'page-1',
         type: 'short_text',
         title: 'Question',
         description: null,
@@ -49,8 +49,8 @@ function makeStep(overrides: Partial<RunStep>): RunStep {
 
 function makeDefinition(step: RunStep): RunDefinition {
     return {
-        sections: [{
-            id: 'section-1',
+        pages: [{
+            id: 'page-1',
             workflowId: 'workflow-1',
             title: 'Household',
             description: null,
@@ -120,7 +120,7 @@ function makeListFixture(ages: number[]): { step: RunStep; value: ListValue } {
     };
 }
 
-describe('RunExecutionCoordinator section-submit validation messages (LIST2-15)', () => {
+describe('RunExecutionCoordinator page-submit validation messages (LIST2-15)', () => {
     beforeEach(() => {
         process.env.SERVER_FIELD_VALIDATION = 'enforce';
     });
@@ -137,7 +137,7 @@ describe('RunExecutionCoordinator section-submit validation messages (LIST2-15)'
         const { step, value } = makeListFixture([18]);
         const coordinator = makeCoordinator(step, { [step.id]: value });
 
-        const result = await coordinator.submitSection(CONTEXT, 'section-1', [
+        const result = await coordinator.submitPage(CONTEXT, 'page-1', [
             { stepId: step.id, value },
         ]);
 
@@ -151,7 +151,7 @@ describe('RunExecutionCoordinator section-submit validation messages (LIST2-15)'
         const { step, value } = makeListFixture([18, 19]);
         const coordinator = makeCoordinator(step, { [step.id]: value });
 
-        const result = await coordinator.submitSection(CONTEXT, 'section-1', [
+        const result = await coordinator.submitPage(CONTEXT, 'page-1', [
             { stepId: step.id, value },
         ]);
 
@@ -172,7 +172,7 @@ describe('RunExecutionCoordinator section-submit validation messages (LIST2-15)'
         });
         const coordinator = makeCoordinator(step, {});
 
-        const result = await coordinator.submitSection(CONTEXT, 'section-1', []);
+        const result = await coordinator.submitPage(CONTEXT, 'page-1', []);
 
         expect(result).toEqual({
             success: false,

@@ -15,7 +15,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 
-import type { ApiStep, ApiSection } from '@/lib/vault-api';
+import type { ApiStep, ApiPage } from '@/lib/vault-api';
 
 import { createLogger } from '../logger';
 import { generateAIRandomValues } from '../randomizer/aiRandomFill';
@@ -25,7 +25,7 @@ export interface PreviewRun {
   id: string;
   workflowId: string;
   values: Record<string, unknown>; // stepId -> value
-  currentSectionIndex: number;
+  currentPageIndex: number;
   completed: boolean;
   createdAt: number;
   updatedAt: number;
@@ -34,7 +34,7 @@ export interface PreviewRun {
 
 export interface PreviewSessionOptions {
   workflowId: string;
-  sections: ApiSection[];
+  pages: ApiPage[];
   steps: ApiStep[];
   snapshotValues?: Record<string, unknown>; // For loading from snapshots (Prompt 7)
   initialValues?: Record<string, unknown>; // For loading initial values
@@ -47,14 +47,14 @@ export interface PreviewSessionOptions {
 export class PreviewSession {
   private logger = createLogger({ module: 'PreviewSession' });
   private run: PreviewRun;
-  private sections: ApiSection[];
+  private pages: ApiPage[];
   private steps: ApiStep[];
   private listeners: Set<() => void> = new Set();
   private workflowTitle?: string;
   private cachedValues: Record<string, unknown> | null = null;
 
   constructor(options: PreviewSessionOptions) {
-    const { workflowId, sections, steps, snapshotValues, initialValues, workflowTitle } = options;
+    const { workflowId, pages, steps, snapshotValues, initialValues, workflowTitle } = options;
     this.workflowTitle = workflowTitle;
 
     // Generate preview run ID
@@ -84,14 +84,14 @@ export class PreviewSession {
       id: runId,
       workflowId,
       values,
-      currentSectionIndex: 0,
+      currentPageIndex: 0,
       completed: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       mode: 'preview',
     };
 
-    this.sections = sections;
+    this.pages = pages;
     this.steps = steps;
   }
 
@@ -186,7 +186,7 @@ export class PreviewSession {
    */
   clearValues(): void {
     this.run.values = {};
-    this.run.currentSectionIndex = 0;
+    this.run.currentPageIndex = 0;
     this.run.completed = false;
     this.run.updatedAt = Date.now();
 
@@ -201,17 +201,17 @@ export class PreviewSession {
   }
 
   /**
-   * Get current section index
+   * Get current page index
    */
-  getCurrentSectionIndex(): number {
-    return this.run.currentSectionIndex;
+  getCurrentPageIndex(): number {
+    return this.run.currentPageIndex;
   }
 
   /**
-   * Set current section index
+   * Set current page index
    */
-  setCurrentSectionIndex(index: number): void {
-    this.run.currentSectionIndex = index;
+  setCurrentPageIndex(index: number): void {
+    this.run.currentPageIndex = index;
     this.run.updatedAt = Date.now();
     this.notifyListeners();
   }
@@ -253,10 +253,10 @@ export class PreviewSession {
   }
 
   /**
-   * Get sections
+   * Get pages
    */
-  getSections(): ApiSection[] {
-    return this.sections;
+  getPages(): ApiPage[] {
+    return this.pages;
   }
 
   /**
@@ -267,10 +267,10 @@ export class PreviewSession {
   }
 
   /**
-   * Get steps for a specific section
+   * Get steps for a specific page
    */
-  getStepsForSection(sectionId: string): ApiStep[] {
-    return this.steps.filter(step => step.sectionId === sectionId);
+  getStepsForPage(pageId: string): ApiStep[] {
+    return this.steps.filter(step => step.pageId === pageId);
   }
 
   /**
@@ -334,8 +334,8 @@ export class PreviewSession {
     this.run.values = randomValues;
     this.run.updatedAt = Date.now();
 
-    // Reset to first section
-    this.run.currentSectionIndex = 0;
+    // Reset to first page
+    this.run.currentPageIndex = 0;
 
     // Notify listeners (triggers re-render)
     this.notifyListeners();
@@ -344,7 +344,7 @@ export class PreviewSession {
   }
 
   /**
-   * Fill only the current page/section with random data
+   * Fill only the current workflow page with random data
    * Uses AI if available, falls back to synthetic random
    *
    * @param useAI - Whether to use AI for generation (default: false)
@@ -352,21 +352,21 @@ export class PreviewSession {
   async randomFillPage(useAI: boolean = false): Promise<void> {
     this.logger.info('Filling current page with random data');
 
-    // Get current section
-    const currentSection = this.sections[this.run.currentSectionIndex];
+    // Get current page
+    const currentPage = this.pages[this.run.currentPageIndex];
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!currentSection) {
-      this.logger.warn('No current section found');
+    if (!currentPage) {
+      this.logger.warn('No current page found');
       return;
     }
 
-    // Get steps for current section
+    // Get steps for current page
     const currentPageSteps = this.steps.filter(
-      step => step.sectionId === currentSection.id
+      step => step.pageId === currentPage.id
     );
 
     if (currentPageSteps.length === 0) {
-      this.logger.warn('No steps found for current section');
+      this.logger.warn('No steps found for current page');
       return;
     }
 

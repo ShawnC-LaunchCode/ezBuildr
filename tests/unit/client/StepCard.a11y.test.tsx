@@ -38,7 +38,7 @@ const step = {
   type: "short_text",
   title: "What is your name?",
   order: 1,
-  sectionId: "sec-1",
+  pageId: "page-1",
 } as unknown as ApiStep;
 
 function renderCard(isExpanded: boolean) {
@@ -47,7 +47,7 @@ function renderCard(isExpanded: boolean) {
     <QueryClientProvider client={qc}>
       <StepCard
         step={step}
-        sectionId="sec-1"
+        pageId="page-1"
         workflowId="wf-1"
         isExpanded={isExpanded}
         onToggleExpand={vi.fn()}

@@ -11,7 +11,7 @@ import {
 import { BuilderTabPanel } from '../../../client/src/components/builder/layout/BuilderTabPanel';
 
 const tabIds: BuilderTab[] = [
-  'sections',
+  'pages',
   'map',
   'templates',
   'data-sources',
@@ -26,16 +26,16 @@ afterEach(() => {
 
 describe('BuilderTabNav accessibility and keyboard navigation', () => {
   it('renders tablist with correct accessible roles and attributes', () => {
-    render(<BuilderTabNav activeTab="sections" onTabChange={vi.fn()} />);
+    render(<BuilderTabNav activeTab="pages" onTabChange={vi.fn()} />);
 
     const tablist = screen.getByRole('tablist', { name: 'Workflow Builder Navigation' });
     expect(tablist).toBeInTheDocument();
     expect(tablist).toHaveAttribute('aria-orientation', 'horizontal');
 
-    const sectionsTab = screen.getByRole('tab', { name: 'Sections' });
-    expect(sectionsTab).toHaveAttribute('aria-selected', 'true');
-    expect(sectionsTab).toHaveAttribute('aria-controls', 'builder-tabpanel-sections');
-    expect(sectionsTab).toHaveAttribute('tabIndex', '0');
+    const pagesTab = screen.getByRole('tab', { name: 'Pages' });
+    expect(pagesTab).toHaveAttribute('aria-selected', 'true');
+    expect(pagesTab).toHaveAttribute('aria-controls', 'builder-tabpanel-pages');
+    expect(pagesTab).toHaveAttribute('tabIndex', '0');
 
     const templatesTab = screen.getByRole('tab', { name: 'Templates' });
     expect(templatesTab).toHaveAttribute('aria-selected', 'false');
@@ -46,38 +46,38 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
   it('supports roving tabindex and arrow-key navigation', async () => {
     const user = userEvent.setup();
     const onTabChange = vi.fn();
-    render(<BuilderTabNav activeTab="sections" onTabChange={onTabChange} />);
+    render(<BuilderTabNav activeTab="pages" onTabChange={onTabChange} />);
 
-    const sectionsTab = screen.getByRole('tab', { name: 'Sections' });
-    sectionsTab.focus();
+    const pagesTab = screen.getByRole('tab', { name: 'Pages' });
+    pagesTab.focus();
 
-    // ArrowRight navigates to Map (inserted between Sections and Templates, MAP-4)
+    // ArrowRight navigates to Map (inserted between Pages and Templates, MAP-4)
     await user.keyboard('{ArrowRight}');
     expect(onTabChange).toHaveBeenCalledWith('map');
 
-    // ArrowLeft from Map (which is now focused) navigates back to Sections
+    // ArrowLeft from Map (which is now focused) navigates back to Pages
     await user.keyboard('{ArrowLeft}');
-    expect(onTabChange).toHaveBeenCalledWith('sections');
+    expect(onTabChange).toHaveBeenCalledWith('pages');
 
     // End navigates to the last tab (Settings)
     await user.keyboard('{End}');
     expect(onTabChange).toHaveBeenCalledWith('settings');
 
-    // Home navigates to the first tab (Sections)
+    // Home navigates to the first tab (Pages)
     await user.keyboard('{Home}');
-    expect(onTabChange).toHaveBeenCalledWith('sections');
+    expect(onTabChange).toHaveBeenCalledWith('pages');
   });
 
   it('leaves vertical arrow keys available for page scrolling', () => {
     const onTabChange = vi.fn();
-    render(<BuilderTabNav activeTab="sections" onTabChange={onTabChange} />);
+    render(<BuilderTabNav activeTab="pages" onTabChange={onTabChange} />);
 
-    const sectionsTab = screen.getByRole('tab', { name: 'Sections' });
-    const arrowDown = createEvent.keyDown(sectionsTab, { key: 'ArrowDown' });
-    const arrowUp = createEvent.keyDown(sectionsTab, { key: 'ArrowUp' });
+    const pagesTab = screen.getByRole('tab', { name: 'Pages' });
+    const arrowDown = createEvent.keyDown(pagesTab, { key: 'ArrowDown' });
+    const arrowUp = createEvent.keyDown(pagesTab, { key: 'ArrowUp' });
 
-    fireEvent(sectionsTab, arrowDown);
-    fireEvent(sectionsTab, arrowUp);
+    fireEvent(pagesTab, arrowDown);
+    fireEvent(pagesTab, arrowUp);
 
     expect(arrowDown.defaultPrevented).toBe(false);
     expect(arrowUp.defaultPrevented).toBe(false);
@@ -87,14 +87,14 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
   it('removes inactive tabpanels from the flex layout', () => {
     render(
       <main>
-        <BuilderTabPanel activeTab="sections" tab="sections">
-          <p>Sections panel content</p>
+        <BuilderTabPanel activeTab="pages" tab="pages">
+          <p>Pages panel content</p>
         </BuilderTabPanel>
-        <BuilderTabPanel activeTab="sections" tab="templates" />
+        <BuilderTabPanel activeTab="pages" tab="templates" />
       </main>
     );
 
-    const activePanel = document.getElementById('builder-tabpanel-sections');
+    const activePanel = document.getElementById('builder-tabpanel-pages');
     expect(activePanel).not.toHaveAttribute('hidden');
     expect(activePanel).toHaveClass('flex', 'flex-1');
 
@@ -107,10 +107,10 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
   it('has no serious or critical axe violations with associated tabpanels', async () => {
     const { container } = render(
       <main>
-        <BuilderTabNav activeTab="sections" onTabChange={vi.fn()} />
+        <BuilderTabNav activeTab="pages" onTabChange={vi.fn()} />
         {tabIds.map((tabId) => (
-          <BuilderTabPanel key={tabId} activeTab="sections" tab={tabId}>
-            {tabId === 'sections' ? <p>Sections panel content</p> : null}
+          <BuilderTabPanel key={tabId} activeTab="pages" tab={tabId}>
+            {tabId === 'pages' ? <p>Pages panel content</p> : null}
           </BuilderTabPanel>
         ))}
       </main>

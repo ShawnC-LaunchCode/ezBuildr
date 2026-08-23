@@ -8,7 +8,7 @@ export function reorderTransforms(transforms: TransformBlock[]): TransformBlock[
     // For now, simplify to just returning as-is or minor reordering based on 'phase'
 
     return transforms.sort((a, b) => {
-        const phases = ['onRunStart', 'onSectionEnter', 'onSectionSubmit', 'onNext', 'onRunComplete'];
+        const phases = ['onRunStart', 'onPageEnter', 'onPageSubmit', 'onNext', 'onRunComplete'];
         const phaseDiff = phases.indexOf(a.phase) - phases.indexOf(b.phase);
         return phaseDiff !== 0 ? phaseDiff : a.order - b.order;
     });

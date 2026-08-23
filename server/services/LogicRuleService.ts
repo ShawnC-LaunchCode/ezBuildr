@@ -6,7 +6,7 @@ import type { ConditionExpression } from "@shared/types/conditions";
 import {
   logicRuleRepository,
   stepRepository,
-  sectionRepository,
+  pageRepository,
   type DbTransaction,
 } from "../repositories";
 
@@ -26,7 +26,7 @@ export class LogicRuleValidationError extends Error {
   readonly statusCode = 400;
 }
 
-export type LogicRuleTargetType = "section" | "step";
+export type LogicRuleTargetType = "page" | "step";
 export type LogicRuleAction = "show" | "hide" | "require" | "make_optional" | "skip_to";
 
 /**
@@ -41,40 +41,40 @@ export interface LogicRuleInput {
   when: ConditionExpression;
   targetType: LogicRuleTargetType;
   targetStepId?: string | null;
-  targetSectionId?: string | null;
+  targetPageId?: string | null;
   action: LogicRuleAction;
   order?: number;
 }
 
-/** Actions `evaluateRules` (shared/workflowLogic.ts) applies to section targets. */
-const SECTION_ACTIONS = new Set<LogicRuleAction>(["show", "hide", "skip_to"]);
+/** Actions `evaluateRules` (shared/workflowLogic.ts) applies to page targets. */
+const PAGE_ACTIONS = new Set<LogicRuleAction>(["show", "hide", "skip_to"]);
 /** Actions `evaluateRules` applies to step targets. `skip_to` only makes
- * sense against a section (it is a navigation target), and `require`/
+ * sense against a page (it is a navigation target), and `require`/
  * `make_optional` only make sense against a step's own requiredness. */
 const STEP_ACTIONS = new Set<LogicRuleAction>(["show", "hide", "require", "make_optional"]);
 
 type RuleWriteFields = Pick<
   InsertLogicRule,
-  "when" | "conditionStepId" | "targetType" | "targetStepId" | "targetSectionId" | "action"
+  "when" | "conditionStepId" | "targetType" | "targetStepId" | "targetPageId" | "action"
 >;
 
 export interface LogicRuleServiceDeps {
   logicRuleRepo?: typeof logicRuleRepository;
   stepRepo?: typeof stepRepository;
-  sectionRepo?: typeof sectionRepository;
+  pageRepo?: typeof pageRepository;
   workflowSvc?: typeof workflowService;
 }
 
 export class LogicRuleService {
   private logicRuleRepo: typeof logicRuleRepository;
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
 
   constructor(deps: LogicRuleServiceDeps = {}) {
     this.logicRuleRepo = deps.logicRuleRepo ?? logicRuleRepository;
     this.stepRepo = deps.stepRepo ?? stepRepository;
-    this.sectionRepo = deps.sectionRepo ?? sectionRepository;
+    this.pageRepo = deps.pageRepo ?? pageRepository;
     this.workflowSvc = deps.workflowSvc ?? workflowService;
   }
 
@@ -112,22 +112,22 @@ export class LogicRuleService {
       );
     }
 
-    if (input.targetType === "section") {
-      if (!input.targetSectionId) {
-        throw new LogicRuleValidationError("A section-target rule requires targetSectionId");
+    if (input.targetType === "page") {
+      if (!input.targetPageId) {
+        throw new LogicRuleValidationError("A page-target rule requires targetPageId");
       }
-      const section = await this.sectionRepo.findByIdAndWorkflow(input.targetSectionId, workflowId, tx);
-      if (!section) {
-        throw new LogicRuleValidationError("Rule target section not found in this workflow");
+      const page = await this.pageRepo.findByIdAndWorkflow(input.targetPageId, workflowId, tx);
+      if (!page) {
+        throw new LogicRuleValidationError("Rule target page not found in this workflow");
       }
-      if (!SECTION_ACTIONS.has(input.action)) {
-        throw new LogicRuleValidationError(`Action "${input.action}" is not valid for a section target`);
+      if (!PAGE_ACTIONS.has(input.action)) {
+        throw new LogicRuleValidationError(`Action "${input.action}" is not valid for a page target`);
       }
       return {
         when,
         conditionStepId,
-        targetType: "section",
-        targetSectionId: input.targetSectionId,
+        targetType: "page",
+        targetPageId: input.targetPageId,
         targetStepId: null,
         action: input.action,
       };
@@ -148,7 +148,7 @@ export class LogicRuleService {
       conditionStepId,
       targetType: "step",
       targetStepId: input.targetStepId,
-      targetSectionId: null,
+      targetPageId: null,
       action: input.action,
     };
   }
@@ -197,7 +197,7 @@ export class LogicRuleService {
         when: input.when !== undefined ? input.when : (existingRule.when as ConditionExpression),
         targetType: input.targetType ?? existingRule.targetType,
         targetStepId: input.targetStepId !== undefined ? input.targetStepId : existingRule.targetStepId,
-        targetSectionId: input.targetSectionId !== undefined ? input.targetSectionId : existingRule.targetSectionId,
+        targetPageId: input.targetPageId !== undefined ? input.targetPageId : existingRule.targetPageId,
         action: input.action ?? existingRule.action,
       };
 
@@ -219,7 +219,7 @@ export class LogicRuleService {
 
   /**
    * Reorder rules. Author-visible, not cosmetic: `evaluateRules` sorts
-   * section-targeted rules by `order` and the first firing `skip_to` wins,
+   * page-targeted rules by `order` and the first firing `skip_to` wins,
    * so without this an author has no way to express which skip takes
    * precedence.
    */

@@ -68,16 +68,16 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
         ...(intakeConfig !== undefined ? { intakeConfig } : {}),
       },
     });
-    const section = await factory.createSection(workflow.id, { title: 'S1', order: 0 });
-    const emailStep = await factory.createStep(section.id, {
+    const page = await factory.createPage(workflow.id, { title: 'S1', order: 0 });
+    const emailStep = await factory.createStep(page.id, {
       title: 'Email', alias: 'email', type: 'email', required: false, order: 0,
     });
-    const secretStep = await factory.createStep(section.id, {
+    const secretStep = await factory.createStep(page.id, {
       title: 'Internal Notes', alias: 'internal_notes', required: false, order: 1,
     });
     // Anonymous run creation needs a published version to pin to, and RVP-2
     // now actually resolves navigation/completion from that pinned graph --
-    // so it must reflect the section/steps just created above, not the empty
+    // so it must reflect the page/steps just created above, not the empty
     // snapshot `factory.createWorkflow` produced before they existed.
     // `createDraftVersion` returns null only when the checksum is unchanged,
     // which can't happen here (the live workflow just gained content).

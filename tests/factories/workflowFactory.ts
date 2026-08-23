@@ -2,7 +2,7 @@
  * Test factory for creating workflow-related test data
  */
 
-import type { Workflow, Section, Step, LogicRule, WorkflowRun } from "../../shared/schema";
+import type { Workflow, Page, Step, LogicRule, WorkflowRun } from "../../shared/schema";
 import { buildTestWhen } from "../helpers/conditionFixtures";
 
 /**
@@ -38,14 +38,14 @@ export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
 }
 
 /**
- * Create a test section
+ * Create a test page
  */
-export function createTestSection(workflowId: string, overrides?: Partial<Section>): Section {
+export function createTestPage(workflowId: string, overrides?: Partial<Page>): Page {
   const now = new Date();
   return {
-    id: `section-${  Math.random().toString(36).substring(7)}`,
+    id: `page-${  Math.random().toString(36).substring(7)}`,
     workflowId,
-    title: "Test Section",
+    title: "Test Page",
     description: null,
     order: 1,
     config: {},
@@ -60,12 +60,12 @@ export function createTestSection(workflowId: string, overrides?: Partial<Sectio
 /**
  * Create a test step
  */
-export function createTestStep(sectionId: string, overrides?: Partial<Step>): Step {
+export function createTestStep(pageId: string, overrides?: Partial<Step>): Step {
   const now = new Date();
   return {
     id: `step-${  Math.random().toString(36).substring(7)}`,
     workflowId: overrides?.workflowId ?? "workflow-test-123",
-    sectionId,
+    pageId,
     type: "short_text",
     title: "Test Step",
     description: null,
@@ -95,7 +95,7 @@ export function createTestLogicRule(workflowId: string, overrides?: Partial<Logi
     when: buildTestWhen("step-123", "equals", "yes"),
     targetType: "step",
     targetStepId: "step-456",
-    targetSectionId: null,
+    targetPageId: null,
     action: "show",
     order: 1,
     createdAt: now,
@@ -117,7 +117,7 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
     createdBy: "creator:user-test-123",
     completed: false,
     completedAt: null,
-    currentSectionId: null,
+    currentPageId: null,
     progress: 0,
     metadata: null,
     generationStatus: "pending",
@@ -138,25 +138,25 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
 }
 
 /**
- * Create a complete workflow with sections and steps
+ * Create a complete workflow with pages and steps
  */
 export function createTestWorkflowWithDetails(overrides?: {
   workflow?: Partial<Workflow>;
-  sections?: Partial<Section>[];
+  pages?: Partial<Page>[];
   steps?: Partial<Step>[];
   logicRules?: Partial<LogicRule>[];
 }) {
   const workflow = createTestWorkflow(overrides?.workflow);
 
-  const sections = (overrides?.sections || [{ title: "Section 1" }, { title: "Section 2" }]).map(
-    (sectionData, index) => createTestSection(workflow.id, { order: index + 1, ...sectionData })
+  const pages = (overrides?.pages || [{ title: "Page 1" }, { title: "Page 2" }]).map(
+    (pageData, index) => createTestPage(workflow.id, { order: index + 1, ...pageData })
   );
 
   const steps = (overrides?.steps || [
     { title: "Step 1", type: "short_text" as const },
     { title: "Step 2", type: "long_text" as const },
   ]).map((stepData, index) =>
-    createTestStep(sections[0].id, { workflowId: workflow.id, order: index + 1, ...stepData })
+    createTestStep(pages[0].id, { workflowId: workflow.id, order: index + 1, ...stepData })
   );
 
   const logicRules = (overrides?.logicRules || []).map((ruleData) =>
@@ -165,7 +165,7 @@ export function createTestWorkflowWithDetails(overrides?: {
 
   return {
     workflow,
-    sections,
+    pages,
     steps,
     logicRules,
   };

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 import {
   documentHookRepository,
   lifecycleHookRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
   transformBlockRepository,
 } from "../../../server/repositories";
@@ -25,12 +25,12 @@ vi.mock("../../../server/repositories", () => ({
     findByWorkflowId: vi.fn(),
     update: vi.fn(),
   },
-  sectionRepository: {
+  pageRepository: {
     findByWorkflowId: vi.fn(),
     update: vi.fn(),
   },
   stepRepository: {
-    findBySectionIds: vi.fn(),
+    findByPageIds: vi.fn(),
     update: vi.fn(),
   },
 }));
@@ -82,7 +82,7 @@ describe("AliasRenameService.propagateRename", () => {
   let mockTransformRepo: Mocked<typeof transformBlockRepository>;
   let mockDocHookRepo: Mocked<typeof documentHookRepository>;
   let mockLifecycleRepo: Mocked<typeof lifecycleHookRepository>;
-  let mockSectionRepo: Mocked<typeof sectionRepository>;
+  let mockPageRepo: Mocked<typeof pageRepository>;
   let mockStepRepo: Mocked<typeof stepRepository>;
 
   beforeEach(() => {
@@ -90,18 +90,18 @@ describe("AliasRenameService.propagateRename", () => {
     mockTransformRepo = transformBlockRepository as Mocked<typeof transformBlockRepository>;
     mockDocHookRepo = documentHookRepository as Mocked<typeof documentHookRepository>;
     mockLifecycleRepo = lifecycleHookRepository as Mocked<typeof lifecycleHookRepository>;
-    mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
+    mockPageRepo = pageRepository as Mocked<typeof pageRepository>;
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
 
     mockTransformRepo.findByWorkflowId.mockResolvedValue([]);
     mockDocHookRepo.findByWorkflowId.mockResolvedValue([]);
     mockLifecycleRepo.findByWorkflowId.mockResolvedValue([]);
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
-    mockStepRepo.findBySectionIds.mockResolvedValue([]);
+    mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+    mockStepRepo.findByPageIds.mockResolvedValue([]);
     // NOTE: update is inherited from BaseRepository, so it is ONE shared
     // mock across every repository singleton — assert on its calls by id
     mockStepRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
-    mockSectionRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
+    mockPageRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
   });
 
   it("should rewrite transform block inputKeys", async () => {
@@ -135,8 +135,8 @@ describe("AliasRenameService.propagateRename", () => {
   });
 
   it("should rewrite Final Block mapping sources", async () => {
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([
+    mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1" }] as never);
+    mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-final",
         type: "final",
@@ -162,8 +162,8 @@ describe("AliasRenameService.propagateRename", () => {
   });
 
   it("should rewrite a step's visibleIf variable reference", async () => {
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([
+    mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1" }] as never);
+    mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-dependent",
         type: "short_text",
@@ -196,10 +196,10 @@ describe("AliasRenameService.propagateRename", () => {
     expect(mockStepRepo.update).not.toHaveBeenCalledWith("step-untouched", expect.anything());
   });
 
-  it("should rewrite a section's visibleIf variable reference", async () => {
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([
+  it("should rewrite a page's visibleIf variable reference", async () => {
+    mockPageRepo.findByWorkflowId.mockResolvedValue([
       {
-        id: "sec-dependent",
+        id: "page-dependent",
         visibleIf: {
           type: "group",
           id: "g1",
@@ -209,14 +209,14 @@ describe("AliasRenameService.propagateRename", () => {
           ],
         },
       },
-      { id: "sec-untouched", visibleIf: null },
+      { id: "page-untouched", visibleIf: null },
     ] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([]);
+    mockStepRepo.findByPageIds.mockResolvedValue([]);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");
 
-    expect(result.sectionVisibleIfUpdated).toBe(1);
-    expect(mockSectionRepo.update).toHaveBeenCalledWith("sec-dependent", {
+    expect(result.pageVisibleIfUpdated).toBe(1);
+    expect(mockPageRepo.update).toHaveBeenCalledWith("page-dependent", {
       visibleIf: {
         type: "group",
         id: "g1",
@@ -226,12 +226,12 @@ describe("AliasRenameService.propagateRename", () => {
         ],
       },
     }, undefined);
-    expect(mockSectionRepo.update).not.toHaveBeenCalledWith("sec-untouched", expect.anything());
+    expect(mockPageRepo.update).not.toHaveBeenCalledWith("page-untouched", expect.anything());
   });
 
   it("should rewrite nested AND/OR condition groups without touching other aliases", async () => {
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([
+    mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1" }] as never);
+    mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-nested",
         type: "short_text",
@@ -274,8 +274,8 @@ describe("AliasRenameService.propagateRename", () => {
   });
 
   it("should not rewrite visibleIf expressions that only reference other aliases", async () => {
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([
+    mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1" }] as never);
+    mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-other",
         type: "short_text",
@@ -297,24 +297,24 @@ describe("AliasRenameService.propagateRename", () => {
     expect(mockStepRepo.update).not.toHaveBeenCalled();
   });
 
-  it("does not need to touch logic rules: they store step/section ids, not aliases", async () => {
-    // logic_rules.conditionStepId/targetStepId/targetSectionId are UUID
+  it("does not need to touch logic rules: they store step/page ids, not aliases", async () => {
+    // logic_rules.conditionStepId/targetStepId/targetPageId are UUID
     // foreign keys resolved from alias to id once at ingest time
     // (WorkflowContentIngestService.syncLogicRules); nothing here can go
     // stale on rename, so propagateRename has no logic-rule reference type
-    // and this rename must not touch section/step rows that merely happen
+    // and this rename must not touch page/step rows that merely happen
     // to be a logic rule's target.
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1", visibleIf: null }] as never);
-    mockStepRepo.findBySectionIds.mockResolvedValue([
+    mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1", visibleIf: null }] as never);
+    mockStepRepo.findByPageIds.mockResolvedValue([
       { id: "step-target", type: "short_text", config: null, visibleIf: null },
     ] as never);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");
 
     expect(result.stepVisibleIfUpdated).toBe(0);
-    expect(result.sectionVisibleIfUpdated).toBe(0);
+    expect(result.pageVisibleIfUpdated).toBe(0);
     expect(mockStepRepo.update).not.toHaveBeenCalled();
-    expect(mockSectionRepo.update).not.toHaveBeenCalled();
+    expect(mockPageRepo.update).not.toHaveBeenCalled();
   });
 
   it("should report zero updates when nothing references the alias", async () => {
@@ -325,7 +325,7 @@ describe("AliasRenameService.propagateRename", () => {
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
       stepVisibleIfUpdated: 0,
-      sectionVisibleIfUpdated: 0,
+      pageVisibleIfUpdated: 0,
     });
     expect(mockStepRepo.update).not.toHaveBeenCalled();
   });

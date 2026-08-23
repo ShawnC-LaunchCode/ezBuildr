@@ -1,6 +1,6 @@
 /**
- * Apply migration 0046: Fix workflow_runs section constraint
- * Allows sections to be deleted by setting current_section_id to NULL
+ * Apply migration 0046: Fix workflow_runs page constraint
+ * Allows pages to be deleted by setting the physical current_section_id column to NULL
  */
 
 import { initializeDatabase, getDb } from '../server/db';
@@ -10,7 +10,7 @@ import path from 'path';
 
 async function applyMigration() {
   try {
-    console.log('Applying migration 0046: Fix workflow_runs section constraint...');
+    console.log('Applying migration 0046: Fix workflow_runs page constraint...');
 
     // Initialize database connection
     await initializeDatabase();
@@ -24,7 +24,7 @@ async function applyMigration() {
     await db.execute(sql.raw(migrationSQL));
 
     console.log('✅ Migration 0046 applied successfully!');
-    console.log('You can now delete sections without errors.');
+    console.log('You can now delete pages without errors.');
 
     process.exit(0);
   } catch (error: unknown) {

@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, projects, users } from '@shared/schema';
+import { workflows, pages, steps, projects, users } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -64,8 +64,8 @@ async function createTestWorkflow() {
   console.log('Workflow created:', workflowId);
   console.log('Public link:', workflow[0].publicLink);
 
-  // Create Section 1: Basic Info
-  const section1 = await db.insert(sections).values({
+  // Create Page 1: Basic Info
+  const page1 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Basic Information',
@@ -73,12 +73,12 @@ async function createTestWorkflow() {
     order: 1,
   }).returning();
 
-  // Create steps for section 1
+  // Create steps for page 1
   await db.insert(steps).values([
     {
       id: randomUUID(),
       workflowId,
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text',
       title: 'First Name',
       alias: 'firstName',
@@ -88,7 +88,7 @@ async function createTestWorkflow() {
     {
       id: randomUUID(),
       workflowId,
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text',
       title: 'Last Name',
       alias: 'lastName',
@@ -98,7 +98,7 @@ async function createTestWorkflow() {
     {
       id: randomUUID(),
       workflowId,
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text',
       title: 'Email',
       alias: 'email',
@@ -107,10 +107,10 @@ async function createTestWorkflow() {
     },
   ]);
 
-  console.log('Section 1 created with 3 steps');
+  console.log('Page 1 created with 3 steps');
 
-  // Create Section 2: Final Documents
-  const _section2 = await db.insert(sections).values({
+  // Create Page 2: Final Documents
+  const _page2 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Your Documents',
@@ -124,7 +124,7 @@ async function createTestWorkflow() {
     },
   }).returning();
 
-  console.log('Section 2 (Final Documents) created');
+  console.log('Page 2 (Final Documents) created');
 
   console.log('\n=== Test Workflow Created Successfully ===');
   console.log('Workflow ID:', workflowId);
@@ -132,7 +132,7 @@ async function createTestWorkflow() {
   console.log('Direct Run Link:', `http://localhost:5000/run/${workflowId}`);
   console.log('\nNext steps:');
   console.log('1. Upload a DOCX template with placeholders like {{firstName}}, {{lastName}}, {{email}}');
-  console.log('2. Update the Final Documents section config with the template ID');
+  console.log('2. Update the Final Documents page config with the template ID');
   console.log('3. Run the workflow and test document generation');
 
   process.exit(0);

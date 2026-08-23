@@ -3,7 +3,7 @@
  *
  * Scoped under `.workflow-map` rather than added to the global
  * `client/src/index.css` design system, since these are map-specific
- * accents (a section's "conditional" flag, a "final documents" branch, the
+ * accents (a page's "conditional" flag, a "final documents" branch, the
  * terminal node, a skip edge) with no existing token family covering all
  * four. The app's dark mode is class-based (`darkMode: ["class"]` in
  * tailwind.config, toggled as `.dark` on `<html>`) — the `.dark` override
@@ -20,9 +20,9 @@
   /* MAP-5: hover background for a node's activation button, shared across node kinds. */
   --map-hover-bg: hsl(220, 20%, 96%);
 
-  --map-section-bg: hsl(0, 0%, 100%);
-  --map-section-border: hsl(220, 13%, 82%);
-  --map-section-fg: hsl(220, 10%, 15%);
+  --map-page-bg: hsl(0, 0%, 100%);
+  --map-page-border: hsl(220, 13%, 82%);
+  --map-page-fg: hsl(220, 10%, 15%);
 
   --map-conditional-accent: hsl(35, 90%, 38%);
   --map-conditional-bg: hsl(35, 90%, 95%);
@@ -42,7 +42,7 @@
 
   /* MAP-6: flow-diagnostic findings (`GET /api/workflows/:id/lint`) rendered
      on a node's badge and the map's summary bar. Errors and warnings are
-     never distinguished by color alone — see SectionMapNode's icon/text. */
+     never distinguished by color alone — see PageMapNode's icon/text. */
   --map-error-bg: hsl(0, 85%, 96%);
   --map-error-border: hsl(0, 70%, 60%);
   --map-error-fg: hsl(0, 65%, 40%);
@@ -76,9 +76,9 @@
 
   --map-hover-bg: hsl(220, 15%, 24%);
 
-  --map-section-bg: hsl(220, 15%, 16%);
-  --map-section-border: hsl(220, 15%, 28%);
-  --map-section-fg: hsl(220, 10%, 92%);
+  --map-page-bg: hsl(220, 15%, 16%);
+  --map-page-border: hsl(220, 15%, 28%);
+  --map-page-fg: hsl(220, 10%, 92%);
 
   --map-conditional-accent: hsl(35, 90%, 68%);
   --map-conditional-bg: hsl(35, 45%, 17%);
@@ -144,7 +144,7 @@
 }
 
 /* MAP-8 review fix: skip edges route through dedicated left-side anchors
-   (SectionMapNode) so the path can jog around a bypassed node instead of
+   (PageMapNode) so the path can jog around a bypassed node instead of
    running straight through it. The map is read-only (D-4) and these anchors
    are never meant to be seen or dragged — only registered so xyflow has a
    routing point. */

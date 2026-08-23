@@ -6,8 +6,8 @@ import { RunDataService, toAliasKeyed } from "../../../server/services/workflow-
 
 describe("RunDataService", () => {
   const steps = [
-    { id: "step-name", alias: "clientName", type: "short_text" as const, sectionId: "section-1", isVirtual: false },
-    { id: "step-age", alias: null, type: "number" as const, sectionId: "section-1", isVirtual: false },
+    { id: "step-name", alias: "clientName", type: "short_text" as const, pageId: "page-1", isVirtual: false },
+    { id: "step-age", alias: null, type: "number" as const, pageId: "page-1", isVirtual: false },
   ];
 
   it("keeps step-id data canonical while deriving an alias-keyed document view", () => {
@@ -40,12 +40,12 @@ describe("RunDataService", () => {
   // whatever happened to be answered.
   describe("TPL-10 AC1: seeds every aliased step, even unanswered ones", () => {
     const stepsWithOptional = [
-      { id: "step-name", alias: "clientName", type: "short_text" as const, sectionId: "s1", isVirtual: false },
+      { id: "step-name", alias: "clientName", type: "short_text" as const, pageId: "s1", isVirtual: false },
       // Aliased but never answered -- e.g. a skipped optional field or a
       // conditionally-hidden step. No corresponding key in `data` at all.
-      { id: "step-middle", alias: "middleName", type: "short_text" as const, sectionId: "s1", isVirtual: false },
+      { id: "step-middle", alias: "middleName", type: "short_text" as const, pageId: "s1", isVirtual: false },
       // No alias -- must not appear in byAlias under a synthetic key.
-      { id: "step-notes", alias: null, type: "short_text" as const, sectionId: "s1", isVirtual: false },
+      { id: "step-notes", alias: null, type: "short_text" as const, pageId: "s1", isVirtual: false },
     ];
 
     it("fromStepIdData: unanswered aliased step is present-as-null, not absent", () => {
@@ -83,10 +83,10 @@ describe("RunDataService", () => {
   // answer of 0, '', or false back to null. This asserts each survives.
   describe("TPL-10 AC2: persisted falsy values are never overwritten by the seed", () => {
     const falsySteps = [
-      { id: "step-zero", alias: "zeroField", type: "number" as const, sectionId: "s1", isVirtual: false },
-      { id: "step-empty", alias: "emptyField", type: "short_text" as const, sectionId: "s1", isVirtual: false },
-      { id: "step-false", alias: "falseField", type: "short_text" as const, sectionId: "s1", isVirtual: false },
-      { id: "step-unanswered", alias: "unansweredField", type: "short_text" as const, sectionId: "s1", isVirtual: false },
+      { id: "step-zero", alias: "zeroField", type: "number" as const, pageId: "s1", isVirtual: false },
+      { id: "step-empty", alias: "emptyField", type: "short_text" as const, pageId: "s1", isVirtual: false },
+      { id: "step-false", alias: "falseField", type: "short_text" as const, pageId: "s1", isVirtual: false },
+      { id: "step-unanswered", alias: "unansweredField", type: "short_text" as const, pageId: "s1", isVirtual: false },
     ];
 
     it("0, '', and false survive in byAlias exactly as persisted", () => {
@@ -160,8 +160,8 @@ describe("RunDataService", () => {
     // the respondent legitimately skipped -- the exact shape described in
     // the ticket's Finding.
     const workflowSteps = [
-      { id: "step-name", alias: "client_name", type: "short_text" as const, sectionId: "s1", isVirtual: false },
-      { id: "step-middle", alias: "middle_name", type: "short_text" as const, sectionId: "s1", isVirtual: false },
+      { id: "step-name", alias: "client_name", type: "short_text" as const, pageId: "s1", isVirtual: false },
+      { id: "step-middle", alias: "middle_name", type: "short_text" as const, pageId: "s1", isVirtual: false },
     ];
 
     it("AC3: an aliased-but-unanswered step renders blank instead of raising", async () => {

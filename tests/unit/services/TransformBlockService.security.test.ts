@@ -14,7 +14,7 @@ vi.mock('../../../server/repositories', () => ({
   transformBlockRunRepository: {},
   workflowRepository: {},
   stepValueRepository: {},
-  sectionRepository: { findByWorkflowId: vi.fn() },
+  pageRepository: { findByWorkflowId: vi.fn() },
   stepRepository: { create: vi.fn(), update: vi.fn() },
 }));
 
@@ -51,14 +51,14 @@ describe('TransformBlockService Security (AST Validation)', () => {
     const existingBlock = {
       id: 'block-123',
       workflowId: 'wf-123',
-      sectionId: null,
+      pageId: null,
       name: 'Existing block',
       language: 'javascript',
       code: 'emit(null);',
       inputKeys: [],
       outputKey: 'res',
       virtualStepId: null,
-      phase: 'onSectionSubmit',
+      phase: 'onPageSubmit',
       enabled: true,
       order: 0,
       timeoutMs: 1000,

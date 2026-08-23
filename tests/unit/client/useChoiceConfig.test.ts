@@ -20,7 +20,7 @@ describe('useChoiceConfig integration', () => {
         const onSaveConfig = vi.fn();
         let step: ApiStep = {
             id: 'step-1',
-            sectionId: 'section-1',
+            pageId: 'page-1',
             type: 'multiple_choice',
             title: 'Choice Step',
             config: {

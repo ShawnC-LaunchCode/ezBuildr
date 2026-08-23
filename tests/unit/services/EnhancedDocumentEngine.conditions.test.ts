@@ -24,7 +24,7 @@ vi.mock('../../../server/services/TemplateAnalyticsService.js', () => ({
 
 /**
  * LU-5: `doc.conditions` is a `ConditionExpression` (the same nested
- * AND/OR-group language steps.visible_if / sections.visible_if use),
+ * AND/OR-group language steps.visible_if / pages.visible_if use),
  * evaluated directly by shared/conditionEvaluator.ts -- not the flat
  * `{ key, op }` LogicExpression this superseded. `condition(...)` below
  * builds a minimal single-condition group so each scenario stays

@@ -30,7 +30,7 @@ interface WorkflowStepData {
   order?: number;
   alias?: string;
 }
-interface WorkflowSectionData {
+interface WorkflowPageData {
   id?: string;
   title: string;
   description?: string;
@@ -44,7 +44,7 @@ interface WorkflowSectionData {
 interface WorkflowContentData {
   title?: string;
   description?: string;
-  sections?: WorkflowSectionData[];
+  pages?: WorkflowPageData[];
   // LU-6c: a rule's trigger condition is `when` (a ConditionExpression) -
   // the legacy flat `operator`/`conditionValue` shape is gone.
   logicRules?: Array<{
@@ -59,7 +59,7 @@ import { workflowContentIngestService, type WorkflowContentData as IngestWorkflo
 import { logger } from "../logger";
 import {
   workflowRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
   logicRuleRepository,
   userRepository,
@@ -86,7 +86,7 @@ import { BrandingService, brandingService } from "./BrandingService";
  */
 export class WorkflowService {
   private workflowRepo: typeof workflowRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private workflowAccessRepo: typeof workflowAccessRepository;
@@ -95,7 +95,7 @@ export class WorkflowService {
   // eslint-disable-next-line max-params
   constructor(
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
     workflowAccessRepo?: typeof workflowAccessRepository,
@@ -103,7 +103,7 @@ export class WorkflowService {
     brandingSvc?: BrandingService
   ) {
     this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.stepRepo = stepRepo ?? stepRepository;
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.workflowAccessRepo = workflowAccessRepo ?? workflowAccessRepository;
@@ -177,7 +177,7 @@ export class WorkflowService {
     });
   }
   /**
-   * Create a new workflow with a default first section
+   * Create a new workflow with a default first page
    */
   async createWorkflow(data: InsertWorkflow, creatorId: string, tx?: DbTransaction): Promise<Workflow> {
     return this.withTx(tx, async (scopedTx) => {
@@ -219,11 +219,11 @@ export class WorkflowService {
         },
         scopedTx
       );
-      // Create default first section
-      await this.sectionRepo.create(
+      // Create default first page
+      await this.pageRepo.create(
         {
           workflowId: workflow.id,
-          title: 'Section 1',
+          title: 'Page 1',
           order: 1,
         },
         scopedTx
@@ -232,7 +232,7 @@ export class WorkflowService {
     });
   }
   /**
-   * Get workflow by ID with full details (sections, steps, rules)
+   * Get workflow by ID with full details (pages, steps, rules)
    *
    * PERFORMANCE OPTIMIZED (Dec 2025):
    * - Uses Map for O(n) step grouping instead of O(n*m) filter
@@ -243,36 +243,36 @@ export class WorkflowService {
     const result = await this.withTx(tx, async (scopedTx) => {
       const workflow = await this.verifyAccess(workflowId, userId, 'view', scopedTx);
       // OPTIMIZATION: Run independent queries in parallel
-      const [sections, logicRules, transformBlocks] = await Promise.all([
-        this.sectionRepo.findByWorkflowId(workflowId, scopedTx),
+      const [pages, logicRules, transformBlocks] = await Promise.all([
+        this.pageRepo.findByWorkflowId(workflowId, scopedTx),
         this.logicRuleRepo.findByWorkflowId(workflowId, scopedTx),
         scopedTx.query.transformBlocks.findMany({
           where: (tb, { eq: eqOp }) => eqOp(tb.workflowId, workflowId),
         }),
       ]);
-      const sectionIds = sections.map((s) => s.id);
-      const steps = sectionIds.length > 0
-        ? await this.stepRepo.findBySectionIds(sectionIds, scopedTx)
+      const pageIds = pages.map((s) => s.id);
+      const steps = pageIds.length > 0
+        ? await this.stepRepo.findByPageIds(pageIds, scopedTx)
         : [];
       // Debug logging for preview issue
       logger.info({
         workflowId,
         userId,
-        sectionsCount: sections.length,
+        pagesCount: pages.length,
         stepsCount: steps.length,
         logicRulesCount: logicRules.length
       }, 'getWorkflowWithDetails called');
-      // OPTIMIZATION: Group steps by section using Map (O(n) instead of O(n*m))
-      const stepsBySectionMap = new Map<string, Step[]>();
+      // OPTIMIZATION: Group steps by page using Map (O(n) instead of O(n*m))
+      const stepsByPageMap = new Map<string, Step[]>();
       for (const step of steps) {
-        if (!stepsBySectionMap.has(step.sectionId)) {
-          stepsBySectionMap.set(step.sectionId, []);
+        if (!stepsByPageMap.has(step.pageId)) {
+          stepsByPageMap.set(step.pageId, []);
         }
-        stepsBySectionMap.get(step.sectionId)!.push(step);
+        stepsByPageMap.get(step.pageId)!.push(step);
       }
-      const sectionsWithSteps = sections.map((section) => ({
-        ...section,
-        steps: stepsBySectionMap.get(section.id) ?? [],
+      const pagesWithSteps = pages.map((page) => ({
+        ...page,
+        steps: stepsByPageMap.get(page.id) ?? [],
       }));
       // OPTIMIZATION: Single query for current version (if exists)
       let currentVersion = null;
@@ -288,7 +288,7 @@ export class WorkflowService {
       }
       return {
         ...workflow,
-        sections: sectionsWithSteps,
+        pages: pagesWithSteps,
         logicRules,
         transformBlocks,
         currentVersion,
@@ -676,18 +676,18 @@ export class WorkflowService {
     return `${baseUrl}/w/${slug}`;
   }
   /**
-   * Specifically ensures 'final' nodes are converted to Final Sections for the Runner
+   * Specifically ensures 'final' nodes are converted to Final Pages for the Runner
    */
   async syncWithGraph(workflowId: string, graphJson: GraphJson, _userId: string, tx?: DbTransaction): Promise<void> {
     if (!graphJson?.nodes) { return; }
     await this.withTx(tx, async (scopedTx) => {
       // 1. Find 'final' node in graph
       const finalNode = graphJson.nodes!.find((n) => n.type === 'final');
-      // 2. Manage Final Document Section
-      const existingSections = await this.sectionRepo.findByWorkflowId(workflowId, scopedTx);
-      const finalSection = existingSections.find(s => (s.config as Record<string, unknown>)?.finalBlock === true);
+      // 2. Manage Final Document Page
+      const existingPages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
+      const finalPage = existingPages.find(s => (s.config as Record<string, unknown>)?.finalBlock === true);
       if (finalNode) {
-        const sectionConfig = {
+        const pageConfig = {
           finalBlock: true,
           title: finalNode.data?.config?.title ?? "Completion",
           screenTitle: finalNode.data?.config?.title ?? "Completion", // Legacy
@@ -695,30 +695,30 @@ export class WorkflowService {
           markdownMessage: finalNode.data?.config?.message ?? "", // Legacy
           ...finalNode.data?.config
         };
-        if (finalSection) {
+        if (finalPage) {
           // Update existing
-          await this.sectionRepo.update(finalSection.id, {
-            title: sectionConfig.screenTitle,
-            config: sectionConfig
+          await this.pageRepo.update(finalPage.id, {
+            title: pageConfig.screenTitle,
+            config: pageConfig
           }, scopedTx);
         } else {
           // Create new
           // Determine order: last + 1
-          const maxOrder = existingSections.length > 0 ? Math.max(...existingSections.map(s => s.order)) : 0;
-          await this.sectionRepo.create({
+          const maxOrder = existingPages.length > 0 ? Math.max(...existingPages.map(s => s.order)) : 0;
+          await this.pageRepo.create({
             workflowId,
-            title: sectionConfig.screenTitle,
+            title: pageConfig.screenTitle,
             order: maxOrder + 1,
-            config: sectionConfig
+            config: pageConfig
           }, scopedTx);
         }
-      } else if (finalSection) {
+      } else if (finalPage) {
         // If the final node was removed from the graph, soft-delete the final
-        // section (ICW2-B1/ICW2-B11) so respondent step_values on its steps
+        // page (ICW2-B1/ICW2-B11) so respondent step_values on its steps
         // survive; cascade to its own steps first, mirroring the manual
-        // delete path in SectionService.deleteSection.
-        await this.stepRepo.softDeleteBySectionId(finalSection.id, scopedTx);
-        await this.sectionRepo.softDelete(finalSection.id, scopedTx);
+        // delete path in PageService.deletePage.
+        await this.stepRepo.softDeleteByPageId(finalPage.id, scopedTx);
+        await this.pageRepo.softDelete(finalPage.id, scopedTx);
       }
     });
   }
@@ -754,9 +754,9 @@ export class WorkflowService {
         throw new Error("Workflow not found");
       }
 
-      // 3. Sync Sections and everything else. `data`'s `logicRules[].when` is
+      // 3. Sync Pages and everything else. `data`'s `logicRules[].when` is
       // `unknown` here (this route accepts loosely-typed deep-update JSON,
-      // validated only by `updateWorkflowSchema`'s `z.any()` sections field) —
+      // validated only by `updateWorkflowSchema`'s `z.any()` pages field) —
       // `normalizeContent` inside `apply()` re-validates the actual shape via
       // `validateWorkflowStructure`/`extractConditionReferences` before any
       // of it is trusted.

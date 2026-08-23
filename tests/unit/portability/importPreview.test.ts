@@ -60,11 +60,11 @@ describeWithDb('ImportService - preview', () => {
       authConfig: { token: 'secret' }
     });
 
-    const sec = await tf.createSection(workflow.id);
+    const page = await tf.createPage(workflow.id);
     await db.insert(steps).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       type: 'text',
       title: 'Test Step',
       alias: 'test_step_alias',
@@ -82,7 +82,7 @@ describeWithDb('ImportService - preview', () => {
     await db.insert(transformBlocks).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       name: 'Test Hook',
       language: 'javascript',
       code: 'const x = "sk-1234567890123456789012345678901234567890";',
@@ -259,11 +259,11 @@ describeWithDb('ImportService - preview', () => {
     // We inject a duplicate step into the workflow bundle
     const zip = new AdmZip(workflowBundle);
     // Insert two steps with the SAME alias into the same workflow bundle
-    const secId = randomUUID();
+    const pageId = randomUUID();
     const stepRow1 = { 
       id: randomUUID(), 
       workflowId: workflow.id, 
-      sectionId: secId,
+      pageId: pageId,
       title: 'Step 1',
       order: 1,
       alias: 'duplicate_alias', 
@@ -272,7 +272,7 @@ describeWithDb('ImportService - preview', () => {
     const stepRow2 = { 
       id: randomUUID(), 
       workflowId: workflow.id, 
-      sectionId: secId,
+      pageId: pageId,
       title: 'Step 2',
       order: 2,
       alias: 'duplicate_alias', 
@@ -311,11 +311,11 @@ describeWithDb('ImportService - preview', () => {
   it('ignores identical step aliases across different workflows in the same bundle', async () => {
       // Simulate two different workflows in a project bundle sharing an alias 'email'
       const zip = new AdmZip(projectBundle);
-      const secId = randomUUID();
+      const pageId = randomUUID();
       const stepRow1 = { 
         id: randomUUID(), 
         workflowId: randomUUID(), // Workflow A
-        sectionId: secId,
+        pageId: pageId,
         title: 'Email Step A',
         order: 1,
         alias: 'email', 
@@ -324,7 +324,7 @@ describeWithDb('ImportService - preview', () => {
       const stepRow2 = { 
         id: randomUUID(), 
         workflowId: randomUUID(), // Workflow B
-        sectionId: secId,
+        pageId: pageId,
         title: 'Email Step B',
         order: 1,
         alias: 'email', 

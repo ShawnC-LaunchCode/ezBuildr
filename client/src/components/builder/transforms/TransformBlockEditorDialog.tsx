@@ -30,7 +30,7 @@ export function TransformBlockEditorDialog({
     const [formData, setFormData] = useState({
         name: block?.name ?? "",
         language: block?.language ?? ("javascript" as TransformBlockLanguage),
-        phase: block?.phase ?? "onSectionSubmit",
+        phase: block?.phase ?? "onPageSubmit",
         code: block?.code ?? "",
         inputKeys: block?.inputKeys ?? [],
         outputKey: block?.outputKey ?? "",
@@ -47,7 +47,7 @@ export function TransformBlockEditorDialog({
             setFormData({
                 name: block?.name ?? "",
                 language: block?.language ?? "javascript",
-                phase: block?.phase ?? "onSectionSubmit",
+                phase: block?.phase ?? "onPageSubmit",
                 code: block?.code ?? "",
                 inputKeys: block?.inputKeys ?? [],
                 outputKey: block?.outputKey ?? "",

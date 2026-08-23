@@ -9,7 +9,7 @@
 
 ### What is a Snip?
 A Snip is a self-contained workflow component that may include:
-- **Pages/sections** (one or more)
+- **Pages** (one or more)
 - **Questions** (with aliases using dot notation)
 - **Logic blocks** (read/write/list tools, JS blocks)
 - **Show/hide logic** rules
@@ -92,7 +92,7 @@ When a snip is imported into a workflow, the following metadata is stored:
 - `snipId` - Unique identifier of the snip
 - `snipVersion` - Version number at time of import (e.g., "1.0.0")
 - `importedAt` - ISO timestamp of import
-- `importedPageIds` - Array of created section IDs
+- `importedPageIds` - Array of created page IDs
 - `importedQuestionIds` - Array of created step IDs
 
 **This metadata is immutable** once imported. It provides an audit trail and enables future features like upgrade notifications.
@@ -149,7 +149,7 @@ Renamed:   fee_waiver_2.income
 
 ### Page Name Collision Behavior
 
-If a page name collides with an existing section title:
+If a page name collides with an existing page title:
 
 **Behavior**: Auto-rename page with parenthetical suffix
 
@@ -223,7 +223,7 @@ interface SnipDefinition {
   version: string;         // Semantic version: "1.0.0"
   category?: string;       // Optional grouping: "Intake", "Financial", etc.
   
-  pages: SnipPage[];       // Pages/sections to import
+  pages: SnipPage[];       // Pages to import
   logicBlocks?: SnipLogicBlock[];  // Optional logic blocks
   templateAttachments?: string[];  // Reserved for future use
   
@@ -260,9 +260,9 @@ interface SnipQuestion {
 interface SnipLogicBlock {
   id: string;
   type: "read" | "write" | "js" | "validate";
-  phase: "onSectionEnter" | "onSectionSubmit";
+  phase: "onPageEnter" | "onPageSubmit";
   config: any;
-  sectionIndex: number;    // Which snip page this attaches to
+  pageIndex: number;    // Which snip page this attaches to
   order: number;
 }
 ```

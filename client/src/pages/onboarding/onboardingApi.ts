@@ -130,7 +130,7 @@ async function applyGeneratedContent(workflowId: string, generated: AIGeneratedW
     body: JSON.stringify({
       title: generated.title,
       description: generated.description ?? undefined,
-      sections: generated.sections,
+      pages: generated.pages,
     }),
   });
 }

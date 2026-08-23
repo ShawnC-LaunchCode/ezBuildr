@@ -668,8 +668,8 @@ The legacy generators (`DocumentGenerationService`, `docxRenderer`,
 node, and the Bull queue worker — render through
 `FinalBlockRenderer` / `EnhancedDocumentEngine` on top of `RenderCore`.
 
-**Backward compatibility:** legacy "Final Documents" sections
-(`section.config.finalBlock` + `config.templates`) are still supported —
+**Backward compatibility:** legacy "Final Documents" pages
+(`page.config.finalBlock` + `config.templates`) are still supported —
 `RunLifecycleService.buildLegacyFinalBlockConfig` synthesizes a
 `FinalBlockConfig` from them, carrying template-level mapping and
 `visibleIf` conditions into the unified path.

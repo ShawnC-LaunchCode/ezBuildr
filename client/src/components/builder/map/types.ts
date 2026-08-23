@@ -22,12 +22,12 @@ export interface MapNodeData extends Record<string, unknown> {
    * MAP-5: activation callback (click, Enter or Space on the node's own
    * `<button>`) that navigates to the node's inspector via a URL — see
    * `MapTab`'s `handleActivateNode`. Undefined for the terminal node, which
-   * has no section/step behind it to open.
+   * has no page/step behind it to open.
    */
   onActivate?: () => void;
   /**
    * MAP-6: lint findings from `GET /api/workflows/:id/lint` whose
-   * `target.sectionId` equals this node's id — always an array (possibly
+   * `target.pageId` equals this node's id — always an array (possibly
    * empty), never computed by the map itself. See `mapLintDecoration.ts`.
    */
   findings: WorkflowLintIssue[];

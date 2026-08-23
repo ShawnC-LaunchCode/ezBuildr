@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { mockIntegration } from './MockIntegrationLayer';
 import { PreviewVariableResolver } from './PreviewVariableResolver';
 
-import type { ApiStep, ApiSection } from '../vault-api';
+import type { ApiStep, ApiPage } from '../vault-api';
 
 export interface TraceEntry {
     id: string;
@@ -21,7 +21,7 @@ export interface PreviewRunState {
     workflowId: string;
     values: Record<string, unknown>;
     trace: TraceEntry[];
-    currentSectionIndex: number;
+    currentPageIndex: number;
     completed: boolean;
     updatedAt: number;
     mode: 'preview';
@@ -29,7 +29,7 @@ export interface PreviewRunState {
 
 export interface PreviewConfig {
     workflowId: string;
-    sections: ApiSection[];
+    pages: ApiPage[];
     steps: ApiStep[];
     snapshotValues?: Record<string, unknown>;
     initialValues?: Record<string, unknown>;
@@ -51,11 +51,11 @@ export class PreviewEnvironment {
     private cachedSnapshot: PreviewRunState | null = null;
 
     // Schema Registry
-    private sections: ApiSection[];
+    private pages: ApiPage[];
     private steps: ApiStep[];
 
     constructor(config: PreviewConfig) {
-        this.sections = config.sections;
+        this.pages = config.pages;
         this.steps = config.steps;
 
         // Resolve initial values using precedence logic
@@ -70,7 +70,7 @@ export class PreviewEnvironment {
             workflowId: config.workflowId,
             values: resolvedValues,
             trace: [],
-            currentSectionIndex: 0,
+            currentPageIndex: 0,
             completed: false,
             updatedAt: Date.now(),
             mode: 'preview'
@@ -129,9 +129,9 @@ export class PreviewEnvironment {
     }
 
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    setCurrentSection(index: number) {
-        if (index >= 0 && index < this.sections.length) {
-            this.state.currentSectionIndex = index;
+    setCurrentPage(index: number) {
+        if (index >= 0 && index < this.pages.length) {
+            this.state.currentPageIndex = index;
             this.state.updatedAt = Date.now();
             this.notify();
         }
@@ -147,7 +147,7 @@ export class PreviewEnvironment {
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     reset() {
         this.state.values = PreviewVariableResolver.resolveInitialValues(this.steps);
-        this.state.currentSectionIndex = 0;
+        this.state.currentPageIndex = 0;
         this.state.completed = false;
         this.state.updatedAt = Date.now();
         this.notify();
@@ -159,10 +159,10 @@ export class PreviewEnvironment {
      * Update schema without losing state (unless necessary)
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    updateSchema(sections: ApiSection[], steps: ApiStep[]) {
+    updateSchema(pages: ApiPage[], steps: ApiStep[]) {
         // eslint-disable-next-line no-console
         console.log('[PreviewEnvironment] Hot Reloading Schema...');
-        this.sections = sections;
+        this.pages = pages;
         this.steps = steps;
 
         // Prune values for steps that no longer exist?
@@ -195,7 +195,7 @@ export class PreviewEnvironment {
     // --- Helpers ---
 
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    getSections() { return this.sections; }
+    getPages() { return this.pages; }
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     getSteps() { return this.steps; }
 }

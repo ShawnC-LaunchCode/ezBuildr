@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * LIST-9 — Section "Next" enforcement for list steps (AC5) and the
+ * LIST-9 — Page "Next" enforcement for list steps (AC5) and the
  * label-based error summary (AC6). A separate file from
  * useRunNavigation.test.tsx on purpose: that file replaces the whole
  * `shared/validation/BlockValidation` module with a stub `getValidationSchema`
@@ -21,16 +21,16 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitSection: () => ({ mutateAsync: vi.fn() }),
+  useSubmitPage: () => ({ mutateAsync: vi.fn() }),
   useNext: () => ({ mutateAsync: vi.fn() }),
 }));
 
 import { useRunNavigation, type RunNavigationTransport } from '../../../client/src/hooks/runner/useRunNavigation';
-import type { ApiSection, ApiStep } from '../../../client/src/lib/vault-api';
+import type { ApiPage, ApiStep } from '../../../client/src/lib/vault-api';
 import type { ListConfig } from '../../../shared/types/stepConfigs';
 
-const section: ApiSection = {
-  id: 'section-1',
+const page: ApiPage = {
+  id: 'page-1',
   workflowId: 'workflow-1',
   title: 'Family',
   description: null,
@@ -49,7 +49,7 @@ const childrenConfig: ListConfig = {
 const listStep: ApiStep = {
   id: 'children-step',
   workflowId: 'workflow-1',
-  sectionId: section.id,
+  pageId: page.id,
   type: 'list',
   title: 'Children',
   description: null,
@@ -63,8 +63,8 @@ const listStep: ApiStep = {
 
 function makeTransport(): RunNavigationTransport {
   return {
-    getVisibleSectionSteps: () => [listStep],
-    saveBeforeLeavingSection: vi.fn().mockResolvedValue(undefined),
+    getVisiblePageSteps: () => [listStep],
+    saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
     recordValidationPassed: vi.fn().mockResolvedValue(undefined),
     recordValidationException: vi.fn().mockResolvedValue(undefined),
     advanceAfterValidation: vi.fn().mockResolvedValue(undefined),
@@ -81,7 +81,7 @@ describe('useRunNavigation: list step validation (LIST-9)', () => {
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'children-step': { items: [{ itemId: 'a', values: { name: 'Ben Chen' } }] } },
         transport,
       })
@@ -95,12 +95,12 @@ describe('useRunNavigation: list step validation (LIST-9)', () => {
     expect(transport.advanceAfterValidation).not.toHaveBeenCalled();
   });
 
-  it('advances once the field is fixed (AC7, via the section validation path)', async () => {
+  it('advances once the field is fixed (AC7, via the page validation path)', async () => {
     const transport = makeTransport();
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'children-step': { items: [{ itemId: 'a', values: { name: 'Ben Chen', dob: '2020-01-01' } }] } },
         transport,
       })
@@ -116,12 +116,12 @@ describe('useRunNavigation: list step validation (LIST-9)', () => {
 
   it('blocks Next for a required list with zero items even when minItems is unset (LIST-8\'s flagged gap)', async () => {
     const requiredListStep: ApiStep = { ...listStep, required: true };
-    const transport: RunNavigationTransport = { ...makeTransport(), getVisibleSectionSteps: () => [requiredListStep] };
+    const transport: RunNavigationTransport = { ...makeTransport(), getVisiblePageSteps: () => [requiredListStep] };
 
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'children-step': { items: [] } },
         transport,
       })
@@ -140,7 +140,7 @@ describe('useRunNavigation: list step validation (LIST-9)', () => {
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'children-step': { items: [] } },
         transport,
       })
@@ -159,7 +159,7 @@ describe('useRunNavigation: list step validation (LIST-9)', () => {
     const { result } = renderHook(() =>
       useRunNavigation({
         actualRunId: 'run-1',
-        visibleSections: [section],
+        visiblePages: [page],
         effectiveValues: { 'children-step': { items: [{ itemId: 'a', values: { name: 'Ben Chen' } }] } },
         transport,
       })

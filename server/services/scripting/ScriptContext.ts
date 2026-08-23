@@ -18,9 +18,9 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
       id: executionContext.runId,
     },
     phase: executionContext.phase,
-    section: executionContext.sectionId
+    page: executionContext.pageId
       ? {
-          id: executionContext.sectionId,
+          id: executionContext.pageId,
         }
       : undefined,
     user: executionContext.userId
@@ -46,7 +46,7 @@ export function createTestContext(overrides?: Partial<ScriptExecutionContext>): 
     workflowId: overrides?.workflowId ?? "test-workflow-id",
     runId: overrides?.runId ?? "test-run-id",
     phase: overrides?.phase ?? "test",
-    sectionId: overrides?.sectionId,
+    pageId: overrides?.pageId,
     userId: overrides?.userId,
     metadata: overrides?.metadata ?? {},
   };

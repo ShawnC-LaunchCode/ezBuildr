@@ -701,10 +701,10 @@ export function getValueByPath(data: Record<string, unknown>, path: string): unk
 // =====================================================================
 
 /**
- * Evaluate visibility for multiple sections/steps at once
+ * Evaluate visibility for multiple pages/steps at once
  */
 export interface VisibilityMap {
-  sections: Record<string, boolean>;
+  pages: Record<string, boolean>;
   steps: Record<string, boolean>;
 }
 
@@ -714,29 +714,29 @@ export interface ElementWithCondition {
 }
 
 /**
- * Evaluate visibility for all sections and steps in a workflow
+ * Evaluate visibility for all pages and steps in a workflow
  */
 export function evaluateWorkflowVisibility(
-  sections: ElementWithCondition[],
+  pages: ElementWithCondition[],
   steps: ElementWithCondition[],
   data: DataMap,
   aliasResolver?: AliasResolver
 ): VisibilityMap {
   const result: VisibilityMap = {
-    sections: {},
+    pages: {},
     steps: {},
   };
 
-  // Evaluate sections
-  for (const section of sections) {
-    result.sections[section.id] = evaluateConditionExpression(
-      section.visibleIf,
+  // Evaluate pages
+  for (const page of pages) {
+    result.pages[page.id] = evaluateConditionExpression(
+      page.visibleIf,
       data,
       aliasResolver
     );
   }
 
-  // Evaluate steps (only in visible sections)
+  // Evaluate steps (only in visible pages)
   for (const step of steps) {
     result.steps[step.id] = evaluateConditionExpression(
       step.visibleIf,

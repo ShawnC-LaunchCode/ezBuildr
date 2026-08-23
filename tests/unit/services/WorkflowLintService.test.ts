@@ -11,7 +11,7 @@ vi.mock("../../../server/services/VersionService", () => ({
 function content(overrides: Record<string, unknown> = {}) {
   return {
     title: "WF",
-    sections: [
+    pages: [
       {
         id: "s1",
         title: "Page 1",
@@ -41,14 +41,14 @@ describe("WorkflowLintService", () => {
     return new WorkflowLintService().lint("wf-1", "user-1");
   }
 
-  it("errors when the workflow has no sections", async () => {
-    const results = await lint(content({ sections: [] }));
-    expect(results.some(r => r.type === "error" && /at least one section/i.test(r.message))).toBe(true);
+  it("errors when the workflow has no pages", async () => {
+    const results = await lint(content({ pages: [] }));
+    expect(results.some(r => r.type === "error" && /at least one page/i.test(r.message))).toBe(true);
   });
 
-  it("errors when sections exist but contain no questions", async () => {
+  it("errors when pages exist but contain no questions", async () => {
     const results = await lint(content({
-      sections: [{ id: "s1", title: "Empty page", steps: [] }],
+      pages: [{ id: "s1", title: "Empty page", steps: [] }],
     }));
     expect(results.some(r => r.type === "error" && /at least one question/i.test(r.message))).toBe(true);
   });
@@ -61,7 +61,7 @@ describe("WorkflowLintService", () => {
     expect(err).toBeDefined();
     expect(err).toMatchObject({
       category: "logic",
-      target: { tab: "sections", panel: "logic" },
+      target: { tab: "pages", panel: "logic" },
     });
   });
 
@@ -69,7 +69,7 @@ describe("WorkflowLintService", () => {
     // visibleIf is persisted as a ConditionExpression object (jsonb), not a string.
     // The service must walk it, not call String.match on it (regression guard).
     const results = await lint(content({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [{
@@ -88,13 +88,13 @@ describe("WorkflowLintService", () => {
     expect(err).toBeDefined();
     expect(err).toMatchObject({
       category: "logic",
-      target: { tab: "sections", sectionId: "s1", stepId: "st1" },
+      target: { tab: "pages", pageId: "s1", stepId: "st1" },
     });
   });
 
   it("does not flag a visibleIf that references a real alias", async () => {
     const results = await lint(content({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -117,7 +117,7 @@ describe("WorkflowLintService", () => {
 
   it("warns on a step with no alias", async () => {
     const results = await lint(content({
-      sections: [{ id: "s1", title: "Page 1", steps: [{ id: "st1", title: "Unnamed" }] }],
+      pages: [{ id: "s1", title: "Page 1", steps: [{ id: "st1", title: "Unnamed" }] }],
     }));
     expect(results.some(r => r.type === "warning" && /no alias/i.test(r.message))).toBe(true);
   });
@@ -129,21 +129,21 @@ describe("WorkflowLintService", () => {
     expect(results.filter(r => r.type === "error")).toHaveLength(0);
   });
 
-  // RUN2-8: VersionService.serializeWorkflow emits a section rule's targetAlias
-  // as the section TITLE (there is no section.alias field) and falls back to the
+  // RUN2-8: VersionService.serializeWorkflow emits a page rule's targetAlias
+  // as the page TITLE (there is no page.alias field) and falls back to the
   // raw step id for conditionStepAlias when the condition step has no alias.
   // The linter must accept both instead of comparing them against a step-alias-only set.
 
-  it("does not flag a section-targeted hide rule referencing the section by id and title (RUN2-8 AC1)", async () => {
+  it("does not flag a page-targeted hide rule referencing the page by id and title (RUN2-8 AC1)", async () => {
     const results = await lint(content({
       logicRules: [{
         conditionStepId: "st1",
         conditionStepAlias: "name",
         operator: "equals",
         conditionValue: "x",
-        targetType: "section",
+        targetType: "page",
         targetId: "s1",
-        targetAlias: "Page 1", // section title fallback, not a step alias
+        targetAlias: "Page 1", // page title fallback, not a step alias
         action: "hide",
       }],
     }));
@@ -152,7 +152,7 @@ describe("WorkflowLintService", () => {
 
   it("does not flag a rule whose condition step has no alias (RUN2-8 AC2)", async () => {
     const results = await lint(content({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -191,20 +191,20 @@ describe("WorkflowLintService", () => {
     expect(err).toBeDefined();
   });
 
-  it("still errors on a rule whose section target id/title exists nowhere in the workflow (RUN2-8 AC4)", async () => {
+  it("still errors on a rule whose page target id/title exists nowhere in the workflow (RUN2-8 AC4)", async () => {
     const results = await lint(content({
       logicRules: [{
         conditionStepId: "st1",
         conditionStepAlias: "name",
         operator: "equals",
         conditionValue: "x",
-        targetType: "section",
-        targetId: "ghost-section",
-        targetAlias: "Ghost Section",
+        targetType: "page",
+        targetId: "ghost-page",
+        targetAlias: "Ghost Page",
         action: "hide",
       }],
     }));
-    const err = results.find(r => r.type === "error" && r.message.includes("ghost-section"));
+    const err = results.find(r => r.type === "error" && r.message.includes("ghost-page"));
     expect(err).toBeDefined();
   });
 });

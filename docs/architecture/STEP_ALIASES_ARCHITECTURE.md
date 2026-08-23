@@ -14,7 +14,7 @@ VaultLogic is a workflow automation platform with a three-part architecture: Cli
 ```typescript
 export const steps = pgTable("steps", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }).notNull(),
+  pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }).notNull(),
   type: stepTypeEnum("type").notNull(),
   title: varchar("title").notNull(),
   description: text("description"),
@@ -23,7 +23,7 @@ export const steps = pgTable("steps", {
   order: integer("order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("steps_section_idx").on(table.sectionId),
+  index("steps_section_idx").on(table.pageId),
 ]);
 ```
 
@@ -42,9 +42,9 @@ export const stepTypeEnum = pgEnum('step_type', [
 
 ### Related Tables
 
-#### Sections Table (Lines 765-774)
+#### Pages Table (Lines 765-774)
 ```typescript
-export const sections = pgTable("sections", {
+export const pages = pgTable("sections", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   title: varchar("title").notNull(),
@@ -75,7 +75,7 @@ export const workflows = pgTable("workflows", {
 ### Schema Hierarchy
 ```
 Workflow (1)
-  ├── Section (N)
+  ├── Page (N)
   │   └── Step (N)
   │       └── StepValue (N, during runs)
   └── LogicRule (N, conditional logic)
@@ -92,8 +92,8 @@ Workflow (1)
 ```typescript
 class StepService {
   // Create a new step
-  async createStep(workflowId: string, sectionId: string, userId: string, 
-                  data: Omit<InsertStep, 'sectionId'>): Promise<Step>
+  async createStep(workflowId: string, pageId: string, userId: string,
+                  data: Omit<InsertStep, 'pageId'>): Promise<Step>
 
   // Update step properties
   async updateStep(stepId: string, workflowId: string, userId: string, 
@@ -102,12 +102,12 @@ class StepService {
   // Delete step
   async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void>
 
-  // Reorder steps within section
-  async reorderSteps(workflowId: string, sectionId: string, userId: string,
+  // Reorder steps within page
+  async reorderSteps(workflowId: string, pageId: string, userId: string,
                     stepOrders: Array<{ id: string; order: number }>): Promise<void>
 
-  // Get steps for a section
-  async getSteps(workflowId: string, sectionId: string, userId: string): Promise<Step[]>
+  // Get steps for a page
+  async getSteps(workflowId: string, pageId: string, userId: string): Promise<Step[]>
 }
 ```
 
@@ -116,14 +116,14 @@ class StepService {
 
 ```typescript
 class StepRepository extends BaseRepository {
-  // Find steps by section ID (ordered)
-  async findBySectionId(sectionId: string, tx?: DbTransaction): Promise<Step[]>
+  // Find steps by page ID (ordered)
+  async findByPageId(pageId: string, tx?: DbTransaction): Promise<Step[]>
 
-  // Find steps by multiple section IDs
-  async findBySectionIds(sectionIds: string[], tx?: DbTransaction): Promise<Step[]>
+  // Find steps by multiple page IDs
+  async findByPageIds(pageIds: string[], tx?: DbTransaction): Promise<Step[]>
 
-  // Find step by ID and verify section
-  async findByIdAndSection(stepId: string, sectionId: string, tx?: DbTransaction): Promise<Step | undefined>
+  // Find step by ID and verify page
+  async findByIdAndPage(stepId: string, pageId: string, tx?: DbTransaction): Promise<Step | undefined>
 
   // Update step order
   async updateOrder(stepId: string, order: number, tx?: DbTransaction): Promise<Step>
@@ -140,12 +140,12 @@ class StepRepository extends BaseRepository {
 ### Available Endpoints
 ```typescript
 // Create a new step
-POST /api/workflows/:workflowId/sections/:sectionId/steps
+POST /api/workflows/:workflowId/pages/:pageId/steps
 Request: { type, title, description, required, options, order }
 Response: Step
 
-// Get all steps for a section
-GET /api/workflows/:workflowId/sections/:sectionId/steps
+// Get all steps for a page
+GET /api/workflows/:workflowId/pages/:pageId/steps
 Response: Step[]
 
 // Update a step
@@ -158,8 +158,8 @@ DELETE /api/steps/:stepId
 Query: workflowId
 Response: 204 No Content
 
-// Reorder steps within a section
-PUT /api/workflows/:workflowId/sections/:sectionId/steps/reorder
+// Reorder steps within a page
+PUT /api/workflows/:workflowId/pages/:pageId/steps/reorder
 Request: { steps: Array<{ id, order }> }
 Response: { message: "Steps reordered successfully" }
 ```
@@ -175,16 +175,16 @@ Response: { message: "Steps reordered successfully" }
 ```typescript
 /**
  * Evaluates all logic rules for a workflow run
- * Returns visible sections, visible steps, and required steps
+ * Returns visible pages, visible steps, and required steps
  */
 export function evaluateRules(
   rules: LogicRule[],
   data: Record<string, any> // stepId -> value mapping
 ): WorkflowEvaluationResult {
-  visibleSections: Set<string>;
+  visiblePages: Set<string>;
   visibleSteps: Set<string>;
   requiredSteps: Set<string>;
-  skipToSectionId?: string;
+  skipToPageId?: string;
 }
 
 /**
@@ -208,7 +208,7 @@ export function getEffectiveRequiredSteps(
 ### Logic Rule Evaluation Engine
 - **Supported Operators:** equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty
 - **Actions:** show, hide, require, make_optional
-- **Target Types:** section or step level
+- **Target Types:** page or step level
 - **Logical Operators:** AND, OR
 
 ### Logic Rule Table (Lines 792-808)
@@ -219,9 +219,9 @@ export const logicRules = pgTable("logic_rules", {
   conditionStepId: uuid("condition_step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
   operator: conditionOperatorEnum("operator").notNull(),
   conditionValue: jsonb("condition_value").notNull(),
-  targetType: logicRuleTargetTypeEnum("target_type").notNull(), // 'section' or 'step'
+  targetType: logicRuleTargetTypeEnum("target_type").notNull(), // 'page' or 'step'
   targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
-  targetSectionId: uuid("target_section_id").references(() => sections.id, { onDelete: 'cascade' }),
+  targetPageId: uuid("target_section_id").references(() => pages.id, { onDelete: 'cascade' }),
   action: conditionalActionEnum("action").notNull(),
   logicalOperator: varchar("logical_operator").default("AND"),
   order: integer("order").notNull().default(1),
@@ -298,27 +298,27 @@ export function Inspector({ workflowId }: { workflowId: string }) {
 ```typescript
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   // Left sidebar showing hierarchical structure
-  // - Sections (expandable)
-  //   - Steps (within sections)
+  // - Pages (expandable)
+  //   - Steps (within pages)
   
   // Features:
-  // - Add Section button
-  // - Add Step buttons per section (on hover)
+  // - Add Page button
+  // - Add Step buttons per page (on hover)
   // - Drag-and-drop with dnd-kit
   // - Visual selection highlight
   // - Required indicator (*) for required steps
 }
 ```
 
-### Section Item Component
+### Page Item Component
 ```typescript
-function SectionItem({
-  section,
+function PageItem({
+  page,
   workflowId,
   isExpanded,
   onToggle,
 }: {
-  section: any;
+  page: any;
   workflowId: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -329,16 +329,16 @@ function SectionItem({
 ```typescript
 function StepItem({ 
   step, 
-  sectionId 
+  pageId
 }: { 
   step: any; 
-  sectionId: string 
+  pageId: string
 })
 ```
 
 ### Selection Management
 - Uses `useWorkflowBuilder()` store
-- Methods: `selectSection(id)`, `selectStep(id)`
+- Methods: `selectPage(id)`, `selectStep(id)`
 - Properties indicate selection type and ID
 
 ---
@@ -350,7 +350,7 @@ function StepItem({
 
 ```typescript
 // Step-related hooks
-export function useSteps(sectionId: string | undefined)
+export function useSteps(pageId: string | undefined)
 export function useCreateStep()
 export function useUpdateStep()
 export function useDeleteStep()
@@ -363,7 +363,7 @@ export function useReorderSteps()
 ```typescript
 export interface ApiStep {
   id: string;
-  sectionId: string;
+  pageId: string;
   type: StepType;
   title: string;
   description: string | null;
@@ -374,11 +374,11 @@ export interface ApiStep {
 }
 
 export const stepAPI = {
-  list: (sectionId: string) => fetchAPI<ApiStep[]>(...),
-  create: (sectionId: string, data: ...) => fetchAPI<ApiStep>(...),
+  list: (pageId: string) => fetchAPI<ApiStep[]>(...),
+  create: (pageId: string, data: ...) => fetchAPI<ApiStep>(...),
   update: (id: string, data: ...) => fetchAPI<ApiStep>(...),
   delete: (id: string) => fetchAPI<void>(...),
-  reorder: (sectionId: string, steps: ...) => fetchAPI<void>(...),
+  reorder: (pageId: string, steps: ...) => fetchAPI<void>(...),
 }
 ```
 
@@ -388,8 +388,8 @@ export const stepAPI = {
 ```typescript
 interface WorkflowBuilderState {
   // Selection
-  selection: Selection | null;  // { type: "section"|"step"|"block", id: string }
-  selectSection(id: string): void;
+  selection: Selection | null;  // { type: "page"|"step"|"block", id: string }
+  selectPage(id: string): void;
   selectStep(id: string): void;
   selectBlock(id: string): void;
   clearSelection(): void;
@@ -412,53 +412,53 @@ interface WorkflowBuilderState {
 
 ---
 
-## 9. Sections Structure & Relationships
+## 9. Pages Structure & Relationships
 
 ### Database Relationships
 ```typescript
-// Sections contain Steps
-export const sectionsRelations = relations(sections, ({ one, many }) => ({
+// Pages contain Steps
+export const pagesRelations = relations(pages, ({ one, many }) => ({
   workflow: one(workflows, ...),
   steps: many(steps),
   blocks: many(blocks),
 }));
 
-// Steps belong to Sections
+// Steps belong to Pages
 export const stepsRelations = relations(steps, ({ one, many }) => ({
-  section: one(sections, ...),
+  page: one(pages, ...),
   values: many(stepValues),
 }));
 
-// Logic Rules target Steps or Sections
+// Logic Rules target Steps or Pages
 export const logicRulesRelations = relations(logicRules, ({ one }) => ({
   workflow: one(workflows, ...),
   conditionStep: one(steps, ...),
   targetStep: one(steps, ...),
-  targetSection: one(sections, ...),
+  targetPage: one(pages, ...),
 }));
 ```
 
-### Section Service
-**Location:** `/home/user/VaultLogic/server/services/SectionService.ts`
+### Page Service
+**Location:** `/home/user/VaultLogic/server/services/PageService.ts`
 
 ```typescript
-class SectionService {
-  async createSection(...): Promise<Section>
-  async updateSection(...): Promise<Section>
-  async deleteSection(...): Promise<void>
-  async reorderSections(...): Promise<void>
-  async getSections(...): Promise<Section[]>
+class PageService {
+  async createPage(...): Promise<Page>
+  async updatePage(...): Promise<Page>
+  async deletePage(...): Promise<void>
+  async reorderPages(...): Promise<void>
+  async getPages(...): Promise<Page[]>
 }
 ```
 
-### Section Repository
-**Location:** `/home/user/VaultLogic/server/repositories/SectionRepository.ts`
+### Page Repository
+**Location:** `/home/user/VaultLogic/server/repositories/PageRepository.ts`
 
 ```typescript
-class SectionRepository extends BaseRepository {
-  async findByWorkflowId(workflowId: string): Promise<Section[]>
-  async findByIdAndWorkflow(sectionId: string, workflowId: string): Promise<Section | undefined>
-  async updateOrder(sectionId: string, order: number): Promise<Section>
+class PageRepository extends BaseRepository {
+  async findByWorkflowId(workflowId: string): Promise<Page[]>
+  async findByIdAndWorkflow(pageId: string, workflowId: string): Promise<Page | undefined>
+  async updateOrder(pageId: string, order: number): Promise<Page>
 }
 ```
 
@@ -470,8 +470,8 @@ class SectionRepository extends BaseRepository {
 ```
 Frontend (SidebarTree)
   ↓ useCreateStep().mutate()
-  ↓ stepAPI.create(sectionId, data)
-  ↓ POST /api/workflows/:workflowId/sections/:sectionId/steps
+  ↓ stepAPI.create(pageId, data)
+  ↓ POST /api/workflows/:workflowId/pages/:pageId/steps
   ↓ StepService.createStep()
   ↓ StepRepository.create()
   ↓ Database INSERT
@@ -506,8 +506,8 @@ Frontend (SidebarTree)
 ```
 Frontend (SidebarTree)
   ↓ useReorderSteps().mutate()
-  ↓ stepAPI.reorder(sectionId, steps)
-  ↓ PUT /api/workflows/:workflowId/sections/:sectionId/steps/reorder
+  ↓ stepAPI.reorder(pageId, steps)
+  ↓ PUT /api/workflows/:workflowId/pages/:pageId/steps/reorder
   ↓ StepService.reorderSteps()
   ↓ For each step: StepRepository.updateOrder()
   ↓ Database UPDATE order field
@@ -516,11 +516,11 @@ Frontend (SidebarTree)
 ### Read Step Flow
 ```
 Frontend (SidebarTree)
-  ↓ useSteps(sectionId)
-  ↓ stepAPI.list(sectionId)
-  ↓ GET /api/workflows/:workflowId/sections/:sectionId/steps
+  ↓ useSteps(pageId)
+  ↓ stepAPI.list(pageId)
+  ↓ GET /api/workflows/:workflowId/pages/:pageId/steps
   ↓ StepService.getSteps()
-  ↓ StepRepository.findBySectionId()
+  ↓ StepRepository.findByPageId()
   ↓ Database SELECT
   ↓ Return Step[] sorted by order
 ```
@@ -536,17 +536,17 @@ Frontend (SidebarTree)
 ```typescript
 export function CanvasEditor({ workflowId }: { workflowId: string }) {
   // Renders based on selection type:
-  // - if (selection.type === "section") → SectionCanvas
+  // - if (selection.type === "page") → PageCanvas
   // - if (selection.type === "step") → StepCanvas
   // - if (!selection) → No Selection message
 }
 
-function SectionCanvas({ section, workflowId }) {
+function PageCanvas({ page, workflowId }) {
   // Edit: title, description
-  // Uses useUpdateSection() hook
+  // Uses useUpdatePage() hook
 }
 
-function StepCanvas({ step, sectionId }) {
+function StepCanvas({ step, pageId }) {
   // Edit: title, description, required, type, options
   // Mode-aware UI (easy vs advanced)
   // Uses useUpdateStep() hook
@@ -578,8 +578,8 @@ class RunService {
   // Save step value
   async saveStepValue(runId: string, stepId: string, value: any): Promise<StepValue>
 
-  // Evaluate logic and get next section
-  async getNextSection(runId: string): Promise<Section | null>
+  // Evaluate logic and get next page
+  async getNextPage(runId: string): Promise<Page | null>
 }
 ```
 
@@ -590,7 +590,7 @@ export const workflowRuns = pgTable("workflow_runs", {
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   runToken: text("run_token").notNull().unique(),
   createdBy: text("created_by"), // "creator:<userId>" or "anon"
-  currentSectionId: uuid("current_section_id").references(() => sections.id),
+  currentPageId: uuid("current_section_id").references(() => pages.id),
   progress: integer("progress").default(0), // 0-100
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),
@@ -622,8 +622,8 @@ type BlockType = "prefill" | "validate" | "branch"
 
 type BlockPhase = 
   | "onRunStart"       // Run creation
-  | "onSectionEnter"   // Entering a section
-  | "onSectionSubmit"  // Submitting section values
+  | "onPageEnter"   // Entering a page
+  | "onPageSubmit"  // Submitting page values
   | "onNext"           // Navigating to next
   | "onRunComplete"    // Completing the run
 ```
@@ -633,7 +633,7 @@ type BlockPhase =
 export const blocks = pgTable("blocks", {
   id: uuid("id").primaryKey(),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }), // nullable
+  pageId: uuid("section_id").references(() => pages.id, { onDelete: 'cascade' }), // nullable
   type: blockTypeEnum("type").notNull(),
   phase: blockPhaseEnum("phase").notNull(),
   config: jsonb("config").notNull(), // type-specific config
@@ -679,7 +679,7 @@ export const transformBlocks = pgTable("transform_blocks", {
 │  (Tree)      │  (Properties)    │  (Tabs)       │
 │              │                  │               │
 │              │                  │               │
-│ • Sections   │  Section / Step  │ Props|Blocks  │
+│ • Pages   │  Page / Step  │ Props|Blocks  │
 │   • Steps    │  editor form     │ |Transform|   │
 │              │                  │ |Logic[TODO]  │
 │              │                  │               │
@@ -702,9 +702,9 @@ export default function WorkflowBuilder() {
 
 ### Data Flow for Displaying Steps as Variables
 ```
-1. Load workflow with all sections and steps
+1. Load workflow with all pages and steps
    → WorkflowService.getWorkflowWithDetails()
-   → Returns workflow with sections[].steps[]
+   → Returns workflow with pages[].steps[]
 
 2. In Logic Editor, need to populate step selector dropdowns
    → Available Steps for conditions: All steps in workflow
@@ -751,8 +751,8 @@ export const queryKeys = {
   projects: ["projects"] as const,
   project: (id: string) => ["projects", id] as const,
   workflows: ["workflows"] as const,
-  sections: (workflowId: string) => ["sections", workflowId] as const,
-  steps: (sectionId: string) => ["steps", sectionId] as const,
+  pages: (workflowId: string) => ["pages", workflowId] as const,
+  steps: (pageId: string) => ["steps", pageId] as const,
   blocks: (workflowId: string, phase?: string) => ["blocks", workflowId, phase] as const,
   runs: (workflowId: string) => ["runs", workflowId] as const,
   run: (id: string) => ["runs", id] as const,
@@ -768,9 +768,9 @@ export function useUpdateStep() {
     mutationFn: ...,
     onSuccess: (data, variables) => {
       // Invalidate specific step cache
-      queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
-      // Invalidate section cache
-      queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
+      // Invalidate page cache
+      queryClient.invalidateQueries({ queryKey: queryKeys.pages(variables.workflowId) });
     },
   });
 }
@@ -781,10 +781,10 @@ export function useUpdateStep() {
 ## Summary of Key Findings
 
 ### Database Layer
-- **Steps are stored** in `steps` table with sectionId foreign key
+- **Steps are stored** in `steps` table with pageId foreign key
 - **Logic rules** stored separately in `logicRules` table
 - **Step values** captured in `stepValues` during runs
-- **Hierarchy:** Workflow → Sections → Steps
+- **Hierarchy:** Workflow → Pages → Steps
 
 ### Service Layer
 - **StepService** handles all business logic for CRUD operations
@@ -793,8 +793,8 @@ export function useUpdateStep() {
 - **Repository pattern** used for data access
 
 ### API Endpoints
-- Step CRUD at `/api/steps/:stepId` and `/api/workflows/:workflowId/sections/:sectionId/steps`
-- Reordering at `/api/workflows/:workflowId/sections/:sectionId/steps/reorder`
+- Step CRUD at `/api/steps/:stepId` and `/api/workflows/:workflowId/pages/:pageId/steps`
+- Reordering at `/api/workflows/:workflowId/pages/:pageId/steps/reorder`
 - All authenticated with `isAuthenticated` middleware
 
 ### Frontend Architecture
@@ -805,9 +805,9 @@ export function useUpdateStep() {
 
 ### Logic Evaluation
 - **Shared evaluation engine** in `/shared/workflowLogic.ts`
-- Supports step/section level targeting
+- Supports step/page level targeting
 - Rules evaluated based on current step values
-- Return: visible items, required items, skip-to section
+- Return: visible items, required items, skip-to page
 
 ### Missing Implementation
 - **Logic Editor UI** - placeholder in Inspector's Logic tab

@@ -5,30 +5,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { cn } from "@/lib/utils";
-import { type ApiSection } from "@/lib/vault-api";
+import { type ApiPage } from "@/lib/vault-api";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 
 
-interface SectionItemHeaderProps {
-    section: ApiSection;
+interface PageItemHeaderProps {
+    page: ApiPage;
     isExpanded: boolean;
     onToggle: () => void;
-    onEditSection: () => void;
-    isFinalSection: boolean;
+    onEditPage: () => void;
+    isFinalPage: boolean;
     isPageConditional: boolean;
 }
 
-export function SectionItemHeader({
-    section,
+export function PageItemHeader({
+    page,
     isExpanded,
     onToggle,
-    onEditSection,
-    isFinalSection,
+    onEditPage,
+    isFinalPage,
     isPageConditional
-}: SectionItemHeaderProps) {
-    const { selection, selectSection } = useWorkflowBuilder();
-    const isSelected = selection?.type === "section" && selection.id === section.id;
+}: PageItemHeaderProps) {
+    const { selection, selectPage } = useWorkflowBuilder();
+    const isSelected = selection?.type === "page" && selection.id === page.id;
 
     return (
         <div
@@ -36,12 +36,12 @@ export function SectionItemHeader({
                 "flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent/50 cursor-pointer group transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
                 isSelected && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             )}
-            onClick={() => { selectSection(section.id); }}
+            onClick={() => { selectPage(page.id); }}
             tabIndex={0}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    selectSection(section.id);
+                    selectPage(page.id);
                 }
                 if (e.key === 'ArrowRight' && !isExpanded) {
                     onToggle();
@@ -63,8 +63,8 @@ export function SectionItemHeader({
                 {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </Button>
             <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <span className="flex-1 text-sm truncate">{section.title}</span>
-            {isFinalSection && (
+            <span className="flex-1 text-sm truncate">{page.title}</span>
+            {isFinalPage && (
                 <Badge variant="secondary" className="text-xs px-1.5 py-0">
                     <FileCheck className="h-3 w-3 mr-1" />
                     Final
@@ -82,7 +82,7 @@ export function SectionItemHeader({
                     className="h-6 w-6"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onEditSection();
+                        onEditPage();
                     }}
                     title="Page Settings"
                 >

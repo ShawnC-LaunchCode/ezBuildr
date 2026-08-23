@@ -30,7 +30,7 @@ There are three primary ways to use scripts in VaultLogic:
 ### 2. Lifecycle Hooks
 - **What**: Scripts that run automatically at specific "events" in the workflow engine.
 - **When**: `beforePage`, `afterPage`, `beforeFinalBlock`, `afterDocumentsGenerated`.
-- **Use**: Global validation, cleaning up data between sections, setting up variables before a section starts.
+- **Use**: Global validation, cleaning up data between pages, setting up variables before a page starts.
 
 ### 3. Document Hooks
 - **What**: Scripts tied specifically to the document generation process for a Final Block.

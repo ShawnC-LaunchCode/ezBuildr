@@ -9,7 +9,7 @@ export interface RunDataStepMeta {
   id: string;
   alias: string | null;
   type: Step['type'];
-  sectionId: string;
+  pageId: string;
   isVirtual: boolean;
 }
 
@@ -113,7 +113,7 @@ export class RunDataService {
         id: step.id,
         alias: step.alias,
         type: step.type,
-        sectionId: step.sectionId,
+        pageId: step.pageId,
         isVirtual: step.isVirtual,
       })),
     };

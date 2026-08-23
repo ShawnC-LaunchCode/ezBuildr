@@ -39,8 +39,8 @@ describe.sequential('public run access policy', () => {
         requireLogin: true,
       },
     });
-    const publicSection = await factory.createSection(requireLogin.workflow.id);
-    await factory.createStep(publicSection.id, { alias: 'publicQuestion' });
+    const publicPage = await factory.createPage(requireLogin.workflow.id);
+    await factory.createStep(publicPage.id, { alias: 'publicQuestion' });
     await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: requireLogin.version.id })
       .where(eq(schema.workflows.id, requireLogin.workflow.id));
@@ -52,8 +52,8 @@ describe.sequential('public run access policy', () => {
         isPublic: false,
       },
     });
-    const privateSection = await factory.createSection(privateWorkflow.workflow.id);
-    await factory.createStep(privateSection.id, { alias: 'privateQuestion' });
+    const privatePage = await factory.createPage(privateWorkflow.workflow.id);
+    await factory.createStep(privatePage.id, { alias: 'privateQuestion' });
     await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: privateWorkflow.version.id })
       .where(eq(schema.workflows.id, privateWorkflow.workflow.id));

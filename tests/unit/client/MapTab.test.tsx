@@ -11,12 +11,12 @@ import type { BuildWorkflowMapInput } from "@shared/workflowMap";
 import type { WorkflowLintIssue } from "@shared/types/workflowLint";
 
 import {
-  linearThreeSections,
+  linearThreePages,
   workflowWithBackwardSkip,
-  workflowWithConditionalSection,
+  workflowWithConditionalPage,
   workflowWithFinalDocuments,
   workflowWithForwardSkip,
-  workflowWithUnreachableSection,
+  workflowWithUnreachablePage,
 } from "../../fixtures/workflowMap";
 
 /**
@@ -33,10 +33,10 @@ vi.mock("wouter", () => ({
 }));
 
 /**
- * MAP-4 AC9: covers AC2 (one node per section, in order, sequential edges),
+ * MAP-4 AC9: covers AC2 (one node per page, in order, sequential edges),
  * AC3 (final_documents + exactly one terminal node, visually distinct),
  * AC4 (a skip rule renders as a visually distinct edge) and AC5 (a
- * conditional section is marked by more than color — asserted by text/role,
+ * conditional page is marked by more than color — asserted by text/role,
  * never by class name), plus AC6 (nothing draggable/connectable/focusable).
  *
  * `@xyflow/react`'s canvas (`ReactFlow`, `ReactFlowProvider`, `Background`,
@@ -47,7 +47,7 @@ vi.mock("wouter", () => ({
  * to work around. What belongs to *this* component is which node/edge data
  * gets built and which node component renders it, which the stub below
  * exercises for real by rendering `nodeTypes[node.type]` with genuine
- * `NodeProps` — so `SectionMapNode` / `FinalDocumentsMapNode` /
+ * `NodeProps` — so `PageMapNode` / `FinalDocumentsMapNode` /
  * `TerminalMapNode` run unmodified. `Handle` is stubbed to `null` only
  * because it requires the real library's internal store context, which the
  * stub `ReactFlowProvider` below doesn't set up. `mapLayout.test.ts` and
@@ -140,7 +140,7 @@ vi.mock("@xyflow/react", async () => {
 });
 
 const mockQueryData = vi.hoisted(() => ({
-  sections: [] as BuildWorkflowMapInput["sections"],
+  pages: [] as BuildWorkflowMapInput["pages"],
   steps: [] as BuildWorkflowMapInput["steps"],
   rules: [] as BuildWorkflowMapInput["rules"],
   isLoading: false,
@@ -152,8 +152,8 @@ const mockLintData = vi.hoisted(() => ({
   issues: [] as WorkflowLintIssue[],
 }));
 
-vi.mock("@/hooks/api/useSections", () => ({
-  useSections: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.sections, isError: mockQueryData.isError }),
+vi.mock("@/hooks/api/usePages", () => ({
+  usePages: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.pages, isError: mockQueryData.isError }),
 }));
 vi.mock("@/hooks/api/useSteps", () => ({
   useWorkflowSteps: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.steps, isError: mockQueryData.isError }),
@@ -166,7 +166,7 @@ vi.mock("@/hooks/api/useWorkflowLint", () => ({
 }));
 
 function mockGraphData(input: BuildWorkflowMapInput): void {
-  mockQueryData.sections = input.sections;
+  mockQueryData.pages = input.pages;
   mockQueryData.steps = input.steps;
   mockQueryData.rules = input.rules;
   mockQueryData.isLoading = false;
@@ -180,27 +180,27 @@ afterEach(() => {
 });
 
 describe("MapTab (MAP-4)", () => {
-  it("renders one node per section, labelled with its title, in order, with sequential edges (AC2)", () => {
-    mockGraphData(linearThreeSections());
+  it("renders one node per page, labelled with its title, in order, with sequential edges (AC2)", () => {
+    mockGraphData(linearThreePages());
     render(<MapTab workflowId="wf-1" />);
 
     const nodesContainer = screen.getByTestId("flow-nodes");
     const labels = within(nodesContainer)
-      .getAllByText(/^Section [ABC]$|^Complete$/)
+      .getAllByText(/^Page [ABC]$|^Complete$/)
       .map((el) => el.textContent);
-    expect(labels).toEqual(["Section A", "Section B", "Section C", "Complete"]);
+    expect(labels).toEqual(["Page A", "Page B", "Page C", "Complete"]);
 
-    // 2 section-to-section edges + 1 section-to-terminal edge, all sequential.
+    // 2 page-to-page edges + 1 page-to-terminal edge, all sequential.
     const edges = screen.getAllByTestId(/^edge-sequential:/);
     expect(edges).toHaveLength(3);
     expect(screen.queryAllByTestId(/^edge-skip:/)).toHaveLength(0);
   });
 
-  it("gives a final_documents step its own node in addition to its section, plus exactly one terminal node (AC3)", () => {
+  it("gives a final_documents step its own node in addition to its page, plus exactly one terminal node (AC3)", () => {
     mockGraphData(workflowWithFinalDocuments());
     render(<MapTab workflowId="wf-1" />);
 
-    expect(screen.getByTestId("node-section-a")).toBeInTheDocument();
+    expect(screen.getByTestId("node-page-a")).toBeInTheDocument();
     expect(screen.getByTestId("node-step-doc")).toHaveAttribute("data-node-type", "final_documents");
     expect(screen.getByText("Generated Documents")).toBeInTheDocument();
     expect(screen.getByText("Final Documents")).toBeInTheDocument();
@@ -209,13 +209,13 @@ describe("MapTab (MAP-4)", () => {
     expect(screen.getAllByRole("img", { name: "Workflow complete" })).toHaveLength(1);
   });
 
-  it("renders a forward skip_to rule as a visually distinct edge from the condition's section to the target (AC4)", () => {
+  it("renders a forward skip_to rule as a visually distinct edge from the condition's page to the target (AC4)", () => {
     mockGraphData(workflowWithForwardSkip());
     render(<MapTab workflowId="wf-1" />);
 
     const skipEdge = screen.getByTestId("edge-skip:rule-skip-forward");
-    expect(skipEdge).toHaveAttribute("data-source", "section-a");
-    expect(skipEdge).toHaveAttribute("data-target", "section-c");
+    expect(skipEdge).toHaveAttribute("data-source", "page-a");
+    expect(skipEdge).toHaveAttribute("data-target", "page-c");
     // Distinct from a sequential edge by class (never color alone) and its own label.
     expect(skipEdge.className).not.toBe("");
     expect(skipEdge.className).not.toContain("sequential");
@@ -227,25 +227,25 @@ describe("MapTab (MAP-4)", () => {
     render(<MapTab workflowId="wf-1" />);
 
     const skipEdge = screen.getByTestId("edge-skip:rule-skip-backward");
-    expect(skipEdge).toHaveAttribute("data-source", "section-c");
-    expect(skipEdge).toHaveAttribute("data-target", "section-a");
+    expect(skipEdge).toHaveAttribute("data-source", "page-c");
+    expect(skipEdge).toHaveAttribute("data-target", "page-a");
   });
 
-  it("marks a conditional section by more than color — a labelled badge, found by text/role not class name (AC5)", () => {
-    mockGraphData(workflowWithConditionalSection());
+  it("marks a conditional page by more than color — a labelled badge, found by text/role not class name (AC5)", () => {
+    mockGraphData(workflowWithConditionalPage());
     render(<MapTab workflowId="wf-1" />);
 
-    const conditionalNode = screen.getByTestId("node-section-a");
+    const conditionalNode = screen.getByTestId("node-page-a");
     expect(within(conditionalNode).getByText("Conditional")).toBeInTheDocument();
-    expect(within(conditionalNode).getByRole("group", { name: /conditional section/i })).toBeInTheDocument();
+    expect(within(conditionalNode).getByRole("group", { name: /conditional page/i })).toBeInTheDocument();
 
-    const plainNode = screen.getByTestId("node-section-b");
+    const plainNode = screen.getByTestId("node-page-b");
     expect(within(plainNode).queryByText("Conditional")).not.toBeInTheDocument();
-    expect(within(plainNode).getByRole("group", { name: "Section B — section" })).toBeInTheDocument();
+    expect(within(plainNode).getByRole("group", { name: "Page B — page" })).toBeInTheDocument();
   });
 
   it("passes read-only flags through to ReactFlow — nothing draggable, connectable or focusable (AC6)", () => {
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     render(<MapTab workflowId="wf-1" />);
 
     const stub = screen.getByTestId("react-flow-stub");
@@ -255,7 +255,7 @@ describe("MapTab (MAP-4)", () => {
   });
 
   it("renders a loading state before all three queries have data, and never throws on an empty graph", () => {
-    mockQueryData.sections = [];
+    mockQueryData.pages = [];
     mockQueryData.steps = [];
     mockQueryData.rules = [];
     mockQueryData.isLoading = true;
@@ -268,25 +268,25 @@ describe("MapTab (MAP-4)", () => {
 
 /**
  * MAP-5 (GH-153 AC2): node-click-to-inspector. `ReactFlow` is stubbed above
- * exactly as MAP-4 left it — the real `SectionMapNode` / `FinalDocumentsMapNode`
+ * exactly as MAP-4 left it — the real `PageMapNode` / `FinalDocumentsMapNode`
  * / `TerminalMapNode` render for real inside it, so these exercise the actual
  * `<button>`, its `onClick`/keyboard handling and `MapTab`'s
  * `handleActivateNode`, not a mock of them.
  */
 describe("MapTab node activation (MAP-5)", () => {
-  it("navigates to the section's inspector via a URL on click (AC1)", async () => {
+  it("navigates to the page's inspector via a URL on click (AC1)", async () => {
     const user = userEvent.setup();
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     render(<MapTab workflowId="wf-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Open Section B section" }));
+    await user.click(screen.getByRole("button", { name: "Open Page B page" }));
 
     expect(navigateMock).toHaveBeenCalledWith(
-      "/workflows/wf-1/builder?tab=sections&sectionId=section-b"
+      "/workflows/wf-1/builder?tab=pages&pageId=page-b"
     );
   });
 
-  it("navigates with the step's id, not the section's, when activating a final_documents node (AC2)", async () => {
+  it("navigates with the step's id, not the page's, when activating a final_documents node (AC2)", async () => {
     const user = userEvent.setup();
     mockGraphData(workflowWithFinalDocuments());
     render(<MapTab workflowId="wf-1" />);
@@ -296,12 +296,12 @@ describe("MapTab node activation (MAP-5)", () => {
     );
 
     expect(navigateMock).toHaveBeenCalledWith(
-      "/workflows/wf-1/builder?tab=sections&stepId=step-doc"
+      "/workflows/wf-1/builder?tab=pages&stepId=step-doc"
     );
   });
 
   it("does not make the terminal node activatable — no button or link role (AC3)", () => {
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     render(<MapTab workflowId="wf-1" />);
 
     const terminalNode = screen.getByTestId("node-__complete__");
@@ -310,24 +310,24 @@ describe("MapTab node activation (MAP-5)", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("is reachable by Tab, names its section, and activates on both Enter and Space (AC4)", async () => {
+  it("is reachable by Tab, names its page, and activates on both Enter and Space (AC4)", async () => {
     const user = userEvent.setup();
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     render(<MapTab workflowId="wf-1" />);
 
-    const button = screen.getByRole("button", { name: /Section A/i });
+    const button = screen.getByRole("button", { name: /Page A/i });
     button.focus();
     expect(button).toHaveFocus();
 
     await user.keyboard("{Enter}");
     expect(navigateMock).toHaveBeenCalledWith(
-      "/workflows/wf-1/builder?tab=sections&sectionId=section-a"
+      "/workflows/wf-1/builder?tab=pages&pageId=page-a"
     );
 
     navigateMock.mockClear();
     await user.keyboard(" ");
     expect(navigateMock).toHaveBeenCalledWith(
-      "/workflows/wf-1/builder?tab=sections&sectionId=section-a"
+      "/workflows/wf-1/builder?tab=pages&pageId=page-a"
     );
   });
 });
@@ -343,24 +343,24 @@ describe("MapTab flow diagnostics (MAP-6)", () => {
   const unreachableError: WorkflowLintIssue = {
     type: "error",
     category: "logic",
-    message: "Section B is unreachable: nothing on the published path leads to it.",
-    target: { tab: "map", sectionId: "section-b" },
+    message: "Page B is unreachable: nothing on the published path leads to it.",
+    target: { tab: "map", pageId: "page-b" },
   };
 
   const backwardSkipWarning: WorkflowLintIssue = {
     type: "warning",
     category: "logic",
     message: "This rule can never fire; a page reorder likely broke it.",
-    target: { tab: "map", sectionId: "section-c" },
+    target: { tab: "map", pageId: "page-c" },
   };
 
-  it("flags an unreachable section as a blocking error, with its message reachable by hover (AC3)", async () => {
+  it("flags an unreachable page as a blocking error, with its message reachable by hover (AC3)", async () => {
     const user = userEvent.setup();
-    mockGraphData(workflowWithUnreachableSection());
+    mockGraphData(workflowWithUnreachablePage());
     mockLintData.issues = [unreachableError];
     render(<MapTab workflowId="wf-1" />);
 
-    const badge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
+    const badge = screen.getByRole("button", { name: /Page B: 1 error, 0 warnings/i });
     await user.hover(badge);
     // `role="tooltip"` is the one accessibly-connected node (Radix also
     // renders a duplicate for touch/no-hover fallback, so a plain text query
@@ -371,12 +371,12 @@ describe("MapTab flow diagnostics (MAP-6)", () => {
     expect(tooltip).toHaveTextContent(unreachableError.message);
   });
 
-  it("flags an unreachable section as a blocking error, with its message reachable by keyboard focus (AC3)", async () => {
-    mockGraphData(workflowWithUnreachableSection());
+  it("flags an unreachable page as a blocking error, with its message reachable by keyboard focus (AC3)", async () => {
+    mockGraphData(workflowWithUnreachablePage());
     mockLintData.issues = [unreachableError];
     render(<MapTab workflowId="wf-1" />);
 
-    const badge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
+    const badge = screen.getByRole("button", { name: /Page B: 1 error, 0 warnings/i });
     badge.focus();
     expect(badge).toHaveFocus();
     const tooltip = await screen.findByRole("tooltip");
@@ -385,12 +385,12 @@ describe("MapTab flow diagnostics (MAP-6)", () => {
 
   it("renders a backward-skip warning as visually distinct from an error — different icon, label and tooltip heading, not colour alone (AC4)", async () => {
     const user = userEvent.setup();
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     mockLintData.issues = [unreachableError, backwardSkipWarning];
     render(<MapTab workflowId="wf-1" />);
 
-    const errorBadge = screen.getByRole("button", { name: /Section B: 1 error, 0 warnings/i });
-    const warningBadge = screen.getByRole("button", { name: /Section C: 0 errors, 1 warning/i });
+    const errorBadge = screen.getByRole("button", { name: /Page B: 1 error, 0 warnings/i });
+    const warningBadge = screen.getByRole("button", { name: /Page C: 0 errors, 1 warning/i });
 
     // Distinct styling (never colour alone — className carries the distinct token pair, not just a hue).
     expect(errorBadge.className).not.toBe(warningBadge.className);
@@ -403,14 +403,14 @@ describe("MapTab flow diagnostics (MAP-6)", () => {
     expect(tooltip).not.toHaveTextContent("Blocking error");
   });
 
-  it("counts a finding whose target.sectionId matches no node in a visible summary, rather than dropping it (AC5)", () => {
+  it("counts a finding whose target.pageId matches no node in a visible summary, rather than dropping it (AC5)", () => {
     const danglingWarning: WorkflowLintIssue = {
       type: "warning",
       category: "logic",
-      message: "Stale reference to a section that no longer exists.",
-      target: { tab: "map", sectionId: "section-ghost" },
+      message: "Stale reference to a page that no longer exists.",
+      target: { tab: "map", pageId: "page-ghost" },
     };
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     mockLintData.issues = [danglingWarning];
     render(<MapTab workflowId="wf-1" />);
 
@@ -420,7 +420,7 @@ describe("MapTab flow diagnostics (MAP-6)", () => {
   });
 
   it("renders no findings summary and no node badges on a clean workflow", () => {
-    mockGraphData(linearThreeSections());
+    mockGraphData(linearThreePages());
     mockLintData.issues = [];
     render(<MapTab workflowId="wf-1" />);
 

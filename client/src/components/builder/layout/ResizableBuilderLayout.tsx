@@ -30,7 +30,7 @@ const COLLAPSE_SNAP_WIDTH = 100;
 /**
  * Width of the rail a collapsed panel leaves behind to hold its own reopen
  * control. The control used to float at `left: 0` over whatever panel was
- * beside it — which put it on top of the outline's section chevrons, styled
+ * beside it — which put it on top of the outline's page chevrons, styled
  * like them, swallowing the one it covered. Reserving a column costs 32px and
  * makes that impossible.
  */

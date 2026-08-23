@@ -36,19 +36,19 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
         );
     });
 
-    // Group by section
+    // Group by page
     const groupedVariables = filteredVariables.reduce((acc, variable) => {
-        const section = variable.sectionTitle || "Uncategorized";
+        const page = variable.pageTitle || "Uncategorized";
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!acc[section]) {
-            acc[section] = [];
+        if (!acc[page]) {
+            acc[page] = [];
         }
-        acc[section].push(variable);
+        acc[page].push(variable);
         return acc;
     }, {} as Record<string, ApiWorkflowVariable[]>);
 
-    // Sort sections alphabetically, but put "Uncategorized" last if needed (though usually not an issue)
-    const sortedSections = Object.keys(groupedVariables).sort();
+    // Sort pages alphabetically, but put "Uncategorized" last if needed (though usually not an issue)
+    const sortedPages = Object.keys(groupedVariables).sort();
 
     const handleCopy = (text: string) => {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -103,22 +103,22 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                     ) : (
                         <Accordion
                             type="multiple"
-                            defaultValue={sortedSections} // Default expand all to see content
+                            defaultValue={sortedPages} // Default expand all to see content
                             className="w-full space-y-2"
                         >
-                            {sortedSections.map((sectionTitle) => (
-                                <AccordionItem key={sectionTitle} value={sectionTitle} className="border rounded-md px-2">
+                            {sortedPages.map((pageTitle) => (
+                                <AccordionItem key={pageTitle} value={pageTitle} className="border rounded-md px-2">
                                     <AccordionTrigger className="py-2 hover:no-underline hover:bg-muted/50 -mx-2 px-2 rounded-t-md data-[state=open]:rounded-b-none">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-medium text-sm">{sectionTitle}</span>
+                                            <span className="font-medium text-sm">{pageTitle}</span>
                                             <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                                                {groupedVariables[sectionTitle].length}
+                                                {groupedVariables[pageTitle].length}
                                             </span>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="pb-2 pt-1">
                                         <div className="space-y-1">
-                                            {groupedVariables[sectionTitle].map((variable) => {
+                                            {groupedVariables[pageTitle].map((variable) => {
                                                 const displayKey = variable.alias ?? variable.key;
                                                 const pinned = isPinned(workflowId, displayKey);
                                                 const currentValue = values[variable.stepId];

@@ -7,15 +7,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useContainerWidth } from "@/hooks/useContainerWidth";
 import { Mode } from "@/lib/mode";
 import { cn } from "@/lib/utils";
-import { ApiSection, ApiBlock } from "@/lib/vault-api";
-import { useSections, useCreateSectionAtEnd, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
+import { ApiPage, ApiBlock } from "@/lib/vault-api";
+import { usePages, useCreatePageAtEnd, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
 
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
-import { SectionSettingsDialog } from "./SectionSettingsDialog";
+import { PageSettingsDialog } from "./PageSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
-import { SectionItem } from "./sidebar/SectionItem";
+import { PageItem } from "./sidebar/PageItem";
 import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 
@@ -38,36 +38,36 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   // width 0 is the pre-measurement frame; assume roomy so we don't flash compact.
   const isCompact = panelWidth > 0 && panelWidth < COMPACT_WIDTH_PX;
   const { data: workflow } = useWorkflow(workflowId);
-  const { data: sections } = useSections(workflowId);
+  const { data: pages } = usePages(workflowId);
   // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
   const mode: Mode = (workflow?.modeOverride as Mode) ?? 'easy';
   const { data: blocks } = useBlocks(workflowId);
-  const { createSectionAtEnd } = useCreateSectionAtEnd(workflowId);
+  const { createPageAtEnd } = useCreatePageAtEnd(workflowId);
   const createStepMutation = useCreateStep();
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
-  const [editingSection, setEditingSection] = useState<ApiSection | null>(null);
+  const [editingPage, setEditingPage] = useState<ApiPage | null>(null);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
-  const [isSectionSettingsOpen, setIsSectionSettingsOpen] = useState(false);
+  const [isPageSettingsOpen, setIsPageSettingsOpen] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
   const [showSnipDialog, setShowSnipDialog] = useState(false);
 
-  // Group blocks by section
-  const blocksBySection = (blocks ?? []).reduce((acc: Record<string, ApiBlock[]>, block: ApiBlock) => {
-    if (block.sectionId) {
+  // Group blocks by page
+  const blocksByPage = (blocks ?? []).reduce((acc: Record<string, ApiBlock[]>, block: ApiBlock) => {
+    if (block.pageId) {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (!acc[block.sectionId]) { acc[block.sectionId] = []; }
-      acc[block.sectionId].push(block);
+      if (!acc[block.pageId]) { acc[block.pageId] = []; }
+      acc[block.pageId].push(block);
     }
     return acc;
   }, {});
 
-  const handleCreateSection = async () => {
-    await createSectionAtEnd();
+  const handleCreatePage = async () => {
+    await createPageAtEnd();
   };
 
-  const handleCreateFinalDocumentsSection = async () => {
-    const section = await createSectionAtEnd({
+  const handleCreateFinalDocumentsPage = async () => {
+    const page = await createPageAtEnd({
       title: "Final Documents",
       config: {
         finalBlock: true,
@@ -77,9 +77,9 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
         advanced: {}
       }
     });
-    // Create the system step for this section
+    // Create the system step for this page
     await createStepMutation.mutateAsync({
-      sectionId: section.id,
+      pageId: page.id,
       type: "final_documents",
       title: "Final Documents",
       description: null,
@@ -90,8 +90,8 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
     });
   };
 
-  const toggleSection = (id: string) => {
-    setExpandedSections((prev) => {
+  const togglePage = (id: string) => {
+    setExpandedPages((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -127,8 +127,8 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       {/* Authoring actions live in one grouped panel rather than a row of
           ghost buttons in the title bar; the outline below stays navigation. */}
       <SidebarHeader
-        onAddPage={() => { void handleCreateSection(); }}
-        onAddFinalDocs={() => { void handleCreateFinalDocumentsSection(); }}
+        onAddPage={() => { void handleCreatePage(); }}
+        onAddFinalDocs={() => { void handleCreateFinalDocumentsPage(); }}
         onAiAssist={() => { setShowAiDialog(true); }}
         onAddSnip={() => { setShowSnipDialog(true); }}
         compact={isCompact}
@@ -138,27 +138,27 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       )}
       <ScrollArea className="flex-1">
         <div className="p-2">
-          {sections && sections.length === 0 && (
+          {pages && pages.length === 0 && (
             <div className="px-2 py-4 text-center text-muted-foreground">
               <p className="text-balance text-sm">No pages yet.</p>
               <Button
                 variant="link"
-                onClick={() => { void handleCreateSection(); }}
+                onClick={() => { void handleCreatePage(); }}
                 className="h-auto whitespace-normal text-balance px-1 py-1 text-sm leading-snug"
               >
                 {isCompact ? "Add one" : "Add your first page"}
               </Button>
             </div>
           )}
-          {sections?.map((section) => (
-            <SectionItem
-              key={section.id}
-              section={section}
+          {pages?.map((page) => (
+            <PageItem
+              key={page.id}
+              page={page}
               workflowId={workflowId}
-              isExpanded={expandedSections.has(section.id)}
-              onToggle={() => toggleSection(section.id)}
+              isExpanded={expandedPages.has(page.id)}
+              onToggle={() => togglePage(page.id)}
               mode={mode}
-              blocks={blocksBySection[section.id] ?? []}
+              blocks={blocksByPage[page.id] ?? []}
               onEditBlock={(rawBlock) => {
                 // Transform raw block to UniversalBlock format
                 const universalBlock: UniversalBlock = {
@@ -175,9 +175,9 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
                 setEditingBlock(universalBlock);
                 setIsBlockEditorOpen(true);
               }}
-              onEditSection={() => {
-                setEditingSection(section);
-                setIsSectionSettingsOpen(true);
+              onEditPage={() => {
+                setEditingPage(page);
+                setIsPageSettingsOpen(true);
               }}
             />
           ))}
@@ -194,14 +194,14 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           setEditingBlock(null);
         }}
       />
-      {/* Section Settings Dialog */}
-      <SectionSettingsDialog
+      {/* Page Settings Dialog */}
+      <PageSettingsDialog
         workflowId={workflowId}
-        section={editingSection}
-        isOpen={isSectionSettingsOpen}
+        page={editingPage}
+        isOpen={isPageSettingsOpen}
         onClose={() => {
-          setIsSectionSettingsOpen(false);
-          setEditingSection(null);
+          setIsPageSettingsOpen(false);
+          setEditingPage(null);
         }}
         mode={mode}
       />

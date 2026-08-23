@@ -32,8 +32,8 @@ describe.sequential('portal-assigned run access', () => {
     await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: created.version.id })
       .where(eq(schema.workflows.id, workflowId));
-    const section = await factory.createSection(workflowId);
-    await factory.createStep(section.id, { alias: 'name' });
+    const page = await factory.createPage(workflowId);
+    await factory.createStep(page.id, { alias: 'name' });
   });
 
   afterAll(async () => {

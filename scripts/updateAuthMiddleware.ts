@@ -26,7 +26,7 @@ const routeFiles = [
   'projects.routes.ts',
   'runs.routes.ts',
   'secrets.routes.ts',
-  'sections.routes.ts',
+  'pages.routes.ts',
   'steps.routes.ts',
   'templates.routes.ts',
   'templateSharing.routes.ts',

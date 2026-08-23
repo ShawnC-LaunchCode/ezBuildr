@@ -39,7 +39,7 @@ All client routes, taken from the Wouter `<Switch>` in `client/src/Router.tsx` (
 | Dashboard | `/dashboard` (and `/`) | Main hub after login |
 | Workflows List | `/workflows` | Browse workflows |
 | New Workflow | `/workflows/new` | Create workflow |
-| Workflow Builder | `/workflows/:id/builder` | 7-tab builder (Sections, Templates, Data Sources, Review, Snapshots, Settings, Assignment) |
+| Workflow Builder | `/workflows/:id/builder` | 7-tab builder (Pages, Templates, Data Sources, Review, Snapshots, Settings, Assignment) |
 | Workflow Preview | `/workflows/:workflowId/preview` | In-memory preview (no database) |
 | Workflow Analytics | `/workflows/:id/analytics` | Funnel, dropoff, trends |
 | Optimization Wizard | `/workflows/:workflowId/optimize` | AI workflow optimization |

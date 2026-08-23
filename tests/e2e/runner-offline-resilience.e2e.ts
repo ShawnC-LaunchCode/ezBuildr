@@ -43,8 +43,8 @@ test.describe("Runner Offline Buffering & Resilience E2E", () => {
       const workflow = JSON.parse(createWorkflowBody) as { id: string };
       workflowId = workflow.id;
 
-    // Create section
-    const createSectionResponse = await page.request.post(`/api/workflows/${workflowId}/sections`, {
+    // Create page
+    const createPageResponse = await page.request.post(`/api/workflows/${workflowId}/pages`, {
       headers: authHeaders,
       data: {
         title: "Contact Information",
@@ -52,12 +52,12 @@ test.describe("Runner Offline Buffering & Resilience E2E", () => {
         order: 0,
       },
     });
-    expect(createSectionResponse.ok()).toBeTruthy();
-    const section = await createSectionResponse.json();
-    const sectionId = section.id;
+    expect(createPageResponse.ok()).toBeTruthy();
+    const workflowPage = await createPageResponse.json();
+    const pageId = workflowPage.id;
 
     // Create Step 1: Text
-    const createStep1Response = await page.request.post(`/api/sections/${sectionId}/steps`, {
+    const createStep1Response = await page.request.post(`/api/pages/${pageId}/steps`, {
       headers: authHeaders,
       data: {
         title: "Full Name",
@@ -71,7 +71,7 @@ test.describe("Runner Offline Buffering & Resilience E2E", () => {
     const step1 = await createStep1Response.json();
 
     // Create Step 2: Email
-    const createStep2Response = await page.request.post(`/api/sections/${sectionId}/steps`, {
+    const createStep2Response = await page.request.post(`/api/pages/${pageId}/steps`, {
       headers: authHeaders,
       data: {
         title: "Email Address",

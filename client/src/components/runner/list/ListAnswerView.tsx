@@ -1,6 +1,6 @@
 /**
  * Read-only nested outline for a List answer (LIST-10) — used by
- * ReviewSection.tsx to show a respondent what they entered into a `list`
+ * ReviewPage.tsx to show a respondent what they entered into a `list`
  * step before submission. Every item is expanded inline; there is no
  * drilling and no editing affordance, because this is a confirmation
  * surface, not an editor. Reuses `resolveItemLabel` (LIST-8) for item

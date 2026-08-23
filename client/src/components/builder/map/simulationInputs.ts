@@ -7,7 +7,7 @@
  * **AC1: only steps some condition actually references.** Listing every step
  * in the workflow would be unusable. The reference set comes from the same
  * extraction the lint pipeline uses (`extractConditionReferences` in
- * `shared/conditionGraph.ts`), applied to every section's `visibleIf`, every
+ * `shared/conditionGraph.ts`), applied to every page's `visibleIf`, every
  * step's `visibleIf`, and every rule's `when` — the three places a
  * `ConditionExpression` can live (see `shared/workflowMap.ts`'s module doc
  * comment for why those are the only three).
@@ -21,7 +21,7 @@
  * **AC2's easiest way to get silently wrong** (per the ticket): the answer
  * object handed to `simulateWorkflowPath` must be keyed by step **id**, with
  * alias resolution supplied separately. `buildStepAliasResolver` below is
- * `useSectionVisibility.ts`'s exact resolver
+ * `usePageVisibility.ts`'s exact resolver
  * (`allSteps.find(s => s.alias === variableName)?.id`), not a reimplementation.
  */
 import type { ApiStep } from "@/lib/vault-api";
@@ -57,19 +57,19 @@ interface AliasableStep {
 }
 
 /**
- * Every step id that some `visibleIf` (section or step) or rule `when`
+ * Every step id that some `visibleIf` (page or step) or rule `when`
  * expression references, resolved from raw alias-or-id operands to real step
  * ids. An operand that resolves to nothing (dangling reference, or one of
  * this map's own steps missing) is dropped rather than invented.
  */
 export function getReferencedStepIds(
-  sections: ReferenceSource[],
+  pages: ReferenceSource[],
   steps: AliasableStep[],
   rules: RuleReferenceSource[]
 ): Set<string> {
   const rawRefs = new Set<string>();
-  for (const section of sections) {
-    for (const ref of extractConditionReferences(section.visibleIf)) { rawRefs.add(ref); }
+  for (const page of pages) {
+    for (const ref of extractConditionReferences(page.visibleIf)) { rawRefs.add(ref); }
   }
   for (const step of steps) {
     for (const ref of extractConditionReferences((step as ReferenceSource).visibleIf)) { rawRefs.add(ref); }
@@ -91,17 +91,17 @@ export function getReferencedStepIds(
  * own step order (never re-sorted) — AC1.
  */
 export function getReferencedSteps(
-  sections: ReferenceSource[],
+  pages: ReferenceSource[],
   steps: ApiStep[],
   rules: RuleReferenceSource[]
 ): ApiStep[] {
-  const ids = getReferencedStepIds(sections, steps, rules);
+  const ids = getReferencedStepIds(pages, steps, rules);
   return steps.filter((step) => ids.has(step.id));
 }
 
 /**
  * Resolves a step alias referenced by a condition to its step id — built the
- * exact way `useSectionVisibility.ts` does, so the panel's answers key
+ * exact way `usePageVisibility.ts` does, so the panel's answers key
  * identically to how the runner itself resolves aliases (AC2).
  */
 export function buildStepAliasResolver(steps: AliasableStep[]): (variableName: string) => string | undefined {
@@ -195,7 +195,7 @@ function buildOperatorConfig(
 /** Builds one `SimulationField` per referenced step, preserving the caller's order. */
 export function buildSimulationFields(
   referencedSteps: ApiStep[],
-  sectionTitleById: ReadonlyMap<string, string>
+  pageTitleById: ReadonlyMap<string, string>
 ): SimulationField[] {
   return referencedSteps.map((step) => {
     const stepType = toConditionStepType(step.type);
@@ -208,8 +208,8 @@ export function buildSimulationFields(
       label: step.alias ?? step.title,
       title: step.title,
       type: stepType,
-      sectionId: step.sectionId,
-      sectionTitle: sectionTitleById.get(step.sectionId) ?? "",
+      pageId: step.pageId,
+      pageTitle: pageTitleById.get(step.pageId) ?? "",
       choices,
     };
 

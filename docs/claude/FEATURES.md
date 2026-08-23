@@ -6,7 +6,7 @@ Feature status, security details, and recent architecture changes (verified July
 
 | Feature | Description |
 |---------|-------------|
-| **Workflow Builder** | Section/step builder with 7-tab navigation and inspector panel |
+| **Workflow Builder** | Page/step builder with 7-tab navigation and inspector panel |
 | **37 Step Types** | Text, choice, date/time, currency, address, scale, signature block, computed, multi-field, plus easy/advanced-mode variants and the structural `list`. Two types (`file_upload`, `list`) are not respondent-fillable yet and render a skip notice; `RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES` is the source of truth (`shared/types/runnerStepTypes.ts`). The retired `loop_group`/`repeater` types were removed in LIST-13. |
 | **DataVault** | Data platform: databases, tables, rows, 14 column types, infinite scroll, role-based permissions, ACLs, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |

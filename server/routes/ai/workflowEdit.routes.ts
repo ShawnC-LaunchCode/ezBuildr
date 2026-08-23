@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
+import type { Workflow, Page, Step, LogicRule } from "@shared/schema";
 
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
@@ -31,7 +31,7 @@ const logger = createLogger({ module: "ai-workflow-edit-routes" });
 
 // Define comprehensive workflow type used in context building
 interface WorkflowWithDetails extends Workflow {
-  sections: (Section & { steps: Step[] })[];
+  pages: (Page & { steps: Step[] })[];
   logicRules: LogicRule[];
 }
 
@@ -449,15 +449,15 @@ function buildSystemPrompt(preferences?: z.infer<typeof aiPreferencesSchema>, te
  * Build workflow context summary
  */
 function buildWorkflowContext(workflow: WorkflowWithDetails): string {
-  const sections = workflow.sections ?? [];
+  const pages = workflow.pages ?? [];
   const logicRules = workflow.logicRules ?? [];
   let context = `Workflow: ${workflow.title}
 Status: ${workflow.status}
-Sections: ${sections.length}
+Pages: ${pages.length}
 `;
-  for (const section of sections) {
-    const steps = section.steps ?? [];
-    context += `\n### Section ${section.order}: ${section.title}
+  for (const page of pages) {
+    const steps = page.steps ?? [];
+    context += `\n### Page ${page.order}: ${page.title}
 Steps: ${steps.length}
 `;
     for (const step of steps) {

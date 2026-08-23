@@ -18,7 +18,7 @@ const WORKFLOW_ID = '33333333-3333-4333-8333-333333333333';
 
 const MANIFEST = {
   scope: 'workflow',
-  entityCounts: { workflows: 1, sections: 3, steps: 12, templates: 1 },
+  entityCounts: { workflows: 1, pages: 3, steps: 12, templates: 1 },
   blobCount: 2,
   warnings: [
     {

@@ -17,7 +17,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Name",
           description: null,
@@ -35,7 +35,7 @@ describe("validation", () => {
         {
           id: "step-2",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Email",
           description: null,
@@ -67,7 +67,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Name",
           description: null,
@@ -85,7 +85,7 @@ describe("validation", () => {
         {
           id: "step-2",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Hidden Field",
           description: null,
@@ -115,7 +115,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "computed",
           title: "Virtual Step",
           description: null,
@@ -144,7 +144,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Name",
           description: null,
@@ -162,7 +162,7 @@ describe("validation", () => {
         {
           id: "step-2",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Email",
           description: null,
@@ -193,7 +193,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Field 1",
           description: null,
@@ -211,7 +211,7 @@ describe("validation", () => {
         {
           id: "step-2",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Field 2",
           description: null,
@@ -251,7 +251,7 @@ describe("validation", () => {
         {
           id: "step-1",
           workflowId: "wf-1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "short_text",
           title: "Optional Field",
           description: null,
@@ -281,7 +281,7 @@ describe("validation", () => {
       const unrequirableStep = (type: string, extra: Partial<Step> = {}): Step => ({
         id: "step-1",
         workflowId: "wf-1",
-        sectionId: "sec-1",
+        pageId: "page-1",
         type,
         title: "Unsupported Field",
         description: null,

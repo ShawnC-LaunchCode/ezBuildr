@@ -51,8 +51,8 @@ function variable(overrides: Partial<WorkflowVariable> & { key: string }): Workf
     alias: null,
     label: overrides.key,
     type: 'short_text',
-    sectionId: 'section-1',
-    sectionTitle: 'Section 1',
+    pageId: 'page-1',
+    pageTitle: 'Page 1',
     stepId: overrides.key,
     ...overrides,
   } as WorkflowVariable;

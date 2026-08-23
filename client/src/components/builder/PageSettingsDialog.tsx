@@ -4,59 +4,59 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiSection } from "@/lib/vault-api";
-import { useUpdateSection } from "@/lib/vault-hooks";
+import type { ApiPage } from "@/lib/vault-api";
+import { useUpdatePage } from "@/lib/vault-hooks";
 
 import type { ValidateRule } from "@shared/types/blocks";
 
-import { SectionAdvancedSettings } from "./sections/SectionAdvancedSettings";
-import { SectionGeneralSettings } from "./sections/SectionGeneralSettings";
+import { PageAdvancedSettings } from "./pages/PageAdvancedSettings";
+import { PageGeneralSettings } from "./pages/PageGeneralSettings";
 import { ValidationRulesEditor } from "./ValidationRulesEditor";
 
-export function SectionSettingsDialog({
+export function PageSettingsDialog({
     workflowId,
-    section,
+    page,
     isOpen,
     onClose,
     mode = "easy"
 }: {
     workflowId: string;
-    section: ApiSection | null;
+    page: ApiPage | null;
     isOpen: boolean;
     onClose: () => void;
     mode?: "easy" | "advanced";
 }) {
-    const updateSectionMutation = useUpdateSection();
+    const updatePageMutation = useUpdatePage();
     const { toast } = useToast();
 
     const [activeTab, setActiveTab] = useState("general");
-    const [title, setTitle] = useState(section?.title ?? "");
-    const [description, setDescription] = useState(section?.description ?? "");
-    // Validation rules are stored in section.config.validationRules
+    const [title, setTitle] = useState(page?.title ?? "");
+    const [description, setDescription] = useState(page?.description ?? "");
+    // Validation rules are stored in page.config.validationRules
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- API config is unknown
-    const [validationRules, setValidationRules] = useState<ValidateRule[]>(((section?.config as any)?.validationRules as ValidateRule[]) ?? []);
+    const [validationRules, setValidationRules] = useState<ValidateRule[]>(((page?.config as any)?.validationRules as ValidateRule[]) ?? []);
 
-    // Sync state when section changes (e.g. opening different section)
+    // Sync state when page changes (e.g. opening different page)
     useEffect(() => {
-        if (isOpen && section) {
-            setTitle(section?.title ?? "");
-            setDescription(section?.description ?? "");
+        if (isOpen && page) {
+            setTitle(page?.title ?? "");
+            setDescription(page?.description ?? "");
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- API config is unknown
-            setValidationRules(((section?.config as any)?.validationRules as ValidateRule[]) ?? []);
+            setValidationRules(((page?.config as any)?.validationRules as ValidateRule[]) ?? []);
         }
-    }, [isOpen, section]);
+    }, [isOpen, page]);
 
     const handleSave = async () => {
-        if (!section) { return; }
+        if (!page) { return; }
         try {
-            await updateSectionMutation.mutateAsync({
-                id: section.id,
+            await updatePageMutation.mutateAsync({
+                id: page.id,
                 workflowId,
                 title,
                 description,
                 config: {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config is generic
-                    ...(section.config as any),
+                    ...(page.config as any),
                     validationRules
                 }
             });
@@ -72,7 +72,7 @@ export function SectionSettingsDialog({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Page Settings: {section?.title}</DialogTitle>
+                    <DialogTitle>Page Settings: {page?.title}</DialogTitle>
                     <DialogDescription>Configure page properties and validation rules.</DialogDescription>
                 </DialogHeader>
 
@@ -84,7 +84,7 @@ export function SectionSettingsDialog({
                     </TabsList>
 
                     <TabsContent value="general">
-                        <SectionGeneralSettings
+                        <PageGeneralSettings
                             title={title}
                             setTitle={setTitle}
                             description={description}
@@ -106,7 +106,7 @@ export function SectionSettingsDialog({
 
                     {mode === 'advanced' && (
                         <TabsContent value="advanced">
-                            <SectionAdvancedSettings />
+                            <PageAdvancedSettings />
                         </TabsContent>
                     )}
                 </Tabs>

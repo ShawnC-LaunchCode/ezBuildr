@@ -46,7 +46,7 @@ describe('DocuSign production lifecycle', () => {
     const { workflow } = await factory.createWorkflow(ctx.projectId, ctx.userId, {
       workflow: { status: 'active', isPublic: true },
     });
-    const section = await factory.createSection(workflow.id);
+    const page = await factory.createPage(workflow.id);
     templateStorageKey = `tests/esign/${randomUUID()}.docx`;
     await storageProvider.uploadFile(
       templateStorageKey,
@@ -57,7 +57,7 @@ describe('DocuSign production lifecycle', () => {
       fileRef: templateStorageKey,
       name: 'Engagement Agreement.docx',
     });
-    const step = await factory.createStep(section.id, {
+    const step = await factory.createStep(page.id, {
       type: 'signature_block',
       title: 'Sign agreement',
       config: {
@@ -84,8 +84,8 @@ describe('DocuSign production lifecycle', () => {
       tokenExpiresAt: new Date(Date.now() + 3_600_000),
     });
     await getOwnerDb().insert(schema.stepValues).values([
-      { runId, stepId: (await factory.createStep(section.id, { alias: 'clientName', order: 2 })).id, value: 'Ava Client' },
-      { runId, stepId: (await factory.createStep(section.id, { alias: 'clientEmail', order: 3 })).id, value: 'ava@example.com' },
+      { runId, stepId: (await factory.createStep(page.id, { alias: 'clientName', order: 2 })).id, value: 'Ava Client' },
+      { runId, stepId: (await factory.createStep(page.id, { alias: 'clientEmail', order: 3 })).id, value: 'ava@example.com' },
     ]);
 
     const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });

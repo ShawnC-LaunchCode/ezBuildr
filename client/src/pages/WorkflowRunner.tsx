@@ -8,19 +8,19 @@ import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { ListDrillEditor } from "@/components/runner/list/ListDrillEditor";
 import { ListDrillProvider, useListDrill } from "@/components/runner/list/ListDrillContext";
 import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
-import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
-import { ReviewSection } from "@/components/runner/sections/ReviewSection";
-import { SectionSteps } from "@/components/runner/SectionSteps";
+import { FinalDocumentsPage } from "@/components/runner/pages/FinalDocumentsPage";
+import { ReviewPage } from "@/components/runner/pages/ReviewPage";
+import { PageSteps } from "@/components/runner/PageSteps";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRunSession } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
-import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
+import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { useWorkflow } from "@/lib/vault-hooks";
-import { fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import { fetchAPI, type ApiPage, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
@@ -35,36 +35,36 @@ interface WorkflowRunnerProps {
 
 type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'settings'>;
 
-type FinalSectionConfig = ComponentProps<typeof FinalDocumentsSection>['sectionConfig'];
+type FinalPageConfig = ComponentProps<typeof FinalDocumentsPage>['pageConfig'];
 type SaveStatus = ComponentProps<typeof ClientRunnerLayout>['saveStatus'];
-type RunnerSectionConfig = FinalSectionConfig & {
+type RunnerPageConfig = FinalPageConfig & {
   finalBlock?: unknown;
 };
 
 interface WorkflowRunnerScreenProps {
   isInitializing: boolean;
   initError: string | null;
-  sections: ApiSection[] | undefined;
+  pages: ApiPage[] | undefined;
   workflowId: string | undefined;
   isProductionMode: boolean;
   actualRunId: string | null;
   workflow: RunnerWorkflow | undefined;
   branding: ResolvedBranding;
-  currentSection: ApiSection | undefined;
-  currentSectionIndex: number;
-  visibleSections: ApiSection[];
+  currentPage: ApiPage | undefined;
+  currentPageIndex: number;
+  visiblePages: ApiPage[];
   effectiveAllSteps: ApiStep[] | undefined;
   effectiveValues: Record<string, unknown>;
   effectiveLogicRules: LogicRule[];
-  visibleSectionSteps: ApiStep[];
+  visiblePageSteps: ApiStep[];
   visibleReviewStepIds: string[];
   runToken: string | null;
   saveStatus: SaveStatus;
   saveNow: () => Promise<void>;
   showReview: boolean;
   isCompleted: boolean;
-  finalSectionConfig?: RunnerSectionConfig;
-  isLastSection: boolean;
+  finalPageConfig?: RunnerPageConfig;
+  isLastPage: boolean;
   errors: string[];
   fieldErrors: Record<string, string[]>;
   completeMutationIsPending: boolean;
@@ -72,10 +72,10 @@ interface WorkflowRunnerScreenProps {
   handlePrev: () => Promise<void>;
   handleFinalSubmit: () => Promise<void>;
   handleUpdateValue: (stepId: string, value: unknown) => void;
-  setCurrentSectionIndex: (sectionIndex: number) => void;
+  setCurrentPageIndex: (pageIndex: number) => void;
   setShowReview: (showReview: boolean) => void;
   reviewEditStepId: string | null;
-  onEditReviewStep: (stepId: string, sectionId: string) => void;
+  onEditReviewStep: (stepId: string, pageId: string) => void;
 }
 
 // `isProductionMode` stays in the loaded props: it is what tells a signature
@@ -83,29 +83,29 @@ interface WorkflowRunnerScreenProps {
 // optional prop would let a caller silently downgrade real signing to a mock.
 export type LoadedRunnerScreenProps = Omit<
   WorkflowRunnerScreenProps,
-  'isInitializing' | 'initError' | 'sections' | 'workflowId'
+  'isInitializing' | 'initError' | 'pages' | 'workflowId'
 >;
 
-function getRunnerSectionConfig(section: ApiSection): RunnerSectionConfig {
-  return (section.config ?? {}) as RunnerSectionConfig;
+function getRunnerPageConfig(page: ApiPage): RunnerPageConfig {
+  return (page.config ?? {}) as RunnerPageConfig;
 }
 
-function hasFinalBlock(section: ApiSection | undefined): boolean {
-  return section != null && Boolean(getRunnerSectionConfig(section).finalBlock);
+function hasFinalBlock(page: ApiPage | undefined): boolean {
+  return page != null && Boolean(getRunnerPageConfig(page).finalBlock);
 }
 
-export function partitionRunnerSections(visibleSections: ApiSection[]): {
-  respondentSections: ApiSection[];
-  finalSection: ApiSection | undefined;
+export function partitionRunnerPages(visiblePages: ApiPage[]): {
+  respondentPages: ApiPage[];
+  finalPage: ApiPage | undefined;
 } {
   return {
-    respondentSections: visibleSections.filter((section) => !hasFinalBlock(section)),
-    finalSection: visibleSections.find((section) => hasFinalBlock(section)),
+    respondentPages: visiblePages.filter((page) => !hasFinalBlock(page)),
+    finalPage: visiblePages.find((page) => hasFinalBlock(page)),
   };
 }
 
-function getProgress(currentSectionIndex: number, totalSections: number): number {
-  return Math.round((currentSectionIndex / Math.max(1, totalSections)) * 100);
+function getProgress(currentPageIndex: number, totalPages: number): number {
+  return Math.round((currentPageIndex / Math.max(1, totalPages)) * 100);
 }
 
 function getWorkflowTitle(workflow: RunnerWorkflow | undefined): string {
@@ -129,10 +129,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   const { data: previewWorkflow } = useWorkflow(workflowId ?? "", { enabled: !isProductionMode && workflowId != null });
   const workflow = isProductionMode ? runtime?.workflow : previewWorkflow;
 
-  // 3. Resolve Sections & Steps
-  const sections = useMemo(() => {
-    return isProductionMode ? runtime?.sections : previewEnvironment?.getSections();
-  }, [isProductionMode, previewEnvironment, runtime?.sections]);
+  // 3. Resolve Pages & Steps
+  const pages = useMemo(() => {
+    return isProductionMode ? runtime?.pages : previewEnvironment?.getPages();
+  }, [isProductionMode, previewEnvironment, runtime?.pages]);
 
   const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
   const effectiveAllSteps = isProductionMode ? runtime?.steps : previewEnvironment?.getSteps();
@@ -155,22 +155,22 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   });
 
   // 5. Visibility Engine
-  const { visibleSections, getVisibleSectionSteps } = useSectionVisibility(
-    sections,
+  const { visiblePages, getVisiblePageSteps } = usePageVisibility(
+    pages,
     effectiveAllSteps,
     effectiveValues,
     effectiveLogicRules
   );
-  const { respondentSections, finalSection } = useMemo(
-    () => partitionRunnerSections(visibleSections),
-    [visibleSections]
+  const { respondentPages, finalPage } = useMemo(
+    () => partitionRunnerPages(visiblePages),
+    [visiblePages]
   );
-  const finalSectionConfig = finalSection ? getRunnerSectionConfig(finalSection) : undefined;
+  const finalPageConfig = finalPage ? getRunnerPageConfig(finalPage) : undefined;
 
   const navigationTransport = useRunNavigationTransport({
     mode,
     previewEnvironment,
-    getVisibleSectionSteps,
+    getVisiblePageSteps,
     onPreviewComplete,
     saveNow
   });
@@ -179,10 +179,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   // 6. Navigation & Validation
   const {
-    currentSectionIndex,
-    setCurrentSectionIndex,
-    currentSection,
-    isLastSection,
+    currentPageIndex,
+    setCurrentPageIndex,
+    currentPage,
+    isLastPage,
     showReview,
     isCompleted,
     setShowReview,
@@ -197,27 +197,27 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     workflowId,
     runVersionId: run?.workflowVersionId ?? undefined,
     initialCompleted: run?.completed ?? false,
-    initialSectionId: run?.currentSectionId,
-    visibleSections: respondentSections,
+    initialPageId: run?.currentPageId,
+    visiblePages: respondentPages,
     effectiveValues,
     transport: navigationTransport,
     returnToReviewAfterNext: reviewEditStepId !== null,
   });
 
-  const visibleSectionSteps = currentSection != null ? getVisibleSectionSteps(currentSection.id) : [];
-  const visibleReviewStepIds = useMemo(() => respondentSections.flatMap((section) =>
-    getVisibleSectionSteps(section.id).map((step) => step.id)
-  ), [getVisibleSectionSteps, respondentSections]);
+  const visiblePageSteps = currentPage != null ? getVisiblePageSteps(currentPage.id) : [];
+  const visibleReviewStepIds = useMemo(() => respondentPages.flatMap((page) =>
+    getVisiblePageSteps(page.id).map((step) => step.id)
+  ), [getVisiblePageSteps, respondentPages]);
 
-  const onEditReviewStep = useCallback((stepId: string, sectionId: string) => {
-    const sectionIndex = respondentSections.findIndex((section) => section.id === sectionId);
-    if (sectionIndex < 0) {
+  const onEditReviewStep = useCallback((stepId: string, pageId: string) => {
+    const pageIndex = respondentPages.findIndex((page) => page.id === pageId);
+    if (pageIndex < 0) {
       return;
     }
     setReviewEditStepId(stepId);
-    setCurrentSectionIndex(sectionIndex);
+    setCurrentPageIndex(pageIndex);
     setShowReview(false);
-  }, [respondentSections, setCurrentSectionIndex, setShowReview]);
+  }, [respondentPages, setCurrentPageIndex, setShowReview]);
 
   useEffect(() => {
     if (showReview || reviewEditStepId === null) {
@@ -253,27 +253,27 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     <WorkflowRunnerScreen
       isInitializing={isInitializing}
       initError={initError}
-      sections={sections}
+      pages={pages}
       workflowId={workflowId}
       isProductionMode={isProductionMode}
       actualRunId={actualRunId}
       workflow={workflow}
       branding={branding}
-      currentSection={currentSection}
-      currentSectionIndex={currentSectionIndex}
-      visibleSections={respondentSections}
+      currentPage={currentPage}
+      currentPageIndex={currentPageIndex}
+      visiblePages={respondentPages}
       effectiveAllSteps={effectiveAllSteps}
       effectiveValues={effectiveValues}
       effectiveLogicRules={effectiveLogicRules}
-      visibleSectionSteps={visibleSectionSteps}
+      visiblePageSteps={visiblePageSteps}
       visibleReviewStepIds={visibleReviewStepIds}
       runToken={runToken}
       saveStatus={saveStatus}
       saveNow={saveNow}
       showReview={showReview}
       isCompleted={isCompleted}
-      finalSectionConfig={finalSectionConfig}
-      isLastSection={isLastSection}
+      finalPageConfig={finalPageConfig}
+      isLastPage={isLastPage}
       errors={errors}
       fieldErrors={fieldErrors}
       completeMutationIsPending={completeMutationIsPending}
@@ -284,7 +284,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       }}
       handleFinalSubmit={handleFinalSubmit}
       handleUpdateValue={handleUpdateValue}
-      setCurrentSectionIndex={setCurrentSectionIndex}
+      setCurrentPageIndex={setCurrentPageIndex}
       setShowReview={setShowReview}
       reviewEditStepId={reviewEditStepId}
       onEditReviewStep={onEditReviewStep}
@@ -293,7 +293,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 }
 
 function WorkflowRunnerScreen(props: WorkflowRunnerScreenProps): ReactElement {
-  const { isInitializing, initError, sections, workflowId, isProductionMode, actualRunId } = props;
+  const { isInitializing, initError, pages, workflowId, isProductionMode, actualRunId } = props;
 
   if (isInitializing) {
     return <FullScreenLoader message="Starting session..." />;
@@ -303,7 +303,7 @@ function WorkflowRunnerScreen(props: WorkflowRunnerScreenProps): ReactElement {
     return <SessionError message={initError} />;
   }
 
-  if (sections == null || workflowId == null || workflowId === "" || (isProductionMode && actualRunId == null)) {
+  if (pages == null || workflowId == null || workflowId === "" || (isProductionMode && actualRunId == null)) {
     return <FullScreenLoader message="Loading workflow..." />;
   }
 
@@ -350,7 +350,7 @@ function SessionError({ message }: { message: string }): ReactElement {
   );
 }
 
-function NoVisibleSectionsScreen({ actualRunId, completeMutationIsPending, handleFinalSubmit }: LoadedRunnerScreenProps): ReactElement {
+function NoVisiblePagesScreen({ actualRunId, completeMutationIsPending, handleFinalSubmit }: LoadedRunnerScreenProps): ReactElement {
   const canSubmit = actualRunId != null;
 
   return (
@@ -389,7 +389,7 @@ export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement
         workflow={props.workflow}
         actualRunId={props.actualRunId}
         runToken={props.runToken}
-        finalSectionConfig={props.finalSectionConfig}
+        finalPageConfig={props.finalPageConfig}
         branding={props.branding}
       />
     );
@@ -399,8 +399,8 @@ export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement
     return <ReviewRunnerScreen {...props} />;
   }
 
-  if (props.visibleSections.length === 0) {
-    return <NoVisibleSectionsScreen {...props} />;
+  if (props.visiblePages.length === 0) {
+    return <NoVisiblePagesScreen {...props} />;
   }
 
   return <QuestionRunnerScreen {...props} />;
@@ -428,7 +428,7 @@ interface CompletedRunnerScreenProps {
   workflow: RunnerWorkflow | undefined;
   actualRunId: string | null;
   runToken: string | null;
-  finalSectionConfig?: RunnerSectionConfig;
+  finalPageConfig?: RunnerPageConfig;
   branding: ResolvedBranding;
 }
 
@@ -436,11 +436,11 @@ function CompletedRunnerScreen({
   workflow,
   actualRunId,
   runToken,
-  finalSectionConfig,
+  finalPageConfig,
   branding,
 }: CompletedRunnerScreenProps): ReactElement {
   const settings = (workflow?.settings ?? {}) as RunnerSettings;
-  const redirectUrl = finalSectionConfig ? null : getSafeRedirectUrl(settings.redirectUrl);
+  const redirectUrl = finalPageConfig ? null : getSafeRedirectUrl(settings.redirectUrl);
 
   useEffect(() => {
     if (!redirectUrl) {
@@ -453,7 +453,7 @@ function CompletedRunnerScreen({
     return () => window.clearTimeout(timer);
   }, [redirectUrl]);
 
-  if (actualRunId && finalSectionConfig) {
+  if (actualRunId && finalPageConfig) {
     return (
       <ClientRunnerLayout
         title={getWorkflowTitle(workflow)}
@@ -463,10 +463,10 @@ function CompletedRunnerScreen({
         saveStatus="saved"
         branding={branding}
       >
-        <FinalDocumentsSection
+        <FinalDocumentsPage
           runId={actualRunId}
           runToken={runToken ?? undefined}
-          sectionConfig={finalSectionConfig}
+          pageConfig={finalPageConfig}
         />
       </ClientRunnerLayout>
     );
@@ -502,7 +502,7 @@ function CompletedRunnerScreen({
 function ReviewRunnerScreen({
   workflow,
   branding,
-  visibleSections,
+  visiblePages,
   effectiveAllSteps,
   effectiveValues,
   visibleReviewStepIds,
@@ -516,16 +516,16 @@ function ReviewRunnerScreen({
     <ClientRunnerLayout
       title={getWorkflowTitle(workflow)}
       progress={100}
-      currentStep={visibleSections.length}
-      totalSteps={visibleSections.length}
+      currentStep={visiblePages.length}
+      totalSteps={visiblePages.length}
       saveStatus={saveStatus}
       branding={branding}
     >
-      <ReviewSection
-        sections={visibleSections}
+      <ReviewPage
+        pages={visiblePages}
         allSteps={effectiveAllSteps ?? []}
         values={effectiveValues}
-        visibleSectionIds={visibleSections.map((section) => section.id)}
+        visiblePageIds={visiblePages.map((page) => page.id)}
         visibleStepIds={visibleReviewStepIds}
         onEditStep={onEditReviewStep}
       />
@@ -545,13 +545,13 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   const {
     workflow,
     branding,
-    currentSection,
-    currentSectionIndex,
-    visibleSections,
+    currentPage,
+    currentPageIndex,
+    visiblePages,
     saveStatus,
     saveNow,
     errors,
-    visibleSectionSteps,
+    visiblePageSteps,
     effectiveAllSteps,
     effectiveValues,
     handleUpdateValue,
@@ -559,7 +559,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     effectiveLogicRules,
     handlePrev,
     handleNext,
-    isLastSection,
+    isLastPage,
     actualRunId,
     runToken,
     reviewEditStepId,
@@ -572,28 +572,28 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   return (
     <ClientRunnerLayout
       title={getWorkflowTitle(workflow)}
-      progress={getProgress(currentSectionIndex, visibleSections.length)}
-      currentStep={currentSectionIndex}
-      totalSteps={visibleSections.length}
+      progress={getProgress(currentPageIndex, visiblePages.length)}
+      currentStep={currentPageIndex}
+      totalSteps={visiblePages.length}
       saveStatus={saveStatus}
       saveAndResumeAction={saveAndResumeAction}
       branding={branding}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
-        <QuestionSectionHeader currentSection={currentSection} />
-        {/* Keyed by section so drilling into a List never survives a section change (LIST-8) — resume always reopens at the section, not mid-drill. */}
-        <ListDrillProvider key={currentSection?.id}>
+        <QuestionPageHeader currentPage={currentPage} />
+        {/* Keyed by page so drilling into a List never survives a page change (LIST-8) — resume always reopens at the page, not mid-drill. */}
+        <ListDrillProvider key={currentPage?.id}>
           <QuestionCardContent
-            currentSection={currentSection}
-            visibleSectionSteps={visibleSectionSteps}
+            currentPage={currentPage}
+            visiblePageSteps={visiblePageSteps}
             allSteps={effectiveAllSteps}
             effectiveValues={effectiveValues}
             handleUpdateValue={handleUpdateValue}
             fieldErrors={fieldErrors}
             effectiveLogicRules={effectiveLogicRules}
             errors={errors}
-            currentSectionIndex={currentSectionIndex}
-            isLastSection={isLastSection}
+            currentPageIndex={currentPageIndex}
+            isLastPage={isLastPage}
             returnToReview={reviewEditStepId !== null}
             handlePrev={handlePrev}
             handleNext={handleNext}
@@ -607,34 +607,34 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   );
 }
 
-export interface QuestionCardContentProps extends QuestionSectionBodyProps {
+export interface QuestionCardContentProps extends QuestionPageBodyProps {
   errors: string[];
-  currentSectionIndex: number;
-  isLastSection: boolean;
+  currentPageIndex: number;
+  isLastPage: boolean;
   returnToReview?: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
 }
 
 /**
- * Switches the section body (and Back/Next) for the List drill-in editor
+ * Switches the page body (and Back/Next) for the List drill-in editor
  * while a List step is drilled into (LIST-8) — drilling replaces the whole
- * section body, not just the List step's own row, and hides Back/Next in
+ * page body, not just the List step's own row, and hides Back/Next in
  * favor of the editor's own "← parent"/"Done" controls. Exported (alongside
- * `partitionRunnerSections`/`LoadedRunnerScreen`) so tests can render it
+ * `partitionRunnerPages`/`LoadedRunnerScreen`) so tests can render it
  * directly instead of standing up the whole data-fetching page.
  */
 export function QuestionCardContent({
-  currentSection,
-  visibleSectionSteps,
+  currentPage,
+  visiblePageSteps,
   allSteps,
   effectiveValues,
   handleUpdateValue,
   fieldErrors,
   effectiveLogicRules,
   errors,
-  currentSectionIndex,
-  isLastSection,
+  currentPageIndex,
+  isLastPage,
   returnToReview = false,
   handlePrev,
   handleNext,
@@ -644,13 +644,13 @@ export function QuestionCardContent({
 }: QuestionCardContentProps): ReactElement {
   const { drill } = useListDrill();
   const drilledStep = drill
-    ? (visibleSectionSteps.find((step) => step.id === drill.stepId) ?? allSteps?.find((step) => step.id === drill.stepId))
+    ? (visiblePageSteps.find((step) => step.id === drill.stepId) ?? allSteps?.find((step) => step.id === drill.stepId))
     : undefined;
 
   // Alias -> step id map for a drilled field's dynamic options (e.g. a
   // `choice` field bound to another list step), mirroring how
-  // SectionSteps.tsx builds the same map for the non-drilled path.
-  const aliasSourceSteps = allSteps ?? visibleSectionSteps;
+  // PageSteps.tsx builds the same map for the non-drilled path.
+  const aliasSourceSteps = allSteps ?? visiblePageSteps;
   const aliasMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const step of aliasSourceSteps) {
@@ -678,9 +678,9 @@ export function QuestionCardContent({
             />
           </BlockErrorBoundary>
         ) : (
-          <QuestionSectionBody
-            currentSection={currentSection}
-            visibleSectionSteps={visibleSectionSteps}
+          <QuestionPageBody
+            currentPage={currentPage}
+            visiblePageSteps={visiblePageSteps}
             allSteps={allSteps}
             effectiveValues={effectiveValues}
             handleUpdateValue={handleUpdateValue}
@@ -694,8 +694,8 @@ export function QuestionCardContent({
       </CardContent>
       {!drill && (
         <QuestionNavigation
-          currentSectionIndex={currentSectionIndex}
-          isLastSection={isLastSection}
+          currentPageIndex={currentPageIndex}
+          isLastPage={isLastPage}
           returnToReview={returnToReview}
           handlePrev={handlePrev}
           handleNext={handleNext}
@@ -705,19 +705,19 @@ export function QuestionCardContent({
   );
 }
 
-function QuestionSectionHeader({ currentSection }: { currentSection: ApiSection | undefined }): ReactElement | null {
-  if (currentSection == null) {
+function QuestionPageHeader({ currentPage }: { currentPage: ApiPage | undefined }): ReactElement | null {
+  if (currentPage == null) {
     return null;
   }
 
   return (
     <CardHeader className="bg-gray-50/50 dark:bg-zinc-800/50 border-b pb-6">
       <CardTitle className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-        {currentSection.title}
+        {currentPage.title}
       </CardTitle>
-      {currentSection.description != null && currentSection.description !== "" && (
+      {currentPage.description != null && currentPage.description !== "" && (
         <CardDescription className="text-base mt-2 whitespace-pre-wrap dark:text-gray-400">
-          {currentSection.description}
+          {currentPage.description}
         </CardDescription>
       )}
     </CardHeader>
@@ -744,9 +744,9 @@ function ErrorSummary({ errors }: { errors: string[] }): ReactElement | null {
   );
 }
 
-interface QuestionSectionBodyProps {
-  currentSection: ApiSection | undefined;
-  visibleSectionSteps: ApiStep[];
+interface QuestionPageBodyProps {
+  currentPage: ApiPage | undefined;
+  visiblePageSteps: ApiStep[];
   allSteps: ApiStep[] | undefined;
   effectiveValues: Record<string, unknown>;
   handleUpdateValue: (stepId: string, value: unknown) => void;
@@ -757,9 +757,9 @@ interface QuestionSectionBodyProps {
   preview?: boolean;
 }
 
-function QuestionSectionBody({
-  currentSection,
-  visibleSectionSteps,
+function QuestionPageBody({
+  currentPage,
+  visiblePageSteps,
   allSteps,
   effectiveValues,
   handleUpdateValue,
@@ -768,12 +768,12 @@ function QuestionSectionBody({
   runId,
   runToken,
   preview,
-}: QuestionSectionBodyProps): ReactElement {
-  if (currentSection != null && visibleSectionSteps.length > 0) {
+}: QuestionPageBodyProps): ReactElement {
+  if (currentPage != null && visiblePageSteps.length > 0) {
     return (
-      <SectionSteps
-        sectionId={currentSection.id}
-        steps={visibleSectionSteps}
+      <PageSteps
+        pageId={currentPage.id}
+        steps={visiblePageSteps}
         allSteps={allSteps}
         values={effectiveValues}
         onChange={handleUpdateValue}
@@ -788,22 +788,22 @@ function QuestionSectionBody({
 
   return (
     <div className="py-12 text-center text-gray-500 italic border border-dashed rounded-lg bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700">
-      {currentSection != null ? "No questions in this section." : "No visible sections."}
+      {currentPage != null ? "No questions in this page." : "No visible pages."}
     </div>
   );
 }
 
 interface QuestionNavigationProps {
-  currentSectionIndex: number;
-  isLastSection: boolean;
+  currentPageIndex: number;
+  isLastPage: boolean;
   returnToReview: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
 }
 
 function QuestionNavigation({
-  currentSectionIndex,
-  isLastSection,
+  currentPageIndex,
+  isLastPage,
   returnToReview,
   handlePrev,
   handleNext,
@@ -814,7 +814,7 @@ function QuestionNavigation({
         type="button"
         variant="outline"
         onClick={() => { void handlePrev(); }}
-        disabled={currentSectionIndex === 0}
+        disabled={currentPageIndex === 0}
         className="w-28 md:w-32 shadow-sm font-medium"
       >
         <ChevronLeft className="w-4 h-4 mr-2" /> Back
@@ -822,7 +822,7 @@ function QuestionNavigation({
       <Button type="button" onClick={() => { void handleNext(); }} className="w-28 md:w-32 shadow-sm font-medium relative group">
         {returnToReview ? (
           <>Review <Check className="w-4 h-4 ml-2" /></>
-        ) : isLastSection ? (
+        ) : isLastPage ? (
           <>Review <Check className="w-4 h-4 ml-2" /></>
         ) : (
           <>Next <ChevronRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" /></>

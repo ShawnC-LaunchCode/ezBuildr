@@ -11,11 +11,11 @@ import type { ApiStep } from "@/lib/vault-api";
 
 const createdAt = "2026-08-08T00:00:00.000Z";
 
-function step(overrides: Partial<ApiStep> & Pick<ApiStep, "id" | "sectionId" | "type" | "title">): ApiStep {
+function step(overrides: Partial<ApiStep> & Pick<ApiStep, "id" | "pageId" | "type" | "title">): ApiStep {
   return {
     id: overrides.id,
     workflowId: "wf-1",
-    sectionId: overrides.sectionId,
+    pageId: overrides.pageId,
     type: overrides.type,
     title: overrides.title,
     description: null,
@@ -38,22 +38,22 @@ function isTrue(variable: string): unknown {
 }
 
 describe("getReferencedStepIds / getReferencedSteps (MAP-8 AC1)", () => {
-  it("collects references from a section's visibleIf, a step's visibleIf, and a rule's when", () => {
-    const sections = [{ visibleIf: isTrue("from-section") }];
+  it("collects references from a page's visibleIf, a step's visibleIf, and a rule's when", () => {
+    const pages = [{ visibleIf: isTrue("from-page") }];
     const steps = [
-      step({ id: "from-section", sectionId: "sec-1", type: "yes_no", title: "Trigger A" }),
-      step({ id: "from-step", sectionId: "sec-1", type: "yes_no", title: "Trigger B" }),
-      step({ id: "from-rule", sectionId: "sec-1", type: "yes_no", title: "Trigger C" }),
-      step({ id: "dependent", sectionId: "sec-1", type: "short_text", title: "Depends on B", visibleIf: isTrue("from-step") }),
+      step({ id: "from-page", pageId: "page-1", type: "yes_no", title: "Trigger A" }),
+      step({ id: "from-step", pageId: "page-1", type: "yes_no", title: "Trigger B" }),
+      step({ id: "from-rule", pageId: "page-1", type: "yes_no", title: "Trigger C" }),
+      step({ id: "dependent", pageId: "page-1", type: "short_text", title: "Depends on B", visibleIf: isTrue("from-step") }),
     ];
     const rules = [{ when: isTrue("from-rule") }];
 
-    const ids = getReferencedStepIds(sections, steps, rules);
-    expect(ids).toEqual(new Set(["from-section", "from-step", "from-rule"]));
+    const ids = getReferencedStepIds(pages, steps, rules);
+    expect(ids).toEqual(new Set(["from-page", "from-step", "from-rule"]));
   });
 
   it("resolves a reference by alias to the step's real id — never keeps the alias itself", () => {
-    const steps = [step({ id: "step-uuid", sectionId: "sec-1", type: "yes_no", title: "Trigger", alias: "agree" })];
+    const steps = [step({ id: "step-uuid", pageId: "page-1", type: "yes_no", title: "Trigger", alias: "agree" })];
     const rules = [{ when: isTrue("agree") }];
 
     const ids = getReferencedStepIds([], steps, rules);
@@ -61,7 +61,7 @@ describe("getReferencedStepIds / getReferencedSteps (MAP-8 AC1)", () => {
   });
 
   it("drops a reference that resolves to no known step (dangling) rather than inventing a field for it", () => {
-    const steps = [step({ id: "step-a", sectionId: "sec-1", type: "yes_no", title: "A" })];
+    const steps = [step({ id: "step-a", pageId: "page-1", type: "yes_no", title: "A" })];
     const rules = [{ when: isTrue("step-ghost") }];
 
     const ids = getReferencedStepIds([], steps, rules);
@@ -70,8 +70,8 @@ describe("getReferencedStepIds / getReferencedSteps (MAP-8 AC1)", () => {
 
   it("returns only referenced steps, not every step in the workflow (AC1)", () => {
     const steps = [
-      step({ id: "referenced", sectionId: "sec-1", type: "yes_no", title: "Referenced" }),
-      step({ id: "unreferenced", sectionId: "sec-1", type: "short_text", title: "Unreferenced" }),
+      step({ id: "referenced", pageId: "page-1", type: "yes_no", title: "Referenced" }),
+      step({ id: "unreferenced", pageId: "page-1", type: "short_text", title: "Unreferenced" }),
     ];
     const rules = [{ when: isTrue("referenced") }];
 
@@ -81,8 +81,8 @@ describe("getReferencedStepIds / getReferencedSteps (MAP-8 AC1)", () => {
 
   it("preserves the original step order rather than the order references were discovered in", () => {
     const steps = [
-      step({ id: "b", sectionId: "sec-1", type: "yes_no", title: "B" }),
-      step({ id: "a", sectionId: "sec-1", type: "yes_no", title: "A" }),
+      step({ id: "b", pageId: "page-1", type: "yes_no", title: "B" }),
+      step({ id: "a", pageId: "page-1", type: "yes_no", title: "A" }),
     ];
     // Reference "a" first in the rule array, but "b" comes first in `steps`.
     const rules = [{ when: isTrue("a") }, { when: isTrue("b") }];
@@ -93,7 +93,7 @@ describe("getReferencedStepIds / getReferencedSteps (MAP-8 AC1)", () => {
 });
 
 describe("buildStepAliasResolver (AC2)", () => {
-  it("resolves a variable name to the step whose alias matches it — the exact useSectionVisibility.ts construction", () => {
+  it("resolves a variable name to the step whose alias matches it — the exact usePageVisibility.ts construction", () => {
     const steps = [
       { id: "step-1", alias: "has_pet" },
       { id: "step-2", alias: null },
@@ -125,12 +125,12 @@ describe("toConditionStepType", () => {
 });
 
 describe("buildSimulationFields (AC7 — type-aware value entry, no new input component)", () => {
-  const sectionTitleById = new Map([["sec-1", "Section One"]]);
+  const pageTitleById = new Map([["page-1", "Page One"]]);
 
   it("gives a yes_no step a two-choice picker even though none of its real operators need a value", () => {
     const [field] = buildSimulationFields(
-      [step({ id: "s1", sectionId: "sec-1", type: "yes_no", title: "Agree?" })],
-      sectionTitleById
+      [step({ id: "s1", pageId: "page-1", type: "yes_no", title: "Agree?" })],
+      pageTitleById
     );
 
     expect(field.operatorConfig.needsValue).toBe(true);
@@ -143,8 +143,8 @@ describe("buildSimulationFields (AC7 — type-aware value entry, no new input co
 
   it("gives a file_upload step a has-a-file / no-file picker", () => {
     const [field] = buildSimulationFields(
-      [step({ id: "s1", sectionId: "sec-1", type: "file_upload", title: "Upload" })],
-      sectionTitleById
+      [step({ id: "s1", pageId: "page-1", type: "file_upload", title: "Upload" })],
+      pageTitleById
     );
 
     expect(field.operatorConfig.valueType).toBe("choices");
@@ -159,13 +159,13 @@ describe("buildSimulationFields (AC7 — type-aware value entry, no new input co
       [
         step({
           id: "s1",
-          sectionId: "sec-1",
+          pageId: "page-1",
           type: "radio",
           title: "Pick one",
           config: { options: ["Red", "Blue"] },
         }),
       ],
-      sectionTitleById
+      pageTitleById
     );
 
     expect(field.operatorConfig.valueType).toBe("choices");
@@ -177,8 +177,8 @@ describe("buildSimulationFields (AC7 — type-aware value entry, no new input co
 
   it("gives a short_text step a plain single-value text operator (never needsTwoValues)", () => {
     const [field] = buildSimulationFields(
-      [step({ id: "s1", sectionId: "sec-1", type: "short_text", title: "Name" })],
-      sectionTitleById
+      [step({ id: "s1", pageId: "page-1", type: "short_text", title: "Name" })],
+      pageTitleById
     );
 
     expect(field.operatorConfig.needsValue).toBe(true);
@@ -188,22 +188,22 @@ describe("buildSimulationFields (AC7 — type-aware value entry, no new input co
 
   it("gives a date_time step a single date value operator, not the two-value between/diff operators", () => {
     const [field] = buildSimulationFields(
-      [step({ id: "s1", sectionId: "sec-1", type: "date_time", title: "When" })],
-      sectionTitleById
+      [step({ id: "s1", pageId: "page-1", type: "date_time", title: "When" })],
+      pageTitleById
     );
 
     expect(field.operatorConfig.valueType).toBe("date");
     expect(field.operatorConfig.needsTwoValues).toBeFalsy();
   });
 
-  it("labels the field by alias when one exists, falling back to the step title, and fills in the section title", () => {
+  it("labels the field by alias when one exists, falling back to the step title, and fills in the page title", () => {
     const [field] = buildSimulationFields(
-      [step({ id: "s1", sectionId: "sec-1", type: "short_text", title: "Full Name", alias: "full_name" })],
-      sectionTitleById
+      [step({ id: "s1", pageId: "page-1", type: "short_text", title: "Full Name", alias: "full_name" })],
+      pageTitleById
     );
 
     expect(field.variable.label).toBe("full_name");
-    expect(field.variable.sectionTitle).toBe("Section One");
+    expect(field.variable.pageTitle).toBe("Page One");
     expect(field.variable.id).toBe("s1");
   });
 });

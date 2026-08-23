@@ -2,7 +2,7 @@
  * LogicService — pinned-definition regression tests (RVP-2).
  *
  * Before this ticket, `evaluateNavigation` and `validateCompletion` always
- * re-read the LIVE `sections`/`steps`/`logic_rules` tables, even for a run
+ * re-read the LIVE `pages`/`steps`/`logic_rules` tables, even for a run
  * pinned to a version (`workflowVersionId` set). That meant an author
  * editing a published workflow retroactively changed what an in-flight
  * respondent's run was validated against. The worst case: a required
@@ -45,12 +45,12 @@ vi.mock("../../../server/db", () => {
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
 const VERSION_ID = '33333333-3333-4333-8333-333333333333';
-const PINNED_SECTION_ID = '44444444-4444-4444-8444-444444444444';
+const PINNED_PAGE_ID = '44444444-4444-4444-8444-444444444444';
 const PINNED_STEP_ID = '55555555-5555-4555-8555-555555555555';
 // A step that exists only in the LIVE tables -- simulates an author adding a
 // required question to the workflow after the respondent's run started.
 const LIVE_ONLY_REQUIRED_STEP_ID = '66666666-6666-4666-8666-666666666666';
-const LIVE_ONLY_SECTION_ID = '77777777-7777-4777-8777-777777777777';
+const LIVE_ONLY_PAGE_ID = '77777777-7777-4777-8777-777777777777';
 
 function makePinnedRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
   return {
@@ -71,7 +71,7 @@ function makeVersionlessRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
 }
 
 /**
- * Live tables include an EXTRA section + required step that is NOT part of
+ * Live tables include an EXTRA page + required step that is NOT part of
  * the pinned version's graph -- this is the "author added a required
  * question mid-run" scenario. If a pinned run's evaluateNavigation/
  * validateCompletion ever fell back to reading these, the tests below would
@@ -85,9 +85,9 @@ function makeHarness() {
       createdAt: new Date('2026-07-20T00:00:00.000Z'),
       graphJson: {
         title: 'Pinned interview',
-        sections: [{
-          id: PINNED_SECTION_ID,
-          title: 'Pinned section',
+        pages: [{
+          id: PINNED_PAGE_ID,
+          title: 'Pinned page',
           order: 0,
           steps: [
             { id: PINNED_STEP_ID, type: 'short_text', title: 'Pinned required step', order: 0, required: true },
@@ -97,16 +97,16 @@ function makeHarness() {
       },
     }),
   };
-  const sectionRepo = {
+  const pageRepo = {
     findByWorkflowId: vi.fn().mockResolvedValue([
-      { id: PINNED_SECTION_ID, workflowId: WORKFLOW_ID, title: 'Pinned section (edited live)', order: 0, createdAt: new Date() },
-      { id: LIVE_ONLY_SECTION_ID, workflowId: WORKFLOW_ID, title: 'New section added mid-run', order: 1, createdAt: new Date() },
+      { id: PINNED_PAGE_ID, workflowId: WORKFLOW_ID, title: 'Pinned page (edited live)', order: 0, createdAt: new Date() },
+      { id: LIVE_ONLY_PAGE_ID, workflowId: WORKFLOW_ID, title: 'New page added mid-run', order: 1, createdAt: new Date() },
     ]),
   };
   const stepRepo = {
-    findBySectionIds: vi.fn().mockResolvedValue([
-      { id: PINNED_STEP_ID, workflowId: WORKFLOW_ID, sectionId: PINNED_SECTION_ID, type: 'short_text', title: 'Pinned required step', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
-      { id: LIVE_ONLY_REQUIRED_STEP_ID, workflowId: WORKFLOW_ID, sectionId: LIVE_ONLY_SECTION_ID, type: 'short_text', title: 'New required step added mid-run', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
+    findByPageIds: vi.fn().mockResolvedValue([
+      { id: PINNED_STEP_ID, workflowId: WORKFLOW_ID, pageId: PINNED_PAGE_ID, type: 'short_text', title: 'Pinned required step', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: LIVE_ONLY_REQUIRED_STEP_ID, workflowId: WORKFLOW_ID, pageId: LIVE_ONLY_PAGE_ID, type: 'short_text', title: 'New required step added mid-run', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
     ]),
   };
   const logicRuleRepo = {
@@ -121,42 +121,42 @@ function makeHarness() {
 
   const definitionProvider = new RunDefinitionProvider(
     versionRepo as never,
-    sectionRepo as never,
+    pageRepo as never,
     stepRepo as never,
     logicRuleRepo as never,
   );
   const logicSvc = new LogicService(runRepo as never, definitionProvider, valueRepo as never);
 
-  return { logicSvc, runRepo, sectionRepo, stepRepo, logicRuleRepo, versionRepo, valueRepo };
+  return { logicSvc, runRepo, pageRepo, stepRepo, logicRuleRepo, versionRepo, valueRepo };
 }
 
 describe('LogicService pinned-definition sourcing (RVP-2)', () => {
   describe('a run pinned to a version (AC1)', () => {
     it('evaluateNavigation resolves requiredSteps from the pinned graph, not the live tables', async () => {
-      const { logicSvc, runRepo, sectionRepo } = makeHarness();
+      const { logicSvc, runRepo, pageRepo } = makeHarness();
       runRepo.findById.mockResolvedValue(makePinnedRun());
 
       const navigation = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
       expect(navigation.requiredSteps).toEqual([PINNED_STEP_ID]);
       expect(navigation.requiredSteps).not.toContain(LIVE_ONLY_REQUIRED_STEP_ID);
-      expect(navigation.visibleSections).toEqual([PINNED_SECTION_ID]);
-      expect(navigation.visibleSections).not.toContain(LIVE_ONLY_SECTION_ID);
+      expect(navigation.visiblePages).toEqual([PINNED_PAGE_ID]);
+      expect(navigation.visiblePages).not.toContain(LIVE_ONLY_PAGE_ID);
       // The live tables must not even be touched for a pinned run.
-      expect(sectionRepo.findByWorkflowId).not.toHaveBeenCalled();
+      expect(pageRepo.findByWorkflowId).not.toHaveBeenCalled();
     });
 
     it('editing the live workflow does not change navigation for the pinned run', async () => {
-      const { logicSvc, runRepo, sectionRepo, stepRepo } = makeHarness();
+      const { logicSvc, runRepo, pageRepo, stepRepo } = makeHarness();
       runRepo.findById.mockResolvedValue(makePinnedRun());
 
       const before = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
       // Simulate a further live edit landing between requests.
-      sectionRepo.findByWorkflowId.mockResolvedValue([
-        { id: 'brand-new-section', workflowId: WORKFLOW_ID, title: 'Another edit', order: 0, createdAt: new Date() },
+      pageRepo.findByWorkflowId.mockResolvedValue([
+        { id: 'brand-new-page', workflowId: WORKFLOW_ID, title: 'Another edit', order: 0, createdAt: new Date() },
       ]);
-      stepRepo.findBySectionIds.mockResolvedValue([]);
+      stepRepo.findByPageIds.mockResolvedValue([]);
 
       const after = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
@@ -191,19 +191,19 @@ describe('LogicService pinned-definition sourcing (RVP-2)', () => {
 
   describe('a run with no workflowVersionId (AC3: behaves exactly as today)', () => {
     it('evaluateNavigation falls back to the live tables', async () => {
-      const { logicSvc, runRepo, sectionRepo, stepRepo, logicRuleRepo } = makeHarness();
+      const { logicSvc, runRepo, pageRepo, stepRepo, logicRuleRepo } = makeHarness();
       runRepo.findById.mockResolvedValue(makeVersionlessRun());
 
       const navigation = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
-      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
-      expect(stepRepo.findBySectionIds).toHaveBeenCalled();
+      expect(pageRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
+      expect(stepRepo.findByPageIds).toHaveBeenCalled();
       expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID, expect.anything());
-      // Both sections (including the "live-only" one) are visible because
+      // Both pages (including the "live-only" one) are visible because
       // there is no pinned graph to restrict to -- this run always reads
       // live, so there is no "live-only" concept for it.
-      expect(navigation.visibleSections).toEqual(
-        expect.arrayContaining([PINNED_SECTION_ID, LIVE_ONLY_SECTION_ID])
+      expect(navigation.visiblePages).toEqual(
+        expect.arrayContaining([PINNED_PAGE_ID, LIVE_ONLY_PAGE_ID])
       );
     });
 

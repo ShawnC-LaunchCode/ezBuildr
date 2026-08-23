@@ -1,22 +1,22 @@
 /**
  * The Map tab (MAP-4 / GH-153 AC1): a read-only, auto-laid-out graph of a
- * workflow's sections, skip routes and final documents. Per D-4 this tab
+ * workflow's pages, skip routes and final documents. Per D-4 this tab
  * never authors anything — no drag, no connect, no persisted position —
  * it composes `shared/workflowMap.ts` (MAP-2) with `@xyflow/react` (MAP-1)
  * and nothing else. Node-click-to-inspector (MAP-5) is wired below, and
  * flow-diagnostic overlays (MAP-6) on top of that.
  *
  * MAP-5 / GH-153 AC2: activating a node navigates to
- * `/workflows/:id/builder?tab=sections&sectionId=<id>` (or `&stepId=<id>`
+ * `/workflows/:id/builder?tab=pages&pageId=<id>` (or `&stepId=<id>`
  * for a `final_documents` node) via wouter's `useLocation`, exactly as
  * `ReviewIssueList.tsx`'s `buildIssuePath` does for its own deep links.
  * `WorkflowBuilder.tsx` already reads those query params in a `useEffect`
- * and calls `selectSection`/`selectStep` itself — the map never calls the
+ * and calls `selectPage`/`selectStep` itself — the map never calls the
  * builder store directly, so this survives a page reload or a shared URL.
  *
  * MAP-6 / GH-153 AC4 (second half): flow-diagnostic findings
  * (`useWorkflowLint`, the same shared hook the Review tab consumes) are
- * grouped by `target.sectionId` (`mapLintDecoration.ts`) and handed to each
+ * grouped by `target.pageId` (`mapLintDecoration.ts`) and handed to each
  * node as `data.findings` — this component computes no diagnostics itself.
  *
  * MAP-8 / GH-153 AC3: `useWorkflowSimulation` runs `simulateWorkflowPath`
@@ -59,11 +59,11 @@ export function MapTab({ workflowId }: MapTabProps) {
   const handleActivateNode = useCallback(
     (node: WorkflowMapNode) => {
       if (!workflowId) { return; }
-      const params = new URLSearchParams({ tab: "sections" });
+      const params = new URLSearchParams({ tab: "pages" });
       if (node.kind === "final_documents") {
         params.set("stepId", node.id);
       } else {
-        params.set("sectionId", node.id);
+        params.set("pageId", node.id);
       }
       navigate(`/workflows/${workflowId}/builder?${params.toString()}`);
     },
@@ -89,7 +89,7 @@ export function MapTab({ workflowId }: MapTabProps) {
   }, [simulation, graph]);
 
   const nodes = useMemo(
-    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode, decoration.bySection, highlight?.onPathNodeIds),
+    () => toFlowNodes(graph.nodes, graph.edges, handleActivateNode, decoration.byPage, highlight?.onPathNodeIds),
     [graph, handleActivateNode, decoration, highlight]
   );
   const edges = useMemo(

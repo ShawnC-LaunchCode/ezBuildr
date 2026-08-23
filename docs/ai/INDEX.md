@@ -14,7 +14,7 @@ ezBuildr's AI-powered workflow generation system documentation.
 ## Feature Overview
 
 ### Workflow Generation
-Create complete workflows from natural language descriptions. AI generates sections, steps, field types, and even logic rules.
+Create complete workflows from natural language descriptions. AI generates pages, steps, field types, and even logic rules.
 
 ### Iterative Quality Improvement
 Automatic refinement loop that improves workflow quality until targets are met or cost limits reached.

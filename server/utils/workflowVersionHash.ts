@@ -19,7 +19,7 @@ import { Step } from "@shared/schema";
  * - stepId: Unique identifier
  * - alias: Variable name (if set)
  * - type: Block type (short_text, choice, etc.)
- * - sectionId: Parent section (to detect moves)
+ * - pageId: Parent page (to detect moves)
  *
  * Steps are sorted by ID to ensure deterministic output regardless of query order.
  *
@@ -33,7 +33,7 @@ export function generateWorkflowVersionHash(steps: Step[]): string {
       id: step.id,
       alias: step.alias ?? null,
       type: step.type,
-      sectionId: step.sectionId,
+      pageId: step.pageId,
     }))
     .sort((a, b) => a.id.localeCompare(b.id)); // Deterministic sort
 

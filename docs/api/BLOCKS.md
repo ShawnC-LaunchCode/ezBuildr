@@ -7,7 +7,7 @@ This document provides example curl commands and a test checklist for the newly 
 The Block Framework enables runtime execution of three block types:
 - **Prefill**: Seeds data with static values or query parameters
 - **Validate**: Validates data with conditional rules
-- **Branch**: Conditional navigation between sections
+- **Branch**: Conditional navigation between pages
 
 ## Example cURL Commands
 
@@ -42,7 +42,7 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
   "data": {
     "id": "block-uuid-1",
     "workflowId": "workflow-uuid",
-    "sectionId": null,
+    "pageId": null,
     "type": "prefill",
     "phase": "onRunStart",
     "config": { ... },
@@ -75,7 +75,7 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
   }'
 ```
 
-### 3. Create a Validate Block (onSectionSubmit)
+### 3. Create a Validate Block (onPageSubmit)
 
 **Purpose**: Validate that age is not empty and greater than 18, and email matches a pattern.
 
@@ -85,8 +85,8 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
   -H "Cookie: connect.sid={SESSION_COOKIE}" \
   -d '{
     "type": "validate",
-    "phase": "onSectionSubmit",
-    "sectionId": "{SECTION_ID}",
+    "phase": "onPageSubmit",
+    "pageId": "{PAGE_ID}",
     "config": {
       "rules": [
         {
@@ -130,8 +130,8 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
   -H "Cookie: connect.sid={SESSION_COOKIE}" \
   -d '{
     "type": "validate",
-    "phase": "onSectionSubmit",
-    "sectionId": "{SECTION_ID}",
+    "phase": "onPageSubmit",
+    "pageId": "{PAGE_ID}",
     "config": {
       "rules": [
         {
@@ -155,7 +155,7 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
 
 ### 5. Create a Branch Block (onNext)
 
-**Purpose**: Route users to different sections based on their answers.
+**Purpose**: Route users to different pages based on their answers.
 
 ```bash
 curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
@@ -164,7 +164,7 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
   -d '{
     "type": "branch",
     "phase": "onNext",
-    "sectionId": "{CURRENT_SECTION_ID}",
+    "pageId": "{CURRENT_PAGE_ID}",
     "config": {
       "branches": [
         {
@@ -173,7 +173,7 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
             "op": "equals",
             "value": true
           },
-          "gotoSectionId": "{NEW_CUSTOMER_SECTION_ID}"
+          "gotoPageId": "{NEW_CUSTOMER_SECTION_ID}"
         },
         {
           "when": {
@@ -181,10 +181,10 @@ curl -X POST http://localhost:5000/api/workflows/{WORKFLOW_ID}/blocks \
             "op": "equals",
             "value": "enterprise"
           },
-          "gotoSectionId": "{ENTERPRISE_SECTION_ID}"
+          "gotoPageId": "{ENTERPRISE_SECTION_ID}"
         }
       ],
-      "fallbackSectionId": "{DEFAULT_SECTION_ID}"
+      "fallbackPageId": "{DEFAULT_SECTION_ID}"
     },
     "enabled": true,
     "order": 0
@@ -260,10 +260,10 @@ curl -X POST "http://localhost:5000/api/workflows/{WORKFLOW_ID}/runs?utm_source=
 
 **Note**: Query parameters will be picked up by prefill blocks with `mode: "query"`.
 
-### 2. Submit Section Values (with validation)
+### 2. Submit Page Values (with validation)
 
 ```bash
-curl -X POST http://localhost:5000/api/runs/{RUN_ID}/sections/{SECTION_ID}/submit \
+curl -X POST http://localhost:5000/api/runs/{RUN_ID}/pages/{PAGE_ID}/submit \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid={SESSION_COOKIE}" \
   -d '{
@@ -292,14 +292,14 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/sections/{SECTION_ID}/submi
 }
 ```
 
-### 3. Navigate to Next Section (with branching)
+### 3. Navigate to Next Page (with branching)
 
 ```bash
 curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid={SESSION_COOKIE}" \
   -d '{
-    "currentSectionId": "{CURRENT_SECTION_ID}"
+    "currentPageId": "{CURRENT_SECTION_ID}"
   }'
 ```
 
@@ -308,7 +308,7 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 {
   "success": true,
   "data": {
-    "nextSectionId": "{NEXT_SECTION_ID}"
+    "nextPageId": "{NEXT_SECTION_ID}"
   }
 }
 ```
@@ -328,19 +328,19 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
    ```
    - [ ] Note workflow ID
 
-2. **Create Sections**
+2. **Create Pages**
    ```bash
-   POST /api/workflows/{workflowId}/sections
+   POST /api/workflows/{workflowId}/pages
    ```
-   - [ ] Create "Demographics" section
-   - [ ] Create "Account Type" section
-   - [ ] Create "Enterprise Details" section
-   - [ ] Create "Standard Details" section
-   - [ ] Note all section IDs
+   - [ ] Create "Demographics" page
+   - [ ] Create "Account Type" page
+   - [ ] Create "Enterprise Details" page
+   - [ ] Create "Standard Details" page
+   - [ ] Note all page IDs
 
 3. **Create Steps**
    ```bash
-   POST /api/sections/{sectionId}/steps
+   POST /api/pages/{pageId}/steps
    ```
    - [ ] Create "age" step (Demographics)
    - [ ] Create "email" step (Demographics)
@@ -368,9 +368,9 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 
 #### Basic Validation
 - [ ] Create validate block with `is_not_empty` rule
-- [ ] Submit section with empty value
+- [ ] Submit page with empty value
 - [ ] Verify validation error is returned
-- [ ] Submit section with valid value
+- [ ] Submit page with valid value
 - [ ] Verify submission succeeds
 
 #### Numeric Validation
@@ -400,22 +400,22 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 - [ ] Create branch block with 2 conditions
 - [ ] Set step value to match first condition
 - [ ] Call `/next` endpoint
-- [ ] Verify correct section is returned
+- [ ] Verify correct page is returned
 - [ ] Set step value to match second condition
 - [ ] Call `/next` endpoint
-- [ ] Verify correct section is returned
+- [ ] Verify correct page is returned
 
 #### Fallback Branching
 - [ ] Create branch block with fallback
 - [ ] Set step value to not match any condition
 - [ ] Call `/next` endpoint
-- [ ] Verify fallback section is returned
+- [ ] Verify fallback page is returned
 
 #### No Fallback
 - [ ] Create branch block without fallback
 - [ ] Set step value to not match any condition
 - [ ] Call `/next` endpoint
-- [ ] Verify `nextSectionId` is undefined
+- [ ] Verify `nextPageId` is undefined
 
 ### Test Block Management
 
@@ -442,17 +442,17 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 ### Integration Testing
 
 #### End-to-End Flow
-1. [ ] Create workflow with multiple sections
+1. [ ] Create workflow with multiple pages
 2. [ ] Add prefill block (onRunStart)
-3. [ ] Add validate blocks (onSectionSubmit) on each section
+3. [ ] Add validate blocks (onPageSubmit) on each page
 4. [ ] Add branch blocks (onNext) for conditional navigation
 5. [ ] Create run with query params
 6. [ ] Verify prefill executed
-7. [ ] Submit first section with invalid data
+7. [ ] Submit first page with invalid data
 8. [ ] Verify validation errors
-9. [ ] Submit first section with valid data
+9. [ ] Submit first page with valid data
 10. [ ] Verify success
-11. [ ] Navigate to next section
+11. [ ] Navigate to next page
 12. [ ] Verify branch logic executed correctly
 13. [ ] Complete workflow
 14. [ ] Verify all data persisted correctly
@@ -462,8 +462,8 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 - [ ] Submit invalid phase - verify error
 - [ ] Submit invalid config format - verify error
 - [ ] Execute block on non-existent workflow - verify 404
-- [ ] Execute block on non-existent section - verify 404
-- [ ] Submit section with non-existent block - handle gracefully
+- [ ] Execute block on non-existent page - verify 404
+- [ ] Submit page with non-existent block - handle gracefully
 
 ### Performance
 - [ ] Create workflow with 10+ blocks
@@ -479,9 +479,9 @@ curl -X POST http://localhost:5000/api/runs/{RUN_ID}/next \
 - **Block Execution Order**: Blocks execute in ascending order of the `order` field within the same phase.
 - **Phase Execution**:
   - `onRunStart`: Executed once when run is created
-  - `onSectionEnter`: Not yet implemented in routes (future enhancement)
-  - `onSectionSubmit`: Executed when section values are submitted
-  - `onNext`: Executed when navigating to next section
+  - `onPageEnter`: Not yet implemented in routes (future enhancement)
+  - `onPageSubmit`: Executed when page values are submitted
+  - `onNext`: Executed when navigating to next page
   - `onRunComplete`: Not yet implemented in routes (future enhancement)
 
 - **Data Merging**: Prefill blocks merge their updates into the data object. Multiple prefill blocks can contribute different keys.

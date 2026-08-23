@@ -6,7 +6,7 @@
  * (`effectiveValues`), but authors write `{{alias}}` per
  * docs/guides/VARIABLES_IN_DOCUMENTS.md. These tests cover all three
  * acceptance criteria at the component level (DisplayBlockRenderer with an
- * explicit aliasMap) and at the wiring level (SectionSteps building the
+ * explicit aliasMap) and at the wiring level (PageSteps building the
  * alias->stepId map from its own steps and threading it through
  * BlockRenderer).
  */
@@ -15,7 +15,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DisplayBlockRenderer } from '../../../client/src/components/runner/blocks/DisplayBlock';
-import { SectionSteps } from '../../../client/src/components/runner/SectionSteps';
+import { PageSteps } from '../../../client/src/components/runner/PageSteps';
 
 import type { ApiStep } from '../../../client/src/lib/vault-api';
 import type { Step } from '../../../client/src/types';
@@ -26,7 +26,7 @@ function createDisplayStep(id: string, markdown: string): Step {
   return {
     id,
     workflowId: 'wf-1',
-    sectionId: 'sec-1',
+    pageId: 'page-1',
     type: 'display',
     title: 'Display',
     description: null,
@@ -103,8 +103,8 @@ describe('DisplayBlockRenderer alias interpolation (RUN2-13 criteria 1-3)', () =
   });
 });
 
-describe('SectionSteps wires the alias->stepId map into display blocks end-to-end (RUN2-13)', () => {
-  function renderSection(
+describe('PageSteps wires the alias->stepId map into display blocks end-to-end (RUN2-13)', () => {
+  function renderPage(
     steps: ApiStep[],
     values: Record<string, unknown>,
     allSteps?: ApiStep[]
@@ -117,8 +117,8 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
     return render(
       <QueryClientProvider client={queryClient}>
         <main>
-          <SectionSteps
-            sectionId="sec-1"
+          <PageSteps
+            pageId="page-1"
             steps={steps}
             allSteps={allSteps}
             values={values}
@@ -134,7 +134,7 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
     const nameStep: ApiStep = {
       id: 'name-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'short_text',
       title: 'Client name',
       description: null,
@@ -148,7 +148,7 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
     const displayStep: ApiStep = {
       id: 'display-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'display',
       title: 'Display',
       description: null,
@@ -160,7 +160,7 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
       createdAt,
     };
 
-    renderSection([nameStep, displayStep], { 'name-step-id': 'Ada' });
+    renderPage([nameStep, displayStep], { 'name-step-id': 'Ada' });
 
     expect(screen.getByText('Welcome, Ada!')).toBeInTheDocument();
   });
@@ -169,7 +169,7 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
     const displayStep: ApiStep = {
       id: 'display-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'display',
       title: 'Display',
       description: null,
@@ -181,20 +181,20 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
       createdAt,
     };
 
-    expect(() => renderSection([displayStep], {})).not.toThrow();
+    expect(() => renderPage([displayStep], {})).not.toThrow();
     expect(screen.getByText('Welcome, !')).toBeInTheDocument();
   });
 
-  it('resolves an alias whose step lives in a different, earlier section when `allSteps` covers the whole workflow (regression: cross-section aliases)', () => {
+  it('resolves an alias whose step lives in a different, earlier page when `allSteps` covers the whole workflow (regression: cross-page aliases)', () => {
     // The most common real usage of a display block: "Hello {{firstName}}"
     // where firstName was answered on an earlier page. `steps` here is only
-    // section B's steps (as WorkflowRunner passes `visibleSectionSteps`);
+    // page B's steps (as WorkflowRunner passes `visiblePageSteps`);
     // `allSteps` is the whole-workflow list (as WorkflowRunner passes
     // `effectiveAllSteps`), which is what must supply the alias.
-    const nameStepInSectionA: ApiStep = {
+    const nameStepInPageA: ApiStep = {
       id: 'name-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-A',
+      pageId: 'page-A',
       type: 'short_text',
       title: 'First name',
       description: null,
@@ -205,10 +205,10 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
       config: null,
       createdAt,
     };
-    const displayStepInSectionB: ApiStep = {
+    const displayStepInPageB: ApiStep = {
       id: 'display-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-1', // matches the sectionId used by renderSection/SectionSteps below
+      pageId: 'page-1', // matches the pageId used by renderPage/PageSteps below
       type: 'display',
       title: 'Display',
       description: null,
@@ -220,24 +220,24 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
       createdAt,
     };
 
-    renderSection(
-      [displayStepInSectionB], // section B's own steps: only the display block
+    renderPage(
+      [displayStepInPageB], // page B's own steps: only the display block
       { 'name-step-id': 'Ada' }, // run values, keyed by step id, cover the whole run
-      [nameStepInSectionA, displayStepInSectionB] // allSteps: the whole workflow
+      [nameStepInPageA, displayStepInPageB] // allSteps: the whole workflow
     );
 
     expect(screen.getByText('Hello Ada!')).toBeInTheDocument();
   });
 
-  it('falls back to section-local resolution (not a crash) for a cross-section alias when the caller has no `allSteps` to offer', () => {
+  it('falls back to page-local resolution (not a crash) for a cross-page alias when the caller has no `allSteps` to offer', () => {
     // Callers that don't have the whole-workflow step list on hand (e.g. the
-    // legacy `useSteps(sectionId)` fetch path) fall back to resolving only
-    // against this section's own steps. A cross-section alias then renders
+    // legacy `useSteps(pageId)` fetch path) fall back to resolving only
+    // against this page's own steps. A cross-page alias then renders
     // empty instead of resolving -- acceptable degradation, not a crash.
-    const displayStepInSectionB: ApiStep = {
+    const displayStepInPageB: ApiStep = {
       id: 'display-step-id',
       workflowId: 'wf-1',
-      sectionId: 'sec-1',
+      pageId: 'page-1',
       type: 'display',
       title: 'Display',
       description: null,
@@ -250,7 +250,7 @@ describe('SectionSteps wires the alias->stepId map into display blocks end-to-en
     };
 
     expect(() =>
-      renderSection([displayStepInSectionB], { 'name-step-id': 'Ada' })
+      renderPage([displayStepInPageB], { 'name-step-id': 'Ada' })
     ).not.toThrow();
 
     expect(screen.getByText('Hello !')).toBeInTheDocument();

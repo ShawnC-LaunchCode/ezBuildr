@@ -4,9 +4,9 @@
  *
  * Covers:
  *   - build -> publish -> create template -> instantiate reproduces the
- *     workflow's sections/steps/logic rules (post-ICW2-6 ingest-shaped
+ *     workflow's pages/steps/logic rules (post-ICW2-6 ingest-shaped
  *     snapshot).
- *   - an empty (`{}`/no-sections) blueprint instantiate returns 400 and
+ *   - an empty (`{}`/no-pages) blueprint instantiate returns 400 and
  *     creates nothing.
  *   - a project editor (non-owner) can instantiate into the project; a
  *     viewer cannot.
@@ -48,33 +48,33 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     await ctx.cleanup();
   });
 
-  /** Build a workflow with one section, three steps and a logic rule; return their ids. */
-  async function buildWorkflowWithContent(): Promise<{ workflowId: string; sectionId: string }> {
+  /** Build a workflow with one page, three steps and a logic rule; return their ids. */
+  async function buildWorkflowWithContent(): Promise<{ workflowId: string; pageId: string }> {
     const wfRes = await agent
       .post("/api/workflows")
       .send({ title: `WF ${nanoid()}`, projectId: ctx.projectId });
     expect(wfRes.status).toBe(201);
     const workflowId = wfRes.body.id as string;
 
-    const secRes = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
+    const pageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: "Applicant Info" });
-    expect(secRes.status).toBe(201);
-    const sectionId = secRes.body.id as string;
+    expect(pageResponse.status).toBe(201);
+    const pageId = pageResponse.body.id as string;
 
     const stepARes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "short_text", title: "First name", alias: "first_name" });
     expect(stepARes.status).toBe(201);
 
     const stepBRes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "yes_no", title: "Has pets?", alias: "has_pets" });
     expect(stepBRes.status).toBe(201);
     const stepBId = stepBRes.body.id as string;
 
     const stepCRes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "short_text", title: "Pet name", alias: "pet_name" });
     expect(stepCRes.status).toBe(201);
     const stepCId = stepCRes.body.id as string;
@@ -91,7 +91,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
       action: "show",
     });
 
-    return { workflowId, sectionId };
+    return { workflowId, pageId };
   }
 
   async function publishAndTemplate(workflowId: string): Promise<string> {
@@ -106,7 +106,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     return tplRes.body.data.id as string;
   }
 
-  it("reproduces sections/steps/logic rules through build -> publish -> template -> instantiate", async () => {
+  it("reproduces pages/steps/logic rules through build -> publish -> template -> instantiate", async () => {
     const { workflowId } = await buildWorkflowWithContent();
     const templateId = await publishAndTemplate(workflowId);
 
@@ -118,16 +118,16 @@ describe("Blueprint instantiate (ICW2-15)", () => {
 
     const newWfRes = await agent.get(`/api/workflows/${newWorkflowId}`);
     expect(newWfRes.status).toBe(200);
-    // Workflow creation auto-adds a default "Section 1"; the template also
-    // carries the explicitly-built "Applicant Info" section.
-    expect(newWfRes.body.sections).toHaveLength(2);
+    // Workflow creation auto-adds a default "Page 1"; the template also
+    // carries the explicitly-built "Applicant Info" page.
+    expect(newWfRes.body.pages).toHaveLength(2);
 
-    const newSection = newWfRes.body.sections.find((s: any) => s.title === "Applicant Info");
-    expect(newSection).toBeDefined();
-    expect(newSection.steps).toHaveLength(3);
+    const newPage = newWfRes.body.pages.find((s: any) => s.title === "Applicant Info");
+    expect(newPage).toBeDefined();
+    expect(newPage.steps).toHaveLength(3);
 
     const stepsByAlias: Record<string, { id: string; title: string; type: string }> = {};
-    for (const step of newSection.steps) {
+    for (const step of newPage.steps) {
       stepsByAlias[step.alias as string] = step;
     }
     expect(stepsByAlias.first_name).toMatchObject({ title: "First name", type: "short_text" });
@@ -162,20 +162,20 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     expect(wfRes.status).toBe(201);
     const workflowId = wfRes.body.id as string;
 
-    const secRes = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
+    const pageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: "Applicant Info" });
-    expect(secRes.status).toBe(201);
-    const sectionId = secRes.body.id as string;
+    expect(pageResponse.status).toBe(201);
+    const pageId = pageResponse.body.id as string;
 
     const stepBRes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "yes_no", title: "Has pets?", alias: "has_pets" });
     expect(stepBRes.status).toBe(201);
     const stepBId = stepBRes.body.id as string;
 
     const stepCRes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "short_text", title: "Pet name", alias: "pet_name" });
     expect(stepCRes.status).toBe(201);
     const stepCId = stepCRes.body.id as string;

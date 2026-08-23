@@ -6,7 +6,7 @@ import {
   blockRepository,
   workflowRepository,
   stepRepository,
-  sectionRepository,
+  pageRepository,
 } from "../repositories";
 
 import { workflowService } from "./WorkflowService";
@@ -20,20 +20,20 @@ export class ReadTableBlockService {
   private workflowRepo: typeof workflowRepository;
   private workflowSvc: typeof workflowService;
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
 
   constructor(
     blockRepo?: typeof blockRepository,
     workflowRepo?: typeof workflowRepository,
     workflowSvc?: typeof workflowService,
     stepRepo?: typeof stepRepository,
-    sectionRepo?: typeof sectionRepository
+    pageRepo?: typeof pageRepository
   ) {
     this.blockRepo = blockRepo ?? blockRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
     this.stepRepo = stepRepo ?? stepRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
   }
 
   /**
@@ -45,41 +45,41 @@ export class ReadTableBlockService {
     userId: string,
     data: {
       name: string;
-      sectionId?: string | null;
+      pageId?: string | null;
       config: ReadTableConfig;
-      phase: "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
+      phase: "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
     }
   ): Promise<Block> {
     // Verify ownership
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
-    // Determine target section
-    let targetSectionId = data.sectionId;
+    // Determine target page
+    let targetPageId = data.pageId;
 
-    if (!targetSectionId) {
-      // For workflow-scoped blocks, attach valid step to first section
-      const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-      if (sections.length === 0) {
-        throw new Error("Cannot create read table block: workflow has no sections.");
+    if (!targetPageId) {
+      // For workflow-scoped blocks, attach valid step to first page
+      const pages = await this.pageRepo.findByWorkflowId(workflowId);
+      if (pages.length === 0) {
+        throw new Error("Cannot create read table block: workflow has no pages.");
       }
-      targetSectionId = sections[0].id;
+      targetPageId = pages[0].id;
     }
 
-    // Calculate order: put at the end of the section
-    // Get max order from both steps and blocks in the section
-    const [sectionSteps, sectionBlocks] = await Promise.all([
-      this.stepRepo.findBySectionId(targetSectionId),
-      // We want all blocks in this section to determine the next order index
-      // Using 'onSectionSubmit' as a proxy effectively, but ideally we check all phases that render in the main list
-      // For now, finding all blocks in the section is safer if we want to be at the very bottom
-      this.blockRepo.findBySectionPhase(targetSectionId, data.phase)
+    // Calculate order: put at the end of the page
+    // Get max order from both steps and blocks in the page
+    const [pageSteps, pageBlocks] = await Promise.all([
+      this.stepRepo.findByPageId(targetPageId),
+      // We want all blocks in this page to determine the next order index
+      // Using 'onPageSubmit' as a proxy effectively, but ideally we check all phases that render in the main list
+      // For now, finding all blocks in the page is safer if we want to be at the very bottom
+      this.blockRepo.findByPagePhase(targetPageId, data.phase)
     ]);
 
     let maxOrder = -1;
-    for (const step of sectionSteps) {
+    for (const step of pageSteps) {
       if (step.order > maxOrder) {maxOrder = step.order;}
     }
-    for (const b of sectionBlocks) {
+    for (const b of pageBlocks) {
       if (b.order > maxOrder) {maxOrder = b.order;}
     }
 
@@ -88,7 +88,7 @@ export class ReadTableBlockService {
     // Create virtual step for persistence
     const virtualStep = await this.stepRepo.create({
       workflowId,
-      sectionId: targetSectionId,
+      pageId: targetPageId,
       type: 'computed',
       title: `Read Table: ${data.name}`,
       description: `Virtual step for read table block: ${data.name}`,
@@ -103,7 +103,7 @@ export class ReadTableBlockService {
       workflowId,
       type: 'read_table',
       phase: data.phase,
-      sectionId: data.sectionId ?? null,
+      pageId: data.pageId ?? null,
       config: data.config,
       order: newOrder,
       virtualStepId: virtualStep.id,

@@ -176,11 +176,11 @@ export class VersionService {
     ]);
 
     const stepIdToAlias = new Map<string, string>();
-    const sectionIdToAlias = new Map<string, string>();
-    for (const section of fullData.sections) { sectionIdToAlias.set(section.id, section.title); }
+    const pageIdToAlias = new Map<string, string>();
+    for (const page of fullData.pages) { pageIdToAlias.set(page.id, page.title); }
 
-    for (const section of fullData.sections) {
-      for (const step of section.steps) {
+    for (const page of fullData.pages) {
+      for (const step of page.steps) {
         if (step.alias) { stepIdToAlias.set(step.id, step.alias); }
       }
     }
@@ -191,18 +191,18 @@ export class VersionService {
       projectId: fullData.projectId,
       settings: fullData.settings as Record<string, unknown>,
       intakeConfig: fullData.intakeConfig as Record<string, unknown>,
-      sections: fullData.sections.map(section => ({
-        id: section.id,
-        title: section.title,
-        description: section.description ?? undefined,
-        order: section.order,
+      pages: fullData.pages.map(page => ({
+        id: page.id,
+        title: page.title,
+        description: page.description ?? undefined,
+        order: page.order,
         // O-4: was cast to `string | undefined` to satisfy an ingest DTO that
         // wrongly annotated visibleIf as a string. Both DTOs now declare the
         // ConditionExpression this column actually holds, so the cast is only
         // the usual jsonb-is-unknown narrowing.
-        visibleIf: (section.visibleIf ?? null) as ConditionExpression,
-        config: section.config as Record<string, unknown> | undefined,
-        steps: section.steps.map(step => ({
+        visibleIf: (page.visibleIf ?? null) as ConditionExpression,
+        config: page.config as Record<string, unknown> | undefined,
+        steps: page.steps.map(step => ({
           id: step.id,
           type: step.type,
           title: step.title,
@@ -227,14 +227,14 @@ export class VersionService {
         conditionStepAlias: rule.conditionStepId ? (stepIdToAlias.get(rule.conditionStepId) ?? rule.conditionStepId) : '',
         when: (rule.when ?? null) as ConditionExpression,
         targetType: rule.targetType,
-        targetId: rule.targetType === 'section' ? (rule.targetSectionId ?? undefined) : (rule.targetStepId ?? undefined),
-        targetAlias: (rule.targetType === 'section' && rule.targetSectionId) ? (sectionIdToAlias.get(rule.targetSectionId) ?? rule.targetSectionId) : (rule.targetStepId ? (stepIdToAlias.get(rule.targetStepId) ?? rule.targetStepId) : ''),
+        targetId: rule.targetType === 'page' ? (rule.targetPageId ?? undefined) : (rule.targetStepId ?? undefined),
+        targetAlias: (rule.targetType === 'page' && rule.targetPageId) ? (pageIdToAlias.get(rule.targetPageId) ?? rule.targetPageId) : (rule.targetStepId ? (stepIdToAlias.get(rule.targetStepId) ?? rule.targetStepId) : ''),
         action: rule.action,
         order: rule.order,
       })),
       blocks: blocks.map(block => ({
         id: block.id,
-        sectionId: block.sectionId,
+        pageId: block.pageId,
         type: block.type,
         phase: block.phase,
         config: block.config,
@@ -244,7 +244,7 @@ export class VersionService {
       })),
       transformBlocks: fullData.transformBlocks.map(block => ({
         id: block.id,
-        sectionId: block.sectionId,
+        pageId: block.pageId,
         phase: block.phase,
         name: block.name,
         code: block.code,
@@ -259,7 +259,7 @@ export class VersionService {
       })),
       lifecycleHooks: lifecycleHooks.map(hook => ({
         id: hook.id,
-        sectionId: hook.sectionId,
+        pageId: hook.pageId,
         phase: hook.phase,
         name: hook.name,
         code: hook.code,

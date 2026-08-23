@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 import { createLogger } from "../logger";
 import {
-  sectionRepository,
+  pageRepository,
   stepRepository as defaultStepRepository,
   logicRuleRepository,
   documentTemplateRepository,
@@ -175,19 +175,19 @@ export class WorkflowPatchService {
     }
   }
   /**
-   * Verify that an entity (section or step) belongs to the given workflow ID.
+   * Verify that an entity (page or step) belongs to the given workflow ID.
    * Prevents IDOR attacks where a user passes a valid ID from another tenant's workflow.
    */
-  private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'section' | 'step', tx?: DbTransaction): Promise<void> {
-    if (type === 'section') {
-      const section = await sectionRepository.findById(entityId, tx);
-      if (!section) {throw new Error(`Section not found: ${entityId}`);}
-      if (section.workflowId !== workflowId) {throw new Error(`Section ${entityId} does not belong to workflow ${workflowId}`);}
+  private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'page' | 'step', tx?: DbTransaction): Promise<void> {
+    if (type === 'page') {
+      const page = await pageRepository.findById(entityId, tx);
+      if (!page) {throw new Error(`Page not found: ${entityId}`);}
+      if (page.workflowId !== workflowId) {throw new Error(`Page ${entityId} does not belong to workflow ${workflowId}`);}
     } else if (type === 'step') {
       const step = await this.stepRepository.findById(entityId, tx);
       if (!step) {throw new Error(`Step not found: ${entityId}`);}
-      const section = await sectionRepository.findById(step.sectionId, tx);
-      if (!section || section.workflowId !== workflowId) {throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);}
+      const page = await pageRepository.findById(step.pageId, tx);
+      if (!page || page.workflowId !== workflowId) {throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);}
     }
   }
 
@@ -232,83 +232,83 @@ export class WorkflowPatchService {
         return `Updated workflow metadata`;
       }
       // ====================================================================
-      // Section Operations
+      // Page Operations
       // ====================================================================
-      case "section.create": {
-        const section = await sectionRepository.create({
+      case "page.create": {
+        const page = await pageRepository.create({
           workflowId,
           title: op.title,
           order: op.order,
           config: op.config,
         }, tx);
         if (op.tempId) {
-          this.mapTempId(op.tempId, section.id);
+          this.mapTempId(op.tempId, page.id);
         }
-        return `Created section '${op.title}'`;
+        return `Created page '${op.title}'`;
       }
-      case "section.update": {
-        const sectionId = this.resolve(op.id ?? op.tempId);
-        if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
-        await sectionRepository.update(sectionId, {
+      case "page.update": {
+        const pageId = this.resolve(op.id ?? op.tempId);
+        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+        await pageRepository.update(pageId, {
           title: op.title,
           order: op.order,
           config: op.config,
         }, tx);
-        return `Updated section`;
+        return `Updated page`;
       }
-      case "section.delete": {
-        const sectionId = this.resolve(op.id ?? op.tempId);
-        if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
+      case "page.delete": {
+        const pageId = this.resolve(op.id ?? op.tempId);
+        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
-        // Cascade to the section's own steps, mirroring the manual delete
-        // path in SectionService.deleteSection. The op's own transaction is
+        // Cascade to the page's own steps, mirroring the manual delete
+        // path in PageService.deletePage. The op's own transaction is
         // the cascade's transaction — opening a second one here would nest.
-        await this.stepRepository.softDeleteBySectionId(sectionId, tx);
-        await sectionRepository.softDelete(sectionId, tx);
-        return `Deleted section`;
+        await this.stepRepository.softDeleteByPageId(pageId, tx);
+        await pageRepository.softDelete(pageId, tx);
+        return `Deleted page`;
       }
-      case "section.reorder": {
-        // Update order for each section
-        for (let i = 0; i < op.sectionIds.length; i++) {
-          const sectionId = this.resolve(op.sectionIds[i]);
-          if (sectionId) {
-            await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
-            await sectionRepository.update(sectionId, { order: i + 1 }, tx);
+      case "page.reorder": {
+        // Update order for each page
+        for (let i = 0; i < op.pageIds.length; i++) {
+          const pageId = this.resolve(op.pageIds[i]);
+          if (pageId) {
+            await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+            await pageRepository.update(pageId, { order: i + 1 }, tx);
           }
         }
-        return `Reordered ${op.sectionIds.length} sections`;
+        return `Reordered ${op.pageIds.length} pages`;
       }
-      case "section.setVisibleIf": {
-        const sectionId = this.resolve(op.id ?? op.tempId);
-        if (!sectionId) { throw new Error("Section ID or tempId required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
-        await sectionRepository.update(sectionId, {
+      case "page.setVisibleIf": {
+        const pageId = this.resolve(op.id ?? op.tempId);
+        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+        await pageRepository.update(pageId, {
           visibleIf: op.visibleIf,
         }, tx);
         return op.visibleIf === null
-          ? `Cleared section visibility condition`
-          : `Updated section visibility condition`;
+          ? `Cleared page visibility condition`
+          : `Updated page visibility condition`;
       }
       // ====================================================================
       // Step Operations
       // ====================================================================
       case "step.create": {
-        const sectionId = this.resolve(op.sectionId ?? op.sectionRef);
-        if (!sectionId) { throw new Error("Section ID or sectionRef required"); }
-        // IDOR guard (parity with step.move/update/delete): the target section
+        const pageId = this.resolve(op.pageId ?? op.pageRef);
+        if (!pageId) { throw new Error("Page ID or pageRef required"); }
+        // IDOR guard (parity with step.move/update/delete): the target page
         // must belong to this workflow. Without this a caller with edit access
         // to their own workflow could inject a step into another workflow's —
-        // even another tenant's — section by passing its UUID. A tempId from a
-        // same-batch section.create resolves to a section created in *this*
+        // even another tenant's — page by passing its UUID. A tempId from a
+        // same-batch page.create resolves to a page created in *this*
         // workflow, so the assertion still passes for the legitimate path.
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
-        // Get max order for this section if not specified
-        const order = op.order ?? await this.getNextStepOrder(sectionId, tx);
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+        // Get max order for this page if not specified
+        const order = op.order ?? await this.getNextStepOrder(pageId, tx);
         const step = await this.stepRepository.create({
           workflowId,
-          sectionId,
+          pageId,
           type: op.type as StepType,
           title: op.title,
           alias: op.alias,
@@ -355,17 +355,17 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
-        const toSectionId = this.resolve(op.toSectionId);
-        if (!toSectionId) { throw new Error("Target section ID required"); }
+        const toPageId = this.resolve(op.toPageId);
+        if (!toPageId) { throw new Error("Target page ID required"); }
         
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
-        await this.assertEntityBelongsToWorkflow(toSectionId, workflowId, 'section', tx);
-        const order = op.order ?? await this.getNextStepOrder(toSectionId, tx);
+        await this.assertEntityBelongsToWorkflow(toPageId, workflowId, 'page', tx);
+        const order = op.order ?? await this.getNextStepOrder(toPageId, tx);
         await this.stepRepository.update(stepId, {
-          sectionId: toSectionId,
+          pageId: toPageId,
           order,
         }, tx);
-        return `Moved step to different section`;
+        return `Moved step to different page`;
       }
       case "step.setVisibleIf": {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -380,14 +380,14 @@ export class WorkflowPatchService {
           : `Updated step visibility condition`;
       }
       case "step.reorder": {
-        const sectionId = this.resolve(op.sectionId);
-        if (!sectionId) { throw new Error("Section ID required"); }
-        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section', tx);
+        const pageId = this.resolve(op.pageId);
+        if (!pageId) { throw new Error("Page ID required"); }
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         for (let i = 0; i < op.stepIds.length; i++) {
           const stepId = this.resolve(op.stepIds[i]);
           if (stepId) {
             await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
-            await this.stepRepository.update(stepId, { sectionId, order: i + 1 }, tx);
+            await this.stepRepository.update(stepId, { pageId, order: i + 1 }, tx);
           }
         }
         return `Reordered ${op.stepIds.length} steps`;
@@ -406,7 +406,7 @@ export class WorkflowPatchService {
       // Logic Rule Operations (Using visibleIf expressions)
       // ====================================================================
       case "logicRule.create": {
-        // Logic rules are implemented via visibleIf on steps/sections
+        // Logic rules are implemented via visibleIf on steps/pages
         // Parse the rule and apply to the target entity
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
@@ -419,18 +419,18 @@ export class WorkflowPatchService {
             visibleIf: conditionExpr,
           }, tx);
           return `Applied visibility rule to step`;
-        } else if (op.rule.target.type === "section") {
-          await sectionRepository.update(targetId, {
+        } else if (op.rule.target.type === "page") {
+          await pageRepository.update(targetId, {
             visibleIf: conditionExpr,
           }, tx);
-          return `Applied visibility rule to section`;
+          return `Applied visibility rule to page`;
         } else {
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw new Error(`Unknown target type: ${op.rule.target.type}`);
         }
       }
       case "logicRule.update": {
-        // Update existing visibleIf on a step or section
+        // Update existing visibleIf on a step or page
         if (!op.rule.target) {
           throw new Error("Logic rule target required for update");
         }
@@ -445,8 +445,8 @@ export class WorkflowPatchService {
           await this.stepRepository.update(targetId, {
             visibleIf: conditionExpr,
           }, tx);
-        } else if (op.rule.target.type === "section") {
-          await sectionRepository.update(targetId, {
+        } else if (op.rule.target.type === "page") {
+          await pageRepository.update(targetId, {
             visibleIf: conditionExpr,
           }, tx);
         }
@@ -659,10 +659,10 @@ export class WorkflowPatchService {
     }
   }
   /**
-   * Get next available order for a section's steps
+   * Get next available order for a page's steps
    */
-  private async getNextStepOrder(sectionId: string, tx?: DbTransaction): Promise<number> {
-    const steps = await this.stepRepository.findBySectionId(sectionId, tx);
+  private async getNextStepOrder(pageId: string, tx?: DbTransaction): Promise<number> {
+    const steps = await this.stepRepository.findByPageId(pageId, tx);
     if (steps.length === 0) { return 1; }
     return Math.max(...steps.map(s => s.order)) + 1;
   }

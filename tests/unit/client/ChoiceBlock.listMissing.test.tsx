@@ -30,7 +30,7 @@ function makeListChoiceStep(display: "dropdown" | "radio" | "multiple" | "combob
   return {
     id: "step-choice-1",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Select team member",
     description: null,
@@ -58,7 +58,7 @@ function makeQueryBlockChoiceStep(display: "dropdown" = "dropdown"): Step {
   return {
     id: "step-query-choice",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Select from query",
     description: null,
@@ -78,7 +78,7 @@ function makeStaticChoiceStep(display: "dropdown" = "dropdown"): Step {
   return {
     id: "step-static-choice",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "choice",
     title: "Select static option",
     description: null,

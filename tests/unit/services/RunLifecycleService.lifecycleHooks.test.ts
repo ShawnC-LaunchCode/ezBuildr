@@ -71,7 +71,7 @@ vi.mock('../../../server/logger', () => ({
 vi.mock('../../../server/repositories', () => ({
   stepValueRepository: {},
   stepRepository: {},
-  sectionRepository: {},
+  pageRepository: {},
   documentTemplateRepository: {},
   workflowRunRepository: {
     findById: mocks.findRun,
@@ -148,7 +148,7 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
     mocks.findWorkflow.mockResolvedValue({ id: WORKFLOW_ID, projectId: PROJECT_ID });
     mocks.findProject.mockResolvedValue({ id: PROJECT_ID, tenantId: 'tenant-1' });
     mocks.getDefinition.mockResolvedValue({
-      sections: [],
+      pages: [],
       logicRules: [],
       steps: [{
         id: 'final-step',

@@ -21,7 +21,7 @@ async function applyMigration() {
       sql: `ALTER TABLE projects ADD COLUMN IF NOT EXISTS status varchar(50) DEFAULT 'active'`
     },
     {
-      name: 'Add updated_at to sections',
+      name: 'Add updated_at to pages',
       sql: `ALTER TABLE sections ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now()`
     },
     {
@@ -53,7 +53,7 @@ async function applyMigration() {
   // Backfill and constraints
   const backfillSteps = [
     {
-      name: 'Backfill sections.updated_at',
+      name: 'Backfill pages.updated_at',
       sql: `UPDATE sections SET updated_at = created_at WHERE updated_at IS NULL`
     },
     {

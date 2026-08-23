@@ -25,7 +25,7 @@ import * as schema from "@shared/schema";
 import type { InsertWorkflow } from "@shared/schema";
 
 import { initializeDatabase } from "../../server/db";
-import { projectRepository, sectionRepository, workflowRepository } from "../../server/repositories";
+import { projectRepository, pageRepository, workflowRepository } from "../../server/repositories";
 import { templateService } from "../../server/services/TemplateService";
 import { templateValidationService } from "../../server/services/TemplateValidationService";
 import { versionService } from "../../server/services/VersionService";
@@ -133,8 +133,8 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
   // AC5 — a multi-repository operation in this cluster shares the IDENTICAL
   // transaction object across both repositories, not merely the same
   // tenant. WorkflowService.createWorkflow spans workflowRepo.create and
-  // sectionRepo.create (the default first section).
-  it("opens exactly one transaction for WorkflowService.createWorkflow spanning workflowRepo and sectionRepo", async () => {
+  // pageRepo.create (the default first page).
+  it("opens exactly one transaction for WorkflowService.createWorkflow spanning workflowRepo and pageRepo", async () => {
     enterTenantContextForTests(tenantId);
 
     const seenTxs: unknown[] = [];
@@ -143,10 +143,10 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
       seenTxs.push(tx);
       return originalCreate(data, tx);
     });
-    const originalSectionCreate = sectionRepository.create.bind(sectionRepository);
-    const sectionCreateSpy = vi.spyOn(sectionRepository, "create").mockImplementation(async (data, tx) => {
+    const originalPageCreate = pageRepository.create.bind(pageRepository);
+    const pageCreateSpy = vi.spyOn(pageRepository, "create").mockImplementation(async (data, tx) => {
       seenTxs.push(tx);
-      return originalSectionCreate(data, tx);
+      return originalPageCreate(data, tx);
     });
 
     enterTenantContextForTests(tenantId);
@@ -156,7 +156,7 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     );
 
     createSpy.mockRestore();
-    sectionCreateSpy.mockRestore();
+    pageCreateSpy.mockRestore();
 
     expect(workflow.id).toBeDefined();
     expect(seenTxs).toHaveLength(2);
@@ -165,7 +165,7 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     // repositories, not merely two transactions scoped to the same tenant.
     expect(seenTxs[0]).toBe(seenTxs[1]);
 
-    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.pages).where(eq(schema.pages.workflowId, workflow.id));
     await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 
@@ -190,7 +190,7 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
       findByIdOrSlugSpy.mockRestore();
     });
 
-    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.pages).where(eq(schema.pages.workflowId, workflow.id));
     await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 
@@ -200,7 +200,7 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
   // ticket; this proves threading a REAL tenant-scoped `tx` through the
   // whole chain (instead of the bare `db.transaction()` it used to open)
   // did not break the copy.
-  it("WorkflowClonerService.copyWorkflow copies a workflow and its default section inside one tenant transaction", async () => {
+  it("WorkflowClonerService.copyWorkflow copies a workflow and its default page inside one tenant transaction", async () => {
     enterTenantContextForTests(tenantId);
     const source = await workflowService.createWorkflow(
       { title: `RLS-2e Cloner Source ${nanoid()}`, creatorId: userId } as InsertWorkflow,
@@ -217,15 +217,15 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     expect(result.workflow!.id).not.toBe(source.id);
     expect(result.workflow!.creatorId).toBe(userId);
 
-    const copiedSections = await getOwnerDb()
+    const copiedPages = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, result.workflow!.id));
-    expect(copiedSections).toHaveLength(1);
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, result.workflow!.id));
+    expect(copiedPages).toHaveLength(1);
 
-    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, result.workflow!.id));
+    await getOwnerDb().delete(schema.pages).where(eq(schema.pages.workflowId, result.workflow!.id));
     await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, result.workflow!.id));
-    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, source.id));
+    await getOwnerDb().delete(schema.pages).where(eq(schema.pages.workflowId, source.id));
     await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, source.id));
   });
 
@@ -239,10 +239,10 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
       { title: `RLS-2e Publish ${nanoid()}`, creatorId: userId } as InsertWorkflow,
       userId
     );
-    const section = await getOwnerDb().query.sections.findFirst({ where: eq(schema.sections.workflowId, workflow.id) });
+    const page = await getOwnerDb().query.pages.findFirst({ where: eq(schema.pages.workflowId, workflow.id) });
     await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
-      sectionId: section!.id,
+      pageId: page!.id,
       type: "short_text",
       title: "Q1",
       alias: "q1",
@@ -259,8 +259,8 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
 
     await getOwnerDb().update(schema.workflows).set({ currentVersionId: null }).where(eq(schema.workflows.id, workflow.id));
     await getOwnerDb().delete(schema.workflowVersions).where(eq(schema.workflowVersions.workflowId, workflow.id));
-    await getOwnerDb().delete(schema.steps).where(eq(schema.steps.sectionId, section!.id));
-    await getOwnerDb().delete(schema.sections).where(eq(schema.sections.workflowId, workflow.id));
+    await getOwnerDb().delete(schema.steps).where(eq(schema.steps.pageId, page!.id));
+    await getOwnerDb().delete(schema.pages).where(eq(schema.pages.workflowId, workflow.id));
     await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.id, workflow.id));
   });
 });

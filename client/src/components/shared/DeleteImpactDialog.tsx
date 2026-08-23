@@ -1,7 +1,7 @@
 /**
  * Delete Impact Dialog (ICW2-13)
  *
- * Destructive-confirm dialog shown only when a step/section delete would
+ * Destructive-confirm dialog shown only when a step/page delete would
  * cascade-destroy stored run answers (step_values.stepId onDelete: cascade).
  * Fully controlled — no trigger — because the caller must check the impact
  * count (an async fetch) before deciding whether to show this at all.

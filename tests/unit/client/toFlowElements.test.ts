@@ -9,14 +9,14 @@ import {
 import { buildWorkflowMap } from "@shared/workflowMap";
 
 import {
-  linearThreeSections,
-  workflowWithConditionalSection,
+  linearThreePages,
+  workflowWithConditionalPage,
   workflowWithForwardSkip,
 } from "../../fixtures/workflowMap";
 
 describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
   it("marks every node non-draggable, non-connectable and non-deletable (AC6, belt-and-suspenders with the ReactFlow-level props)", () => {
-    const { nodes, edges } = buildWorkflowMap(workflowWithConditionalSection());
+    const { nodes, edges } = buildWorkflowMap(workflowWithConditionalPage());
     const flowNodes = toFlowNodes(nodes, edges);
 
     expect(flowNodes.length).toBeGreaterThan(0);
@@ -28,13 +28,13 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
   });
 
   it("carries a node's `conditional` flag straight through into its flow data", () => {
-    const { nodes, edges } = buildWorkflowMap(workflowWithConditionalSection());
+    const { nodes, edges } = buildWorkflowMap(workflowWithConditionalPage());
     const flowNodes = toFlowNodes(nodes, edges);
 
-    const sectionA = flowNodes.find((n) => n.id === "section-a");
-    const sectionB = flowNodes.find((n) => n.id === "section-b");
-    expect(sectionA?.data.conditional).toBe(true);
-    expect(sectionB?.data.conditional).toBe(false);
+    const pageA = flowNodes.find((n) => n.id === "page-a");
+    const pageB = flowNodes.find((n) => n.id === "page-b");
+    expect(pageA?.data.conditional).toBe(true);
+    expect(pageB?.data.conditional).toBe(false);
   });
 
   it("gives skip edges a distinct class and label from sequential edges (AC4)", () => {
@@ -51,7 +51,7 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
     expect(skipEdge?.className).not.toBe(sequentialEdge?.className);
   });
 
-  it("routes a skip edge through the dedicated left-side anchors with a wide enough offset to clear a bypassed section (review fix)", () => {
+  it("routes a skip edge through the dedicated left-side anchors with a wide enough offset to clear a bypassed page (review fix)", () => {
     const { edges } = buildWorkflowMap(workflowWithForwardSkip());
     const flowEdges = toFlowEdges(edges);
     const skipEdge = flowEdges.find((e) => e.id.startsWith("skip:"));
@@ -59,7 +59,7 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
 
     // Regression: a defect found at review had this edge using the node's
     // default top/bottom handles (same as a sequential edge), which drew a
-    // straight line directly through the bypassed section with the "Skip"
+    // straight line directly through the bypassed page with the "Skip"
     // label rendered on top of that node's own title.
     expect(skipEdge?.sourceHandle).toBe("skip-source");
     expect(skipEdge?.targetHandle).toBe("skip-target");
@@ -85,20 +85,20 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
   });
 
   it("wires an onActivate callback for every non-terminal node when one is supplied (MAP-5)", () => {
-    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const { nodes, edges } = buildWorkflowMap(linearThreePages());
     const onActivateNode = vi.fn();
     const flowNodes = toFlowNodes(nodes, edges, onActivateNode);
 
-    const sectionA = flowNodes.find((n) => n.id === "section-a");
-    expect(sectionA?.data.onActivate).toBeTypeOf("function");
-    sectionA?.data.onActivate?.();
+    const pageA = flowNodes.find((n) => n.id === "page-a");
+    expect(pageA?.data.onActivate).toBeTypeOf("function");
+    pageA?.data.onActivate?.();
     expect(onActivateNode).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "section-a", kind: "section" })
+      expect.objectContaining({ id: "page-a", kind: "page" })
     );
   });
 
   it("never gives the terminal node an onActivate callback, even when one is supplied (MAP-5 AC3)", () => {
-    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const { nodes, edges } = buildWorkflowMap(linearThreePages());
     const onActivateNode = vi.fn();
     const flowNodes = toFlowNodes(nodes, edges, onActivateNode);
 
@@ -107,7 +107,7 @@ describe("toFlowNodes / toFlowEdges (MAP-4)", () => {
   });
 
   it("leaves every node non-focusable at the xyflow level — the node's own button handles keyboard activation (MAP-5)", () => {
-    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const { nodes, edges } = buildWorkflowMap(linearThreePages());
     const flowNodes = toFlowNodes(nodes, edges, vi.fn());
 
     for (const node of flowNodes) {

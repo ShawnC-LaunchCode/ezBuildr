@@ -99,12 +99,9 @@ export class AIService {
   async suggestWorkflowImprovements(
     request: AIWorkflowSuggestionRequest,
     existingWorkflow: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow structure with varying section types
-      sections: any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic logic rule configuration
-      logicRules?: any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic transform block configuration
-      transformBlocks?: any[];
+      pages: unknown[];
+      logicRules?: unknown[];
+      transformBlocks?: unknown[];
     },
   ): Promise<AIWorkflowSuggestion> {
     return this.suggestionService.suggestWorkflowImprovements(request, existingWorkflow);

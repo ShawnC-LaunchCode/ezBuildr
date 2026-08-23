@@ -1,15 +1,15 @@
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
-import { stepAPI, type ApiStep, type ApiSection } from "../../lib/vault-api";
+import { stepAPI, type ApiStep, type ApiPage } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
-export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">): UseQueryResult<ApiStep[]> {
+export function useSteps(pageId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">): UseQueryResult<ApiStep[]> {
     return useQuery({
-        queryKey: queryKeys.steps(sectionId ?? ""),
-        queryFn: () => stepAPI.list(sectionId ?? ""),
-        enabled: !!sectionId && sectionId !== "undefined",
+        queryKey: queryKeys.steps(pageId ?? ""),
+        queryFn: () => stepAPI.list(pageId ?? ""),
+        enabled: !!pageId && pageId !== "undefined",
         ...options,
     });
 }
@@ -24,24 +24,24 @@ export function useWorkflowSteps(workflowId: string | undefined, options?: Omit<
 }
 
 /**
- * Fetch steps for multiple sections at once
- * Returns a Record<sectionId, ApiStep[]>
+ * Fetch steps for multiple pages at once
+ * Returns a Record<pageId, ApiStep[]>
  *
  * This hook respects React's Rules of Hooks by using useQueries
- * which always calls the same number of hooks based on the sections array
+ * which always calls the same number of hooks based on the pages array
  */
-export function useAllSteps(sections: ApiSection[]): Record<string, ApiStep[]> {
+export function useAllSteps(pages: ApiPage[]): Record<string, ApiStep[]> {
     const queries = useQueries({
-        queries: sections.map((section) => ({
-            queryKey: queryKeys.steps(section.id),
-            queryFn: () => stepAPI.list(section.id),
+        queries: pages.map((page) => ({
+            queryKey: queryKeys.steps(page.id),
+            queryFn: () => stepAPI.list(page.id),
             staleTime: 5000, // Cache for 5 seconds to avoid excessive refetches
         })),
     });
-    // Combine results into a Record<sectionId, steps[]>
+    // Combine results into a Record<pageId, steps[]>
     const allSteps: Record<string, ApiStep[]> = {};
-    sections.forEach((section, index) => {
-        allSteps[section.id] = queries[index].data ?? [];
+    pages.forEach((page, index) => {
+        allSteps[page.id] = queries[index].data ?? [];
     });
     return allSteps;
 }
@@ -54,39 +54,39 @@ export function useStep(stepId: string | undefined): UseQueryResult<ApiStep> {
     });
 }
 
-export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { sectionId: string }> {
+export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { pageId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ sectionId, ...data }: Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { sectionId: string }) =>
-            stepAPI.create(sectionId, data),
+        mutationFn: ({ pageId, ...data }: Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { pageId: string }) =>
+            stepAPI.create(pageId, data),
         onSuccess: async (step, variables) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(step.workflowId) });
             DevPanelBus.emitWorkflowUpdate();
         },
     });
 }
 
-export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<ApiStep> & { id: string; sectionId: string }> {
+export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<ApiStep> & { id: string; pageId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         meta: { errorMessage: "Failed to save step. Change has been reverted." },
-        mutationFn: ({ id, sectionId: _sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
+        mutationFn: ({ id, pageId: _pageId, ...data }: Partial<ApiStep> & { id: string; pageId: string }) =>
             stepAPI.update(id, data),
         onMutate: async (variables) => {
-            const { id, sectionId, ...data } = variables;
+            const { id, pageId, ...data } = variables;
             // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: queryKeys.steps(sectionId) });
+            await queryClient.cancelQueries({ queryKey: queryKeys.steps(pageId) });
             await queryClient.cancelQueries({ queryKey: queryKeys.step(id) });
             // Snapshot the previous values
-            const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(sectionId));
+            const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(pageId));
             const previousStep = queryClient.getQueryData<ApiStep>(queryKeys.step(id));
             // Optimistically update the steps list
             if (previousSteps) {
                 const updatedSteps = previousSteps.map((step) =>
                     step.id === id ? { ...step, ...data } : step
                 );
-                queryClient.setQueryData(queryKeys.steps(sectionId), updatedSteps);
+                queryClient.setQueryData(queryKeys.steps(pageId), updatedSteps);
             }
             // Optimistically update the single step
             if (previousStep) {
@@ -98,7 +98,7 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
         onError: (err, variables, context) => {
             // Rollback to previous values on error
             if (context?.previousSteps) {
-                queryClient.setQueryData(queryKeys.steps(variables.sectionId), context.previousSteps);
+                queryClient.setQueryData(queryKeys.steps(variables.pageId), context.previousSteps);
             }
             if (context?.previousStep) {
                 queryClient.setQueryData(queryKeys.step(variables.id), context.previousStep);
@@ -106,7 +106,7 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
         },
         onSettled: async (data, error, variables) => {
             // Always refetch after error or success to ensure sync with server
-            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.step(variables.id) });
             // Invalidate variables when step alias changes
             // Invalidate everything to be safe
@@ -119,24 +119,24 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
     });
 }
 
-export function useReorderSteps(): UseMutationResult<unknown, unknown, { sectionId: string; steps: Array<{ id: string; order: number }> }> {
+export function useReorderSteps(): UseMutationResult<unknown, unknown, { pageId: string; steps: Array<{ id: string; order: number }> }> {
     const queryClient = useQueryClient();
     return useMutation({
         meta: { errorMessage: "Failed to reorder questions. The order has been reverted." },
-        mutationFn: ({ sectionId, steps }: { sectionId: string; steps: Array<{ id: string; order: number }> }) =>
-            stepAPI.reorder(sectionId, steps),
+        mutationFn: ({ pageId, steps }: { pageId: string; steps: Array<{ id: string; order: number }> }) =>
+            stepAPI.reorder(pageId, steps),
         onMutate: async (variables) => {
             // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.cancelQueries({ queryKey: queryKeys.steps(variables.pageId) });
             // Snapshot the previous value
-            const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(variables.sectionId));
+            const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(variables.pageId));
             // Optimistically update to the new value
             if (previousSteps) {
                 const updatedSteps = previousSteps.map((step) => {
                     const newOrder = variables.steps.find((s) => s.id === step.id);
                     return newOrder ? { ...step, order: newOrder.order } : step;
                 });
-                queryClient.setQueryData(queryKeys.steps(variables.sectionId), updatedSteps);
+                queryClient.setQueryData(queryKeys.steps(variables.pageId), updatedSteps);
             }
             // Return context with the previous value
             return { previousSteps };
@@ -144,25 +144,25 @@ export function useReorderSteps(): UseMutationResult<unknown, unknown, { section
         onError: (err, variables, context) => {
             // Rollback to previous value on error
             if (context?.previousSteps) {
-                queryClient.setQueryData(queryKeys.steps(variables.sectionId), context.previousSteps);
+                queryClient.setQueryData(queryKeys.steps(variables.pageId), context.previousSteps);
             }
         },
         // eslint-disable-next-line @typescript-eslint/naming-convention
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
-            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
             await queryClient.invalidateQueries({ queryKey: ["steps", "workflow"] });
         },
     });
 }
 
-export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; sectionId: string }> {
+export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; pageId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (variables: { id: string; sectionId: string }) =>
+        mutationFn: (variables: { id: string; pageId: string }) =>
             stepAPI.delete(variables.id),
         onSuccess: async (_, variables) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
             await queryClient.invalidateQueries({ queryKey: ["steps", "workflow"] });
             DevPanelBus.emitWorkflowUpdate();
         },
@@ -170,17 +170,17 @@ export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; 
 }
 
 /**
- * Duplicate a single step into the same section (ICW2-B5). Invalidates the
- * section's step list (and the workflow-wide step list) so the copy appears
+ * Duplicate a single step into the same page (ICW2-B5). Invalidates the
+ * page's step list (and the workflow-wide step list) so the copy appears
  * without a full reload.
  */
-export function useDuplicateStep(): UseMutationResult<ApiStep, unknown, { id: string; sectionId: string }> {
+export function useDuplicateStep(): UseMutationResult<ApiStep, unknown, { id: string; pageId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (variables: { id: string; sectionId: string }) =>
+        mutationFn: (variables: { id: string; pageId: string }) =>
             stepAPI.duplicate(variables.id),
         onSuccess: async (step, variables) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.pageId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(step.workflowId) });
             DevPanelBus.emitWorkflowUpdate();
         },

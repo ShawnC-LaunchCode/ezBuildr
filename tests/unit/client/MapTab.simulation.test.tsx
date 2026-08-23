@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { MapTab } from "@/components/builder/map/MapTab";
 import type { MapFlowNode } from "@/components/builder/map/types";
-import type { ApiLogicRule, ApiSection, ApiStep } from "@/lib/vault-api";
+import type { ApiLogicRule, ApiPage, ApiStep } from "@/lib/vault-api";
 
 /**
  * MAP-8's own fixture, not `tests/fixtures/workflowMap.ts` — that file's
@@ -21,17 +21,17 @@ import type { ApiLogicRule, ApiSection, ApiStep } from "@/lib/vault-api";
  */
 const createdAt = "2026-08-08T00:00:00.000Z";
 
-const sections: ApiSection[] = [
-  { id: "section-a", workflowId: "wf-1", title: "Section A", description: null, order: 0, createdAt },
-  { id: "section-b", workflowId: "wf-1", title: "Section B", description: null, order: 1, createdAt },
-  { id: "section-c", workflowId: "wf-1", title: "Section C", description: null, order: 2, createdAt },
+const pages: ApiPage[] = [
+  { id: "page-a", workflowId: "wf-1", title: "Page A", description: null, order: 0, createdAt },
+  { id: "page-b", workflowId: "wf-1", title: "Page B", description: null, order: 1, createdAt },
+  { id: "page-c", workflowId: "wf-1", title: "Page C", description: null, order: 2, createdAt },
 ];
 
 const steps: ApiStep[] = [
   {
     id: "step-a-trigger",
     workflowId: "wf-1",
-    sectionId: "section-a",
+    pageId: "page-a",
     type: "yes_no",
     title: "Skip ahead?",
     description: null,
@@ -57,9 +57,9 @@ const rules: ApiLogicRule[] = [
         { type: "condition", id: "cond-1", variable: "step-a-trigger", operator: "is_true", value: true, valueType: "constant" },
       ],
     },
-    targetType: "section",
+    targetType: "page",
     targetStepId: null,
-    targetSectionId: "section-c",
+    targetPageId: "page-c",
     action: "skip_to",
     order: 1,
   },
@@ -143,8 +143,8 @@ vi.mock("@xyflow/react", async () => {
   };
 });
 
-vi.mock("@/hooks/api/useSections", () => ({
-  useSections: () => ({ data: sections, isError: false }),
+vi.mock("@/hooks/api/usePages", () => ({
+  usePages: () => ({ data: pages, isError: false }),
 }));
 vi.mock("@/hooks/api/useSteps", () => ({
   useWorkflowSteps: () => ({ data: steps, isError: false }),
@@ -184,13 +184,13 @@ describe("MapTab simulation panel (MAP-8)", () => {
 
   it("renders every node as normal (no dim/highlight classes) before any answer is entered — the skip hasn't fired yet", () => {
     render(<MapTab workflowId="wf-1" />);
-    const sectionB = screen.getByTestId("node-section-b");
-    const group = within(sectionB).getByRole("group");
+    const pageB = screen.getByTestId("node-page-b");
+    const group = within(pageB).getByRole("group");
     expect(group.className).not.toContain("workflow-map-node-dimmed");
     expect(group.className).not.toContain("workflow-map-node-onpath");
   });
 
-  it("dims the skipped section and highlights the skip edge once the triggering answer is entered (AC3/AC4)", async () => {
+  it("dims the skipped page and highlights the skip edge once the triggering answer is entered (AC3/AC4)", async () => {
     const user = userEvent.setup();
     render(<MapTab workflowId="wf-1" />);
 
@@ -198,17 +198,17 @@ describe("MapTab simulation panel (MAP-8)", () => {
     await user.click(screen.getByRole("combobox"));
     await user.click(await screen.findByRole("option", { name: "Yes" }));
 
-    const sectionB = await screen.findByTestId("node-section-b");
-    const dimmedGroup = within(sectionB).getByRole("group");
+    const pageB = await screen.findByTestId("node-page-b");
+    const dimmedGroup = within(pageB).getByRole("group");
     expect(dimmedGroup.className).toContain("workflow-map-node-dimmed");
-    expect(within(sectionB).getByText(/not on the currently simulated path/i)).toBeInTheDocument();
+    expect(within(pageB).getByText(/not on the currently simulated path/i)).toBeInTheDocument();
 
-    const sectionA = screen.getByTestId("node-section-a");
-    expect(within(sectionA).getByRole("group").className).toContain("workflow-map-node-onpath");
+    const pageA = screen.getByTestId("node-page-a");
+    expect(within(pageA).getByRole("group").className).toContain("workflow-map-node-onpath");
 
     const skipEdge = screen.getByTestId("edge-skip:rule-skip-forward");
     expect(skipEdge.className).toContain("workflow-map-edge-onpath");
-    const sequentialAB = screen.getByTestId("edge-sequential:section-a->section-b");
+    const sequentialAB = screen.getByTestId("edge-sequential:page-a->page-b");
     expect(sequentialAB.className).toContain("workflow-map-edge-dimmed");
   });
 
@@ -219,10 +219,10 @@ describe("MapTab simulation panel (MAP-8)", () => {
     await user.click(screen.getByRole("combobox"));
     await user.click(await screen.findByRole("option", { name: "Yes" }));
 
-    // aria-label must stay exactly "Section B — section" — MAP-4's own test
+    // aria-label must stay exactly "Page B — page" — MAP-4's own test
     // asserts this exact string elsewhere; simulation state must never leak
     // into it (see simulationStyles.ts's doc comment).
     await screen.findByText(/not on the currently simulated path/i);
-    expect(screen.getByRole("group", { name: "Section B — section" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Page B — page" })).toBeInTheDocument();
   });
 });

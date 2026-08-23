@@ -2,9 +2,9 @@
 import { eq } from 'drizzle-orm';
 
 import { db, dbInitPromise } from '../server/db';
-import { sectionRepository } from '../server/repositories';
+import { pageRepository } from '../server/repositories';
 import { readTableBlockService } from '../server/services/ReadTableBlockService';
-import { sections } from '../shared/schema';
+import { pages } from '../shared/schema';
 
 async function testReadBlockCreation() {
     await dbInitPromise;
@@ -13,25 +13,25 @@ async function testReadBlockCreation() {
     const userId = 'test-user-runs-stage8';
 
     try {
-        // Check if section exists
-        const existingSections = await db.select().from(sections).where(eq(sections.workflowId, workflowId));
+        // Check if page exists
+        const existingPages = await db.select().from(pages).where(eq(pages.workflowId, workflowId));
 
-        let sectionId;
-        if (existingSections.length > 0) {
-            sectionId = existingSections[0].id;
+        let pageId;
+        if (existingPages.length > 0) {
+            pageId = existingPages[0].id;
         } else {
-            console.log('Creating logic section...');
-            const section = await sectionRepository.create({
+            console.log('Creating logic page...');
+            const page = await pageRepository.create({
                 workflowId,
-                title: 'Test Section',
+                title: 'Test Page',
                 order: 0
             });
-            sectionId = section.id;
+            pageId = page.id;
         }
 
         const block = await readTableBlockService.createBlock(workflowId, userId, {
             name: 'Test Read Block',
-            sectionId,
+            pageId,
             phase: 'onRunStart',
             config: {
                 dataSourceId: 'some-ds-id',

@@ -26,7 +26,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { VisibilityField } from "./common/VisibilityField";
 
-export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+export function GenericStepEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
@@ -34,11 +34,11 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
     const isDisplay = step.type === "display" || step.type === "display_advanced";
 
     const handleAliasChange = (alias: string | null) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, alias });
+        updateStepMutation.mutate({ id: stepId, pageId, alias });
     };
 
     const handleRequiredChange = (required: boolean) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, required });
+        updateStepMutation.mutate({ id: stepId, pageId, required });
     };
 
     return (
@@ -59,7 +59,7 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
             {/* Description / Help Text (or Content for display steps) */}
             <DescriptionField
                 stepId={stepId}
-                sectionId={sectionId}
+                pageId={pageId}
                 description={step.description}
                 isDisplayStep={isDisplay}
             />
@@ -68,7 +68,7 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
             {!isDisplay && (
                 <DefaultValueField
                     stepId={stepId}
-                    sectionId={sectionId}
+                    pageId={pageId}
                     defaultValue={step.defaultValue as DefaultValueType}
                     type={step.type}
                     mode={mode}
@@ -79,7 +79,7 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
             {workflowId && (
                 <VisibilityField
                     stepId={stepId}
-                    sectionId={sectionId}
+                    pageId={pageId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
                 />

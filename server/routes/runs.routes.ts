@@ -228,7 +228,7 @@ export function registerRunRoutes(app: Express): void {
           data: {
             runId: authenticatedRun.id,
             runToken: authenticatedRun.runToken,
-            currentSectionId: authenticatedRun.currentSectionId
+            currentPageId: authenticatedRun.currentPageId
           }
         });
       }
@@ -245,7 +245,7 @@ export function registerRunRoutes(app: Express): void {
         data: {
           runId: anonymousRun.id,
           runToken: anonymousRun.runToken,
-          currentSectionId: anonymousRun.currentSectionId
+          currentPageId: anonymousRun.currentPageId
         }
       });
     } catch (error) {
@@ -578,32 +578,32 @@ export function registerRunRoutes(app: Express): void {
     }
   }));
   /**
-   * POST /api/runs/:runId/sections/:sectionId/submit
-   * Submit section values with validation
-   * Executes onSectionSubmit blocks (transform + validate)
+   * POST /api/runs/:runId/pages/:pageId/submit
+   * Submit page values with validation
+   * Executes onPageSubmit blocks (transform + validate)
    * Accepts creator session OR Bearer runToken
    */
 
-  app.post('/api/runs/:runId/sections/:sectionId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/pages/:pageId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { runId, sectionId } = req.params;
+      const { runId, pageId } = req.params;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { values } = req.body;
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       logger.info({
         runId,
-        sectionId,
+        pageId,
         valuesType: typeof values,
         isArray: Array.isArray(values),
         valuesLength: Array.isArray(values) ? values.length : 0,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         bodyKeys: Object.keys(req.body)
-      }, "Section submit request received");
+      }, "Page submit request received");
 
       if (!Array.isArray(values)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-        logger.warn({ runId, sectionId, values }, "values is not an array");
+        logger.warn({ runId, pageId, values }, "values is not an array");
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
@@ -622,7 +622,7 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        const result = await runService.submitSectionNoAuth(runId, sectionId, values);
+        const result = await runService.submitPageNoAuth(runId, pageId, values);
         // Return 200 for both success and validation errors
         // (400 would cause fetch to throw, losing the error details)
         return res.json(result);
@@ -631,33 +631,33 @@ export function registerRunRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
-      // Submit section with validation
+      // Submit page with validation
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      const result = await runService.submitSection(runId, sectionId, userId, values);
+      const result = await runService.submitPage(runId, pageId, userId, values);
       if (result.success) {
-        logger.info({ runId, sectionId }, "Section submitted successfully");
-        res.json({ success: true, message: "Section values saved" });
+        logger.info({ runId, pageId }, "Page submitted successfully");
+        res.json({ success: true, message: "Page values saved" });
       } else {
         // Validation failed - return 200 with success: false and error messages
         // (400 would cause fetch to throw, losing the error details)
-        logger.warn({ runId, sectionId, errors: result.errors }, "Section validation failed");
+        logger.warn({ runId, pageId, errors: result.errors }, "Page validation failed");
         res.json({ success: false, errors: result.errors });
       }
     } catch (error) {
-      const { runId, sectionId } = req.params;
+      const { runId, pageId } = req.params;
       logger.error({
         error,
         runId,
-        sectionId,
-      }, "Error submitting section values");
-      const { status, message } = classifyRouteError(error, "Failed to submit section values");
+        pageId,
+      }, "Error submitting page values");
+      const { status, message } = classifyRouteError(error, "Failed to submit page values");
       const code = getPublicErrorCode(error, status);
       res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
    * POST /api/runs/:runId/next
-   * Navigate to next section (executes branch blocks)
+   * Navigate to next page (executes branch blocks)
    * Accepts creator session OR Bearer runToken
    */
 
@@ -682,8 +682,8 @@ export function registerRunRoutes(app: Express): void {
       const result = await runService.next(runId, userId);
       res.json({ success: true, data: result });
     } catch (error) {
-      logger.error({ error }, "Error navigating to next section");
-      const { status, message } = classifyRouteError(error, "Failed to navigate to next section");
+      logger.error({ error }, "Error navigating to next page");
+      const { status, message } = classifyRouteError(error, "Failed to navigate to next page");
       const code = getPublicErrorCode(error, status);
       res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
@@ -865,7 +865,7 @@ export function registerRunRoutes(app: Express): void {
   /**
    * POST /api/runs/:runId/generate-documents
    * Trigger document generation for a workflow run
-   * Can be called before run completion (for Final Documents sections)
+   * Can be called before run completion (for Final Documents pages)
    * Idempotent - won't regenerate if documents already exist
    * Accepts creator session OR Bearer runToken
    */

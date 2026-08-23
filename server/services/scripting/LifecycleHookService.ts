@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { steps as stepsTable, sections as sectionsTable } from "@shared/schema";
+import { steps as stepsTable, pages as pagesTable } from "@shared/schema";
 import type {
   LifecycleHook,
   LifecycleHookPhase,
@@ -59,13 +59,13 @@ export class LifecycleHookService {
   private async loadHooksAndAliases(
     workflowId: string,
     phase: LifecycleHookPhase,
-    sectionId: string | undefined
+    pageId: string | undefined
   ): Promise<{ hooks: LifecycleHook[]; aliasMap: Record<string, string> }> {
     return this.withTx(undefined, async (tx) => {
       const hooks = await lifecycleHookRepository.findEnabledByPhase(
         workflowId,
         phase,
-        sectionId,
+        pageId,
         tx
       ) as LifecycleHook[];
 
@@ -75,8 +75,8 @@ export class LifecycleHookService {
 
       const rows = await tx.select()
         .from(stepsTable)
-        .innerJoin(sectionsTable, eq(stepsTable.sectionId, sectionsTable.id))
-        .where(eq(sectionsTable.workflowId, workflowId));
+        .innerJoin(pagesTable, eq(stepsTable.pageId, pagesTable.id))
+        .where(eq(pagesTable.workflowId, workflowId));
 
       const aliasMap: Record<string, string> = {};
       for (const row of rows) {
@@ -97,17 +97,17 @@ export class LifecycleHookService {
     workflowId: string;
     runId: string;
     phase: LifecycleHookPhase;
-    sectionId?: string;
+    pageId?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: Record<string, any>;
     userId?: string;
   }): Promise<LifecycleHookExecutionResult> {
-    const { workflowId, runId, phase, sectionId, data, userId } = params;
+    const { workflowId, runId, phase, pageId, data, userId } = params;
 
     try {
       // Fetch enabled hooks for this phase, plus the step aliases used for
       // data mapping (stepId → alias) — one scoped transaction for both.
-      const { hooks, aliasMap } = await this.loadHooksAndAliases(workflowId, phase, sectionId);
+      const { hooks, aliasMap } = await this.loadHooksAndAliases(workflowId, phase, pageId);
 
       if (hooks.length === 0) {
         return {
@@ -121,7 +121,7 @@ export class LifecycleHookService {
           workflowId,
           runId,
           phase,
-          sectionId,
+          pageId,
           hookCount: hooks.length,
         },
         "LifecycleHookService: Executing hooks for phase"
@@ -156,7 +156,7 @@ export class LifecycleHookService {
               workflowId,
               runId,
               phase,
-              sectionId,
+              pageId,
               userId,
             },
             timeoutMs: hook.timeoutMs ?? 1000,
@@ -463,7 +463,7 @@ export class LifecycleHookService {
         workflowId: testInput.context?.workflowId ?? hook.workflowId,
         runId: testInput.context?.runId ?? "test-run",
         phase: testInput.context?.phase ?? hook.phase,
-        sectionId: testInput.context?.sectionId,
+        pageId: testInput.context?.pageId,
         userId: testInput.context?.userId,
         metadata: testInput.context?.metadata,
       },

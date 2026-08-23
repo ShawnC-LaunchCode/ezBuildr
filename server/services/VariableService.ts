@@ -1,7 +1,7 @@
 import { getLegacyChoiceOptions } from "@shared/choiceOptions";
 import type { WorkflowVariable } from "@shared/schema";
 
-import { type DbTransaction, sectionRepository, stepRepository } from "../repositories";
+import { type DbTransaction, pageRepository, stepRepository } from "../repositories";
 import { withCurrentTenant } from "../utils/rlsContext";
 
 import { workflowService } from "./WorkflowService";
@@ -18,16 +18,16 @@ const CHOICE_STEP_TYPES = new Set<string>(["radio", "multiple_choice"]);
 
 export class VariableService {
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
 
   constructor(
     stepRepo?: typeof stepRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     workflowSvc?: typeof workflowService
   ) {
     this.stepRepo = stepRepo ?? stepRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
   }
 
@@ -42,7 +42,7 @@ export class VariableService {
    * comment that used to sit at that call site). Otherwise open exactly one
    * via `withCurrentTenant`, which reads the tenant from the request's async
    * context and sets the transaction-local `app.current_tenant_id` GUC for
-   * the `sections`/`steps` reads inside `fn` — both are RLS-covered via
+   * the `pages`/`steps` reads inside `fn` — both are RLS-covered via
    * their workflow's ownership.
    */
   private async withTx<T>(
@@ -57,30 +57,30 @@ export class VariableService {
 
   /**
    * Get all variables (steps) for a workflow
-   * Returns steps ordered by section.order, then step.order
+   * Returns steps ordered by page.order, then step.order
    */
   async listVariables(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowVariable[]> {
     return this.withTx(tx, async (scopedTx) => {
       // Verify ownership
       await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
 
-      // Get all sections for the workflow
-      const sections = await this.sectionRepo.findByWorkflowId(workflowId, scopedTx);
+      // Get all pages for the workflow
+      const pages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
 
-      if (sections.length === 0) {
+      if (pages.length === 0) {
         return [];
       }
 
-      // Get all steps for these sections
-      const sectionIds = sections.map(s => s.id);
-      const steps = await this.stepRepo.findBySectionIds(sectionIds, scopedTx);
+      // Get all steps for these pages
+      const pageIds = pages.map(s => s.id);
+      const steps = await this.stepRepo.findByPageIds(pageIds, scopedTx);
 
-      // Create a map of section ID to section for quick lookup
-      const sectionMap = new Map(sections.map(s => [s.id, s]));
+      // Create a map of page ID to page for quick lookup
+      const pageMap = new Map(pages.map(s => [s.id, s]));
 
       // Build variables array
       const variables: WorkflowVariable[] = steps.map(step => {
-        const section = sectionMap.get(step.sectionId);
+        const page = pageMap.get(step.pageId);
         // O-2: options travel with the variable. The condition editor used to
         // fetch every step separately just to read them; only legacy
         // radio/multiple_choice configs carry any, so `choices` is omitted for
@@ -93,8 +93,8 @@ export class VariableService {
           alias: step.alias,
           label: step.title,
           type: step.type,
-          sectionId: step.sectionId,
-          sectionTitle: section?.title ?? 'Unknown Section',
+          pageId: step.pageId,
+          pageTitle: page?.title ?? 'Unknown Page',
           stepId: step.id,
           ...(choices && choices.length > 0 ? { choices } : {}),
         };

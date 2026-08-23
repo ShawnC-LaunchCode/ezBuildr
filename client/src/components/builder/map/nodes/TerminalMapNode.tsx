@@ -2,7 +2,7 @@
  * The single synthetic "Complete" node (D-2's stand-in for GH-153 AC1's
  * "endings" — there is no ending entity in this schema). Deliberately not
  * activatable: MAP-5 (a later ticket) wires node-click-to-inspector
- * navigation, and the terminal node has no section/step behind it to open,
+ * navigation, and the terminal node has no page/step behind it to open,
  * so it must expose no button/link role and must not look clickable —
  * a plain `<div>`, no `tabIndex`, no cursor-pointer.
  *
@@ -10,7 +10,7 @@
  * `role="img"` means this node's content isn't exposed to assistive tech
  * beyond its `aria-label` anyway, so a hidden child span would never be
  * announced. `aria-label` itself stays untouched, same reasoning as
- * `SectionMapNode`.
+ * `PageMapNode`.
  */
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { CheckCircle2 } from "lucide-react";

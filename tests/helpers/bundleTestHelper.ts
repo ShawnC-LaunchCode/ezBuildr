@@ -68,12 +68,12 @@ export function applyBundle(buffer: Buffer, userId: string, options?: ImportAppl
  * `portability.import.test.ts` (round trip) so both exercise the same graph.
  */
 
-/** A workflow with one section and one text step. */
+/** A workflow with one page and one text step. */
 export async function seedWorkflow(opts: {
   projectId: string;
   userId: string;
   title?: string;
-}): Promise<{ workflowId: string; sectionId: string }> {
+}): Promise<{ workflowId: string; pageId: string }> {
   const [workflow] = await getOwnerDb().insert(schema.workflows).values({
     title: opts.title ?? `Fixture Workflow ${randomUUID().slice(0, 8)}`,
     name: "Fixture Workflow",
@@ -84,7 +84,7 @@ export async function seedWorkflow(opts: {
     ownerUuid: opts.userId,
   }).returning();
 
-  const [section] = await getOwnerDb().insert(schema.sections).values({
+  const [page] = await getOwnerDb().insert(schema.pages).values({
     workflowId: workflow.id,
     title: "Page One",
     order: 0,
@@ -92,14 +92,14 @@ export async function seedWorkflow(opts: {
 
   await getOwnerDb().insert(schema.steps).values({
     workflowId: workflow.id,
-    sectionId: section.id,
+    pageId: page.id,
     type: "text",
     title: "Your name",
     alias: "your_name",
     order: 0,
   });
 
-  return { workflowId: workflow.id, sectionId: section.id };
+  return { workflowId: workflow.id, pageId: page.id };
 }
 
 /**

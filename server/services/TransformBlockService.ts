@@ -7,7 +7,7 @@ import {
   transformBlockRunRepository,
   workflowRepository,
   stepValueRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
 } from "../repositories";
 
@@ -24,7 +24,7 @@ export class TransformBlockService {
   private workflowRepo: typeof workflowRepository;
   private valueRepo: typeof stepValueRepository;
   private workflowSvc: typeof workflowService;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private stepRepo: typeof stepRepository;
 
   // eslint-disable-next-line max-params
@@ -34,7 +34,7 @@ export class TransformBlockService {
     workflowRepo?: typeof workflowRepository,
     valueRepo?: typeof stepValueRepository,
     workflowSvc?: typeof workflowService,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     stepRepo?: typeof stepRepository
   ) {
     this.blockRepo = blockRepo ?? transformBlockRepository;
@@ -42,7 +42,7 @@ export class TransformBlockService {
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.stepRepo = stepRepo ?? stepRepository;
   }
 
@@ -79,26 +79,26 @@ export class TransformBlockService {
       throw new Error("Timeout must be between 100ms and 3000ms");
     }
 
-    // Determine which section to attach the virtual step to
-    // If transform block is section-scoped, use that section
-    // If workflow-scoped (sectionId is null), attach to the first section
-    let targetSectionId = data.sectionId;
+    // Determine which page to attach the virtual step to
+    // If transform block is page-scoped, use that page
+    // If workflow-scoped (pageId is null), attach to the first page
+    let targetPageId = data.pageId;
 
-    if (!targetSectionId) {
-      // For workflow-scoped blocks, we need a section to attach the virtual step
-      // Get the first section of the workflow
-      const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-      if (sections.length === 0) {
-        throw new Error("Cannot create transform block: workflow has no sections. Please add at least one section first.");
+    if (!targetPageId) {
+      // For workflow-scoped blocks, we need a page to attach the virtual step
+      // Get the first page of the workflow
+      const pages = await this.pageRepo.findByWorkflowId(workflowId);
+      if (pages.length === 0) {
+        throw new Error("Cannot create transform block: workflow has no pages. Please add at least one page first.");
       }
-      targetSectionId = sections[0].id;
+      targetPageId = pages[0].id;
     }
 
     // Create the virtual step first
     // This step will store the transform block's output value
     const virtualStep = await this.stepRepo.create({
       workflowId,
-      sectionId: targetSectionId,
+      pageId: targetPageId,
       type: 'computed',
       title: `Computed: ${data.name}`,
       description: `Virtual step for transform block: ${data.name}`,
@@ -247,9 +247,9 @@ export class TransformBlockService {
     const { block, data, runId } = params;
 
     // Fetch all steps for the workflow to build alias-to-ID mapping
-    const sections = await this.sectionRepo.findByWorkflowId(block.workflowId);
-    const sectionIds = sections.map(s => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds, undefined, true);
+    const pages = await this.pageRepo.findByWorkflowId(block.workflowId);
+    const pageIds = pages.map(s => s.id);
+    const steps = await this.stepRepo.findByPageIds(pageIds, undefined, true);
 
     const aliasToIdMap = new Map<string, string>();
     for (const step of steps) {
@@ -485,17 +485,17 @@ export class TransformBlockService {
     workflowId: string;
     runId: string;
     phase: BlockPhase;
-    sectionId?: string | null;
+    pageId?: string | null;
     data: Record<string, unknown>;
   }): Promise<{
     success: boolean;
     data: Record<string, unknown>;
     errors?: Array<{ blockId: string; blockName: string; error: string }>;
   }> {
-    const { workflowId, runId, phase, sectionId, data } = params;
+    const { workflowId, runId, phase, pageId, data } = params;
 
     // Get enabled blocks for the specific phase
-    const blocks = await this.blockRepo.findEnabledByPhase(workflowId, phase, sectionId);
+    const blocks = await this.blockRepo.findEnabledByPhase(workflowId, phase, pageId);
 
     if (blocks.length === 0) {
       return { success: true, data };

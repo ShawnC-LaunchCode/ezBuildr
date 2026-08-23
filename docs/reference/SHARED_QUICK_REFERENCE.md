@@ -23,7 +23,7 @@
 - `AIService` - Workflow-only, independent from surveys
 - `FileService` - Generic utility (but used by surveys)
 - `EmailService` - Generic utility
-- Workflow-specific tables (sections, steps, stepValues, etc.)
+- Workflow-specific tables (pages, steps, stepValues, etc.)
 
 ---
 
@@ -44,7 +44,7 @@
 │  SURVEY SYSTEM   │    │   WORKFLOW SYSTEM    │
 ├──────────────────┤    ├──────────────────────┤
 │ • surveys        │    │ • workflows          │
-│ • surveyPages    │    │ • sections           │
+│ • surveyPages    │    │ • pages           │
 │ • questions      │    │ • steps              │
 │ • responses      │    │ • stepValues         │
 │ • answers        │    │ • logicRules         │

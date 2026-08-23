@@ -54,7 +54,7 @@ describe('RunFileUploadService', () => {
     valueRepo.findByRunAndStep.mockResolvedValue(undefined);
     valueRepo.upsert.mockResolvedValue({});
     definitionProvider.getDefinition.mockResolvedValue({
-      sections: [],
+      pages: [],
       logicRules: [],
       source: 'live',
       steps: [{ id: STEP_ID, type: 'file_upload', config: { allowedTypes: ['application/pdf'], maxFiles: 2 } }],
@@ -153,7 +153,7 @@ describe('RunFileUploadService', () => {
   it('supports a file question nested in a List without overwriting the parent answer', async () => {
     const fieldId = '66666666-6666-4666-8666-666666666666';
     definitionProvider.getDefinition.mockResolvedValue({
-      sections: [],
+      pages: [],
       logicRules: [],
       source: 'live',
       steps: [{

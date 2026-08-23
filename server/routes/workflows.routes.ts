@@ -39,9 +39,9 @@ const ERR_INVALID_INPUT = "Invalid input";
 // write so the two can never independently disagree.
 const logicRuleInputSchema = z.object({
   when: conditionExpressionSchema,
-  targetType: z.enum(['section', 'step']),
+  targetType: z.enum(['page', 'step']),
   targetStepId: z.string().uuid().nullish(),
-  targetSectionId: z.string().uuid().nullish(),
+  targetPageId: z.string().uuid().nullish(),
   action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']),
   order: z.number().int().optional(),
 });
@@ -143,7 +143,7 @@ export function registerWorkflowRoutes(app: Express): void {
 
   /**
    * GET /api/workflows/:workflowId
-   * Get a single workflow with full details (sections, steps, rules)
+   * Get a single workflow with full details (pages, steps, rules)
    */
   app.get('/api/workflows/:workflowId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
@@ -214,7 +214,7 @@ export function registerWorkflowRoutes(app: Express): void {
         .extend({ businessDayCalendar: z.enum(BUSINESS_DAY_CALENDARS).optional() })
         .passthrough()
         .optional(),
-      sections: z.array(z.any()).optional(),
+      pages: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),
       ownerType: z.enum(['user', 'organization', 'team', 'system']).optional(),
@@ -242,8 +242,8 @@ export function registerWorkflowRoutes(app: Express): void {
       delete updateData.projectId;
 
       let workflow;
-      // Deep update if sections are provided (e.g. from AI)
-      if (updateData.sections && Array.isArray(updateData.sections)) {
+      // Deep update if pages are provided (e.g. from AI)
+      if (updateData.pages && Array.isArray(updateData.pages)) {
         workflow = await workflowService.replaceWorkflowContent(workflowId, userId, updateData);
       } else {
         // @ts-expect-error - updateData's zod-parsed shape is wider than updateWorkflow's param type
@@ -445,7 +445,7 @@ export function registerWorkflowRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/variables
    * Get all variables (steps with aliases) for a workflow
-   * Returns array of WorkflowVariable objects ordered by section/step order
+   * Returns array of WorkflowVariable objects ordered by page/step order
    */
   app.get('/api/workflows/:workflowId/variables', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
@@ -547,7 +547,7 @@ export function registerWorkflowRoutes(app: Express): void {
    * Reorder logic rules. Ordering is author-visible: the first firing
    * `skip_to` rule wins, so authors need explicit control over rule order.
    * NOTE: must be registered before the /:ruleId routes below, matching the
-   * sections.routes.ts convention, or Express would treat "reorder" as a
+   * pages.routes.ts convention, or Express would treat "reorder" as a
    * ruleId.
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft

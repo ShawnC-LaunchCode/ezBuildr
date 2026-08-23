@@ -48,7 +48,7 @@ const SINGLE_SELECT_DISPLAYS: Array<{ value: ChoiceDisplay; label: string; hint:
 ];
 
 // eslint-disable-next-line max-lines-per-function
-export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -110,9 +110,9 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       };
       // Auto-upgrade type if needed
       if (step.type !== 'choice') {
-        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, type: 'choice', config: payload });
       } else {
-        updateStepMutation.mutate({ id: stepId, sectionId, config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, config: payload });
       }
     } else {
       // Legacy Save
@@ -124,7 +124,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           alias: opt.alias
         }))
       };
-      updateStepMutation.mutate({ id: stepId, sectionId, config: payload });
+      updateStepMutation.mutate({ id: stepId, pageId, config: payload });
     }
   };
 
@@ -149,7 +149,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     columns,
     loadingColumns,
     blocks
-  } = useListToolsValidation({ localConfig, workflowId, sectionId });
+  } = useListToolsValidation({ localConfig, workflowId, pageId });
 
 
   // Derived state for Dynamic Columns
@@ -183,8 +183,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
 
-  const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, sectionId, alias });
-  const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, sectionId, required });
+  const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, pageId, alias });
+  const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, pageId, required });
   const handleDisplayChange = (display: ChoiceDisplay) => {
     const allowMultiple = display === "multiple";
     // Easy-mode `radio` / `multiple_choice` steps have nowhere to store a
@@ -199,10 +199,10 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           allowMultiple,
           options: { type: 'static', options: localConfig?.staticOptions ?? [] }
         };
-        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, type: 'choice', config: payload });
       } else {
         const newType = allowMultiple ? "multiple_choice" : "radio";
-        updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+        updateStepMutation.mutate({ id: stepId, pageId, type: newType });
       }
     } else {
       handleUpdate({ display, allowMultiple });
@@ -225,7 +225,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       const result = await blockAPI.createListToolsFromChoice(workflowId, stepId, {
         sourceListVar: localConfig.dynamicOptions.listVariable,
         transformConfig: localConfig.dynamicOptions.transform,
-        sectionId: sectionId
+        pageId: pageId
       });
 
       // Update the question config to link to the new block
@@ -374,7 +374,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       const result = await blockAPI.createListToolsFromChoice(workflowId, stepId, {
         sourceListVar: localConfig.dynamicOptions.baseListVar, // Use base list as source
         transformConfig: transformConfig,
-        sectionId: sectionId
+        pageId: pageId
       });
 
       // Update the question config to link to the new block
@@ -584,7 +584,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       />
       <DefaultValueField
         stepId={stepId}
-        sectionId={sectionId}
+        pageId={pageId}
         defaultValue={step.defaultValue as DefaultValueType}
         type={step.type}
         mode={isAdvancedMode ? 'advanced' : 'easy'}

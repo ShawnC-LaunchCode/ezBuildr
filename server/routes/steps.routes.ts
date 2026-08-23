@@ -6,7 +6,7 @@ import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { createLimiter } from "../middleware/rateLimiting";
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth';
-import { sectionRepository } from "../repositories/SectionRepository";
+import { pageRepository } from "../repositories/PageRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -32,7 +32,7 @@ async function lookupWorkflowIdFromStepMiddleware(
     if (!stepId) {
       return next();
     }
-    // RLS-5: `steps`/`sections` are RLS-covered through the ownership-derived
+    // RLS-5: `steps`/`pages` are RLS-covered through the ownership-derived
     // policy on their parent workflow, so these reads must run inside the
     // tenant-scoped transaction `hybridAuth` already established — on the bare
     // pool they return nothing and this middleware 404s a step that exists.
@@ -43,11 +43,11 @@ async function lookupWorkflowIdFromStepMiddleware(
       if (!step) {
         return { error: "Step not found" as const };
       }
-      const section = await sectionRepository.findById(step.sectionId, tx);
-      if (!section) {
-        return { error: "Section not found" as const };
+      const page = await pageRepository.findById(step.pageId, tx);
+      if (!page) {
+        return { error: "Page not found" as const };
       }
-      return { workflowId: section.workflowId };
+      return { workflowId: page.workflowId };
     });
     if ('error' in resolved) {
       res.status(404).json({ message: resolved.error });
@@ -96,32 +96,32 @@ async function lookupWorkflowIdFromStepIncludingDeletedMiddleware(
 }
 
 /**
- * Middleware helper: Look up workflowId from sectionId before auto-revert
+ * Middleware helper: Look up workflowId from pageId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
  */
-async function lookupWorkflowIdFromSectionMiddleware(
+async function lookupWorkflowIdFromPageMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const { sectionId } = req.params;
-    if (!sectionId) {
+    const { pageId } = req.params;
+    if (!pageId) {
       return next();
     }
-    // RLS-5: `sections` is RLS-covered via its parent workflow's
+    // RLS-5: `pages` is RLS-covered via its parent workflow's
     // ownership-derived policy — read inside the tenant-scoped transaction.
-    const section = await withCurrentTenant((tx) =>
-      sectionRepository.findById(sectionId, tx));
-    if (!section) {
-      res.status(404).json({ message: "Section not found" });
+    const page = await withCurrentTenant((tx) =>
+      pageRepository.findById(pageId, tx));
+    if (!page) {
+      res.status(404).json({ message: "Page not found" });
       return;
     }
 
-    req.params.workflowId = section.workflowId;
+    req.params.workflowId = page.workflowId;
     next();
   } catch (error) {
-    logger.error({ error }, "Error in lookupWorkflowIdFromSectionMiddleware");
+    logger.error({ error }, "Error in lookupWorkflowIdFromPageMiddleware");
     next(error);
   }
 }
@@ -131,19 +131,19 @@ async function lookupWorkflowIdFromSectionMiddleware(
  */
 function registerWorkflowStepRoutes(app: Express): void {
   /**
-   * POST /api/workflows/:workflowId/sections/:sectionId/steps
+   * POST /api/workflows/:workflowId/pages/:pageId/steps
    * Create a new step
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
-  app.post('/api/workflows/:workflowId/sections/:sectionId/steps', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/:workflowId/pages/:pageId/steps', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { workflowId, sectionId } = req.params;
-      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId' | 'workflowId'>;
-      const step = await stepService.createStep(workflowId, sectionId, userId, stepData);
+      const { workflowId, pageId } = req.params;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'pageId' | 'workflowId'>;
+      const step = await stepService.createStep(workflowId, pageId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
@@ -153,17 +153,17 @@ function registerWorkflowStepRoutes(app: Express): void {
   }));
 
   /**
-   * GET /api/workflows/:workflowId/sections/:sectionId/steps
-   * Get all steps for a section
+   * GET /api/workflows/:workflowId/pages/:pageId/steps
+   * Get all steps for a page
    */
-  app.get('/api/workflows/:workflowId/sections/:sectionId/steps', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/workflows/:workflowId/pages/:pageId/steps', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { workflowId, sectionId } = req.params;
-      const steps = await stepService.getSteps(workflowId, sectionId, userId);
+      const { workflowId, pageId } = req.params;
+      const steps = await stepService.getSteps(workflowId, pageId, userId);
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
@@ -203,22 +203,22 @@ function registerWorkflowStepRoutes(app: Express): void {
   }));
 
   /**
-   * PUT /api/workflows/:workflowId/sections/:sectionId/steps/reorder
-   * Reorder steps within a section
+   * PUT /api/workflows/:workflowId/pages/:pageId/steps/reorder
+   * Reorder steps within a page
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
-  app.put('/api/workflows/:workflowId/sections/:sectionId/steps/reorder', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.put('/api/workflows/:workflowId/pages/:pageId/steps/reorder', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { workflowId, sectionId } = req.params;
+      const { workflowId, pageId } = req.params;
       const { steps } = req.body as { steps: unknown };
       if (!Array.isArray(steps)) {
         return res.status(400).json({ message: "Invalid steps array" });
       }
-      await stepService.reorderSteps(workflowId, sectionId, userId, steps as { id: string; order: number }[]);
+      await stepService.reorderSteps(workflowId, pageId, userId, steps as { id: string; order: number }[]);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
@@ -234,17 +234,17 @@ function registerWorkflowStepRoutes(app: Express): void {
 
 function registerSimplifiedStepRoutes(app: Express): void {
   /**
-   * GET /api/sections/:sectionId/steps
-   * Get all steps for a section (workflow looked up automatically)
+   * GET /api/pages/:pageId/steps
+   * Get all steps for a page (workflow looked up automatically)
    */
-  app.get('/api/sections/:sectionId/steps', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/pages/:pageId/steps', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { sectionId } = req.params;
-      const steps = await stepService.getStepsBySectionId(sectionId, userId);
+      const { pageId } = req.params;
+      const steps = await stepService.getStepsByPageId(pageId, userId);
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
@@ -254,19 +254,19 @@ function registerSimplifiedStepRoutes(app: Express): void {
   }));
 
   /**
-   * POST /api/sections/:sectionId/steps
+   * POST /api/pages/:pageId/steps
    * Create a new step (workflow looked up automatically)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
-  app.post('/api/sections/:sectionId/steps', hybridAuth, createLimiter, lookupWorkflowIdFromSectionMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/pages/:pageId/steps', hybridAuth, createLimiter, lookupWorkflowIdFromPageMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { sectionId } = req.params;
-      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId' | 'workflowId'>;
-      const step = await stepService.createStepBySectionId(sectionId, userId, stepData);
+      const { pageId } = req.params;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'pageId' | 'workflowId'>;
+      const step = await stepService.createStepByPageId(pageId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
@@ -276,23 +276,23 @@ function registerSimplifiedStepRoutes(app: Express): void {
   }));
 
   /**
-   * PUT /api/sections/:sectionId/steps/reorder
+   * PUT /api/pages/:pageId/steps/reorder
    * Reorder steps (workflow looked up automatically)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
-  app.put('/api/sections/:sectionId/steps/reorder', hybridAuth, lookupWorkflowIdFromSectionMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.put('/api/pages/:pageId/steps/reorder', hybridAuth, lookupWorkflowIdFromPageMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
-      const { sectionId } = req.params;
+      const { pageId } = req.params;
       const { steps } = req.body as { steps: unknown };
       if (!Array.isArray(steps)) {
         return res.status(400).json({ message: "Invalid steps array" });
       }
       // Validate each entry's id is a UUID and order is a finite number before
-      // touching the DB (mirrors the sections/reorder guard).
+      // touching the DB (mirrors the pages/reorder guard).
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       for (const entry of steps) {
         const step = entry as { id?: unknown; order?: unknown };
@@ -306,7 +306,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
           return res.status(400).json({ message: "Step order must be a finite number" });
         }
       }
-      await stepService.reorderStepsBySectionId(sectionId, userId, steps as Array<{ id: string; order: number }>);
+      await stepService.reorderStepsByPageId(pageId, userId, steps as Array<{ id: string; order: number }>);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
@@ -402,7 +402,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
 
   /**
    * POST /api/steps/:stepId/duplicate
-   * Duplicate a step into the same section, immediately after the source
+   * Duplicate a step into the same page, immediately after the source
    * (workflow looked up automatically). ICW2-B5.
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup

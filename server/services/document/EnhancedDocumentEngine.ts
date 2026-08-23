@@ -520,7 +520,7 @@ export class EnhancedDocumentEngine {
       try {
         // Step 1: Evaluate conditions. `doc.conditions` is a
         // ConditionExpression -- the same language steps.visible_if /
-        // sections.visible_if use -- evaluated directly by the shared
+        // pages.visible_if use -- evaluated directly by the shared
         // evaluator (no per-document translation step). A null expression
         // means "always generated", matching evaluateConditionExpression's
         // null-is-always-true contract.

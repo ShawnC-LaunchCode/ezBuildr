@@ -34,8 +34,8 @@ export class AIPromptBuilder {
    */
   buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): { systemMessage: string; userPrompt: string } {
     const constraints = request.constraints ?? {};
-    const maxSections = constraints.maxSections ?? 10;
-    const maxStepsPerSection = constraints.maxStepsPerSection ?? 10;
+    const maxPages = constraints.maxPages ?? 10;
+    const maxStepsPerPage = constraints.maxStepsPerPage ?? 10;
 
     const systemMessage = `You are an expert workflow designer for ezBuildr, a professional document automation and workflow platform.
 Your task is to design a HIGH-QUALITY, PRODUCTION-READY workflow based on the user's description.
@@ -54,10 +54,10 @@ Output a JSON object with this exact structure:
 {
   "title": "Workflow Title",
   "description": "Brief description",
-  "sections": [
+  "pages": [
     {
-      "id": "unique_section_id",
-      "title": "Section Title",
+      "id": "unique_page_id",
+      "title": "Page Title",
       "description": "Optional description",
       "order": 0,
       "steps": [
@@ -91,7 +91,7 @@ Output a JSON object with this exact structure:
           }
         ]
       },
-      "targetType": "section|step",
+      "targetType": "page|step",
       "targetAlias": "targetVariableName",
       "action": "show|hide|require|make_optional|skip_to",
       "description": "What this rule does"
@@ -105,7 +105,7 @@ Output a JSON object with this exact structure:
       "code": "code to execute",
       "inputKeys": ["alias1", "alias2"],
       "outputKey": "outputAlias",
-      "phase": "onSectionSubmit|onWorkflowComplete",
+      "phase": "onPageSubmit|onWorkflowComplete",
       "timeoutMs": 1000
     }
   ],
@@ -113,8 +113,8 @@ Output a JSON object with this exact structure:
 }
 
 CRITICAL CONSTRAINTS:
-- Maximum ${maxSections} sections
-- Maximum ${maxStepsPerSection} steps per section
+- Maximum ${maxPages} pages
+- Maximum ${maxStepsPerPage} steps per page
 - All step aliases MUST be unique across the workflow and use camelCase (e.g., "firstName", "emailAddress")
 - ALWAYS generate a descriptive, meaningful alias for EVERY step - NEVER leave empty
 - All IDs must be unique and use lowercase_with_underscores format
@@ -142,19 +142,19 @@ STEP TYPE SELECTION GUIDE:
 - **display**: Information-only, no input required
 
 BEST PRACTICES:
-1. Group related questions into logical sections (e.g., "Personal Information", "Contact Details")
+1. Group related questions into logical pages (e.g., "Personal Information", "Contact Details")
 2. Start with basic identifying information before complex questions
 3. Use appropriate field types for better validation (email vs short_text, phone vs short_text)
 4. Provide clear, actionable descriptions for complex questions
 5. Use logic rules to show/hide conditional questions based on previous answers
-6. Keep sections focused - don't mix unrelated topics
+6. Keep pages focused - don't mix unrelated topics
 7. Use transform blocks for calculated fields (full name from first+last, total from sum, etc.)
 
 LOGIC RULES GUIDANCE:
-- Use show/hide for optional sections based on answers
+- Use show/hide for optional pages based on answers
 - Use require/make_optional for conditional required fields
 - Use skip_to for branching workflows
-- "when" is a condition tree, exactly like a step/section visibility condition: a "group" with
+- "when" is a condition tree, exactly like a step/page visibility condition: a "group" with
   "operator" AND|OR and a "conditions" array of leaf conditions (and/or nested groups). Keep it
   to a single leaf condition unless the request genuinely needs multiple criteria combined.
 - Keep conditions simple: prefer "equals"/"not_equals"/"is_empty"/"is_not_empty" over the more
@@ -191,12 +191,12 @@ ${JSON.stringify(existingWorkflow, null, 2)}
 
 Output a JSON object with this exact structure:
 {
-  "newSections": [ /* array of new sections to add, same schema as workflow generation */ ],
+  "newPages": [ /* array of new pages to add, same schema as workflow generation */ ],
   "newLogicRules": [ /* array of new logic rules, same schema as workflow generation */ ],
   "newTransformBlocks": [ /* array of new transform blocks, same schema as workflow generation */ ],
   "modifications": [
     {
-      "type": "section|step|logic_rule|transform_block",
+      "type": "page|step|logic_rule|transform_block",
       "id": "existing_item_id",
       "changes": { "field": "newValue" },
       "reason": "Why this change is suggested"
@@ -324,7 +324,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
 Task: Generate logical conditions (logicRules) to connect steps based on the user's description.
 Each rule's trigger condition is "when": a ConditionExpression group ({ type: "group", id, operator:
 "AND"|"OR", conditions: [...] }) whose leaf conditions ({ type: "condition", id, variable, operator,
-value, valueType: "constant" }) reference a step by its alias - the same shape used for step/section
+value, valueType: "constant" }) reference a step by its alias - the same shape used for step/page
 visibility. Do not use a flat conditionStepAlias/operator/conditionValue shape.
 Workflow Context:
 ${JSON.stringify(request.currentWorkflow, null, 2)}

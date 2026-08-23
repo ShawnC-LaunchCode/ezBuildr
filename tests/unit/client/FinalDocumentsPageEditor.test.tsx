@@ -5,18 +5,18 @@ import userEvent from '@testing-library/user-event';
 import axios from 'axios';
 import { describe, beforeEach, expect, it, vi } from 'vitest';
 
-import { FinalDocumentsSectionEditor } from '@/components/builder/final/FinalDocumentsSectionEditor';
+import { FinalDocumentsPageEditor } from '@/components/builder/final/FinalDocumentsPageEditor';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import type { ApiSection } from '@/lib/vault-api';
+import type { ApiPage } from '@/lib/vault-api';
 
-const updateSection = vi.hoisted(() => vi.fn());
+const updatePage = vi.hoisted(() => vi.fn());
 
 vi.mock('axios', () => ({
   default: { get: vi.fn() },
 }));
 
 vi.mock('@/lib/vault-hooks', () => ({
-  useUpdateSection: () => ({ mutate: updateSection, isPending: false }),
+  useUpdatePage: () => ({ mutate: updatePage, isPending: false }),
   useWorkflowMode: () => ({ data: { mode: 'easy' } }),
 }));
 
@@ -24,8 +24,8 @@ vi.mock('@/components/logic', () => ({
   LogicBuilder: () => <div>Condition editor</div>,
 }));
 
-const section: ApiSection = {
-  id: 'section-final',
+const page: ApiPage = {
+  id: 'page-final',
   workflowId: 'workflow-1',
   title: 'Final Documents',
   description: null,
@@ -41,20 +41,20 @@ const section: ApiSection = {
   },
 };
 
-function renderEditor(sectionOverride: ApiSection = section) {
+function renderEditor(pageOverride: ApiPage = page) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <FinalDocumentsSectionEditor section={sectionOverride} workflowId="workflow-1" />
+        <FinalDocumentsPageEditor page={pageOverride} workflowId="workflow-1" />
       </TooltipProvider>
     </QueryClientProvider>
   );
 }
 
-describe('FinalDocumentsSectionEditor (GH-155)', () => {
+describe('FinalDocumentsPageEditor (GH-155)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(axios.get).mockImplementation(async (url: string) => {
@@ -83,8 +83,8 @@ describe('FinalDocumentsSectionEditor (GH-155)', () => {
     fireEvent.change(title, { target: { value: 'Signed Engagement Letter' } });
     fireEvent.blur(title);
 
-    expect(updateSection).toHaveBeenLastCalledWith(expect.objectContaining({
-      id: 'section-final',
+    expect(updatePage).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: 'page-final',
       workflowId: 'workflow-1',
       config: expect.objectContaining({
         templates: [{ templateId: 'template-1', title: 'Signed Engagement Letter' }],
@@ -97,8 +97,8 @@ describe('FinalDocumentsSectionEditor (GH-155)', () => {
   // or a later template rename silently stops flowing through to the output.
   it('leaves an untitled document untitled when the field is only visited', async () => {
     renderEditor({
-      ...section,
-      config: { ...(section.config as Record<string, unknown>), templates: ['template-1'] },
+      ...page,
+      config: { ...(page.config as Record<string, unknown>), templates: ['template-1'] },
     });
 
     const title = await screen.findByRole('textbox', { name: 'Output title' });
@@ -108,7 +108,7 @@ describe('FinalDocumentsSectionEditor (GH-155)', () => {
     fireEvent.focus(title);
     fireEvent.blur(title);
 
-    expect(updateSection).not.toHaveBeenCalled();
+    expect(updatePage).not.toHaveBeenCalled();
   });
 
   it('persists DOCX + PDF and participant delivery options in one config', async () => {
@@ -124,7 +124,7 @@ describe('FinalDocumentsSectionEditor (GH-155)', () => {
     fireEvent.blur(redirect);
 
     await waitFor(() => {
-      expect(updateSection).toHaveBeenLastCalledWith(expect.objectContaining({
+      expect(updatePage).toHaveBeenLastCalledWith(expect.objectContaining({
         config: expect.objectContaining({
           outputFormats: ['docx', 'pdf'],
           showDocuments: false,

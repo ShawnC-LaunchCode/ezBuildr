@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ApiLogicRule, ApiSection, ApiStep } from "@/lib/vault-api";
+import type { ApiLogicRule, ApiPage, ApiStep } from "@/lib/vault-api";
 
 const createdAt = "2026-08-08T00:00:00.000Z";
 
@@ -15,17 +15,17 @@ const createdAt = "2026-08-08T00:00:00.000Z";
  * (`conditionEvaluator` fails safe on an unresolved operand) and the skip
  * would never fire no matter what answer was entered.
  */
-const sections: ApiSection[] = [
-  { id: "section-a", workflowId: "wf-1", title: "Section A", description: null, order: 0, createdAt },
-  { id: "section-b", workflowId: "wf-1", title: "Section B", description: null, order: 1, createdAt },
-  { id: "section-c", workflowId: "wf-1", title: "Section C", description: null, order: 2, createdAt },
+const pages: ApiPage[] = [
+  { id: "page-a", workflowId: "wf-1", title: "Page A", description: null, order: 0, createdAt },
+  { id: "page-b", workflowId: "wf-1", title: "Page B", description: null, order: 1, createdAt },
+  { id: "page-c", workflowId: "wf-1", title: "Page C", description: null, order: 2, createdAt },
 ];
 
 const steps: ApiStep[] = [
   {
     id: "step-a-trigger-uuid",
     workflowId: "wf-1",
-    sectionId: "section-a",
+    pageId: "page-a",
     type: "yes_no",
     title: "Skip ahead?",
     description: null,
@@ -51,16 +51,16 @@ const rules: ApiLogicRule[] = [
         { type: "condition", id: "cond-1", variable: "skip_ahead", operator: "is_true", value: true, valueType: "constant" },
       ],
     },
-    targetType: "section",
+    targetType: "page",
     targetStepId: null,
-    targetSectionId: "section-c",
+    targetPageId: "page-c",
     action: "skip_to",
     order: 1,
   },
 ];
 
-vi.mock("@/hooks/api/useSections", () => ({
-  useSections: () => ({ data: sections, isError: false }),
+vi.mock("@/hooks/api/usePages", () => ({
+  usePages: () => ({ data: pages, isError: false }),
 }));
 vi.mock("@/hooks/api/useSteps", () => ({
   useWorkflowSteps: () => ({ data: steps, isError: false }),
@@ -106,15 +106,15 @@ describe("useWorkflowSimulation (MAP-8 AC1/AC2)", () => {
     const { result } = renderHook(() => useWorkflowSimulation("wf-1"));
 
     // Before any answer: the skip condition is unmet, so the full path runs.
-    expect(result.current.simulation?.visited).toEqual(["section-a", "section-b", "section-c"]);
+    expect(result.current.simulation?.visited).toEqual(["page-a", "page-b", "page-c"]);
 
     act(() => {
       result.current.setAnswer("step-a-trigger-uuid", true);
     });
 
-    // After answering "yes" (keyed by id): the alias-referencing rule fires and section-b is skipped.
-    expect(result.current.simulation?.visited).toEqual(["section-c"]);
-    expect(result.current.simulation?.notVisited).toEqual(["section-a", "section-b"]);
+    // After answering "yes" (keyed by id): the alias-referencing rule fires and page-b is skipped.
+    expect(result.current.simulation?.visited).toEqual(["page-c"]);
+    expect(result.current.simulation?.notVisited).toEqual(["page-a", "page-b"]);
   });
 
   it("resets to no answers and the full path when resetAnswers is called", () => {
@@ -123,13 +123,13 @@ describe("useWorkflowSimulation (MAP-8 AC1/AC2)", () => {
     act(() => {
       result.current.setAnswer("step-a-trigger-uuid", true);
     });
-    expect(result.current.simulation?.visited).toEqual(["section-c"]);
+    expect(result.current.simulation?.visited).toEqual(["page-c"]);
 
     act(() => {
       result.current.resetAnswers();
     });
 
     expect(result.current.answers).toEqual({});
-    expect(result.current.simulation?.visited).toEqual(["section-a", "section-b", "section-c"]);
+    expect(result.current.simulation?.visited).toEqual(["page-a", "page-b", "page-c"]);
   });
 });

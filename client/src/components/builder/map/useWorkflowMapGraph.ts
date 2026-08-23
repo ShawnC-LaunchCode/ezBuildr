@@ -2,7 +2,7 @@
  * Assembles the workflow map's graph from the same TanStack Query hooks the
  * rest of the builder already uses (MAP-4) — no new API endpoint needed.
  *
- * `ApiSection`, `ApiStep` and `ApiLogicRule` (client/src/lib/vault-api.ts)
+ * `ApiPage`, `ApiStep` and `ApiLogicRule` (client/src/lib/vault-api.ts)
  * are structural supersets of `buildWorkflowMap`'s input types
  * (`shared/workflowMap.ts`), so they're passed straight in with no adapter
  * and no cast — the same "no adapter needed" relationship MAP-3 has with
@@ -16,7 +16,7 @@
 import { useMemo } from "react";
 
 import { useLogicRules } from "@/hooks/api/useLogicRules";
-import { useSections } from "@/hooks/api/useSections";
+import { usePages } from "@/hooks/api/usePages";
 import { useWorkflowSteps } from "@/hooks/api/useSteps";
 import { buildWorkflowMap, type WorkflowMapGraph } from "@shared/workflowMap";
 
@@ -24,30 +24,30 @@ const EMPTY_GRAPH: WorkflowMapGraph = { nodes: [], edges: [] };
 
 export interface UseWorkflowMapGraphResult {
   graph: WorkflowMapGraph;
-  /** True until sections, steps and rules have all loaded at least once. */
+  /** True until pages, steps and rules have all loaded at least once. */
   isLoading: boolean;
   isError: boolean;
 }
 
 export function useWorkflowMapGraph(workflowId: string | undefined): UseWorkflowMapGraphResult {
-  const sectionsQuery = useSections(workflowId);
+  const pagesQuery = usePages(workflowId);
   const stepsQuery = useWorkflowSteps(workflowId);
   const rulesQuery = useLogicRules(workflowId);
 
-  const sections = sectionsQuery.data;
+  const pages = pagesQuery.data;
   const steps = stepsQuery.data;
   const rules = rulesQuery.data;
 
   const graph = useMemo<WorkflowMapGraph>(() => {
-    if (!sections || !steps || !rules) {
+    if (!pages || !steps || !rules) {
       return EMPTY_GRAPH;
     }
-    return buildWorkflowMap({ sections, steps, rules });
-  }, [sections, steps, rules]);
+    return buildWorkflowMap({ pages, steps, rules });
+  }, [pages, steps, rules]);
 
   return {
     graph,
-    isLoading: !sections || !steps || !rules,
-    isError: sectionsQuery.isError || stepsQuery.isError || rulesQuery.isError,
+    isLoading: !pages || !steps || !rules,
+    isError: pagesQuery.isError || stepsQuery.isError || rulesQuery.isError,
   };
 }

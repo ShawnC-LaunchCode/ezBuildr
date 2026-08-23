@@ -60,11 +60,11 @@ describe.sequential("Asset Copy API Integration Tests", () => {
     expect(response.body.data.copiedRows).toBe(1);
 
     const copiedWorkflowId = response.body.data.workflows[0].id as string;
-    const copiedSections = await getOwnerDb()
+    const copiedPages = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, copiedWorkflowId));
-    expect(copiedSections).toHaveLength(1);
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, copiedWorkflowId));
+    expect(copiedPages).toHaveLength(1);
 
     const copiedTables = await getOwnerDb()
       .select()
@@ -156,8 +156,8 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       published: true,
     });
 
-    const [section] = await getOwnerDb()
-      .insert(schema.sections)
+    const [page] = await getOwnerDb()
+      .insert(schema.pages)
       .values({
         id: randomUUID(),
         workflowId: workflow.id,
@@ -169,7 +169,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
     await getOwnerDb().insert(schema.steps).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: section.id,
+      pageId: page.id,
       type: "short_text",
       title: "Name",
       alias: "name",

@@ -41,8 +41,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'First name',
     title: 'First name',
     type: 'short_text',
-    sectionId: 'sec1',
-    sectionTitle: 'Page 1',
+    pageId: 'sec1',
+    pageTitle: 'Page 1',
   },
   {
     id: 's2',
@@ -50,8 +50,8 @@ const VARIABLES: VariableInfo[] = [
     label: 'Last name',
     title: 'Last name',
     type: 'short_text',
-    sectionId: 'sec1',
-    sectionTitle: 'Page 1',
+    pageId: 'sec1',
+    pageTitle: 'Page 1',
   },
   {
     id: 's3',
@@ -61,13 +61,13 @@ const VARIABLES: VariableInfo[] = [
     label: 'Amount Due',
     title: 'Amount Due',
     type: 'short_text',
-    sectionId: 'sec2',
-    sectionTitle: 'Page 2',
+    pageId: 'sec2',
+    pageTitle: 'Page 2',
   },
 ];
 
 describe('VariableCombobox — grouped rendering (LU-4 AC2/AC4)', () => {
-  it('renders section headings and every variable within its section when opened', async () => {
+  it('renders page headings and every variable within its page when opened', async () => {
     const user = userEvent.setup();
     render(<VariableCombobox variables={VARIABLES} value="" onChange={vi.fn()} />);
 

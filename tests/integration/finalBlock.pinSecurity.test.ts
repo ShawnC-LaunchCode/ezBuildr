@@ -173,8 +173,8 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
     alias: string
   ): Promise<{ runId: string; workflowId: string; finalStepId: string }> {
     const { workflow } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const section = await factory.createSection(workflow.id);
-    const finalStep = await factory.createStep(section.id, {
+    const page = await factory.createPage(workflow.id);
+    const finalStep = await factory.createStep(page.id, {
       type: 'final',
       title: 'Final documents',
       config: {
@@ -223,14 +223,14 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
   it('rejects a pinned version belonging to a different tenant/project in preview', async () => {
     const { version: versionB } = await createTemplateVersion(ctx2, 'preview-foreign', 'FOREIGN PREVIEW');
     const { workflow: workflowA } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const sectionA = await factory.createSection(workflowA.id);
+    const pageA = await factory.createPage(workflowA.id);
     const { template: templateA } = await factory.createTemplate(ctx1.projectId!, ctx1.userId, {
       fileRef: await createTemplateFile('preview-foreign-target', 'AUTHORIZED TARGET'),
     });
 
     const response = await previewPinnedVersion(
       workflowA.id,
-      sectionA.id,
+      pageA.id,
       templateA.id,
       versionB.id,
       'doc_a'
@@ -242,14 +242,14 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
   it('rejects a pinned version belonging to a different template in the same project in preview', async () => {
     const { version: versionA1 } = await createTemplateVersion(ctx1, 'preview-wrong-template', 'WRONG PREVIEW');
     const { workflow: workflowA } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const sectionA = await factory.createSection(workflowA.id);
+    const pageA = await factory.createPage(workflowA.id);
     const { template: templateA2 } = await factory.createTemplate(ctx1.projectId!, ctx1.userId, {
       fileRef: await createTemplateFile('preview-wrong-target', 'AUTHORIZED TARGET'),
     });
 
     const response = await previewPinnedVersion(
       workflowA.id,
-      sectionA.id,
+      pageA.id,
       templateA2.id,
       versionA1.id,
       'doc_a2'

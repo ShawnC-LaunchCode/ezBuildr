@@ -29,12 +29,9 @@ export class WorkflowSuggestionService {
     async suggestWorkflowImprovements(
         request: AIWorkflowSuggestionRequest,
         existingWorkflow: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            sections: any[];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            logicRules?: any[];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            transformBlocks?: any[];
+            pages: unknown[];
+            logicRules?: unknown[];
+            transformBlocks?: unknown[];
         },
     ): Promise<AIWorkflowSuggestion> {
         const startTime = Date.now();
@@ -54,7 +51,7 @@ export class WorkflowSuggestionService {
             logger.info(
                 {
                     duration,
-                    newSectionsCount: validated.newSections.length,
+                    newPagesCount: validated.newPages.length,
                     newRulesCount: validated.newLogicRules.length,
                     newBlocksCount: validated.newTransformBlocks.length,
                     modificationsCount: validated.modifications.length,

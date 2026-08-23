@@ -19,7 +19,7 @@ This workflow helps users:
 
 ## 📋 Workflow Structure
 
-### Section 1: Applicant Information
+### Page 1: Applicant Information
 Collects basic personal details:
 - **Name fields** (first, middle, last) - demonstrates multiple related text inputs
 - **Date of Birth** - demonstrates date_time field type
@@ -32,7 +32,7 @@ Collects basic personal details:
 - `streetAddress`, `city`, `state`, `zipCode`
 - `phoneNumber`, `emailAddress`
 
-### Section 2: Household & Income
+### Page 2: Household & Income
 Collects household composition and income information:
 - **Household Size** (dropdown 1-8+) - drives poverty level calculations
 - **Employment Status** (radio buttons) - triggers conditional logic
@@ -58,7 +58,7 @@ Collects household composition and income information:
    - Returns: "Likely Qualified" or "Additional Review Required"
    - Considers both income threshold and public benefits
 
-### Section 3: Monthly Expenses
+### Page 3: Monthly Expenses
 Collects detailed expense information:
 - Rent/Mortgage, Utilities, Food, Transportation
 - Medical, Childcare, Other expenses
@@ -76,7 +76,7 @@ Collects detailed expense information:
    - Calculates: Total Income - Total Expenses
    - Shows financial capacity to pay fees
 
-### Section 4: Assets & Liabilities
+### Page 4: Assets & Liabilities
 Collects financial assets and debts:
 - Cash/bank accounts, vehicle value, real estate
 - Other assets, total debt
@@ -93,11 +93,11 @@ Collects financial assets and debts:
    - Calculates: Total Assets - Total Debt
 
 **Conditional Logic:**
-- **Hidden if qualified by income** - Section skipped if `qualificationStatus` = "Likely Qualified"
-- This demonstrates section-level conditional logic
+- **Hidden if qualified by income** - Page skipped if `qualificationStatus` = "Likely Qualified"
+- This demonstrates page-level conditional logic
 
-### Section 5: Supporting Documents
-File upload section for evidence:
+### Page 5: Supporting Documents
+File upload page for evidence:
 - Pay stubs, bank statements, benefit proof, other documents
 - Each accepts PDF, JPG, JPEG, PNG
 - 5MB max file size per upload
@@ -109,7 +109,7 @@ File upload section for evidence:
 **Conditional Logic:**
 - **Pay stubs required if employed** - Triggers when employment status is full-time or part-time
 
-### Section 6: Review & Certification
+### Page 6: Review & Certification
 Final review and certification:
 - Additional information (long text field)
 - Certification checkbox - required for submission
@@ -126,39 +126,39 @@ All transform blocks use JavaScript and execute in a sandboxed environment:
 1. **Calculate Total Monthly Income**
    - Inputs: `monthlyIncome`, `otherIncome`
    - Output: `totalMonthlyIncome`
-   - Phase: onSectionSubmit (Section 2)
+   - Phase: onPageSubmit (Page 2)
 
 2. **Calculate Poverty Level Threshold**
    - Input: `householdSize`
    - Output: `povertyThreshold`
    - Uses 2024 FPL guidelines (150% threshold)
-   - Phase: onSectionSubmit (Section 2)
+   - Phase: onPageSubmit (Page 2)
 
 3. **Determine Qualification Status**
    - Inputs: `totalMonthlyIncome`, `povertyThreshold`, `publicBenefits`
    - Output: `qualificationStatus`
    - Logic: Qualified if income ≤ threshold OR receives public benefits
-   - Phase: onSectionSubmit (Section 2)
+   - Phase: onPageSubmit (Page 2)
 
 4. **Calculate Total Monthly Expenses**
    - Inputs: All expense fields
    - Output: `totalMonthlyExpenses`
-   - Phase: onSectionSubmit (Section 3)
+   - Phase: onPageSubmit (Page 3)
 
 5. **Calculate Disposable Income**
    - Inputs: `totalMonthlyIncome`, `totalMonthlyExpenses`
    - Output: `disposableIncome`
-   - Phase: onSectionSubmit (Section 3)
+   - Phase: onPageSubmit (Page 3)
 
 6. **Calculate Total Assets**
    - Inputs: All asset fields
    - Output: `totalAssets`
-   - Phase: onSectionSubmit (Section 4)
+   - Phase: onPageSubmit (Page 4)
 
 7. **Calculate Net Worth**
    - Inputs: `totalAssets`, `totalDebt`
    - Output: `netWorth`
-   - Phase: onSectionSubmit (Section 4)
+   - Phase: onPageSubmit (Page 4)
 
 ### Conditional Logic Rules (5 total)
 
@@ -170,9 +170,9 @@ All transform blocks use JavaScript and execute in a sandboxed environment:
    - Condition: `employmentStatus` equals "Employed Part-Time"
    - Action: Require `employerName` field
 
-3. **Hide Assets Section If Qualified**
+3. **Hide Assets Page If Qualified**
    - Condition: `qualificationStatus` equals "Likely Qualified"
-   - Action: Hide Assets & Liabilities section
+   - Action: Hide Assets & Liabilities page
    - Purpose: Streamline workflow for clearly qualified applicants
 
 4. **Require Pay Stubs (Full-Time)**
@@ -200,7 +200,7 @@ All transform blocks use JavaScript and execute in a sandboxed environment:
 - ✓ **Transform Blocks** - 7 JavaScript blocks for calculations
 - ✓ **Virtual Steps** - Automatically created for transform outputs
 - ✓ **Conditional Logic** - 5 rules for dynamic behavior
-- ✓ **Section-Level Logic** - Hide entire sections based on conditions
+- ✓ **Page-Level Logic** - Hide entire pages based on conditions
 - ✓ **Field-Level Logic** - Conditionally require fields
 - ✓ **Welcome Screen** - Custom branded introduction
 - ✓ **Thank You Screen** - Custom completion message with next steps
@@ -222,7 +222,7 @@ All transform blocks use JavaScript and execute in a sandboxed environment:
 1. Household size: 2
 2. Monthly income: $1,500
 3. No other income
-4. **Expected:** Qualification status = "Likely Qualified", Assets section hidden
+4. **Expected:** Qualification status = "Likely Qualified", Assets page hidden
 
 #### Scenario 2: Public Benefits Auto-Qualify
 1. Select any public benefit (SNAP, SSI, etc.)
@@ -235,7 +235,7 @@ All transform blocks use JavaScript and execute in a sandboxed environment:
 #### Scenario 4: High Income - Full Application
 1. Household size: 1
 2. Monthly income: $3,000
-3. **Expected:** Must complete all sections including assets
+3. **Expected:** Must complete all pages including assets
 
 ### Testing Calculations
 

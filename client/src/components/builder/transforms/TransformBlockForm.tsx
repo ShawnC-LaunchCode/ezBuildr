@@ -71,8 +71,8 @@ export function TransformBlockForm({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="onRunStart">On Run Start</SelectItem>
-                        <SelectItem value="onSectionEnter">On Section Enter</SelectItem>
-                        <SelectItem value="onSectionSubmit">On Section Submit</SelectItem>
+                        <SelectItem value="onPageEnter">On Page Enter</SelectItem>
+                        <SelectItem value="onPageSubmit">On Page Submit</SelectItem>
                         <SelectItem value="onNext">On Next</SelectItem>
                         <SelectItem value="onRunComplete">On Run Complete</SelectItem>
                     </SelectContent>

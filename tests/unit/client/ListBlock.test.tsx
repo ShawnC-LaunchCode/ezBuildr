@@ -33,7 +33,7 @@ const configWithRequiredField: ListConfig = {
 const stepWithRequiredField: ApiStep = {
   id: 'step-children',
   workflowId: 'wf-1',
-  sectionId: 'sec-1',
+  pageId: 'page-1',
   type: 'list',
   title: 'Children',
   description: null,
@@ -66,7 +66,7 @@ const config: ListConfig = {
 const step: ApiStep = {
   id: 'step-children',
   workflowId: 'wf-1',
-  sectionId: 'sec-1',
+  pageId: 'page-1',
   type: 'list',
   title: 'Children',
   description: null,
@@ -227,8 +227,8 @@ describe('List block: drill-in editor structure (AC7)', () => {
 
     await user.click(screen.getByText('Ava'));
     const addressesLabel = screen.getByText('Addresses');
-    const addressesSection = addressesLabel.parentElement as HTMLElement;
-    await user.click(within(addressesSection).getByText('Item 1'));
+    const addressesPage = addressesLabel.parentElement as HTMLElement;
+    await user.click(within(addressesPage).getByText('Item 1'));
 
     expect(screen.getByText('Children › Ava › Item 1')).toBeInTheDocument();
   });
@@ -251,7 +251,7 @@ describe('List block: drill-in editor structure (AC7)', () => {
  * always succeeding (AC4), and badges/inline errors clearing live once the
  * field is fixed (AC7). Next-enforcement and the label-based error summary
  * (AC5/AC6) are covered separately in useRunNavigation.listErrors.test.tsx,
- * where the section-level "Next" flow actually lives.
+ * where the page-level "Next" flow actually lives.
  */
 describe('List block: incomplete-item badges (AC3, AC4, AC7)', () => {
   it('badges a collapsed row whose required field is empty', () => {
@@ -366,8 +366,8 @@ describe('List block: drill focus management (LIST2-12)', () => {
 
     await user.click(screen.getByText('Ava'));
     const addressesLabel = screen.getByText('Addresses');
-    const addressesSection = addressesLabel.parentElement as HTMLElement;
-    await user.click(within(addressesSection).getByText('Item 1'));
+    const addressesPage = addressesLabel.parentElement as HTMLElement;
+    await user.click(within(addressesPage).getByText('Item 1'));
 
     await screen.findByRole('heading', { name: 'Children › Ava › Item 1' });
 

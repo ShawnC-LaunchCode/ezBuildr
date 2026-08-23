@@ -111,7 +111,7 @@ export default function NewWorkflow() {
           <CardHeader>
             <CardTitle>Create New Workflow</CardTitle>
             <CardDescription>
-              Enter the details for your new workflow. You&apos;ll be able to add sections, steps, and configure everything in the builder.
+              Enter the details for your new workflow. You&apos;ll be able to add pages, steps, and configure everything in the builder.
             </CardDescription>
           </CardHeader>
           <CardContent>

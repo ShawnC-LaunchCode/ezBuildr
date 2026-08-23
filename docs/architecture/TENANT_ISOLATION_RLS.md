@@ -1,6 +1,6 @@
 # Tenant Isolation via Postgres Row-Level Security (RLS)
 
-Status: **Phase 1–2 landed; Phase 4 done for workflows/sections/steps and for the six DataVault tables listed below (all defined, not yet enforced).** Tracking ticket: SEC-051.
+Status: **Phase 1–2 landed; Phase 4 done for workflows/pages/steps and for the six DataVault tables listed below (all defined, not yet enforced).** Tracking ticket: SEC-051.
 
 This document is the source of truth for how ezBuildr isolates one tenant's data
 from another at the database layer, why it is rolled out in stages, and the exact
@@ -678,7 +678,7 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 | [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) — defines the policies; see `0024` for why that alone did not apply them on production/`dev`/`test` |
 | [`migrations/0024_repair_rls_coverage.sql`](../../migrations/0024_repair_rls_coverage.sql) | RLS-3: re-applies the 24 direct-`tenant_id` policies + 3 ownership-derived policies that `0001`/`0004` defined but never actually applied on a database whose tables were created by `db:push` out of band |
 | [`tests/integration/rls-coverage.test.ts`](../../tests/integration/rls-coverage.test.ts) | RLS-3: general coverage gate — every table with a `tenant_id` column must have RLS + a `tenant_isolation` policy; proven discriminating against a scratch probe table |
-| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/sections/steps + `app_current_tenant()` / `app_owner_tenant()` helpers (now consolidated into `0001_enable_rls.sql` — this filename no longer exists on disk as a separate file post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth) |
+| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/pages/steps + `app_current_tenant()` / `app_owner_tenant()` helpers (now consolidated into `0001_enable_rls.sql` — this filename no longer exists on disk as a separate file post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth) |
 | [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts) | Proves Phase 4 cross-tenant isolation, fail-closed, and WITH CHECK |
 | [`migrations/0011_datavault_rls_phase4.sql`](../../migrations/0011_datavault_rls_phase4.sql) | DVH-3: policies + derivation helpers for `datavault_rows`/`datavault_values`/`datavault_columns`/`datavault_table_permissions`/`datavault_database_access`/`datavault_table_access` |
 | [`tests/integration/rls-datavault.test.ts`](../../tests/integration/rls-datavault.test.ts) | Proves DVH-3 cross-tenant isolation and fail-closed (unset + empty GUC) under a non-owner role |

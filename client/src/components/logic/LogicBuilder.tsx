@@ -35,11 +35,11 @@ import { ConditionGroup } from "./ConditionGroup";
 interface LogicBuilderProps {
   /** The workflow ID to fetch variables from. Ignored when `variables` is injected. */
   workflowId?: string;
-  /** The element ID (step or section) being edited - used to filter out self-references
+  /** The element ID (step or page) being edited - used to filter out self-references
    * when fetching. Ignored when `variables` is injected. */
   elementId?: string;
   /** Type of element being edited (drives copy only) */
-  elementType: "step" | "section" | "field" | "document";
+  elementType: "step" | "page" | "field" | "document";
   /** Current condition expression (null means always visible) */
   value: ConditionExpression;
   /** Callback when the expression changes */
@@ -104,8 +104,8 @@ export function LogicBuilder({
         label: v.label,
         title: v.label,
         type: v.type as VariableInfo["type"],
-        sectionId: v.sectionId,
-        sectionTitle: v.sectionTitle,
+        pageId: v.pageId,
+        pageTitle: v.pageTitle,
         choices: v.choices,
       }));
   }, [hasInjectedVariables, injectedVariables, rawVariables, elementId]);

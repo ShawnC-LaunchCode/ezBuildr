@@ -66,7 +66,7 @@ describeWithDb('ImportService - config entity references', () => {
   }
 
   it('AC 1: reports a choice bound to a DataVault table that is not in the bundle', async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // Ids whose targets do not exist — the user deleted the table this dropdown
     // was wired to. Nothing can make these travel, so the import must report
     // them.
@@ -83,7 +83,7 @@ describeWithDb('ImportService - config entity references', () => {
     };
 
     await db.insert(steps).values({
-      workflowId, sectionId, type: 'choice', title: 'Home state',
+      workflowId, pageId, type: 'choice', title: 'Home state',
       alias: 'home_state', order: 1, config: tableColumnChoice(vault),
     });
 
@@ -107,7 +107,7 @@ describeWithDb('ImportService - config entity references', () => {
   });
 
   it('AC 2: reports the same binding nested one and two levels deep inside a List', async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // Unresolvable by construction, for the reason given in AC 1.
     const shallow = {
       databaseId: randomUUID(), tableId: randomUUID(), columnId: randomUUID(),
@@ -117,7 +117,7 @@ describeWithDb('ImportService - config entity references', () => {
     };
 
     await db.insert(steps).values({
-      workflowId, sectionId, type: 'list', title: 'Beneficiaries',
+      workflowId, pageId, type: 'list', title: 'Beneficiaries',
       alias: 'beneficiaries', order: 1,
       config: {
         fields: [
@@ -154,7 +154,7 @@ describeWithDb('ImportService - config entity references', () => {
   });
 
   it('AC 3: reports a final_documents step whose template is not in the bundle', async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // A template that exists in the project but is never attached to the
     // workflow, so IEX3-1's reference collection does not pull it in.
     const orphan = await seedTemplate({
@@ -162,7 +162,7 @@ describeWithDb('ImportService - config entity references', () => {
     });
 
     await db.insert(steps).values({
-      workflowId, sectionId, type: 'final_documents', title: 'Your documents',
+      workflowId, pageId, type: 'final_documents', title: 'Your documents',
       alias: 'final_docs', order: 1,
       config: {
         markdownHeader: 'Documents',
@@ -182,7 +182,7 @@ describeWithDb('ImportService - config entity references', () => {
   });
 
   it('AC 4: rewrites the ids and stays silent when the referenced entities travel', async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // Attached this time, so IEX3-1 carries the database with the workflow.
     const vault = await seedDatavault({
       tenantId, userId, scopeType: 'project', scopeId: projectId,
@@ -190,7 +190,7 @@ describeWithDb('ImportService - config entity references', () => {
     });
 
     await db.insert(steps).values({
-      workflowId, sectionId, type: 'choice', title: 'Home state',
+      workflowId, pageId, type: 'choice', title: 'Home state',
       alias: 'home_state', order: 1, config: tableColumnChoice(vault),
     });
 
@@ -216,10 +216,10 @@ describeWithDb('ImportService - config entity references', () => {
   });
 
   it('AC 5: never warns about locally-scoped ids in a config', async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
 
     await db.insert(steps).values({
-      workflowId, sectionId, type: 'choice', title: 'Colour',
+      workflowId, pageId, type: 'choice', title: 'Colour',
       alias: 'colour', order: 1,
       config: {
         display: 'radio',

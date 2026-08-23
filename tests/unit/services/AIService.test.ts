@@ -24,7 +24,7 @@ vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
             return {
                 generateWorkflow: vi.fn().mockResolvedValue({
                     title: 'Generated Flow',
-                    sections: [{ id: 's1', title: 'Start', order: 0, steps: [] }]
+                    pages: [{ id: 's1', title: 'Start', order: 0, steps: [] }]
                 })
             };
         })
@@ -38,8 +38,8 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
         WorkflowSuggestionService: vi.fn(function () {
             return {
                 suggestWorkflowImprovements: vi.fn().mockResolvedValue({
-                    newSections: [{ id: 's2', title: 'New Section', order: 1, steps: [] }],
-                    notes: 'Added a section'
+                    newPages: [{ id: 's2', title: 'New Page', order: 1, steps: [] }],
+                    notes: 'Added a page'
                 }),
                 suggestTemplateBindings: vi.fn().mockResolvedValue({
                     suggestions: [{ placeholder: '{{name}}', variable: 'text_1', confidence: 0.9 }],
@@ -115,12 +115,12 @@ describe('AIService Unit Tests', () => {
             const request = {
                 description: 'Create a flow',
                 projectId: '123e4567-e89b-12d3-a456-426614174000',
-                constraints: { maxSections: 5 }
+                constraints: { maxPages: 5 }
             };
 
             const result = await aiService.generateWorkflow(request);
             expect(result.title).toBe('Generated Flow');
-            expect(result.sections).toHaveLength(1);
+            expect(result.pages).toHaveLength(1);
         });
     });
 
@@ -130,11 +130,11 @@ describe('AIService Unit Tests', () => {
                 workflowId: '123e4567-e89b-12d3-a456-426614174000',
                 description: 'Improve it'
             };
-            const existingWorkflow = { sections: [] };
+            const existingWorkflow = { pages: [] };
 
             const result = await aiService.suggestWorkflowImprovements(request, existingWorkflow);
-            expect(result.newSections).toHaveLength(1);
-            expect(result.notes).toBe('Added a section');
+            expect(result.newPages).toHaveLength(1);
+            expect(result.notes).toBe('Added a page');
         });
 
         it('suggestTemplateBindings should return bindings', async () => {
@@ -162,7 +162,7 @@ describe('AIService Unit Tests', () => {
             const request = {
                 workflowId: '123e4567-e89b-12d3-a456-426614174000',
                 description: 'If true then next',
-                currentWorkflow: { title: 'Flow', sections: [], logicRules: [], transformBlocks: [] },
+                currentWorkflow: { title: 'Flow', pages: [], logicRules: [], transformBlocks: [] },
                 mode: 'easy' as const
             };
 
@@ -174,7 +174,7 @@ describe('AIService Unit Tests', () => {
         it('visualizeLogic should return graph data', async () => {
             const request = {
                 workflowId: '123e4567-e89b-12d3-a456-426614174000',
-                currentWorkflow: { title: 'Flow', sections: [], logicRules: [], transformBlocks: [] }
+                currentWorkflow: { title: 'Flow', pages: [], logicRules: [], transformBlocks: [] }
             };
 
             const result = await aiService.visualizeLogic(request);

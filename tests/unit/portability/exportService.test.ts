@@ -36,8 +36,8 @@ describeWithDb('ExportService', () => {
       });
       testWorkflowId = workflow.id;
 
-      const section = await txFactory.createSection(testWorkflowId, { title: 'Test Section' });
-      await txFactory.createStep(section.id, { type: 'short_text', title: 'Test Question' });
+      const page = await txFactory.createPage(testWorkflowId, { title: 'Test Page' });
+      await txFactory.createStep(page.id, { type: 'short_text', title: 'Test Question' });
 
       const other = await txFactory.createTenant();
       otherUserId = other.user.id;
@@ -207,11 +207,11 @@ describeWithDb('ExportService', () => {
     expect(workflows[0].id).toBe(testWorkflowId);
     expect(workflows[0].name).toBe('Test Workflow');
     
-    const sections: any[] = [];
-    for await (const s of reader.readEntityStream('sections')) {
-      sections.push(s);
+    const pages: any[] = [];
+    for await (const s of reader.readEntityStream('pages')) {
+      pages.push(s);
     }
-    expect(sections.length).toBe(1);
+    expect(pages.length).toBe(1);
     
     const steps: any[] = [];
     for await (const s of reader.readEntityStream('steps')) {
@@ -220,7 +220,7 @@ describeWithDb('ExportService', () => {
     expect(steps.length).toBe(1);
     
     expect(reader.manifest.entityCounts['workflows']).toBe(1);
-    expect(reader.manifest.entityCounts['sections']).toBe(1);
+    expect(reader.manifest.entityCounts['pages']).toBe(1);
     expect(reader.manifest.entityCounts['steps']).toBe(1);
 
     await fs.promises.rm(tmpPath);

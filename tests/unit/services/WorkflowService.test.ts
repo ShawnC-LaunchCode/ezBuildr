@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, type Mock, type Mocked } from "vi
 // Use dynamic import for service to ensure mocks apply
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
-import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
+import { createTestWorkflow, createTestPage, createTestLogicRule } from "../../factories/workflowFactory";
 import { DEFAULT_RESOLVED_BRANDING } from "../../../shared/types/branding";
 import { enterTenantContextForTests } from "../../../server/utils/rlsContext";
 import { db } from "../../../server/db";
@@ -12,7 +12,7 @@ import type { InsertWorkflow, Project } from "../../../shared/schema";
 import type { WorkflowService } from "../../../server/services/WorkflowService";
 import type {
   WorkflowRepository,
-  SectionRepository,
+  PageRepository,
   StepRepository,
   LogicRuleRepository,
   ProjectRepository,
@@ -86,7 +86,7 @@ describe("WorkflowService", () => {
   let service: WorkflowService;
   let WorkflowServiceClass: new (
     workflowRepo: WorkflowRepository,
-    sectionRepo: SectionRepository,
+    pageRepo: PageRepository,
     stepRepo: StepRepository,
     logicRuleRepo: LogicRuleRepository,
     workflowAccessRepo: WorkflowAccessRepository,
@@ -95,7 +95,7 @@ describe("WorkflowService", () => {
   ) => WorkflowService;
 
   let mockWorkflowRepo: Mocked<WorkflowRepository>;
-  let mockSectionRepo: Mocked<SectionRepository>;
+  let mockPageRepo: Mocked<PageRepository>;
   let mockStepRepo: Mocked<StepRepository>;
   let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
   let mockWorkflowAccessRepo: Mocked<WorkflowAccessRepository>;
@@ -145,18 +145,18 @@ describe("WorkflowService", () => {
       findAll: vi.fn(),
     } as unknown as Mocked<WorkflowRepository>;
 
-    mockSectionRepo = {
+    mockPageRepo = {
       findByWorkflowId: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
       softDelete: vi.fn(),
       findById: vi.fn(),
-    } as unknown as Mocked<SectionRepository>;
+    } as unknown as Mocked<PageRepository>;
 
     mockStepRepo = {
-      findBySectionIds: vi.fn(),
-      softDeleteBySectionId: vi.fn(),
+      findByPageIds: vi.fn(),
+      softDeleteByPageId: vi.fn(),
     } as unknown as Mocked<StepRepository>;
 
     mockLogicRuleRepo = {
@@ -178,7 +178,7 @@ describe("WorkflowService", () => {
     const module = await import("../../../server/services/WorkflowService");
     WorkflowServiceClass = module.WorkflowService as unknown as new (
       workflowRepo: WorkflowRepository,
-      sectionRepo: SectionRepository,
+      pageRepo: PageRepository,
       stepRepo: StepRepository,
       logicRuleRepo: LogicRuleRepository,
       workflowAccessRepo: WorkflowAccessRepository,
@@ -192,7 +192,7 @@ describe("WorkflowService", () => {
 
     service = new WorkflowServiceClass(
       mockWorkflowRepo,
-      mockSectionRepo,
+      mockPageRepo,
       mockStepRepo,
       mockLogicRuleRepo,
       mockWorkflowAccessRepo,
@@ -227,7 +227,7 @@ describe("WorkflowService", () => {
     });
   });
   describe("createWorkflow", () => {
-    it("should create workflow with default first section", async () => {
+    it("should create workflow with default first page", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
       const workflowData: InsertWorkflow = {
         projectId: "project-123",
@@ -243,13 +243,13 @@ describe("WorkflowService", () => {
         ownerId: "user-123",
         status: "draft",
       });
-      const createdSection = createTestSection(createdWorkflow.id, {
-        title: "Section 1",
+      const createdPage = createTestPage(createdWorkflow.id, {
+        title: "Page 1",
         order: 1,
       });
       mockProjectRepo.findById.mockResolvedValue({ id: "project-123", ownerType: "user", ownerUuid: "user-123" } as unknown as Project);
       mockWorkflowRepo.create.mockResolvedValue(createdWorkflow);
-      mockSectionRepo.create.mockResolvedValue(createdSection);
+      mockPageRepo.create.mockResolvedValue(createdPage);
       const result = await service.createWorkflow(workflowData, "user-123");
       expect(result).toEqual(createdWorkflow);
       expect(mockWorkflowRepo.create).toHaveBeenCalledWith(
@@ -261,10 +261,10 @@ describe("WorkflowService", () => {
         }),
         expect.any(Object)
       );
-      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+      expect(mockPageRepo.create).toHaveBeenCalledWith(
         {
           workflowId: createdWorkflow.id,
-          title: "Section 1",
+          title: "Page 1",
           order: 1,
         },
         expect.any(Object)
@@ -272,9 +272,9 @@ describe("WorkflowService", () => {
       // AC5: one transaction at the service boundary, shared by both
       // repositories — not merely two calls each scoped to "some" tx.
       const workflowCreateTx = mockWorkflowRepo.create.mock.calls[0][1];
-      const sectionCreateTx = mockSectionRepo.create.mock.calls[0][1];
+      const pageCreateTx = mockPageRepo.create.mock.calls[0][1];
       expect(workflowCreateTx).toBeDefined();
-      expect(workflowCreateTx).toBe(sectionCreateTx);
+      expect(workflowCreateTx).toBe(pageCreateTx);
     });
   });
   describe("getWorkflowWithDetails", () => {
@@ -297,8 +297,8 @@ describe("WorkflowService", () => {
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
       await service.getWorkflowWithDetails(validUUID, "user-123");
@@ -312,8 +312,8 @@ describe("WorkflowService", () => {
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
       // A caller-supplied tx is what VersionService.serializeWorkflowInTx
@@ -330,24 +330,24 @@ describe("WorkflowService", () => {
       expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, callerTx);
     });
 
-    it("should return workflow with sections, steps, and logic rules", async () => {
+    it("should return workflow with pages, steps, and logic rules", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
-      const sections = [
-        createTestSection(validUUID),
-        createTestSection(validUUID),
+      const pages = [
+        createTestPage(validUUID),
+        createTestPage(validUUID),
       ];
       const logicRules = [createTestLogicRule(validUUID)];
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue(sections);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue(pages);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue(logicRules);
       const result = await service.getWorkflowWithDetails(validUUID, "user-123");
       expect(result.id).toBe(workflow.id);
-      expect(result.sections).toHaveLength(2);
-      expect(result.sections[0].steps).toHaveLength(0);
-      expect(result.sections[1].steps).toHaveLength(0);
+      expect(result.pages).toHaveLength(2);
+      expect(result.pages[0].steps).toHaveLength(0);
+      expect(result.pages[1].steps).toHaveLength(0);
       expect(result.logicRules).toHaveLength(1);
     });
     it("should throw error if user does not own workflow", async () => {
@@ -381,8 +381,8 @@ describe("WorkflowService", () => {
       mockBrandingSvc.resolveForWorkflow.mockResolvedValue(tenantResolved);
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
       const result = await service.getWorkflowWithDetails(validUUID, "user-123");
@@ -603,37 +603,37 @@ describe("WorkflowService", () => {
     // than reaching into module internals.
     type SyncGraphJson = Parameters<WorkflowService["syncWithGraph"]>[1];
 
-    it("soft-deletes the removed final section AND cascades to its steps instead of hard-deleting either", async () => {
+    it("soft-deletes the removed final page AND cascades to its steps instead of hard-deleting either", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
-      const finalSection = createTestSection("wf-1", {
-        id: "final-section-1",
+      const finalPage = createTestPage("wf-1", {
+        id: "final-page-1",
         config: { finalBlock: true },
       });
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([finalSection]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([finalPage]);
 
-      // No 'final' node in the graph anymore — the section should be removed.
+      // No 'final' node in the graph anymore — the page should be removed.
       const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
 
       await service.syncWithGraph("wf-1", graphJson, "user-1");
 
-      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(
-        "final-section-1",
+      expect(mockStepRepo.softDeleteByPageId).toHaveBeenCalledWith(
+        "final-page-1",
         expect.anything()
       );
-      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith("final-section-1", expect.anything());
-      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+      expect(mockPageRepo.softDelete).toHaveBeenCalledWith("final-page-1", expect.anything());
+      expect(mockPageRepo.delete).not.toHaveBeenCalled();
     });
 
-    it("does nothing when there is no existing final section to remove", async () => {
+    it("does nothing when there is no existing final page to remove", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
 
       const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
 
       await service.syncWithGraph("wf-1", graphJson, "user-1");
 
-      expect(mockSectionRepo.softDelete).not.toHaveBeenCalled();
-      expect(mockStepRepo.softDeleteBySectionId).not.toHaveBeenCalled();
+      expect(mockPageRepo.softDelete).not.toHaveBeenCalled();
+      expect(mockStepRepo.softDeleteByPageId).not.toHaveBeenCalled();
     });
   });
 });

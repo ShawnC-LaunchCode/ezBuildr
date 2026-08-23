@@ -1,13 +1,13 @@
 /**
  * Create a comprehensive loan application workflow
- * Demonstrates: multiple sections, conditional logic, transform blocks, and document generation
+ * Demonstrates: multiple pages, conditional logic, transform blocks, and document generation
  */
 
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, projects, users, transformBlocks } from '@shared/schema';
+import { workflows, pages, steps, projects, users, transformBlocks } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -63,9 +63,9 @@ async function createLoanApplicationWorkflow() {
   const workflowId = workflow[0].id;
   console.log('✓ Workflow created:', workflowId);
 
-  // ==================== SECTION 1: Personal Information ====================
-  console.log('\n=== Creating Section 1: Personal Information ===');
-  const section1 = await db.insert(sections).values({
+  // ==================== PAGE 1: Personal Information ====================
+  console.log('\n=== Creating Page 1: Personal Information ===');
+  const page1 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Personal Information',
@@ -76,7 +76,7 @@ async function createLoanApplicationWorkflow() {
   const personalSteps = [
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text' as const,
       title: 'First Name',
       alias: 'firstName',
@@ -85,7 +85,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text' as const,
       title: 'Last Name',
       alias: 'lastName',
@@ -94,7 +94,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text' as const,
       title: 'Email Address',
       alias: 'email',
@@ -103,7 +103,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text' as const,
       title: 'Phone Number',
       alias: 'phone',
@@ -112,7 +112,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'date_time' as const,
       title: 'Date of Birth',
       alias: 'dateOfBirth',
@@ -122,7 +122,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text' as const,
       title: 'Social Security Number',
       alias: 'ssn',
@@ -135,9 +135,9 @@ async function createLoanApplicationWorkflow() {
   await db.insert(steps).values(personalSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 6 personal information steps');
 
-  // ==================== SECTION 2: Employment & Income ====================
-  console.log('\n=== Creating Section 2: Employment & Income ===');
-  const section2 = await db.insert(sections).values({
+  // ==================== PAGE 2: Employment & Income ====================
+  console.log('\n=== Creating Page 2: Employment & Income ===');
+  const page2 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Employment & Income',
@@ -149,7 +149,7 @@ async function createLoanApplicationWorkflow() {
   const employmentSteps = [
     {
       id: employmentTypeStepId,
-      sectionId: section2[0].id,
+      pageId: page2[0].id,
       type: 'radio' as const,
       title: 'Employment Status',
       alias: 'employmentStatus',
@@ -161,7 +161,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section2[0].id,
+      pageId: page2[0].id,
       type: 'short_text' as const,
       title: 'Employer Name',
       alias: 'employerName',
@@ -176,7 +176,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section2[0].id,
+      pageId: page2[0].id,
       type: 'short_text' as const,
       title: 'Job Title',
       alias: 'jobTitle',
@@ -190,7 +190,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section2[0].id,
+      pageId: page2[0].id,
       type: 'short_text' as const,
       title: 'Annual Income (before taxes)',
       alias: 'annualIncome',
@@ -200,7 +200,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section2[0].id,
+      pageId: page2[0].id,
       type: 'short_text' as const,
       title: 'Monthly Debt Payments',
       alias: 'monthlyDebt',
@@ -213,9 +213,9 @@ async function createLoanApplicationWorkflow() {
   await db.insert(steps).values(employmentSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 5 employment steps with conditional visibility');
 
-  // ==================== SECTION 3: Loan Details ====================
-  console.log('\n=== Creating Section 3: Loan Details ===');
-  const section3 = await db.insert(sections).values({
+  // ==================== PAGE 3: Loan Details ====================
+  console.log('\n=== Creating Page 3: Loan Details ===');
+  const page3 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Loan Details',
@@ -226,7 +226,7 @@ async function createLoanApplicationWorkflow() {
   const loanSteps = [
     {
       id: randomUUID(),
-      sectionId: section3[0].id,
+      pageId: page3[0].id,
       type: 'short_text' as const,
       title: 'Requested Loan Amount',
       alias: 'loanAmount',
@@ -236,7 +236,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section3[0].id,
+      pageId: page3[0].id,
       type: 'radio' as const,
       title: 'Loan Purpose',
       alias: 'loanPurpose',
@@ -248,7 +248,7 @@ async function createLoanApplicationWorkflow() {
     },
     {
       id: randomUUID(),
-      sectionId: section3[0].id,
+      pageId: page3[0].id,
       type: 'radio' as const,
       title: 'Preferred Loan Term',
       alias: 'loanTerm',
@@ -271,7 +271,7 @@ async function createLoanApplicationWorkflow() {
   await db.insert(steps).values({
     id: dtiVirtualStepId,
     workflowId,
-    sectionId: section3[0].id,
+    pageId: page3[0].id,
     type: 'computed' as const,
     title: 'Debt-to-Income Ratio',
     alias: 'debtToIncomeRatio',
@@ -282,7 +282,7 @@ async function createLoanApplicationWorkflow() {
   const _transformBlock = await db.insert(transformBlocks).values({
     id: randomUUID(),
     workflowId,
-    sectionId: section3[0].id,
+    pageId: page3[0].id,
     name: 'Calculate Debt-to-Income Ratio',
     language: 'javascript',
     code: `// Calculate debt-to-income ratio
@@ -315,7 +315,7 @@ emit({
     inputKeys: ['annualIncome', 'monthlyDebt'],
     outputKey: 'debtToIncomeRatio',
     virtualStepId: dtiVirtualStepId,
-    phase: 'onSectionSubmit',
+    phase: 'onPageSubmit',
     enabled: true,
     order: 1,
     timeoutMs: 1000,
@@ -323,9 +323,9 @@ emit({
 
   console.log('✓ Added transform block for DTI calculation');
 
-  // ==================== SECTION 4: Final Documents ====================
-  console.log('\n=== Creating Section 4: Final Documents ===');
-  const section4 = await db.insert(sections).values({
+  // ==================== PAGE 4: Final Documents ====================
+  console.log('\n=== Creating Page 4: Final Documents ===');
+  const page4 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId,
     title: 'Your Loan Documents',
@@ -349,25 +349,25 @@ Your application reference number will be included in your documents.`,
     },
   }).returning();
 
-  console.log('✓ Created Final Documents section');
+  console.log('✓ Created Final Documents page');
 
   console.log('\n=== Loan Application Workflow Created Successfully ===');
   console.log('Workflow ID:', workflowId);
   console.log('Public Link:', `http://localhost:5000/run/${workflow[0].publicLink}`);
   console.log('Direct Run Link:', `http://localhost:5000/run/${workflowId}`);
   console.log('\nFeatures included:');
-  console.log('  ✓ 4 sections with 14 steps total');
+  console.log('  ✓ 4 pages with 14 steps total');
   console.log('  ✓ Conditional visibility (employment fields)');
   console.log('  ✓ Transform block for debt-to-income calculation');
   console.log('  ✓ Multiple question types (text, radio, date)');
-  console.log('  ✓ Final Documents section for auto-generation');
+  console.log('  ✓ Final Documents page for auto-generation');
   console.log('\nNext: Create and link document template');
 
   // Return workflow details for template setup
   return {
     workflowId,
     projectId,
-    finalSectionId: section4[0].id,
+    finalPageId: page4[0].id,
     userId: user.id,
   };
 }

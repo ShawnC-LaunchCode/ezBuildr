@@ -58,8 +58,8 @@ vi.mock('../../../server/services/VariableService', () => ({
   variableService: {
     listVariables: (): Promise<unknown[]> =>
       Promise.resolve([
-        { stepId: 's1', alias: 'client_name', label: 'Client name', type: 'short_text', sectionTitle: 'A' },
-        { stepId: 's2', alias: 'fee', label: 'Fee', type: 'currency', sectionTitle: 'A' },
+        { stepId: 's1', alias: 'client_name', label: 'Client name', type: 'short_text', pageTitle: 'A' },
+        { stepId: 's2', alias: 'fee', label: 'Fee', type: 'currency', pageTitle: 'A' },
       ]),
   },
 }));

@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, projects, users } from '@shared/schema';
+import { workflows, pages, steps, projects, users } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -68,8 +68,8 @@ async function createWorkflowForCurrentUser() {
 
   console.log('✓ Workflow created:', workflow[0].id);
 
-  // Create sections
-  const section1 = await db.insert(sections).values({
+  // Create pages
+  const page1 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId: workflow[0].id,
     title: 'Basic Info',
@@ -81,7 +81,7 @@ async function createWorkflowForCurrentUser() {
     {
       id: randomUUID(),
       workflowId: workflow[0].id,
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text',
       title: 'Your Name',
       alias: 'name',
@@ -91,7 +91,7 @@ async function createWorkflowForCurrentUser() {
     {
       id: randomUUID(),
       workflowId: workflow[0].id,
-      sectionId: section1[0].id,
+      pageId: page1[0].id,
       type: 'short_text',
       title: 'Your Email',
       alias: 'email',
@@ -100,10 +100,10 @@ async function createWorkflowForCurrentUser() {
     },
   ]);
 
-  console.log('✓ Created section with 2 steps');
+  console.log('✓ Created page with 2 steps');
 
-  // Create Final Documents section
-  const _section2 = await db.insert(sections).values({
+  // Create Final Documents page
+  const _page2 = await db.insert(pages).values({
     id: randomUUID(),
     workflowId: workflow[0].id,
     title: 'Your Document',
@@ -117,7 +117,7 @@ async function createWorkflowForCurrentUser() {
     },
   }).returning();
 
-  console.log('✓ Created Final Documents section');
+  console.log('✓ Created Final Documents page');
 
   console.log('\n=== Workflow Created Successfully ===');
   console.log('Workflow ID:', workflow[0].id);

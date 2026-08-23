@@ -4,7 +4,7 @@ import type { BlockPhase } from "@shared/types/blocks";
 import {
   blockRepository,
   workflowRepository,
-  sectionRepository,
+  pageRepository,
 } from "../repositories";
 import { workflowService } from "./WorkflowService";
 
@@ -15,18 +15,18 @@ import { workflowService } from "./WorkflowService";
 export class BlockService {
   private blockRepo: typeof blockRepository;
   private workflowRepo: typeof workflowRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
 
   constructor(
     blockRepo?: typeof blockRepository,
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     workflowSvc?: typeof workflowService
   ) {
     this.blockRepo = blockRepo ?? blockRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
   }
 
@@ -38,18 +38,18 @@ export class BlockService {
   }
 
   /**
-   * Verify section belongs to workflow
+   * Verify page belongs to workflow
    */
-  private async verifySectionBelongsToWorkflow(
-    sectionId: string,
+  private async verifyPageBelongsToWorkflow(
+    pageId: string,
     workflowId: string
   ): Promise<void> {
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error("Section not found");
+    const page = await this.pageRepo.findById(pageId);
+    if (!page) {
+      throw new Error("Page not found");
     }
-    if (section.workflowId !== workflowId) {
-      throw new Error("Section does not belong to this workflow");
+    if (page.workflowId !== workflowId) {
+      throw new Error("Page does not belong to this workflow");
     }
   }
 
@@ -63,9 +63,9 @@ export class BlockService {
   ): Promise<Block> {
     await this.verifyWorkflowOwnership(workflowId, userId);
 
-    // If sectionId is provided, verify it belongs to the workflow
-    if (data.sectionId) {
-      await this.verifySectionBelongsToWorkflow(data.sectionId, workflowId);
+    // If pageId is provided, verify it belongs to the workflow
+    if (data.pageId) {
+      await this.verifyPageBelongsToWorkflow(data.pageId, workflowId);
     }
 
     return this.blockRepo.create({
@@ -116,9 +116,9 @@ export class BlockService {
   ): Promise<Block> {
     const block = await this.getBlock(blockId, userId);
 
-    // If updating sectionId, verify it belongs to the workflow
-    if (updates.sectionId) {
-      await this.verifySectionBelongsToWorkflow(updates.sectionId, block.workflowId);
+    // If updating pageId, verify it belongs to the workflow
+    if (updates.pageId) {
+      await this.verifyPageBelongsToWorkflow(updates.pageId, block.workflowId);
     }
 
     return this.blockRepo.update(blockId, updates);
@@ -164,18 +164,18 @@ export class BlockService {
   async getBlocksForPhase(
     workflowId: string,
     phase: BlockPhase,
-    sectionId?: string
+    pageId?: string
   ): Promise<Block[]> {
-    if (sectionId) {
-      // Get section-specific blocks and workflow-scoped blocks for this phase
-      const [sectionBlocks, workflowBlocks] = await Promise.all([
-        this.blockRepo.findBySectionPhase(sectionId, phase),
+    if (pageId) {
+      // Get page-specific blocks and workflow-scoped blocks for this phase
+      const [pageBlocks, workflowBlocks] = await Promise.all([
+        this.blockRepo.findByPagePhase(pageId, phase),
         this.blockRepo.findByWorkflowPhase(workflowId, phase).then((blocks: Block[]) =>
-          blocks.filter((b: Block) => !b.sectionId) // Only workflow-scoped blocks
+          blocks.filter((b: Block) => !b.pageId) // Only workflow-scoped blocks
         ),
       ]);
       // Combine and sort by order
-      return [...workflowBlocks, ...sectionBlocks].sort((a: Block, b: Block) => a.order - b.order);
+      return [...workflowBlocks, ...pageBlocks].sort((a: Block, b: Block) => a.order - b.order);
     }
 
     // Just get workflow-scoped blocks for this phase

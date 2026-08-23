@@ -12,7 +12,7 @@
 
 import { eq, isNull } from "drizzle-orm";
 
-import { transformBlocks, steps, sections } from "@shared/schema";
+import { transformBlocks, steps, pages } from "@shared/schema";
 
 import { db } from "../server/db";
 import { createLogger } from "../server/logger";
@@ -51,27 +51,27 @@ async function migrateTransformBlocks(): Promise<MigrationResult> {
 
     for (const block of blocksWithoutVirtualSteps) {
       try {
-        // Determine which section to attach the virtual step to
-        let targetSectionId = block.sectionId;
+        // Determine which page to attach the virtual step to
+        let targetPageId = block.pageId;
 
-        if (!targetSectionId) {
-          // For workflow-scoped blocks, attach to the first section
-          const workflowSections = await db
+        if (!targetPageId) {
+          // For workflow-scoped blocks, attach to the first page
+          const workflowPages = await db
             .select()
-            .from(sections)
-            .where(eq(sections.workflowId, block.workflowId))
+            .from(pages)
+            .where(eq(pages.workflowId, block.workflowId))
             .limit(1);
 
-          if (workflowSections.length === 0) {
+          if (workflowPages.length === 0) {
             logger.warn(
               { blockId: block.id, workflowId: block.workflowId },
-              "Skipping block: workflow has no sections"
+              "Skipping block: workflow has no pages"
             );
             skippedCount++;
             continue;
           }
 
-          targetSectionId = workflowSections[0].id;
+          targetPageId = workflowPages[0].id;
         }
 
         // Create the virtual step
@@ -79,7 +79,7 @@ async function migrateTransformBlocks(): Promise<MigrationResult> {
           .insert(steps)
           .values({
             workflowId: block.workflowId,
-            sectionId: targetSectionId,
+            pageId: targetPageId,
             type: "computed",
             title: `Computed: ${block.name}`,
             description: `Virtual step for transform block: ${block.name}`,

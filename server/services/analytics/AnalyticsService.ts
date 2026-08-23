@@ -17,7 +17,7 @@ export const eventSchema = z.object({
     type: z.string(),
     // Context
     blockId: z.string().optional(),
-    pageId: z.string().optional(), // Allow any string (UUID or section ID)
+    pageId: z.string().optional(), // Allow any string (UUID or page ID)
     // Metadata
     payload: z.record(z.any()).optional(),
     timestamp: z.string().datetime().optional(), // ISO string from client

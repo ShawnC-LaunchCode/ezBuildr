@@ -2,7 +2,7 @@
  * ICW2-7 — Activating a workflow must create a published version, which in turn
  * satisfies the anonymous-run precondition (the public-share dead-end fix).
  *
- * End-to-end: build (section + step) → mark public → changeStatus('active')
+ * End-to-end: build (page + step) → mark public → changeStatus('active')
  * → an anonymous run starts with no "no published version" error.
  */
 import { randomUUID } from "node:crypto";
@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { workflows, users, tenants, projects, sections, steps, workflowRuns, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, pages, steps, workflowRuns, auditLogs } from "@shared/schema";
 
 import { runService } from "../../server/services/RunService";
 import { workflowService } from "../../server/services/WorkflowService";
@@ -59,9 +59,9 @@ describe("ICW2-7 activation creates a version and unblocks anonymous runs", () =
     }).returning();
     workflowId = workflow.id;
 
-    const [section] = await getOwnerDb().insert(sections).values({ workflowId, title: "Page 1", order: 0 }).returning();
+    const [page] = await getOwnerDb().insert(pages).values({ workflowId, title: "Page 1", order: 0 }).returning();
     await getOwnerDb().insert(steps).values({
-      workflowId, sectionId: section.id, title: "Your name", type: "short_text", alias: "name", order: 0,
+      workflowId, pageId: page.id, title: "Your name", type: "short_text", alias: "name", order: 0,
     });
   });
 
@@ -69,7 +69,7 @@ describe("ICW2-7 activation creates a version and unblocks anonymous runs", () =
     if (workflowId) {
       await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, workflowId));
       await getOwnerDb().delete(steps).where(eq(steps.workflowId, workflowId));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, workflowId));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowId));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowId));
     }
     if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }

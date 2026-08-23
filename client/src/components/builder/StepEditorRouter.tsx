@@ -17,10 +17,10 @@ import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
 import type { StepEditorCommonProps } from './cards/common/stepEditorProps';
 
 // eslint-disable-next-line complexity
-export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEditorCommonProps, 'stepId'>) {
+export function StepEditorRouter({ step, pageId, workflowId }: Omit<StepEditorCommonProps, 'stepId'>) {
     const commonProps: StepEditorCommonProps = {
         stepId: step.id,
-        sectionId,
+        pageId,
         workflowId,
         step,
     };

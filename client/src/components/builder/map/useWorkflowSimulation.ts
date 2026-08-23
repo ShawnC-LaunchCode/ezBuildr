@@ -4,7 +4,7 @@
  * the resulting simulated path.
  *
  * Calls the same three TanStack Query hooks `useWorkflowMapGraph.ts` does
- * (`useSections`/`useWorkflowSteps`/`useLogicRules`) rather than threading
+ * (`usePages`/`useWorkflowSteps`/`useLogicRules`) rather than threading
  * their data through as props — they share query keys, so this is a cache
  * hit, not a second network request, and it keeps this hook independently
  * testable the way `useWorkflowMapGraph` is. Per CLAUDE.md convention 8, the
@@ -23,7 +23,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { useLogicRules } from "@/hooks/api/useLogicRules";
-import { useSections } from "@/hooks/api/useSections";
+import { usePages } from "@/hooks/api/usePages";
 import { useWorkflowSteps } from "@/hooks/api/useSteps";
 import type { ApiStep } from "@/lib/vault-api";
 
@@ -38,45 +38,45 @@ export interface UseWorkflowSimulationResult {
   answers: Record<string, unknown>;
   setAnswer: (stepId: string, value: unknown) => void;
   resetAnswers: () => void;
-  /** Undefined until sections/steps/rules have all loaded at least once. */
+  /** Undefined until pages/steps/rules have all loaded at least once. */
   simulation: SimulatedPath | undefined;
   isLoading: boolean;
 }
 
 export function useWorkflowSimulation(workflowId: string | undefined): UseWorkflowSimulationResult {
-  const sectionsQuery = useSections(workflowId);
+  const pagesQuery = usePages(workflowId);
   const stepsQuery = useWorkflowSteps(workflowId);
   const rulesQuery = useLogicRules(workflowId);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
 
-  const sections = sectionsQuery.data;
+  const pages = pagesQuery.data;
   const steps = stepsQuery.data;
   const rules = rulesQuery.data;
 
-  const sectionTitleById = useMemo(() => {
+  const pageTitleById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const section of sections ?? []) {
-      map.set(section.id, section.title);
+    for (const page of pages ?? []) {
+      map.set(page.id, page.title);
     }
     return map;
-  }, [sections]);
+  }, [pages]);
 
   const referencedSteps = useMemo<ApiStep[]>(() => {
-    if (!sections || !steps || !rules) { return []; }
-    return getReferencedSteps(sections, steps, rules);
-  }, [sections, steps, rules]);
+    if (!pages || !steps || !rules) { return []; }
+    return getReferencedSteps(pages, steps, rules);
+  }, [pages, steps, rules]);
 
   const fields = useMemo(
-    () => buildSimulationFields(referencedSteps, sectionTitleById),
-    [referencedSteps, sectionTitleById]
+    () => buildSimulationFields(referencedSteps, pageTitleById),
+    [referencedSteps, pageTitleById]
   );
 
   const resolveAlias = useMemo(() => buildStepAliasResolver(steps ?? []), [steps]);
 
   const simulation = useMemo<SimulatedPath | undefined>(() => {
-    if (!sections || !steps || !rules) { return undefined; }
-    return simulateWorkflowPath({ sections, steps, rules, data: answers, resolveAlias });
-  }, [sections, steps, rules, answers, resolveAlias]);
+    if (!pages || !steps || !rules) { return undefined; }
+    return simulateWorkflowPath({ pages, steps, rules, data: answers, resolveAlias });
+  }, [pages, steps, rules, answers, resolveAlias]);
 
   const setAnswer = useCallback((stepId: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [stepId]: value }));
@@ -90,6 +90,6 @@ export function useWorkflowSimulation(workflowId: string | undefined): UseWorkfl
     setAnswer,
     resetAnswers,
     simulation,
-    isLoading: !sections || !steps || !rules,
+    isLoading: !pages || !steps || !rules,
   };
 }

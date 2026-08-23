@@ -45,8 +45,8 @@ describe.sequential('Template mapping normalization', () => {
 
     const ownWorkflow = await factory.createWorkflow(ctx.projectId, ctx.userId);
     workflowId = ownWorkflow.workflow.id;
-    const section = await factory.createSection(workflowId);
-    await factory.createStep(section.id, {
+    const page = await factory.createPage(workflowId);
+    await factory.createStep(page.id, {
       workflowId,
       type: 'list',
       alias: 'owners',
@@ -66,7 +66,7 @@ describe.sequential('Template mapping normalization', () => {
         labelTemplate: '{ownerName}',
       },
     });
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       workflowId,
       type: 'choice',
       alias: 'favoriteOwner',

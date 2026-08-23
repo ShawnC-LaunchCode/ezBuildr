@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps, auditLogs } from '@shared/schema';
+import { users, tenants, projects, workflows, pages, blocks, datavaultDatabases, workflowQueries, steps, auditLogs } from '@shared/schema';
 import type { Block } from '@shared/schema';
 import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
@@ -212,9 +212,9 @@ describe('Data Block Integration Tests', () => {
         const block = {
             id: uuidv4(),
             workflowId: readWorkflowId,
-            sectionId: null,
+            pageId: null,
             type: 'read_table',
-            phase: 'onSectionEnter',
+            phase: 'onPageEnter',
             config,
             order: 0,
             enabled: true,
@@ -225,7 +225,7 @@ describe('Data Block Integration Tests', () => {
 
         const result = await new ReadTableBlockRunner().execute(config, {
             workflowId: readWorkflowId,
-            phase: 'onSectionEnter',
+            phase: 'onPageEnter',
             data: {},
         }, block);
 
@@ -255,7 +255,7 @@ describe('Data Block Integration Tests', () => {
     it('should write data to DataVault via WriteBlock', { timeout: 30000 }, async () => {
 
         enterTenantContextForTests(tenantId);
-        // 1. Create Workflow & Section
+        // 1. Create Workflow & Page
         const [workflow] = await getOwnerDb().insert(workflows).values({
             projectId: projectId,
             title: 'Write Block Workflow',
@@ -265,9 +265,9 @@ describe('Data Block Integration Tests', () => {
             ownerId: userId,
         } as any).returning();
 
-        const [section] = await getOwnerDb().insert(sections).values({
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId: workflow.id,
-            title: 'Write Section',
+            title: 'Write Page',
             order: 0,
         } as any).returning();
 
@@ -277,7 +277,7 @@ describe('Data Block Integration Tests', () => {
         await getOwnerDb().insert(steps).values({
             id: inputBlockId,
             workflowId: workflow.id,
-            sectionId: section.id,
+            pageId: page.id,
             type: 'short_text',
             title: 'Enter Text',
             order: 0,
@@ -288,9 +288,9 @@ describe('Data Block Integration Tests', () => {
         await getOwnerDb().insert(blocks).values({
             id: writeBlockId,
             workflowId: workflow.id, // Required
-            sectionId: section.id,
+            pageId: page.id,
             type: 'write',
-            phase: 'onSectionSubmit', // Execute when submitting the section
+            phase: 'onPageSubmit', // Execute when submitting the page
             config: {
                 dataSourceId: databaseId,
                 tableId: tableId,
@@ -313,15 +313,15 @@ describe('Data Block Integration Tests', () => {
             {}
         );
 
-        // Submit section with input data
+        // Submit page with input data
         const inputData = { [inputBlockId]: 'Hello DataVault' };
 
-        // submitSection requires Array<{ stepId: string; value: any }>
+        // submitPage requires Array<{ stepId: string; value: any }>
         const valuesToArray = Object.entries(inputData).map(([stepId, value]) => ({ stepId, value }));
 
-        await runService.submitSection(
+        await runService.submitPage(
             run.id,
-            section.id,
+            page.id,
             userId,
             valuesToArray
         );
@@ -474,9 +474,9 @@ describe('Data Block Integration Tests', () => {
             tenantId: tenantId,
         } as any).returning();
 
-        const [section] = await getOwnerDb().insert(sections).values({
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId: workflow.id,
-            title: 'Query Section',
+            title: 'Query Page',
             order: 0,
         } as any).returning();
 
@@ -487,7 +487,7 @@ describe('Data Block Integration Tests', () => {
         await getOwnerDb().insert(steps).values({
             id: queryStepId,
             workflowId: workflow.id,
-            sectionId: section.id,
+            pageId: page.id,
             type: 'computed',
             title: 'Query Result',
             order: 0,
@@ -498,9 +498,9 @@ describe('Data Block Integration Tests', () => {
         await getOwnerDb().insert(blocks).values({
             id: queryBlockId,
             workflowId: workflow.id, // Required
-            sectionId: section.id,
+            pageId: page.id,
             type: 'query',
-            phase: 'onSectionSubmit', // Execute when submitting checks
+            phase: 'onPageSubmit', // Execute when submitting checks
             virtualStepId: queryStepId, // Link output to step
             config: {
                 queryId: query.id,
@@ -515,10 +515,10 @@ describe('Data Block Integration Tests', () => {
         await getOwnerDb().insert(blocks).values({
             id: validateBlockId,
             workflowId: workflow.id, // Required
-            sectionId: section.id,
+            pageId: page.id,
             type: 'validate',
-            phase: 'onSectionSubmit', // Run validation after query (still on enter? or submit? validate usually runs on submit...)
-            // But if we want to validate the *loaded data*, onSectionEnter after query is fine.
+            phase: 'onPageSubmit', // Run validation after query (still on enter? or submit? validate usually runs on submit...)
+            // But if we want to validate the *loaded data*, onPageEnter after query is fine.
             // However, 'validate' blocks in 'blocks' table are often logic gates?
             // If I want to assert the list exists, doing it onEnter is okay.
             config: {
@@ -542,10 +542,10 @@ describe('Data Block Integration Tests', () => {
             {}
         );
 
-        // Submit section (empty data, triggers blocks)
-        await runService.submitSection(
+        // Submit page (empty data, triggers blocks)
+        await runService.submitPage(
             run.id,
-            section.id,
+            page.id,
             userId,
             []
         );

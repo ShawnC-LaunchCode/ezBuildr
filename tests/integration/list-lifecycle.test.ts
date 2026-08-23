@@ -127,11 +127,11 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     expect(workflowResponse.status, JSON.stringify(workflowResponse.body)).toBe(201);
     const workflowId = workflowResponse.body.id as string;
 
-    const sectionResponse = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
+    const pageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: 'Household details' });
-    expect(sectionResponse.status, JSON.stringify(sectionResponse.body)).toBe(201);
-    const sectionId = sectionResponse.body.id as string;
+    expect(pageResponse.status, JSON.stringify(pageResponse.body)).toBe(201);
+    const pageId = pageResponse.body.id as string;
 
     const listConfig: ListConfig = {
       fields: [
@@ -194,7 +194,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     };
 
     const listStepResponse = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({
         type: 'list',
         title: 'Household members',
@@ -220,7 +220,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     });
 
     const finalStepResponse = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({
         type: 'final',
         title: 'Final documents',
@@ -262,7 +262,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     expect(savedValues.find(value => value.stepId === listStepId)?.value).toStrictEqual(validValue);
 
     const invalidSubmitResponse = await agent
-      .post(`/api/runs/${runId}/sections/${sectionId}/submit`)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .send({ values: [{ stepId: listStepId, value: makeHouseholdValue(99) }] });
     expect(invalidSubmitResponse.status, JSON.stringify(invalidSubmitResponse.body)).toBe(200);
     expect(invalidSubmitResponse.body.success).toBe(false);
@@ -276,7 +276,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     ]);
 
     const validSubmitResponse = await agent
-      .post(`/api/runs/${runId}/sections/${sectionId}/submit`)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .send({ values: [{ stepId: listStepId, value: validValue }] });
     expect(validSubmitResponse.status, JSON.stringify(validSubmitResponse.body)).toBe(200);
     expect(validSubmitResponse.body).toMatchObject({ success: true });

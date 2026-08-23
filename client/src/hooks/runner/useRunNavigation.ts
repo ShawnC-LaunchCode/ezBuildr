@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchAPI, type ApiSection, type ApiStep } from "@/lib/vault-api";
-import { useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
+import { fetchAPI, type ApiPage, type ApiStep } from "@/lib/vault-api";
+import { useSubmitPage, useNext, useCompleteRun } from "@/lib/vault-hooks";
 import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidateRule } from "@shared/types/blocks";
@@ -16,7 +16,7 @@ import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 
 type RunnerValues = Record<string, StepValue>;
 
-type SectionValueWrite = {
+type PageValueWrite = {
   stepId: string;
   value: StepValue;
 };
@@ -31,20 +31,20 @@ type AdvanceValidationIssue = {
 
 interface AdvanceContext {
   runId: string | null;
-  currentSection: ApiSection;
-  currentSectionIndex: number;
-  visibleSections: ApiSection[];
-  visibleSectionSteps: ApiStep[];
+  currentPage: ApiPage;
+  currentPageIndex: number;
+  visiblePages: ApiPage[];
+  visiblePageSteps: ApiStep[];
   effectiveValues: RunnerValues;
-  isLastSection: boolean;
-  setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
+  isLastPage: boolean;
+  setCurrentPageIndex: Dispatch<SetStateAction<number>>;
   setShowReview: Dispatch<SetStateAction<boolean>>;
   returnToReviewAfterValidation: boolean;
 }
 
 export interface RunNavigationTransport {
-  getVisibleSectionSteps: (sectionId: string) => ApiStep[];
-  saveBeforeLeavingSection: () => Promise<void>;
+  getVisiblePageSteps: (pageId: string) => ApiStep[];
+  saveBeforeLeavingPage: () => Promise<void>;
   recordValidationPassed: (stepsValidated: number) => void | Promise<void>;
   recordValidationException: (error: unknown) => void | Promise<void>;
   advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceValidationIssue | undefined>;
@@ -53,7 +53,7 @@ export interface RunNavigationTransport {
 interface UseRunNavigationTransportProps {
   mode: 'preview' | 'production';
   previewEnvironment: PreviewEnvironment | null | undefined;
-  getVisibleSectionSteps: (sectionId: string, traceRecorder?: TraceRecorder) => ApiStep[];
+  getVisiblePageSteps: (pageId: string, traceRecorder?: TraceRecorder) => ApiStep[];
   onPreviewComplete?: () => void;
   saveNow: () => Promise<void>;
 }
@@ -63,21 +63,21 @@ interface UseRunNavigationProps {
   workflowId?: string;
   runVersionId?: string;
   initialCompleted?: boolean;
-  initialSectionId?: string | null;
-  visibleSections: ApiSection[];
+  initialPageId?: string | null;
+  visiblePages: ApiPage[];
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
   returnToReviewAfterNext?: boolean;
 }
 
-function hasFinalBlock(section: ApiSection): boolean {
-  return Boolean((section.config as { finalBlock?: unknown } | null | undefined)?.finalBlock);
+function hasFinalBlock(page: ApiPage): boolean {
+  return Boolean((page.config as { finalBlock?: unknown } | null | undefined)?.finalBlock);
 }
 
-function collectSectionValues(steps: ApiStep[], values: RunnerValues): SectionValueWrite[] {
-  const currentSectionStepIds = new Set(steps.map((step) => step.id));
+function collectPageValues(steps: ApiStep[], values: RunnerValues): PageValueWrite[] {
+  const currentPageStepIds = new Set(steps.map((step) => step.id));
   return Object.keys(values)
-    .filter((stepId) => currentSectionStepIds.has(stepId))
+    .filter((stepId) => currentPageStepIds.has(stepId))
     .map((stepId) => ({ stepId, value: values[stepId] }));
 }
 
@@ -124,20 +124,20 @@ function focusFirstValidationError(blockErrors: Record<string, string[]>): void 
 export function useRunNavigationTransport({
   mode,
   previewEnvironment,
-  getVisibleSectionSteps,
+  getVisiblePageSteps,
   onPreviewComplete,
   saveNow,
 }: UseRunNavigationTransportProps): RunNavigationTransport {
   const { toast } = useToast();
-  const submitMutation = useSubmitSection();
+  const submitMutation = useSubmitPage();
   const nextMutation = useNext();
   const isProductionMode = mode === 'production';
 
   return useMemo<RunNavigationTransport>(() => {
     if (!isProductionMode && previewEnvironment) {
       return {
-        getVisibleSectionSteps: (sectionId) => getVisibleSectionSteps(sectionId, previewEnvironment),
-        saveBeforeLeavingSection: async () => undefined,
+        getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId, previewEnvironment),
+        saveBeforeLeavingPage: async () => undefined,
         recordValidationPassed: (stepsValidated) => {
           void previewEnvironment.addTraceEntry({
             type: 'logic',
@@ -156,10 +156,10 @@ export function useRunNavigationTransport({
         },
         advanceAfterValidation: async ({
           runId,
-          currentSectionIndex,
-          visibleSections,
-          isLastSection,
-          setCurrentSectionIndex,
+          currentPageIndex,
+          visiblePages,
+          isLastPage,
+          setCurrentPageIndex,
           setShowReview,
           returnToReviewAfterValidation,
         }) => {
@@ -169,7 +169,7 @@ export function useRunNavigationTransport({
             return undefined;
           }
 
-          if (isLastSection) {
+          if (isLastPage) {
             previewEnvironment.completeRun();
             void previewEnvironment.addTraceEntry({
               type: 'step',
@@ -181,10 +181,10 @@ export function useRunNavigationTransport({
             return undefined;
           }
 
-          const nextIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-          const nextSection = visibleSections[nextIndex];
+          const nextIndex = Math.min(currentPageIndex + 1, visiblePages.length - 1);
+          const nextPage = visiblePages[nextIndex];
 
-          if (runId != null && nextSection != null && hasFinalBlock(nextSection)) {
+          if (runId != null && nextPage != null && hasFinalBlock(nextPage)) {
             try {
               const valuesToSave = Object.entries(previewEnvironment.getValues()).map(([stepId, value]) => ({ stepId, value }));
               await fetchAPI(`/api/runs/${runId}/values/bulk`, {
@@ -197,27 +197,27 @@ export function useRunNavigationTransport({
             }
           }
 
-          setCurrentSectionIndex(nextIndex);
-          previewEnvironment.setCurrentSection(nextIndex);
+          setCurrentPageIndex(nextIndex);
+          previewEnvironment.setCurrentPage(nextIndex);
           return undefined;
         },
       };
     }
 
     return {
-      getVisibleSectionSteps: (sectionId) => getVisibleSectionSteps(sectionId),
-      saveBeforeLeavingSection: saveNow,
+      getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId),
+      saveBeforeLeavingPage: saveNow,
       recordValidationPassed: () => undefined,
       recordValidationException: () => undefined,
       advanceAfterValidation: async ({
         runId,
-        currentSection,
-        currentSectionIndex,
-        visibleSections,
-        visibleSectionSteps,
+        currentPage,
+        currentPageIndex,
+        visiblePages,
+        visiblePageSteps,
         effectiveValues,
-        isLastSection,
-        setCurrentSectionIndex,
+        isLastPage,
+        setCurrentPageIndex,
         setShowReview,
         returnToReviewAfterValidation,
       }) => {
@@ -225,13 +225,13 @@ export function useRunNavigationTransport({
           throw new Error("Run is not ready yet");
         }
 
-        // Flush any pending autosaves immediately so the submitSection request cannot race them.
+        // Flush any pending autosaves immediately so the submitPage request cannot race them.
         await saveNow();
 
         const result = await submitMutation.mutateAsync({
           runId,
-          sectionId: currentSection.id,
-          values: collectSectionValues(visibleSectionSteps, effectiveValues),
+          pageId: currentPage.id,
+          values: collectPageValues(visiblePageSteps, effectiveValues),
         });
 
         if (!result.success) {
@@ -248,7 +248,7 @@ export function useRunNavigationTransport({
           return undefined;
         }
 
-        if (isLastSection) {
+        if (isLastPage) {
           setShowReview(true);
           window.scrollTo({ top: 0, behavior: 'smooth' });
           return undefined;
@@ -256,25 +256,25 @@ export function useRunNavigationTransport({
 
         const nextResult = await nextMutation.mutateAsync({
           runId,
-          currentSectionId: currentSection.id,
+          currentPageId: currentPage.id,
         });
 
-        if (nextResult.nextSectionId != null) {
-          const nextIndex = visibleSections.findIndex((section) => section.id === nextResult.nextSectionId);
+        if (nextResult.nextPageId != null) {
+          const nextIndex = visiblePages.findIndex((page) => page.id === nextResult.nextPageId);
           if (nextIndex >= 0) {
-            setCurrentSectionIndex(nextIndex);
+            setCurrentPageIndex(nextIndex);
           } else {
-            console.warn('[WorkflowRunner] Server nextSectionId not locally visible, advancing sequentially', nextResult.nextSectionId);
-            if (currentSectionIndex + 1 < visibleSections.length) {
-              setCurrentSectionIndex(currentSectionIndex + 1);
+            console.warn('[WorkflowRunner] Server nextPageId not locally visible, advancing sequentially', nextResult.nextPageId);
+            if (currentPageIndex + 1 < visiblePages.length) {
+              setCurrentPageIndex(currentPageIndex + 1);
             } else {
               setShowReview(true);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }
           }
         } else {
-          const newIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-          setCurrentSectionIndex(newIndex);
+          const newIndex = Math.min(currentPageIndex + 1, visiblePages.length - 1);
+          setCurrentPageIndex(newIndex);
         }
 
         return undefined;
@@ -283,7 +283,7 @@ export function useRunNavigationTransport({
   }, [
     isProductionMode,
     previewEnvironment,
-    getVisibleSectionSteps,
+    getVisiblePageSteps,
     onPreviewComplete,
     saveNow,
     submitMutation,
@@ -293,10 +293,10 @@ export function useRunNavigationTransport({
 }
 
 export interface UseRunNavigationReturn {
-  currentSectionIndex: number;
-  setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
-  currentSection: ApiSection | undefined;
-  isLastSection: boolean;
+  currentPageIndex: number;
+  setCurrentPageIndex: Dispatch<SetStateAction<number>>;
+  currentPage: ApiPage | undefined;
+  isLastPage: boolean;
   showReview: boolean;
   isCompleted: boolean;
   setShowReview: Dispatch<SetStateAction<boolean>>;
@@ -313,13 +313,13 @@ export function useRunNavigation({
   workflowId,
   runVersionId,
   initialCompleted = false,
-  initialSectionId,
-  visibleSections,
+  initialPageId,
+  visiblePages,
   effectiveValues,
   transport,
   returnToReviewAfterNext = false,
 }: UseRunNavigationProps): UseRunNavigationReturn {
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialCompleted);
   const [errors, setErrors] = useState<string[]>([]);
@@ -327,15 +327,15 @@ export function useRunNavigation({
   const initializedRunRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!actualRunId || visibleSections.length === 0 || initializedRunRef.current === actualRunId) {
+    if (!actualRunId || visiblePages.length === 0 || initializedRunRef.current === actualRunId) {
       return;
     }
-    const savedIndex = initialSectionId
-      ? visibleSections.findIndex((section) => section.id === initialSectionId)
+    const savedIndex = initialPageId
+      ? visiblePages.findIndex((page) => page.id === initialPageId)
       : 0;
-    setCurrentSectionIndex(savedIndex >= 0 ? savedIndex : 0);
+    setCurrentPageIndex(savedIndex >= 0 ? savedIndex : 0);
     initializedRunRef.current = actualRunId;
-  }, [actualRunId, initialSectionId, visibleSections]);
+  }, [actualRunId, initialPageId, visiblePages]);
 
   useEffect(() => {
     setIsCompleted(initialCompleted);
@@ -344,8 +344,8 @@ export function useRunNavigation({
   const { toast } = useToast();
   const completeMutation = useCompleteRun();
 
-  const currentSection = visibleSections[currentSectionIndex];
-  const isLastSection = currentSectionIndex === visibleSections.length - 1;
+  const currentPage = visiblePages[currentPageIndex];
+  const isLastPage = currentPageIndex === visiblePages.length - 1;
 
   const handlePrev = useCallback(async () => {
     if (showReview) {
@@ -353,8 +353,8 @@ export function useRunNavigation({
       return;
     }
 
-    await transport.saveBeforeLeavingSection();
-    setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
+    await transport.saveBeforeLeavingPage();
+    setCurrentPageIndex((prev) => Math.max(prev - 1, 0));
   }, [showReview, transport]);
 
   const handleFinalSubmit = useCallback(async () => {
@@ -379,9 +379,9 @@ export function useRunNavigation({
     setErrors([]);
     setFieldErrors({});
 
-    if (currentSection == null) {return;}
+    if (currentPage == null) {return;}
 
-    const visibleSectionSteps = transport.getVisibleSectionSteps(currentSection.id);
+    const visiblePageSteps = transport.getVisiblePageSteps(currentPage.id);
 
     try {
       const stepSchemas: Record<string, ValidationSchema> = {};
@@ -391,7 +391,7 @@ export function useRunNavigation({
       // additively, so blockErrors/fieldErrors keying for every other step
       // type is untouched (LIST-9 AC1).
       const listSteps: ApiStep[] = [];
-      visibleSectionSteps.forEach((step: ApiStep) => {
+      visiblePageSteps.forEach((step: ApiStep) => {
         if (step.type === 'list') {
           listSteps.push(step);
           return;
@@ -408,7 +408,7 @@ export function useRunNavigation({
         schemas: stepSchemas,
         values: effectiveValues,
         allValues: effectiveValues,
-        pageRules: (currentSection.config as { validationRules?: ValidateRule[] })?.validationRules ?? [],
+        pageRules: (currentPage.config as { validationRules?: ValidateRule[] })?.validationRules ?? [],
       });
 
       const listSummaryLines: string[] = [];
@@ -456,16 +456,16 @@ export function useRunNavigation({
     }
 
     try {
-      await transport.recordValidationPassed(visibleSectionSteps.length);
+      await transport.recordValidationPassed(visiblePageSteps.length);
       const result = await transport.advanceAfterValidation({
         runId: actualRunId,
-        currentSection,
-        currentSectionIndex,
-        visibleSections,
-        visibleSectionSteps,
+        currentPage,
+        currentPageIndex,
+        visiblePages,
+        visiblePageSteps,
         effectiveValues,
-        isLastSection,
-        setCurrentSectionIndex,
+        isLastPage,
+        setCurrentPageIndex,
         setShowReview,
         returnToReviewAfterValidation: returnToReviewAfterNext,
       });
@@ -484,22 +484,22 @@ export function useRunNavigation({
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   }, [
-    currentSection,
+    currentPage,
     transport,
     effectiveValues,
     actualRunId,
-    currentSectionIndex,
-    visibleSections,
-    isLastSection,
+    currentPageIndex,
+    visiblePages,
+    isLastPage,
     returnToReviewAfterNext,
     toast,
   ]);
 
   return {
-    currentSectionIndex,
-    setCurrentSectionIndex,
-    currentSection,
-    isLastSection,
+    currentPageIndex,
+    setCurrentPageIndex,
+    currentPage,
+    isLastPage,
     showReview,
     isCompleted,
     setShowReview,

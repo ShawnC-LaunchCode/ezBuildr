@@ -24,7 +24,7 @@ import { useWorkflowBuilder } from "@/store/workflow-builder";
 interface BlockCardProps {
   item: Extract<PageItem, { kind: 'block' }>;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onEnterNext?: () => void;
@@ -126,7 +126,7 @@ function getBlockSummary(block: ApiBlock): string | null {
 }
 
 // eslint-disable-next-line complexity
-export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded = false, onToggleExpand, onEnterNext: _onEnterNext, onEdit }: BlockCardProps) {
+export function BlockCard({ item, workflowId, pageId: _pageId, isExpanded = false, onToggleExpand, onEnterNext: _onEnterNext, onEdit }: BlockCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 

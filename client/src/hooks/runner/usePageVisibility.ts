@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from "react";
-import type { ApiStep, ApiSection } from "@/lib/vault-api";
+import type { ApiStep, ApiPage } from "@/lib/vault-api";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { LogicRule } from "@shared/schema";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
@@ -14,9 +14,9 @@ interface VisibilityTraceRecorder {
   }) => unknown;
 }
 
-interface UseSectionVisibilityReturn {
-  visibleSections: ApiSection[];
-  getVisibleSectionSteps: (sectionId: string, traceRecorder?: VisibilityTraceRecorder) => ApiStep[];
+interface UsePageVisibilityReturn {
+  visiblePages: ApiPage[];
+  getVisiblePageSteps: (pageId: string, traceRecorder?: VisibilityTraceRecorder) => ApiStep[];
   resolveAlias: (variableName: string) => string | undefined;
 }
 
@@ -25,15 +25,15 @@ interface UseSectionVisibilityReturn {
  *
  * Preview evaluates the same persisted workflow logic rules as production so a
  * previewed run keeps the published show/hide behavior. The preview environment
- * still supplies in-memory sections and steps; unsaved logic-rule edits are not
+ * still supplies in-memory pages and steps; unsaved logic-rule edits are not
  * represented until the builder exposes an in-memory rules feed.
  */
-export function useSectionVisibility(
-  sections: ApiSection[] | undefined,
+export function usePageVisibility(
+  pages: ApiPage[] | undefined,
   allSteps: ApiStep[] | undefined,
   effectiveValues: Record<string, StepValue>,
   logicRules: LogicRule[] = []
-): UseSectionVisibilityReturn {
+): UsePageVisibilityReturn {
   // Alias resolver memoized to avoid recreation
   const resolveAlias = useCallback((variableName: string): string | undefined => {
     if (!allSteps) {
@@ -44,36 +44,36 @@ export function useSectionVisibility(
   }, [allSteps]);
 
   const visibility = useMemo(() => evaluateWorkflowVisibility({
-    // SectionSteps also uses this hook as a step-only visibility adapter. In
-    // that mode preserve the supplied steps' parent sections as visible roots.
-    sections: sections ?? Array.from(new Set((allSteps ?? []).map((step) => step.sectionId)))
+    // PageSteps also uses this hook as a step-only visibility adapter. In
+    // that mode preserve the supplied steps' parent pages as visible roots.
+    pages: pages ?? Array.from(new Set((allSteps ?? []).map((step) => step.pageId)))
       .map((id) => ({ id })),
     steps: allSteps ?? [],
     rules: logicRules,
     data: effectiveValues,
     resolveAlias,
-  }), [sections, allSteps, logicRules, effectiveValues, resolveAlias]);
+  }), [pages, allSteps, logicRules, effectiveValues, resolveAlias]);
 
-  // Compute visible sections
-  const visibleSections = useMemo(() => {
-    if (!sections) {
+  // Compute visible pages
+  const visiblePages = useMemo(() => {
+    if (!pages) {
       return [];
     }
 
-    return sections.filter((section) => visibility.visibleSections.has(section.id));
-  }, [sections, visibility.visibleSections]);
+    return pages.filter((page) => visibility.visiblePages.has(page.id));
+  }, [pages, visibility.visiblePages]);
 
-  // Compute visible steps for a specific section
-  const getVisibleSectionSteps = useCallback((sectionId: string, traceRecorder?: VisibilityTraceRecorder) => {
+  // Compute visible steps for a specific page
+  const getVisiblePageSteps = useCallback((pageId: string, traceRecorder?: VisibilityTraceRecorder) => {
     if (!allSteps) {
       return [];
     }
     
-    const sectionSteps = allSteps.filter(
-      (step) => step.sectionId === sectionId && !step.isVirtual && normalizeRunnerStepType(step.type) !== 'final_documents'
+    const pageSteps = allSteps.filter(
+      (step) => step.pageId === pageId && !step.isVirtual && normalizeRunnerStepType(step.type) !== 'final_documents'
     );
 
-    return sectionSteps.filter((step) => {
+    return pageSteps.filter((step) => {
       const isVisible = visibility.visibleSteps.has(step.id);
         
       if (!isVisible && traceRecorder) {
@@ -90,8 +90,8 @@ export function useSectionVisibility(
   }, [allSteps, visibility.visibleSteps]);
 
   return {
-    visibleSections,
-    getVisibleSectionSteps,
+    visiblePages,
+    getVisiblePageSteps,
     resolveAlias
   };
 }

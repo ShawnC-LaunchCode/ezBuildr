@@ -68,14 +68,14 @@ export function WriteTableSettings({
             {/* Execution Phase */}
             <div className="space-y-2">
                 <Label>When to Run</Label>
-                <Select value={phase ?? "onSectionSubmit"} onValueChange={onPhaseChange}>
+                <Select value={phase ?? "onPageSubmit"} onValueChange={onPhaseChange}>
                     <SelectTrigger className="bg-white">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="onRunStart">On Run Start</SelectItem>
-                        <SelectItem value="onSectionEnter">On Section Enter</SelectItem>
-                        <SelectItem value="onSectionSubmit">On Section Submit</SelectItem>
+                        <SelectItem value="onPageEnter">On Page Enter</SelectItem>
+                        <SelectItem value="onPageSubmit">On Page Submit</SelectItem>
                         <SelectItem value="onNext">On Next</SelectItem>
                         <SelectItem value="onRunComplete">On Run Complete</SelectItem>
                     </SelectContent>

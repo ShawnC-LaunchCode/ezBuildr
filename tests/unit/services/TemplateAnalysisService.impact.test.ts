@@ -5,7 +5,7 @@ const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
 const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin, where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
-// getActiveWorkflowsForTemplate now reads workflows/sections/steps (all
+// getActiveWorkflowsForTemplate now reads workflows/pages/steps (all
 // RLS-covered) inside one tenant-scoped transaction, so the query chain is
 // reached through the transaction handle rather than the pool. With no tenant
 // in context and RLS unenforced, `withCurrentTenant` falls through to
@@ -57,14 +57,14 @@ describe('TemplateAnalysisService Impact', () => {
         { workflowId: 'wf-2', workflowName: 'Unpinned WF' }
       ]);
       
-      // 2. wf-1 sections
+      // 2. wf-1 pages
       mockWhere.mockResolvedValueOnce([{
         config: { finalBlock: true, templates: [{ templateId: 't-1', pinnedVersionId: 'v-pinned-1' }] }
       }]);
       // 3. wf-1 steps
       mockWhere.mockResolvedValueOnce([]);
 
-      // 4. wf-2 sections
+      // 4. wf-2 pages
       mockWhere.mockResolvedValueOnce([{
         config: { finalBlock: true, templates: [{ templateId: 't-1' }] }
       }]);

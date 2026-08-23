@@ -42,16 +42,16 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     description: z.string().optional(),
   }),
 
-  // Section operations
+  // Page operations
   z.object({
-    op: z.literal("section.create"),
+    op: z.literal("page.create"),
     tempId: z.string().optional(),
     title: z.string(),
     order: z.number(),
     config: z.record(z.unknown()).optional(),
   }),
   z.object({
-    op: z.literal("section.update"),
+    op: z.literal("page.update"),
     id: z.string().optional(), // Real ID
     tempId: z.string().optional(), // Or tempId reference
     title: z.string().optional(),
@@ -59,16 +59,16 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     config: z.record(z.unknown()).optional(),
   }),
   z.object({
-    op: z.literal("section.delete"),
+    op: z.literal("page.delete"),
     id: z.string().optional(),
     tempId: z.string().optional(),
   }),
   z.object({
-    op: z.literal("section.reorder"),
-    sectionIds: z.array(z.string()),
+    op: z.literal("page.reorder"),
+    pageIds: z.array(z.string()),
   }),
   z.object({
-    op: z.literal("section.setVisibleIf"),
+    op: z.literal("page.setVisibleIf"),
     id: z.string().optional(),
     tempId: z.string().optional(),
     visibleIf: conditionExpressionSchema,
@@ -78,8 +78,8 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("step.create"),
     tempId: z.string().optional(),
-    sectionId: z.string().optional(),
-    sectionRef: z.string().optional(), // Reference to section tempId
+    pageId: z.string().optional(),
+    pageRef: z.string().optional(), // Reference to page tempId
     type: z.string(),
     title: z.string(),
     alias: z.string().optional(),
@@ -112,7 +112,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     op: z.literal("step.move"),
     id: z.string().optional(),
     tempId: z.string().optional(),
-    toSectionId: z.string(),
+    toPageId: z.string(),
     order: z.number().optional(),
   }),
   z.object({
@@ -123,7 +123,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
   }),
   z.object({
     op: z.literal("step.reorder"),
-    sectionId: z.string(),
+    pageId: z.string(),
     stepIds: z.array(z.string()),
   }),
   z.object({
@@ -140,7 +140,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
       condition: z.string(),
       action: z.string(),
       target: z.object({
-        type: z.enum(["section", "step"]),
+        type: z.enum(["page", "step"]),
         id: z.string().optional(),
         tempId: z.string().optional(),
       }),
@@ -153,7 +153,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
       condition: z.string().optional(),
       action: z.string().optional(),
       target: z.object({
-        type: z.enum(["section", "step"]),
+        type: z.enum(["page", "step"]),
         id: z.string().optional(),
         tempId: z.string().optional(),
       }).optional(),
@@ -273,7 +273,7 @@ export type AiWorkflowEditRequest = z.infer<typeof aiWorkflowEditRequestSchema>;
 
 export const aiEditChangeSchema = z.object({
   type: z.enum(["add", "remove", "update", "move"]),
-  entity: z.enum(["workflow", "section", "step", "logic", "document", "datavault"]),
+  entity: z.enum(["workflow", "page", "step", "logic", "document", "datavault"]),
   explanation: z.string(),
 });
 

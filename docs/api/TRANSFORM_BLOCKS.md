@@ -23,7 +23,7 @@ Transform Blocks are executed **during workflow run completion** (before validat
 ## Architecture
 
 ```
-Workflows → Sections → Steps → Transform Blocks → WorkflowRuns → StepValues
+Workflows → Pages → Steps → Transform Blocks → WorkflowRuns → StepValues
                                        ↓
                                 TransformBlockRuns (audit log)
 ```

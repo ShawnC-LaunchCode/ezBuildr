@@ -15,13 +15,13 @@ const issues: ReviewIssue[] = [
     type: "warning",
     category: "questions",
     message: "The Name question has no alias.",
-    target: { tab: "sections", sectionId: "section-1", stepId: "step-1" },
+    target: { tab: "pages", pageId: "page-1", stepId: "step-1" },
   },
   {
     type: "error",
     category: "logic",
     message: "A logic rule points to a missing question.",
-    target: { tab: "sections", panel: "logic" },
+    target: { tab: "pages", panel: "logic" },
   },
   {
     type: "error",
@@ -33,7 +33,7 @@ const issues: ReviewIssue[] = [
     type: "warning",
     category: "integrations",
     message: "DocuSign is not configured.",
-    target: { tab: "sections", sectionId: "section-2", stepId: "signature-1" },
+    target: { tab: "pages", pageId: "page-2", stepId: "signature-1" },
   },
 ];
 
@@ -84,22 +84,22 @@ describe("ReviewIssueList", () => {
     const questionFix = screen.getByRole("link", { name: "Fix" });
     expect(questionFix).toHaveAttribute(
       "href",
-      "/workflows/workflow-1/builder?tab=sections&sectionId=section-1&stepId=step-1"
+      "/workflows/workflow-1/builder?tab=pages&pageId=page-1&stepId=step-1"
     );
     fireEvent.click(questionFix);
     expect(onFix).toHaveBeenLastCalledWith(
-      "/workflows/workflow-1/builder?tab=sections&sectionId=section-1&stepId=step-1"
+      "/workflows/workflow-1/builder?tab=pages&pageId=page-1&stepId=step-1"
     );
 
     await user.click(screen.getByRole("tab", { name: "Logic(1)" }));
     const logicFix = screen.getByRole("link", { name: "Fix" });
     expect(logicFix).toHaveAttribute(
       "href",
-      "/workflows/workflow-1/builder?tab=sections&panel=logic"
+      "/workflows/workflow-1/builder?tab=pages&panel=logic"
     );
     fireEvent.click(logicFix);
     expect(onFix).toHaveBeenLastCalledWith(
-      "/workflows/workflow-1/builder?tab=sections&panel=logic"
+      "/workflows/workflow-1/builder?tab=pages&panel=logic"
     );
   });
 

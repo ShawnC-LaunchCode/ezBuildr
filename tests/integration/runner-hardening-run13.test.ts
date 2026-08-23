@@ -115,10 +115,10 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   async function createLegacyWorkflowWithTemplate(templateId: string): Promise<{ workflowId: string; runId: string; runToken: string }> {
     const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
-    const section = await factory.createSection(workflow.id, {
+    const page = await factory.createPage(workflow.id, {
       config: { finalBlock: true, templates: [templateId] },
     });
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       type: 'short_text',
       title: 'Client name',
       alias: 'clientName',
@@ -128,7 +128,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     // RVP-4: generateDocuments now collects final-block configs from a
     // pinned run's VERSION graph, not the live tables -- and the publish
     // gate (GH-152 / DOCUMENT_HARDENING) refuses to publish a version whose
-    // legacy Final Documents section references a template outside the
+    // legacy Final Documents page references a template outside the
     // project in the first place, so this exact broken-reference scenario
     // can no longer reach a pinned run in production. Leave the run
     // versionless here, matching the pre-existing/legacy runs this
@@ -164,15 +164,15 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   it('RUN-10: concurrent document generation persists exactly one document set', async () => {
     const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
       type: 'short_text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     const templateId = await createTemplateOnDisk(ctx.projectId!, 'Concurrent Contract', 'Contract for {{clientName}}');
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       type: 'final',
       title: 'Final documents',
       order: 1,

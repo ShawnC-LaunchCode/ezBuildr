@@ -498,7 +498,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
         // workflow never registering it as a data source. The database was left
         // behind and the import reported a broken binding — correct, but the
         // bundle was needlessly incomplete.
-        const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+        const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
         const bound = await seedDatavault({
           tenantId, userId, scopeType: "project", scopeId: projectId,
           attachToWorkflowId: null, name: "Config-bound DB"
@@ -509,7 +509,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
         });
 
         await getOwnerDb().insert(schema.steps).values({
-          workflowId, sectionId, type: "choice", title: "Home state",
+          workflowId, pageId, type: "choice", title: "Home state",
           alias: "home_state", order: 1,
           config: {
             dynamicOptions: {
@@ -554,14 +554,14 @@ describe.sequential("Portability Export API Integration Tests", () => {
           .set({ tenantId, tenantRole: "viewer" })
           .where(eq(schema.users.id, collabUserId));
 
-        const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+        const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
         const shared = await seedDatavault({
           tenantId, userId, scopeType: "account", scopeId: null,
           attachToWorkflowId: null, name: "Not Yours To Export"
         });
 
         await getOwnerDb().insert(schema.steps).values({
-          workflowId, sectionId, type: "choice", title: "Pick one",
+          workflowId, pageId, type: "choice", title: "Pick one",
           alias: "pick_one", order: 1,
           config: {
             dynamicOptions: {

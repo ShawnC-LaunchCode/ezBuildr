@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, vi } from "vitest";
 
-import { tenants, users, workflows, sections, steps, stepValues } from "@shared/schema";
+import { tenants, users, workflows, pages, steps, stepValues } from "@shared/schema";
 
 import { setupAuth } from "../../server/googleAuth";
 import { registerRoutes } from "../../server/routes";
@@ -122,10 +122,10 @@ describe("Detailed Verification: JS Helper Availability", () => {
         workflowId = workflow.id;
     });
     it("should execute a JS block that uses helper functions", async () => {
-        // 1. Create a Section with a JS Question
-        const [section] = await getOwnerDb().insert(sections).values({
+        // 1. Create a Page with a JS Question
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId,
-            title: "JS Section",
+            title: "JS Page",
             order: 1
         } as any).returning();
         // 2. Create JS Step using helpers
@@ -142,7 +142,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
     `;
         const [step] = await getOwnerDb().insert(steps).values({
             workflowId,
-            sectionId: section.id,
+            pageId: page.id,
             title: "Helper Test Step",
             type: "js_question",
             order: 1,
@@ -158,8 +158,8 @@ describe("Detailed Verification: JS Helper Availability", () => {
         const runRes = await agent.post(`/api/workflows/${workflowId}/runs`).send({});
         expect(runRes.status).toBe(201); // 201 Created
         const runId = runRes.body.data.runId;
-        // 4. Submit the section (triggering execution)
-        const submitRes = await agent.post(`/api/runs/${runId}/sections/${section.id}/submit`).send({
+        // 4. Submit the page (triggering execution)
+        const submitRes = await agent.post(`/api/runs/${runId}/pages/${page.id}/submit`).send({
             values: []
         });
         if (submitRes.status !== 200) {

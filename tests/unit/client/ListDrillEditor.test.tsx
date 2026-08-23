@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * LIST2-5 — `ListDrillEditor` must thread `aliasMap` down to every
- * `BlockRenderer` it renders, mirroring how `SectionSteps.tsx` obtains and
+ * `BlockRenderer` it renders, mirroring how `PageSteps.tsx` obtains and
  * forwards it. Without it, a `choice` field inside a list item whose
  * dynamic options resolve through an aliased list variable silently gets no
  * options (AC1/AC2). Absent an `aliasMap`, resolution must degrade to no
@@ -21,7 +21,7 @@ function makeListStep(): ApiStep {
   return {
     id: "step-list-1",
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     type: "list",
     title: "Team",
     description: null,
@@ -171,7 +171,7 @@ describe("ListDrillEditor — LIST2-7 description + visibleIf", () => {
     return {
       id: "step-list-2",
       workflowId: "wf-1",
-      sectionId: "sec-1",
+      pageId: "page-1",
       type: "list",
       title: "Item",
       description: null,
@@ -305,7 +305,7 @@ describe("ListDrillEditor — LIST2-5 AC4 malformed config", () => {
     )).not.toThrow();
 
     // The drill still opens (breadcrumb renders) — it just has no fields,
-    // rather than the whole section body crashing.
+    // rather than the whole page body crashing.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Done" })).toBeDefined();
     });

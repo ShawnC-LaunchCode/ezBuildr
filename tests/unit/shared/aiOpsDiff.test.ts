@@ -12,13 +12,13 @@ import type { WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.
 describe('buildOpsDiff', () => {
     it('returns one change per op, in op order', () => {
         const ops: WorkflowPatchOp[] = [
-            { op: 'section.create', tempId: 't1', title: 'Contact', order: 1 },
-            { op: 'step.create', sectionRef: 't1', type: 'email', title: 'Email' },
+            { op: 'page.create', tempId: 't1', title: 'Contact', order: 1 },
+            { op: 'step.create', pageRef: 't1', type: 'email', title: 'Email' },
             { op: 'step.setRequired', id: 'step-1', required: true },
         ];
 
         expect(buildOpsDiff(ops)).toEqual([
-            { type: 'add', entity: 'section', explanation: 'Add section "Contact"' },
+            { type: 'add', entity: 'page', explanation: 'Add page "Contact"' },
             { type: 'add', entity: 'step', explanation: 'Add email question "Email"' },
             { type: 'update', entity: 'step', explanation: 'Make question step-1 required' },
         ]);
@@ -26,16 +26,16 @@ describe('buildOpsDiff', () => {
 
     it('classifies each op family by change type', () => {
         const ops: WorkflowPatchOp[] = [
-            { op: 'section.delete', id: 'sec-1' },
-            { op: 'section.reorder', sectionIds: ['a', 'b', 'c'] },
-            { op: 'step.move', id: 'step-1', toSectionId: 'sec-2' },
+            { op: 'page.delete', id: 'page-1' },
+            { op: 'page.reorder', pageIds: ['a', 'b', 'c'] },
+            { op: 'step.move', id: 'step-1', toPageId: 'page-2' },
             { op: 'logicRule.create', rule: { condition: 'age > 18', action: 'show', target: { type: 'step', id: 'step-9' } } },
             { op: 'logicRule.delete', id: 'rule-1' },
         ];
 
         expect(buildOpsDiff(ops).map((c) => `${c.type}:${c.entity}`)).toEqual([
-            'remove:section',
-            'move:section',
+            'remove:page',
+            'move:page',
             'move:step',
             'add:logic',
             'remove:logic',
@@ -66,12 +66,12 @@ describe('buildOpsDiff', () => {
 
     it('falls back to the entity reference when an op carries no title', () => {
         const ops: WorkflowPatchOp[] = [
-            { op: 'section.update', id: 'sec-7', order: 3 },
+            { op: 'page.update', id: 'page-7', order: 3 },
             { op: 'step.update', tempId: 'temp-4', required: false },
         ];
 
         expect(buildOpsDiff(ops).map((c) => c.explanation)).toEqual([
-            'Update section sec-7',
+            'Update page page-7',
             'Update question temp-4',
         ]);
     });

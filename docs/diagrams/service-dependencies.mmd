@@ -1,7 +1,7 @@
 graph TB
     %% Core Workflow Services
     WorkflowService[WorkflowService]
-    SectionService[SectionService]
+    PageService[PageService]
     StepService[StepService]
     RunService[RunService]
     LogicService[LogicService]
@@ -102,13 +102,13 @@ graph TB
     UserRepository[(UserRepository)]
 
     %% Core Workflow Dependencies
-    WorkflowService --> SectionService
+    WorkflowService --> PageService
     WorkflowService --> LogicService
     WorkflowService --> VariableService
     WorkflowService --> WorkflowRepository
 
-    SectionService --> StepService
-    SectionService --> WorkflowRepository
+    PageService --> StepService
+    PageService --> WorkflowRepository
 
     StepService --> VariableService
     StepService --> StepRepository
@@ -265,12 +265,12 @@ graph TB
     SnapshotService --> WorkflowService
 
     WorkflowClonerService --> WorkflowService
-    WorkflowClonerService --> SectionService
+    WorkflowClonerService --> PageService
     WorkflowClonerService --> StepService
 
     %% Color Coding by Domain
     style WorkflowService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    style SectionService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style PageService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     style StepService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     style RunService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
     style LogicService fill:#e1f5ff,stroke:#01579b,stroke-width:2px

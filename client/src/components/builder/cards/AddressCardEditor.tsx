@@ -26,7 +26,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function AddressCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   // Parse config
@@ -56,15 +56,15 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
       requireAll: newConfig.requireAll,
     };
 
-    updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+    updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
   };
 
   const handleAliasChange = (alias: string | null) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, alias });
+    updateStepMutation.mutate({ id: stepId, pageId, alias });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, required });
+    updateStepMutation.mutate({ id: stepId, pageId, required });
   };
 
   return (
@@ -140,7 +140,7 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
       {workflowId && (
         <VisibilityField
           stepId={stepId}
-          sectionId={sectionId}
+          pageId={pageId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
         />

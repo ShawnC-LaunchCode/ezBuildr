@@ -4,7 +4,7 @@ Map of API domains → route files (verified August 2026). **Source of truth is 
 
 New endpoints follow the 3-tier pattern in the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`).
 
-## Workflows & Structure — `workflows.routes.ts`, `sections.routes.ts`, `steps.routes.ts`
+## Workflows & Structure — `workflows.routes.ts`, `pages.routes.ts`, `steps.routes.ts`
 
 ```
 GET/POST    /api/workflows                        # List / create
@@ -24,7 +24,7 @@ POST        /api/workflows/:workflowId/transfer
 POST        /api/workflows/:workflowId/templates/:templateId/test
 ```
 
-Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
+Pages and steps CRUD live in `pages.routes.ts` / `steps.routes.ts`. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
 
 ## Workflow Runs — `runs.routes.ts`
 
@@ -40,11 +40,11 @@ POST        /api/runs/:runId/resume                      # Redeem one-time link;
 POST        /api/runs/:runId/handoff                     # Staff-only reassignment to tenant user/client email
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk
-POST        /api/runs/:runId/sections/:sectionId/submit
+POST        /api/runs/:runId/pages/:pageId/submit
 POST        /api/runs/:runId/steps/:stepId/files           # Multipart respondent upload (run token or creator)
 GET         /api/runs/:runId/steps/:stepId/files/url       # Refresh signed storage URL
 DELETE      /api/runs/:runId/steps/:stepId/files           # Remove upload
-POST        /api/runs/:runId/next                         # Navigate to next section
+POST        /api/runs/:runId/next                         # Navigate to next page
 PUT         /api/runs/:runId/complete                     # Complete (triggers transforms)
 GET/POST/DEL /api/runs/:runId/documents                   # Run documents (+ generate-documents)
 POST        /api/runs/:runId/share                        # Create share token
@@ -54,7 +54,7 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 > The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
 > Resume/handoff credentials are stored only as SHA-256 hashes in `run_resume_links`. A successful one-time redemption rotates the ordinary run bearer token before the pinned runtime restores its saved values and cursor.
 >
-> **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active section. This is an intentional out-of-section write allowance, supporting scenarios like computed fields or external integrations writing ahead.
+> **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active page. This is an intentional out-of-page write allowance, supporting scenarios like computed fields or external integrations writing ahead.
 
 ## Blocks & Transform Blocks — `blocks.routes.ts`, `transformBlocks.routes.ts`
 

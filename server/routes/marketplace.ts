@@ -11,7 +11,7 @@ import { requireTenant } from "../middleware/tenant";
 const router = Router();
 
 // Matches the repo-wide inline UUID check (see WorkflowTenantResolver.ts,
-// sections.routes.ts, steps.routes.ts, ...).
+// pages.routes.ts, steps.routes.ts, ...).
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

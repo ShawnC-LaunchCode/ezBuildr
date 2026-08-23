@@ -72,10 +72,10 @@ export function useApplyAiEdit(): UseMutationResult<
             return res.data;
         },
         onSuccess: async (_result, variables) => {
-            // The ops pipeline writes sections, steps and logic rules directly,
+            // The ops pipeline writes pages, steps and logic rules directly,
             // so every builder-facing cache for this workflow is now stale.
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.pages(variables.workflowId) });
             await queryClient.invalidateQueries({ queryKey: ["steps"] });
             await queryClient.invalidateQueries({ queryKey: queryKeys.logicRules(variables.workflowId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });

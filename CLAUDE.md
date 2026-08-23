@@ -40,7 +40,7 @@ ezBuildr/
 │   ├── Router.tsx           # Wouter route table (source of truth for pages)
 │   ├── components/
 │   │   ├── builder/         # Workflow builder (7-tab nav, canvas, inspector)
-│   │   ├── runner/          # Run-time rendering (blocks/, sections/)
+│   │   ├── runner/          # Run-time rendering (blocks/, pages/)
 │   │   ├── preview/         # In-memory preview shell (PreviewRunner, DevToolbar)
 │   │   ├── blocks/          # Block editors
 │   │   ├── collab/          # Real-time presence/cursors
@@ -69,7 +69,7 @@ ezBuildr/
 
 ### Workflow Hierarchy
 ```
-Projects → Workflows → Sections (Pages) → Steps (Questions/Actions)
+Projects → Workflows → Pages → Steps (Questions/Actions)
                     → Logic Rules, Transform Blocks, Lifecycle Hooks
                     → Workflow Runs → Step Values, Execution Trace
 ```
@@ -85,7 +85,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | Table | Purpose |
 |-------|---------|
 | `workflows` | Workflow definitions |
-| `sections` | Pages/sections with order, skipLogic, visibleIf |
+| `sections` (TS: `pages`) | Physical storage for workflow pages with order and visibleIf; the DB name stays pinned until SECT-2 |
 | `steps` | Individual steps with type, alias, config, visibleIf |
 | `workflow_runs` / `run_resume_links` / `step_values` | Execution instances, expiring resume credentials, and run data (the only run model — graph run tables were dropped) |
 | `datavault_databases` / `datavault_tables` / `datavault_rows` | DataVault (all `datavault_`-prefixed) |
@@ -97,13 +97,17 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 37 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question with runner drill-in navigation; both List initiatives closed 2026-08-02 — parked follow-ups are in `tickets/BACKLOG.md`). There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
 
 ### Logic Operators & Actions
-- **One condition language.** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all
+- **One condition language.** `logic_rules.when` and `steps.visibleIf` / `pages.visibleIf` all
   store the same `ConditionExpression` (28-value `ComparisonOperator` union in
   `shared/types/conditions.ts`: starts_with, date diffs, includes_all, ...), evaluated by
   `shared/conditionEvaluator.ts`. The flat 9-value `conditionOperatorEnum` DB enum
   (`equals`/`not_equals`/`contains`/.../`is_not_empty`) that `logic_rules` used before LU-6a/LU-6c
   is gone — nothing produces or reads it anymore.
 - **Actions** (`conditionalActionEnum`): show, hide, require, make_optional, skip_to
+
+**Vocabulary boundary:** a workflow's navigable units are now always **pages** in
+TypeScript, APIs, JSON, and product copy. The group layer introduced later in
+Phase 1 uses **sections** as a new, distinct container for one or more pages.
 
 ## Environment Variables
 

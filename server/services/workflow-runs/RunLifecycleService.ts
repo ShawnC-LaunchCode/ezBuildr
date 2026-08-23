@@ -6,11 +6,11 @@
  * - Execute onRunStart blocks
  * - Generate documents for completed runs
  * - Manage initial value population
- * - Determine start section with auto-advance
+ * - Determine start page with auto-advance
  */
 
 import { logger } from "../../logger";
-import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
+import { stepValueRepository, stepRepository, pageRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createProjectTemplateResolver } from "../document/FinalBlockRenderer";
 import { lifecycleHookService } from "../scripting/LifecycleHookService";
@@ -26,7 +26,7 @@ import { workflowTenantResolver } from "../WorkflowTenantResolver";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
-import { runDefinitionProvider, RunDefinitionProvider, type RunSection } from "./RunDefinitionProvider";
+import { runDefinitionProvider, RunDefinitionProvider, type RunPage } from "./RunDefinitionProvider";
 import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
 
 export interface GenerateDocumentsOptions {
@@ -41,15 +41,15 @@ interface LegacyFinalDocumentEntry {
   conditions: FinalBlockConfig['documents'][number]['conditions'];
 }
 
-function collectLegacyFinalDocumentConfig(sections: RunSection[]): {
+function collectLegacyFinalDocumentConfig(pages: RunPage[]): {
   entries: LegacyFinalDocumentEntry[];
   outputFormats: Set<FinalDocumentOutputFormat>;
 } {
   const entries: LegacyFinalDocumentEntry[] = [];
   const outputFormats = new Set<FinalDocumentOutputFormat>();
 
-  for (const section of sections) {
-    const config = section.config as {
+  for (const page of pages) {
+    const config = page.config as {
       finalBlock?: boolean;
       templates?: unknown[];
       outputFormats?: unknown[];
@@ -111,7 +111,7 @@ export class RunLifecycleService {
   constructor(
     private valueRepo = stepValueRepository,
     private stepRepo = stepRepository,
-    private sectionRepo = sectionRepository,
+    private pageRepo = pageRepository,
     private persistence = new RunPersistenceWriter(),
     private logicSvc = logicService,
     private runDataSvc: RunDataService = runDataService,
@@ -162,12 +162,12 @@ export class RunLifecycleService {
   ): Promise<void> {
     const { initialValues, snapshotValues, randomValues } = options;
 
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map(s => s.id);
+    // Get all pages for the workflow
+    const pages = await this.pageRepo.findByWorkflowId(workflowId);
+    const pageIds = pages.map(s => s.id);
 
-    // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds);
+    // Get all steps for these pages
+    const allSteps = await this.stepRepo.findByPageIds(pageIds);
 
     const valuesToSave: Array<{ stepId: string; value: unknown }> = [];
 
@@ -281,19 +281,19 @@ export class RunLifecycleService {
   }
 
   /**
-   * Determine the appropriate start section for a run
+   * Determine the appropriate start page for a run
    * Used for auto-advance when creating runs from snapshots
    *
    * Rules:
-   * A) Skip invisible sections via existing logic
+   * A) Skip invisible pages via existing logic
    * B) For each required visible step:
    *    - If no run value → stop here
    *    - If snapshot version mismatch → stop here
    * C) If all satisfied → jump to first visible final block
-   * D) Else fallback to workflow's first section
+   * D) Else fallback to workflow's first page
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async determineStartSection(
+  async determineStartPage(
     runId: string,
     workflowId: string,
     snapshotValues?: SnapshotValueMap
@@ -311,34 +311,34 @@ export class RunLifecycleService {
 
     // Build LogicContext once. RVP-2: buildContext now sources from the
     // run's pinned definition (via runId) rather than always reading the
-    // live tables -- pass runId through so a pinned run's start section is
+    // live tables -- pass runId through so a pinned run's start page is
     // resolved from what the respondent was actually shown.
     const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap, runId);
-    const sections = logicCtx.sections;
-    if (sections.length === 0) {
-      throw new Error("Workflow has no sections");
+    const pages = logicCtx.pages;
+    if (pages.length === 0) {
+      throw new Error("Workflow has no pages");
     }
 
-    // Sort sections by order
-    const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Sort pages by order
+    const sortedPages = [...pages].sort((a, b) => (a.order || 0) - (b.order || 0));
     const allSteps = logicCtx.steps;
 
-    // Iterate through sections to find the first incomplete one
-    for (const section of sortedSections) {
-      // Check if section is visible using logic service
-      const sectionVisible = await this.logicSvc.isSectionVisible(logicCtx, section.id);
+    // Iterate through pages to find the first incomplete one
+    for (const page of sortedPages) {
+      // Check if page is visible using logic service
+      const pageVisible = await this.logicSvc.isPageVisible(logicCtx, page.id);
 
-      if (!sectionVisible) {
-        continue; // Skip invisible sections
+      if (!pageVisible) {
+        continue; // Skip invisible pages
       }
 
-      // Get steps for this section
-      const sectionSteps = allSteps.filter(s => s.sectionId === section.id && !s.isVirtual);
+      // Get steps for this page
+      const pageSteps = allSteps.filter(s => s.pageId === page.id && !s.isVirtual);
 
       // Check if all required steps have valid values
       let allRequiredStepsSatisfied = true;
 
-      for (const step of sectionSteps) {
+      for (const step of pageSteps) {
         // Check if step is visible
         const stepVisible = await this.logicSvc.isStepVisible(logicCtx, step.id);
 
@@ -380,13 +380,13 @@ export class RunLifecycleService {
       }
 
       if (!allRequiredStepsSatisfied) {
-        // Found first incomplete section - return this section
-        return section.id;
+        // Found first incomplete page - return this page
+        return page.id;
       }
     }
 
-    // All sections complete - return the last section (or first if none)
-    return sortedSections[sortedSections.length - 1]?.id || sortedSections[0].id;
+    // All pages complete - return the last page (or first if none)
+    return sortedPages[sortedPages.length - 1]?.id || sortedPages[0].id;
   }
 
   /** Per-run in-flight document generation, so concurrent triggers
@@ -418,7 +418,7 @@ export class RunLifecycleService {
       // RLS-5: this method is reached from `RunCompletionJobWorker.processJob`
       // — a BACKGROUND JOB, not an HTTP request — so nothing upstream has
       // populated the async tenant context and `withCurrentTenant` has nothing
-      // to read. Everything below reads `workflows`/`sections`/`steps`, all
+      // to read. Everything below reads `workflows`/`pages`/`steps`, all
       // RLS-covered, so under a non-owner role they silently return zero rows
       // and this fails as "Workflow not found" on a workflow that plainly
       // exists (13 of the RLS-5 run's failures were exactly this).
@@ -463,7 +463,7 @@ export class RunLifecycleService {
       // 2. Collect document configs from every supported authoring shape:
       //    - Final Block steps (step.config as FinalBlockConfig), for both
       //      'final' and 'final_documents'
-      //    - Legacy Final Documents sections (section.config.finalBlock)
+      //    - Legacy Final Documents pages (page.config.finalBlock)
       // RVP-4: sourced from the run's pinned definition (RunDefinitionProvider,
       // RVP-1), not the live tables. A document generated after the fact must
       // reflect the template mapping the respondent actually answered against,
@@ -471,7 +471,7 @@ export class RunLifecycleService {
       // this is a correctness/auditability guarantee, not just UX. A
       // versionless run still falls back to the live tables via the
       // provider's 'live' branch (unchanged today-behavior, AC3).
-      const { steps: definitionSteps, sections: definitionSections } = await this.definitionProvider.getDefinition(run);
+      const { steps: definitionSteps, pages: definitionPages } = await this.definitionProvider.getDefinition(run);
       // RLS-5: `runWithTenantContext` above populates the async STORE, which is
       // what converted services read — but a repository call issued directly on
       // the pool never consults it. The store and the transaction GUC are
@@ -496,7 +496,7 @@ export class RunLifecycleService {
       }
 
       if (options.finalStepId === undefined) {
-        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionSections);
+        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionPages);
         if (legacyConfig) {
           finalBlockConfigs.push(legacyConfig);
         }
@@ -506,7 +506,7 @@ export class RunLifecycleService {
         if (options.finalStepId !== undefined) {
           throw createError.validation('Invalid step: must be a Final Block with configured documents');
         }
-        logger.info({ runId }, 'No Final Block steps or Final Documents sections found, skipping document generation');
+        logger.info({ runId }, 'No Final Block steps or Final Documents pages found, skipping document generation');
         await workflowRunRepository.updateGenerationStatus(runId, 'done');
         return { success: true, documentsGenerated: 0, documents: [] };
       }
@@ -691,8 +691,8 @@ export class RunLifecycleService {
   }
 
   /**
-   * Synthesize a FinalBlockConfig from legacy Final Documents sections
-   * (section.config.finalBlock === true with config.templates). Template-level
+   * Synthesize a FinalBlockConfig from legacy Final Documents pages
+   * (page.config.finalBlock === true with config.templates). Template-level
    * mapping carries over so the unified renderer path preserves the old
    * behavior.
    *
@@ -712,13 +712,13 @@ export class RunLifecycleService {
    * no second shape to mismatch — not "avoided by having no rows" but
    * structurally unrepresentable.
    *
-   * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
+   * RVP-4: `pages` is the run's pinned (or, for a versionless run, live)
    * definition from `RunDefinitionProvider` -- not a fresh live-table read --
-   * so a legacy Final Documents section edited after the respondent started
+   * so a legacy Final Documents page edited after the respondent started
    * does not retroactively change what gets generated.
    */
-  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
-    const { entries, outputFormats } = collectLegacyFinalDocumentConfig(sections);
+  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, pages: RunPage[]): Promise<FinalBlockConfig | null> {
+    const { entries, outputFormats } = collectLegacyFinalDocumentConfig(pages);
 
     if (entries.length === 0) {
       return null;
@@ -733,7 +733,7 @@ export class RunLifecycleService {
         // loudly (surfaced as generationStatus 'failed:…' by the caller)
         // instead of silently skipping, matching the step-based path's
         // resolver semantics.
-        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references unresolvable template');
+        logger.warn({ workflowId, templateId }, 'Legacy Final Documents page references unresolvable template');
         throw createError.notFound('Template', templateId);
       }
       documents.push({

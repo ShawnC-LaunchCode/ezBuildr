@@ -105,10 +105,10 @@ export function findMissingValues(
 /**
  * Finds the first visible step with a missing value
  *
- * Takes into account section order and step order.
+ * Takes into account page order and step order.
  *
  * @param missingValues - Array of missing values
- * @param allSteps - All workflow steps (with sectionId and order)
+ * @param allSteps - All workflow steps (with pageId and order)
  * @returns The first missing step, or null if none
  */
 export function findFirstMissingStep(
@@ -125,10 +125,10 @@ export function findFirstMissingStep(
 
   if (missingSteps.length === 0) {return null;}
 
-  // Sort by section order, then step order
+  // Sort by page order, then step order
   missingSteps.sort((a, b) => {
-    // Note: We'd need section order here, but for now sort by step order
-    // In practice, the caller will need to provide section context
+    // Note: We'd need page order here, but for now sort by step order
+    // In practice, the caller will need to provide page context
     return a.order - b.order;
   });
 

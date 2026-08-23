@@ -15,14 +15,14 @@ import { VariableService } from "../../../server/services/VariableService";
  * that never do, so `choices` staying undefined remains meaningful.
  */
 
-const { sectionRepoMock, stepRepoMock, verifyAccessMock } = vi.hoisted(() => ({
-  sectionRepoMock: { findByWorkflowId: vi.fn() },
-  stepRepoMock: { findBySectionIds: vi.fn() },
+const { pageRepoMock, stepRepoMock, verifyAccessMock } = vi.hoisted(() => ({
+  pageRepoMock: { findByWorkflowId: vi.fn() },
+  stepRepoMock: { findByPageIds: vi.fn() },
   verifyAccessMock: vi.fn(),
 }));
 
 vi.mock("../../../server/repositories", () => ({
-  sectionRepository: sectionRepoMock,
+  pageRepository: pageRepoMock,
   stepRepository: stepRepoMock,
 }));
 
@@ -34,16 +34,16 @@ vi.mock("../../../server/services/WorkflowService", () => ({
 // RLS-4 precondition 5: `listVariables` now opens a tenant-scoped transaction
 // via `withCurrentTenant` when no `tx` is supplied, which needs a real DB
 // (unavailable in unit-fast). Passing a fake `tx` takes the reuse branch
-// instead — `sectionRepoMock`/`stepRepoMock`/`verifyAccessMock` don't
+// instead — `pageRepoMock`/`stepRepoMock`/`verifyAccessMock` don't
 // inspect it, so any object works.
 const fakeTx = {} as never;
 
-const SECTION = { id: "sec-1", title: "Page 1" };
+const PAGE = { id: "page-1", title: "Page 1" };
 
 function step(overrides: Record<string, unknown>) {
   return {
     id: "step-x",
-    sectionId: "sec-1",
+    pageId: "page-1",
     alias: "alias_x",
     title: "Question",
     type: "short_text",
@@ -56,11 +56,11 @@ describe("VariableService.listVariables — choices (O-2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     verifyAccessMock.mockResolvedValue({ id: "wf-1" });
-    sectionRepoMock.findByWorkflowId.mockResolvedValue([SECTION]);
+    pageRepoMock.findByWorkflowId.mockResolvedValue([PAGE]);
   });
 
   it("carries options for a legacy radio step, resolving alias/id the way stored answers do", async () => {
-    stepRepoMock.findBySectionIds.mockResolvedValue([
+    stepRepoMock.findByPageIds.mockResolvedValue([
       step({
         id: "s1",
         type: "radio",
@@ -78,7 +78,7 @@ describe("VariableService.listVariables — choices (O-2)", () => {
   });
 
   it("carries options for multiple_choice too", async () => {
-    stepRepoMock.findBySectionIds.mockResolvedValue([
+    stepRepoMock.findByPageIds.mockResolvedValue([
       step({ id: "s2", type: "multiple_choice", config: { options: ["A", "B"] } }),
     ]);
 
@@ -87,14 +87,14 @@ describe("VariableService.listVariables — choices (O-2)", () => {
   });
 
   it("omits `choices` entirely for a step type that never has options", async () => {
-    stepRepoMock.findBySectionIds.mockResolvedValue([step({ id: "s3", type: "short_text" })]);
+    stepRepoMock.findByPageIds.mockResolvedValue([step({ id: "s3", type: "short_text" })]);
 
     const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
     expect(variable).not.toHaveProperty("choices");
   });
 
   it("omits `choices` for a choice step whose config carries no options", async () => {
-    stepRepoMock.findBySectionIds.mockResolvedValue([
+    stepRepoMock.findByPageIds.mockResolvedValue([
       step({ id: "s4", type: "radio", config: {} }),
     ]);
 

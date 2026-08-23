@@ -46,7 +46,7 @@ Write a clear description of what you want to build. The more detail, the better
 
 > "A customer feedback form that asks for their overall satisfaction rating on a 1-5 scale, what they liked most about our service, what we could improve, and optionally their email if they want us to follow up."
 
-> "An employee onboarding checklist with sections for personal information (name, email, phone, address), emergency contacts, tax forms (W-4 selections), and IT equipment requests."
+> "An employee onboarding checklist with pages for personal information (name, email, phone, address), emergency contacts, tax forms (W-4 selections), and IT equipment requests."
 
 > "A loan application that collects applicant information, employment details, income verification, and loan preferences. Include logic to show additional questions for self-employed applicants."
 
@@ -77,10 +77,10 @@ In the workflow builder, click the **AI Assistant** icon in the toolbar to open 
 
 Type natural language instructions:
 
-- "Add a section for payment information"
+- "Add a page for payment information"
 - "Make the phone number field required"
 - "Add a dropdown for selecting department with options: Sales, Support, Engineering"
-- "Show the 'spouse information' section only if marital status is 'Married'"
+- "Show the 'spouse information' page only if marital status is 'Married'"
 
 ### Easy vs Advanced Mode
 
@@ -142,21 +142,21 @@ Use the AI Assistant to fix issues: "Fix all the alias issues" or "Use proper fi
 
 Instead of configuring logic rules manually, describe what you want:
 
-> "Only show the insurance details section if the user says they have insurance"
+> "Only show the insurance details page if the user says they have insurance"
 
 > "Make the company name field required if employment type is 'Employed'"
 
-> "Skip to the summary section if the user selects 'No changes needed'"
+> "Skip to the summary page if the user selects 'No changes needed'"
 
 ### Supported Logic Actions
 
 | Action | Description |
 |--------|-------------|
-| **Show** | Display a field/section when condition is met |
-| **Hide** | Hide a field/section when condition is met |
+| **Show** | Display a field/page when condition is met |
+| **Hide** | Hide a field/page when condition is met |
 | **Require** | Make a field required when condition is met |
 | **Make Optional** | Remove required status when condition is met |
-| **Skip To** | Jump to a specific section |
+| **Skip To** | Jump to a specific page |
 
 ### Logic Conditions
 
@@ -180,7 +180,7 @@ Instead of configuring logic rules manually, describe what you want:
 - Be specific about fields needed
 - Mention field types when important (email, phone, date)
 - Describe conditional logic upfront
-- Include section groupings
+- Include page groupings
 
 **Don't:**
 - Use vague descriptions ("make a form")
@@ -193,7 +193,7 @@ Instead of configuring logic rules manually, describe what you want:
 > "Create an application form"
 
 ✅ **Good:**
-> "Create a job application form with sections for:
+> "Create a job application form with pages for:
 > 1. Personal info (name, email, phone - all required)
 > 2. Education (degree level dropdown, school name, graduation year)
 > 3. Work experience (current employer, job title, years of experience)
@@ -243,7 +243,7 @@ Common reasons:
 - Generic field names (field1, field2)
 - Wrong field types (text instead of email)
 - Missing required markers
-- Too many fields in one section
+- Too many fields in one page
 
 ### Can I use AI for existing workflows?
 
@@ -253,8 +253,8 @@ Yes! Open any workflow and use the AI Assistant to make changes.
 
 Describe it step by step:
 1. "Add a yes/no question asking if they have dependents"
-2. "Show the dependents section only if they answered yes"
-3. "Make at least one dependent required if the section is shown"
+2. "Show the dependents page only if they answered yes"
+3. "Make at least one dependent required if the page is shown"
 
 ### What's the difference between Generate and Revise?
 

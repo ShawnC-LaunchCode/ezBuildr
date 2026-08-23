@@ -27,7 +27,7 @@ interface PersistedStepShape {
   config: unknown;
 }
 
-interface PersistedSectionShape {
+interface PersistedPageShape {
   title: string;
   description: string | null;
   order: number;
@@ -45,16 +45,16 @@ interface PersistedRuleShape {
 }
 
 interface PersistedWorkflowShape {
-  sections: PersistedSectionShape[];
+  pages: PersistedPageShape[];
   logicRules: PersistedRuleShape[];
 }
 
 const parityFixture: WorkflowContentData = {
   title: 'Parity Fixture',
   description: 'Fixture shared by AI and manual ingest paths',
-  sections: [
+  pages: [
     {
-      id: 'applicant-section',
+      id: 'applicant-page',
       title: 'Applicant',
       description: 'Basic applicant details',
       order: 0,
@@ -81,7 +81,7 @@ const parityFixture: WorkflowContentData = {
       ],
     },
     {
-      id: 'eligibility-section',
+      id: 'eligibility-page',
       title: 'Eligibility',
       description: 'Eligibility details',
       order: 1,
@@ -148,25 +148,25 @@ function stableJson(value: unknown): unknown {
 }
 
 async function readPersistedShape(workflowId: string): Promise<PersistedWorkflowShape> {
-  const [dbSections, dbSteps, dbRules] = await Promise.all([
-    getOwnerDb().select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId)),
+  const [dbPages, dbSteps, dbRules] = await Promise.all([
+    getOwnerDb().select().from(schema.pages).where(eq(schema.pages.workflowId, workflowId)),
     getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId)),
     getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId)),
   ]);
 
-  const sectionById = new Map(dbSections.map((section) => [section.id, section]));
+  const pageById = new Map(dbPages.map((page) => [page.id, page]));
   const stepById = new Map(dbSteps.map((step) => [step.id, step]));
 
-  const sections = [...dbSections]
+  const pages = [...dbPages]
     .sort((a, b) => a.order - b.order)
-    .map((section) => ({
-      title: section.title,
-      description: section.description,
-      order: section.order,
-      config: stableJson(section.config),
-      visibleIf: stableJson(section.visibleIf),
+    .map((page) => ({
+      title: page.title,
+      description: page.description,
+      order: page.order,
+      config: stableJson(page.config),
+      visibleIf: stableJson(page.visibleIf),
       steps: dbSteps
-        .filter((step) => step.sectionId === section.id)
+        .filter((step) => step.pageId === page.id)
         .sort((a, b) => a.order - b.order)
         .map((step) => ({
           title: step.title,
@@ -183,7 +183,7 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
       const conditionStepAlias = stepById.get(rule.conditionStepId)?.alias ?? null;
       const targetAlias = rule.targetType === 'step'
         ? stepById.get(rule.targetStepId ?? '')?.alias ?? null
-        : sectionById.get(rule.targetSectionId ?? '')?.title ?? null;
+        : pageById.get(rule.targetPageId ?? '')?.title ?? null;
 
       return {
         conditionStepAlias,
@@ -195,7 +195,7 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
     })
     .sort((a, b) => `${a.targetType}:${a.targetAlias}`.localeCompare(`${b.targetType}:${b.targetAlias}`));
 
-  return { sections, logicRules };
+  return { pages, logicRules };
 }
 
 describe.sequential('WorkflowContentIngestService source parity', () => {
@@ -235,7 +235,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     return workflow.id;
   }
 
-  it('persists identical sections, steps, config, aliases, and logic rules for AI and manual sources', async () => {
+  it('persists identical pages, steps, config, aliases, and logic rules for AI and manual sources', async () => {
     const aiWorkflowId = await createWorkflow('AI source workflow');
     const manualWorkflowId = await createWorkflow('Manual source workflow');
 
@@ -251,7 +251,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     const baseWorkflowId = await createWorkflow('Base parity workflow');
     const mutatedWorkflowId = await createWorkflow('Mutated parity workflow');
     const mutatedFixture = cloneFixture();
-    const booleanStep = mutatedFixture.sections?.[1]?.steps?.[0];
+    const booleanStep = mutatedFixture.pages?.[1]?.steps?.[0];
     if (booleanStep === undefined) {
       throw new Error('Expected boolean step fixture to exist');
     }
@@ -274,8 +274,8 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     const fixture = cloneFixture();
     // Only mutate aliases NOT referenced by the fixture's logic rule
     // (contactPreference / eligibilityNotes must stay resolvable).
-    const applicantStep = fixture.sections?.[0]?.steps?.[0];
-    const veteranStep = fixture.sections?.[1]?.steps?.[0];
+    const applicantStep = fixture.pages?.[0]?.steps?.[0];
+    const veteranStep = fixture.pages?.[1]?.steps?.[0];
     if (applicantStep === undefined || veteranStep === undefined) {
       throw new Error('Expected fixture steps to exist');
     }
@@ -301,7 +301,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     // An invalid logic-rule action passes in-memory validation
     // (validateWorkflowStructure only checks alias references) but violates
     // the conditionalActionEnum DURING the logic-rule insert — i.e. after the
-    // workflow-metadata UPDATE and the section/step inserts have executed
+    // workflow-metadata UPDATE and the page/step inserts have executed
     // inside the same replaceWorkflowContent transaction. This is the
     // torn-write scenario ICW-3 fixed.
     const badFixture = cloneFixture({ title: 'Torn Title' });
@@ -352,10 +352,10 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     // speaks ConditionExpression, not the retired flat shape.
     const parsed = AIGeneratedWorkflowSchema.parse({
       title: 'Pet Intake',
-      sections: [
+      pages: [
         {
-          id: 'section_1',
-          title: 'Section 1',
+          id: 'page_1',
+          title: 'Page 1',
           order: 0,
           steps: [
             { id: 'step_1', type: 'yes_no', title: 'Do you have pets?', alias: 'has_pets', required: false },

@@ -177,7 +177,7 @@ export class RunResumeService {
     token: string;
     ipAddress?: string | null;
     userAgent?: string | null;
-  }): Promise<{ runId: string; runToken: string; tokenExpiresAt: Date; currentSectionId: string | null }> {
+  }): Promise<{ runId: string; runToken: string; tokenExpiresAt: Date; currentPageId: string | null }> {
     const runToken = this.runTokenFactory();
     const runTokenHash = hashToken(runToken);
     const now = this.now();
@@ -226,7 +226,7 @@ export class RunResumeService {
       runId: restored.id,
       runToken,
       tokenExpiresAt,
-      currentSectionId: restored.currentSectionId,
+      currentPageId: restored.currentPageId,
     };
   }
 

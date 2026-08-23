@@ -56,7 +56,7 @@ describe('Entity Graph Portability', () => {
   // IEX-13: `scopes` and the parent walk are two independent mechanisms deciding
   // what lands in a bundle, and when they disagree the export silently omits
   // whole subtrees (a project bundle used to carry workflow rows but none of
-  // their sections/steps/logic/hooks). Reachability from a scope's root is the
+  // their pages/steps/logic/hooks). Reachability from a scope's root is the
   // source of truth; `scopes` must agree with it in both directions.
   describe('scopes agree with parent-chain reachability', () => {
     const ROOT_OF_SCOPE: Record<string, string> = {

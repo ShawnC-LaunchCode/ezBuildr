@@ -6,11 +6,11 @@ import { AIWorkflowRevisionResponseSchema } from '../shared/types/ai';
 const mockResponse = {
     updatedWorkflow: {
         title: 'Revised Flow',
-        sections: [{ id: 's1', title: 'Start', order: 0, steps: [] }],
+        pages: [{ id: 's1', title: 'Start', order: 0, steps: [] }],
         logicRules: [],
         transformBlocks: []
     },
-    diff: { changes: [{ type: 'add', target: 'sections', explanation: 'Added new section' }] },
+    diff: { changes: [{ type: 'add', target: 'pages', explanation: 'Added new page' }] },
     explanation: ['I did good.']
 };
 

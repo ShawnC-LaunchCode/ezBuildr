@@ -2,7 +2,7 @@ import type { Block } from "@shared/schema";
 import type { QueryBlockConfig } from "@shared/types/blocks";
 
 import { logger } from "../logger";
-import { stepRepository , sectionRepository ,
+import { stepRepository , pageRepository ,
     blockRepository,
     workflowRepository,
 } from "../repositories";
@@ -19,20 +19,20 @@ export class QueryBlockService {
     private workflowRepo: typeof workflowRepository;
     private workflowSvc: typeof workflowService;
     private stepRepo: typeof stepRepository;
-    private sectionRepo: typeof sectionRepository;
+    private pageRepo: typeof pageRepository;
 
     constructor(
         blockRepo?: typeof blockRepository,
         workflowRepo?: typeof workflowRepository,
         workflowSvc?: typeof workflowService,
         stepRepo?: typeof stepRepository,
-        sectionRepo?: typeof sectionRepository
+        pageRepo?: typeof pageRepository
     ) {
         this.blockRepo = blockRepo ?? blockRepository;
         this.workflowRepo = workflowRepo ?? workflowRepository;
         this.workflowSvc = workflowSvc ?? workflowService;
         this.stepRepo = stepRepo ?? stepRepository;
-        this.sectionRepo = sectionRepo ?? sectionRepository;
+        this.pageRepo = pageRepo ?? pageRepository;
     }
 
     /**
@@ -44,30 +44,30 @@ export class QueryBlockService {
         userId: string,
         data: {
             name: string;
-            sectionId?: string | null;
+            pageId?: string | null;
             config: QueryBlockConfig;
-            phase: "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
+            phase: "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
         }
     ): Promise<Block> {
         // Verify ownership
         await this.workflowSvc.verifyAccess(workflowId, userId);
 
-        // Determine target section
-        let targetSectionId = data.sectionId;
+        // Determine target page
+        let targetPageId = data.pageId;
 
-        if (!targetSectionId) {
-            // For workflow-scoped blocks, attach valid step to first section
-            const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-            if (sections.length === 0) {
-                throw new Error("Cannot create query block: workflow has no sections.");
+        if (!targetPageId) {
+            // For workflow-scoped blocks, attach valid step to first page
+            const pages = await this.pageRepo.findByWorkflowId(workflowId);
+            if (pages.length === 0) {
+                throw new Error("Cannot create query block: workflow has no pages.");
             }
-            targetSectionId = sections[0].id;
+            targetPageId = pages[0].id;
         }
 
         // Create virtual step for persistence
         const virtualStep = await this.stepRepo.create({
             workflowId,
-            sectionId: targetSectionId,
+            pageId: targetPageId,
             type: 'computed',
             title: `Query: ${data.name}`,
             description: `Virtual step for query block: ${data.name}`,
@@ -82,7 +82,7 @@ export class QueryBlockService {
             workflowId,
             type: 'query',
             phase: data.phase,
-            sectionId: data.sectionId ?? null,
+            pageId: data.pageId ?? null,
             config: data.config,
             order: 0, // Should be calculated or app logic handles reordering
             virtualStepId: virtualStep.id,

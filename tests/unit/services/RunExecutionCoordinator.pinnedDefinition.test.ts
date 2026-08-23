@@ -1,7 +1,7 @@
 /**
  * RVP-3 — RunExecutionCoordinator decides from the run's pinned definition.
  *
- * The point of the ticket (AC2): once section steps come from the run's pinned
+ * The point of the ticket (AC2): once page steps come from the run's pinned
  * version rather than the live `steps` table, a question the author deleted
  * from the live workflow *after* the respondent started is still part of that
  * respondent's interview — so their answer must be accepted and saved, not
@@ -37,11 +37,11 @@ vi.mock('../../../server/services/BlockRunner', () => ({
     blockRunner: { runPhase: vi.fn() }
 }));
 vi.mock('../../../server/repositories', () => ({
-    stepRepository: { findBySectionId: vi.fn(), findBySectionIds: vi.fn(), findById: vi.fn() },
+    stepRepository: { findByPageId: vi.fn(), findByPageIds: vi.fn(), findById: vi.fn() },
     stepValueRepository: { upsert: vi.fn(), findByRunId: vi.fn() },
     workflowRunRepository: { findById: vi.fn() },
     workflowVersionRepository: { findById: vi.fn() },
-    sectionRepository: { findById: vi.fn(), findByWorkflowId: vi.fn() },
+    pageRepository: { findById: vi.fn(), findByWorkflowId: vi.fn() },
     workflowRepository: {},
     logicRuleRepository: { findByWorkflowId: vi.fn() }
 }));
@@ -49,11 +49,11 @@ vi.mock('../../../server/repositories', () => ({
 const VERSION_ID = '33333333-3333-4333-8333-333333333333';
 const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
-/** A pinned definition holding one section with two questions. */
+/** A pinned definition holding one page with two questions. */
 function pinnedDefinition(): RunDefinition {
-    const step = (id: string, sectionId: string, title: string) => ({
+    const step = (id: string, pageId: string, title: string) => ({
         id,
-        sectionId,
+        pageId,
         workflowId: 'wf-1',
         type: 'short_text',
         title,
@@ -68,16 +68,16 @@ function pinnedDefinition(): RunDefinition {
     });
 
     return {
-        sections: [
-            { id: 'section-1', workflowId: 'wf-1', title: 'Page 1', description: null, order: 0, createdAt: new Date() },
-            { id: 'section-2', workflowId: 'wf-1', title: 'Page 2', description: null, order: 1, createdAt: new Date() },
+        pages: [
+            { id: 'page-1', workflowId: 'wf-1', title: 'Page 1', description: null, order: 0, createdAt: new Date() },
+            { id: 'page-2', workflowId: 'wf-1', title: 'Page 2', description: null, order: 1, createdAt: new Date() },
         ],
         // 'since-deleted' exists in the pinned graph but no longer in the live
         // workflow — the respondent was shown it, so it must still be accepted.
         steps: [
-            step('current-step', 'section-1', 'Current Step'),
-            step('since-deleted', 'section-1', 'Deleted Since Publish'),
-            step('other-section-step', 'section-2', 'Other Page Step'),
+            step('current-step', 'page-1', 'Current Step'),
+            step('since-deleted', 'page-1', 'Deleted Since Publish'),
+            step('other-page-step', 'page-2', 'Other Page Step'),
         ],
         logicRules: [],
         source: 'version',
@@ -117,7 +117,7 @@ describe('RunExecutionCoordinator submits against the pinned definition (RVP-3)'
     });
 
     it('accepts an answer to a question deleted from the live workflow after the run started (AC2)', async () => {
-        const result = await coordinator.submitSection(context, 'section-1', [
+        const result = await coordinator.submitPage(context, 'page-1', [
             { stepId: 'current-step', value: 'ok' },
             { stepId: 'since-deleted', value: 'still mine' },
         ]);
@@ -126,7 +126,7 @@ describe('RunExecutionCoordinator submits against the pinned definition (RVP-3)'
     });
 
     it('persists that answer instead of dropping it (AC2)', async () => {
-        await coordinator.submitSection(context, 'section-1', [
+        await coordinator.submitPage(context, 'page-1', [
             { stepId: 'current-step', value: 'ok' },
             { stepId: 'since-deleted', value: 'still mine' },
         ]);
@@ -144,7 +144,7 @@ describe('RunExecutionCoordinator submits against the pinned definition (RVP-3)'
     it('logs no dropped-value warning for a pinned run (AC2)', async () => {
         const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined as never);
         try {
-            await coordinator.submitSection(context, 'section-1', [
+            await coordinator.submitPage(context, 'page-1', [
                 { stepId: 'current-step', value: 'ok' },
                 { stepId: 'since-deleted', value: 'still mine' },
             ]);
@@ -158,24 +158,24 @@ describe('RunExecutionCoordinator submits against the pinned definition (RVP-3)'
         }
     });
 
-    it('still rejects a value belonging to another section of the same workflow (AC3)', async () => {
-        await expect(coordinator.submitSection(context, 'section-1', [
+    it('still rejects a value belonging to another page of the same workflow (AC3)', async () => {
+        await expect(coordinator.submitPage(context, 'page-1', [
             { stepId: 'current-step', value: 'ok' },
-            { stepId: 'other-section-step', value: 'not ok' },
+            { stepId: 'other-page-step', value: 'not ok' },
         ])).rejects.toMatchObject({
             statusCode: 400,
-            details: { stepIds: ['other-section-step'] },
+            details: { stepIds: ['other-page-step'] },
         });
 
         expect(mockRunPersistence.bulkSaveValues).not.toHaveBeenCalled();
     });
 
     it('resolves the definition through the provider rather than the live steps table (AC1)', async () => {
-        await coordinator.submitSection(context, 'section-1', [{ stepId: 'current-step', value: 'ok' }]);
+        await coordinator.submitPage(context, 'page-1', [{ stepId: 'current-step', value: 'ok' }]);
 
         expect(getDefinition).toHaveBeenCalledTimes(1);
         const { stepRepository } = await import('../../../server/repositories');
-        expect(stepRepository.findBySectionId).not.toHaveBeenCalled();
-        expect(stepRepository.findBySectionIds).not.toHaveBeenCalled();
+        expect(stepRepository.findByPageId).not.toHaveBeenCalled();
+        expect(stepRepository.findByPageIds).not.toHaveBeenCalled();
     });
 });

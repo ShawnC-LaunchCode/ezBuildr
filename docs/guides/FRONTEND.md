@@ -32,7 +32,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ### Store (Zustand)
 - `workflow-builder.ts`: UI state management
   - Easy/Advanced mode toggle
-  - Selection tracking (workflow/section/step/block)
+  - Selection tracking (workflow/page/step/block)
   - Preview state (runId, isOpen)
   - Inspector tab state
 
@@ -43,7 +43,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ### Components
 
 **Builder (`components/builder/`)**:
-- `SidebarTree`: Drag-drop section/step tree
+- `SidebarTree`: Drag-drop page/step tree
 - `CanvasEditor`: Property editor with conditional fields
 - `Inspector`: Tabbed panel (Properties/Blocks/Logic)
 - `BlocksPanel`: Block CRUD with JSON config editor
@@ -56,7 +56,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ## Features
 
 ### Builder
-- ✅ Create/edit/delete workflows, sections, steps
+- ✅ Create/edit/delete workflows, pages, steps
 - ✅ Easy/Advanced mode (shows/hides advanced fields)
 - ✅ Block management (prefill, validate, branch)
 - ✅ Live preview with temporary runs
@@ -76,7 +76,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 - ✅ Prefill: static/query mode
 - ✅ Validate: conditional rules with error messages
 - ✅ Branch: conditional navigation
-- ✅ Phase selection (onRunStart, onSectionSubmit, onNext, etc.)
+- ✅ Phase selection (onRunStart, onPageSubmit, onNext, etc.)
 - ✅ Enable/disable toggle
 - ✅ Order management
 
@@ -97,10 +97,10 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 
 ### Builder - Basics
 - [ ] Open builder for a workflow
-- [ ] Click "Add Section" in sidebar
-- [ ] Select section, see properties in canvas
-- [ ] Edit section title and description
-- [ ] Click "+" next to section to add step
+- [ ] Click "Add Page" in sidebar
+- [ ] Select page, see properties in canvas
+- [ ] Edit page title and description
+- [ ] Click "+" next to page to add step
 - [ ] Select step, see step editor in canvas
 
 ### Builder - Steps
@@ -108,7 +108,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 - [ ] For radio/multiple_choice: add/edit/remove options
 - [ ] Toggle "Required" switch
 - [ ] Switch to "Advanced" mode - see variable key field
-- [ ] Create multiple steps in different sections
+- [ ] Create multiple steps in different pages
 
 ### Builder - Blocks
 - [ ] Click "Blocks" tab in inspector
@@ -118,19 +118,19 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
   - Config: `{"mode": "static", "staticMap": {"test_key": "test_value"}}`
 - [ ] Create validate block:
   - Type: validate
-  - Phase: onSectionSubmit
+  - Phase: onPageSubmit
   - Config: `{"rules": [{"assert": {"key": "step_id", "op": "is_not_empty"}, "message": "Field required"}]}`
 - [ ] Create branch block:
   - Type: branch
   - Phase: onNext
-  - Config: `{"branches": [{"when": {"key": "step_id", "op": "equals", "value": "yes"}, "gotoSectionId": "section_id"}]}`
+  - Config: `{"branches": [{"when": {"key": "step_id", "op": "equals", "value": "yes"}, "gotoPageId": "page_id"}]}`
 - [ ] Edit block - change config
 - [ ] Delete block
 
 ### Builder - Preview
 - [ ] Toggle "Preview" in header
 - [ ] See runner preview pane open
-- [ ] Runner should show first section
+- [ ] Runner should show first page
 - [ ] Fill out a step
 - [ ] Click "Next" - should validate and navigate
 - [ ] Toggle preview off - inspector reappears
@@ -144,8 +144,8 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 - [ ] Test multiple choice checkboxes
 - [ ] Test yes/no radio
 - [ ] Click "Next" without required field - see validation error
-- [ ] Fill required field, click "Next" - navigate to next section
-- [ ] Complete final section - see "Complete" button
+- [ ] Fill required field, click "Next" - navigate to next page
+- [ ] Complete final page - see "Complete" button
 - [ ] Click complete - success toast
 
 ### Validation Flow
@@ -155,18 +155,18 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 - [ ] Fill field and click "Next" - should succeed
 
 ### Branching Flow
-- [ ] Create 2 sections: A and B
-- [ ] In section A, add a yes/no step
-- [ ] Create branch block on section A (onNext):
+- [ ] Create 2 pages: A and B
+- [ ] In page A, add a yes/no step
+- [ ] Create branch block on page A (onNext):
   ```json
   {
     "branches": [
-      {"when": {"key": "yes_no_step_id", "op": "equals", "value": true}, "gotoSectionId": "section_b_id"}
+      {"when": {"key": "yes_no_step_id", "op": "equals", "value": true}, "gotoPageId": "page_b_id"}
     ],
-    "fallbackSectionId": "section_a_id"
+    "fallbackPageId": "page_a_id"
   }
   ```
-- [ ] Run workflow, answer "Yes" - should jump to section B
+- [ ] Run workflow, answer "Yes" - should jump to page B
 - [ ] Restart, answer "No" - should use fallback
 
 ### Easy/Advanced Mode
@@ -176,10 +176,10 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 - [ ] Should see variable key field and additional options
 
 ### Edge Cases
-- [ ] Try to delete section with steps - should work (cascade)
-- [ ] Create workflow with no sections - runner should handle gracefully
-- [ ] Create section with no steps - should show "No steps" message
-- [ ] Try to navigate past last section - should show "Complete" button
+- [ ] Try to delete page with steps - should work (cascade)
+- [ ] Create workflow with no pages - runner should handle gracefully
+- [ ] Create page with no steps - should show "No steps" message
+- [ ] Try to navigate past last page - should show "Complete" button
 - [ ] Refresh page during editing - changes should persist (auto-save)
 
 ## Known Limitations
@@ -187,7 +187,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 1. **Drag-drop reordering**: Basic UI in place, needs full dnd-kit integration
 2. **Logic rule editor**: Placeholder tab, needs implementation
 3. **File upload**: UI ready, needs backend storage integration
-4. **Section visibility logic**: Not yet implemented
+4. **Page visibility logic**: Not yet implemented
 5. **Block config validation**: Currently accepts any JSON, needs Zod schemas
 6. **Real-time collaboration**: Not implemented
 7. **Undo/redo**: Not implemented
@@ -227,7 +227,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 
 **Problem**: Preview not loading
 - Ensure run was created successfully
-- Check that workflow has sections and steps
+- Check that workflow has pages and steps
 - Verify `VITE_API_BASE_URL` is correct
 
 **Problem**: Styles not loading

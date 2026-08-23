@@ -5,7 +5,7 @@ import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { remapJsonIds } from "../utils/remapJsonIds";
-import { stepRepository, sectionRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
+import { stepRepository, pageRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
 import { withCurrentTenant } from "../utils/rlsContext";
 
 import { aliasRenameService } from "./AliasRenameService";
@@ -15,11 +15,11 @@ import { workflowService } from "./WorkflowService";
 
 
 
-const SECTION_NOT_FOUND = "Section not found";
+const PAGE_NOT_FOUND = "Page not found";
 const STEP_NOT_FOUND = "Step not found";
 
 
-type CreateStepData = Omit<InsertStep, 'sectionId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
+type CreateStepData = Omit<InsertStep, 'pageId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
 export { generateAliasFromLabel, generateUniqueAliasFromTaken };
 
 /**
@@ -69,18 +69,18 @@ function diffChoiceOptionAliases(oldConfig: unknown, newConfig: unknown): Map<st
 
 export class StepService {
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
   private stepValueRepo: typeof stepValueRepository;
 
   constructor(
     stepRepo?: typeof stepRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     workflowSvc?: typeof workflowService,
     stepValueRepo?: typeof stepValueRepository
   ) {
     this.stepRepo = stepRepo ?? stepRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
     this.stepValueRepo = stepValueRepo ?? stepValueRepository;
   }
@@ -90,7 +90,7 @@ export class StepService {
    * boundary (RLS-5). Reuses a caller-supplied `tx` if given (never nests);
    * otherwise opens exactly one via `withCurrentTenant`.
    *
-   * Same reason `SectionService` needed this: `steps` is RLS-covered through
+   * Same reason `PageService` needed this: `steps` is RLS-covered through
    * the OWNERSHIP-derived policy on its parent workflow, so this service
    * never mentions `tenantId` and the RLS-2 rollout's "services referencing
    * tenantId" scoping missed it entirely. Ambient-only variant (§2c).
@@ -107,8 +107,8 @@ export class StepService {
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
   private async getWorkflowAliases(workflowId: string, tx?: DbTransaction): Promise<Set<string>> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
-    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id), tx, true);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+    const allSteps = await this.stepRepo.findByPageIds(pages.map((s) => s.id), tx, true);
     return new Set(
       allSteps
         .map((s) => s.alias?.toLowerCase())
@@ -166,12 +166,12 @@ export class StepService {
       return;
     }
 
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
-    const sectionIds = sections.map(s => s.id);
+    // Get all pages for the workflow
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+    const pageIds = pages.map(s => s.id);
 
-    // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds, tx, true);
+    // Get all steps for these pages
+    const allSteps = await this.stepRepo.findByPageIds(pageIds, tx, true);
 
     // Check if alias is already used by another step
     const conflictingStep = allSteps.find(
@@ -195,7 +195,7 @@ export class StepService {
    */
   async createStep(
     workflowId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
     data: CreateStepData,
     tx?: DbTransaction
@@ -203,10 +203,10 @@ export class StepService {
     return this.withTx(tx, async (scopedTx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-      // Verify section belongs to workflow
-      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       const currentCount = await this.stepRepo.countByWorkflowId(workflowId, scopedTx);
@@ -243,7 +243,7 @@ export class StepService {
       }
 
       // Get current steps to determine next order
-      const existingSteps = await this.stepRepo.findBySectionId(sectionId, scopedTx);
+      const existingSteps = await this.stepRepo.findByPageId(pageId, scopedTx);
       const nextOrder = existingSteps.length > 0
         ? Math.max(...existingSteps.map((s) => s.order)) + 1
         : 1;
@@ -258,7 +258,7 @@ export class StepService {
         config: finalConfig,
         alias,
         workflowId,
-        sectionId,
+        pageId,
         order: data.order ?? nextOrder,
         // Server-controlled: never let a client-supplied value mark a
         // freshly created step as already soft-deleted (ICW2-B1).
@@ -268,8 +268,8 @@ export class StepService {
   }
 
   /**
-   * Duplicate a single step into the same section, immediately after the
-   * source (later siblings in the section shift by one to make room;
+   * Duplicate a single step into the same page, immediately after the
+   * source (later siblings in the page shift by one to make room;
    * ICW2-B5). Mints a fresh unique alias (`<alias>_copy`, `_copy2`, ...)
    * rather than copying verbatim — unlike the whole-workflow cloner, this
    * targets the *same* workflow, so a verbatim alias would collide with the
@@ -282,35 +282,35 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      const section = await this.sectionRepo.findById(step.sectionId, tx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      const page = await this.pageRepo.findById(step.pageId, tx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
-      await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit', tx);
+      await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
 
-      const currentCount = await this.stepRepo.countByWorkflowId(section.workflowId, tx);
+      const currentCount = await this.stepRepo.countByWorkflowId(page.workflowId, tx);
       if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
         throw new LimitExceededError(
           `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
         );
       }
 
-      const taken = await this.getWorkflowAliases(section.workflowId, tx);
+      const taken = await this.getWorkflowAliases(page.workflowId, tx);
       const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
 
       // Shift every later sibling (including virtual/computed steps, so their
       // order never collides with the inserted copy) down by one.
-      const siblings = await this.stepRepo.findBySectionId(step.sectionId, tx, true);
+      const siblings = await this.stepRepo.findByPageId(step.pageId, tx, true);
       const toShift = siblings.filter((s) => s.order > step.order);
       for (const sibling of toShift) {
-        await this.stepRepo.updateOrder(sibling.id, step.sectionId, sibling.order + 1, tx);
+        await this.stepRepo.updateOrder(sibling.id, step.pageId, sibling.order + 1, tx);
       }
 
       return this.stepRepo.create(
         {
-          workflowId: section.workflowId,
-          sectionId: step.sectionId,
+          workflowId: page.workflowId,
+          pageId: step.pageId,
           type: step.type,
           title: step.title,
           description: step.description,
@@ -328,10 +328,10 @@ export class StepService {
   }
 
   /**
-   * Resolve append order for cross-section move
+   * Resolve append order for cross-page move
    */
-  private async resolveCrossSectionOrder(sectionId: string, tx?: DbTransaction): Promise<number> {
-    const destSteps = await this.stepRepo.findBySectionId(sectionId, tx);
+  private async resolveCrossPageOrder(pageId: string, tx?: DbTransaction): Promise<number> {
+    const destSteps = await this.stepRepo.findByPageId(pageId, tx);
     return destSteps.length > 0 ? Math.max(...destSteps.map((s) => s.order)) + 1 : 1;
   }
 
@@ -383,22 +383,22 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Verify step's section belongs to workflow
-      const section = await this.sectionRepo.findById(step.sectionId, tx);
-      if (!section || section.workflowId !== workflowId) {
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, tx);
+      if (!page || page.workflowId !== workflowId) {
         throw new Error("Step not found in this workflow");
       }
 
-      // If sectionId is being changed, validate new section belongs to same workflow
-      if (data.sectionId && data.sectionId !== step.sectionId) {
-        const newSection = await this.sectionRepo.findById(data.sectionId, tx);
-        if (!newSection || newSection.workflowId !== workflowId) {
-          throw new Error("Cannot move step to a section in a different workflow");
+      // If pageId is being changed, validate new page belongs to same workflow
+      if (data.pageId && data.pageId !== step.pageId) {
+        const newPage = await this.pageRepo.findById(data.pageId, tx);
+        if (!newPage || newPage.workflowId !== workflowId) {
+          throw new Error("Cannot move step to a page in a different workflow");
         }
 
-        // If moving across sections and no explicit order provided, append to end of new section
+        // If moving across pages and no explicit order provided, append to end of new page
         if (data.order === undefined) {
-          data.order = await this.resolveCrossSectionOrder(data.sectionId, tx);
+          data.order = await this.resolveCrossPageOrder(data.pageId, tx);
         }
       }
 
@@ -466,9 +466,9 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Verify step's section belongs to workflow
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section || section.workflowId !== workflowId) {
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page || page.workflowId !== workflowId) {
         throw new Error("Step not found in this workflow");
       }
 
@@ -513,9 +513,9 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Verify step's section belongs to workflow
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section || section.workflowId !== workflowId) {
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page || page.workflowId !== workflowId) {
         throw new Error("Step not found in this workflow");
       }
 
@@ -533,21 +533,21 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
-      return this.getStepDeleteImpact(stepId, section.workflowId, userId, scopedTx);
+      return this.getStepDeleteImpact(stepId, page.workflowId, userId, scopedTx);
     });
   }
 
   /**
-   * Reorder steps within a section
+   * Reorder steps within a page
    */
   async reorderSteps(
     workflowId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
     stepOrders: Array<{ id: string; order: number }>,
     callerTx?: DbTransaction
@@ -555,33 +555,33 @@ export class StepService {
     await this.withTx(callerTx, async (tx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
 
-      // Verify section belongs to workflow
-      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, tx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, tx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Update each step's order
       for (const { id, order } of stepOrders) {
-        await this.stepRepo.updateOrder(id, sectionId, order, tx);
+        await this.stepRepo.updateOrder(id, pageId, order, tx);
       }
     });
   }
 
   /**
-   * Get steps for a section
+   * Get steps for a page
    */
-  async getSteps(workflowId: string, sectionId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+  async getSteps(workflowId: string, pageId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
     return this.withTx(tx, async (scopedTx) => {
       await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
 
-      // Verify section belongs to workflow
-      const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
-      return this.stepRepo.findBySectionId(sectionId, scopedTx);
+      return this.stepRepo.findByPageId(pageId, scopedTx);
     });
   }
 
@@ -596,86 +596,86 @@ export class StepService {
   }
 
   // ===================================================================
-  // SIMPLIFIED METHODS (automatically look up workflowId from section/step)
+  // SIMPLIFIED METHODS (automatically look up workflowId from page/step)
   // ===================================================================
 
   /**
-   * Get steps for a section (workflow looked up automatically)
+   * Get steps for a page (workflow looked up automatically)
    */
-  async getStepsBySectionId(sectionId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+  async getStepsByPageId(pageId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
     return this.withTx(tx, async (scopedTx) => {
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Use the existing method with the workflowId
-      return this.getSteps(section.workflowId, sectionId, userId, scopedTx);
+      return this.getSteps(page.workflowId, pageId, userId, scopedTx);
     });
   }
 
   /**
-   * Get steps for a section without ownership check
+   * Get steps for a page without ownership check
    * Used for preview/run token authentication
-   * Validates that the section belongs to the expected workflow
+   * Validates that the page belongs to the expected workflow
    */
-  async getStepsBySectionIdNoAuth(sectionId: string, expectedWorkflowId: string, tx?: DbTransaction): Promise<Step[]> {
+  async getStepsByPageIdNoAuth(pageId: string, expectedWorkflowId: string, tx?: DbTransaction): Promise<Step[]> {
     return this.withTx(tx, async (scopedTx) => {
-      // Look up the section
-      const section = await this.sectionRepo.findById(sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
-      // Verify the section belongs to the expected workflow
-      if (section.workflowId !== expectedWorkflowId) {
-        throw new Error("Section does not belong to the specified workflow");
+      // Verify the page belongs to the expected workflow
+      if (page.workflowId !== expectedWorkflowId) {
+        throw new Error("Page does not belong to the specified workflow");
       }
 
-      return this.stepRepo.findBySectionId(sectionId, scopedTx);
+      return this.stepRepo.findByPageId(pageId, scopedTx);
     });
   }
 
   /**
    * Create a new step (workflow looked up automatically)
    */
-  async createStepBySectionId(
-    sectionId: string,
+  async createStepByPageId(
+    pageId: string,
     userId: string,
     data: CreateStepData,
     tx?: DbTransaction
   ): Promise<Step> {
     return this.withTx(tx, async (scopedTx) => {
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Use the existing method with the workflowId
-      return this.createStep(section.workflowId, sectionId, userId, data, scopedTx);
+      return this.createStep(page.workflowId, pageId, userId, data, scopedTx);
     });
   }
 
   /**
    * Reorder steps (workflow looked up automatically)
    */
-  async reorderStepsBySectionId(
-    sectionId: string,
+  async reorderStepsByPageId(
+    pageId: string,
     userId: string,
     stepOrders: Array<{ id: string; order: number }>,
     tx?: DbTransaction
   ): Promise<void> {
     await this.withTx(tx, async (scopedTx) => {
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Use the existing method with the workflowId
-      await this.reorderSteps(section.workflowId, sectionId, userId, stepOrders, scopedTx);
+      await this.reorderSteps(page.workflowId, pageId, userId, stepOrders, scopedTx);
     });
   }
 
@@ -689,20 +689,20 @@ export class StepService {
     tx?: DbTransaction
   ): Promise<Step & { warnings?: string[] }> {
     return this.withTx(tx, async (scopedTx) => {
-      // Look up the step to get its section
+      // Look up the step to get its page
       const step = await this.stepRepo.findById(stepId, scopedTx);
       if (!step) {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Use the existing method with the workflowId
-      return this.updateStep(stepId, section.workflowId, userId, data, scopedTx);
+      return this.updateStep(stepId, page.workflowId, userId, data, scopedTx);
     });
   }
 
@@ -729,9 +729,9 @@ export class StepService {
       }
     }
 
-    // 2. Scan visibleIf across all steps and sections for warnings
+    // 2. Scan visibleIf across all steps and pages for warnings
     const steps = await this.stepRepo.findByWorkflowId(workflowId, tx);
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
 
     const checkVisibleIf = (visibleIf: unknown, sourceName: string): void => {
       if (!visibleIf) {return;}
@@ -746,8 +746,8 @@ export class StepService {
     for (const s of steps) {
       if (s.id !== stepId) {checkVisibleIf(s.visibleIf, `Step "${s.title}"`);}
     }
-    for (const s of sections) {
-      checkVisibleIf(s.visibleIf, `Section "${s.title}"`);
+    for (const s of pages) {
+      checkVisibleIf(s.visibleIf, `Page "${s.title}"`);
     }
 
     return warnings;
@@ -758,20 +758,20 @@ export class StepService {
    */
   async deleteStepById(stepId: string, userId: string, tx?: DbTransaction): Promise<void> {
     await this.withTx(tx, async (scopedTx) => {
-      // Look up the step to get its section
+      // Look up the step to get its page
       const step = await this.stepRepo.findById(stepId, scopedTx);
       if (!step) {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Use the existing method with the workflowId
-      await this.deleteStep(stepId, section.workflowId, userId, scopedTx);
+      await this.deleteStep(stepId, page.workflowId, userId, scopedTx);
     });
   }
 
@@ -786,14 +786,14 @@ export class StepService {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Look up the section to get its workflowId
-      const section = await this.sectionRepo.findById(step.sectionId, scopedTx);
-      if (!section) {
-        throw new Error(SECTION_NOT_FOUND);
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
       }
 
       // Verify ownership
-      await this.workflowSvc.verifyAccess(section.workflowId, userId, 'view', scopedTx);
+      await this.workflowSvc.verifyAccess(page.workflowId, userId, 'view', scopedTx);
 
       return step;
     });

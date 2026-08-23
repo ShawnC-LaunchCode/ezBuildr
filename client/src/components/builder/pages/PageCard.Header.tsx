@@ -25,16 +25,16 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { ApiSection } from "@/lib/vault-api";
+import { ApiPage } from "@/lib/vault-api";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
 interface PageCardHeaderProps {
-    page: ApiSection;
+    page: ApiPage;
     mode: string;
     index: number | undefined;
     total: number | undefined;
-    isFinalDocumentsSection: boolean;
+    isFinalDocumentsPage: boolean;
     isCollapsed: boolean;
     attributes: DraggableAttributes;
     listeners: SyntheticListenerMap | undefined;
@@ -45,7 +45,7 @@ interface PageCardHeaderProps {
     onDescriptionChange: (val: string) => void;
     flushDescription?: () => void;
     localDescription?: string;
-    onSelectSection: () => void;
+    onSelectPage: () => void;
     onOpenLogicSheet: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
@@ -56,7 +56,7 @@ export function PageCardHeader({
     mode,
     index,
     total,
-    isFinalDocumentsSection,
+    isFinalDocumentsPage,
     isCollapsed,
     attributes,
     listeners,
@@ -67,7 +67,7 @@ export function PageCardHeader({
     onDescriptionChange,
     flushDescription,
     localDescription,
-    onSelectSection,
+    onSelectPage,
     onOpenLogicSheet,
     onDuplicate,
     onDelete,
@@ -103,7 +103,7 @@ export function PageCardHeader({
                     {mode === "easy" &&
                         typeof index === "number" &&
                         typeof total === "number" &&
-                        !isFinalDocumentsSection && (
+                        !isFinalDocumentsPage && (
                             <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest pl-1 select-none">
                                 Page {index + 1} of {total}
                             </div>
@@ -124,7 +124,7 @@ export function PageCardHeader({
                             className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
                             placeholder="Page title"
                         />
-                        {isFinalDocumentsSection && (
+                        {isFinalDocumentsPage && (
                             <Badge variant="secondary" className="text-xs px-2 py-1">
                                 <FileText className="h-3 w-3 mr-1" />
                                 Final Documents Block
@@ -167,7 +167,7 @@ export function PageCardHeader({
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem
                                 onClick={() => {
-                                    onSelectSection();
+                                    onSelectPage();
                                 }}
                             >
                                 <Settings className="h-4 w-4 mr-2" />

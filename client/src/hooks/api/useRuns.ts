@@ -63,22 +63,22 @@ export function useUpsertValue(): UseMutationResult<unknown, unknown, { runId: s
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useSubmitSection(): UseMutationResult<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }, unknown, { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }> {
+export function useSubmitPage(): UseMutationResult<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }, unknown, { runId: string; pageId: string; values: Array<{ stepId: string; value: any }> }> {
     return useMutation({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mutationFn: ({ runId, sectionId, values }: { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }) =>
-            runAPI.submitSection(runId, sectionId, values),
+        mutationFn: ({ runId, pageId, values }: { runId: string; pageId: string; values: Array<{ stepId: string; value: any }> }) =>
+            runAPI.submitPage(runId, pageId, values),
         // Don't invalidate queries here - causes race condition with navigation state updates
         // Values are already saved to backend; local formValues state is the source of truth for UI
     });
 }
 
-export function useNext(): UseMutationResult<{ nextSectionId?: string }, unknown, { runId: string; currentSectionId: string }> {
+export function useNext(): UseMutationResult<{ nextPageId?: string }, unknown, { runId: string; currentPageId: string }> {
     return useMutation({
-        mutationFn: ({ runId, currentSectionId }: { runId: string; currentSectionId: string }) =>
-            runAPI.next(runId, currentSectionId),
+        mutationFn: ({ runId, currentPageId }: { runId: string; currentPageId: string }) =>
+            runAPI.next(runId, currentPageId),
         // Don't invalidate queries here - navigation state is managed locally in WorkflowRunner
-        // Refetching causes race conditions that interfere with setCurrentSectionIndex updates
+        // Refetching causes race conditions that interfere with setCurrentPageIndex updates
     });
 }
 

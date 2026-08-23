@@ -2,7 +2,7 @@ import {
   workflowRunRepository,
   stepValueRepository,
   workflowRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
 } from "../repositories";
 
@@ -15,7 +15,7 @@ export class WorkflowExportService {
   private runRepo: typeof workflowRunRepository;
   private valueRepo: typeof stepValueRepository;
   private workflowRepo: typeof workflowRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private stepRepo: typeof stepRepository;
   private workflowSvc: typeof workflowService;
 
@@ -24,14 +24,14 @@ export class WorkflowExportService {
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     stepRepo?: typeof stepRepository,
     workflowSvc?: typeof workflowService
   ) {
     this.runRepo = runRepo ?? workflowRunRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.stepRepo = stepRepo ?? stepRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
   }
@@ -45,9 +45,9 @@ export class WorkflowExportService {
 
     const runs = await this.runRepo.findByWorkflowId(workflowId);
     const _workflow = await this.workflowRepo.findById(workflowId);
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId);
+    const pageIds = pages.map((s) => s.id);
+    const steps = await this.stepRepo.findByPageIds(pageIds);
 
     // Build step map for reference
     const stepMap = new Map(steps.map((step) => [step.id, step]));
@@ -91,9 +91,9 @@ export class WorkflowExportService {
 
     const runs = await this.runRepo.findByWorkflowId(workflowId);
     const _workflow = await this.workflowRepo.findById(workflowId);
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId);
+    const pageIds = pages.map((s) => s.id);
+    const steps = await this.stepRepo.findByPageIds(pageIds);
 
     // Build step map
     const stepMap = new Map(steps.map((step) => [step.id, step]));

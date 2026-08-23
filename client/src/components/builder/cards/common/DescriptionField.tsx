@@ -11,21 +11,21 @@ import { EditorField } from "./EditorField";
 
 interface DescriptionFieldProps {
     stepId: string;
-    sectionId: string;
+    pageId: string;
     description?: string | null;
     isDisplayStep?: boolean;
 }
 
 export function DescriptionField({
     stepId,
-    sectionId,
+    pageId,
     description,
     isDisplayStep = false
 }: DescriptionFieldProps) {
     const updateStepMutation = useUpdateStep();
 
     const handleDescriptionChange = (value: string) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, description: value });
+        updateStepMutation.mutate({ id: stepId, pageId, description: value });
     };
 
     const { localValue, onChange, onBlur } = useDebouncedFieldMutation(

@@ -703,7 +703,7 @@ export function registerAdminRoutes(app: Express): void {
       const runs = await adminAccessService.listRunsForWorkflow(req.adminUser.id, req.params.workflowId, req.id);
       const runCount = runs.length;
 
-      // Delete the workflow (cascade deletes sections, steps, runs, etc.).
+      // Delete the workflow (cascade deletes pages, steps, runs, etc.).
       // RLS-7: the BYPASSRLS pool stays read-only — this resolves the target's
       // tenant through it and then writes on the NORMAL pool pinned to that
       // tenant, so the delete is checked by the same policy as every other

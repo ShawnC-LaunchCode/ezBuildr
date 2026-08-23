@@ -70,7 +70,7 @@ describe('Document Delivery Adapters', () => {
     runToken: 'token-123',
     tokenExpiresAt: null,
     createdBy: 'user-001',
-    currentSectionId: null,
+    currentPageId: null,
     progress: 100,
     completed: true,
     completedAt: new Date(),

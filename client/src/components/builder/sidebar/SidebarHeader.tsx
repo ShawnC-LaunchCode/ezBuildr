@@ -59,7 +59,7 @@ export function SidebarHeader({
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={onAddFinalDocs}>
                         <FileCheck className="w-4 h-4 mr-2" />
-                        Final Documents Section
+                        Final Documents Page
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

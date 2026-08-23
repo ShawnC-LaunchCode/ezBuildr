@@ -270,15 +270,15 @@ test.describe("Anonymous Workflow Runs", () => {
     expect(response).toBeTruthy();
   });
 
-  test("should allow section navigation with run token", async ({ page }) => {
+  test("should allow page navigation with run token", async ({ page }) => {
     await clearAuthToken(page);
 
     const mockRunId = "run-123";
     const mockRunToken = "run-token-12345";
-    const mockSectionId = "section-1";
+    const mockPageId = "page-1";
 
     const response = await page.request.post(
-      `/api/runs/${mockRunId}/sections/${mockSectionId}/submit`,
+      `/api/runs/${mockRunId}/pages/${mockPageId}/submit`,
       {
         headers: {
           Authorization: `Bearer ${mockRunToken}`,

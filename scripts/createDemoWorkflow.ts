@@ -68,13 +68,13 @@ async function createDemoWorkflow() {
     console.log(`✅ Workflow created: ${workflowId}`);
     console.log(`   Public link: http://localhost:5000/run/${publicLink}\n`);
 
-    // 3. Create sections
-    console.log("📄 Creating sections...");
+    // 3. Create pages
+    console.log("📄 Creating pages...");
 
-    const section1Id = randomUUID();
-    const section2Id = randomUUID();
-    const section3Id = randomUUID();
-    const section4Id = randomUUID();
+    const page1Id = randomUUID();
+    const page2Id = randomUUID();
+    const page3Id = randomUUID();
+    const page4Id = randomUUID();
 
     await client.query(`
       INSERT INTO sections (id, workflow_id, title, description, "order", created_at, updated_at)
@@ -83,13 +83,13 @@ async function createDemoWorkflow() {
         ($3, $2, 'Event Preferences', 'Choose your event options', 1, NOW(), NOW()),
         ($4, $2, 'Additional Services', 'Optional add-ons', 2, NOW(), NOW()),
         ($5, $2, 'Review & Submit', 'Final details', 3, NOW(), NOW())
-    `, [section1Id, workflowId, section2Id, section3Id, section4Id]);
-    console.log(`✅ Created 4 sections\n`);
+    `, [page1Id, workflowId, page2Id, page3Id, page4Id]);
+    console.log(`✅ Created 4 pages\n`);
 
     // 4. Create steps
     console.log("📝 Creating steps...");
 
-    // Section 1: Personal Information
+    // Page 1: Personal Information
     const step1_1 = randomUUID();
     const step1_2 = randomUUID();
     const step1_3 = randomUUID();
@@ -106,9 +106,9 @@ async function createDemoWorkflow() {
         ($5, $2, 'radio', 'Attendance Type', 'How will you attend?', true, 3, 'attendanceType', '{"options": [{"label": "In-Person", "value": "in_person"}, {"label": "Virtual", "value": "virtual"}]}', NOW(), NOW()),
         ($6, $2, 'radio', 'Dietary Restrictions', 'Do you have any dietary requirements?', true, 4, 'hasDietary', '{"options": [{"label": "Yes", "value": "yes"}, {"label": "No", "value": "no"}]}', NOW(), NOW()),
         ($7, $2, 'long_text', 'Dietary Details', 'Please specify your dietary restrictions', true, 5, 'dietaryDetails', '{}', NOW(), NOW())
-    `, [step1_1, section1Id, step1_2, step1_3, step1_4, step1_5, step1_6]);
+    `, [step1_1, page1Id, step1_2, step1_3, step1_4, step1_5, step1_6]);
 
-    // Section 2: Event Preferences
+    // Page 2: Event Preferences
     const step2_1 = randomUUID();
     const step2_2 = randomUUID();
     const step2_3 = randomUUID();
@@ -121,9 +121,9 @@ async function createDemoWorkflow() {
         ($3, $2, 'checkbox', 'Workshop Sessions', 'Select workshops you''d like to attend (max 3)', false, 1, 'workshops', '{"options": [{"label": "AI & Machine Learning", "value": "ai_ml"}, {"label": "Cloud Architecture", "value": "cloud"}, {"label": "DevOps Best Practices", "value": "devops"}, {"label": "Security Fundamentals", "value": "security"}]}', NOW(), NOW()),
         ($4, $2, 'radio', 'T-Shirt Size', 'For in-person attendees only', false, 2, 'tshirtSize', '{"options": [{"label": "Small", "value": "S"}, {"label": "Medium", "value": "M"}, {"label": "Large", "value": "L"}, {"label": "X-Large", "value": "XL"}]}', NOW(), NOW()),
         ($5, $2, 'date_time', 'Preferred Check-in Time', 'When would you like to check in?', false, 3, 'checkinTime', '{"dateType": "datetime"}', NOW(), NOW())
-    `, [step2_1, section2Id, step2_2, step2_3, step2_4]);
+    `, [step2_1, page2Id, step2_2, step2_3, step2_4]);
 
-    // Section 3: Additional Services
+    // Page 3: Additional Services
     const step3_1 = randomUUID();
     const step3_2 = randomUUID();
     const step3_3 = randomUUID();
@@ -134,9 +134,9 @@ async function createDemoWorkflow() {
         ($1, $2, 'yes_no', 'Airport Shuttle', 'Do you need airport pickup? ($50)', false, 0, 'needsShuttle', '{}', NOW(), NOW()),
         ($3, $2, 'yes_no', 'Hotel Accommodation', 'Reserve a hotel room? ($200/night)', false, 1, 'needsHotel', '{}', NOW(), NOW()),
         ($4, $2, 'short_text', 'Number of Nights', 'How many nights? (1-3)', false, 2, 'hotelNights', '{"validation": "number"}', NOW(), NOW())
-    `, [step3_1, section3Id, step3_2, step3_3]);
+    `, [step3_1, page3Id, step3_2, step3_3]);
 
-    // Section 4: Review
+    // Page 4: Review
     const step4_1 = randomUUID();
     const step4_2 = randomUUID();
 
@@ -145,7 +145,7 @@ async function createDemoWorkflow() {
       VALUES
         ($1, $2, 'file_upload', 'Profile Photo', 'Upload a photo for your badge (optional)', false, 0, 'profilePhoto', '{"maxFiles": 1, "allowedTypes": ["image/jpeg", "image/png"]}', NOW(), NOW()),
         ($3, $2, 'long_text', 'Special Requests', 'Any other requirements or questions?', false, 1, 'specialRequests', '{}', NOW(), NOW())
-    `, [step4_1, section4Id, step4_2]);
+    `, [step4_1, page4Id, step4_2]);
 
     console.log(`✅ Created 15 steps with aliases\n`);
 
@@ -249,7 +249,7 @@ async function createDemoWorkflow() {
     await client.query(`
       INSERT INTO steps (id, section_id, type, title, alias, required, "order", is_virtual, config, created_at, updated_at)
       VALUES ($1, $2, 'computed', 'Total Price', 'totalPrice', false, 999, true, '{}', NOW(), NOW())
-    `, [virtualStep1Id, section4Id]);
+    `, [virtualStep1Id, page4Id]);
 
     // Transform block to calculate total price
     await client.query(`
@@ -262,7 +262,7 @@ async function createDemoWorkflow() {
     `, [
       transform1Id,
       workflowId,
-      section4Id,
+      page4Id,
       "Calculate Total Price",
       "javascript",
       `// Calculate total registration cost
@@ -312,7 +312,7 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
     console.log("\n📊 Summary:");
     console.log(`   Project: Demo Project - Event Platform`);
     console.log(`   Workflow: Event Registration & Pricing Calculator`);
-    console.log(`   Sections: 4`);
+    console.log(`   Pages: 4`);
     console.log(`   Steps: 15 (+ 1 virtual step for calculations)`);
     console.log(`   Logic Rules: 4 conditional rules`);
     console.log(`   Transform Blocks: 1 pricing calculator`);
@@ -325,7 +325,7 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
     console.log("   ✓ Conditional logic (show/hide based on answers)");
     console.log("   ✓ Transform blocks (JavaScript calculations)");
     console.log("   ✓ Step aliases (variables)");
-    console.log("   ✓ Section-based navigation");
+    console.log("   ✓ Page-based navigation");
     console.log("   ✓ File uploads");
     console.log("   ✓ Public sharing");
     console.log("\n💡 Try these interactions:");

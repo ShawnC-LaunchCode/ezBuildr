@@ -11,7 +11,7 @@
  * created out of band by `db:push` before those migrations first ran for
  * real, so their `to_regclass` guards resolved NULL for a table that did not
  * exist *yet* and silently skipped it — 24 of 26 direct-tenant_id tables and
- * all 3 ownership-derived tables (workflows/sections/steps) ended up with no
+ * all 3 ownership-derived tables (workflows/pages/steps) ended up with no
  * RLS at all. `0024_repair_rls_coverage.sql` closes the gap on an
  * already-provisioned database.
  *
@@ -168,7 +168,7 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
     }
   });
 
-  // workflows/sections/steps carry no tenant_id column (tenancy is ownership-
+  // workflows/pages/steps carry no tenant_id column (tenancy is ownership-
   // derived), so they fall outside the tenant_id-column query above by
   // construction. They are covered by 0001 Part 3 / 0024 Part 2 all the same,
   // and by tests/integration/rls-phase4-workflows.test.ts for behaviour — this

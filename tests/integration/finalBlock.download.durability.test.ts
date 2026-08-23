@@ -99,8 +99,8 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
   it('serves the document over HTTP after the generation directories are deleted', async () => {
     const projectId = ctx.projectId!;
     const { workflow } = await factory.createWorkflow(projectId, ctx.userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
       type: 'short_text',
       title: 'Client name',
       alias: 'clientName',
@@ -116,7 +116,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
       fileRef,
     });
 
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       type: 'final',
       title: 'Final documents',
       order: 1,

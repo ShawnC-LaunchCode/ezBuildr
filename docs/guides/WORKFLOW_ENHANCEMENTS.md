@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the backend enhancements implemented for Vault-Logic's workflow builder, including section skip logic, workflow execution flow, run state tracking, and improved logic evaluation.
+This document describes the backend enhancements implemented for Vault-Logic's workflow builder, including page skip logic, workflow execution flow, run state tracking, and improved logic evaluation.
 
 ---
 
@@ -12,15 +12,15 @@ This document describes the backend enhancements implemented for Vault-Logic's w
 
 #### `workflow_runs` Table
 **New Fields:**
-- `currentSectionId` (uuid, nullable) - Tracks the current section in workflow execution
+- `currentPageId` (uuid, nullable) - Tracks the current page in workflow execution
 - `progress` (integer, default 0) - Progress percentage (0-100)
 
 **New Index:**
-- `workflow_runs_current_section_idx` on `currentSectionId`
+- `workflow_runs_current_section_idx` on `currentPageId`
 
 #### `conditional_action` Enum
 **New Value:**
-- `skip_to` - Allows logic rules to skip directly to another section
+- `skip_to` - Allows logic rules to skip directly to another page
 
 ### Migration Required
 
@@ -40,18 +40,18 @@ This will apply the schema changes to your database.
 Centralized service for workflow logic evaluation and navigation.
 
 **Key Methods:**
-- `evaluateNavigation(workflowId, runId, currentSectionId)` - Evaluates logic and determines next section
+- `evaluateNavigation(workflowId, runId, currentPageId)` - Evaluates logic and determines next page
 - `validateCompletion(workflowId, runId)` - Validates that all required steps are complete
-- `calculateProgress(currentSectionId, sections, visibleSections)` - Calculates progress percentage
+- `calculateProgress(currentPageId, pages, visiblePages)` - Calculates progress percentage
 
 **Returns:**
 ```typescript
 interface NavigationResult {
-  visibleSections: string[];       // Array of visible section IDs
+  visiblePages: string[];       // Array of visible page IDs
   visibleSteps: string[];          // Array of visible step IDs
   requiredSteps: string[];         // Array of required step IDs
-  skipToSectionId?: string;        // Section to skip to (if any)
-  nextSectionId: string | null;    // Next section ID or null if complete
+  skipToPageId?: string;        // Page to skip to (if any)
+  nextPageId: string | null;    // Next page ID or null if complete
   currentProgress: number;         // Progress 0-100
 }
 ```
@@ -61,17 +61,17 @@ interface NavigationResult {
 ## 3. Enhanced Files
 
 ### `/shared/schema.ts`
-- Added `currentSectionId` and `progress` fields to `workflowRuns` table
+- Added `currentPageId` and `progress` fields to `workflowRuns` table
 - Added `skip_to` action to `conditionalActionEnum`
 
 ### `/shared/workflowLogic.ts`
-- Added support for `skip_to` action in section-level rules
-- Added `calculateNextSection()` function for section navigation
-- Added `resolveNextSection()` function to handle skip logic
-- Enhanced `WorkflowEvaluationResult` interface with `nextSectionId` field
+- Added support for `skip_to` action in page-level rules
+- Added `calculateNextPage()` function for page navigation
+- Added `resolveNextPage()` function to handle skip logic
+- Enhanced `WorkflowEvaluationResult` interface with `nextPageId` field
 
 ### `/server/services/RunService.ts`
-- Added `next(runId, userId)` method - Calculates next section and updates run state
+- Added `next(runId, userId)` method - Calculates next page and updates run state
 - Updated `completeRun(runId, userId)` method - Now uses LogicService for validation
 - Added dependency injection for LogicService
 
@@ -84,7 +84,7 @@ interface NavigationResult {
 
 ### **POST /api/runs/:runId/next**
 
-Calculate and navigate to the next section in the workflow.
+Calculate and navigate to the next page in the workflow.
 
 **Authentication:** Required
 
@@ -96,10 +96,10 @@ Calculate and navigate to the next section in the workflow.
 {
   "success": true,
   "data": {
-    "visibleSections": [
-      "section-id-1",
-      "section-id-2",
-      "section-id-4"
+    "visiblePages": [
+      "page-id-1",
+      "page-id-2",
+      "page-id-4"
     ],
     "visibleSteps": [
       "step-id-1",
@@ -110,8 +110,8 @@ Calculate and navigate to the next section in the workflow.
       "step-id-1",
       "step-id-3"
     ],
-    "skipToSectionId": null,
-    "nextSectionId": "section-id-2",
+    "skipToPageId": null,
+    "nextPageId": "page-id-2",
     "currentProgress": 33
   }
 }
@@ -122,10 +122,10 @@ Calculate and navigate to the next section in the workflow.
 {
   "success": true,
   "data": {
-    "visibleSections": [
-      "section-id-1",
-      "section-id-3",
-      "section-id-4"
+    "visiblePages": [
+      "page-id-1",
+      "page-id-3",
+      "page-id-4"
     ],
     "visibleSteps": [
       "step-id-1",
@@ -135,8 +135,8 @@ Calculate and navigate to the next section in the workflow.
     "requiredSteps": [
       "step-id-5"
     ],
-    "skipToSectionId": "section-id-4",
-    "nextSectionId": "section-id-4",
+    "skipToPageId": "page-id-4",
+    "nextPageId": "page-id-4",
     "currentProgress": 66
   }
 }
@@ -147,10 +147,10 @@ Calculate and navigate to the next section in the workflow.
 {
   "success": true,
   "data": {
-    "visibleSections": [
-      "section-id-1",
-      "section-id-2",
-      "section-id-3"
+    "visiblePages": [
+      "page-id-1",
+      "page-id-2",
+      "page-id-3"
     ],
     "visibleSteps": [
       "step-id-1",
@@ -161,8 +161,8 @@ Calculate and navigate to the next section in the workflow.
       "step-id-1",
       "step-id-2"
     ],
-    "skipToSectionId": null,
-    "nextSectionId": null,
+    "skipToPageId": null,
+    "nextPageId": null,
     "currentProgress": 100
   }
 }
@@ -209,7 +209,7 @@ Mark a workflow run as complete (with validation).
   "id": "run-id-123",
   "workflowId": "workflow-id-456",
   "participantId": "participant-id-789",
-  "currentSectionId": "section-id-3",
+  "currentPageId": "page-id-3",
   "progress": 100,
   "completed": true,
   "completedAt": "2025-11-05T16:45:30.123Z",
@@ -237,9 +237,9 @@ Mark a workflow run as complete (with validation).
 
 ## 5. Logic Rule Examples
 
-### Skip to Section Rule
+### Skip to Page Rule
 
-Create a logic rule that skips to a specific section based on a condition:
+Create a logic rule that skips to a specific page based on a condition:
 
 ```typescript
 {
@@ -247,8 +247,8 @@ Create a logic rule that skips to a specific section based on a condition:
   "conditionStepId": "step-user-type-id",
   "operator": "equals",
   "conditionValue": "premium",
-  "targetType": "section",
-  "targetSectionId": "section-premium-features-id",
+  "targetType": "page",
+  "targetPageId": "page-premium-features-id",
   "action": "skip_to",
   "logicalOperator": "AND",
   "order": 1
@@ -256,11 +256,11 @@ Create a logic rule that skips to a specific section based on a condition:
 ```
 
 **Behavior:**
-- When `step-user-type-id` equals "premium", workflow will skip directly to `section-premium-features-id`
-- Normal section progression is bypassed
-- If the skip target section is not visible, finds the next visible section
+- When `step-user-type-id` equals "premium", workflow will skip directly to `page-premium-features-id`
+- Normal page progression is bypassed
+- If the skip target page is not visible, finds the next visible page
 
-### Hide Section Rule
+### Hide Page Rule
 
 ```typescript
 {
@@ -268,8 +268,8 @@ Create a logic rule that skips to a specific section based on a condition:
   "conditionStepId": "step-has-business-id",
   "operator": "equals",
   "conditionValue": false,
-  "targetType": "section",
-  "targetSectionId": "section-business-info-id",
+  "targetType": "page",
+  "targetPageId": "page-business-info-id",
   "action": "hide",
   "logicalOperator": "AND",
   "order": 1
@@ -277,9 +277,9 @@ Create a logic rule that skips to a specific section based on a condition:
 ```
 
 **Behavior:**
-- When `step-has-business-id` is false, `section-business-info-id` is hidden
-- Hidden sections are skipped in navigation
-- All steps in hidden sections are also hidden
+- When `step-has-business-id` is false, `page-business-info-id` is hidden
+- Hidden pages are skipped in navigation
+- All steps in hidden pages are also hidden
 
 ---
 
@@ -296,13 +296,13 @@ const response = await fetch(`/api/workflows/${workflowId}/runs`, {
 });
 const run = await response.json();
 
-// 2. Get first section to display
+// 2. Get first page to display
 const navResponse = await fetch(`/api/runs/${run.id}/next`, {
   method: 'POST'
 });
 const navigation = await navResponse.json();
 
-// Display navigation.data.nextSectionId
+// Display navigation.data.nextPageId
 // Show only steps in navigation.data.visibleSteps
 // Mark steps in navigation.data.requiredSteps as required
 // Show progress: navigation.data.currentProgress
@@ -319,17 +319,17 @@ await fetch(`/api/runs/${run.id}/values/bulk`, {
   })
 });
 
-// 4. Get next section
+// 4. Get next page
 const nextNav = await fetch(`/api/runs/${run.id}/next`, {
   method: 'POST'
 });
 const nextNavigation = await nextNav.json();
 
-if (nextNavigation.data.nextSectionId === null) {
+if (nextNavigation.data.nextPageId === null) {
   // Workflow complete - show completion page
   // Or allow user to review and submit
 } else {
-  // Navigate to nextNavigation.data.nextSectionId
+  // Navigate to nextNavigation.data.nextPageId
 }
 
 // 5. When user clicks "Complete"
@@ -349,49 +349,49 @@ if (completeResponse.ok) {
 
 ## 7. Testing Checklist
 
-- [ ] Create workflow with multiple sections
+- [ ] Create workflow with multiple pages
 - [ ] Create logic rule with `skip_to` action
-- [ ] Start workflow run and verify first section loads
+- [ ] Start workflow run and verify first page loads
 - [ ] Fill in values and call `/next` endpoint
-- [ ] Verify `currentSectionId` and `progress` are updated in database
+- [ ] Verify `currentPageId` and `progress` are updated in database
 - [ ] Verify skip logic works when condition is met
 - [ ] Verify required step validation on completion
 - [ ] Verify error handling for missing required steps
 - [ ] Verify workflow can be completed successfully
-- [ ] Test nested skip logic (skip to section that has skip rules)
-- [ ] Test hidden sections are properly skipped
+- [ ] Test nested skip logic (skip to page that has skip rules)
+- [ ] Test hidden pages are properly skipped
 - [ ] Test progress calculation is accurate
 
 ---
 
 ## 8. Implementation Details
 
-### Section Visibility Logic
+### Page Visibility Logic
 
-By default, all sections are visible unless:
-1. A `hide` action rule is triggered for that section
-2. The section is not in the workflow's section list
+By default, all pages are visible unless:
+1. A `hide` action rule is triggered for that page
+2. The page is not in the workflow's page list
 
 ### Step Visibility Logic
 
 Steps are visible if:
-1. Their parent section is visible
+1. Their parent page is visible
 2. No `hide` action rule is triggered for the step
 3. Or a `show` action rule is explicitly triggered
 
 ### Navigation Priority
 
-1. **Skip Logic** - If `skipToSectionId` is set, it takes precedence
-2. **Next Sequential Section** - Normal progression through sections by order
-3. **Completion** - When no more visible sections exist, `nextSectionId` is null
+1. **Skip Logic** - If `skipToPageId` is set, it takes precedence
+2. **Next Sequential Page** - Normal progression through pages by order
+3. **Completion** - When no more visible pages exist, `nextPageId` is null
 
 ### Progress Calculation
 
 ```
-progress = (current_section_index + 1) / total_visible_sections * 100
+progress = (current_page_index + 1) / total_visible_pages * 100
 ```
 
-- Only counts visible sections
+- Only counts visible pages
 - Ranges from 0 to 100
 - Set to 100 on completion
 
@@ -400,7 +400,7 @@ progress = (current_section_index + 1) / total_visible_sections * 100
 ## 9. Database Migration Notes
 
 The schema changes are backward compatible:
-- `currentSectionId` is nullable (existing runs will have null)
+- `currentPageId` is nullable (existing runs will have null)
 - `progress` has a default value of 0
 - `skip_to` action is added to enum (no existing data to migrate)
 
@@ -423,14 +423,14 @@ Potential improvements for future iterations:
 
 1. **Rule Caching** - Cache logic evaluation results
 2. **Conditional Branching** - Support multiple skip targets based on different conditions
-3. **Section Loops** - Allow repeating sections
-4. **Dynamic Section Generation** - Create sections based on runtime data
-5. **Progress Checkpoints** - Save/restore run state at specific sections
+3. **Page Loops** - Allow repeating pages
+4. **Dynamic Page Generation** - Create pages based on runtime data
+5. **Progress Checkpoints** - Save/restore run state at specific pages
 6. **Rule Testing UI** - Visual rule debugging and testing tool
 
 ---
 
-✅ **Vault-Logic backend updated — section skip logic, run navigation, and runtime evaluation implemented successfully.**
+✅ **Vault-Logic backend updated — page skip logic, run navigation, and runtime evaluation implemented successfully.**
 
 ## Files Modified
 

@@ -4,7 +4,7 @@
   "settings": {
     "businessDayCalendar": "us-federal"
   },
-  "sections": [
+  "pages": [
     {
       "title": "Client & Firm",
       "steps": [

@@ -1,6 +1,6 @@
 /**
  * ICW-11 / ICW-12 integration coverage:
- *  - reorderSections / reorderSteps roll back completely when one update in
+ *  - reorderPages / reorderSteps roll back completely when one update in
  *    the batch fails (single-transaction reorders)
  *  - the ingest (deep-update) path rejects content exceeding the aggregate
  *    LIMITS caps before anything is written
@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@shared/schema";
 import { LIMITS } from "@shared/limits";
 
-import { sectionService } from "../../server/services/SectionService";
+import { pageService } from "../../server/services/PageService";
 import { stepService } from "../../server/services/StepService";
 import {
   workflowContentIngestService,
@@ -44,7 +44,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
   });
 
   /**
-   * RLS-5: every test in this file calls `sectionService` / `stepService` /
+   * RLS-5: every test in this file calls `pageService` / `stepService` /
    * `workflowContentIngestService` DIRECTLY — no HTTP, so no middleware opens
    * a tenant context and their `withCurrentTenant` has nothing to read. Each
    * test starts here, so entering the context in this helper covers all of
@@ -61,13 +61,13 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
     return workflow.id;
   }
 
-  it("rolls back the whole section reorder when one update fails (ICW-12)", async () => {
-    const workflowId = await createWorkflowId("Reorder rollback sections");
-    const s1 = await factory.createSection(workflowId, { title: "S1", order: 0 });
-    const s2 = await factory.createSection(workflowId, { title: "S2", order: 1 });
+  it("rolls back the whole page reorder when one update fails (ICW-12)", async () => {
+    const workflowId = await createWorkflowId("Reorder rollback pages");
+    const s1 = await factory.createPage(workflowId, { title: "S1", order: 0 });
+    const s2 = await factory.createPage(workflowId, { title: "S2", order: 1 });
 
     await expect(
-      sectionService.reorderSections(workflowId, ctx.userId, [
+      pageService.reorderPages(workflowId, ctx.userId, [
         { id: s1.id, order: 10 },
         { id: randomUUID(), order: 11 }, // nonexistent → updateOrder throws mid-batch
       ])
@@ -75,8 +75,8 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
 
     const rows = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, workflowId));
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, workflowId));
     const byId = new Map(rows.map((row) => [row.id, row.order]));
     // s1's update executed BEFORE the failing one — it must have rolled back.
     expect(byId.get(s1.id)).toBe(0);
@@ -85,12 +85,12 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
 
   it("rolls back the whole step reorder when one update fails (ICW-12)", async () => {
     const workflowId = await createWorkflowId("Reorder rollback steps");
-    const section = await factory.createSection(workflowId, { title: "S", order: 0 });
-    const st1 = await factory.createStep(section.id, { title: "Q1", order: 0 });
-    const st2 = await factory.createStep(section.id, { title: "Q2", order: 1 });
+    const page = await factory.createPage(workflowId, { title: "S", order: 0 });
+    const st1 = await factory.createStep(page.id, { title: "Q1", order: 0 });
+    const st2 = await factory.createStep(page.id, { title: "Q2", order: 1 });
 
     await expect(
-      stepService.reorderSteps(workflowId, section.id, ctx.userId, [
+      stepService.reorderSteps(workflowId, page.id, ctx.userId, [
         { id: st1.id, order: 10 },
         { id: randomUUID(), order: 11 },
       ])
@@ -99,7 +99,7 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
     const rows = await getOwnerDb()
       .select()
       .from(schema.steps)
-      .where(eq(schema.steps.sectionId, section.id));
+      .where(eq(schema.steps.pageId, page.id));
     const byId = new Map(rows.map((row) => [row.id, row.order]));
     expect(byId.get(st1.id)).toBe(0);
     expect(byId.get(st2.id)).toBe(1);
@@ -107,30 +107,30 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
 
   it("happy-path reorder persists new orders (ICW-12)", async () => {
     const workflowId = await createWorkflowId("Reorder happy path");
-    const s1 = await factory.createSection(workflowId, { title: "S1", order: 0 });
-    const s2 = await factory.createSection(workflowId, { title: "S2", order: 1 });
+    const s1 = await factory.createPage(workflowId, { title: "S1", order: 0 });
+    const s2 = await factory.createPage(workflowId, { title: "S2", order: 1 });
 
-    await sectionService.reorderSections(workflowId, ctx.userId, [
+    await pageService.reorderPages(workflowId, ctx.userId, [
       { id: s1.id, order: 1 },
       { id: s2.id, order: 0 },
     ]);
 
     const rows = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, workflowId));
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, workflowId));
     const byId = new Map(rows.map((row) => [row.id, row.order]));
     expect(byId.get(s1.id)).toBe(1);
     expect(byId.get(s2.id)).toBe(0);
   });
 
-  it("ingest rejects content over the section cap before writing anything (ICW-11)", async () => {
-    const workflowId = await createWorkflowId("Ingest section cap");
+  it("ingest rejects content over the page cap before writing anything (ICW-11)", async () => {
+    const workflowId = await createWorkflowId("Ingest page cap");
     const oversized: WorkflowContentData = {
-      title: "Too many sections",
-      sections: Array.from({ length: LIMITS.MAX_SECTIONS_PER_WORKFLOW + 1 }, (_, i) => ({
-        id: `sec-${i}`,
-        title: `Section ${i}`,
+      title: "Too many pages",
+      pages: Array.from({ length: LIMITS.MAX_PAGES_PER_WORKFLOW + 1 }, (_, i) => ({
+        id: `page-${i}`,
+        title: `Page ${i}`,
         order: i,
         steps: [],
       })),
@@ -138,28 +138,28 @@ describe.sequential("creation limits and transactional reorders (ICW-11/12)", ()
 
     await expect(
       workflowContentIngestService.apply(workflowId, oversized, { source: "ai" })
-    ).rejects.toThrow(/Section limit reached/);
+    ).rejects.toThrow(/Page limit reached/);
 
     const rows = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, workflowId));
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, workflowId));
     expect(rows).toHaveLength(0);
   });
 
   it("ingest rejects content over the total step cap (ICW-11)", async () => {
     const workflowId = await createWorkflowId("Ingest step cap");
-    const stepsPerSection = Math.ceil((LIMITS.MAX_STEPS_PER_WORKFLOW + 1) / 2);
+    const stepsPerPage = Math.ceil((LIMITS.MAX_STEPS_PER_WORKFLOW + 1) / 2);
     const oversized: WorkflowContentData = {
       title: "Too many steps",
-      sections: [0, 1].map((sectionIndex) => ({
-        id: `sec-${sectionIndex}`,
-        title: `Section ${sectionIndex}`,
-        order: sectionIndex,
-        steps: Array.from({ length: stepsPerSection }, (_, i) => ({
-          id: `step-${sectionIndex}-${i}`,
+      pages: [0, 1].map((pageIndex) => ({
+        id: `page-${pageIndex}`,
+        title: `Page ${pageIndex}`,
+        order: pageIndex,
+        steps: Array.from({ length: stepsPerPage }, (_, i) => ({
+          id: `step-${pageIndex}-${i}`,
           type: "short_text",
-          title: `Question ${sectionIndex}-${i}`,
+          title: `Question ${pageIndex}-${i}`,
           order: i,
         })),
       })),

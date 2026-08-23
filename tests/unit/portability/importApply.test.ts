@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import { db } from '../../../server/db';
 import {
   projects, workflows, datavaultTables, datavaultDatabases, steps, projectAccess, workflowAccess,
-  sections, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
+  pages, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
   workflowVersions, datavaultRows
 } from '@shared/schema';
 import { recomputeChecksum, previewBundle, applyBundle } from '../../helpers/bundleTestHelper';
@@ -26,7 +26,7 @@ describeWithDb('ImportService - apply', () => {
   let workflow: any;
   let projectBundle: Buffer;
   let workflowBundle: Buffer;
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
   
   beforeEach(async () => {
@@ -37,13 +37,13 @@ describeWithDb('ImportService - apply', () => {
     const w = await tf.createWorkflow(project.id, user.id);
     workflow = w.workflow;
 
-    const sec = await tf.createSection(workflow.id);
-    sectionId = sec.id;
+    const page = await tf.createPage(workflow.id);
+    pageId = page.id;
     stepId = randomUUID();
     await db.insert(steps).values({
       id: stepId,
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       type: 'text',
       title: 'Test Step',
       alias: 'test_step_alias',
@@ -65,9 +65,9 @@ describeWithDb('ImportService - apply', () => {
     await db.insert(blocks).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       type: 'prefill',
-      phase: 'onSectionEnter',
+      phase: 'onPageEnter',
       config: {},
       virtualStepId: stepId,
       order: 0
@@ -75,7 +75,7 @@ describeWithDb('ImportService - apply', () => {
     await db.insert(transformBlocks).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       name: 'Test Transform',
       language: 'javascript',
       code: 'emit(1);',
@@ -86,7 +86,7 @@ describeWithDb('ImportService - apply', () => {
     await db.insert(lifecycleHooks).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       name: 'Test Lifecycle Hook',
       phase: 'beforePage',
       language: 'javascript',
@@ -183,12 +183,12 @@ describeWithDb('ImportService - apply', () => {
   });
 
   it('reproduces the full workflow structure and rewires every child FK (AC 1)', async () => {
-    // Workflow scope, not project scope: sections/steps/logic rules/blocks/hooks
+    // Workflow scope, not project scope: pages/steps/logic rules/blocks/hooks
     // are all ["workflow"]-scoped, so a project bundle would assert nothing here.
     const newRootId = (await applyBundle(workflowBundle, user.id)).rootId;
     expect(newRootId).not.toBe(workflow.id);
 
-    const [newSection] = await db.select().from(sections).where(eq(sections.workflowId, newRootId));
+    const [newPage] = await db.select().from(pages).where(eq(pages.workflowId, newRootId));
     const newSteps = await db.select().from(steps).where(eq(steps.workflowId, newRootId));
     const newRules = await db.select().from(logicRules).where(eq(logicRules.workflowId, newRootId));
     const newBlocks = await db.select().from(blocks).where(eq(blocks.workflowId, newRootId));
@@ -197,7 +197,7 @@ describeWithDb('ImportService - apply', () => {
     const newDocHooks = await db.select().from(documentHooks).where(eq(documentHooks.workflowId, newRootId));
 
     // Structure matches the source workflow.
-    expect(newSection).toBeDefined();
+    expect(newPage).toBeDefined();
     expect(newSteps).toHaveLength(1);
     expect(newRules).toHaveLength(1);
     expect(newBlocks).toHaveLength(1);
@@ -206,14 +206,14 @@ describeWithDb('ImportService - apply', () => {
     expect(newDocHooks).toHaveLength(1);
 
     // Every child carries a fresh id, not the bundle's.
-    expect(newSection.id).not.toBe(sectionId);
+    expect(newPage.id).not.toBe(pageId);
     expect(newSteps[0].id).not.toBe(stepId);
 
     // ...and every FK points at the imported copy, not the source row.
-    expect(newSteps[0].sectionId).toBe(newSection.id);
-    expect(newBlocks[0].sectionId).toBe(newSection.id);
-    expect(newTransforms[0].sectionId).toBe(newSection.id);
-    expect(newLifecycle[0].sectionId).toBe(newSection.id);
+    expect(newSteps[0].pageId).toBe(newPage.id);
+    expect(newBlocks[0].pageId).toBe(newPage.id);
+    expect(newTransforms[0].pageId).toBe(newPage.id);
+    expect(newLifecycle[0].pageId).toBe(newPage.id);
     expect(newBlocks[0].virtualStepId).toBe(newSteps[0].id);
     expect(newTransforms[0].virtualStepId).toBe(newSteps[0].id);
     expect(newRules[0].conditionStepId).toBe(newSteps[0].id);
@@ -233,7 +233,7 @@ describeWithDb('ImportService - apply', () => {
     expect(newWorkflow).toBeDefined();
     expect(newWorkflow.id).not.toBe(workflow.id);
 
-    const newSections = await db.select().from(sections).where(eq(sections.workflowId, newWorkflow.id));
+    const newPages = await db.select().from(pages).where(eq(pages.workflowId, newWorkflow.id));
     const newSteps = await db.select().from(steps).where(eq(steps.workflowId, newWorkflow.id));
     const newRules = await db.select().from(logicRules).where(eq(logicRules.workflowId, newWorkflow.id));
     const newBlocks = await db.select().from(blocks).where(eq(blocks.workflowId, newWorkflow.id));
@@ -241,7 +241,7 @@ describeWithDb('ImportService - apply', () => {
     const newLifecycle = await db.select().from(lifecycleHooks).where(eq(lifecycleHooks.workflowId, newWorkflow.id));
     const newDocHooks = await db.select().from(documentHooks).where(eq(documentHooks.workflowId, newWorkflow.id));
 
-    expect(newSections).toHaveLength(1);
+    expect(newPages).toHaveLength(1);
     expect(newSteps).toHaveLength(1);
     expect(newRules).toHaveLength(1);
     expect(newBlocks).toHaveLength(1);
@@ -250,7 +250,7 @@ describeWithDb('ImportService - apply', () => {
     expect(newDocHooks).toHaveLength(1);
 
     // Child FKs are rewired to the imported copies, not left pointing at the source.
-    expect(newSteps[0].sectionId).toBe(newSections[0].id);
+    expect(newSteps[0].pageId).toBe(newPages[0].id);
     expect(newRules[0].conditionStepId).toBe(newSteps[0].id);
     expect(newSteps[0].id).not.toBe(stepId);
   });
@@ -481,7 +481,7 @@ describeWithDb('ImportService - apply', () => {
   });
 
   it('remaps JSON IDs (AC 3)', async () => {
-    // We use a workflow bundle because it natively exports steps and sections
+    // We use a workflow bundle because it natively exports steps and pages
     const zip = new AdmZip(workflowBundle);
     
     // Inject fake step ID into workflows.intakeConfig
@@ -502,7 +502,7 @@ describeWithDb('ImportService - apply', () => {
     stepsLines.push(JSON.stringify({
       id: fakeStepId,
       workflowId: wfRow.id,
-      sectionId: JSON.parse(stepsLines[0]).sectionId, // Use real section
+      pageId: JSON.parse(stepsLines[0]).pageId, // Use real page
       type: 'text',
       title: 'Fake Step',
       order: 1
@@ -771,7 +771,7 @@ describeWithDb('ImportService - apply', () => {
     await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed/);
   });
   it('rejects unresolvable NOT NULL references and warns for nullable references (IEX2-2)', async () => {
-    // We will use workflowBundle. We will inject a dangling NOT NULL reference (steps.sectionId)
+    // We will use workflowBundle. We will inject a dangling NOT NULL reference (steps.pageId)
     // and a dangling nullable reference (logic_rules.targetStepId).
     
     const zip = new AdmZip(workflowBundle);
@@ -780,8 +780,8 @@ describeWithDb('ImportService - apply', () => {
     const firstStep = JSON.parse(stepsLines[0]);
     
     // NOT NULL ref
-    const fakeSectionId = randomUUID();
-    const badStep = { ...firstStep, id: randomUUID(), title: 'Bad Step', sectionId: fakeSectionId, order: 2 };
+    const fakePageId = randomUUID();
+    const badStep = { ...firstStep, id: randomUUID(), title: 'Bad Step', pageId: fakePageId, order: 2 };
     stepsLines.push(JSON.stringify(badStep));
     zip.updateFile('entities/steps.jsonl', Buffer.from(`${stepsLines.join('\n')}\n`));
     
@@ -805,15 +805,15 @@ describeWithDb('ImportService - apply', () => {
     // AC 5: preview reports dangling references
     const preview = await previewBundle(zip.toBuffer(), user.id);
     expect(preview.canProceed).toBe(false);
-    expect(preview.errors.some(e => e.includes('Unresolvable reference') && e.includes('sectionId') && e.includes('steps'))).toBe(true);
+    expect(preview.errors.some(e => e.includes('Unresolvable reference') && e.includes('pageId') && e.includes('steps'))).toBe(true);
     expect(preview.warnings.some(w => w.type === 'dangling_reference' && w.column === 'targetStepId' && w.entity === 'logic_rules')).toBe(true);
     
     // AC 2 & 3: apply rejects NOT NULL ref with 400-classified error
     // (Our classifyImportError in portability.routes.ts matches 'Unresolvable reference' to 400)
-    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Unresolvable reference: steps\.sectionId/);
+    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Unresolvable reference: steps\.pageId/);
     
     // Now fix the NOT NULL ref to test AC 4 (nullable ref imports as null + warning)
-    badStep.sectionId = firstStep.sectionId;
+    badStep.pageId = firstStep.pageId;
     stepsLines[1] = JSON.stringify(badStep);
     zip.updateFile('entities/steps.jsonl', Buffer.from(`${stepsLines.join('\n')}\n`));
     recomputeChecksum(zip, manifest);
@@ -881,12 +881,12 @@ describeWithDb('ImportService - apply', () => {
     // that is what silently landed verbatim and let a crafted bundle attach
     // imported rows to a workflow the uploader does not own.
     const otherW = await tf.createWorkflow(project.id, user.id);
-    const otherSec = await tf.createSection(otherW.workflow.id);
+    const otherSec = await tf.createPage(otherW.workflow.id);
     const foreignStepId = randomUUID();
     await db.insert(steps).values({
       id: foreignStepId,
       workflowId: otherW.workflow.id,
-      sectionId: otherSec.id,
+      pageId: otherSec.id,
       type: 'text',
       title: 'Foreign Step',
       alias: 'foreign_step_alias',

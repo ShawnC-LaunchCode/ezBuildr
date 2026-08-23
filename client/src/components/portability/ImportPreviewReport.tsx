@@ -43,7 +43,7 @@ const COLLISION_LABELS: Record<ImportCollision["type"], string> = {
 };
 
 const ENTITY_LABELS: Record<string, string> = {
-  workflows: "Workflow", sections: "Pages", steps: "Questions",
+  workflows: "Workflow", pages: "Pages", steps: "Questions",
   logic_rules: "Logic rules", blocks: "Blocks", transform_blocks: "Transform blocks",
   lifecycle_hooks: "Lifecycle hooks", document_hooks: "Document hooks",
   workflow_versions: "Versions", templates: "Document templates",

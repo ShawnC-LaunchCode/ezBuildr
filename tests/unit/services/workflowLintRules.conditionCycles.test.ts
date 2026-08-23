@@ -13,7 +13,7 @@ function refVisibleIf(variable: string): Record<string, unknown> {
 
 function baseContent(overrides: Partial<LintableWorkflowContent> = {}): LintableWorkflowContent {
   return {
-    sections: [],
+    pages: [],
     logicRules: [],
     transformBlocks: [],
     lifecycleHooks: [],
@@ -25,7 +25,7 @@ function baseContent(overrides: Partial<LintableWorkflowContent> = {}): Lintable
 describe("workflowLintRules — LU-3 circular and dangling visibleIf detection", () => {
   it("errors on a 2-node visibleIf cycle (A depends on B, B depends on A)", () => {
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -39,16 +39,16 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     expect(cycleErrors.length).toBeGreaterThan(0);
     // Same finding shape as every other rule in this file.
     expect(cycleErrors[0]).toMatchObject({ category: "logic" });
-    // AC4: the finding's target points at a real element (a real step in a real section).
+    // AC4: the finding's target points at a real element (a real step in a real page).
     const target = cycleErrors[0].target;
-    expect(target.tab).toBe("sections");
-    expect(target.sectionId).toBe("s1");
+    expect(target.tab).toBe("pages");
+    expect(target.pageId).toBe("s1");
     expect(["st1", "st2"]).toContain(target.stepId);
   });
 
   it("errors on a 3-node visibleIf cycle (A -> B -> C -> A)", () => {
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -63,7 +63,7 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
 
   it("errors on a self-referencing visibleIf", () => {
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [{ id: "st1", title: "A", alias: "a", visibleIf: refVisibleIf("a") }],
@@ -82,7 +82,7 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
       ],
     };
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -103,7 +103,7 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     // when referenced by its id — it is NOT a dangling reference just
     // because it lacks an alias.
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -127,7 +127,7 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     // id-edge would dead-end at a node that doesn't exist) and, worse,
     // misreported as a dangling reference instead of a cycle.
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -154,7 +154,7 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
 
   it("errors on a visibleIf referencing a deleted/renamed alias (dangling reference)", () => {
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -166,13 +166,13 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     expect(err).toBeDefined();
     expect(err).toMatchObject({
       category: "logic",
-      target: { tab: "sections", sectionId: "s1", stepId: "st1" },
+      target: { tab: "pages", pageId: "s1", stepId: "st1" },
     });
   });
 
   it("does not flag a visibleIf that references a real alias", () => {
     const results = lintWorkflowContent(baseContent({
-      sections: [{
+      pages: [{
         id: "s1",
         title: "Page 1",
         steps: [
@@ -184,13 +184,13 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     expect(results.some((r) => r.message.includes("has_pet"))).toBe(false);
   });
 
-  it("detects a cycle formed through a section-level visibleIf pointing back to a step", () => {
-    // Section 2's visibleIf depends on step "a" (in section 1); step "a"'s own
-    // visibleIf cannot depend back on the section (sections have no alias to
-    // reference), so this proves sections participate in the graph without
+  it("detects a cycle formed through a page-level visibleIf pointing back to a step", () => {
+    // Page 2's visibleIf depends on step "a" (in page 1); step "a"'s own
+    // visibleIf cannot depend back on the page (pages have no alias to
+    // reference), so this proves pages participate in the graph without
     // being falsely reported as cycle members themselves.
     const results = lintWorkflowContent(baseContent({
-      sections: [
+      pages: [
         {
           id: "s1",
           title: "Page 1",
@@ -206,6 +206,6 @@ describe("workflowLintRules — LU-3 circular and dangling visibleIf detection",
     }));
     const err = results.find((r) => r.type === "error" && r.message.includes("missing_alias"));
     expect(err).toBeDefined();
-    expect(err?.target).toMatchObject({ tab: "sections", sectionId: "s2" });
+    expect(err?.target).toMatchObject({ tab: "pages", pageId: "s2" });
   });
 });

@@ -81,36 +81,36 @@ export const AIGeneratedStepSchema = z.object({
 export type AIGeneratedStep = z.infer<typeof AIGeneratedStepSchema>;
 
 /**
- * AI-generated section (page) specification
+ * AI-generated page (page) specification
  */
-export const AIGeneratedSectionSchema = z.object({
-  id: z.string().describe('Unique identifier for the section'),
-  title: z.string().min(1).describe('Section title'),
-  description: z.string().nullable().optional().describe('Optional section description'),
-  order: z.number().int().min(0).describe('Display order of this section'),
-  steps: z.array(AIGeneratedStepSchema).describe('Steps within this section'),
+export const AIGeneratedPageSchema = z.object({
+  id: z.string().describe('Unique identifier for the page'),
+  title: z.string().min(1).describe('Page title'),
+  description: z.string().nullable().optional().describe('Optional page description'),
+  order: z.number().int().min(0).describe('Display order of this page'),
+  steps: z.array(AIGeneratedStepSchema).describe('Steps within this page'),
 });
 
-export type AIGeneratedSection = z.infer<typeof AIGeneratedSectionSchema>;
+export type AIGeneratedPage = z.infer<typeof AIGeneratedPageSchema>;
 
 /**
  * AI-generated logic rule specification
  *
  * LU-6c: the trigger condition is `when` - the same nested `ConditionExpression`
- * tree (28 operators, AND/OR groups) that step/section `visibleIf` already
+ * tree (28 operators, AND/OR groups) that step/page `visibleIf` already
  * uses - not the old flat `conditionStepAlias`/`operator`/`conditionValue`
  * trio. `when`'s condition operands reference a step by its `alias` (just
  * like `targetAlias` references the rule's target); the ingest pipeline
- * (`WorkflowContentIngestService`) resolves both to real step/section ids.
+ * (`WorkflowContentIngestService`) resolves both to real step/page ids.
  */
 export const AIGeneratedLogicRuleSchema = z.object({
   id: z.string().describe('Unique identifier for the logic rule'),
   when: conditionExpressionSchema.describe(
     'Trigger condition: a ConditionExpression tree (nested AND/OR groups of comparisons), ' +
-    'the same shape used for step/section visibility. Each condition\'s "variable" is a step alias.'
+    'the same shape used for step/page visibility. Each condition\'s "variable" is a step alias.'
   ),
-  targetType: z.enum(['section', 'step']).describe('Whether the target is a section or step'),
-  targetAlias: z.string().optional().describe('Alias of the target section/step'),
+  targetType: z.enum(['page', 'step']).describe('Whether the target is a page or step'),
+  targetAlias: z.string().optional().describe('Alias of the target page/step'),
   action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']).describe('Action to perform when condition is met'),
   description: z.string().nullable().optional().describe('Human-readable description of what this rule does'),
 });
@@ -127,8 +127,8 @@ export const AIGeneratedTransformBlockSchema = z.object({
   code: z.string().min(1).describe('Code to execute'),
   inputKeys: z.array(z.string()).describe('Step aliases to use as inputs'),
   outputKey: z.string().describe('Variable name for the output'),
-  phase: z.enum(['onSectionSubmit', 'onWorkflowComplete']).default('onWorkflowComplete').describe('When to execute this block'),
-  sectionId: z.string().optional().describe('Section ID if phase is onSectionSubmit'),
+  phase: z.enum(['onPageSubmit', 'onWorkflowComplete']).default('onWorkflowComplete').describe('When to execute this block'),
+  pageId: z.string().optional().describe('Page ID if phase is onPageSubmit'),
   timeoutMs: z.number().int().min(100).max(3000).default(1000).describe('Execution timeout in milliseconds'),
 });
 
@@ -140,7 +140,7 @@ export type AIGeneratedTransformBlock = z.infer<typeof AIGeneratedTransformBlock
 export const AIGeneratedWorkflowSchema = z.object({
   title: z.string().min(1).describe('Workflow title'),
   description: z.string().nullable().optional().describe('Workflow description'),
-  sections: z.array(AIGeneratedSectionSchema).default([]).describe('Workflow sections (pages)'),
+  pages: z.array(AIGeneratedPageSchema).default([]).describe('Workflow pages (pages)'),
   logicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Conditional logic rules'),
   transformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('JavaScript/Python computation blocks'),
   notes: z.string().nullable().optional().describe('Additional notes from the AI about this workflow'),
@@ -162,8 +162,8 @@ export const AIWorkflowGenerationRequestSchema = z.object({
   projectId: z.string().uuid().describe('Project ID where the workflow will be created'),
   placeholders: z.array(z.string()).optional().describe('Optional DOCX template placeholders to consider'),
   constraints: z.object({
-    maxSections: z.number().int().min(1).max(50).default(10).optional(),
-    maxStepsPerSection: z.number().int().min(1).max(20).default(10).optional(),
+    maxPages: z.number().int().min(1).max(50).default(10).optional(),
+    maxStepsPerPage: z.number().int().min(1).max(20).default(10).optional(),
     preferredStepTypes: z.array(z.string()).optional(),
   }).optional().describe('Optional constraints for workflow generation'),
   minQualityScore: z.number().int().min(0).max(100).optional().describe(
@@ -188,11 +188,11 @@ export type AIWorkflowSuggestionRequest = z.infer<typeof AIWorkflowSuggestionReq
  * AI workflow suggestion response
  */
 export const AIWorkflowSuggestionSchema = z.object({
-  newSections: z.array(AIGeneratedSectionSchema).default([]).describe('Suggested new sections to add'),
+  newPages: z.array(AIGeneratedPageSchema).default([]).describe('Suggested new pages to add'),
   newLogicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Suggested new logic rules'),
   newTransformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('Suggested new transform blocks'),
   modifications: z.array(z.object({
-    type: z.enum(['section', 'step', 'logic_rule', 'transform_block']),
+    type: z.enum(['page', 'step', 'logic_rule', 'transform_block']),
     id: z.string(),
     changes: z.record(z.any()),
     reason: z.string(),
@@ -303,7 +303,7 @@ export type QualityScore = z.infer<typeof QualityScoreSchema>;
 
 export const WorkflowChangeSchema = z.object({
   type: z.enum(['add', 'remove', 'update', 'move']).describe('Type of change'),
-  target: z.string().describe('Path to the target element (e.g., sections[0].steps[1])'),
+  target: z.string().describe('Path to the target element (e.g., pages[0].steps[1])'),
   before: z.any().optional().describe('Value before change (for updates/removes)'),
   after: z.any().optional().describe('Value after change (for updates/adds)'),
   explanation: z.string().optional().describe('Human-readable explanation of this specific change'),
@@ -372,7 +372,7 @@ export type AIConnectLogicResponse = z.infer<typeof AIConnectLogicResponseSchema
  *
  * MAP-9 removed the AI logic *debugger* that also lived here
  * (`AIDebugLogicRequest`/`Response`, plus the `LogicIssue`/`LogicFix` schemas
- * only it used). Unreachable sections, dead ends and loop risks are now
+ * only it used). Unreachable pages, dead ends and loop risks are now
  * detected deterministically by `analyzeWorkflowFlow`
  * (`shared/conditionGraph.ts`) and surfaced through `lintWorkflowContent`, so
  * the publish gate, the Review tab and the map all read one answer instead of
@@ -383,7 +383,7 @@ export type AIConnectLogicResponse = z.infer<typeof AIConnectLogicResponseSchema
 export const LogicGraphNodeSchema = z.object({
   id: z.string(),
   label: z.string(),
-  type: z.enum(['section', 'step', 'start', 'end']),
+  type: z.enum(['page', 'step', 'start', 'end']),
   unreachable: z.boolean().optional(),
 });
 

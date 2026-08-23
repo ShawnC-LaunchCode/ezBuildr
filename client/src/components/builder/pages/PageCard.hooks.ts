@@ -6,12 +6,12 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { combinePageItems, getNextOrder, PageItem } from "@/lib/dnd";
-import { ApiBlock, ApiSection, ApiStep, sectionAPI, type ApiDeleteImpact } from "@/lib/vault-api";
+import { ApiBlock, ApiPage, ApiStep, pageAPI, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
-    useDeleteSection,
-    useDuplicateSection,
+    useDeletePage,
+    useDuplicatePage,
     useTransformBlocks,
-    useUpdateSection,
+    useUpdatePage,
     useWorkflowMode,
 } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
@@ -32,7 +32,7 @@ interface UsePageCardLogicReturn {
     autoFocusStepId: string | null;
     setAutoFocusStepId: React.Dispatch<React.SetStateAction<string | null>>;
     items: PageItem[];
-    isFinalDocumentsSection: boolean;
+    isFinalDocumentsPage: boolean;
     attributes: DraggableAttributes;
     listeners: SyntheticListenerMap | undefined;
     setNodeRef: (node: HTMLElement | null) => void;
@@ -52,8 +52,8 @@ interface UsePageCardLogicReturn {
     setIsDeleteImpactOpen: React.Dispatch<React.SetStateAction<boolean>>;
     pendingDeleteImpact: ApiDeleteImpact | null;
     confirmDestructiveDelete: () => void;
-    isDeleteSectionPending: boolean;
-    selectSection: (id: string) => void;
+    isDeletePagePending: boolean;
+    selectPage: (id: string) => void;
     selectBlock: (id: string) => void;
     selectStep: (id: string) => void;
     handleToggleExpand: (stepId: string) => void;
@@ -63,37 +63,37 @@ interface UsePageCardLogicReturn {
 
 export function usePageCardLogic(
     workflowId: string,
-    page: ApiSection,
+    page: ApiPage,
     blocks: ApiBlock[],
     steps: ApiStep[]
 ): UsePageCardLogicReturn {
     const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
-    const updateSectionMutation = useUpdateSection();
-    const deleteSectionMutation = useDeleteSection();
-    const duplicateSectionMutation = useDuplicateSection();
-    const { selectSection, selectBlock, selectStep } = useWorkflowBuilder();
+    const updatePageMutation = useUpdatePage();
+    const deletePageMutation = useDeletePage();
+    const duplicatePageMutation = useDuplicatePage();
+    const { selectPage, selectBlock, selectStep } = useWorkflowBuilder();
     const { toast } = useToast();
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
 
-    // Delete-impact warning (ICW2-13): only shown when the section's steps have stored answers.
+    // Delete-impact warning (ICW2-13): only shown when the page's steps have stored answers.
     const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
     const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
 
-    // Check if this is a Final Documents section
-    const isFinalDocumentsSection =
+    // Check if this is a Final Documents page
+    const isFinalDocumentsPage =
         (page.config as { finalBlock?: boolean } | undefined)?.finalBlock === true;
 
-    // For Final Documents sections, filter out all steps
-    const filteredSteps = isFinalDocumentsSection
+    // For Final Documents pages, filter out all steps
+    const filteredSteps = isFinalDocumentsPage
         ? steps.filter((s) => s.type === "final_documents")
         : steps;
 
     // Combine steps and blocks into sortable items
-    const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
+    const pageBlocks = blocks.filter((b) => b.pageId === page.id);
 
     const pageTransformBlocks: ApiBlock[] = mapTransformToBlock(
         transformBlocks,
@@ -124,17 +124,17 @@ export function usePageCardLogic(
 
     const { localValue: localTitle, onChange: handleTitleChange, onBlur: flushTitle } = useDebouncedFieldMutation(
         page.title,
-        (title: string) => updateSectionMutation.mutate({ id: page.id, workflowId, title })
+        (title: string) => updatePageMutation.mutate({ id: page.id, workflowId, title })
     );
 
     const { localValue: localDescription, onChange: handleDescriptionChange, onBlur: flushDescription } = useDebouncedFieldMutation(
         page.description ?? "",
-        (description: string) => updateSectionMutation.mutate({ id: page.id, workflowId, description })
+        (description: string) => updatePageMutation.mutate({ id: page.id, workflowId, description })
     );
 
     const performDelete = async (): Promise<void> => {
         try {
-            await deleteSectionMutation.mutateAsync({ id: page.id, workflowId });
+            await deletePageMutation.mutateAsync({ id: page.id, workflowId });
             toast({
                 title: "Page deleted",
                 description: `"${page.title}" has been removed`,
@@ -150,7 +150,7 @@ export function usePageCardLogic(
 
     const handleDelete = async (): Promise<void> => {
         try {
-            const impact = await sectionAPI.getDeleteImpact(page.id);
+            const impact = await pageAPI.getDeleteImpact(page.id);
             if (impact.answerCount > 0) {
                 setPendingDeleteImpact(impact);
                 setIsDeleteImpactOpen(true);
@@ -178,7 +178,7 @@ export function usePageCardLogic(
 
     const handleDuplicate = async (): Promise<void> => {
         try {
-            await duplicateSectionMutation.mutateAsync({ id: page.id, workflowId });
+            await duplicatePageMutation.mutateAsync({ id: page.id, workflowId });
             toast({
                 title: "Page duplicated",
                 description: `A copy of "${page.title}" was added`,
@@ -231,7 +231,7 @@ export function usePageCardLogic(
         autoFocusStepId,
         setAutoFocusStepId,
         items,
-        isFinalDocumentsSection,
+        isFinalDocumentsPage,
         attributes,
         listeners,
         setNodeRef,
@@ -250,8 +250,8 @@ export function usePageCardLogic(
         setIsDeleteImpactOpen,
         pendingDeleteImpact,
         confirmDestructiveDelete,
-        isDeleteSectionPending: deleteSectionMutation.isPending,
-        selectSection,
+        isDeletePagePending: deletePageMutation.isPending,
+        selectPage,
         selectBlock,
         selectStep,
         handleToggleExpand,

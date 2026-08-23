@@ -150,9 +150,9 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     // Give the project a workflow with real contents, so the round-trip is
     // asserting structure rather than an empty shell.
-    // RLS-5: `workflows`/`sections`/`steps` are RLS-covered through the
+    // RLS-5: `workflows`/`pages`/`steps` are RLS-covered through the
     // ownership-derived policy, so these fresh INSERTs need the tenant pinned.
-    // One transaction for all three, since the section/step rows are only
+    // One transaction for all three, since the page/step rows are only
     // permitted once their parent workflow is visible within the same scope.
     workflowId = await db.transaction(async (tx) => {
       await applyTenantToTransaction(tx, tenantId);
@@ -166,7 +166,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         ownerUuid: userId,
       }).returning();
 
-      const [section] = await tx.insert(schema.sections).values({
+      const [page] = await tx.insert(schema.pages).values({
         workflowId: workflow.id,
         title: "Page One",
         order: 0,
@@ -174,7 +174,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
       await tx.insert(schema.steps).values({
         workflowId: workflow.id,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'text',
         title: 'Your name',
         alias: 'your_name',
@@ -322,7 +322,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   });
 
   it("IEX2-2 AC 3: an unresolvable NOT NULL reference is a 400, not a 500", async () => {
-    // `steps.sectionId` is NOT NULL, so an unresolvable value cannot be dropped
+    // `steps.pageId` is NOT NULL, so an unresolvable value cannot be dropped
     // and the import must be rejected. The classification is substring matching
     // on the thrown message (BUNDLE_REJECTION_SIGNALS), so it is only one
     // rename away from silently reverting to a 500 — hence a route-level test
@@ -336,7 +336,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       id: randomUUID(),
       title: "Orphan Step",
       alias: `orphan_${nanoid(6)}`,
-      sectionId: randomUUID(), // a section that is not in the bundle
+      pageId: randomUUID(), // a page that is not in the bundle
       order: 99,
     }));
     zip.updateFile("entities/steps.jsonl", Buffer.from(`${stepsLines.join("\n")}\n`));
@@ -355,7 +355,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.status).toBe(400);
     expect(apply.status).not.toBe(500);
     expect(apply.body.message).toMatch(/Unresolvable reference/);
-    expect(apply.body.message).toMatch(/steps\.sectionId/);
+    expect(apply.body.message).toMatch(/steps\.pageId/);
 
     // Preview refuses the same bundle up front rather than only at apply.
     const preview = await request(baseURL)
@@ -583,7 +583,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   });
 
   it("IEX3-2: a List whose nested choice lost its DataVault binding imports 201 and says so", async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // A binding whose target no longer exists — the user deleted the table the
     // dropdown was wired to. Nothing can make this travel, so the import has to
     // report it rather than handing back a silently broken dropdown.
@@ -601,7 +601,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     };
 
     await getOwnerDb().insert(schema.steps).values({
-      workflowId, sectionId, type: "list", title: "Beneficiaries",
+      workflowId, pageId, type: "list", title: "Beneficiaries",
       alias: "beneficiaries", order: 1,
       config: {
         fields: [

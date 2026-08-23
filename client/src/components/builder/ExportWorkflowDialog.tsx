@@ -60,7 +60,7 @@ interface ExportWorkflowDialogProps {
 /** Entity table names → what a person calls them. */
 const ENTITY_LABELS: Record<string, string> = {
   workflows: "Workflow",
-  sections: "Pages",
+  pages: "Pages",
   steps: "Questions",
   logic_rules: "Logic rules",
   blocks: "Blocks",

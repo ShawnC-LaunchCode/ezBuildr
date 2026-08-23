@@ -1,7 +1,7 @@
 /**
  * Page Canvas Component
  * Main canvas that renders the vertical stack of page cards
- * Supports drag-and-drop for both sections and steps (including cross-section)
+ * Supports drag-and-drop for both pages and steps (including cross-page)
  */
 import {
   DndContext,
@@ -24,8 +24,8 @@ import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
 import {
   useBlocks,
-  useCreateSectionAtEnd,
-  useSections,
+  useCreatePageAtEnd,
+  usePages,
   useTransformBlocks,
   useWorkflowMode,
   useAllSteps,
@@ -41,19 +41,19 @@ interface PageCanvasProps {
 }
 
 export function PageCanvas({ workflowId }: PageCanvasProps) {
-  const { data: pages = [] } = useSections(workflowId);
+  const { data: pages = [] } = usePages(workflowId);
   const { data: allBlocks = [] } = useBlocks(workflowId);
   const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
   const { data: modeData } = useWorkflowMode(workflowId);
   const mode = modeData?.mode ?? "easy";
 
-  const { createSectionAtEnd } = useCreateSectionAtEnd(workflowId);
+  const { createPageAtEnd } = useCreatePageAtEnd(workflowId);
 
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
 
-  const handleCreateSection = async () => {
-    await createSectionAtEnd();
+  const handleCreatePage = async () => {
+    await createPageAtEnd();
   };
 
   const handleEditBlock = (blockId: string) => {
@@ -90,7 +90,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
     }
   };
 
-  // Fetch all steps for all sections using the proper useAllSteps hook
+  // Fetch all steps for all pages using the proper useAllSteps hook
   // This respects React's Rules of Hooks by using useQueries internally
   const allSteps = useAllSteps(pages);
 
@@ -124,7 +124,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
     );
   }
 
-  // Get all sortable item IDs (sections + all steps from all sections)
+  // Get all sortable item IDs (pages + all steps from all pages)
   const allItemIds = [
     ...pages.map((p) => p.id),
     ...Object.values(allSteps)
@@ -165,7 +165,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
                   as an empty slot rather than a real page. */}
               <div className="pb-8">
                 <Button
-                  onClick={() => { void handleCreateSection(); }}
+                  onClick={() => { void handleCreatePage(); }}
                   variant="outline"
                   className="h-14 w-full rounded-lg border-dashed bg-card text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-card hover:text-foreground"
                 >

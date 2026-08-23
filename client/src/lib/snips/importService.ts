@@ -149,41 +149,41 @@ export async function importSnip(
     // Track results
     const importedPageIds: string[] = [];
     const importedQuestionIds: string[] = [];
-    // Get current sections for ordering and collision detection
-    const sectionsResponse = await fetch(`/api/workflows/${workflowId}/sections`, {
+    // Get current pages for ordering and collision detection
+    const pagesResponse = await fetch(`/api/workflows/${workflowId}/pages`, {
         credentials: "include",
     });
-    const existingSections = (await sectionsResponse.json()) as unknown[];
-    let currentOrder = Array.isArray(existingSections) ? existingSections.length : 0;
+    const existingPages = (await pagesResponse.json()) as unknown[];
+    let currentOrder = Array.isArray(existingPages) ? existingPages.length : 0;
     // Build set of existing page titles
     const existingPageTitles = new Set<string>(
-        existingSections.map((s: unknown) => (s as Record<string, unknown>).title as string)
+        existingPages.map((s: unknown) => (s as Record<string, unknown>).title as string)
     );
     // Import each page
     for (const snipPage of snip.pages) {
         // Handle page name collision
         const finalPageTitle = findAvailablePageTitle(snipPage.title, existingPageTitles);
         existingPageTitles.add(finalPageTitle); // Prevent collisions within this import
-        // Create section
-        const sectionPayload = {
+        // Create page
+        const pagePayload = {
             workflowId,
             title: finalPageTitle,
             description: snipPage.description ?? null,
             order: currentOrder++,
             visibleIf: snipPage.visibleIf ?? null, // PRESERVE CONDITIONAL LOGIC
         };
-        const sectionResponse = await fetch(`/api/workflows/${workflowId}/sections`, {
+        const pageResponse = await fetch(`/api/workflows/${workflowId}/pages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify(sectionPayload),
+            body: JSON.stringify(pagePayload),
         });
-        if (!sectionResponse.ok) {
-            const errorText = await sectionResponse.text();
-            throw new Error(`Failed to create section "${finalPageTitle}": ${errorText}`);
+        if (!pageResponse.ok) {
+            const errorText = await pageResponse.text();
+            throw new Error(`Failed to create page "${finalPageTitle}": ${errorText}`);
         }
-        const section = (await sectionResponse.json()) as Record<string, unknown>;
-        importedPageIds.push(section.id as string);
+        const page = (await pageResponse.json()) as Record<string, unknown>;
+        importedPageIds.push(page.id as string);
         // Import questions for this page
         for (const snipQuestion of snipPage.questions) {
             // Apply alias mapping if exists
@@ -197,7 +197,7 @@ export async function importSnip(
                     : {}
             );
             const stepPayload = {
-                sectionId: section.id as string,
+                pageId: page.id as string,
                 type: snipQuestion.type,
                 title: snipQuestion.title,
                 description: snipQuestion.description ?? null,
@@ -208,7 +208,7 @@ export async function importSnip(
                 order: snipQuestion.order,
                 config,
             };
-            const stepResponse = await fetch(`/api/sections/${section.id as string}/steps`, {
+            const stepResponse = await fetch(`/api/pages/${page.id as string}/steps`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -257,11 +257,11 @@ export async function validateSnipImport(
         throw new Error(`Snip not found: ${snipId}`);
     }
     // Fetch existing workflow data
-    const [sectionsResponse, stepsResponse] = await Promise.all([
-        fetch(`/api/workflows/${workflowId}/sections`, { credentials: "include" }),
+    const [pagesResponse, stepsResponse] = await Promise.all([
+        fetch(`/api/workflows/${workflowId}/pages`, { credentials: "include" }),
         fetch(`/api/workflows/${workflowId}/steps`, { credentials: "include" }),
     ]);
-    const existingSections = (await sectionsResponse.json()) as unknown[];
+    const existingPages = (await pagesResponse.json()) as unknown[];
     const existingSteps = (await stepsResponse.json()) as unknown[];
     // Check for alias conflicts
     const existingAliases = new Set(
@@ -273,7 +273,7 @@ export async function validateSnipImport(
     const aliasConflicts = snipAliases.filter(alias => existingAliases.has(alias));
     // Check for page name conflicts
     const existingPageNames = new Set(
-        existingSections.map((section: unknown) => (section as Record<string, unknown>).title as string)
+        existingPages.map((page: unknown) => (page as Record<string, unknown>).title as string)
     );
     const pageNameConflicts = snip.pages
         .map(page => page.title)

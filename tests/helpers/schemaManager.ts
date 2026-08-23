@@ -25,7 +25,7 @@ export class SchemaManager {
     // don't have ai_usage and would fail every AI-budget test.
     //
     // Bumped to _v8 for ICW2-B1: 0005_lying_amphibian adds `deleted_at` to
-    // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
+    // `pages`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
     // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
     // and the new unique-index shape.
     //
@@ -67,9 +67,9 @@ export class SchemaManager {
     // orphaned `condition_operator` Postgres enum type (nothing has
     // referenced it since 0021 dropped the column it backed).
     // Bumped to _v26 for MAP-2 (0023_condemned_hannibal_king), which drops
-    // the dead `sections.skip_if` column — a stale _v25 schema still has it.
+    // the dead `pages.skip_if` column — a stale _v25 schema still has it.
     // Bumped to _v27 for RLS-3 (0024_repair_rls_coverage), which adds the 24
-    // direct-tenant_id policies plus the workflows/sections/steps
+    // direct-tenant_id policies plus the workflows/pages/steps
     // ownership-derived policies that 0001/0004 defined but never actually
     // applied in a real database (their `to_regclass` guard ran before those
     // tables existed) — a stale _v26 schema still has only the 9 policies
@@ -129,7 +129,7 @@ export class SchemaManager {
     // parts 1/2 landed — `RunAuthResolver.verifyCreateAccess`'s public
     // slug/link lookup has no prior verification to key a self-id GUC on,
     // so the fix is a declared-visibility clause (`is_public = true AND
-    // status = 'active'`) on workflows/sections/steps instead. A stale _v33
+    // status = 'active'`) on workflows/pages/steps instead. A stale _v33
     // schema lacks it and every public-link anonymous run would still 404.
     // Bumped to _v35 for RLS-5 (0032_rls_login_email_bootstrap): the
     // authentication front door looks a user up BY EMAIL — login, the

@@ -2,17 +2,17 @@
  * Workflow Conditional Logic Engine
  *
  * This module provides conditional logic evaluation for Vault-Logic workflows.
- * It extends the base conditional logic to support both step-level and section-level targeting.
+ * It extends the base conditional logic to support both step-level and page-level targeting.
  *
  * LU-6a/LU-6c (Decision #5): a rule's trigger condition is a
  * `ConditionExpression` (`when`) - the same nested, 28-operator language
- * `steps.visible_if` / `sections.visible_if` already use - evaluated by the
+ * `steps.visible_if` / `pages.visible_if` already use - evaluated by the
  * shared `conditionEvaluator`. It is the only condition language a rule
  * carries anywhere (LU-6c retired the flat `operator`/`conditionValue` shape
  * from every producer, including AI generation). This module no longer
  * implements its own comparison logic; it is responsible only for the *push*
  * semantics a `ConditionExpression` does not have on its own: which rules
- * target which section/step, what action they take, and in what order they
+ * target which page/step, what action they take, and in what order they
  * resolve when more than one fires (first-firing `skip_to` wins; see
  * `evaluateRules` below).
  */
@@ -24,7 +24,7 @@ import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 
 export type EvaluableLogicRule = Pick<
   LogicRule,
-  'id' | 'when' | 'targetType' | 'targetStepId' | 'targetSectionId' | 'action' | 'order'
+  'id' | 'when' | 'targetType' | 'targetStepId' | 'targetPageId' | 'action' | 'order'
 >;
 
 /**
@@ -34,14 +34,14 @@ export type EvaluableLogicRule = Pick<
  */
 export type RuleAliasResolver = (aliasOrId: string) => string | undefined;
 
-interface VisibilitySectionDefinition {
+interface VisibilityPageDefinition {
   id: string;
   visibleIf?: unknown;
 }
 
 interface VisibilityStepDefinition {
   id: string;
-  sectionId: string;
+  pageId: string;
   required?: boolean | null;
   visibleIf?: unknown;
   /**
@@ -54,24 +54,24 @@ interface VisibilityStepDefinition {
 }
 
 export interface WorkflowVisibilityResult {
-  visibleSections: Set<string>;
+  visiblePages: Set<string>;
   visibleSteps: Set<string>;
   requiredSteps: Set<string>;
   ruleEvaluation: WorkflowEvaluationResult;
 }
 
 /**
- * Minimal section/step shape `LogicContext` needs. Both a live DB row
- * (`Section`/`Step` from `./schema`) and a run's pinned-definition snapshot
- * (`RunSection`/`RunStep` in
+ * Minimal page/step shape `LogicContext` needs. Both a live DB row
+ * (`Page`/`Step` from `./schema`) and a run's pinned-definition snapshot
+ * (`RunPage`/`RunStep` in
  * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) satisfy
  * this -- `LogicContext` must accept either source. RVP-2 made
  * `LogicService` resolve through the run-definition provider (pinned graph
  * when a run has a version, live tables otherwise) instead of always
  * reading the live tables directly, so this can no longer be pinned to the
- * exact DB-inferred `Section`/`Step` types.
+ * exact DB-inferred `Page`/`Step` types.
  */
-export interface LogicContextSection {
+export interface LogicContextPage {
   id: string;
   workflowId: string;
   title: string;
@@ -84,7 +84,7 @@ export interface LogicContextSection {
 export interface LogicContextStep {
   id: string;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   type: string;
   title: string;
   description: string | null;
@@ -102,13 +102,13 @@ export interface LogicContextStep {
  */
 export interface LogicContext {
   workflowId: string;
-  sections: LogicContextSection[];
+  pages: LogicContextPage[];
   steps: LogicContextStep[];
   rules: LogicRule[];
   data: Record<string, unknown>;
 
   // Pre-computed indexes for O(1) lookups
-  sectionHideRulesMap: Map<string, LogicRule[]>;
+  pageHideRulesMap: Map<string, LogicRule[]>;
   stepHideRulesMap: Map<string, LogicRule[]>;
 
   // Helper for visibleIf expressions
@@ -119,22 +119,22 @@ export interface LogicContext {
  * Evaluation result for workflow logic
  */
 export interface WorkflowEvaluationResult {
-  visibleSections: Set<string>;
-  hiddenSections: Set<string>;
+  visiblePages: Set<string>;
+  hiddenPages: Set<string>;
   visibleSteps: Set<string>;
   hiddenSteps: Set<string>;
   requiredSteps: Set<string>;
-  skipToSectionId?: string; // Section to skip to based on logic
+  skipToPageId?: string; // Page to skip to based on logic
   /**
-   * The `id` of the rule that set `skipToSectionId` — the same first-firing,
+   * The `id` of the rule that set `skipToPageId` — the same first-firing,
    * lowest-`order` winner, recorded alongside it so a consumer (MAP-7's
    * `shared/workflowSimulation.ts`) can label the edge it traversed without
    * re-deriving which rule won by searching/re-sorting `rules` itself.
-   * Purely additive: existing consumers that only read `skipToSectionId` are
+   * Purely additive: existing consumers that only read `skipToPageId` are
    * unaffected.
    */
   skipToRuleId?: string;
-  nextSectionId?: string; // Next section in normal flow
+  nextPageId?: string; // Next page in normal flow
 }
 
 /**
@@ -142,7 +142,7 @@ export interface WorkflowEvaluationResult {
  *
  * @param rules - Array of logic rules to evaluate
  * @param data - Current step values (stepId -> value)
- * @returns Evaluation result with visible sections, steps, and requirements
+ * @returns Evaluation result with visible pages, steps, and requirements
  */
 export function evaluateRules(
   rules: EvaluableLogicRule[],
@@ -150,41 +150,41 @@ export function evaluateRules(
   resolveAlias?: RuleAliasResolver
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
-    visibleSections: new Set(),
-    hiddenSections: new Set(),
+    visiblePages: new Set(),
+    hiddenPages: new Set(),
     visibleSteps: new Set(),
     hiddenSteps: new Set(),
     requiredSteps: new Set(),
   };
 
   // Group rules by target
-  const sectionRules = rules.filter(r => r.targetType === 'section');
+  const pageRules = rules.filter(r => r.targetType === 'page');
   const stepRules = rules.filter(r => r.targetType === 'step');
 
-  // Evaluate section-level rules in ascending rule.order so that, when
+  // Evaluate page-level rules in ascending rule.order so that, when
   // multiple skip_to rules fire, the outcome is deterministic (first firing
   // rule wins) rather than depending on incoming array order.
-  const orderedSectionRules = [...sectionRules].sort((a, b) => a.order - b.order);
-  orderedSectionRules.forEach(rule => {
+  const orderedPageRules = [...pageRules].sort((a, b) => a.order - b.order);
+  orderedPageRules.forEach(rule => {
     const conditionMet = evaluateCondition(rule, data, resolveAlias);
 
     if (conditionMet) {
-      const targetId = rule.targetSectionId;
+      const targetId = rule.targetPageId;
       if (!targetId) {return;}
 
       switch (rule.action) {
         case 'show':
-          result.hiddenSections.delete(targetId);
-          result.visibleSections.add(targetId);
+          result.hiddenPages.delete(targetId);
+          result.visiblePages.add(targetId);
           break;
         case 'hide':
-          result.visibleSections.delete(targetId);
-          result.hiddenSections.add(targetId);
+          result.visiblePages.delete(targetId);
+          result.hiddenPages.add(targetId);
           break;
         case 'skip_to':
           // First firing skip_to rule (lowest order) wins; later ones are ignored.
-          if (result.skipToSectionId === undefined) {
-            result.skipToSectionId = targetId;
+          if (result.skipToPageId === undefined) {
+            result.skipToPageId = targetId;
             result.skipToRuleId = rule.id;
           }
           break;
@@ -230,17 +230,17 @@ export function evaluateRules(
  * Invalid visibleIf expressions fail closed.
  */
 export function evaluateWorkflowVisibility(options: {
-  sections: VisibilitySectionDefinition[];
+  pages: VisibilityPageDefinition[];
   steps: VisibilityStepDefinition[];
   rules: EvaluableLogicRule[];
   data: Record<string, unknown>;
   resolveAlias: (name: string) => string | undefined;
 }): WorkflowVisibilityResult {
-  const { sections, steps, rules, data, resolveAlias } = options;
+  const { pages, steps, rules, data, resolveAlias } = options;
   const ruleEvaluation = evaluateRules(rules, data, resolveAlias);
-  const sectionShowTargets = new Set(
-    rules.filter((rule) => rule.targetType === 'section' && rule.action === 'show')
-      .map((rule) => rule.targetSectionId)
+  const pageShowTargets = new Set(
+    rules.filter((rule) => rule.targetType === 'page' && rule.action === 'show')
+      .map((rule) => rule.targetPageId)
       .filter((id): id is string => Boolean(id))
   );
   const stepShowTargets = new Set(
@@ -258,18 +258,18 @@ export function evaluateWorkflowVisibility(options: {
     }
   };
 
-  const visibleSections = new Set(
-    sections
-      .filter((section) => expressionVisible(section.visibleIf))
-      .filter((section) => sectionShowTargets.has(section.id)
-        ? ruleEvaluation.visibleSections.has(section.id)
-        : !ruleEvaluation.hiddenSections.has(section.id))
-      .map((section) => section.id)
+  const visiblePages = new Set(
+    pages
+      .filter((page) => expressionVisible(page.visibleIf))
+      .filter((page) => pageShowTargets.has(page.id)
+        ? ruleEvaluation.visiblePages.has(page.id)
+        : !ruleEvaluation.hiddenPages.has(page.id))
+      .map((page) => page.id)
   );
 
   const visibleSteps = new Set(
     steps
-      .filter((step) => visibleSections.has(step.sectionId))
+      .filter((step) => visiblePages.has(step.pageId))
       .filter((step) => expressionVisible(step.visibleIf))
       .filter((step) => stepShowTargets.has(step.id)
         ? ruleEvaluation.visibleSteps.has(step.id)
@@ -286,7 +286,7 @@ export function evaluateWorkflowVisibility(options: {
   // file_upload — see RUN2-3) can never be satisfied
   // by a respondent, whether it is required by its own `required: true` or
   // by a rule's `require` action. Excluding it here — the one place
-  // navigation, section-submit, and completion all derive `requiredSteps`
+  // navigation, page-submit, and completion all derive `requiredSteps`
   // from — fixes all three at once. A step with no `type` supplied is
   // treated as requirable rather than silently dropped.
   const stepTypeById = new Map(steps.map((step) => [step.id, step.type]));
@@ -300,7 +300,7 @@ export function evaluateWorkflowVisibility(options: {
     })
   );
 
-  return { visibleSections, visibleSteps, requiredSteps, ruleEvaluation };
+  return { visiblePages, visibleSteps, requiredSteps, ruleEvaluation };
 }
 
 /**
@@ -344,100 +344,100 @@ function isEmpty(value: unknown): boolean {
 }
 
 /**
- * Calculates the next section based on current section, section order, and visibility
+ * Calculates the next page based on current page, page order, and visibility
  *
- * @param currentSectionId - Current section ID (null if at start)
- * @param sections - Array of sections ordered by their 'order' field
- * @param visibleSections - Set of visible section IDs
- * @returns Next section ID or null if completed
+ * @param currentPageId - Current page ID (null if at start)
+ * @param pages - Array of pages ordered by their 'order' field
+ * @param visiblePages - Set of visible page IDs
+ * @returns Next page ID or null if completed
  */
-export function calculateNextSection(
-  currentSectionId: string | null,
-  sections: Array<{ id: string; order: number }>,
-  visibleSections: Set<string>
+export function calculateNextPage(
+  currentPageId: string | null,
+  pages: Array<{ id: string; order: number }>,
+  visiblePages: Set<string>
 ): string | null {
-  // Sort sections by order
-  const sortedSections = [...sections].sort((a, b) => a.order - b.order);
+  // Sort pages by order
+  const sortedPages = [...pages].sort((a, b) => a.order - b.order);
 
-  // If no current section, return first visible section
-  if (!currentSectionId) {
-    const firstVisible = sortedSections.find(s => visibleSections.has(s.id));
+  // If no current page, return first visible page
+  if (!currentPageId) {
+    const firstVisible = sortedPages.find(s => visiblePages.has(s.id));
     return firstVisible?.id ?? null;
   }
 
-  // Find current section index
-  const currentIndex = sortedSections.findIndex(s => s.id === currentSectionId);
+  // Find current page index
+  const currentIndex = sortedPages.findIndex(s => s.id === currentPageId);
   if (currentIndex === -1) {
     return null;
   }
 
-  // Find next visible section after current
-  for (const section of sortedSections.slice(currentIndex + 1)) {
-    if (visibleSections.has(section.id)) {
-      return section.id;
+  // Find next visible page after current
+  for (const page of sortedPages.slice(currentIndex + 1)) {
+    if (visiblePages.has(page.id)) {
+      return page.id;
     }
   }
 
-  // No more visible sections - workflow complete
+  // No more visible pages - workflow complete
   return null;
 }
 
 /**
- * Resolves the actual next section considering skip logic
+ * Resolves the actual next page considering skip logic
  *
- * A skip target that is not strictly after the current section (i.e. its
- * `order` is <= the current section's `order`) is treated as a no-op and
+ * A skip target that is not strictly after the current page (i.e. its
+ * `order` is <= the current page's `order`) is treated as a no-op and
  * navigation falls through to normal flow. Without this guard, a `skip_to`
  * rule whose condition remains true would trap the run in an infinite
  * navigation loop (see RUN2-2).
  *
- * @param currentSectionId - Current section ID (null if at start)
- * @param nextSectionId - Normal next section
- * @param skipToSectionId - Skip target section (takes precedence when forward)
- * @param sections - Array of sections ordered by their 'order' field
- * @param visibleSections - Set of visible section IDs
- * @returns Resolved next section ID or null if completed
+ * @param currentPageId - Current page ID (null if at start)
+ * @param nextPageId - Normal next page
+ * @param skipToPageId - Skip target page (takes precedence when forward)
+ * @param pages - Array of pages ordered by their 'order' field
+ * @param visiblePages - Set of visible page IDs
+ * @returns Resolved next page ID or null if completed
  */
-export function resolveNextSection(
-  currentSectionId: string | null,
-  nextSectionId: string | null,
-  skipToSectionId: string | undefined,
-  sections: Array<{ id: string; order: number }>,
-  visibleSections: Set<string>
+export function resolveNextPage(
+  currentPageId: string | null,
+  nextPageId: string | null,
+  skipToPageId: string | undefined,
+  pages: Array<{ id: string; order: number }>,
+  visiblePages: Set<string>
 ): string | null {
   // Skip logic takes precedence, but only when it moves the run forward.
-  if (skipToSectionId && isForwardSkipTarget(currentSectionId, skipToSectionId, sections)) {
+  if (skipToPageId && isForwardSkipTarget(currentPageId, skipToPageId, pages)) {
     // If skip target is visible, use it
-    if (visibleSections.has(skipToSectionId)) {
-      return skipToSectionId;
+    if (visiblePages.has(skipToPageId)) {
+      return skipToPageId;
     }
 
     // If skip target is not visible, find next visible after it
-    return calculateNextSection(skipToSectionId, sections, visibleSections);
+    return calculateNextPage(skipToPageId, pages, visiblePages);
   }
 
-  // Use normal next section if no skip, or if the skip target is backwards/same (no-op)
-  return nextSectionId;
+  // Use normal next page if no skip, or if the skip target is backwards/same (no-op)
+  return nextPageId;
 }
 
 /**
  * Determines whether a skip target's `order` is strictly after the current
- * section's `order`. A skip target whose section can't be resolved against
- * the known sections is left to the existing "not found" handling in
- * `calculateNextSection` rather than being pre-filtered here.
+ * page's `order`. A skip target whose page can't be resolved against
+ * the known pages is left to the existing "not found" handling in
+ * `calculateNextPage` rather than being pre-filtered here.
  */
 function isForwardSkipTarget(
-  currentSectionId: string | null,
-  skipToSectionId: string,
-  sections: Array<{ id: string; order: number }>
+  currentPageId: string | null,
+  skipToPageId: string,
+  pages: Array<{ id: string; order: number }>
 ): boolean {
-  if (currentSectionId === null) {
-    // No current section yet (start of run) - any skip target is forward.
+  if (currentPageId === null) {
+    // No current page yet (start of run) - any skip target is forward.
     return true;
   }
 
-  const currentOrder = sections.find(s => s.id === currentSectionId)?.order;
-  const skipTargetOrder = sections.find(s => s.id === skipToSectionId)?.order;
+  const currentOrder = pages.find(s => s.id === currentPageId)?.order;
+  const skipTargetOrder = pages.find(s => s.id === skipToPageId)?.order;
 
   if (currentOrder === undefined || skipTargetOrder === undefined) {
     return true;

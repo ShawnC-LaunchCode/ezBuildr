@@ -68,9 +68,9 @@ describe("VersionService.serializeWorkflow", () => {
       description: "Immutable runtime definition",
       settings: { theme: "midnight", progress: "compact" },
       intakeConfig: { allowPrefill: true, completionMessage: "Done" },
-      sections: [{
-        id: "section-1",
-        alias: "section-1",
+      pages: [{
+        id: "page-1",
+        alias: "page-1",
         title: "Applicant",
         description: "Applicant details",
         order: 3,
@@ -78,7 +78,7 @@ describe("VersionService.serializeWorkflow", () => {
         config: { layout: "wide" },
         steps: [{
           id: "step-1",
-          sectionId: "section-1",
+          pageId: "page-1",
           type: "multiple_choice",
           title: "Approved?",
           description: "Choose one",
@@ -94,8 +94,8 @@ describe("VersionService.serializeWorkflow", () => {
         id: "rule-1",
         conditionStepId: "step-1",
         when: ruleWhen,
-        targetType: "section",
-        targetSectionId: "section-1",
+        targetType: "page",
+        targetPageId: "page-1",
         targetStepId: null,
         action: "show",
         order: 7,
@@ -103,14 +103,14 @@ describe("VersionService.serializeWorkflow", () => {
       transformBlocks: [{
         id: "transform-1",
         workflowId: "workflow-1",
-        sectionId: "section-1",
+        pageId: "page-1",
         name: "Normalize",
         language: "javascript",
         code: "emit(input)",
         inputKeys: ["approved"],
         outputKey: "normalized",
         virtualStepId: "virtual-transform-1",
-        phase: "onSectionSubmit",
+        phase: "onPageSubmit",
         enabled: false,
         order: 8,
         timeoutMs: 2250,
@@ -120,9 +120,9 @@ describe("VersionService.serializeWorkflow", () => {
     findBlocks.mockResolvedValue([{
       id: "block-1",
       workflowId: "workflow-1",
-      sectionId: "section-1",
+      pageId: "page-1",
       type: "webhook",
-      phase: "onSectionSubmit",
+      phase: "onPageSubmit",
       config: { url: "https://example.test/hook", method: "POST" },
       virtualStepId: "virtual-block-1",
       enabled: false,
@@ -131,9 +131,9 @@ describe("VersionService.serializeWorkflow", () => {
     findLifecycleHooks.mockResolvedValue([{
       id: "lifecycle-1",
       workflowId: "workflow-1",
-      sectionId: "section-1",
+      pageId: "page-1",
       name: "Before submit",
-      phase: "beforeSectionSubmit",
+      phase: "beforePageSubmit",
       language: "python",
       code: "emit(data)",
       inputKeys: ["approved"],
@@ -164,21 +164,21 @@ describe("VersionService.serializeWorkflow", () => {
 
     expect(result.settings).toEqual({ theme: "midnight", progress: "compact" });
     expect(result.intakeConfig).toEqual({ allowPrefill: true, completionMessage: "Done" });
-    expect(result.sections?.[0]).toMatchObject({ visibleIf });
-    expect(result.sections?.[0]?.steps?.[0]?.defaultValue).toEqual(["yes", 2]);
+    expect(result.pages?.[0]).toMatchObject({ visibleIf });
+    expect(result.pages?.[0]?.steps?.[0]?.defaultValue).toEqual(["yes", 2]);
     expect(result.logicRules).toEqual([expect.objectContaining({
       id: "rule-1",
       conditionStepAlias: "approved",
       when: ruleWhen,
-      targetId: "section-1",
+      targetId: "page-1",
       targetAlias: "Applicant",
       order: 7,
     })]);
     expect(result.blocks).toEqual([{
       id: "block-1",
-      sectionId: "section-1",
+      pageId: "page-1",
       type: "webhook",
-      phase: "onSectionSubmit",
+      phase: "onPageSubmit",
       config: { url: "https://example.test/hook", method: "POST" },
       virtualStepId: "virtual-block-1",
       enabled: false,
@@ -186,7 +186,7 @@ describe("VersionService.serializeWorkflow", () => {
     }]);
     expect(result.transformBlocks).toEqual([expect.objectContaining({
       id: "transform-1",
-      sectionId: "section-1",
+      pageId: "page-1",
       outputKey: "normalized",
       virtualStepId: "virtual-transform-1",
       enabled: false,
@@ -194,7 +194,7 @@ describe("VersionService.serializeWorkflow", () => {
     })]);
     expect(result.lifecycleHooks).toEqual([expect.objectContaining({
       id: "lifecycle-1",
-      sectionId: "section-1",
+      pageId: "page-1",
       outputAlias: "first",
       outputKeys: ["first", "second"],
       virtualStepIds: ["virtual-life-1", "virtual-life-2"],

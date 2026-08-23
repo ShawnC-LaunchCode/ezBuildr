@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middleware/ai.middleware';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
-import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
+import { workflows, workflowVersions, workflowSnapshots, projects, users, pages, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -129,21 +129,21 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         text: () => JSON.stringify({
           ops: [
             {
-              op: 'section.create',
-              tempId: 'temp-section-1',
+              op: 'page.create',
+              tempId: 'temp-page-1',
               title: 'Contact Information',
               order: 1,
             },
             {
               op: 'step.create',
-              sectionRef: 'temp-section-1',
+              pageRef: 'temp-page-1',
               type: 'email',
               title: 'Email Address',
               alias: 'email',
               required: true,
             },
           ],
-          summary: ['Created Contact Information section', 'Added Email Address field'],
+          summary: ['Created Contact Information page', 'Added Email Address field'],
           warnings: [],
           questions: [],
           confidence: 0.95,
@@ -161,8 +161,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     testWorkflowId = workflow.id;
   });
   afterAll(async () => {
-    // Cleanup - delete in correct order (steps -> sections -> workflows -> projects -> users)
-    // Steps are deleted via cascade when sections are deleted
+    // Cleanup - delete in correct order (steps -> pages -> workflows -> projects -> users)
+    // Steps are deleted via cascade when pages are deleted
     // Delete audit events first to avoid FK constraint violations
     try {
       if (auditLogs && testUserId) {
@@ -171,7 +171,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       } else {
         console.warn('⚠️ Skipping auditLogs cleanup: auditLogs or testUserId is undefined', { auditLogs: !!auditLogs, testUserId });
       }
-      if (sections && testWorkflowId) {await getOwnerDb().delete(sections).where(eq(sections.workflowId, testWorkflowId));}
+      if (pages && testWorkflowId) {await getOwnerDb().delete(pages).where(eq(pages.workflowId, testWorkflowId));}
       if (workflowVersions && testWorkflowId) {await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));}
       if (workflows && testWorkflowId) {await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));}
       if (projects && testProjectId) {await getOwnerDb().delete(projects).where(eq(projects.id, testProjectId));}
@@ -185,7 +185,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Add a contact information section with an email field',
+        userMessage: 'Add a contact information page with an email field',
         preferences: {
           readingLevel: 'standard',
           tone: 'neutral',
@@ -211,7 +211,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata).toBeDefined();
     expect(aiMetadata.aiGenerated).toBe(true);
-    expect(aiMetadata.userPrompt).toBe('Add a contact information section with an email field');
+    expect(aiMetadata.userPrompt).toBe('Add a contact information page with an email field');
     expect(aiMetadata.confidence).toBe(0.95);
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();
@@ -241,7 +241,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const response1 = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Add contact section',
+        userMessage: 'Add contact page',
       })
       .expect(200);
     const versionId1 = response1.body.data.versionId;
@@ -315,15 +315,15 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         text: () => JSON.stringify({
           ops: [
             {
-              op: 'section.create',
-              tempId: 'temp-section-emergency',
+              op: 'page.create',
+              tempId: 'temp-page-emergency',
               title: 'Emergency Contact',
               order: 2,
             },
             {
               op: 'step.create',
               tempId: 'temp-step-emergency-name',
-              sectionRef: 'temp-section-emergency',
+              pageRef: 'temp-page-emergency',
               type: 'short_text',
               title: 'Emergency Contact Name',
               alias: 'emergency_contact_name',
@@ -332,7 +332,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
             {
               op: 'step.create',
               tempId: 'temp-step-emergency-phone',
-              sectionRef: 'temp-section-emergency',
+              pageRef: 'temp-page-emergency',
               type: 'phone',
               title: 'Emergency Contact Phone',
               alias: 'emergency_contact_phone',
@@ -343,15 +343,15 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
               rule: {
                 condition: "has_emergency_contact equals true",
                 action: 'show',
-                target: { type: 'section', tempId: 'temp-section-emergency' },
+                target: { type: 'page', tempId: 'temp-page-emergency' },
               },
             },
           ],
           summary: [
-            'Created Emergency Contact section',
+            'Created Emergency Contact page',
             'Added Emergency Contact Name field',
             'Added Emergency Contact Phone field',
-            'Applied visibility rule to section',
+            'Applied visibility rule to page',
           ],
           warnings: [],
           questions: [],
@@ -362,27 +362,27 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Add emergency contact section with name and phone, show only if has_emergency_contact is true',
+        userMessage: 'Add emergency contact page with name and phone, show only if has_emergency_contact is true',
       })
       .expect(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.summary).toHaveLength(4);
     expect(response.body.data.versionId).toBeDefined();
     // Verify all entities were created
-    const createdSections = await getOwnerDb().select()
-      .from(sections)
-      .where(eq(sections.workflowId, testWorkflowId));
-    expect(createdSections).toHaveLength(1);
-    expect(createdSections[0].title).toBe('Emergency Contact');
+    const createdPages = await getOwnerDb().select()
+      .from(pages)
+      .where(eq(pages.workflowId, testWorkflowId));
+    expect(createdPages).toHaveLength(1);
+    expect(createdPages[0].title).toBe('Emergency Contact');
     const createdSteps = await getOwnerDb().select()
       .from(steps)
-      .where(eq(steps.sectionId, createdSections[0].id));
+      .where(eq(steps.pageId, createdPages[0].id));
     expect(createdSteps).toHaveLength(2);
     expect(createdSteps.some(s => s.alias === 'emergency_contact_name')).toBe(true);
     expect(createdSteps.some(s => s.alias === 'emergency_contact_phone')).toBe(true);
     // Verify structure of the visibility rule
 
-    const conditionGroup = createdSections[0].visibleIf as any;
+    const conditionGroup = createdPages[0].visibleIf as any;
     expect(conditionGroup).toBeDefined();
     // New format is a ConditionGroup
     expect(conditionGroup.type).toBe('group');
@@ -416,14 +416,14 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     try {
       const response = await request(app)
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-        .send({ userMessage: 'Add a contact section' })
+        .send({ userMessage: 'Add a contact page' })
         .expect(503);
       expect(response.body.success).toBe(false);
       // No ops applied and no version created.
-      const sectionsAfter = await getOwnerDb().select()
-        .from(sections)
-        .where(eq(sections.workflowId, testWorkflowId));
-      expect(sectionsAfter).toHaveLength(0);
+      const pagesAfter = await getOwnerDb().select()
+        .from(pages)
+        .where(eq(pages.workflowId, testWorkflowId));
+      expect(pagesAfter).toHaveLength(0);
       const versionsAfter = await getOwnerDb().select()
         .from(workflowVersions)
         .where(eq(workflowVersions.workflowId, testWorkflowId));
@@ -434,15 +434,15 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   });
   it('should rollback on validation failure', async () => {
     // First, create a step with alias 'email'
-    const [section] = await getOwnerDb().insert(sections).values({
+    const [page] = await getOwnerDb().insert(pages).values({
       workflowId: testWorkflowId,
-      title: 'Initial Section',
+      title: 'Initial Page',
       order: 1,
       config: {},
     }).returning();
     await getOwnerDb().insert(steps).values({
       workflowId: testWorkflowId,
-      sectionId: section.id,
+      pageId: page.id,
       type: 'email',
       title: 'Email',
       alias: 'email',
@@ -457,7 +457,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
           ops: [
             {
               op: 'step.create',
-              sectionId: section.id,
+              pageId: page.id,
               type: 'short_text',
               title: 'Backup Email',
               alias: 'email', // Duplicate!
@@ -483,13 +483,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // Verify no version was created
     expect(response.body.data?.versionId).toBeUndefined();
     // Verify workflow is still in valid state (only original step exists)
-    const workflowSections = await getOwnerDb().select()
-      .from(sections)
-      .where(eq(sections.workflowId, testWorkflowId));
-    const sectionIds = workflowSections.map(s => s.id);
+    const workflowPages = await getOwnerDb().select()
+      .from(pages)
+      .where(eq(pages.workflowId, testWorkflowId));
+    const pageIds = workflowPages.map(s => s.id);
     const allSteps = await getOwnerDb().select()
       .from(steps)
-      .where(sectionIds.length > 0 ? eq(steps.sectionId, sectionIds[0]) : eq(steps.sectionId, 'no-sections'));
+      .where(pageIds.length > 0 ? eq(steps.pageId, pageIds[0]) : eq(steps.pageId, 'no-pages'));
     expect(allSteps).toHaveLength(1);
     expect(allSteps[0].title).toBe('Email');
   });
@@ -533,8 +533,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(500);
     expect(response.body.success).toBe(false);
 
-    const sectionsAfter = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
-    expect(sectionsAfter).toHaveLength(0);
+    const pagesAfter = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+    expect(pagesAfter).toHaveLength(0);
     const versionsAfter = await getOwnerDb().select().from(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));
     expect(versionsAfter).toHaveLength(0);
   });
@@ -592,7 +592,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     }
   });
 
-  it('rejects an op referencing a section from another workflow (IDOR)', async () => {
+  it('rejects an op referencing a page from another workflow (IDOR)', async () => {
     const [otherWorkflow] = await getOwnerDb().insert(workflows).values({
       title: 'Other Workflow',
       status: 'active',
@@ -600,9 +600,9 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       ownerId: testUserId,
       projectId: testProjectId,
     }).returning();
-    const [foreignSection] = await getOwnerDb().insert(sections).values({
+    const [foreignPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id,
-      title: 'Foreign Section',
+      title: 'Foreign Page',
       order: 1,
       config: {},
     }).returning();
@@ -610,7 +610,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     mockGenerateContent.mockResolvedValueOnce({
       response: {
         text: () => JSON.stringify({
-          ops: [{ op: 'section.update', id: foreignSection.id, title: 'Hijacked' }],
+          ops: [{ op: 'page.update', id: foreignPage.id, title: 'Hijacked' }],
           summary: [],
           warnings: [],
           questions: [],
@@ -622,23 +622,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     try {
       const response = await request(app)
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-        .send({ userMessage: 'Rename a section' })
+        .send({ userMessage: 'Rename a page' })
         .expect(400);
       expect(response.body.error).toBe('Failed to apply operations');
       expect(response.body.details[0]).toContain('does not belong to workflow');
 
-      // The foreign section is untouched and nothing landed on the edited workflow.
-      const [check] = await getOwnerDb().select().from(sections).where(eq(sections.id, foreignSection.id));
-      expect(check.title).toBe('Foreign Section');
-      const own = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+      // The foreign page is untouched and nothing landed on the edited workflow.
+      const [check] = await getOwnerDb().select().from(pages).where(eq(pages.id, foreignPage.id));
+      expect(check.title).toBe('Foreign Page');
+      const own = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
       expect(own).toHaveLength(0);
     } finally {
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
 
-  it('rejects step.create targeting a section in another workflow (IDOR)', async () => {
+  it('rejects step.create targeting a page in another workflow (IDOR)', async () => {
     const [otherWorkflow] = await getOwnerDb().insert(workflows).values({
       title: 'Other Workflow (step.create)',
       status: 'active',
@@ -646,9 +646,9 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       ownerId: testUserId,
       projectId: testProjectId,
     }).returning();
-    const [foreignSection] = await getOwnerDb().insert(sections).values({
+    const [foreignPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id,
-      title: 'Victim Section',
+      title: 'Victim Page',
       order: 1,
       config: {},
     }).returning();
@@ -656,7 +656,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     mockGenerateContent.mockResolvedValueOnce({
       response: {
         text: () => JSON.stringify({
-          ops: [{ op: 'step.create', sectionId: foreignSection.id, type: 'short_text', title: 'INJECTED' }],
+          ops: [{ op: 'step.create', pageId: foreignPage.id, type: 'short_text', title: 'INJECTED' }],
           summary: [],
           warnings: [],
           questions: [],
@@ -673,12 +673,12 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       expect(response.body.error).toBe('Failed to apply operations');
       expect(response.body.details[0]).toContain('does not belong to workflow');
 
-      // No step was injected into the victim's section.
-      const injected = await getOwnerDb().select().from(steps).where(eq(steps.sectionId, foreignSection.id));
+      // No step was injected into the victim's page.
+      const injected = await getOwnerDb().select().from(steps).where(eq(steps.pageId, foreignPage.id));
       expect(injected).toHaveLength(0);
     } finally {
-      await getOwnerDb().delete(steps).where(eq(steps.sectionId, foreignSection.id));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(steps).where(eq(steps.pageId, foreignPage.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
@@ -691,7 +691,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       ownerId: testUserId,
       projectId: testProjectId,
     }).returning();
-    const [otherSection] = await getOwnerDb().insert(sections).values({
+    const [otherPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id,
       title: 'S',
       order: 1,
@@ -699,7 +699,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     }).returning();
     const [condStep] = await getOwnerDb().insert(steps).values({
       workflowId: otherWorkflow.id,
-      sectionId: otherSection.id,
+      pageId: otherPage.id,
       type: 'short_text',
       title: 'Trigger',
       order: 1,
@@ -709,8 +709,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       workflowId: otherWorkflow.id,
       conditionStepId: condStep.id,
       when: buildTestWhen(condStep.id, 'equals', 'yes'),
-      targetType: 'section',
-      targetSectionId: otherSection.id,
+      targetType: 'page',
+      targetPageId: otherPage.id,
       action: 'show',
       order: 1,
     }).returning();
@@ -740,7 +740,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       expect(stillThere).toBeDefined();
     } finally {
       await getOwnerDb().delete(logicRules).where(eq(logicRules.workflowId, otherWorkflow.id));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
@@ -778,13 +778,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
   /** Everything the edit pipeline could have written for this workflow. */
   const readWorkflowState = async (): Promise<{
-    sections: unknown[];
+    pages: unknown[];
     steps: unknown[];
     rules: unknown[];
     versions: unknown[];
     snapshots: unknown[];
   }> => ({
-    sections: await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId)),
+    pages: await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId)),
     steps: await getOwnerDb().select().from(steps).where(eq(steps.workflowId, testWorkflowId)),
     rules: await getOwnerDb().select().from(logicRules).where(eq(logicRules.workflowId, testWorkflowId)),
     versions: await getOwnerDb().select().from(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId)),
@@ -796,25 +796,25 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .send({ userMessage: 'Add a contact information page', dryRun: true })
       .expect(200);
 
     expect(response.body.success).toBe(true);
     expect(response.body.data.ops).toHaveLength(2);
-    expect(response.body.data.ops[0].op).toBe('section.create');
+    expect(response.body.data.ops[0].op).toBe('page.create');
     expect(response.body.data.summary).toHaveLength(2);
     expect(response.body.data.confidence).toBe(0.95);
 
     // Human-readable diff derived from the ops, in op order.
     expect(response.body.data.changes).toEqual([
-      { type: 'add', entity: 'section', explanation: 'Add section "Contact Information"' },
+      { type: 'add', entity: 'page', explanation: 'Add page "Contact Information"' },
       { type: 'add', entity: 'step', explanation: 'Add email question "Email Address"' },
     ]);
 
     // Nothing written: no rows, no version, and no pre-edit snapshot either.
     const after = await readWorkflowState();
     expect(after).toEqual(before);
-    expect(after.sections).toHaveLength(0);
+    expect(after.pages).toHaveLength(0);
     expect(after.versions).toHaveLength(0);
     expect(after.snapshots).toHaveLength(0);
   });
@@ -827,7 +827,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .send({ userMessage: 'Add a contact information page', dryRun: true })
       .expect(200);
 
     // ...user hits Discard: no further request is made.
@@ -840,23 +840,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   it('applies caller-supplied ops through the snapshot pipeline without calling the model (AC3)', async () => {
     const proposal = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .send({ userMessage: 'Add a contact information page', dryRun: true })
       .expect(200);
 
     mockGenerateContent.mockClear();
 
     const applied = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-      .send({ userMessage: 'Add a contact information section', ops: proposal.body.data.ops })
+      .send({ userMessage: 'Add a contact information page', ops: proposal.body.data.ops })
       .expect(200);
 
     // Apply must not re-prompt the model — it commits exactly what was reviewed.
     expect(mockGenerateContent).not.toHaveBeenCalled();
     expect(applied.body.data.noChanges).toBe(false);
 
-    const createdSections = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
-    expect(createdSections).toHaveLength(1);
-    expect(createdSections[0].title).toBe('Contact Information');
+    const createdPages = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+    expect(createdPages).toHaveLength(1);
+    expect(createdPages[0].title).toBe('Contact Information');
     const createdSteps = await getOwnerDb().select().from(steps).where(eq(steps.workflowId, testWorkflowId));
     expect(createdSteps).toHaveLength(1);
     expect(createdSteps[0].alias).toBe('email');
@@ -864,7 +864,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // Summary is re-derived server-side from the applied ops, not trusted from
     // the client, and the snapshot pipeline still ran.
     expect(applied.body.data.summary).toEqual([
-      'Add section "Contact Information"',
+      'Add page "Contact Information"',
       'Add email question "Email Address"',
     ]);
     const [version] = await getOwnerDb().select()
@@ -884,13 +884,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       await request(app)
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
         .send({
-          userMessage: 'Add a contact section',
-          ops: [{ op: 'section.create', title: 'Contact', order: 1 }],
+          userMessage: 'Add a contact page',
+          ops: [{ op: 'page.create', title: 'Contact', order: 1 }],
         })
         .expect(503);
 
-      const sectionsAfter = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
-      expect(sectionsAfter).toHaveLength(0);
+      const pagesAfter = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+      expect(pagesAfter).toHaveLength(0);
     } finally {
       spy.mockRestore();
     }
@@ -904,9 +904,9 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       ownerId: testUserId,
       projectId: testProjectId,
     }).returning();
-    const [foreignSection] = await getOwnerDb().insert(sections).values({
+    const [foreignPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id,
-      title: 'Foreign Section',
+      title: 'Foreign Page',
       order: 1,
       config: {},
     }).returning();
@@ -915,17 +915,17 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       const response = await request(app)
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
         .send({
-          userMessage: 'Rename a section',
-          ops: [{ op: 'section.update', id: foreignSection.id, title: 'Hijacked' }],
+          userMessage: 'Rename a page',
+          ops: [{ op: 'page.update', id: foreignPage.id, title: 'Hijacked' }],
         })
         .expect(400);
       expect(response.body.error).toBe('Failed to apply operations');
       expect(response.body.details[0]).toContain('does not belong to workflow');
 
-      const [check] = await getOwnerDb().select().from(sections).where(eq(sections.id, foreignSection.id));
-      expect(check.title).toBe('Foreign Section');
+      const [check] = await getOwnerDb().select().from(pages).where(eq(pages.id, foreignPage.id));
+      expect(check.title).toBe('Foreign Page');
     } finally {
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
@@ -935,13 +935,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
         userMessage: 'Do something odd',
-        ops: [{ op: 'section.nuke', title: 'Contact' }],
+        ops: [{ op: 'page.nuke', title: 'Contact' }],
       })
       .expect(400);
 
     expect(response.body.error).toBe('Invalid request data');
-    const sectionsAfter = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
-    expect(sectionsAfter).toHaveLength(0);
+    const pagesAfter = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+    expect(pagesAfter).toHaveLength(0);
   });
 
   // ==========================================================================
@@ -955,10 +955,10 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       response: {
         text: () => JSON.stringify({
           ops: [
-            { op: 'section.create', tempId: 's1', title: 'Preferences', order: 1 },
+            { op: 'page.create', tempId: 's1', title: 'Preferences', order: 1 },
             {
               op: 'step.create',
-              sectionRef: 's1',
+              pageRef: 's1',
               type: 'radio',
               title: 'Preferred contact method',
               alias: 'contact_method',
@@ -966,7 +966,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
             },
             {
               op: 'step.create',
-              sectionRef: 's1',
+              pageRef: 's1',
               type: 'number',
               title: 'Household size',
               alias: 'household_size',
@@ -1001,7 +1001,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   });
 
   it('persists step config on step.update too (ICW2-11 AC2)', async () => {
-    const [section] = await getOwnerDb().insert(sections).values({
+    const [page] = await getOwnerDb().insert(pages).values({
       workflowId: testWorkflowId,
       title: 'Existing',
       order: 1,
@@ -1009,7 +1009,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     }).returning();
     const [step] = await getOwnerDb().insert(steps).values({
       workflowId: testWorkflowId,
-      sectionId: section.id,
+      pageId: page.id,
       type: 'radio',
       title: 'Colour',
       alias: 'colour',
@@ -1035,7 +1035,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   });
 
   // ==========================================================================
-  // ICW2-12 — op-schema gaps: visibility on steps AND sections, section-targeted
+  // ICW2-12 — op-schema gaps: visibility on steps AND pages, page-targeted
   // logic rules, and step reorder. Each new op gets the same per-op validation
   // and IDOR checks as the existing ones.
   // ==========================================================================
@@ -1049,45 +1049,45 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     ],
   });
 
-  const seedSectionWithStep = async (title: string): Promise<{ sectionId: string; stepId: string }> => {
-    const [section] = await getOwnerDb().insert(sections).values({
+  const seedPageWithStep = async (title: string): Promise<{ pageId: string; stepId: string }> => {
+    const [page] = await getOwnerDb().insert(pages).values({
       workflowId: testWorkflowId, title, order: 1, config: {},
     }).returning();
     const [step] = await getOwnerDb().insert(steps).values({
-      workflowId: testWorkflowId, sectionId: section.id, type: 'yes_no',
+      workflowId: testWorkflowId, pageId: page.id, type: 'yes_no',
       title: 'Trigger', alias: `trigger_${Date.now()}`, order: 1, config: {},
     }).returning();
-    return { sectionId: section.id, stepId: step.id };
+    return { pageId: page.id, stepId: step.id };
   };
 
-  it('sets and clears visibleIf on a section (ICW2-12 AC3)', async () => {
-    const { sectionId } = await seedSectionWithStep('Conditional Section');
+  it('sets and clears visibleIf on a page (ICW2-12 AC3)', async () => {
+    const { pageId } = await seedPageWithStep('Conditional Page');
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Only show that section when the trigger is yes',
-        ops: [{ op: 'section.setVisibleIf', id: sectionId, visibleIf: condition('trigger') }],
+        userMessage: 'Only show that page when the trigger is yes',
+        ops: [{ op: 'page.setVisibleIf', id: pageId, visibleIf: condition('trigger') }],
       })
       .expect(200);
 
-    const [withCondition] = await getOwnerDb().select().from(sections).where(eq(sections.id, sectionId));
+    const [withCondition] = await getOwnerDb().select().from(pages).where(eq(pages.id, pageId));
     expect((withCondition.visibleIf as { type?: string })?.type).toBe('group');
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Always show that section',
-        ops: [{ op: 'section.setVisibleIf', id: sectionId, visibleIf: null }],
+        userMessage: 'Always show that page',
+        ops: [{ op: 'page.setVisibleIf', id: pageId, visibleIf: null }],
       })
       .expect(200);
 
-    const [cleared] = await getOwnerDb().select().from(sections).where(eq(sections.id, sectionId));
+    const [cleared] = await getOwnerDb().select().from(pages).where(eq(pages.id, pageId));
     expect(cleared.visibleIf).toBeNull();
   });
 
   it('sets visibleIf on a step as a condition object, rejecting the old string shape', async () => {
-    const { stepId } = await seedSectionWithStep('Step Visibility');
+    const { stepId } = await seedPageWithStep('Step Visibility');
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
@@ -1111,12 +1111,12 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(rejected.body.error).toBe('Invalid request data');
   });
 
-  it('rejects section.setVisibleIf targeting another workflow (IDOR)', async () => {
+  it('rejects page.setVisibleIf targeting another workflow (IDOR)', async () => {
     const [otherWorkflow] = await getOwnerDb().insert(workflows).values({
-      title: 'Other Workflow (section visibility)', status: 'active',
+      title: 'Other Workflow (page visibility)', status: 'active',
       creatorId: testUserId, ownerId: testUserId, projectId: testProjectId,
     }).returning();
-    const [foreignSection] = await getOwnerDb().insert(sections).values({
+    const [foreignPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id, title: 'Foreign', order: 1, config: {},
     }).returning();
 
@@ -1124,28 +1124,28 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       const response = await request(app)
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
         .send({
-          userMessage: 'Hide that section',
-          ops: [{ op: 'section.setVisibleIf', id: foreignSection.id, visibleIf: condition('trigger') }],
+          userMessage: 'Hide that page',
+          ops: [{ op: 'page.setVisibleIf', id: foreignPage.id, visibleIf: condition('trigger') }],
         })
         .expect(400);
       expect(response.body.details[0]).toContain('does not belong to workflow');
 
-      const [check] = await getOwnerDb().select().from(sections).where(eq(sections.id, foreignSection.id));
+      const [check] = await getOwnerDb().select().from(pages).where(eq(pages.id, foreignPage.id));
       expect(check.visibleIf).toBeNull();
     } finally {
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
 
-  it('reorders steps within a section (ICW2-12 AC3)', async () => {
-    const [section] = await getOwnerDb().insert(sections).values({
+  it('reorders steps within a page (ICW2-12 AC3)', async () => {
+    const [page] = await getOwnerDb().insert(pages).values({
       workflowId: testWorkflowId, title: 'Ordered', order: 1, config: {},
     }).returning();
     const inserted = await getOwnerDb().insert(steps).values([
-      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'A', alias: 'a', order: 1, config: {} },
-      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'B', alias: 'b', order: 2, config: {} },
-      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'C', alias: 'c', order: 3, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'A', alias: 'a', order: 1, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'B', alias: 'b', order: 2, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'C', alias: 'c', order: 3, config: {} },
     ]).returning();
     const byAlias = Object.fromEntries(inserted.map((s) => [s.alias, s.id]));
 
@@ -1155,23 +1155,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         userMessage: 'Put C first',
         ops: [{
           op: 'step.reorder',
-          sectionId: section.id,
+          pageId: page.id,
           stepIds: [byAlias.c, byAlias.a, byAlias.b],
         }],
       })
       .expect(200);
 
-    const after = await getOwnerDb().select().from(steps).where(eq(steps.sectionId, section.id));
+    const after = await getOwnerDb().select().from(steps).where(eq(steps.pageId, page.id));
     const order = after.sort((a, b) => a.order - b.order).map((s) => s.alias);
     expect(order).toEqual(['c', 'a', 'b']);
   });
 
   it('rejects step.reorder containing a step from another workflow (IDOR)', async () => {
-    const [section] = await getOwnerDb().insert(sections).values({
+    const [page] = await getOwnerDb().insert(pages).values({
       workflowId: testWorkflowId, title: 'Reorder IDOR', order: 1, config: {},
     }).returning();
     const [own] = await getOwnerDb().insert(steps).values({
-      workflowId: testWorkflowId, sectionId: section.id, type: 'short_text',
+      workflowId: testWorkflowId, pageId: page.id, type: 'short_text',
       title: 'Own', alias: 'own', order: 1, config: {},
     }).returning();
 
@@ -1179,11 +1179,11 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       title: 'Other Workflow (reorder)', status: 'active',
       creatorId: testUserId, ownerId: testUserId, projectId: testProjectId,
     }).returning();
-    const [otherSection] = await getOwnerDb().insert(sections).values({
+    const [otherPage] = await getOwnerDb().insert(pages).values({
       workflowId: otherWorkflow.id, title: 'Foreign', order: 1, config: {},
     }).returning();
     const [foreignStep] = await getOwnerDb().insert(steps).values({
-      workflowId: otherWorkflow.id, sectionId: otherSection.id, type: 'short_text',
+      workflowId: otherWorkflow.id, pageId: otherPage.id, type: 'short_text',
       title: 'Foreign', alias: 'foreign_step', order: 1, config: {},
     }).returning();
 
@@ -1192,27 +1192,27 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         .post(`/api/workflows/${testWorkflowId}/ai/edit`)
         .send({
           userMessage: 'Reorder',
-          ops: [{ op: 'step.reorder', sectionId: section.id, stepIds: [own.id, foreignStep.id] }],
+          ops: [{ op: 'step.reorder', pageId: page.id, stepIds: [own.id, foreignStep.id] }],
         })
         .expect(400);
       expect(response.body.details[0]).toContain('does not belong to workflow');
 
       const [check] = await getOwnerDb().select().from(steps).where(eq(steps.id, foreignStep.id));
-      expect(check.sectionId).toBe(otherSection.id);
+      expect(check.pageId).toBe(otherPage.id);
     } finally {
       await getOwnerDb().delete(steps).where(eq(steps.workflowId, otherWorkflow.id));
-      await getOwnerDb().delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, otherWorkflow.id));
       await getOwnerDb().delete(workflows).where(eq(workflows.id, otherWorkflow.id));
     }
   });
 
-  it('creates a section-targeted logic rule (ICW2-12 AC3)', async () => {
-    const { sectionId } = await seedSectionWithStep('Rule Target');
+  it('creates a page-targeted logic rule (ICW2-12 AC3)', async () => {
+    const { pageId } = await seedPageWithStep('Rule Target');
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Hide that section unless the trigger is yes',
+        userMessage: 'Hide that page unless the trigger is yes',
         ops: [{
           op: 'logicRule.create',
           rule: {
@@ -1220,23 +1220,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
             // unlike visibleIf which is a ConditionExpression object.
             condition: 'trigger is_true',
             action: 'show',
-            target: { type: 'section', id: sectionId },
+            target: { type: 'page', id: pageId },
           },
         }],
       })
       .expect(200);
 
-    const [section] = await getOwnerDb().select().from(sections).where(eq(sections.id, sectionId));
-    expect(section.visibleIf).not.toBeNull();
+    const [page] = await getOwnerDb().select().from(pages).where(eq(pages.id, pageId));
+    expect(page.visibleIf).not.toBeNull();
   });
 
   it('rejects combining dryRun with ops (400)', async () => {
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Add a section',
+        userMessage: 'Add a page',
         dryRun: true,
-        ops: [{ op: 'section.create', title: 'Contact', order: 1 }],
+        ops: [{ op: 'page.create', title: 'Contact', order: 1 }],
       })
       .expect(400);
 
@@ -1245,13 +1245,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
   // ==========================================================================
   // ICW2-B11 — the AI ops apply path (WorkflowPatchService) used to hard
-  // DELETE steps/sections, destroying respondent step_values. It must
+  // DELETE steps/pages, destroying respondent step_values. It must
   // soft-delete instead, mirroring the manual delete path from ICW2-B1, and
-  // section.delete must cascade to the section's own steps.
+  // page.delete must cascade to the page's own steps.
   // ==========================================================================
 
   it('an AI step.delete op soft-deletes: step_values survive (ICW2-B11 AC1)', async () => {
-    const { stepId } = await seedSectionWithStep('AI Delete Step');
+    const { stepId } = await seedPageWithStep('AI Delete Step');
     const [run] = await getOwnerDb().insert(workflowRuns).values({
       workflowId: testWorkflowId,
       runToken: crypto.randomUUID(),
@@ -1275,13 +1275,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(survivingValues).toHaveLength(1);
     expect(survivingValues[0].value).toBe('the answer');
 
-    // Cleanup for this test's extra rows (sections/steps are cleaned in afterAll).
+    // Cleanup for this test's extra rows (pages/steps are cleaned in afterAll).
     await getOwnerDb().delete(stepValues).where(eq(stepValues.runId, run.id));
     await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
   });
 
-  it('an AI section.delete op soft-deletes and cascades to its steps: step_values survive (ICW2-B11 AC1)', async () => {
-    const { sectionId, stepId } = await seedSectionWithStep('AI Delete Section');
+  it('an AI page.delete op soft-deletes and cascades to its steps: step_values survive (ICW2-B11 AC1)', async () => {
+    const { pageId, stepId } = await seedPageWithStep('AI Delete Page');
     const [run] = await getOwnerDb().insert(workflowRuns).values({
       workflowId: testWorkflowId,
       runToken: crypto.randomUUID(),
@@ -1292,14 +1292,14 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
       .send({
-        userMessage: 'Remove that section',
-        ops: [{ op: 'section.delete', id: sectionId }],
+        userMessage: 'Remove that page',
+        ops: [{ op: 'page.delete', id: pageId }],
       })
       .expect(200);
 
-    const [sectionRow] = await getOwnerDb().select().from(sections).where(eq(sections.id, sectionId));
-    expect(sectionRow).toBeDefined();
-    expect(sectionRow.deletedAt).not.toBeNull();
+    const [pageRow] = await getOwnerDb().select().from(pages).where(eq(pages.id, pageId));
+    expect(pageRow).toBeDefined();
+    expect(pageRow.deletedAt).not.toBeNull();
 
     const [stepRow] = await getOwnerDb().select().from(steps).where(eq(steps.id, stepId));
     expect(stepRow).toBeDefined(); // cascaded soft-delete, not a hard DELETE
@@ -1343,8 +1343,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       expect(mockGenerateContent).not.toHaveBeenCalled();
 
       // Nothing was written — the request was rejected before any AI call.
-      const sectionsAfter = await getOwnerDb().select().from(sections).where(eq(sections.workflowId, testWorkflowId));
-      expect(sectionsAfter).toHaveLength(0);
+      const pagesAfter = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+      expect(pagesAfter).toHaveLength(0);
     } finally {
       await getOwnerDb().delete(aiUsage).where(eq(aiUsage.id, usageRow.id));
     }
@@ -1356,7 +1356,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // ticket landed.
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
-      .send({ userMessage: 'Add a contact information section with an email field' })
+      .send({ userMessage: 'Add a contact information page with an email field' })
       .expect(200);
 
     expect(response.body.success).toBe(true);

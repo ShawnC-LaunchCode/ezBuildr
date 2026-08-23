@@ -10,7 +10,7 @@ import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 // --- Main Component ---
 
-export function SignatureBlockEditor({ stepId, sectionId, step }: StepEditorCommonProps): JSX.Element {
+export function SignatureBlockEditor({ stepId, pageId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Cast step.config to expected type or partial
@@ -52,7 +52,7 @@ export function SignatureBlockEditor({ stepId, sectionId, step }: StepEditorComm
   const handleUpdate = (updates: Partial<SignatureBlockConfig>) => {
     const newConfig = { ...localConfig, ...updates };
     setLocalConfig(newConfig);
-    updateStepMutation.mutate({ id: stepId, sectionId, config: newConfig });
+    updateStepMutation.mutate({ id: stepId, pageId, config: newConfig });
   };
 
   return (

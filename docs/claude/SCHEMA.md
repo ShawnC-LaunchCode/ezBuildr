@@ -4,7 +4,7 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `sections` / `steps` (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
+> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / physical `sections` (TS: `pages`) / `steps` tables (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
 ## Workflow Core — `shared/schema/workflow.ts` (20 tables)
 
@@ -17,7 +17,7 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `templates` / `template_versions` | Document templates + versioning |
 | `workflow_blueprints` | Template blueprint structures (JSONB) |
 | `workflow_templates` | Reusable workflow templates |
-| `sections` | Pages/sections: order, visibleIf |
+| `sections` (`pages`) | Workflow pages: order, visibleIf. The SQL name is pinned until SECT-2. |
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
@@ -139,7 +139,7 @@ All DataVault tables are `datavault_`-prefixed:
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 
-**Condition operators:** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all store
+**Condition operators:** `logic_rules.when` and `steps.visibleIf` / `pages.visibleIf` all store
 the same `ConditionExpression` jsonb, evaluated by `shared/conditionEvaluator.ts` against the
 28-operator `ComparisonOperator` union in `shared/types/conditions.ts` (starts_with, date diffs,
 includes_all, etc.). The flat 9-value `conditionOperatorEnum` DB enum `logic_rules` used before
@@ -152,3 +152,8 @@ LU-6a/LU-6c is dropped — no column references it anymore.
 **Lifecycle hook phases:** beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
 **Document hook phases:** beforeGeneration, afterGeneration
 **Script languages:** JavaScript (vm2/vm sandbox), Python (subprocess isolation)
+
+> **Vocabulary boundary:** workflow navigation uses **pages** in TypeScript,
+> APIs, serialized JSON, and product copy. The group layer added later in Phase
+> 1 uses **sections** as a new, distinct container that must hold one or more
+> pages; it does not revive the former page-as-section terminology.

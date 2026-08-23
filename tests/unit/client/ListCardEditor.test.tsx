@@ -37,7 +37,7 @@ function listStep(id: string, config: ListConfig): ApiStep {
   return {
     id,
     workflowId: 'workflow-1',
-    sectionId: 'section-1',
+    pageId: 'page-1',
     type: 'list',
     title: 'Guests',
     description: null,
@@ -53,7 +53,7 @@ function renderEditor(step: ApiStep) {
   return render(
     <ListCardEditor
       stepId={step.id}
-      sectionId={step.sectionId}
+      pageId={step.pageId}
       workflowId=""
       step={step}
     />
@@ -110,7 +110,7 @@ describe('ListCardEditor config debounce (LIST2-13)', () => {
     expect(updateStepMock).toHaveBeenCalledTimes(1);
     expect(updateStepMock).toHaveBeenCalledWith({
       id: 'step-1',
-      sectionId: 'section-1',
+      pageId: 'page-1',
       config: {
         fields: [{
           id: 'field-1',
@@ -136,7 +136,7 @@ describe('ListCardEditor config debounce (LIST2-13)', () => {
     expect(updateStepMock).toHaveBeenCalledTimes(1);
     expect(updateStepMock).toHaveBeenCalledWith(expect.objectContaining({
       id: 'step-1',
-      sectionId: 'section-1',
+      pageId: 'page-1',
       config: expect.objectContaining({
         fields: [expect.objectContaining({ title: 'Final before close' })],
       }),
@@ -154,7 +154,7 @@ describe('ListCardEditor config debounce (LIST2-13)', () => {
     view.rerender(
       <ListCardEditor
         stepId={secondStep.id}
-        sectionId={secondStep.sectionId}
+        pageId={secondStep.pageId}
         workflowId=""
         step={secondStep}
       />

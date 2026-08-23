@@ -1,6 +1,6 @@
 import { eq, desc, and } from "drizzle-orm";
 
-import { workflowSnapshots, workflowRuns, stepValues, steps, sections } from "@shared/schema";
+import { workflowSnapshots, workflowRuns, stepValues, steps, pages } from "@shared/schema";
 
 import { db } from "../db";
 
@@ -152,10 +152,10 @@ export class SnapshotService {
         config: steps.config
       })
       .from(steps)
-      .innerJoin(sections, eq(steps.sectionId, sections.id))
+      .innerJoin(pages, eq(steps.pageId, pages.id))
       .where(
         and(
-          eq(sections.workflowId, snapshot.workflowId),
+          eq(pages.workflowId, snapshot.workflowId),
           eq(steps.isVirtual, false)
         )
       );

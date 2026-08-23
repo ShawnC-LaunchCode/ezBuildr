@@ -3,7 +3,7 @@ import { eq, inArray, and, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { withCurrentTenant } from "../utils/rlsContext";
 import { createLogger } from "../logger";
-import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
+import { pages, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
 import { extractConditionReferences } from "../../shared/conditionGraph";
 import { LIMITS, LimitExceededError } from "../../shared/limits";
@@ -28,7 +28,7 @@ import type { AIGeneratedWorkflow } from "./ai/types";
 const logger = createLogger({ module: "WorkflowContentIngestService" });
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type ExistingSection = typeof sections.$inferSelect;
+type ExistingPage = typeof pages.$inferSelect;
 
 export interface WorkflowStepData {
   id?: string;
@@ -55,7 +55,7 @@ export interface WorkflowStepData {
  * `buildSingleConditionExpression` seam that synthesized `when` from it are
  * gone. `conditionStepAlias`/`targetAlias` are not a second condition
  * language; they are alias-keyed FK bookkeeping `syncLogicRules` resolves
- * into real ids for the *newly created* steps/sections in this ingest pass
+ * into real ids for the *newly created* steps/pages in this ingest pass
  * (`conditionStepId`/`targetId` are the already-resolved forms a version
  * snapshot supplies directly, when ids don't need remapping).
  */
@@ -74,7 +74,7 @@ export interface WorkflowLogicRuleData {
 
 export interface WorkflowTransformBlockData {
   id?: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   phase: string;
   name: string;
   code: string;
@@ -90,7 +90,7 @@ export interface WorkflowTransformBlockData {
 
 export interface WorkflowHookData {
   id?: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   finalBlockDocumentId?: string | null;
   phase: string;
   name: string;
@@ -110,7 +110,7 @@ export interface WorkflowHookData {
 
 export interface WorkflowBlockData {
   id?: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   type: string;
   phase: string;
   config: unknown;
@@ -119,7 +119,7 @@ export interface WorkflowBlockData {
   order?: number;
 }
 
-export interface WorkflowSectionData {
+export interface WorkflowPageData {
   id?: string;
   title: string;
   description?: string;
@@ -136,7 +136,7 @@ export interface WorkflowContentData {
   projectId?: string | null;
   settings?: Record<string, unknown>;
   intakeConfig?: Record<string, unknown>;
-  sections?: WorkflowSectionData[];
+  pages?: WorkflowPageData[];
   logicRules?: WorkflowLogicRuleData[];
   blocks?: WorkflowBlockData[];
   transformBlocks?: WorkflowTransformBlockData[];
@@ -153,15 +153,15 @@ interface AliasSyncState {
 interface StepSyncContext {
   tx: Transaction;
   workflowId: string;
-  sectionId: string;
-  sectionAlreadyExists: boolean;
+  pageId: string;
+  pageAlreadyExists: boolean;
   aliasState: AliasSyncState;
 }
 
 interface StepUpsertContext {
   tx: Transaction;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   existingStepIds: Set<string>;
   incomingStepIds: Set<string>;
   aliasState: AliasSyncState;
@@ -195,7 +195,7 @@ function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Re
 function normalizeContent(data: WorkflowContentData): WorkflowContentData {
   const normalizedData = JSON.parse(JSON.stringify(data)) as WorkflowContentData;
 
-  normalizedData.sections ??= [];
+  normalizedData.pages ??= [];
   normalizedData.logicRules ??= [];
   normalizedData.transformBlocks ??= [];
 
@@ -204,14 +204,14 @@ function normalizeContent(data: WorkflowContentData): WorkflowContentData {
 
   // Aggregate size caps (ICW-11): the deep-update path replaces the whole
   // workflow, so enforce the same ceilings the incremental path checks.
-  const sectionCount = normalizedData.sections?.length ?? 0;
-  if (sectionCount > LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
+  const pageCount = normalizedData.pages?.length ?? 0;
+  if (pageCount > LIMITS.MAX_PAGES_PER_WORKFLOW) {
     throw new LimitExceededError(
-      `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
+      `Page limit reached (${LIMITS.MAX_PAGES_PER_WORKFLOW} per workflow)`
     );
   }
-  const stepCount = (normalizedData.sections ?? []).reduce(
-    (sum, section) => sum + (section.steps?.length ?? 0),
+  const stepCount = (normalizedData.pages ?? []).reduce(
+    (sum, page) => sum + (page.steps?.length ?? 0),
     0
   );
   if (stepCount > LIMITS.MAX_STEPS_PER_WORKFLOW) {
@@ -242,24 +242,24 @@ export class WorkflowContentIngestService {
 
     const runner = async (tx: Transaction): Promise<void> => {
       // Excludes soft-deleted rows (ICW2-B1) so reconciliation never
-      // re-considers an already-deleted section for deletion, and so a
-      // section removed from the incoming payload is soft-deleted exactly
+      // re-considers an already-deleted page for deletion, and so a
+      // page removed from the incoming payload is soft-deleted exactly
       // once.
-      const existingSections = await tx
+      const existingPages = await tx
         .select()
-        .from(sections)
-        .where(and(eq(sections.workflowId, workflowId), isNull(sections.deletedAt)));
+        .from(pages)
+        .where(and(eq(pages.workflowId, workflowId), isNull(pages.deletedAt)));
 
       const aliasState = await this.buildAliasState(tx, workflowId);
-      const incomingSectionIds = await this.syncSections(
+      const incomingPageIds = await this.syncPages(
         tx,
         workflowId,
-        normalizedData.sections ?? [],
-        existingSections,
+        normalizedData.pages ?? [],
+        existingPages,
         aliasState
       );
 
-      await this.deleteMissingSections(tx, existingSections, incomingSectionIds);
+      await this.deleteMissingPages(tx, existingPages, incomingPageIds);
       await this.syncLogicRules(tx, workflowId, normalizedData.logicRules ?? [], aliasState.aliasMap);
       await this.syncTransformBlocks(tx, workflowId, normalizedData.transformBlocks ?? []);
       await this.syncLifecycleHooks(tx, workflowId, normalizedData.lifecycleHooks);
@@ -269,7 +269,7 @@ export class WorkflowContentIngestService {
     if (options.tx) {
       return runner(options.tx);
     }
-    // RLS-5: `sections` and `steps` are RLS-covered through their workflow's
+    // RLS-5: `pages` and `steps` are RLS-covered through their workflow's
     // ownership-derived policy, so this transaction has to carry the tenant —
     // a bare `db.transaction` here had every insert rejected under
     // enforcement. Same house pattern as every other converted service; the
@@ -287,8 +287,8 @@ export class WorkflowContentIngestService {
         alias: steps.alias,
       })
       .from(steps)
-      .innerJoin(sections, eq(steps.sectionId, sections.id))
-      .where(and(eq(sections.workflowId, workflowId), isNull(steps.deletedAt)));
+      .innerJoin(pages, eq(steps.pageId, pages.id))
+      .where(and(eq(pages.workflowId, workflowId), isNull(steps.deletedAt)));
 
     const existingAliasByStepId = new Map(existingWorkflowSteps.map((step) => [step.id, step.alias]));
     const takenAliases = new Set(
@@ -304,92 +304,92 @@ export class WorkflowContentIngestService {
     };
   }
 
-  private async syncSections(
+  private async syncPages(
     tx: Transaction,
     workflowId: string,
-    sectionDataList: WorkflowSectionData[],
-    existingSections: ExistingSection[],
+    pageDataList: WorkflowPageData[],
+    existingPages: ExistingPage[],
     aliasState: AliasSyncState
   ): Promise<Set<string>> {
-    const existingSectionIds = new Set(existingSections.map((section) => section.id));
-    const incomingSectionIds = new Set<string>();
+    const existingPageIds = new Set(existingPages.map((page) => page.id));
+    const incomingPageIds = new Set<string>();
 
-    for (const [index, sectionData] of sectionDataList.entries()) {
-      sectionData.order ??= index;
-      const sectionId = await this.upsertSection(
+    for (const [index, pageData] of pageDataList.entries()) {
+      pageData.order ??= index;
+      const pageId = await this.upsertPage(
         tx,
         workflowId,
-        sectionData,
-        existingSectionIds,
-        incomingSectionIds
+        pageData,
+        existingPageIds,
+        incomingPageIds
       );
 
-      this.recordAlias(sectionData.id, sectionId, aliasState.aliasMap);
-      this.recordAlias(sectionData.alias, sectionId, aliasState.aliasMap);
+      this.recordAlias(pageData.id, pageId, aliasState.aliasMap);
+      this.recordAlias(pageData.alias, pageId, aliasState.aliasMap);
       await this.syncSteps({
         tx,
         workflowId,
-        sectionId,
-        sectionAlreadyExists: existingSectionIds.has(sectionId),
+        pageId,
+        pageAlreadyExists: existingPageIds.has(pageId),
         aliasState,
-      }, sectionData.steps ?? []);
+      }, pageData.steps ?? []);
     }
 
-    return incomingSectionIds;
+    return incomingPageIds;
   }
 
-  private async upsertSection(
+  private async upsertPage(
     tx: Transaction,
     workflowId: string,
-    sectionData: WorkflowSectionData,
-    existingSectionIds: Set<string>,
-    incomingSectionIds: Set<string>
+    pageData: WorkflowPageData,
+    existingPageIds: Set<string>,
+    incomingPageIds: Set<string>
   ): Promise<string> {
-    const existingId = sectionData.id;
-    const isExisting = existingId !== undefined && existingId !== null && existingSectionIds.has(existingId);
+    const existingId = pageData.id;
+    const isExisting = existingId !== undefined && existingId !== null && existingPageIds.has(existingId);
 
     if (isExisting) {
-      incomingSectionIds.add(existingId);
+      incomingPageIds.add(existingId);
       await tx
-        .update(sections)
+        .update(pages)
         .set({
-          title: sectionData.title,
-          description: sectionData.description,
-          order: sectionData.order,
-          visibleIf: sectionData.visibleIf,
+          title: pageData.title,
+          description: pageData.description,
+          order: pageData.order,
+          visibleIf: pageData.visibleIf,
         })
-        .where(eq(sections.id, existingId));
+        .where(eq(pages.id, existingId));
       return existingId;
     }
 
-    const [newSection] = await tx
-      .insert(sections)
+    const [newPage] = await tx
+      .insert(pages)
       .values({
         workflowId,
-        title: sectionData.title ?? "Untitled",
-        description: sectionData.description ?? null,
-        order: sectionData.order ?? 0,
-        visibleIf: sectionData.visibleIf ?? null,
-        config: sectionData.config ?? {},
+        title: pageData.title ?? "Untitled",
+        description: pageData.description ?? null,
+        order: pageData.order ?? 0,
+        visibleIf: pageData.visibleIf ?? null,
+        config: pageData.config ?? {},
       })
       .returning();
 
-    if (newSection === undefined) {
-      throw new Error("Failed to create section while applying workflow content");
+    if (newPage === undefined) {
+      throw new Error("Failed to create page while applying workflow content");
     }
 
-    return newSection.id;
+    return newPage.id;
   }
 
   private async syncSteps(context: StepSyncContext, stepDataList: WorkflowStepData[]): Promise<void> {
-    const existingStepIds = context.sectionAlreadyExists
-      ? await this.getExistingStepIds(context.tx, context.sectionId)
+    const existingStepIds = context.pageAlreadyExists
+      ? await this.getExistingStepIds(context.tx, context.pageId)
       : new Set<string>();
     const incomingStepIds = new Set<string>();
     const upsertContext: StepUpsertContext = {
       tx: context.tx,
       workflowId: context.workflowId,
-      sectionId: context.sectionId,
+      pageId: context.pageId,
       existingStepIds,
       incomingStepIds,
       aliasState: context.aliasState,
@@ -406,18 +406,18 @@ export class WorkflowContentIngestService {
       this.recordAlias(stepData.id, stepId, context.aliasState.aliasMap);
     }
 
-    if (context.sectionAlreadyExists) {
+    if (context.pageAlreadyExists) {
       await this.deleteMissingSteps(context.tx, existingStepIds, incomingStepIds);
     }
   }
 
-  private async getExistingStepIds(tx: Transaction, sectionId: string): Promise<Set<string>> {
+  private async getExistingStepIds(tx: Transaction, pageId: string): Promise<Set<string>> {
     // Excludes soft-deleted steps (ICW2-B1) so reconciliation never
     // re-considers an already-deleted step for deletion.
     const dbSteps = await tx
       .select({ id: steps.id })
       .from(steps)
-      .where(and(eq(steps.sectionId, sectionId), isNull(steps.deletedAt)));
+      .where(and(eq(steps.pageId, pageId), isNull(steps.deletedAt)));
     return new Set(dbSteps.map((step) => step.id));
   }
 
@@ -444,7 +444,7 @@ export class WorkflowContentIngestService {
         required: stepData.required,
         config,
         order: stepData.order ?? stepIndex,
-        sectionId: context.sectionId,
+        pageId: context.pageId,
         alias,
         visibleIf: stepData.visibleIf,
         defaultValue: stepData.defaultValue,
@@ -454,7 +454,7 @@ export class WorkflowContentIngestService {
 
     const [newStep] = await context.tx.insert(steps).values({
       workflowId: context.workflowId,
-      sectionId: context.sectionId,
+      pageId: context.pageId,
       type: stepData.type as InsertStep["type"],
       title: stepData.title,
       description: stepData.description,
@@ -502,23 +502,23 @@ export class WorkflowContentIngestService {
   }
 
   /**
-   * Soft-deletes (ICW2-B1) sections dropped from the incoming payload, and
+   * Soft-deletes (ICW2-B1) pages dropped from the incoming payload, and
    * cascades to their steps — a hard `DELETE` would destroy `step_values`
    * (respondent answers) via the FK cascade; soft-delete never triggers it.
    */
-  private async deleteMissingSections(
+  private async deleteMissingPages(
     tx: Transaction,
-    existingSections: ExistingSection[],
-    incomingSectionIds: Set<string>
+    existingPages: ExistingPage[],
+    incomingPageIds: Set<string>
   ): Promise<void> {
-    const sectionsToDelete = existingSections
-      .map((section) => section.id)
-      .filter((id) => !incomingSectionIds.has(id));
+    const pagesToDelete = existingPages
+      .map((page) => page.id)
+      .filter((id) => !incomingPageIds.has(id));
 
-    if (sectionsToDelete.length > 0) {
+    if (pagesToDelete.length > 0) {
       const deletedAt = new Date();
-      await tx.update(steps).set({ deletedAt }).where(inArray(steps.sectionId, sectionsToDelete));
-      await tx.update(sections).set({ deletedAt }).where(inArray(sections.id, sectionsToDelete));
+      await tx.update(steps).set({ deletedAt }).where(inArray(steps.pageId, pagesToDelete));
+      await tx.update(pages).set({ deletedAt }).where(inArray(pages.id, pagesToDelete));
     }
   }
 
@@ -560,9 +560,9 @@ export class WorkflowContentIngestService {
           return null;
         }
 
-        const targetFields = rule.targetType === "section"
-          ? { targetSectionId: targetId, targetStepId: null }
-          : { targetSectionId: null, targetStepId: targetId };
+        const targetFields = rule.targetType === "page"
+          ? { targetPageId: targetId, targetStepId: null }
+          : { targetPageId: null, targetStepId: targetId };
 
         return {
           workflowId,

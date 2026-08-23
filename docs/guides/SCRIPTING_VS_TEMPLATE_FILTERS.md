@@ -30,7 +30,7 @@ This page is the decision rule. Full references:
 
 | Surface | Fires |
 |---|---|
-| Lifecycle hooks | `beforePage` (entering a section), `afterPage` (submitting one) |
+| Lifecycle hooks | `beforePage` (entering a page), `afterPage` (submitting one) |
 | Document hooks | `beforeGeneration`, `afterGeneration` (per document) |
 | Transform blocks | when that step executes |
 

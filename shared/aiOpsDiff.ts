@@ -26,33 +26,33 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
         ].filter((part): part is string => part !== null).join(" and ") || "metadata"}`,
       };
 
-    case "section.create":
-      return { type: "add", entity: "section", explanation: `Add section "${op.title}"` };
-    case "section.update":
+    case "page.create":
+      return { type: "add", entity: "page", explanation: `Add page "${op.title}"` };
+    case "page.update":
       return {
         type: "update",
-        entity: "section",
-        explanation: `Update section ${label(op.title, op.id ?? op.tempId ?? "(unknown)")}`,
+        entity: "page",
+        explanation: `Update page ${label(op.title, op.id ?? op.tempId ?? "(unknown)")}`,
       };
-    case "section.delete":
+    case "page.delete":
       return {
         type: "remove",
-        entity: "section",
-        explanation: `Delete section ${op.id ?? op.tempId ?? "(unknown)"}`,
+        entity: "page",
+        explanation: `Delete page ${op.id ?? op.tempId ?? "(unknown)"}`,
       };
-    case "section.reorder":
+    case "page.reorder":
       return {
         type: "move",
-        entity: "section",
-        explanation: `Reorder ${op.sectionIds.length} sections`,
+        entity: "page",
+        explanation: `Reorder ${op.pageIds.length} pages`,
       };
-    case "section.setVisibleIf":
+    case "page.setVisibleIf":
       return {
         type: "update",
-        entity: "section",
+        entity: "page",
         explanation: op.visibleIf === null
-          ? `Always show section ${op.id ?? op.tempId ?? "(unknown)"}`
-          : `Make section ${op.id ?? op.tempId ?? "(unknown)"} conditional`,
+          ? `Always show page ${op.id ?? op.tempId ?? "(unknown)"}`
+          : `Make page ${op.id ?? op.tempId ?? "(unknown)"} conditional`,
       };
 
     case "step.create":
@@ -77,7 +77,7 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
       return {
         type: "move",
         entity: "step",
-        explanation: `Move question ${op.id ?? op.tempId ?? "(unknown)"} to another section`,
+        explanation: `Move question ${op.id ?? op.tempId ?? "(unknown)"} to another page`,
       };
     case "step.setVisibleIf":
       return {
@@ -91,7 +91,7 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
       return {
         type: "move",
         entity: "step",
-        explanation: `Reorder ${op.stepIds.length} questions in a section`,
+        explanation: `Reorder ${op.stepIds.length} questions in a page`,
       };
     case "step.setRequired":
       return {

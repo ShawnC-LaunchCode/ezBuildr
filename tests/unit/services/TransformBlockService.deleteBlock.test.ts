@@ -7,7 +7,7 @@ vi.mock('../../../server/repositories', () => ({
   transformBlockRunRepository: {},
   workflowRepository: {},
   stepValueRepository: {},
-  sectionRepository: {},
+  pageRepository: {},
   stepRepository: { delete: vi.fn(), softDelete: vi.fn() },
 }));
 
@@ -19,7 +19,7 @@ vi.mock('../../../server/services/WorkflowService', () => ({
  * ICW2-B11: TransformBlockService.deleteBlock used to hard-delete the
  * block's virtual step, destroying any respondent step_values recorded
  * against its computed output. It must soft-delete instead, matching the
- * ICW2-B1 pattern used by StepService/SectionService.
+ * ICW2-B1 pattern used by StepService/PageService.
  */
 describe('TransformBlockService.deleteBlock (ICW2-B11 soft-delete)', () => {
   let service: TransformBlockService;
@@ -27,14 +27,14 @@ describe('TransformBlockService.deleteBlock (ICW2-B11 soft-delete)', () => {
   const existingBlock = {
     id: 'block-123',
     workflowId: 'wf-123',
-    sectionId: null,
+    pageId: null,
     name: 'Existing block',
     language: 'javascript',
     code: 'emit(null);',
     inputKeys: [],
     outputKey: 'res',
     virtualStepId: 'virtual-step-123',
-    phase: 'onSectionSubmit',
+    phase: 'onPageSubmit',
     enabled: true,
     order: 0,
     timeoutMs: 1000,

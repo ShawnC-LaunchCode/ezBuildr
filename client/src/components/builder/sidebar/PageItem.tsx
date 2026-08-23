@@ -1,54 +1,54 @@
 
 import { type Mode } from "@/lib/mode";
 
-import { ApiBlock, ApiSection } from "@/lib/vault-api";
+import { ApiBlock, ApiPage } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
 
 import { BlockTreeItem } from "./BlockTreeItem";
-import { SectionItemHeader } from "./SectionItemHeader";
+import { PageItemHeader } from "./PageItemHeader";
 import { StepItem } from "./StepItem";
 
-interface SectionItemProps {
-    section: ApiSection;
+interface PageItemProps {
+    page: ApiPage;
     workflowId: string;
     isExpanded: boolean;
     onToggle: () => void;
     mode: Mode;
     blocks: ApiBlock[];
     onEditBlock: (block: ApiBlock) => void;
-    onEditSection: () => void;
+    onEditPage: () => void;
 }
 
-export function SectionItem({
-    section,
+export function PageItem({
+    page,
     workflowId,
     isExpanded,
     onToggle,
     mode,
     blocks,
     onEditBlock,
-    onEditSection,
-}: SectionItemProps) {
-    const { data: steps } = useSteps(section.id);
-    // Check if this is a Final Documents section
-    const isFinalSection = (section.config as Record<string, unknown> | undefined)?.finalBlock === true;
+    onEditPage,
+}: PageItemProps) {
+    const { data: steps } = useSteps(page.id);
+    // Check if this is a Final Documents page
+    const isFinalPage = (page.config as Record<string, unknown> | undefined)?.finalBlock === true;
     // Don't show page-level required pill based on questions - only show if page is conditional
-    const isPageConditional = !!section.visibleIf;
+    const isPageConditional = !!page.visibleIf;
 
     // Blocks have phases. 
-    // onSectionEnter -> Top
-    // onSectionSubmit -> Bottom
-    const topBlocks = blocks.filter(b => b.phase === 'onSectionEnter' || b.phase === 'onRunStart');
+    // onPageEnter -> Top
+    // onPageSubmit -> Bottom
+    const topBlocks = blocks.filter(b => b.phase === 'onPageEnter' || b.phase === 'onRunStart');
     const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
 
     return (
         <div className="mb-1">
-            <SectionItemHeader
-                section={section}
+            <PageItemHeader
+                page={page}
                 isExpanded={isExpanded}
                 onToggle={onToggle}
-                onEditSection={onEditSection}
-                isFinalSection={isFinalSection}
+                onEditPage={onEditPage}
+                isFinalPage={isFinalPage}
                 isPageConditional={isPageConditional}
             />
             {isExpanded && (
@@ -60,9 +60,9 @@ export function SectionItem({
                     {/* Steps */}
                     {steps && steps.length > 0 &&
                         steps
-                            .filter((step) => step.type !== 'final_documents' && !isFinalSection)
+                            .filter((step) => step.type !== 'final_documents' && !isFinalPage)
                             .map((step) => (
-                                <StepItem key={step.id} step={step} sectionId={section.id} />
+                                <StepItem key={step.id} step={step} pageId={page.id} />
                             ))}
                     {/* Bottom Blocks (Submit/Next) */}
                     {bottomBlocks.map((block) => (

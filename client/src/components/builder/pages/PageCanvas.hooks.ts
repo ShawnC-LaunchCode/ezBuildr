@@ -5,17 +5,17 @@ import { useState } from "react";
 
 import { queryKeys } from "@/hooks/api/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { ApiReorderSkipRuleWarning, ApiSection, ApiStep } from "@/lib/vault-api";
+import { ApiReorderSkipRuleWarning, ApiPage, ApiStep } from "@/lib/vault-api";
 import {
-    useReorderSections,
+    useReorderPages,
     useReorderSteps,
     useUpdateStep,
 } from "@/lib/vault-hooks";
 
 interface DragData {
-    type: "section" | "step";
+    type: "page" | "step";
     id: string;
-    sectionId?: string; // For steps, which section they belong to
+    pageId?: string; // For steps, which page they belong to
 }
 
 interface UsePageDragAndDropReturn {
@@ -27,7 +27,7 @@ interface UsePageDragAndDropReturn {
 
 export function usePageDragAndDrop(
     workflowId: string,
-    pages: ApiSection[],
+    pages: ApiPage[],
     allSteps: Record<string, ApiStep[]>
 ): UsePageDragAndDropReturn {
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export function usePageDragAndDrop(
 
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const reorderSectionsMutation = useReorderSections();
+    const reorderPagesMutation = useReorderPages();
     const reorderStepsMutation = useReorderSteps();
     const updateStepMutation = useUpdateStep();
 
@@ -44,16 +44,16 @@ export function usePageDragAndDrop(
         setActiveId(active.id as string);
 
         // Determine what type of item is being dragged
-        const isSection = pages.some((p) => p.id === active.id);
-        if (isSection) {
-            setActiveDragData({ type: "section", id: active.id as string });
+        const isPage = pages.some((p) => p.id === active.id);
+        if (isPage) {
+            setActiveDragData({ type: "page", id: active.id as string });
         } else {
-            // Find which section this step belongs to
-            const sectionId = Object.keys(allSteps).find((sId) =>
+            // Find which page this step belongs to
+            const pageId = Object.keys(allSteps).find((sId) =>
                 allSteps[sId].some((step) => step.id === active.id)
             );
-            if (sectionId) {
-                setActiveDragData({ type: "step", id: active.id as string, sectionId });
+            if (pageId) {
+                setActiveDragData({ type: "step", id: active.id as string, pageId });
             }
         }
     };
@@ -62,7 +62,7 @@ export function usePageDragAndDrop(
         if (rules.length === 0) { return; }
 
         const describe = (rule: ApiReorderSkipRuleWarning): string =>
-            `"${rule.conditionSectionTitle}" → "${rule.targetSectionTitle}"`;
+            `"${rule.conditionPageTitle}" → "${rule.targetPageTitle}"`;
 
         toast({
             title: rules.length === 1
@@ -73,7 +73,7 @@ export function usePageDragAndDrop(
         });
     };
 
-    const handleSectionReorder = (activeIdString: string, overIdString: string): void => {
+    const handlePageReorder = (activeIdString: string, overIdString: string): void => {
         const oldIndex = pages.findIndex((p) => p.id === activeIdString);
         const newIndex = pages.findIndex((p) => p.id === overIdString);
 
@@ -83,8 +83,8 @@ export function usePageDragAndDrop(
                 id: page.id,
                 order: index,
             }));
-            reorderSectionsMutation.mutate(
-                { workflowId, sections: updates },
+            reorderPagesMutation.mutate(
+                { workflowId, pages: updates },
                 {
                     // The reorder itself always succeeds — this only warns
                     // about a side effect it just had (MAP-B4, D-5): a
@@ -103,41 +103,41 @@ export function usePageDragAndDrop(
         overIdString: string,
         dragData: DragData
     ): Promise<void> => {
-        const sourceSectionId = dragData.sectionId;
-        if (!sourceSectionId) { return; }
+        const sourcePageId = dragData.pageId;
+        if (!sourcePageId) { return; }
 
-        // Determine target section
-        let targetSectionId: string | null = null;
+        // Determine target page
+        let targetPageId: string | null = null;
         let targetStepId: string | null = null;
 
         if (pages.some((p) => p.id === overIdString)) {
-            targetSectionId = overIdString;
+            targetPageId = overIdString;
         } else {
             targetStepId = overIdString;
-            targetSectionId =
+            targetPageId =
                 Object.keys(allSteps).find((sId) =>
                     allSteps[sId].some((step) => step.id === targetStepId)
                 ) ?? null;
         }
 
-        if (!targetSectionId) {
+        if (!targetPageId) {
             return;
         }
 
-        const sourceSteps = [...(allSteps[sourceSectionId] ?? [])];
+        const sourceSteps = [...(allSteps[sourcePageId] ?? [])];
         const oldIndex = sourceSteps.findIndex((s) => s.id === activeIdString);
 
         if (oldIndex === -1) {
             return;
         }
 
-        const targetSteps = [...(allSteps[targetSectionId] ?? [])];
+        const targetSteps = [...(allSteps[targetPageId] ?? [])];
         const newIndex = targetStepId
             ? targetSteps.findIndex((s) => s.id === targetStepId)
             : targetSteps.length;
 
-        if (sourceSectionId === targetSectionId) {
-            // Same section
+        if (sourcePageId === targetPageId) {
+            // Same page
             if (newIndex === -1) {
                 return;
             }
@@ -146,14 +146,14 @@ export function usePageDragAndDrop(
                 id: step.id,
                 order: index,
             }));
-            reorderStepsMutation.mutate({ sectionId: targetSectionId, steps: updates });
+            reorderStepsMutation.mutate({ pageId: targetPageId, steps: updates });
         } else {
-            // Different section: this is three writes (move the step, then
-            // renumber the source and target sections). If any leg fails the
+            // Different page: this is three writes (move the step, then
+            // renumber the source and target pages). If any leg fails the
             // individual mutation hooks already roll back their own optimistic
             // cache and surface a toast — but we must (a) not let the awaited
             // rejection escape as an unhandled promise rejection, and (b) force
-            // both affected sections back in sync so a partially-applied move
+            // both affected pages back in sync so a partially-applied move
             // can never linger in the UI.
             const draggedStep = sourceSteps[oldIndex];
 
@@ -175,33 +175,33 @@ export function usePageDragAndDrop(
             }));
 
             try {
-                // The section change must land first — the renumbering below
-                // assumes the step now lives in the target section.
+                // The page change must land first — the renumbering below
+                // assumes the step now lives in the target page.
                 await updateStepMutation.mutateAsync({
                     id: draggedStep.id,
-                    sectionId: targetSectionId,
+                    pageId: targetPageId,
                     order: newIndex,
                 });
 
                 await Promise.all([
                     sourceUpdates.length > 0
                         ? reorderStepsMutation.mutateAsync({
-                            sectionId: sourceSectionId,
+                            pageId: sourcePageId,
                             steps: sourceUpdates,
                         })
                         : Promise.resolve(),
                     reorderStepsMutation.mutateAsync({
-                        sectionId: targetSectionId,
+                        pageId: targetPageId,
                         steps: targetUpdatesWithNew,
                     }),
                 ]);
             } catch {
                 // Toast already shown by the global mutation error handler.
-                // Re-fetch both sections so the canvas reflects server truth
+                // Re-fetch both pages so the canvas reflects server truth
                 // rather than a half-completed move.
                 await Promise.allSettled([
-                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(sourceSectionId) }),
-                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(targetSectionId) }),
+                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(sourcePageId) }),
+                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(targetPageId) }),
                 ]);
             }
         }
@@ -219,8 +219,8 @@ export function usePageDragAndDrop(
         const activeIdString = active.id as string;
         const overIdString = over.id as string;
 
-        if (activeDragData?.type === "section") {
-            handleSectionReorder(activeIdString, overIdString);
+        if (activeDragData?.type === "page") {
+            handlePageReorder(activeIdString, overIdString);
             return;
         }
 

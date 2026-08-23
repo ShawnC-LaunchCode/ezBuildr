@@ -4,7 +4,7 @@
   "settings": {
     "businessDayCalendar": "weekends-only"
   },
-  "sections": [
+  "pages": [
     {
       "title": "Parties",
       "steps": [

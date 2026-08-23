@@ -117,7 +117,7 @@ async function fixAllMissingColumns() {
         section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
         name varchar NOT NULL,
         language text NOT NULL,
-        phase text NOT NULL DEFAULT 'onSectionSubmit',
+        phase text NOT NULL DEFAULT 'onPageSubmit',
         code text NOT NULL,
         input_keys text[] NOT NULL DEFAULT '{}',
         output_key varchar NOT NULL,
@@ -135,7 +135,7 @@ async function fixAllMissingColumns() {
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS section_id uuid');
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS name varchar');
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS language text');
-    await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS phase text DEFAULT \'onSectionSubmit\'');
+    await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS phase text DEFAULT \'onPageSubmit\'');
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS code text');
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS input_keys text[] DEFAULT \'{}\'');
     await client('ALTER TABLE transform_blocks ADD COLUMN IF NOT EXISTS output_key varchar');

@@ -72,11 +72,11 @@ describe.sequential('completed run answer immutability', () => {
     workflowId = workflow.id;
     versionId = version.id;
 
-    const section = await factory.createSection(workflowId, {
+    const page = await factory.createPage(workflowId, {
       title: 'Answers',
       order: 0,
     });
-    const step = await factory.createStep(section.id, {
+    const step = await factory.createStep(page.id, {
       title: 'Name',
       alias: 'name',
       type: 'short_text',
