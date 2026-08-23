@@ -71,11 +71,11 @@ and worse — see RLS-2.
 
 # Phase 1 — Environment split (ENV)
 
-## ENV-1 — Create dev and test Railway environments, each with its own database 🔄 mostly done
+## ENV-1 — Create dev and test Railway environments, each with its own database ✅ DONE 2026-08-22
 
 **Priority: P0** · Size: M · Files: Railway configuration, `.env`, `.env.example`, `docs/deployment/CI_CD_SETUP.md`
 
-### Progress — 2026-08-15 (AC1–AC3 met and verified; AC4–AC6 remain)
+### Progress — 2026-08-15 (AC1–AC3), 2026-08-19 (AC4–AC5), 2026-08-22 (AC6 — closed)
 
 The environments were built on 2026-08-13 but never written up, so the board still read as
 untouched. Measured state:
@@ -109,9 +109,28 @@ untouched. Measured state:
   `Wait for CI` hazard **with the evidence** (every `dev` deploy failed 2026-08-16 → 08-18
   while the environment served stale code).
 
-Still open: **AC6** — the `db:push` smoke check has not been run. It is deliberately left: it
-mutates the dev database to prove it is not production, and is worth doing when someone can
-watch both `information_schema` probes rather than as a drive-by.
+- **AC6 ✅ 2026-08-22** Destructive-command smoke check run, with both
+  `information_schema` probes watched as the AC intended.
+
+  A scratch table was created **through the local `.env` `DATABASE_URL`** — i.e.
+  the exact connection a careless local command would use — and then probed on
+  both Neon branches:
+
+  | step | dev | production |
+  |---|---|---|
+  | before | — | `env1_isolation_probe` absent (0) |
+  | after `CREATE TABLE` via local `.env` | **present (1)** | **still absent (0)** |
+  | after `DROP TABLE` | absent (0) | never touched |
+
+  So a destructive local command reaches **dev and only dev**. Production was
+  read twice and written never.
+
+  A scratch TABLE was used rather than the AC's suggested scratch column: it
+  proves the same isolation property while touching no real table, so a failure
+  mid-way could not leave a production-shaped table altered. `db:push` itself was
+  deliberately not run — it would sync the entire Drizzle schema, which is a far
+  larger mutation than the question needs, and dev's schema is currently the
+  reference for the RLS work.
 
 ### Finding
 
@@ -317,6 +336,30 @@ silently "fix" production.
   variables that are shared today** rather than hiding them: `METRICS_API_KEY` is
   byte-identical across all three environments, so one leaked value covers all three; the
   Google keys are shared and arguably fine.
+
+### Progress — 2026-08-22 · AC4 scoped precisely; it needs a production exercise
+
+Config re-verified on production: `STORAGE_DRIVER=s3`,
+`AWS_S3_BUCKET=integrated-flask-bf4igkar`, `AWS_REGION=iad`,
+`PDF_CONVERTER_API_URL=http://gotenberg.railway.internal:3000`.
+
+**AC4 cannot be closed by inspection, and cannot be closed from existing data
+either:** `run_generated_documents` on the production branch holds **0 rows**.
+There is no document to download, so the only way to satisfy "a generated
+document downloads successfully from production" is to *generate* one there —
+sign in as a production user, run a workflow to completion, and fetch the
+resulting file.
+
+That is a deliberate write to production and it needs the owner's explicit
+go-ahead; it was not done unilaterally. It is also worth doing BEFORE the RLS
+production cutover rather than after, because it proves the storage path works
+while the variables are still the known-good ones — if it were run afterwards
+and failed, the cause would be ambiguous between storage and RLS.
+
+Note the zero-row count is itself informative: whatever else production is
+doing, **no document has ever been generated and recorded there**. That makes
+`DEBT-OPS1`'s "the bucket is serving" evidence weaker than it sounds — a
+reachable bucket is not the same as a working end-to-end document path.
 
 Still open: **AC4** — a generated document downloading from **production** has still not been
 demonstrated, and a set variable is not proof. This one needs the repo owner: proving it means
