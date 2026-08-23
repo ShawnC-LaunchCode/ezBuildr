@@ -25,6 +25,28 @@ vi.mock('../../../server/db', () => ({
 }));
 
 // Mock the logger
+// RLS-5: every read/write in BrandingService now runs inside a tenant-scoped
+// transaction opened by `rlsContext`, which reaches for a REAL pool and throws
+// "Database not initialized" in a unit test. These tests exercise the branding
+// business logic, not the transaction — that is proven against a real database
+// under `RLS_RESTRICTED=true`. So the wrappers are replaced with pass-throughs
+// that hand the callback the SAME mocked `db` the assertions below already
+// drive, which is why none of them needed changing.
+//
+// Deliberately spreads `importOriginal` rather than returning a bare object:
+// this module also exports `getCurrentTenantId`, `setCurrentTenantId` and
+// friends, and a partial mock would silently make them undefined.
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  const { db } = await import('../../../server/db');
+  return {
+    ...actual,
+    withCurrentTenant: <T,>(fn: (tx: unknown) => Promise<T>) => fn(db),
+    withTenant: <T,>(_tenantId: string, fn: (tx: unknown) => Promise<T>) => fn(db),
+    withVerifiedIdentifier: <T,>(_guc: string, _value: string, fn: (tx: unknown) => Promise<T>) => fn(db),
+  };
+});
+
 vi.mock('../../../server/logger', () => ({
   createLogger: () => ({
     debug: vi.fn(),

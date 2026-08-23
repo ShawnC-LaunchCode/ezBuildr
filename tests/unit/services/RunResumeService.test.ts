@@ -1,5 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 
+// RLS-5: the resume/handoff writes now open tenant-scoped transactions via
+// `rlsContext`, and the anonymous redemption path resolves a tenant through the
+// shared `WorkflowTenantResolver` singleton. Both reach a real pool, which a
+// unit test with injected fakes does not have. The transaction behaviour is
+// proven against a real database in
+// tests/integration/api.runs.resume-handoff.test.ts; these tests are about the
+// authorization and link logic, so the wrappers become pass-throughs handing
+// the callback a fake tx the injected repositories simply ignore.
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  const tx = { execute: vi.fn().mockResolvedValue({ rows: [] }) };
+  return {
+    ...actual,
+    withCurrentTenant: <T,>(fn: (t: unknown) => Promise<T>) => fn(tx),
+    withTenant: <T,>(_tenantId: string, fn: (t: unknown) => Promise<T>) => fn(tx),
+    withVerifiedIdentifier: <T,>(_g: string, _v: string, fn: (t: unknown) => Promise<T>) => fn(tx),
+  };
+});
+
+vi.mock('../../../server/services/WorkflowTenantResolver', () => ({
+  workflowTenantResolver: { resolveForWorkflowId: vi.fn().mockResolvedValue('tenant-1') },
+}));
+
 import { RunResumeService } from '../../../server/services/runs/RunResumeService';
 import { hashToken } from '../../../server/utils/encryption';
 

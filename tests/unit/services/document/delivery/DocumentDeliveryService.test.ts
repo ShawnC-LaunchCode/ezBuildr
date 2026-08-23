@@ -29,6 +29,32 @@ import { decrypt } from '../../../../../server/utils/encryption';
 // through HTTP, so `db` must be mocked or the chain throws "Database not
 // initialized". The stub `tx` needs a working `execute` — that is what
 // `applyTenantToTransaction` uses to set the GUC.
+// RLS-5: this service now opens tenant-scoped transactions via `rlsContext`,
+// which reaches for a REAL pool and throws "Database not initialized" in a unit
+// test. These tests exercise business logic, not the transaction — that is
+// proven against a real database under `RLS_RESTRICTED=true`. Replace the
+// wrappers with pass-throughs so the mocked repositories below still receive
+// the calls they assert on.
+//
+// Spreads `importOriginal` on purpose: the module also exports
+// `getCurrentTenantId`/`setCurrentTenantId`, and a partial mock would silently
+// make those undefined.
+const RLS_TX_SENTINEL = { __rlsMockTx: true, execute: vi.fn().mockResolvedValue({ rows: [] }) };
+
+vi.mock('../../../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../../server/utils/rlsContext')>();
+  return {
+    ...actual,
+    // A truthy sentinel, not `undefined`: the service's `withTx` branches on
+    // whether it was handed a transaction, and repositories treat a falsy one
+    // as "use the pool". Passing undefined would take a different path than
+    // production does and quietly test the wrong branch.
+    withCurrentTenant: <T,>(fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+    withTenant: <T,>(_tenantId: string, fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+    withVerifiedIdentifier: <T,>(_guc: string, _value: string, fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+  };
+});
+
 vi.mock("../../../../../server/db", () => {
   const tx = { execute: vi.fn().mockResolvedValue(undefined) };
   return {
@@ -580,7 +606,8 @@ describe('DocumentDeliveryService', () => {
       expect(result).toEqual([]);
       expect(runDocumentDeliveryRepository.findByRunIdAndTenantId).toHaveBeenCalledWith(
         mockRun.id,
-        '11111111-1111-1111-1111-111111111111'
+        '11111111-1111-1111-1111-111111111111',
+        expect.anything()
       );
     });
 
@@ -603,7 +630,8 @@ describe('DocumentDeliveryService', () => {
         .resolves.toBe(delivery);
       expect(runDocumentDeliveryRepository.findByIdAndTenantId).toHaveBeenCalledWith(
         'delivery-tenant',
-        'tenant-1'
+        'tenant-1',
+        expect.anything()
       );
     });
   });
