@@ -356,10 +356,42 @@ production cutover rather than after, because it proves the storage path works
 while the variables are still the known-good ones — if it were run afterwards
 and failed, the cause would be ambiguous between storage and RLS.
 
-Note the zero-row count is itself informative: whatever else production is
-doing, **no document has ever been generated and recorded there**. That makes
-`DEBT-OPS1`'s "the bucket is serving" evidence weaker than it sounds — a
-reachable bucket is not the same as a working end-to-end document path.
+**I cannot close this myself.** Production has exactly 2 users, both real
+accounts whose passwords I do not hold, and `VITE_PUBLIC_SIGNUP_ENABLED` is not
+set there, so registering is not available either. Closing AC4 needs one of:
+the owner running it and pasting the result; a production account for the
+purpose; or temporarily opening signup — which is a security-relevant toggle on
+the live system and was not something to do unprompted.
+
+### What the check for AC4 turned up, which matters more than the AC
+
+| production | |
+|---|---|
+| users | 2 |
+| workflows | 86 |
+| runs | 97, of which **10 completed** |
+| **`run_generated_documents`** | **0** |
+| **`run_document_deliveries`** | **0** |
+| latest run | 2026-08-01 |
+
+**Ten completed runs and not one recorded generated document, ever.** Either
+document generation is not reached by those workflows, or it fails silently, or
+the recording is broken. This is precisely what AC4 exists to catch, and it says
+`DEBT-OPS1`'s "the bucket is serving" is weaker evidence than it reads: a
+reachable bucket is not a working end-to-end document path.
+
+### Production is also 12 migrations behind — RLS-4 there is blocked like `test`
+
+| | migrations | latest | tables with RLS |
+|---|---|---|---|
+| dev | 37 | 2026-08-22 | full chain |
+| test | 24 | ~2026-08-09 | 0 |
+| **production** | **24** | **2026-08-09** | **9** |
+
+`files` does not even exist as a table in production. So the production cutover
+carries the same precondition as `test`: the promotion chain has to run first.
+The 9 RLS-enabled tables there are the pre-0024 set, matching the known note
+that the chain yields far more coverage than production currently has.
 
 Still open: **AC4** — a generated document downloading from **production** has still not been
 demonstrated, and a set variable is not proof. This one needs the repo owner: proving it means
