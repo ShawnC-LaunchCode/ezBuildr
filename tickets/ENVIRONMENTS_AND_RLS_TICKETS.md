@@ -1563,7 +1563,7 @@ Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](RLS4_CUTOVER.md
 |---|---|
 | 1. Migration sets `FORCE` on every policy table | ❌ **not done — and read this before doing it.** `neondb_owner` holds `BYPASSRLS` *directly*, and BYPASSRLS beats FORCE, so a FORCE migration alone changes nothing here. The isolation comes from AC2. FORCE is still worth adding as defence against a future non-bypassing owner, but it is not what makes this work. |
 | 2. Least-privilege role, not owner, no BYPASSRLS | ✅ `ezbuildr_app` on the dev branch — `rolbypassrls=false`, no role memberships |
-| 3. `DATABASE_URL` uses it in dev and test | 🔄 **dev only**; `test` and `production` outstanding |
+| 3. `DATABASE_URL` uses it in dev and test | 🔄 **dev only.** `test` is BLOCKED — see below. `production` gated on both, per this AC |
 | 4. Cross-tenant read proven impossible | ✅ as the app role with tenant A pinned: that tenant's rows only, **0** from any other |
 | 5. Proven non-vacuous, incl. the empty-string trap | ✅ GUC unset → **0**; GUC `''` → **0**; real tenant → its rows. Both fail-closed |
 | 6. Documented rollback | ✅ `RLS4_CUTOVER.md` §5 — variable change + redeploy, no migration to revert |
@@ -1571,6 +1571,42 @@ Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](RLS4_CUTOVER.md
 ⚠️ Cutting over broke the first deploy: container start runs `db:migrate`, which
 needs DDL the app role does not have. Fixed by `MIGRATION_DATABASE_URL`
 (`scripts/runMigrations.ts`), which `test`/`production` must also set.
+
+### 🔴 `test` cannot be cut over yet — it has no RLS policies at all
+
+Attempted 2026-08-22 and stopped on the verification step, which is what that
+step is for. As `ezbuildr_app` on the test branch with **no** tenant GUC:
+`SELECT count(*) FROM projects` returned **2**, not 0.
+
+Cause: the test database is **13 migrations behind**.
+
+| branch | `drizzle.__drizzle_migrations` | latest |
+|---|---|---|
+| dev | **37** | 2026-08-22 |
+| test | **24** | ~2026-08-09 |
+
+Everything from 0024 to 0036 is missing there — which is the entire RLS policy
+chain (0026–0036) plus the coverage repair (0024). `pg_class.relrowsecurity` is
+`false` and there are zero policies on `projects`, `users`, `workflows` and
+`connections`. Nothing to enforce, so a non-owner role changes nothing.
+
+The test environment only runs migrations when something deploys to it, and the
+`test` git branch is **131 commits behind `dev`**.
+
+**So the order is forced, and it cannot be shortcut:**
+
+1. Get CI green on `dev` (currently red — `npm test`, 5 files; not RLS).
+2. Promote `dev` → `test`. The deploy runs `db:migrate` and brings the schema to 0036.
+3. *Then* cut `test` over and re-run the verification below.
+
+The `ezbuildr_app` role already exists on the test branch (created 2026-08-22,
+`rolbypassrls=false`, no memberships) and `ALTER DEFAULT PRIVILEGES` is set, so
+tables created by migrations 0024–0036 will be granted to it automatically. Only
+the four Railway variables and the redeploy remain.
+
+Running the migrations against test out of band would work, but it would put the
+schema ahead of the code it is meant to be a snapshot of, which is the one thing
+the promotion model exists to prevent.
 
 **Priority: P0** · Size: M · **BLOCKED on RLS-2, RLS-3, and now the admin-access path below** · Files: a new migration, Railway/Neon role configuration, `.env.example`
 
