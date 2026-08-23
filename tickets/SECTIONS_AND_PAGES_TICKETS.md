@@ -724,7 +724,16 @@ DELETE /api/sections/:sectionId
 
 ---
 
-## SECT-4 — Sections travel: publish, run runtime, export/import, diff 🔲
+## SECT-4 — Sections travel: publish, run runtime, export/import, diff 🔄
+
+**Dispatched:** 2026-08-23 · Follows accepted SECT-3 commit `d52af401`.
+Senior review additionally requires the pinned `RunDefinitionProvider` to carry
+Sections and explicit nullable page membership, legacy pinned versions to fall
+back to `sections: []`/`sectionId: null`, the existing diff/changelog response
+to remain backward compatible while the viewer receives real Section and Page
+counters, and the nullable portability warning path to be proven against a
+second tenant. The ticket's claimed pre-existing runtime pass-through and
+Section-labelled viewer counters are stale; neither exists on this base.
 
 **Priority: ENH** · Size: M · File: `server/services/VersionService.ts`, `server/services/portability/entityGraph.ts`
 
