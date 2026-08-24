@@ -1171,15 +1171,28 @@ section-level reorders — moving a Section moves its pages, so it can break a
 
 ## Phase 2 Gate
 
-- [ ] SECT-5 and SECT-6 ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
-- [ ] `npm run test:fast` and `npm run test:unit` green
-- [ ] **One batched live drive-through** (not one per ticket): build a workflow
+**Accepted:** 2026-08-24 · SECT-5 and SECT-6 have dated independent A-grade
+reviews. Fresh TypeScript and lint gates were clean; `npm run test:fast` passed
+3,340 tests across 299 files and `npm run test:unit` passed 3,500 tests across
+317 files. One authenticated local drive-through used three Sections and 12
+pages, finished with exactly two ungrouped pages, crossed every leading,
+inter-Section, and trailing page boundary with real pointer drags, and moved a
+four-page Section as an intact block. The builder then published v1 and showed
+Active; the runtime-resolved definition (`pinnedVersionId ?? currentVersionId`)
+matched all authoring Section ids/titles and every ordered page id/title/order/
+membership with zero mismatches. Seventeen before/after screenshots and the
+reproducible comparison manifest are attached to the local verification
+evidence. **Sections are now User-reachable.** Independent gate review passed A.
+
+- [x] SECT-5 and SECT-6 ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; `npm run lint` → clean
+- [x] `npm run test:fast` and `npm run test:unit` green
+- [x] **One batched live drive-through** (not one per ticket): build a workflow
       with three Sections and ~12 pages including two ungrouped, drag pages
       across every boundary, reorder Sections, publish, and confirm the pinned
       definition matches the outline — screenshots attached
-- [ ] Sections are now *User-reachable* — say so explicitly in the gate note
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] Sections are now *User-reachable* — say so explicitly in the gate note
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
