@@ -53,6 +53,14 @@ function collectVariableReferences(node: unknown): string[] {
   if (typeof obj.variable === "string" && obj.variable.length > 0) {
     vars.push(obj.variable);
   }
+  if (obj.valueType === "variable") {
+    if (typeof obj.value === "string" && obj.value.length > 0) {
+      vars.push(obj.value);
+    }
+    if (typeof obj.value2 === "string" && obj.value2.length > 0) {
+      vars.push(obj.value2);
+    }
+  }
   if (Array.isArray(obj.conditions)) {
     for (const child of obj.conditions) {
       vars.push(...collectVariableReferences(child));

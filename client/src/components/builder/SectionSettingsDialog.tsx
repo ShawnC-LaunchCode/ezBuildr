@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, EyeOff, Trash2 } from "lucide-react";
+
+import { LogicBuilder, LogicStatusText } from "@/components/logic";
 
 import {
     AlertDialog,
@@ -13,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     Dialog,
     DialogContent,
@@ -27,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { ApiPage, ApiSection } from "@/lib/vault-api";
 import { useCreateSection, useDeleteSection, useUpdateSection } from "@/lib/vault-hooks";
+import type { ConditionExpression } from "@shared/types/conditions";
 
 interface SectionSettingsDialogProps {
     workflowId: string;
@@ -56,6 +60,73 @@ function selectionError(pages: ApiPage[], selectedPageIds: Set<string>): string 
     return null;
 }
 
+function asConditionExpression(value: unknown): ConditionExpression {
+    if (value == null) { return null; }
+    if (typeof value !== "object") { return null; }
+    const candidate = value as Record<string, unknown>;
+    return candidate.type === "group" && Array.isArray(candidate.conditions)
+        ? value as ConditionExpression
+        : null;
+}
+
+function hasSectionEditChanges(
+    section: ApiSection | null,
+    title: string,
+    description: string | null,
+    visibleIf: ConditionExpression,
+): boolean {
+    if (section === null) { return false; }
+    return title !== section.title
+        || description !== section.description
+        || JSON.stringify(visibleIf) !== JSON.stringify(asConditionExpression(section.visibleIf));
+}
+
+interface SectionVisibilityEditorProps {
+    workflowId: string;
+    sectionId?: string;
+    value: ConditionExpression;
+    onChange: (value: ConditionExpression) => void;
+    isSaving: boolean;
+}
+
+function SectionVisibilityEditor({
+    workflowId,
+    sectionId,
+    value,
+    onChange,
+    isSaving,
+}: SectionVisibilityEditorProps) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-background">
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="h-auto w-full justify-between px-3 py-2">
+                    <span className="flex items-center gap-2">
+                        <EyeOff className="size-4 text-muted-foreground" aria-hidden="true" />
+                        <span className="text-sm font-medium">Visibility</span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <LogicStatusText visibleIf={value} />
+                        {open
+                            ? <ChevronDown className="size-4" aria-hidden="true" />
+                            : <ChevronRight className="size-4" aria-hidden="true" />}
+                    </span>
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="border-t px-3 pb-3 pt-2">
+                <LogicBuilder
+                    workflowId={workflowId}
+                    elementId={sectionId}
+                    elementType="section"
+                    value={value}
+                    onChange={onChange}
+                    isSaving={isSaving}
+                />
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
 export function SectionSettingsDialog({
     workflowId,
     section,
@@ -66,6 +137,7 @@ export function SectionSettingsDialog({
     const isEditing = section !== null;
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [visibleIf, setVisibleIf] = useState<ConditionExpression>(null);
     const [selectedPageIds, setSelectedPageIds] = useState<Set<string>>(new Set());
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const createSection = useCreateSection();
@@ -77,6 +149,7 @@ export function SectionSettingsDialog({
         if (!open) { return; }
         setTitle(section?.title ?? "");
         setDescription(section?.description ?? "");
+        setVisibleIf(asConditionExpression(section?.visibleIf));
         setSelectedPageIds(new Set());
         setShowDeleteConfirm(false);
     }, [open, section]);
@@ -90,10 +163,7 @@ export function SectionSettingsDialog({
     const pageSelectionError = isEditing ? null : selectionError(pages, selectedPageIds);
     const trimmedTitle = title.trim();
     const normalizedDescription = description.trim() || null;
-    const hasEditChanges = section !== null && (
-        trimmedTitle !== section.title
-        || normalizedDescription !== section.description
-    );
+    const hasEditChanges = hasSectionEditChanges(section, trimmedTitle, normalizedDescription, visibleIf);
     const canSubmit = trimmedTitle.length > 0
         && (isEditing || pageSelectionError === null)
         && (!isEditing || hasEditChanges)
@@ -109,6 +179,7 @@ export function SectionSettingsDialog({
                     workflowId,
                     title: trimmedTitle,
                     description: normalizedDescription,
+                    visibleIf,
                 });
                 toast({ title: "Section updated" });
             } else {
@@ -116,6 +187,7 @@ export function SectionSettingsDialog({
                     workflowId,
                     title: trimmedTitle,
                     description: normalizedDescription,
+                    visibleIf,
                     pageIds: [...pages]
                         .sort((a, b) => a.order - b.order)
                         .filter((page) => selectedPageIds.has(page.id))
@@ -152,7 +224,7 @@ export function SectionSettingsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{isEditing ? "Section settings" : "Add Section"}</DialogTitle>
                         <DialogDescription>
@@ -175,6 +247,13 @@ export function SectionSettingsDialog({
                                 <p className="text-xs text-destructive">Enter a Section title.</p>
                             )}
                         </div>
+                        <SectionVisibilityEditor
+                            workflowId={workflowId}
+                            sectionId={section?.id}
+                            value={visibleIf}
+                            onChange={setVisibleIf}
+                            isSaving={createSection.isPending || updateSection.isPending}
+                        />
                         <div className="space-y-2">
                             <Label htmlFor="section-description">Description <span className="text-muted-foreground">(optional)</span></Label>
                             <Textarea

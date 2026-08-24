@@ -155,6 +155,9 @@ const mockLintData = vi.hoisted(() => ({
 vi.mock("@/hooks/api/usePages", () => ({
   usePages: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.pages, isError: mockQueryData.isError }),
 }));
+vi.mock("@/hooks/api/useSections", () => ({
+  useSections: () => ({ data: mockQueryData.isLoading ? undefined : [], isError: mockQueryData.isError }),
+}));
 vi.mock("@/hooks/api/useSteps", () => ({
   useWorkflowSteps: () => ({ data: mockQueryData.isLoading ? undefined : mockQueryData.steps, isError: mockQueryData.isError }),
 }));

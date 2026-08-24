@@ -22,6 +22,14 @@ import type { LogicRule, WorkflowRun } from '@shared/schema';
 
 import { LogicService } from '../../../server/services/LogicService';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
+import {
+  SECTION_MATRIX_RUN_ID,
+  SECTION_MATRIX_VERSION_ID,
+  SECTION_MATRIX_WORKFLOW_ID,
+  sectionPageVisibilityCases,
+  sectionPageVisibilityFixture,
+} from '../../fixtures/sectionVisibilityMatrix';
+import { buildTestWhen } from '../../helpers/conditionFixtures';
 
 // RLS-5: the run/document path now opens tenant-scoped transactions via
 // `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
@@ -51,6 +59,8 @@ const PINNED_STEP_ID = '55555555-5555-4555-8555-555555555555';
 // required question to the workflow after the respondent's run started.
 const LIVE_ONLY_REQUIRED_STEP_ID = '66666666-6666-4666-8666-666666666666';
 const LIVE_ONLY_PAGE_ID = '77777777-7777-4777-8777-777777777777';
+const PINNED_SECTION_ID = '88888888-8888-4888-8888-888888888888';
+const PINNED_SECTION_PAGE_ID = '99999999-9999-4999-8999-999999999999';
 
 function makePinnedRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
   return {
@@ -134,7 +144,57 @@ function makeHarness() {
   return { logicSvc, runRepo, pageRepo, stepRepo, logicRuleRepo, versionRepo, valueRepo };
 }
 
+function makeSectionMatrixService(data: Record<string, unknown>): LogicService {
+  const createdAt = new Date('2026-08-24T00:00:00.000Z');
+  const versionRepo = {
+    findById: vi.fn().mockResolvedValue({
+      id: SECTION_MATRIX_VERSION_ID,
+      workflowId: SECTION_MATRIX_WORKFLOW_ID,
+      createdAt,
+      graphJson: {
+        title: 'SECT-7 parity fixture',
+        sections: sectionPageVisibilityFixture.sections,
+        pages: sectionPageVisibilityFixture.pages,
+        logicRules: sectionPageVisibilityFixture.rules,
+      },
+    }),
+  };
+  const definitionProvider = new RunDefinitionProvider(
+    versionRepo as never,
+    { findByWorkflowId: vi.fn() } as never,
+    { findByPageIds: vi.fn() } as never,
+    { findByWorkflowId: vi.fn() } as never,
+    { findByWorkflowId: vi.fn() } as never,
+  );
+  const runRepo = {
+    findById: vi.fn().mockResolvedValue({
+      id: SECTION_MATRIX_RUN_ID,
+      workflowId: SECTION_MATRIX_WORKFLOW_ID,
+      workflowVersionId: SECTION_MATRIX_VERSION_ID,
+    } as WorkflowRun),
+  };
+  const valueRepo = { getRunDataAsJson: vi.fn().mockResolvedValue(data) };
+  return new LogicService(runRepo as never, definitionProvider, valueRepo as never);
+}
+
 describe('LogicService pinned-definition sourcing (RVP-2)', () => {
+  describe('SECT-7 shared Section/page visibility matrix', () => {
+    it.each(sectionPageVisibilityCases)(
+      'returns the exact shared page set for section=$sectionVisible/page=$pageVisible',
+      async ({ data, expectedVisiblePageIds }) => {
+        const logicSvc = makeSectionMatrixService(data);
+
+        const navigation = await logicSvc.evaluateNavigation(
+          SECTION_MATRIX_WORKFLOW_ID,
+          SECTION_MATRIX_RUN_ID,
+          null,
+        );
+
+        expect(navigation.visiblePages).toEqual(expectedVisiblePageIds);
+      },
+    );
+  });
+
   describe('a run pinned to a version (AC1)', () => {
     it('evaluateNavigation resolves requiredSteps from the pinned graph, not the live tables', async () => {
       const { logicSvc, runRepo, pageRepo } = makeHarness();
@@ -165,6 +225,42 @@ describe('LogicService pinned-definition sourcing (RVP-2)', () => {
       const after = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
 
       expect(after).toEqual(before);
+    });
+
+    it('evaluates Section visibility from the pinned graph rather than live Sections', async () => {
+      const { logicSvc, runRepo, versionRepo, pageRepo, valueRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makePinnedRun());
+      versionRepo.findById.mockResolvedValue({
+        id: VERSION_ID,
+        workflowId: WORKFLOW_ID,
+        createdAt: new Date('2026-07-20T00:00:00.000Z'),
+        graphJson: {
+          title: 'Pinned interview',
+          sections: [{ id: PINNED_SECTION_ID, title: 'Pinned Section', visibleIf: buildTestWhen('controller', 'is_true') }],
+          pages: [
+            {
+              id: PINNED_PAGE_ID,
+              sectionId: null,
+              title: 'Controller',
+              order: 0,
+              steps: [{ id: PINNED_STEP_ID, type: 'yes_no', title: 'Controller', alias: 'controller', order: 0 }],
+            },
+            { id: PINNED_SECTION_PAGE_ID, sectionId: PINNED_SECTION_ID, title: 'Pinned member', order: 1, steps: [] },
+          ],
+          logicRules: [],
+        },
+      } as never);
+      // A pinned run must not consult these live rows at all.
+      pageRepo.findByWorkflowId.mockResolvedValue([]);
+
+      const hidden = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+      expect(hidden.visiblePages).toEqual([PINNED_PAGE_ID]);
+
+      // Keep this assertion on the same service/provider instance and change only run data.
+      valueRepo.getRunDataAsJson.mockResolvedValue({ [PINNED_STEP_ID]: true });
+      const shown = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+      expect(shown.visiblePages).toEqual([PINNED_PAGE_ID, PINNED_SECTION_PAGE_ID]);
+      expect(pageRepo.findByWorkflowId).not.toHaveBeenCalled();
     });
   });
 

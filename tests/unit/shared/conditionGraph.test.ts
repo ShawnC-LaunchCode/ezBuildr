@@ -54,6 +54,26 @@ describe("conditionGraph", () => {
       expect(extractConditionReferences(nested).sort()).toEqual(["a", "b"]);
     });
 
+    it("extracts right-hand variable operands from value and value2", () => {
+      expect(extractConditionReferences({
+        type: "group",
+        conditions: [{
+          type: "condition",
+          variable: "left",
+          valueType: "variable",
+          value: "right-one",
+          value2: "right-two",
+        }],
+      })).toEqual(["left", "right-one", "right-two"]);
+    });
+
+    it("does not treat constant string values as references", () => {
+      expect(extractConditionReferences({
+        type: "group",
+        conditions: [{ type: "condition", variable: "left", valueType: "constant", value: "not-an-alias" }],
+      })).toEqual(["left"]);
+    });
+
     it("ignores a raw-string expression (O-4: strings can no longer be stored)", () => {
       // The old string branch pulled identifiers out with a bare regex, which
       // also matched string literals — `name == 'foo'` yielded `foo` as an

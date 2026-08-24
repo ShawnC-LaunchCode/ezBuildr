@@ -62,6 +62,10 @@ vi.mock("../../../server/repositories", () => ({
     findByWorkflowId: vi.fn(),
     update: vi.fn(),
   },
+  sectionRepository: {
+    findByWorkflowId: vi.fn().mockResolvedValue([]),
+    update: vi.fn(),
+  },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: {

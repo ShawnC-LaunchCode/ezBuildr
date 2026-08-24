@@ -34,6 +34,8 @@ import type {
 
 export type LintResult = WorkflowLintIssue;
 
+type LintSectionRecord = Record<string, unknown>;
+
 interface ReferenceSets {
   stepAliases: Set<string>;
   stepRefs: Set<string>;
@@ -42,6 +44,7 @@ interface ReferenceSets {
 
 /** Serialized workflow content, as produced by `VersionService.serializeWorkflow`. */
 export interface LintableWorkflowContent {
+  sections?: LintSectionRecord[];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   pages?: Record<string, any>[];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
@@ -142,7 +145,7 @@ function lintPages(
  * reference one by name), is only ever a source, keyed by a synthetic id
  * that can never collide with a real alias.
  */
-function conditionGraphNodeId(kind: "step" | "page", id: string, alias?: unknown): string {
+function conditionGraphNodeId(kind: "step" | "page" | "section", id: string, alias?: unknown): string {
   if (kind === "step" && typeof alias === "string" && alias.length > 0) {
     return alias;
   }
@@ -170,13 +173,25 @@ interface ConditionGraphNodeInfo {
  * whether it names the referenced step's alias or its id.
  */
 function buildWorkflowConditionGraph(
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  pages: Record<string, any>[]
+  pages: Record<string, unknown>[],
+  sections: LintSectionRecord[]
 ): { graph: ConditionDependencyGraph; info: Map<string, ConditionGraphNodeInfo> } {
   const info = new Map<string, ConditionGraphNodeInfo>();
   const resolve = new Map<string, string>(); // alias-or-raw-id -> canonical node id
   const nodeIds: string[] = [];
   const pending: { key: string; visibleIf: unknown }[] = [];
+
+  for (const section of sections) {
+    const sectionId = String(section.id);
+    const sectionKey = conditionGraphNodeId("section", sectionId);
+    const firstPage = orderFlowPages(pages.filter((page) => page.sectionId === section.id))[0];
+    nodeIds.push(sectionKey);
+    info.set(sectionKey, {
+      target: firstPage === undefined ? { tab: "pages" } : { tab: "pages", pageId: firstPage.id },
+      label: `Section "${String(section.title)}"`,
+    });
+    pending.push({ key: sectionKey, visibleIf: section.visibleIf });
+  }
 
   for (const page of pages) {
     const pageId = String(page.id);
@@ -232,11 +247,11 @@ function buildWorkflowConditionGraph(
  * one O(cycles + dangling refs) pass to turn results into findings.
  */
 function lintConditionDependencies(
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  pages: Record<string, any>[],
+  pages: Record<string, unknown>[],
+  sections: LintSectionRecord[],
   results: LintResult[]
 ): void {
-  const { graph, info } = buildWorkflowConditionGraph(pages);
+  const { graph, info } = buildWorkflowConditionGraph(pages, sections);
 
   const reportedCycles = new Set<string>();
   for (const cycle of detectCycles(graph)) {
@@ -266,6 +281,107 @@ function lintConditionDependencies(
       category: "logic",
       message: `${nodeInfo?.label ?? from} visibleIf condition references unknown alias: "${to}"`,
       target: nodeInfo?.target ?? { tab: "pages" },
+    });
+  }
+}
+
+function containsScriptCondition(node: unknown): boolean {
+  if (node === null || typeof node !== "object") { return false; }
+  const value = node as Record<string, unknown>;
+  if (value.type === "script") { return true; }
+  return Array.isArray(value.conditions) && value.conditions.some(containsScriptCondition);
+}
+
+function hasNonEmptyCondition(node: unknown): boolean {
+  if (node === null || typeof node !== "object") { return false; }
+  const value = node as Record<string, unknown>;
+  if (value.type === "condition") {
+    return typeof value.variable === "string" && value.variable.length > 0;
+  }
+  if (value.type === "script") {
+    return typeof value.code === "string" && value.code.length > 0;
+  }
+  return Array.isArray(value.conditions) && value.conditions.some(hasNonEmptyCondition);
+}
+
+/** Section visibility may only depend on questions the respondent has already passed. */
+function lintSectionConditions(
+  sections: LintSectionRecord[],
+  pages: Record<string, unknown>[],
+  results: LintResult[]
+): void {
+  const orderedPages = orderFlowPages(pages);
+  const stepPageOrder = new Map<string, number>();
+  for (const { page, order } of orderedPages) {
+    const rawSteps: unknown = page.steps;
+    const steps = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
+    for (const step of steps) {
+      stepPageOrder.set(String(step.id), order);
+      if (typeof step.alias === "string" && step.alias.length > 0) {
+        stepPageOrder.set(step.alias, order);
+      }
+    }
+  }
+
+  for (const section of sections) {
+    const memberPages = orderedPages.filter(({ page }) => page.sectionId === section.id);
+    const firstPage = memberPages[0];
+    const target: WorkflowLintTarget = firstPage === undefined
+      ? { tab: "pages" }
+      : { tab: "pages", pageId: firstPage.id };
+    const label = `Section "${String(section.title)}"`;
+
+    if (containsScriptCondition(section.visibleIf)) {
+      results.push({
+        type: "error",
+        category: "logic",
+        message: `${label} visibleIf cannot use script conditions because their dependencies are opaque.`,
+        target,
+      });
+    }
+    if (firstPage === undefined) { continue; }
+
+    const reportedRefs = new Set<string>();
+    for (const ref of extractConditionReferences(section.visibleIf)) {
+      const sourceOrder = stepPageOrder.get(ref);
+      if (sourceOrder === undefined || sourceOrder < firstPage.order || reportedRefs.has(ref)) { continue; }
+      reportedRefs.add(ref);
+      results.push({
+        type: "error",
+        category: "logic",
+        message: `${label} visibleIf must reference only questions on pages before the Section; "${ref}" is in the same Section or a later page.`,
+        target,
+      });
+    }
+  }
+}
+
+/** V1 does not attempt implication analysis between a skip rule and a Section condition. */
+function lintConditionalSectionSkipTargets(
+  sections: LintSectionRecord[],
+  pages: Record<string, unknown>[],
+  rules: Record<string, unknown>[],
+  results: LintResult[]
+): void {
+  const conditionalSectionById = new Map(
+    sections
+      .filter((section) => hasNonEmptyCondition(section.visibleIf))
+      .map((section) => [String(section.id), section] as const)
+  );
+  const pageById = new Map(pages.map((page) => [String(page.id), page] as const));
+
+  for (const rule of rules) {
+    if (rule.action !== "skip_to" || rule.targetType !== "page") { continue; }
+    const targetId = typeof rule.targetId === "string" ? rule.targetId : null;
+    const targetPage = targetId === null ? undefined : pageById.get(targetId);
+    const sectionId = typeof targetPage?.sectionId === "string" ? targetPage.sectionId : null;
+    const section = sectionId === null ? undefined : conditionalSectionById.get(sectionId);
+    if (!section) { continue; }
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `Skip-to rule cannot target page "${String(targetPage?.title ?? targetId)}" because Section "${String(section.title)}" has conditional visibility. Target an ungrouped page or a page in an unconditional Section.`,
+      target: { tab: "pages", pageId: targetId ?? undefined, panel: "logic" },
     });
   }
 }
@@ -590,6 +706,8 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
 
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   const pages = data.pages || [];
+  const sections = data.sections ?? [];
+  const logicRules = data.logicRules ?? [];
   if (pages.length === 0) {
     results.push({
       type: "error",
@@ -614,15 +732,15 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
   // LU-3: circular and dangling references among visibleIf conditions
   // (Model A). Model B (logic_rules) reference checks stay in lintLogicRules
   // below — out of scope here per Decision #3.
-  lintConditionDependencies(pages, results);
+  lintConditionDependencies(pages, sections, results);
+  lintSectionConditions(sections, pages, results);
+  lintConditionalSectionSkipTargets(sections, pages, logicRules, results);
 
   // MAP-3 / GH-153 AC4: unreachable pages, dead ends, and skip_to loop
   // risk over the page-to-page navigational graph.
-// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintWorkflowFlow(pages, data.logicRules || [], results);
+  lintWorkflowFlow(pages, logicRules, results);
 
-// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintLogicRules(data.logicRules || [], stepRefs, pageRefs, results);
+  lintLogicRules(logicRules, stepRefs, pageRefs, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   lintBlocksWithInputs(data.transformBlocks || [], { typeName: "Transform block", category: "logic", tab: "pages" }, stepAliases, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.

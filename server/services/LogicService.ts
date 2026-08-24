@@ -90,7 +90,7 @@ export class LogicService {
     runId: string
   ): Promise<LogicContext> {
     const run = await this.resolveRun(workflowId, runId);
-    const { pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
+    const { sections, pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     const pageHideRulesMap = new Map<string, LogicRule[]>();
     const stepHideRulesMap = new Map<string, LogicRule[]>();
@@ -115,6 +115,7 @@ export class LogicService {
 
     return {
       workflowId: run.workflowId,
+      sections,
       pages,
       steps,
       rules: logicRules,
@@ -146,11 +147,12 @@ export class LogicService {
     currentPageId: string | null
   ): Promise<NavigationResult> {
     const run = await this.resolveRun(workflowId, runId);
-    const { pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
+    const { sections, pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
     // Build data object for evaluation
     const data = await this.valueRepo.getRunDataAsJson(runId);
 
     const visibility = evaluateWorkflowVisibility({
+      sections,
       pages,
       steps,
       rules: logicRules,
@@ -213,12 +215,13 @@ export class LogicService {
     runDataByStepId?: Record<string, unknown>
   ): Promise<ValidationResult> {
     const run = await this.resolveRun(workflowId, runId);
-    const { pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
+    const { sections, pages, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     // Build data object for evaluation
     const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
 
     const visibility = evaluateWorkflowVisibility({
+      sections,
       pages,
       steps,
       rules: logicRules,
@@ -327,6 +330,7 @@ export class LogicService {
 
   private evaluateContextVisibility(ctx: LogicContext): WorkflowVisibilityResult {
     return evaluateWorkflowVisibility({
+      sections: ctx.sections,
       pages: ctx.pages,
       steps: ctx.steps,
       rules: ctx.rules,

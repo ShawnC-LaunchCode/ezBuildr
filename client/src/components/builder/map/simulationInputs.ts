@@ -7,10 +7,9 @@
  * **AC1: only steps some condition actually references.** Listing every step
  * in the workflow would be unusable. The reference set comes from the same
  * extraction the lint pipeline uses (`extractConditionReferences` in
- * `shared/conditionGraph.ts`), applied to every page's `visibleIf`, every
- * step's `visibleIf`, and every rule's `when` — the three places a
- * `ConditionExpression` can live (see `shared/workflowMap.ts`'s module doc
- * comment for why those are the only three).
+ * `shared/conditionGraph.ts`), applied to every Section's `visibleIf`, every
+ * page's `visibleIf`, every step's `visibleIf`, and every rule's `when` — the
+ * four places a `ConditionExpression` can live.
  *
  * A reference can name a step by **alias or id** (`Condition.variable`, see
  * `shared/types/conditions.ts`), so each raw reference is resolved against
@@ -65,7 +64,8 @@ interface AliasableStep {
 export function getReferencedStepIds(
   pages: ReferenceSource[],
   steps: AliasableStep[],
-  rules: RuleReferenceSource[]
+  rules: RuleReferenceSource[],
+  sections: ReferenceSource[] = []
 ): Set<string> {
   const rawRefs = new Set<string>();
   for (const page of pages) {
@@ -73,6 +73,9 @@ export function getReferencedStepIds(
   }
   for (const step of steps) {
     for (const ref of extractConditionReferences((step as ReferenceSource).visibleIf)) { rawRefs.add(ref); }
+  }
+  for (const section of sections) {
+    for (const ref of extractConditionReferences(section.visibleIf)) { rawRefs.add(ref); }
   }
   for (const rule of rules) {
     for (const ref of extractConditionReferences(rule.when)) { rawRefs.add(ref); }
@@ -93,9 +96,10 @@ export function getReferencedStepIds(
 export function getReferencedSteps(
   pages: ReferenceSource[],
   steps: ApiStep[],
-  rules: RuleReferenceSource[]
+  rules: RuleReferenceSource[],
+  sections: ReferenceSource[] = []
 ): ApiStep[] {
-  const ids = getReferencedStepIds(pages, steps, rules);
+  const ids = getReferencedStepIds(pages, steps, rules, sections);
   return steps.filter((step) => ids.has(step.id));
 }
 

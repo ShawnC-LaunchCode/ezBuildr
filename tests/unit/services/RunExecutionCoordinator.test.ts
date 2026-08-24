@@ -5,7 +5,7 @@ import type { Step, Page, LogicRule } from '@shared/schema';
 
 import { logger } from '../../../server/logger';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
-import { stepRepository, pageRepository, workflowRepository, logicRuleRepository, workflowRunRepository } from '../../../server/repositories';
+import { stepRepository, pageRepository, sectionRepository, workflowRepository, logicRuleRepository, workflowRunRepository } from '../../../server/repositories';
 import { blockRunner } from '../../../server/services/BlockRunner';
 import { logicService, type NavigationResult } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
@@ -142,6 +142,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     let coordinator: RunExecutionCoordinator;
     let mockStepRepo: Mocked<typeof stepRepository>;
     let mockPageRepo: Mocked<typeof pageRepository>;
+    let mockSectionRepo: Mocked<typeof sectionRepository>;
     let mockWorkflowRepo: Mocked<typeof workflowRepository>;
     let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
     let mockRunRepo: Mocked<typeof workflowRunRepository>;
@@ -155,6 +156,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
 
         mockStepRepo = stepRepository as unknown as Mocked<typeof stepRepository>;
         mockPageRepo = pageRepository as unknown as Mocked<typeof pageRepository>;
+        mockSectionRepo = sectionRepository as unknown as Mocked<typeof sectionRepository>;
         mockWorkflowRepo = workflowRepository as unknown as Mocked<typeof workflowRepository>;
         mockLogicRuleRepo = logicRuleRepository as unknown as Mocked<typeof logicRuleRepository>;
         mockRunRepo = workflowRunRepository as unknown as Mocked<typeof workflowRunRepository>;
@@ -162,6 +164,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         // baked into the module factory above -- restate it explicitly so
         // this default survives even if a test overrides and doesn't reset.
         mockRunRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null } as never);
+        mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
         coordinator = new RunExecutionCoordinator(
             mockRunPersistence,
@@ -435,6 +438,29 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 errors: ['Required Step: Required Step is required'],
             });
             expect(blockRunner.runPhase).not.toHaveBeenCalled();
+        });
+
+        it('does not validate a required step whose parent Section is hidden', async () => {
+            const sectionPage = { ...page, sectionId: 'section-1' } as Page;
+            mockPageRepo.findByWorkflowId.mockResolvedValue([sectionPage]);
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([{
+                id: 'section-1',
+                workflowId: 'wf-1',
+                title: 'Conditional',
+                visibleIf: buildTestWhen('controller', 'is_true'),
+            }] as never);
+            mockStepRepo.findByPageIds.mockResolvedValue([{
+                id: 'req-step',
+                type: 'short_text',
+                title: 'Required Step',
+                required: true,
+                pageId: 'page-1',
+                visibleIf: null,
+            }] as never);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            mockRunPersistence.getRunValues.mockResolvedValue({ controller: false });
+
+            await expect(coordinator.submitPage(context, 'page-1', [])).resolves.toEqual({ success: true, errors: undefined });
         });
     });
 

@@ -39,6 +39,7 @@ import {
 import {
   WORKFLOW_MAP_TERMINAL_NODE_ID,
   type WorkflowMapPageInput,
+  type WorkflowMapSectionInput,
   type WorkflowMapStepInput,
 } from './workflowMap';
 
@@ -53,6 +54,7 @@ import {
 export type SimulationRuleInput = EvaluableLogicRule;
 
 export interface SimulateWorkflowPathInput {
+  sections?: WorkflowMapSectionInput[];
   pages: WorkflowMapPageInput[];
   steps: WorkflowMapStepInput[];
   rules: SimulationRuleInput[];
@@ -134,7 +136,7 @@ function completionEdges(
  * `LogicService.evaluateNavigation()` does.
  */
 export function simulateWorkflowPath(input: SimulateWorkflowPathInput): SimulatedPath {
-  const { pages, steps, rules, data, resolveAlias } = input;
+  const { sections = [], pages, steps, rules, data, resolveAlias } = input;
   const pageRefs = toPageRefs(pages);
   const orderedPageIds = pageIdsByOrder(pages);
 
@@ -152,6 +154,7 @@ export function simulateWorkflowPath(input: SimulateWorkflowPathInput): Simulate
 
   for (let i = 0; i < iterationCap; i++) {
     const visibility = evaluateWorkflowVisibility({
+      sections,
       pages,
       steps,
       rules,

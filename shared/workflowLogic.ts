@@ -36,6 +36,12 @@ export type RuleAliasResolver = (aliasOrId: string) => string | undefined;
 
 interface VisibilityPageDefinition {
   id: string;
+  sectionId?: string | null;
+  visibleIf?: unknown;
+}
+
+export interface VisibilitySectionDefinition {
+  id: string;
   visibleIf?: unknown;
 }
 
@@ -54,6 +60,8 @@ interface VisibilityStepDefinition {
 }
 
 export interface WorkflowVisibilityResult {
+  visibleSections: Set<string>;
+  hiddenSections: Set<string>;
   visiblePages: Set<string>;
   visibleSteps: Set<string>;
   requiredSteps: Set<string>;
@@ -74,6 +82,7 @@ export interface WorkflowVisibilityResult {
 export interface LogicContextPage {
   id: string;
   workflowId: string;
+  sectionId?: string | null;
   title: string;
   description: string | null;
   order: number;
@@ -102,6 +111,7 @@ export interface LogicContextStep {
  */
 export interface LogicContext {
   workflowId: string;
+  sections: VisibilitySectionDefinition[];
   pages: LogicContextPage[];
   steps: LogicContextStep[];
   rules: LogicRule[];
@@ -230,13 +240,14 @@ export function evaluateRules(
  * Invalid visibleIf expressions fail closed.
  */
 export function evaluateWorkflowVisibility(options: {
+  sections?: VisibilitySectionDefinition[];
   pages: VisibilityPageDefinition[];
   steps: VisibilityStepDefinition[];
   rules: EvaluableLogicRule[];
   data: Record<string, unknown>;
   resolveAlias: (name: string) => string | undefined;
 }): WorkflowVisibilityResult {
-  const { pages, steps, rules, data, resolveAlias } = options;
+  const { sections = [], pages, steps, rules, data, resolveAlias } = options;
   const ruleEvaluation = evaluateRules(rules, data, resolveAlias);
   const pageShowTargets = new Set(
     rules.filter((rule) => rule.targetType === 'page' && rule.action === 'show')
@@ -258,8 +269,23 @@ export function evaluateWorkflowVisibility(options: {
     }
   };
 
+  const visibleSections = new Set(
+    sections
+      .filter((section) => expressionVisible(section.visibleIf))
+      .map((section) => section.id)
+  );
+  const hiddenSections = new Set(
+    sections
+      .filter((section) => !visibleSections.has(section.id))
+      .map((section) => section.id)
+  );
+
+  // Section visibility is deliberately one-directional: a hidden Section
+  // removes every member page, while a visible Section grants nothing. A
+  // member page must still satisfy its own visibleIf and page show/hide rules.
   const visiblePages = new Set(
     pages
+      .filter((page) => page.sectionId == null || !hiddenSections.has(page.sectionId))
       .filter((page) => expressionVisible(page.visibleIf))
       .filter((page) => pageShowTargets.has(page.id)
         ? ruleEvaluation.visiblePages.has(page.id)
@@ -300,7 +326,14 @@ export function evaluateWorkflowVisibility(options: {
     })
   );
 
-  return { visiblePages, visibleSteps, requiredSteps, ruleEvaluation };
+  return {
+    visibleSections,
+    hiddenSections,
+    visiblePages,
+    visibleSteps,
+    requiredSteps,
+    ruleEvaluation,
+  };
 }
 
 /**

@@ -6,6 +6,10 @@ import { usePageVisibility } from '../../../client/src/hooks/runner/usePageVisib
 import type { ApiPage, ApiStep, StepType } from '../../../client/src/lib/vault-api';
 import type { LogicRule } from '@shared/schema';
 
+import {
+  sectionPageVisibilityCases,
+  sectionPageVisibilityFixture,
+} from '../../fixtures/sectionVisibilityMatrix';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 
 const createdAt = '2026-07-13T00:00:00.000Z';
@@ -57,6 +61,21 @@ function createLogicRule(overrides: Partial<LogicRule>): LogicRule {
 }
 
 describe('usePageVisibility', () => {
+  it.each(sectionPageVisibilityCases)(
+    'matches the shared Section/page matrix for section=$sectionVisible page=$pageVisible',
+    ({ data, expectedVisiblePageIds }) => {
+      const { result } = renderHook(() => usePageVisibility(
+        sectionPageVisibilityFixture.pages,
+        sectionPageVisibilityFixture.steps,
+        data,
+        sectionPageVisibilityFixture.rules,
+        sectionPageVisibilityFixture.sections
+      ));
+
+      expect(result.current.visiblePages.map((candidate) => candidate.id)).toEqual(expectedVisiblePageIds);
+    },
+  );
+
   it('evaluates persisted show rules against preview-style in-memory pages', () => {
     const pages = [createPage('intro', 1), createPage('details', 2)];
     const steps = [createStep('controller', 'intro', 1), createStep('detail-step', 'details', 1)];

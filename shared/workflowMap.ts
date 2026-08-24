@@ -1,5 +1,5 @@
 /**
- * Workflow map model — turns a workflow's pages/steps/rules into the plain
+ * Workflow map model — turns a workflow's Sections/pages/steps/rules into the plain
  * node/edge graph the visual map (GH-153) renders and MAP-3's flow analysis
  * (`shared/conditionGraph.ts#analyzeWorkflowFlow`) walks.
  *
@@ -31,9 +31,11 @@
  *    *backward* skip (a no-op at runtime per `isForwardSkipTarget` in
  *    `shared/workflowLogic.ts`, RUN2-2) still draws an edge here: whether it
  *    is a no-op is a flow-analysis judgement (MAP-3), not a graph-model one.
- *  - **Conditional visibility** — `visibleIf`, plus `show`/`hide` rules.
- *    These do not create a route; they only mark a node/step `conditional`.
- *    Drawing them as edges would misrepresent the model.
+ *  - **Conditional visibility** — Section/page/step `visibleIf`, plus
+ *    `show`/`hide` rules. A conditional Section propagates that state to its
+ *    member page and final-document nodes. These conditions do not create a
+ *    route; they only mark a node/step `conditional`. Drawing them as edges
+ *    would misrepresent the model.
  */
 
 /** The kinds of node the map renders. A node is a page, unless D-2 promotes a step to its own node. */
@@ -67,8 +69,14 @@ export interface WorkflowMapEdge {
 
 export interface WorkflowMapPageInput {
   id: string;
+  sectionId?: string | null;
   title: string;
   order: number;
+  visibleIf?: unknown;
+}
+
+export interface WorkflowMapSectionInput {
+  id: string;
   visibleIf?: unknown;
 }
 
@@ -92,6 +100,7 @@ export interface WorkflowMapRuleInput {
 }
 
 export interface BuildWorkflowMapInput {
+  sections?: WorkflowMapSectionInput[];
   pages: WorkflowMapPageInput[];
   steps: WorkflowMapStepInput[];
   rules: WorkflowMapRuleInput[];
@@ -110,13 +119,16 @@ export interface WorkflowMapGraph {
  * fires.
  */
 export function buildWorkflowMap(input: BuildWorkflowMapInput): WorkflowMapGraph {
-  const { pages, steps, rules } = input;
+  const { sections = [], pages, steps, rules } = input;
 
   // Sort by `order`, exactly as `calculateNextPage()` does — never trust
   // the caller's array order.
   const sortedPages = [...pages].sort((a, b) => a.order - b.order);
   const pageIds = new Set(sortedPages.map((s) => s.id));
   const stepById = new Map(steps.map((s) => [s.id, s]));
+  const conditionalSectionIds = new Set(
+    sections.filter((section) => hasNonEmptyCondition(section.visibleIf)).map((section) => section.id)
+  );
 
   const pageShowHideTargets = new Set(
     rules
@@ -145,7 +157,9 @@ export function buildWorkflowMap(input: BuildWorkflowMapInput): WorkflowMapGraph
       kind: "page",
       label: page.title,
       order: page.order,
-      conditional: page.visibleIf != null || pageShowHideTargets.has(page.id),
+      conditional: page.visibleIf != null
+        || pageShowHideTargets.has(page.id)
+        || (page.sectionId != null && conditionalSectionIds.has(page.sectionId)),
       conditionalStepIds,
     });
 
@@ -161,7 +175,9 @@ export function buildWorkflowMap(input: BuildWorkflowMapInput): WorkflowMapGraph
         kind: "final_documents",
         label: step.title,
         order: page.order,
-        conditional: step.visibleIf != null || stepShowHideTargets.has(step.id),
+        conditional: step.visibleIf != null
+          || stepShowHideTargets.has(step.id)
+          || (page.sectionId != null && conditionalSectionIds.has(page.sectionId)),
         conditionalStepIds: [],
       });
       edges.push({
@@ -235,4 +251,17 @@ export function buildWorkflowMap(input: BuildWorkflowMapInput): WorkflowMapGraph
   }
 
   return { nodes, edges };
+}
+
+/** A persisted condition is meaningful only when it contains a real operand or script. */
+function hasNonEmptyCondition(expression: unknown): boolean {
+  if (expression === null || typeof expression !== "object") { return false; }
+  const node = expression as Record<string, unknown>;
+  if (node.type === "condition") {
+    return typeof node.variable === "string" && node.variable.length > 0;
+  }
+  if (node.type === "script") {
+    return typeof node.code === "string" && node.code.length > 0;
+  }
+  return Array.isArray(node.conditions) && node.conditions.some(hasNonEmptyCondition);
 }

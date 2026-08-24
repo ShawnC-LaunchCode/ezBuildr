@@ -13,6 +13,11 @@ import {
 } from "@shared/workflowMap";
 import { calculateNextPage, evaluateWorkflowVisibility, resolveNextPage } from "@shared/workflowLogic";
 import type { ConditionExpression } from "@shared/types/conditions";
+import {
+  resolveSectionMatrixAlias,
+  sectionPageVisibilityCases,
+  sectionPageVisibilityFixture,
+} from "../fixtures/sectionVisibilityMatrix";
 
 /**
  * `SimulationRuleInput` no longer carries `conditionStepId` (MAP-7 review —
@@ -203,20 +208,19 @@ function oscillatingMalformedWorkflow(): SimulateWorkflowPathInput {
  * `resolveNextPage` directly, in the same order and with the same
  * arguments `LogicService.evaluateNavigation()`
  * (`server/services/LogicService.ts`) does — used only to build an
- * independent "what would the server decide" walk for the parity test
- * (AC7). `evaluateNavigation` itself needs a real run and database
- * (`resolveRun`, `definitionProvider.getDefinition`, `valueRepo.getRunDataAsJson`),
- * which `test:fast` cannot provide, so this reproduces its call sequence
- * over in-memory fixtures instead of skipping the parity assertion.
+ * independent "what would the server decide" walk for the simulator's
+ * local composition check. This is not the SECT-7 server proof: the shared
+ * matrix also runs through the actual `LogicService` and
+ * `RunDefinitionProvider` in `LogicService.pinnedDefinition.test.ts`.
  */
 function serverStyleWalk(input: SimulateWorkflowPathInput): string[] {
-  const { pages, steps, rules, data, resolveAlias } = input;
+  const { sections = [], pages, steps, rules, data, resolveAlias } = input;
   const orderedPages = pages.map((s) => ({ id: s.id, order: s.order }));
   const visited: string[] = [];
   let current: string | null = null;
 
   for (let i = 0; i < pages.length + 1; i++) {
-    const visibility = evaluateWorkflowVisibility({ pages, steps, rules, data, resolveAlias });
+    const visibility = evaluateWorkflowVisibility({ sections, pages, steps, rules, data, resolveAlias });
     const nextPageId = calculateNextPage(current, orderedPages, visibility.visiblePages);
     const resolved = resolveNextPage(
       current,
@@ -234,6 +238,21 @@ function serverStyleWalk(input: SimulateWorkflowPathInput): string[] {
 }
 
 describe("simulateWorkflowPath", () => {
+  describe("SECT-7 Section parity", () => {
+    it.each(sectionPageVisibilityCases)(
+      "matches the shared matrix for section=$sectionVisible/page=$pageVisible",
+      ({ data, expectedVisiblePageIds }) => {
+        const input: SimulateWorkflowPathInput = {
+          ...sectionPageVisibilityFixture,
+          data,
+          resolveAlias: resolveSectionMatrixAlias,
+        };
+        expect(simulateWorkflowPath(input).visited).toEqual(expectedVisiblePageIds);
+        expect(simulateWorkflowPath(input).visited).toEqual(serverStyleWalk(input));
+      },
+    );
+  });
+
   describe("AC2 — linear workflow, no rules", () => {
     it("visits every page in order and leaves nothing unvisited", () => {
       const result = simulateWorkflowPath(linearThreePages());

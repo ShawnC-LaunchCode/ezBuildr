@@ -1198,7 +1198,7 @@ evidence. **Sections are now User-reachable.** Independent gate review passed A.
 
 # Phase 3 — Section-level visibility
 
-## SECT-7 — Evaluate `sections.visible_if`, with a hidden Section hiding its pages 🔲
+## SECT-7 — Evaluate `sections.visible_if`, with a hidden Section hiding its pages ✅
 
 **Priority: ENH** · Size: L · File: `shared/workflowLogic.ts`
 
@@ -1367,17 +1367,37 @@ required dispatch gate.
 9. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
    `npm run test:unit` and `npm run test:integration` green.
 
+**Verified:** 2026-08-24 · Independent correction audit: **A**. The shared
+four-row precedence fixture passes through the canonical engine, server,
+client, and simulator consumers (5 files / 125 focused tests), and the real
+unmocked run-walk integration proof passes. Fresh gates: TypeScript 0 errors,
+lint 0 problems, strict zones 6/6, fast 302 files / 3,378 tests, unit 319 files /
+3,532 tests, and integration 128 files / 1,203 passing tests / 3 skipped. The
+false and true branches were then driven through two completed local runs of
+the same published version: the false run omitted all three Section pages; the
+true run showed two while the page with its own false condition remained
+hidden. Seven screenshots and exact run/version ids are retained in
+`.playwright-mcp/phase3-gate-proof.md`. Cross-tenant denial is N/A because this
+ticket adds no endpoint; it also adds no schema change or migration.
+
 ---
 
 ## Phase 3 Gate
 
-- [ ] SECT-7 ✅ with a dated verification note
-- [ ] Engine / server / client / simulator parity test green
-- [ ] `npm run test:unit` and `npm run test:integration` green
-- [ ] Live check: two runs of the same published workflow, one taking the false
+**Accepted:** 2026-08-24 · SECT-7 has an independent A-grade review. All four
+visibility consumers agree on the shared precedence matrix, the unmocked
+vertical integration proof is green, and two completed local runs of one
+published definition prove both sides of the Section condition. Disposable
+fixture rows and the local server were removed after capture; the proof bundle
+is retained locally.
+
+- [x] SECT-7 ✅ with a dated verification note
+- [x] Engine / server / client / simulator parity test green
+- [x] `npm run test:unit` and `npm run test:integration` green
+- [x] Live check: two runs of the same published workflow, one taking the false
       branch and one the true branch of a Section condition driven by a real
       earlier answer — screenshots attached
-- [ ] Reviewer has committed the passed ticket + this gate
+- [x] Reviewer has committed the passed ticket + this gate
 
 ---
 

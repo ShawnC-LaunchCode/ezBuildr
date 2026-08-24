@@ -201,6 +201,7 @@ describe("SidebarTree Sections", () => {
       workflowId: "workflow-1",
       title: "Assets",
       description: null,
+      visibleIf: null,
       pageIds: ["page-1", "page-2", "page-3"],
     }));
   });
@@ -222,6 +223,7 @@ describe("SidebarTree Sections", () => {
       workflowId: "workflow-1",
       title: "Property and Assets",
       description: "Current",
+      visibleIf: null,
     }));
   });
 

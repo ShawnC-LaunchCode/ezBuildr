@@ -11,6 +11,14 @@ import {
   getEffectiveRequiredSteps,
   evaluateWorkflowVisibility,
 } from "@shared/workflowLogic";
+import {
+  SECTION_MATRIX_PAGE_ID,
+  SECTION_MATRIX_SECTION_ID,
+  SECTION_MATRIX_STEP_ID,
+  resolveSectionMatrixAlias,
+  sectionPageVisibilityCases,
+  sectionPageVisibilityFixture,
+} from "../../fixtures/sectionVisibilityMatrix";
 
 /**
  * `between`'s two bounds are packed into one fixture `value` here purely for
@@ -114,6 +122,59 @@ describe("evaluateWorkflowVisibility parity contract", () => {
 
     expect(hidden.visiblePages.has("details")).toBe(false);
     expect(shown.visiblePages.has("details")).toBe(true);
+  });
+});
+
+describe("evaluateWorkflowVisibility Section precedence", () => {
+  it.each(sectionPageVisibilityCases)(
+    "section=$sectionVisible page=$pageVisible -> exact canonical page set",
+    ({ sectionVisible, data, expectedVisiblePageIds }) => {
+      const result = evaluateWorkflowVisibility({
+        ...sectionPageVisibilityFixture,
+        data,
+        resolveAlias: resolveSectionMatrixAlias,
+      });
+
+      const memberVisible = expectedVisiblePageIds.includes(SECTION_MATRIX_PAGE_ID);
+      expect(result.visibleSections.has(SECTION_MATRIX_SECTION_ID)).toBe(sectionVisible);
+      expect(result.hiddenSections.has(SECTION_MATRIX_SECTION_ID)).toBe(!sectionVisible);
+      expect(Array.from(result.visiblePages)).toEqual(expectedVisiblePageIds);
+      expect(result.visibleSteps.has(SECTION_MATRIX_STEP_ID)).toBe(memberVisible);
+      expect(result.requiredSteps.has(SECTION_MATRIX_STEP_ID)).toBe(memberVisible);
+    },
+  );
+
+  it("preserves ungrouped pages and null/empty Section conditions", () => {
+    const result = evaluateWorkflowVisibility({
+      sections: [
+        { id: "null-section", visibleIf: null },
+        { id: "empty-section", visibleIf: { type: "group", id: "empty", operator: "AND", conditions: [] } },
+      ],
+      pages: [
+        { id: "ungrouped", sectionId: null },
+        { id: "null-member", sectionId: "null-section" },
+        { id: "empty-member", sectionId: "empty-section" },
+      ],
+      steps: [],
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(Array.from(result.visiblePages)).toEqual(["ungrouped", "null-member", "empty-member"]);
+  });
+
+  it("fails a malformed Section expression closed without hiding ungrouped pages", () => {
+    const result = evaluateWorkflowVisibility({
+      sections: [{ id: "broken", visibleIf: { type: "not-a-condition" } }],
+      pages: [{ id: "member", sectionId: "broken" }, { id: "ungrouped", sectionId: null }],
+      steps: [],
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(Array.from(result.visiblePages)).toEqual(["ungrouped"]);
   });
 });
 describe("evaluateWorkflowVisibility classifies runner-requirable step types", () => {

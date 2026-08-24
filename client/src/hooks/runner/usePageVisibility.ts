@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from "react";
-import type { ApiStep, ApiPage } from "@/lib/vault-api";
+import type { ApiStep, ApiPage, ApiSection } from "@/lib/vault-api";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { LogicRule } from "@shared/schema";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
@@ -32,7 +32,8 @@ export function usePageVisibility(
   pages: ApiPage[] | undefined,
   allSteps: ApiStep[] | undefined,
   effectiveValues: Record<string, StepValue>,
-  logicRules: LogicRule[] = []
+  logicRules: LogicRule[] = [],
+  sections: ApiSection[] = []
 ): UsePageVisibilityReturn {
   // Alias resolver memoized to avoid recreation
   const resolveAlias = useCallback((variableName: string): string | undefined => {
@@ -44,6 +45,7 @@ export function usePageVisibility(
   }, [allSteps]);
 
   const visibility = useMemo(() => evaluateWorkflowVisibility({
+    sections,
     // PageSteps also uses this hook as a step-only visibility adapter. In
     // that mode preserve the supplied steps' parent pages as visible roots.
     pages: pages ?? Array.from(new Set((allSteps ?? []).map((step) => step.pageId)))
@@ -52,7 +54,7 @@ export function usePageVisibility(
     rules: logicRules,
     data: effectiveValues,
     resolveAlias,
-  }), [pages, allSteps, logicRules, effectiveValues, resolveAlias]);
+  }), [sections, pages, allSteps, logicRules, effectiveValues, resolveAlias]);
 
   // Compute visible pages
   const visiblePages = useMemo(() => {

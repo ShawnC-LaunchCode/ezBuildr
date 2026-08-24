@@ -62,6 +62,9 @@ const rules: ApiLogicRule[] = [
 vi.mock("@/hooks/api/usePages", () => ({
   usePages: () => ({ data: pages, isError: false }),
 }));
+vi.mock("@/hooks/api/useSections", () => ({
+  useSections: () => ({ data: [], isError: false }),
+}));
 vi.mock("@/hooks/api/useSteps", () => ({
   useWorkflowSteps: () => ({ data: steps, isError: false }),
 }));

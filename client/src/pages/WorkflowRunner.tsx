@@ -16,11 +16,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useRunSession } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
+import { useSections } from "@/hooks/api/useSections";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { useWorkflow } from "@/lib/vault-hooks";
-import { fetchAPI, type ApiPage, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import { fetchAPI, type ApiPage, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
@@ -120,6 +121,53 @@ function allowsSaveAndResume(workflow: RunnerWorkflow | undefined): boolean {
     settings.allowSaveAndResume !== false;
 }
 
+interface RunnerSectionState {
+  sections: ApiSection[] | undefined;
+  visibilityPages: ApiPage[] | undefined;
+  isInitializing: boolean;
+  initError: string | null;
+}
+
+function resolveRunnerSectionState(input: {
+  isProductionMode: boolean;
+  workflowId: string | undefined;
+  pages: ApiPage[] | undefined;
+  productionSections: ApiSection[] | undefined;
+  previewSections: ApiSection[] | undefined;
+  previewSectionsError: unknown;
+  sessionIsInitializing: boolean;
+  sessionInitError: string | null;
+}): RunnerSectionState {
+  if (input.isProductionMode) {
+    return {
+      sections: input.productionSections,
+      visibilityPages: input.pages,
+      isInitializing: input.sessionIsInitializing,
+      initError: input.sessionInitError,
+    };
+  }
+
+  if (input.previewSectionsError != null) {
+    const detail = input.previewSectionsError instanceof Error
+      ? `: ${input.previewSectionsError.message}`
+      : '.';
+    return {
+      sections: undefined,
+      visibilityPages: undefined,
+      isInitializing: input.sessionIsInitializing,
+      initError: input.sessionInitError ?? `Failed to load workflow Sections${detail}`,
+    };
+  }
+
+  const sectionsAreInitializing = input.workflowId != null && input.previewSections === undefined;
+  return {
+    sections: input.previewSections,
+    visibilityPages: input.previewSections === undefined ? undefined : input.pages,
+    isInitializing: input.sessionIsInitializing || sectionsAreInitializing,
+    initError: input.sessionInitError,
+  };
+}
+
 export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
   // 1. Session & Initialization
   const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment);
@@ -136,6 +184,20 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
   const effectiveAllSteps = isProductionMode ? runtime?.steps : previewEnvironment?.getSteps();
+  const previewSectionsQuery = useSections(workflowId, { enabled: !isProductionMode && workflowId != null });
+  const sectionState = resolveRunnerSectionState({
+    isProductionMode,
+    workflowId,
+    pages,
+    productionSections: runtime?.sections,
+    previewSections: previewSectionsQuery.data,
+    previewSectionsError: previewSectionsQuery.error,
+    sessionIsInitializing: isInitializing,
+    sessionInitError: initError,
+  });
+  // A preview definition is incomplete until its Sections query settles.
+  // Keep pages out of the evaluator during that window (and on failure), so
+  // conditional members can never flash as if the workflow had no Sections.
 
   const { data: logicRules } = useQuery({
     queryKey: ['/api/workflows', workflowId, 'logic-rules', actualRunId],
@@ -156,10 +218,11 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   // 5. Visibility Engine
   const { visiblePages, getVisiblePageSteps } = usePageVisibility(
-    pages,
+    sectionState.visibilityPages,
     effectiveAllSteps,
     effectiveValues,
-    effectiveLogicRules
+    effectiveLogicRules,
+    sectionState.sections
   );
   const { respondentPages, finalPage } = useMemo(
     () => partitionRunnerPages(visiblePages),
@@ -251,8 +314,8 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   return (
     <WorkflowRunnerScreen
-      isInitializing={isInitializing}
-      initError={initError}
+      isInitializing={sectionState.isInitializing}
+      initError={sectionState.initError}
       pages={pages}
       workflowId={workflowId}
       isProductionMode={isProductionMode}

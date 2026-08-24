@@ -257,6 +257,7 @@ export class RunExecutionCoordinator {
         data: Record<string, unknown>
     ): string[] {
         const visibility = evaluateWorkflowVisibility({
+            sections: definition.sections,
             pages: definition.pages,
             steps: definition.steps,
             rules: definition.logicRules,

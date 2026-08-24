@@ -133,6 +133,36 @@ describe("buildWorkflowMap", () => {
   });
 
   describe("AC5 — conditional flag", () => {
+    it("propagates a conditional Section to member page and final-document nodes", () => {
+      const { nodes } = buildWorkflowMap({
+        sections: [{ id: "section-1", visibleIf: { type: "group", conditions: [{ type: "condition", variable: "earlier" }] } }],
+        pages: [{ id: "page-a", sectionId: "section-1", title: "Documents", order: 0 }],
+        steps: [{ id: "final", pageId: "page-a", type: "final_documents", title: "Final documents" }],
+        rules: [],
+      });
+
+      expect(nodes.find((node) => node.id === "page-a")?.conditional).toBe(true);
+      expect(nodes.find((node) => node.id === "final")?.conditional).toBe(true);
+    });
+
+    it("does not mark member nodes conditional for null or empty Section conditions", () => {
+      const { nodes } = buildWorkflowMap({
+        sections: [
+          { id: "null-section", visibleIf: null },
+          { id: "empty-section", visibleIf: { type: "group", conditions: [] } },
+        ],
+        pages: [
+          { id: "null-member", sectionId: "null-section", title: "Null", order: 0 },
+          { id: "empty-member", sectionId: "empty-section", title: "Empty", order: 1 },
+          { id: "ungrouped", sectionId: null, title: "Ungrouped", order: 2 },
+        ],
+        steps: [],
+        rules: [],
+      });
+
+      expect(nodes.filter((node) => node.kind === "page").map((node) => node.conditional)).toEqual([false, false, false]);
+    });
+
     it("marks a page with a non-null visibleIf as conditional", () => {
       const { nodes } = buildWorkflowMap(workflowWithConditionalPage());
       const pageA = nodes.find((n) => n.id === "page-a");
