@@ -1562,7 +1562,7 @@ run routes).
 
 ---
 
-## SECT-8B — Persistent left-hand Section nav in the runner (read-only) 🔲
+## SECT-8B — Persistent left-hand Section nav in the runner (read-only) 🔄
 
 **Priority: ENH** · Size: L · File: `client/src/components/runner/ClientRunnerLayout.tsx`
 
@@ -1648,6 +1648,41 @@ must not be placed in a global zustand store.
   `client/src/components/preview/` so the builder preview shows the same rail.
 - Convention 8 applies: nav state derives from server state and the existing
   `useRunNavigation` return; do not mirror it into a zustand store.
+
+**Dispatched:** 2026-08-24. SECT-8A was accepted and committed at `5a916395`,
+so `visitedPageIds` is on the wire in the runtime payload
+(`ApiRunRuntime['run']`), the create payload and the resume payload — consume it
+from there, do not recompute reachedness on the client. The clean pre-change
+baseline the reviewer will re-measure against is **302 fast files / 3,378
+tests**, **18 unit-db files / 160 tests**, and **129 integration files / 1,204
+passed / 3 skipped**. A count that moves *down* is a stop condition; `test:fast`
+also has a known order-dependent flake that moves between files run to run, so
+re-run any single failure in isolation before attributing it to your change.
+
+Four specifics that will otherwise cost a review round:
+
+1. **The header is centred too.** `ClientRunnerLayout`'s `<header>` wraps its
+   contents in `max-w-2xl mx-auto`, the same measure as `<main>`. Turning the
+   body into a two-column shell without addressing the header leaves the brand
+   mark floating over the content column instead of aligning to the rail. AC2
+   constrains the *content column* to `max-w-2xl`; it does not require the
+   header to stay centred on that measure. Decide deliberately and say which
+   you chose.
+2. **Load the `design` skill before writing markup**, per the repo owner's
+   standing instruction. This rail is the surface a customer's client actually
+   sees, and "renders the right data" is not the bar.
+3. **Radix sheet + screenshots interact badly.** When the in-app browser pane is
+   not displayed, CSS animations do not run, so a Radix sheet can sit at
+   `data-state="closed"` and look broken in a screenshot even though it opened.
+   Assert `aria-expanded`/the trigger state rather than reading the DOM for the
+   panel, and take the mobile screenshot with the pane actually visible.
+4. **AC4's "would have rendered it" clause is load-bearing.** An assertion that
+   an excluded page's title is absent passes trivially against a fixture that
+   never contained it. The same fixture must render that title when the
+   exclusion is lifted — prove the assertion can fail.
+
+This ticket is **read-only**: render state, do not navigate. Clicking is SECT-9
+and shipping half of it is worse than shipping the rail inert.
 
 ### Acceptance criteria
 
