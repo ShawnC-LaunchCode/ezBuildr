@@ -9,9 +9,13 @@ import { TooltipProvider } from '../../../client/src/components/ui/tooltip';
 vi.mock('@/lib/vault-hooks', () => ({
   useWorkflow: () => ({ data: { id: 'workflow-1', modeOverride: 'easy', projectId: null } }),
   usePages: () => ({ data: [] }),
+  useSections: () => ({ data: [] }),
   useBlocks: () => ({ data: [] }),
   useCreatePageAtEnd: () => ({ createPageAtEnd: vi.fn(), isPending: false }),
   useCreateStep: () => ({ mutateAsync: vi.fn() }),
+  useCreateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/components/builder/ai/AiAssistantDialog', () => ({ AiAssistantDialog: () => null }));
@@ -92,6 +96,7 @@ describe('SidebarTree compact layout', () => {
     expect(screen.getByRole('button', { name: 'Add Page' })).toHaveTextContent('Add Page');
     expect(screen.getByRole('button', { name: 'Edit with AI' })).toHaveTextContent('Edit with AI');
     expect(screen.getByRole('button', { name: 'Add Snip' })).toHaveTextContent('Add Snip');
+    expect(screen.getByRole('button', { name: 'Add Section' })).toHaveTextContent('Add Section');
   });
 
   it('drops to icons once the panel is too narrow for the labels', () => {
@@ -100,7 +105,7 @@ describe('SidebarTree compact layout', () => {
 
     // The heading text is gone, but every action keeps an accessible name.
     expect(screen.queryByRole('heading', { name: 'Document Outline' })).toBeNull();
-    for (const name of ['Add Page', 'Edit with AI', 'Add Snip']) {
+    for (const name of ['Add Page', 'Add Section', 'Edit with AI', 'Add Snip']) {
       const button = screen.getByRole('button', { name });
       expect(button).toBeInTheDocument();
       expect(button).toHaveTextContent('');

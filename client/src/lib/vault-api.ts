@@ -647,6 +647,50 @@ export interface ApiDeleteImpact {
 }
 
 // ============================================================================
+// Sections
+// ============================================================================
+export interface ApiSection {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
+  visibleIf?: unknown;
+  createdAt: string;
+}
+
+export interface CreateSectionInput {
+  title: string;
+  description?: string | null;
+  visibleIf?: unknown;
+  pageIds: string[];
+}
+
+export interface UpdateSectionInput {
+  title?: string;
+  description?: string | null;
+  visibleIf?: unknown;
+}
+
+export const sectionAPI = {
+  list: (workflowId: string) =>
+    fetchAPI<ApiSection[]>(`/api/workflows/${workflowId}/sections`),
+  create: (workflowId: string, data: CreateSectionInput) =>
+    fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (sectionId: string, data: UpdateSectionInput) =>
+    fetchAPI<ApiSection>(`/api/sections/${sectionId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (sectionId: string) =>
+    fetchAPI<void>(`/api/sections/${sectionId}`, {
+      method: "DELETE",
+    }),
+};
+
+// ============================================================================
 // Pages
 // ============================================================================
 export interface ApiPage {

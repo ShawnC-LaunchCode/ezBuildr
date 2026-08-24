@@ -919,7 +919,7 @@ phase that makes the feature *User-reachable*.
 standing instruction is that it is loaded for any UI work; a turn-in that
 skipped it is sent back regardless of how the UI looks.
 
-## SECT-5 — Document Outline nests pages under Sections 🔄
+## SECT-5 — Document Outline nests pages under Sections ✅
 
 **Dispatched:** 2026-08-23 · Follows the accepted Phase 1 gate commit
 `a7fae7d5`. Senior review found the ticket's old `sections.map(SectionItem)`,
@@ -935,6 +935,15 @@ and become ungrouped. Section create/delete and reorder-driven empty-Section
 deletion invalidate both Section and Page queries. The 164px compact breakpoint
 must be measured in the browser, with two design review cycles at normal and
 minimum widths. Server state remains exclusively in TanStack Query.
+
+**Accepted:** 2026-08-23 · Senior and independent review passed all nine
+criteria. The live builder proved two Sections plus one inline ungrouped page,
+independent page/Section disclosure, expanded and collapsed states, and the
+icon-only rail at the real 15% floor (149.1px at a 1024px viewport); six
+captures cover comfortable, minimum, and compact widths. Uncached TypeScript
+and lint were clean, 33 focused client tests passed, and `npm run test:fast`
+passed 3,311 tests across 292 files (+17 tests / +3 files from dispatch) with
+no failures, skipped tests, new suppressions, debug output, or scratch files.
 
 **Priority: ENH** · Size: M · File: `client/src/components/builder/SidebarTree.tsx`
 

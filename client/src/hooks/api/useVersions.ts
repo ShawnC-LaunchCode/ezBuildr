@@ -33,6 +33,7 @@ export function useRestoreVersion(): UseMutationResult<unknown, unknown, { workf
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.versions(variables.workflowId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.pages(variables.workflowId) });
             // Invalidate everything basically
             await queryClient.invalidateQueries({ queryKey: ["workflows", variables.workflowId] });

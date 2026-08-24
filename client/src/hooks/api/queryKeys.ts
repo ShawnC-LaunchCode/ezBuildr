@@ -12,6 +12,7 @@ export const queryKeys = {
     snapshots: (workflowId: string) => ["workflows", workflowId, "snapshots"] as const,
     snapshot: (workflowId: string, snapshotId: string) => ["workflows", workflowId, "snapshots", snapshotId] as const,
     variables: (workflowId: string) => ["workflows", workflowId, "variables"] as const,
+    sections: (workflowId: string) => ["sections", workflowId] as const,
     pages: (workflowId: string) => ["pages", workflowId] as const,
     page: (id: string) => ["pages", "single", id] as const,
     workflowSteps: (workflowId: string) => ["steps", "workflow", workflowId] as const,

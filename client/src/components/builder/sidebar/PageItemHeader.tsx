@@ -17,6 +17,7 @@ interface PageItemHeaderProps {
     onEditPage: () => void;
     isFinalPage: boolean;
     isPageConditional: boolean;
+    nested?: boolean;
 }
 
 export function PageItemHeader({
@@ -25,7 +26,8 @@ export function PageItemHeader({
     onToggle,
     onEditPage,
     isFinalPage,
-    isPageConditional
+    isPageConditional,
+    nested = false,
 }: PageItemHeaderProps) {
     const { selection, selectPage } = useWorkflowBuilder();
     const isSelected = selection?.type === "page" && selection.id === page.id;
@@ -33,7 +35,8 @@ export function PageItemHeader({
     return (
         <div
             className={cn(
-                "flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent/50 cursor-pointer group transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
+                "flex items-center rounded-md hover:bg-sidebar-accent/50 cursor-pointer group transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
+                nested ? "gap-1 px-1 py-1" : "gap-2 p-2",
                 isSelected && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             )}
             onClick={() => { selectPage(page.id); }}
@@ -62,8 +65,8 @@ export function PageItemHeader({
             >
                 {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </Button>
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <span className="flex-1 text-sm truncate">{page.title}</span>
+            <GripVertical className={cn("text-muted-foreground", nested ? "size-3" : "size-4")} />
+            <span className={cn("flex-1 truncate", nested ? "text-xs" : "text-sm")}>{page.title}</span>
             {isFinalPage && (
                 <Badge variant="secondary" className="text-xs px-1.5 py-0">
                     <FileCheck className="h-3 w-3 mr-1" />

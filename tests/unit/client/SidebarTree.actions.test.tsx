@@ -12,9 +12,13 @@ const createStepAsync = vi.fn();
 vi.mock('@/lib/vault-hooks', () => ({
   useWorkflow: () => ({ data: { id: 'workflow-1', modeOverride: 'easy', projectId: null } }),
   usePages: () => ({ data: [] }),
+  useSections: () => ({ data: [] }),
   useBlocks: () => ({ data: [] }),
   useCreatePageAtEnd: () => ({ createPageAtEnd, isPending: false }),
   useCreateStep: () => ({ mutateAsync: createStepAsync }),
+  useCreateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // Child surfaces are stubbed so this test isolates the outline's own wiring:
@@ -71,6 +75,7 @@ describe('SidebarTree authoring actions', () => {
 
     expect(screen.getByRole('button', { name: /Edit with AI/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add Snip/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add Section/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
 
@@ -78,6 +83,15 @@ describe('SidebarTree authoring actions', () => {
     expect(
       screen.getByRole('menuitem', { name: /Final Documents Page/i })
     ).toBeInTheDocument();
+  });
+
+  it('opens the add-Section dialog', async () => {
+    const user = userEvent.setup();
+    renderTree();
+
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+
+    expect(screen.getByRole('dialog', { name: /Add Section/i })).toBeInTheDocument();
   });
 
   it('opens the AI assistant dialog', async () => {

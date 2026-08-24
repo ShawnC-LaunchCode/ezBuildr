@@ -1,5 +1,6 @@
 
 import { type Mode } from "@/lib/mode";
+import { cn } from "@/lib/utils";
 
 import { ApiBlock, ApiPage } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
@@ -17,6 +18,7 @@ interface PageItemProps {
     blocks: ApiBlock[];
     onEditBlock: (block: ApiBlock) => void;
     onEditPage: () => void;
+    nested?: boolean;
 }
 
 export function PageItem({
@@ -28,6 +30,7 @@ export function PageItem({
     blocks,
     onEditBlock,
     onEditPage,
+    nested = false,
 }: PageItemProps) {
     const { data: steps } = useSteps(page.id);
     // Check if this is a Final Documents page
@@ -42,7 +45,7 @@ export function PageItem({
     const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
 
     return (
-        <div className="mb-1">
+        <div className={cn("mb-1", nested && "mb-0.5")}>
             <PageItemHeader
                 page={page}
                 isExpanded={isExpanded}
@@ -50,9 +53,13 @@ export function PageItem({
                 onEditPage={onEditPage}
                 isFinalPage={isFinalPage}
                 isPageConditional={isPageConditional}
+                nested={nested}
             />
             {isExpanded && (
-                <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
+                <div className={cn(
+                    "mt-1 space-y-0.5 border-l border-sidebar-border/50",
+                    nested ? "ml-3 pl-1.5" : "ml-4 pl-2",
+                )}>
                     {/* Top Blocks (Prefill/Enter) */}
                     {topBlocks.map((block) => (
                         <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />

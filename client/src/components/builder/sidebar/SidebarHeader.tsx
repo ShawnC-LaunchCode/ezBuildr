@@ -1,4 +1,6 @@
-import { FileCheck, FileText, Plus, Scissors, Sparkles } from "lucide-react";
+import { FileCheck, FileText, FolderPlus, Plus, Scissors, Sparkles } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { createElement } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +18,37 @@ interface SidebarHeaderProps {
     onAddFinalDocs: () => void;
     onAiAssist: () => void;
     onAddSnip: () => void;
+    onAddSection: () => void;
     /** Panel is too narrow for labels — drop to icons. */
     compact?: boolean;
+}
+
+interface HeaderActionProps {
+    label: string;
+    icon: LucideIcon;
+    onClick: () => void;
+    compact: boolean;
+    className?: string;
+}
+
+function HeaderAction({ label, icon, onClick, compact, className }: HeaderActionProps) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    variant="outline"
+                    size={compact ? "icon" : "sm"}
+                    aria-label={compact ? label : undefined}
+                    className={cn("border-dashed", compact ? "size-8" : "w-full", className)}
+                    onClick={onClick}
+                >
+                    {createElement(icon, { className: compact ? "size-4" : "mr-2 size-3.5" })}
+                    {!compact && label}
+                </Button>
+            </TooltipTrigger>
+            {compact && <TooltipContent side="right">{label}</TooltipContent>}
+        </Tooltip>
+    );
 }
 
 export function SidebarHeader({
@@ -25,9 +56,10 @@ export function SidebarHeader({
     onAddFinalDocs,
     onAiAssist,
     onAddSnip,
+    onAddSection,
     compact = false,
 }: SidebarHeaderProps) {
-    // Same three actions, same order, same colours in both layouts — only the
+    // Same four actions, same order, same colours in both layouts — only the
     // label disappears, so the panel doesn't reshuffle as you drag it.
     return (
         <div
@@ -64,46 +96,26 @@ export function SidebarHeader({
                 </DropdownMenuContent>
             </DropdownMenu>
 
+            <HeaderAction label="Add Section" icon={FolderPlus} onClick={onAddSection} compact={compact} />
+
             {/* AI Assistant Button */}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        variant="outline"
-                        size={compact ? "icon" : "sm"}
-                        aria-label={compact ? "Edit with AI" : undefined}
-                        className={cn(
-                            "border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800",
-                            compact ? "size-8" : "w-full",
-                        )}
-                        onClick={onAiAssist}
-                    >
-                        <Sparkles className={compact ? "size-4" : "mr-2 size-3"} />
-                        {!compact && "Edit with AI"}
-                    </Button>
-                </TooltipTrigger>
-                {compact && <TooltipContent side="right">Edit with AI</TooltipContent>}
-            </Tooltip>
+            <HeaderAction
+                label="Edit with AI"
+                icon={Sparkles}
+                onClick={onAiAssist}
+                compact={compact}
+                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
+            />
 
             {/* Add Snip Button — Scissors rather than a second Plus, which was
                 indistinguishable from Add Page once the labels came off. */}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        variant="outline"
-                        size={compact ? "icon" : "sm"}
-                        aria-label={compact ? "Add Snip" : undefined}
-                        className={cn(
-                            "border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800",
-                            compact ? "size-8" : "w-full",
-                        )}
-                        onClick={onAddSnip}
-                    >
-                        <Scissors className={compact ? "size-4" : "mr-2 size-3"} />
-                        {!compact && "Add Snip"}
-                    </Button>
-                </TooltipTrigger>
-                {compact && <TooltipContent side="right">Add Snip</TooltipContent>}
-            </Tooltip>
+            <HeaderAction
+                label="Add Snip"
+                icon={Scissors}
+                onClick={onAddSnip}
+                compact={compact}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+            />
         </div>
     );
 }

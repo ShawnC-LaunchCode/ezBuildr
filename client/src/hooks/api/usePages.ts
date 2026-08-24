@@ -145,6 +145,9 @@ export function useReorderPages(): UseMutationResult<
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: queryKeys.pages(variables.workflowId) });
+            if ((variables.deleteEmptySectionIds?.length ?? 0) > 0) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            }
         },
     });
 }
