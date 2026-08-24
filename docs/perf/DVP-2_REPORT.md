@@ -133,8 +133,8 @@ Write throughput was measured on **fresh, isolated tables** comparing clean bulk
 
 ## 6. Migration and Schema Files
 
-- **Migration**: [`migrations/0013_datavault_filter_indexes.sql`](file:///C:/Users/scoot/poll/ezBuildr/migrations/0013_datavault_filter_indexes.sql)
-- **Schema**: [`shared/schema/datavault.ts`](file:///C:/Users/scoot/poll/ezBuildr/shared/schema/datavault.ts)
-- **Repository Builder**: [`server/repositories/DatavaultRowsRepository.ts`](file:///C:/Users/scoot/poll/ezBuildr/server/repositories/DatavaultRowsRepository.ts)
-- **Benchmark & Integration Test**: [`tests/integration/datavault.dvp2-perf.test.ts`](file:///C:/Users/scoot/poll/ezBuildr/tests/integration/datavault.dvp2-perf.test.ts)
-- **Unit Tests**: [`tests/unit/repositories/DatavaultRowsRepository.test.ts`](file:///C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/DatavaultRowsRepository.test.ts)
+- **Migration**: [`migrations/0013_datavault_filter_indexes.sql`](../../migrations/0013_datavault_filter_indexes.sql)
+- **Schema**: [`shared/schema/datavault.ts`](../../shared/schema/datavault.ts)
+- **Repository Builder**: [`server/repositories/DatavaultRowsRepository.ts`](../../server/repositories/DatavaultRowsRepository.ts)
+- **Benchmark & Integration Test**: [`tests/integration/datavault.dvp2-perf.test.ts`](../../tests/integration/datavault.dvp2-perf.test.ts)
+- **Unit Tests**: [`tests/unit/repositories/DatavaultRowsRepository.test.ts`](../../tests/unit/repositories/DatavaultRowsRepository.test.ts)

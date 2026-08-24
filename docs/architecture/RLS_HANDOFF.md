@@ -24,7 +24,7 @@ all of the above from silently rotting — read §7 before touching the allowlis
   — slimmed 2026-08-23 to its **one remaining ticket, RLS-4 for production**.
   Every other ENV/RLS ticket is closed; the closure record, the withdrawn
   findings and the parked observations are in
-  [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md).
+  [`backlog/ENVIRONMENTS_AND_RLS.md`](../../tickets/backlog/ENVIRONMENTS_AND_RLS.md).
 
 ---
 

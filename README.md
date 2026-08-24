@@ -11,7 +11,7 @@ ezBuildr is a comprehensive enterprise workflow automation platform built with m
 - 66+ backend API route files
 - 90+ service classes
 - 80+ PostgreSQL database tables
-- 15+ question/action types
+- 37 question/action types
 - 40+ helper functions for scripting
 
 Originally inspired by Legacy App, evolved into next-generation workflow automation with enterprise-grade features.
@@ -53,11 +53,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ### Step 3: Initialize Database
 
 ```bash
-# Push schema to database
-npm run db:push
-
-# Fix database schema (adds missing columns if needed)
-npx tsx scripts/fixAllMissingColumns.ts
+# Apply the SQL migration chain (do NOT use `npm run db:push` — after the RLS
+# rollout it treats unmanaged policies as drift and proposes destructive
+# policy removal; see the db-schema-change skill / docs/architecture/TENANT_ISOLATION_RLS.md)
+npm run db:migrate
 ```
 
 ### Step 4: Start Development Server
@@ -152,7 +151,7 @@ CREATE DATABASE ezbuildr;
 
 ## 🏛️ System Architecture
 
-**ezBuildr is a dedicated workflow automation platform** (as of November 2025):
+**ezBuildr is a dedicated workflow automation platform:**
 
 ### **Workflows (ezBuildr Core)** ⭐ Primary System
 - Modern workflow automation engine
@@ -160,14 +159,8 @@ CREATE DATABASE ezbuildr;
 - API paths: `/api/workflows/*`, `/api/runs/*`
 - **Status:** Production ready, active development
 
-### **Legacy Survey System** (Removed Nov 2025)
-- Frontend completely removed (67 files, ~11,763 LOC)
-- Backend routes disabled (returns 404)
-- Database tables preserved for historical data access only
-- Not accessible via UI or API
-- See `SURVEY_REMOVAL_SUMMARY.md` for complete details
-
-**All new development uses the Workflow system.** ezBuildr is now 100% workflow-focused.
+**ezBuildr is 100% workflow-focused.** The legacy survey system (removed Nov 2025)
+is gone entirely — no `/api/surveys/*` routes, no survey tables in the schema.
 
 ---
 
@@ -200,8 +193,8 @@ Routes → Services → Repositories → Database
 ```
 
 - **Routes:** Handle HTTP requests and responses
-- **Services:** Business logic and orchestration (20+ service classes)
-- **Repositories:** Data access abstraction (15+ repository classes)
+- **Services:** Business logic and orchestration (213 service classes)
+- **Repositories:** Data access abstraction, `BaseRepository` pattern (48 classes)
 - **Database:** Drizzle ORM with strongly-typed PostgreSQL schema
 
 ---
@@ -210,7 +203,7 @@ Routes → Services → Repositories → Database
 
 ### Core Workflow Features
 - 🔀 **Workflow Builder** — Page/step builder with 7-tab navigation and inspector panel
-- 📋 **15+ Question Types** — Text, email, phone, number, currency, address, boolean, choice, scale, date, time, signature, file upload, display, multi-field, computed
+- 📋 **37 Question Types** — Text, email, phone, number, currency, address, boolean, choice, scale, date, time, signature, file upload, display, multi-field, computed, plus easy/advanced-mode variants
 - 📄 **Pages & Steps** — Multi-page workflows with dynamic navigation and progress tracking
 - ⚡ **Two-Tier Visibility Logic** — Workflow rules + step-level `visibleIf` expressions with real-time evaluation 🆕
 - 🏷️ **Step Aliases** — Human-friendly variable names (e.g., `firstName`, `totalCost`)
@@ -264,7 +257,7 @@ Routes → Services → Repositories → Database
 - 📊 **Advanced Analytics** — Funnel analysis, dropoff tracking, completion rates
 - 🔥 **Heatmaps** — Field-level engagement visualization
 - 📈 **Trend Analysis** — Response patterns over time
-- 📤 **Export** — JSON, CSV, PDF export formats
+- 📤 **Export** — JSON and CSV run-data export
 
 ### Authentication & Access Control
 - 🔑 **Multi-Auth System** — Google OAuth2, JWT tokens, session auth, magic links
@@ -304,95 +297,24 @@ Routes → Services → Repositories → Database
 
 ## 🧪 API Endpoints
 
-### Modern Workflow System (Use These!)
+The endpoint list previously duplicated here had drifted from the actual routes
+(wrong methods, wrong paths, some invented). Rather than maintain a second,
+easily-stale copy, the authoritative, domain-by-domain endpoint reference is
+**[docs/claude/API_ENDPOINTS.md](./docs/claude/API_ENDPOINTS.md)** — it names
+the route file backing every path and is verified against `server/routes/`
+directly. A few high-traffic examples to get oriented:
 
-#### Workflow Management
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/workflows` | Create workflow |
-| `GET` | `/api/workflows` | List all workflows |
-| `GET` | `/api/workflows/:id` | Fetch workflow with pages & steps |
-| `PUT` | `/api/workflows/:id` | Update workflow |
-| `DELETE` | `/api/workflows/:id` | Delete workflow |
-| `PATCH` | `/api/workflows/:id/status` | Update workflow status |
-| `GET` | `/api/workflows/:id/variables` | Get all step aliases (variables) |
+| `GET` | `/api/workflows/:workflowId` | Fetch workflow |
+| `GET/POST` | `/api/workflows/:workflowId/pages` | List / create pages |
+| `POST` | `/api/workflows/:workflowId/runs` | Create a run (returns `runToken`) |
+| `GET` | `/api/runs/:runId/runtime` | Sanitized pinned pages/steps + cursor + values |
+| `POST` | `/api/ai/workflows/generate` | Generate a workflow from a description |
 
-#### Pages
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/workflows/:id/pages` | Create page |
-| `PUT` | `/api/pages/:id` | Update page |
-| `DELETE` | `/api/pages/:id` | Delete page |
-| `PUT` | `/api/workflows/:id/pages/reorder` | Bulk reorder pages |
-
-#### Steps
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/workflows/:wid/pages/:pid/steps` | Create step |
-| `PUT` | `/api/steps/:id` | Update step (including alias) |
-| `DELETE` | `/api/steps/:id` | Delete step |
-| `PUT` | `/api/workflows/:id/steps/reorder` | Bulk reorder steps |
-
-#### Transform Blocks (Code Execution)
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/workflows/:id/transform-blocks` | List transform blocks |
-| `POST` | `/api/workflows/:id/transform-blocks` | Create transform block |
-| `PUT` | `/api/transform-blocks/:id` | Update transform block |
-| `DELETE` | `/api/transform-blocks/:id` | Delete transform block |
-| `POST` | `/api/transform-blocks/:id/test` | Test with sample data |
-
-#### Workflow Runs (Execution)
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| `POST` | `/api/workflows/:id/runs` | Create run (returns runToken) | Session or Public |
-| `GET` | `/api/runs/:id` | Get run details | Session or Bearer Token |
-| `GET` | `/api/runs/:id/values` | Get step values | Session or Bearer Token |
-| `POST` | `/api/runs/:id/values` | Save single value | Bearer Token |
-| `POST` | `/api/runs/:id/values/bulk` | Bulk save values | Bearer Token |
-| `POST` | `/api/runs/:id/pages/:pid/submit` | Submit page | Bearer Token |
-| `POST` | `/api/runs/:id/next` | Navigate to next page | Bearer Token |
-| `PUT` | `/api/runs/:id/complete` | Complete run (executes transforms) | Bearer Token |
-
-#### Logic Rules
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/workflows/:id/logic` | List logic rules |
-| `POST` | `/api/workflows/:id/logic` | Create logic rule |
-| `PUT` | `/api/logic/:id` | Update logic rule |
-| `DELETE` | `/api/logic/:id` | Delete logic rule |
-
-#### Connections & Integrations (Stage 16)
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/projects/:id/connections` | List connections |
-| `POST` | `/api/projects/:id/connections` | Create connection |
-| `PATCH` | `/api/projects/:id/connections/:cid` | Update connection |
-| `DELETE` | `/api/projects/:id/connections/:cid` | Delete connection |
-| `POST` | `/api/projects/:id/connections/:cid/test` | Test connection |
-| `GET` | `/api/connections/oauth/start` | Initiate OAuth2 flow |
-| `GET` | `/api/connections/oauth/callback` | Handle OAuth2 callback |
-
-#### AI Workflow Generation (Stage 15)
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/ai/workflows/generate` | Generate workflow from description |
-| `POST` | `/api/ai/workflows/:id/suggest` | Suggest improvements |
-| `POST` | `/api/ai/templates/:tid/bindings` | Suggest template bindings |
-
-#### Analytics & Export
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/workflows/:id/analytics` | Get workflow analytics |
-| `GET` | `/api/workflows/:id/analytics/funnel` | Get completion funnel |
-| `GET` | `/api/workflows/:id/analytics/trends` | Get response trends |
-| `GET` | `/api/workflows/:id/export/json` | Export all run data (JSON) |
-| `GET` | `/api/workflows/:id/export/csv` | Export all run data (CSV) |
-| `GET` | `/api/workflows/:id/export/pdf` | Export responses (PDF) |
-
-### Legacy Survey System
-
-For legacy survey endpoints, use `/api/surveys/*` paths. See CLAUDE.md for details.
+For the full, current list — including Sections, DataVault, AI, e-signature,
+and every other domain — see `docs/claude/API_ENDPOINTS.md`.
 
 ---
 
@@ -418,61 +340,29 @@ For legacy survey endpoints, use `/api/surveys/*` paths. See CLAUDE.md for detai
 
 ### Database Schema
 
-The database uses **Drizzle ORM** with **80+ PostgreSQL tables** organized by domain:
+The database uses **Drizzle ORM** with **108 PostgreSQL tables**, one domain file
+per area under `shared/schema/` (workflow/pages/steps, auth & tenancy, runs &
+metrics, DataVault, integrations, billing, and more). Full inventory, exact
+table names, and key enums: **[docs/claude/SCHEMA.md](./docs/claude/SCHEMA.md)**
+— that file, not this section, is the source of truth for table names.
 
-**Core Workflow Tables (6):**
-- `projects`, `workflows`, `pages`, `steps`, `workflowRuns`, `stepValues`
-
-**DataVault Tables (6):**
-- `databases`, `tables`, `table_rows`, `table_permissions`, `api_tokens`, `row_notes`
-
-**Logic & Automation Tables (4):**
-- `logicRules`, `transformBlocks`, `transformBlockRuns`, `blocks`
-
-**Custom Scripting Tables (3):**
-- `lifecycle_hooks`, `document_hooks`, `script_execution_log`
-
-**Integration Tables (4):**
-- `connections`, `secrets`, `review_tasks`, `signature_requests`
-
-**Team & Multi-Tenancy (10):**
-- `teams`, `teamMembers`, `projectAccess`, `workflowAccess`, `tenants`, `organizations`, `workspaces`, `workspaceMembers`, `resourcePermissions`, `auditLogs`
-
-**Portal & External Access (3):**
-- `portalUsers`, `portalAccessLogs`, `anonymousResponseTracking`
-
-**Templates & Sharing (4):**
-- `workflowTemplates`, `workflowBlueprints`, `templateShares`, `emailTemplateMetadata`
-
-**Analytics & Metrics (7):**
-- `analyticsEvents`, `workflowRunEvents`, `workflowRunMetrics`, `blockMetrics`, `workflowAnalyticsSnapshots`, `metricsEvents`, `metricsRollups`
-
-**Document Generation (3):**
-- `runGeneratedDocuments`, `signatureEvents`, `finalBlock`
-
-**Billing & Enterprise (5):**
-- `subscriptions`, `billingPlans`, `subscriptionSeats`, `customerBillingInfo`, `usageRecords`
-
-**Versioning & State (6):**
-- `workflowVersions`, `workflowSnapshots`, `sessions`, `userPreferences`, `userPersonalizationSettings`, `workflowPersonalizationSettings`
-
-**Plus: Collections (legacy), utility tables, audit trail, file storage, and more**
-
-**Supported Question/Action Types (15+):**
+**Supported Question/Action Types (37, see `stepTypeEnum` in `shared/schema/workflow.ts`):**
 - **Text Input:** `short_text`, `long_text`, `email`, `phone`, `website`
 - **Numeric:** `number`, `currency`, `scale`
 - **Date/Time:** `date`, `date_time`, `time`
-- **Selection:** `multiple_choice`, `radio`, `checkbox`, `boolean`
-- **Advanced:** `address`, `signature`, `file_upload`, `display`, `multi_field`, `computed`
+- **Selection:** `multiple_choice`, `radio`, `yes_no`, `true_false`, `choice`
+- **Advanced:** `address`, `signature_block`, `file_upload`, `display`, `multi_field`, `computed`, plus `*_advanced` variants and the structural `list` type
+
+There is no `checkbox` or plain `signature` type, and no `repeater`/`loop_group`
+(retired in LIST-13) — see CLAUDE.md's Step Types section.
 
 ### Key Implementation Details
 
-- **Environment Isolation:** Poll-Vault and ezBuildr use separate Neon databases
-- **Schema Management:** Run `npm run db:push` to sync schema changes
-- **File Uploads:** Handled via Multer with metadata stored in `files` table
-- **Logic Engine:** Located in `shared/conditionalLogic.ts` and `shared/workflowLogic.ts`
-- **Service Layer:** 25+ service classes in `server/services/`
-- **Repository Layer:** 15+ repository classes in `server/repositories/`
+- **Schema Management:** Run `npm run db:migrate` to apply migrations (see Step 3 above — not `db:push`)
+- **File Uploads:** Handled via Multer; storage driver is disk or S3 (`STORAGE_DRIVER`), served via `storage.routes.ts`
+- **Logic Engine:** Located in `shared/conditionEvaluator.ts` and `shared/workflowLogic.ts`
+- **Service Layer:** 213 service classes in `server/services/`
+- **Repository Layer:** `BaseRepository` pattern, 48 classes in `server/repositories/`
 - **Transform Blocks:** Sandboxed JS/Python execution with vm2 and subprocess
 - **Virtual Steps:** Transform block outputs stored via virtual steps with proper UUIDs
 - **Step Aliases:** Human-friendly variable names for referencing steps in logic and blocks
@@ -493,29 +383,22 @@ npm start                # Start production server
 npm run check            # TypeScript type checking
 
 # Database
-npm run db:push          # Push schema changes to database
+npm run db:migrate       # Apply the SQL migration chain (preferred — see Step 3 above)
+npm run db:push          # Push schema changes directly; avoid post-RLS, see db-schema-change skill
 
 # Testing
-npm test                     # Run all tests (sequential, 100% reliable) - CI/CD
-npm run test:dev             # Run tests (parallel, faster) - Local development
-npm run test:parallel        # Run tests in parallel (faster, ~68% pass rate due to schema isolation)
-npm run test:unit            # Run unit tests only
-npm run test:integration     # Run integration tests (sequential mode)
-npm run test:integration:parallel # Run integration tests (parallel mode)
-npm run test:e2e             # Run end-to-end tests with Playwright
-npm run test:watch           # Run tests in watch mode
-npm run test:ui              # Run tests with interactive UI
-npm run test:coverage        # Generate coverage report
-
-# Testing Modes
-# - Sequential Mode (VITEST_SINGLE_FORK=true): 100% reliable, slower (~2-3min)
-#   Use for: CI/CD, pre-release verification, critical test runs
-# - Parallel Mode (default): Faster (~90-120s), some schema isolation flakiness (~68% pass rate)
-#   Use for: Local development, rapid iteration, most tests pass reliably
+# `npm test` alone gives misleading results here — the suite is split into 3
+# Vitest projects with separate DB setup. See the `run-tests` project skill
+# (.claude/skills/run-tests/) before running or writing any test; it documents
+# test:fast / test:unit / test:integration / test:e2e and the Docker Postgres
+# setup those last two need (`npm run test:docker:up`).
+npm test                     # Full suite, single-fork + coverage — what CI runs
+npm run test:fast            # unit-fast, no DB, ~13s — default sanity check
+npm run test:e2e             # End-to-end tests with Playwright
 
 # Utilities
 npm run set-admin        # Set a user as admin
-npm run generate-fake-data # Generate test data
+npm run db:seed          # Generate test data
 npm run test-gemini      # Test Gemini API connection
 ```
 
@@ -547,12 +430,14 @@ npm run test-gemini      # Test Gemini API connection
 | ✅ Dec 2025 | **Real-time Collaboration** | **Complete (Presence, Cursors, Comments)** 🆕 |
 | ✅ Dec 2025 | **Versioning & Snapshots** | **Complete** 🆕 |
 | ✅ Dec 2025 | **Multi-Tenant Workspaces** | **Complete** 🆕 |
-| 🔄 | Advanced Analytics Dashboards | In Progress |
-| 🔄 | DataVault-Workflow Integration | In Progress |
-| 🔜 | Enhanced Versioning (Branching) | Planned Q1 2026 |
-| 🔜 | Integration Marketplace | Planned Q2 2026 |
-| 🔜 | Advanced Personalization | Planned Q2 2026 |
-| 🔜 | Mobile Builder App | Planned Q3 2026 |
+| 🔜 | Enhanced Versioning (Branching) | Backlog — no committed date |
+| 🔜 | Integration Marketplace | Backlog — no committed date |
+| 🔜 | Advanced Personalization | Backlog — no committed date |
+| 🔜 | Mobile Builder App | Backlog — no committed date |
+
+The four "Backlog" rows above did not ship on their original target quarters;
+see `docs/claude/FEATURES.md`'s Backlog section — do not treat old dates as
+commitments.
 
 ---
 
@@ -587,9 +472,15 @@ We welcome contributions! To get started:
    GOOGLE_CLIENT_ID=<server-oauth-client-id>
    VITE_GOOGLE_CLIENT_ID=<client-web-oauth-client-id>
    SESSION_SECRET=<32-char-random-secret>
+   JWT_SECRET=<32-char-random-secret>
    VL_MASTER_KEY=<base64-encoded-32-byte-key>
    ALLOWED_ORIGIN=your-app.up.railway.app
    ```
+
+   `JWT_SECRET` and `SESSION_SECRET` are validated at boot (`server/config/env.ts`,
+   min 32 characters) and only get an insecure dev/test fallback when `NODE_ENV`
+   is `development` or `test` — omitting either on a `production` deploy crashes
+   the app on startup, not just at login.
 3. Generate VL_MASTER_KEY locally:
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -642,19 +533,15 @@ For a complete list of available documentation, see the [Documentation Index](./
 
 **Solution:**
 ```bash
-# Run the comprehensive schema fix script
-npx tsx scripts/fixAllMissingColumns.ts
+# Apply any migrations you haven't picked up yet
+npm run db:migrate
 
 # Restart your dev server
 npm run dev
 ```
 
-**What it fixes:**
-- Adds missing columns to `users` table (`full_name`, `tenant_id`, `first_name`, `last_name`, `profile_image_url`)
-- Adds missing columns to `projects` table (`tenant_id`, `name`, `archived`)
-- Adds missing columns to `workflows` table (`name`, `current_version_id`, `project_id`)
-- Creates default tenant organization
-- Sets up proper database indices
+If that doesn't clear the error, do not guess further — load the `db-schema-change`
+project skill (`.claude/skills/db-schema-change/`) before touching migrations by hand.
 
 **When to use:** After pulling latest code changes or when encountering schema-related errors.
 
@@ -673,5 +560,4 @@ For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting 
 
 ---
 
-**Last Updated:** December 26, 2025
-**Version:** 1.7.0 (Custom Scripting System + Full Platform)
+**Last Updated:** August 2026 — see `CLAUDE.md` for the current architecture reference and `CHANGELOG_1.6.0.md` for release notes.

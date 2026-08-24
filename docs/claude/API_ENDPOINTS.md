@@ -88,7 +88,8 @@ GET/DELETE  /api/runs/:runId/script-console       # Script execution logs
 ```
 GET/POST    /api/datavault/databases              # NOT project-scoped
 GET/PATCH/DEL /api/datavault/databases/:id
-GET/POST    /api/datavault/databases/:id/tables
+GET         /api/datavault/databases/:id/tables
+GET/POST    /api/datavault/tables                # POST takes databaseId in the body, not nested
 GET/PATCH/DEL /api/datavault/tables/:tableId
 GET/POST    /api/datavault/tables/:tableId/rows   # Infinite scroll pagination
 GET         /api/datavault/tables/:tableId/options # Bound value/label pairs; user or run-token auth
@@ -110,7 +111,7 @@ POST        /api/auth/register | login | refresh-token | logout  # registration 
 POST        /api/auth/forgot-password | reset-password | verify-email
 GET         /api/auth/me | csrf-token | token
 POST/GET    /api/auth/mfa/*                       # setup, verify, verify-login, status
-GET/PUT     /api/account
+GET/PUT     /api/account/preferences
 GET/PUT     /api/preferences
 ```
 
@@ -118,8 +119,10 @@ GET/PUT     /api/preferences
 
 ```
 POST        /api/ai/workflows/generate            # Generate workflow from description
-POST        /api/ai/workflows/generate-logic | debug-logic | visualize-logic | revise
-POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22)
+POST        /api/ai/workflows/:id/suggest | generate-logic | visualize-logic
+POST        /api/ai/templates/:templateId/bindings
+POST        /api/ai/suggest-values
+POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22); supersedes a "revise" endpoint
 POST        /api/ai/transform/*                   # Transform code generation
 POST        /api/ai/doc/*                         # AI document features
 POST        /api/ai/personalize/*                 # Personalization
@@ -132,10 +135,17 @@ Admin AI settings: `admin.aiSettings.routes.ts` → `/api/admin/ai-settings`.
 
 ## Templates & Marketplace — `marketplace.ts` (mounted at `/api`), `workflowTemplates.routes.ts`, `api.templates.routes.ts`
 
+Two distinct systems share the word "templates": the curated marketplace catalog, and per-project DOCX document templates. `marketplace.ts` is registered first so its `GET /templates/:id` can `next('route')` past any UUID-shaped id, letting `templates.routes.ts`'s document-template handler answer those:
+
 ```
-GET/POST    /api/templates                        # There is NO /api/marketplace prefix
-GET         /api/templates/:id
-POST        /api/templates/:id/install
+GET         /api/templates                        # Marketplace catalog; there is NO /api/marketplace prefix
+GET         /api/templates/:id                     # Curated slug (marketplace) or UUID (document template)
+POST        /api/templates/:id/install              # Marketplace install
+POST        /api/market/publish
+
+POST        /api/projects/:projectId/templates      # Upload a DOCX document template
+GET         /api/projects/:projectId/templates
+PATCH/DEL   /api/templates/:id                       # Document template CRUD (`api.templates.routes.ts`)
 ```
 
 ## Documents & E-Signature — `documents.routes.ts`, `finalBlock.routes.ts`, `esign.routes.ts`
@@ -166,7 +176,7 @@ alias for the webhook URL.
 
 > There are **no `/api/reviews` routes** — the review-gates route layer was removed in the dead-code sweep; `ReviewTaskService`/`review_tasks` still exist but are orphaned.
 
-## Connections, Secrets, Webhooks — `connections.v2.routes.ts`, `secrets.routes.ts`, mounted routers
+## Connections, Secrets, Webhooks — `connections-v2.routes.ts`, `secrets.routes.ts`, mounted routers
 
 ```
 GET/POST    /api/projects/:projectId/connections
@@ -197,7 +207,15 @@ project metadata before acknowledging an event.
 
 ## Analytics & Export — `workflowAnalytics.routes.ts`, `workflowExports.routes.ts`
 
-Funnel/trends/heatmap/branching analytics and JSON/CSV/PDF export per workflow.
+```
+GET         /api/workflow-analytics/overview | timeseries | sli
+POST        /api/workflow-analytics/sli-config
+PUT         /api/workflow-analytics/sli-config/:id
+POST        /api/workflow-analytics/events
+GET         /api/workflow-analytics/:workflowId/dropoff | branching | health
+GET         /api/workflow-analytics/:workflowId/heatmap
+GET         /api/workflows/:workflowId/export?format=json|csv   # No PDF export exists on this route
+```
 
 ## Admin — `admin.routes.ts` (hybridAuth + isAdmin)
 
@@ -231,6 +249,6 @@ deleting the account.
 | Versions & Snapshots | `versions.routes.ts`, `snapshots.routes.ts` |
 | Blueprints | `blueprint.routes.ts` |
 | Collections (legacy) | `collections.routes.ts` |
-| Intake / Preview / Dashboard | `intake.routes.ts`, `preview.routes.ts`, `dashboard.routes.ts` |
-| Files | `files.routes.ts` |
+| Intake / Preview / Dashboard | `workflows.routes.ts` (`/intake-config`), `preview.routes.ts`, `dashboard.routes.ts` |
+| Files | `storage.routes.ts` (signed-URL file serving, GH-169B) |
 | Health / Metrics / Docs | `health.ts`, `metrics.ts`, `docs.routes.ts` |

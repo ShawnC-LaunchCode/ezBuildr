@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-Inventory of all **107 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
+Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
@@ -28,7 +28,7 @@ Inventory of all **107 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `project_access` / `workflow_access` | Per-project / per-workflow permissions |
 | `collab_docs` / `collab_updates` / `collab_snapshots` | Real-time collaboration document state |
 
-## Auth & Tenancy — `shared/schema/auth.ts` (27 tables)
+## Auth & Tenancy — `shared/schema/auth.ts` (28 tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -45,6 +45,7 @@ Inventory of all **107 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `user_preferences` / `user_personalization_settings` | User settings (JSONB) |
 | `portal_tokens` | Portal magic-link tokens (there is no `portal_users` table) |
 | `audit_logs` | Activity/audit trail (tenant, workspace, entity scoped) |
+| `admin_access_log` | Cross-tenant admin console access audit trail (actor, action, target tenant/user) |
 | `resource_permissions` | Granular resource permissions |
 | `sessions` | Express session store |
 | `teams` / `team_members` | Teams and membership |
@@ -89,6 +90,7 @@ All DataVault tables are `datavault_`-prefixed:
 | `datavault_tables` | Table schemas |
 | `datavault_columns` | Column definitions (see column types below) |
 | `datavault_rows` / `datavault_values` | Row records + EAV cell values |
+| `datavault_unique_keys` | PG-backed unique-value index per column, keyed off a hash of the cell value |
 | `datavault_number_sequences` | Auto-number sequences |
 | `datavault_row_notes` | Row comments |
 | `datavault_api_tokens` | External API access tokens |
@@ -122,10 +124,9 @@ All DataVault tables are `datavault_`-prefixed:
 
 | File | Tables |
 |------|--------|
-| `shared/schema/ai.ts` | `ai_settings`, `workflow_personalization_settings` |
+| `shared/schema/ai.ts` | `ai_settings`, `workflow_personalization_settings`, `ai_usage` (per-tenant LLM token/cost ledger) |
 | `shared/schema/template_shares.ts` | `template_shares` |
 | `shared/schema/system.ts` | `system_stats` |
-| `shared/schema/files.ts` | `files` |
 | `shared/schema/branding.ts` | `email_template_metadata` |
 
 `shared/schema/analytics.ts` defines TypeScript interfaces only (no tables). `relations.ts` holds Drizzle relations; `index.ts` is the barrel.

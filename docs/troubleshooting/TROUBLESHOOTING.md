@@ -2,7 +2,7 @@
 
 **Last Updated:** 2025-10-14
 
-This guide covers common issues and solutions for Vault-Logic development and deployment.
+This guide covers common issues and solutions for ezBuildr development and deployment.
 
 ---
 
@@ -12,7 +12,6 @@ This guide covers common issues and solutions for Vault-Logic development and de
 2. [Database Connection Issues](#database-connection-issues)
 3. [Authentication Issues](#authentication-issues)
 4. [Build and Deployment Issues](#build-and-deployment-issues)
-5. [Replit Package Import Issues](#replit-package-import-issues)
 
 ---
 
@@ -229,132 +228,6 @@ NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 ---
 
-## Replit Package Import Issues
-
-### Problem Summary
-
-When running Vault-Logic outside of Replit (e.g., local development or external hosting), you may encounter module not found errors for Replit-specific packages:
-
-```
-Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@replit/vite-plugin-runtime-error-modal'
-```
-
-This occurs because `vite.config.ts` contains imports for Replit plugins that are not installed in non-Replit environments.
-
-### Root Cause
-
-The application's `vite.config.ts` includes static imports for Replit-specific packages:
-
-```typescript
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-// And conditional dynamic imports for:
-// - @replit/vite-plugin-cartographer
-// - @replit/vite-plugin-dev-banner
-```
-
-**Critical Issue:** Static imports fail immediately during Node.js module resolution, before the application can even start, preventing any workarounds at runtime.
-
-### Solution: Mock Packages
-
-Since the Vite config cannot be easily modified without affecting the original Replit deployment, the solution is to create minimal mock packages that satisfy the import requirements without providing actual functionality.
-
-#### Implementation Steps
-
-**1. Create Mock Package Directories**
-
-```bash
-mkdir -p node_modules/@replit/vite-plugin-runtime-error-modal
-mkdir -p node_modules/@replit/vite-plugin-cartographer
-mkdir -p node_modules/@replit/vite-plugin-dev-banner
-```
-
-**2. Create package.json for Each Mock Package**
-
-Create `node_modules/@replit/vite-plugin-runtime-error-modal/package.json`:
-
-```json
-{
-  "name": "@replit/vite-plugin-runtime-error-modal",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module"
-}
-```
-
-Repeat for the other two packages, adjusting the name field accordingly.
-
-**3. Create index.js for Each Mock Package**
-
-Create `node_modules/@replit/vite-plugin-runtime-error-modal/index.js`:
-
-```javascript
-// Mock implementation that returns a minimal Vite plugin
-export default function runtimeErrorOverlay(options = {}) {
-  return {
-    name: 'mock-replit-runtime-error-overlay',
-    configResolved() {
-      // No-op implementation
-    }
-  };
-}
-```
-
-For `@replit/vite-plugin-cartographer/index.js`:
-
-```javascript
-export function cartographer(options = {}) {
-  return {
-    name: 'mock-replit-cartographer',
-    configResolved() {
-      // No-op
-    }
-  };
-}
-```
-
-For `@replit/vite-plugin-dev-banner/index.js`:
-
-```javascript
-export function devBanner(options = {}) {
-  return {
-    name: 'mock-replit-dev-banner',
-    configResolved() {
-      // No-op
-    }
-  };
-}
-```
-
-**4. Verify Application Starts**
-
-```bash
-npm run dev
-```
-
-You should see the normal startup output without any `ERR_MODULE_NOT_FOUND` errors.
-
-#### Why This Works
-
-- **Zero Configuration Changes:** No modifications to `vite.config.ts` or other source files
-- **Minimal Overhead:** Mock plugins return empty functions with no performance impact
-- **Portable:** Works in any hosting environment (Railway, Heroku, Google Cloud, etc.)
-- **Safe:** If real Replit packages are ever installed, they automatically override the mocks
-
-#### Alternative Approaches Considered
-
-- **Dynamic Imports:** ❌ Static imports still fail before dynamic imports are evaluated
-- **Environment Variables:** ❌ Cannot conditionally prevent static imports from parsing
-- **Build-time Solutions:** ❌ Would require modifying vite.config.ts
-
-#### Maintenance Notes
-
-- Mock packages are lightweight and require no updates
-- Safe to commit to version control if needed
-- No impact on production performance
-- If deploying back to Replit, the real packages will be installed automatically
-
----
-
 ## Getting Further Help
 
 If your issue isn't covered here:
@@ -375,8 +248,8 @@ If your issue isn't covered here:
    ```
 
 3. **Review documentation:**
-   - [README.md](../README.md) - Setup guide
-   - [CLAUDE.md](../CLAUDE.md) - Comprehensive developer reference
+   - [README.md](../../README.md) - Setup guide
+   - [CLAUDE.md](../../CLAUDE.md) - Comprehensive developer reference
 
 4. **Check recent changes:**
    ```bash

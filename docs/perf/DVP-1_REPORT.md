@@ -37,7 +37,7 @@ In this benchmark:
 ## 2. Seeding Harness Design & Runtime
 
 ### Implementation Details
-- **File**: [`tests/helpers/datavaultSeeder.ts`](file:///tests/helpers/datavaultSeeder.ts)
+- **File**: [`tests/helpers/datavaultSeeder.ts`](../../tests/helpers/datavaultSeeder.ts)
 - **API**: `seedLargeDatavaultTable(options?: SeedLargeDatavaultOptions): Promise<SeedDatavaultResult>`
 - **Total Rows**: 25,000
 - **Total Values**: 116,666 (exceeds the 100k requirement)

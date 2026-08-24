@@ -381,10 +381,10 @@ The most accurate approach is to manually maintain the specification as you buil
 - [OpenAPI Generator](https://openapi-generator.tech) - Generate client SDKs
 
 ### ezBuildr Documentation
-- [Main README](../README.md)
-- [Architecture Overview](../CLAUDE.md)
-- [API Reference](./api/API.md)
-- [Developer Reference](./reference/DEVELOPER_REFERENCE.md)
+- [Main README](../../README.md)
+- [Architecture Overview](../../CLAUDE.md)
+- [API Reference](./API.md)
+- [Developer Reference](../reference/DEVELOPER_REFERENCE.md)
 
 ---
 

@@ -2042,7 +2042,7 @@ nothing from this gate reached it.
 
 # Phase 5 — Documentation alignment
 
-## SECT-10 — Align feature documentation with executable product status 🔄
+## SECT-10 — Align feature documentation with executable product status ✅
 
 **Priority: P2** · Size: S · File: `docs/claude/FEATURES.md`, `docs/INDEX.md`, `README.md`
 
@@ -2153,6 +2153,61 @@ leaving a tombstone.
 7. Gates: `npm run lint` clean (markdown is not linted, but the repo-wide gate
    must still pass), and no source file is modified by this ticket.
 
+**Verified 2026-08-24 (reviewer).** All 7 criteria met, one with a documented
+exception (AC4, below). 16 documents changed, **zero source files** — confirmed
+against `git status`, which is AC7's whole point. `npm run lint` re-run by the
+reviewer: exit 0.
+
+Claims were spot-checked rather than accepted, because a confident docs pass can
+introduce errors as easily as it removes them. Verified independently:
+`files.routes.ts` and `connections.v2.routes.ts` genuinely do not exist (the real
+names are `storage.routes.ts` and `connections-v2.routes.ts`); the corrected
+`/api/workflows/:id/logic-rules` and `/api/account/preferences` paths resolve to
+real handlers; and the table recount is **108** by
+`grep -h "^export const .* = pgTable(" shared/schema/*.ts | wc -l`.
+
+The `GOOGLE_CLIENT_SECRET` change was the one worth checking hardest, since
+demoting a "required" secret could strand a deployment. It is correct:
+`server/googleAuth.ts` constructs `new OAuth2Client(process.env.GOOGLE_CLIENT_ID)`
+with no secret — an ID-token verification flow, not an authorization-code
+exchange — and the variable is declared `.optional()` in the env schema and
+consumed nowhere. The dev moved it to **Optional** with an explanatory note
+rather than deleting it, which is the better call.
+
+**AC4 met with a documented exception.** An independent link audit by the
+reviewer (298 relative links across `docs/`, `README.md`, `CLAUDE.md`) reproduces
+the dev's result exactly: **22 dead, all confined to three files** —
+`docs/security/SECURITY_BACKLOG.md` (16), `docs/security/PROACTIVE_HARDENING_TICKETS.md`
+(5–6), and one self-labelled placeholder image in
+`docs/guides/VISUAL_BUILDER_MANUAL.md`. The two security files are closed, dated
+point-in-time audit records whose migration citations predate the migration
+baseline compaction; "fixing" the links would misrepresent history. Accepted as
+a deliberate exception rather than pretending the criterion is cleanly met —
+filed as **SECT-B14**. AC6 is met outright: CLAUDE.md's Documentation Index has
+**0** dead links.
+
+**Reviewer fixes applied.** AC1 named only the DB table count, so the dev
+recounted that and left its siblings — but they sit in the same `**Scale:**`
+line and directory tree it was already editing, and each fails the ticket's own
+"would a reader be wrong" test. Corrected: API route files 65→**66**, service
+files 213→**219**, repositories 48→**50**, and the directory tree's
+`migrations/` note, which still read *"follow-ons through 0023 (24 files)"*
+against an actual **41 files through 0040** — the staler claim of the two, and in
+the highest-traffic file in the repo. Page files (64) and step types (37) were
+re-counted and are correct.
+
+**Disclosed side effect: the shared `dev` Neon branch was migrated.** AC5
+required actually running the README quick start, whose corrected Step 3 is
+`npm run db:migrate`, and `.env` points at the dev branch — so migration `0040`
+applied there. Verified afterwards: the column is present and correct
+(`uuid[] NOT NULL DEFAULT '{}'`), `workflow_runs` holds **0** rows so no data was
+touched, and no fixture rows were created. This is the state Railway's
+`preDeployCommand` would have produced on the next deploy anyway, so the outcome
+is benign and arguably desirable — but it was a write to a shared resource that
+the reviewer had explicitly deferred, and the dispatch should have told the dev
+to point the quick start at a throwaway database. Reviewer's miss, recorded so
+the next docs ticket does not repeat it.
+
 ---
 
 # Backlog / observations
@@ -2259,6 +2314,25 @@ these are deliberate v1 exclusions, not oversights.
   the shared branch. Deleting rows from a shared database is the repo owner's
   call, so they were left in place. Pairs with the `verify`-skill note recorded
   in SECT-9.
+
+
+- **SECT-B14 — Dead links in two closed security audit records.**
+  `docs/security/SECURITY_BACKLOG.md` (16) and
+  `docs/security/PROACTIVE_HARDENING_TICKETS.md` (5–6) cite migration filenames
+  and service paths that the migration baseline compaction and later renames
+  removed. Both files are dated, self-labelled **CLOSED** point-in-time records,
+  so repointing the links would misrepresent what was true when the audit ran.
+  The options are to convert the citations to `git log -p -- <path>` form (as
+  retired ticket files already do), to mark the sections as historical, or to
+  leave them. Needs a small decision, not a sweep.
+
+- **SECT-B15 — ~26 documents still say "VaultLogic"/"Vault-Logic".**
+  Surfaced during SECT-10 and correctly *not* fixed there: it is a repo-wide
+  rebrand sweep, not vocabulary drift from this initiative, and chasing it would
+  have been exactly the scope expansion that ticket warned against. Includes
+  `docs/api/API.md` and `docs/api/TRANSFORM_BLOCKS.md`, both linked from
+  CLAUDE.md's Documentation Index, so it is reader-facing. Mechanical and safe
+  — a good small ticket.
 
 ---
 

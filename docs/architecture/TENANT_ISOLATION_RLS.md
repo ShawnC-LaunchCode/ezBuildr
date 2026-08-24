@@ -136,7 +136,7 @@ by the time those later migrations ran for real.
 **`migrations/0024_repair_rls_coverage.sql` closes the gap on an already-provisioned
 database.** It re-applies the exact same 24 direct-`tenant_id` policies (23 from `0001` minus
 `files`, which has no `tenant_id` column and was always an inert array entry — plus `ai_usage`
-from `0004`) and the 3 ownership-derived policies on `workflows`/`sections`/`steps`, byte-
+from `0004`) and the 3 ownership-derived policies on `workflows`/`pages`/`steps`, byte-
 identical in shape to what `0001` already defines. Unlike `0001`/`0004`'s `RAISE NOTICE …
 CONTINUE` guard, `0024` **fails loudly** (`RAISE EXCEPTION`) if a table it expects is missing,
 because on any database this repair runs against, every named table is expected to already
@@ -479,9 +479,9 @@ have verified. The fix needs no GUC at all: `workflows.is_public` (plus
 it visible without regard to tenant — that is the entire meaning of
 "public." Migration `0031` adds `OR (is_public = true AND status =
 'active')` to `workflows`, and the identical `EXISTS (...)` join-based
-version to `sections`/`steps` (using their existing ownership-derived
+version to `pages`/`steps` (using their existing ownership-derived
 `EXISTS` shape) — a public workflow's content needs to be exactly as visible
-as the workflow itself, since sections/steps are how it actually renders and
+as the workflow itself, since pages/steps are how it actually renders and
 runs. None of this touches `WITH CHECK` on any of the three: public
 readability never implies public writability.
 
@@ -572,15 +572,16 @@ A read that throws gets noticed in the first hour of a rollout. These do not.
 
 **Phase 4 — Indirectly-scoped tables.** Tables with no direct `tenant_id`
 (`workflow_runs`, `step_values`, `datavault_rows`, `secrets`, `workflows`,
-`sections`, `steps`, …) need policies that resolve the tenant through a join.
+`pages`, `steps`, …) need policies that resolve the tenant through a join.
 
 ⚠️ Note `workflows` itself has **no `tenant_id`** — an earlier draft of this
 section showed `w.tenant_id`, which does not exist. A workflow's tenant is derived
 from its ownership model (`owner_type`/`owner_uuid` → `users`/`organizations`,
 else `project_id` → `projects`, else legacy `owner_id`/`creator_id`).
 
-**Done for `workflows` / `sections` / `steps`** —
-[`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql)
+**Done for `workflows` / `pages` / `steps`** — originally shipped as
+`migrations/0005_rls_phase4_workflows_sections_steps.sql`, now consolidated into
+[`0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) (see the table below)
 (SEC-051 / ICW-B2). It adds two SECURITY-INVOKER helpers:
 
 - `app_current_tenant()` — `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`;
@@ -588,7 +589,7 @@ else `project_id` → `projects`, else legacy `owner_id`/`creator_id`).
 - `app_owner_tenant(owner_type, owner_uuid, owner_id, creator_id, project_id)` —
   COALESCE-precedence resolution of a workflow's tenant (exactly one tenant per row).
 
-`workflows` resolves from its own columns; `sections`/`steps` resolve through
+`workflows` resolves from its own columns; `pages`/`steps` resolve through
 their `workflow_id`. Each policy is `CASE`-guarded so a no-tenant request returns
 zero rows **without** evaluating the resolver (which reads users/orgs/projects and
 would otherwise trip 0001's raw `current_setting(...)::uuid` on an empty string).
@@ -678,7 +679,7 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 | [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) — defines the policies; see `0024` for why that alone did not apply them on production/`dev`/`test` |
 | [`migrations/0024_repair_rls_coverage.sql`](../../migrations/0024_repair_rls_coverage.sql) | RLS-3: re-applies the 24 direct-`tenant_id` policies + 3 ownership-derived policies that `0001`/`0004` defined but never actually applied on a database whose tables were created by `db:push` out of band |
 | [`tests/integration/rls-coverage.test.ts`](../../tests/integration/rls-coverage.test.ts) | RLS-3: general coverage gate — every table with a `tenant_id` column must have RLS + a `tenant_isolation` policy; proven discriminating against a scratch probe table |
-| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/pages/steps + `app_current_tenant()` / `app_owner_tenant()` helpers (now consolidated into `0001_enable_rls.sql` — this filename no longer exists on disk as a separate file post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth) |
+| `migrations/0005_rls_phase4_workflows_sections_steps.sql` (no longer on disk) | Phase 4 join/ownership policies for workflows/pages/steps + `app_current_tenant()` / `app_owner_tenant()` helpers — consolidated into [`0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth |
 | [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts) | Proves Phase 4 cross-tenant isolation, fail-closed, and WITH CHECK |
 | [`migrations/0011_datavault_rls_phase4.sql`](../../migrations/0011_datavault_rls_phase4.sql) | DVH-3: policies + derivation helpers for `datavault_rows`/`datavault_values`/`datavault_columns`/`datavault_table_permissions`/`datavault_database_access`/`datavault_table_access` |
 | [`tests/integration/rls-datavault.test.ts`](../../tests/integration/rls-datavault.test.ts) | Proves DVH-3 cross-tenant isolation and fail-closed (unset + empty GUC) under a non-owner role |

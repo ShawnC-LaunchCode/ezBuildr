@@ -1,6 +1,6 @@
 # Features & Security Reference
 
-Feature status, security details, and recent architecture changes (verified July 2026).
+Feature status, security details, and recent architecture changes (verified August 2026).
 
 ## Complete Features (Production Ready)
 
@@ -14,14 +14,14 @@ Feature status, security details, and recent architecture changes (verified July
 | **Transform Blocks** | Sandboxed JS/Python execution, virtual steps, test playground |
 | **Step Aliases** | Human-friendly variable names for logic and transforms |
 | **Run Token Authentication** | Bearer token + JWT + session auth, anonymous runs, portal magic links |
-| **Conditional Logic** | Show/hide/require/skip_to actions, 9 DB operators (28 in the logic engine), visual editor |
+| **Conditional Logic** | Show/hide/require/skip_to actions, 28-operator `ComparisonOperator` union evaluated by `shared/conditionEvaluator.ts`, visual editor |
 | **Default Values** | Pre-fill with defaults, URL parameter override |
 | **HTTP/API Integration** | REST client via `safeFetch`, OAuth2 (Client Credentials + 3-legged), webhooks |
 | **Secrets Management** | AES-256-GCM encrypted storage, LRU cache |
 | **Document Generation** | PDF/DOCX generation, template variables, repeating sections |
 | **AI-Powered Features** | Workflow generation and AI editing (OpenAI/Anthropic/Gemini), logic generation/debugging, optimization wizard, template binding, feedback loop |
 | **Templates & Marketplace** | Reusable templates, marketplace page (`/marketplace` UI, `/api/templates` backend), test runner |
-| **Advanced Analytics** | Funnel analysis, dropoff tracking, heatmaps, branching analysis, export (JSON/CSV/PDF) |
+| **Advanced Analytics** | Funnel analysis, dropoff tracking, heatmaps, branching analysis, export (JSON/CSV) |
 | **Portal System** | Magic link authentication, external user access, run tracking |
 | **Multi-Tenant Workspaces** | Tenants, organizations, workspaces, resource permissions |
 | **MFA & Account Security** | TOTP MFA, backup codes, trusted devices, account lockout |
@@ -37,7 +37,6 @@ Feature status, security details, and recent architecture changes (verified July
 - **Review Gates** — `ReviewTaskService` and the `review_tasks` table exist, but the `/api/reviews` route layer was removed in the 2026 dead-code sweep. No UI or API exposes it; treat as dormant, not production.
 - **Collections** (`/data`) — legacy datastore, superseded by DataVault but still present.
 - **Self-hosted OAuth provider** — `oauth.routes.ts` exists but is intentionally disabled in `server/routes/index.ts` (security).
-- **AI document mapping** — mapping suggestions render, but `DocumentTemplateEditor.handleApplyMapping` only logs them and does not persist them (`client/src/components/builder/templates/DocumentTemplateEditor.tsx:65-69`). Track persistence in GitHub #156.
 
 ## Backlog (no committed dates)
 
@@ -76,6 +75,54 @@ Earlier roadmap targets (enhanced versioning, integration marketplace, adaptive 
 ---
 
 ## Recent Architecture Changes
+
+### Document Mapping Workbench replaces the console-only AI mapping stub (August 2026)
+`DocxMappingPanel` (added `bf564d7e`, GH-156) replaces the old `AIAssistPanel` /
+`DocumentTemplateEditor.handleApplyMapping`, whose "apply mapping" action only
+logged to the console — nothing was ever saved. The workbench extracts
+`{{placeholder}}` names from the saved template, lets the author bind each one,
+and persists the result to `templates.mapping`; AI-assisted suggestions are
+folded in as a "Suggest with AI" action instead of a separate always-on panel.
+This removes the "AI document mapping" item previously listed under
+Orphaned/Partial above — the code it described no longer exists.
+
+### Roadmap epics closed out (August 2026)
+The 23 competitive-audit GitHub issues (GH-146..174), opened 2026-08-09 as
+`tickets/ROADMAP_TICKETS.md`, retired 2026-08-18 with 20 of 27 tickets shipped.
+The remaining 7 are epics rather than tickets — the audit that produced them
+wrote against the product's intended shape, not the codebase, and 5 of the 6
+open epics cite file paths that don't exist. They are parked in
+`tickets/BACKLOG.md` (`needs-initiative`) rather than carried forward; promoting
+one requires a fresh audit, not a re-read. GH-174 (this documentation ticket)
+was the one exception carried into an active initiative instead of parked.
+Full detail: `git log -p -- tickets/ROADMAP_TICKETS.md`.
+
+### Legal Drafting Primitives & Curated Templates (August 2026)
+Shipped 2026-08-12 → 2026-08-18. A drafting-vocabulary filter set
+(`server/services/draftingPrimitives.ts`, merged onto the `docxHelpers` object
+consumed by `RenderCore.ts`) adds hierarchical numbering (`1.1.1`, `(a)`,
+`(i)`, `(A)`), party-plurality agreement (`plural`, `isAre`, `hasHave`), and
+pronoun agreement — always from an explicit value, defaulting to they/them,
+never inferred from a name. Three curated starter templates (NDA, Retainer
+Agreement, Intake Questionnaire) ship at
+`templates/curated/<slug>/{workflow.json,mapping.md,template.docx}`, each
+authored only in the shipped filter vocabulary. The parent epic GH-173's
+remaining scope (surfacing the curated templates to users) shipped separately
+as the Template Marketplace initiative. Full detail:
+`git log -p -- tickets/LEGAL_DRAFTING_TICKETS.md`.
+
+### AI Service Layer unification (August 2026)
+Closed 2026-08-10, 12/12 tickets. ezBuildr ran two AI stacks: a governed one
+(`server/services/ai/`, behind `AIProviderClient` with per-tenant budget,
+usage ledger, and retry/backoff) and a second set of call sites
+(`/api/ai/transform/*`, `/api/ai/doc/*`, `/api/ai/personalize/*`,
+`/api/ai/sentiment`) that constructed `new GoogleGenerativeAI(...)` directly
+and ignored `AI_PROVIDER` entirely. Every LLM call now flows through
+`AIProviderClient`, so `AI_PROVIDER` means what it says and a provider switch
+is no longer partial. Budgets are denominated in dollars (warn/throttle
+tiers, token cap retained as a secondary ceiling), and
+`GET /api/admin/ai-settings/usage` reports real per-`(task_type, provider,
+model)` cost. Full detail: `git log -p -- tickets/AI_SERVICE_LAYER_TICKETS.md`.
 
 ### Template Language (August 2026)
 DOCX templates and the interview runner now share **one** grammar, parsed in a single place

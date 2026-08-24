@@ -146,9 +146,7 @@ Then run the migration script again.
 
 ## Related Documentation
 
-- [DATAVAULT_FIX_README.md](../../DATAVAULT_FIX_README.md) - General DataVault setup guide
 - [DATAVAULT_TABLE_CREATION_FIX.md](./DATAVAULT_TABLE_CREATION_FIX.md) - Tenant ID issues
-- [APPLY_DATAVAULT_MIGRATION.md](../../APPLY_DATAVAULT_MIGRATION.md) - Migration details
 
 ## Migration Files
 

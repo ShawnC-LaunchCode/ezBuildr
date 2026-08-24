@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 64 page files (58 routes) | 65 API route files | 213 service files | 106 DB tables | 37 step types | 40+ script helpers
+**Scale:** 64 page files (58 routes) | 66 API route files | 219 service files | 108 DB tables | 37 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -51,16 +51,16 @@ ezBuildr/
 │   ├── lib/                 # API clients, blockRegistry, utilities
 │   └── hooks/               # React hooks
 ├── server/
-│   ├── routes/              # API handlers (65 *.routes.ts incl. ai/, datavault/)
-│   ├── services/            # Business logic (213 files incl. subdirs)
-│   ├── repositories/        # Data access (BaseRepository pattern, 48 files)
+│   ├── routes/              # API handlers (66 *.routes.ts incl. ai/, datavault/)
+│   ├── services/            # Business logic (219 files incl. subdirs)
+│   ├── repositories/        # Data access (BaseRepository pattern, 50 files)
 │   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
-│   ├── schema/              # Drizzle schema, one file per domain (106 tables)
+│   ├── schema/              # Drizzle schema, one file per domain (108 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
 │   ├── conditionEvaluator.ts # Logic engine
 │   └── workflowLogic.ts     # Workflow execution logic
-├── migrations/              # 0000_init_baseline.sql + follow-ons through 0023 (24 files)
+├── migrations/              # 0000_init_baseline.sql + follow-ons through 0040 (41 files)
 ├── scripts/                 # Utility scripts (tsx)
 └── tests/                   # unit-fast / unit-db / integration (see run-tests skill)
 ```
@@ -118,15 +118,19 @@ PORT=5000
 BASE_URL=http://localhost:5000
 DATABASE_URL=postgresql://user:pass@host/db
 GOOGLE_CLIENT_ID=<server-id>
-GOOGLE_CLIENT_SECRET=<server-secret>
 VITE_GOOGLE_CLIENT_ID=<client-id>
 SESSION_SECRET=<32-char-secret>
-JWT_SECRET=<secret>
+JWT_SECRET=<secret>  # required in production; dev/test fall back to an insecure default (server/config/env.ts)
 VL_MASTER_KEY=<base64-32-byte-key>  # NEVER regenerate on a machine with stored secrets
 ALLOWED_ORIGIN=localhost,127.0.0.1
 ```
 
-**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`, and the `DOCUSIGN_*` JWT/Connect values documented in `.env.example`
+Login verifies the Google ID token with `new OAuth2Client(GOOGLE_CLIENT_ID)` only
+(`server/googleAuth.ts`) — `GOOGLE_CLIENT_SECRET` is declared in the env schema but
+never consumed anywhere in `server/` or `client/src/`; do not chase it down as a
+login blocker.
+
+**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`, `GOOGLE_CLIENT_SECRET`, and the `DOCUSIGN_*` JWT/Connect values documented in `.env.example`
 **Tests:** `TEST_DATABASE_URL` overrides `DATABASE_URL` for unit-db/integration tests (Docker PG on port 5434 via `npm run test:docker:up`)
 
 ## Common Commands
@@ -164,7 +168,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 ### Quick Reference (Claude-optimized — update these when you change what they document)
 | Document | Contents |
 |----------|----------|
-| [Schema Reference](./docs/claude/SCHEMA.md) | All 106 database tables by domain file + enums |
+| [Schema Reference](./docs/claude/SCHEMA.md) | All 108 database tables by domain file + enums |
 | [API Endpoints](./docs/claude/API_ENDPOINTS.md) | API domains → route files + verified endpoints |
 | [Services Reference](./docs/claude/SERVICES.md) | Service classes by domain |
 | [Frontend Pages](./docs/claude/PAGES.md) | All client routes from Router.tsx |
