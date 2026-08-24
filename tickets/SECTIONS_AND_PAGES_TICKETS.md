@@ -1047,7 +1047,27 @@ structure rather than inventing a second disclosure idiom:
 
 ---
 
-## SECT-6 — Drag pages into and out of Sections; reorder Sections 🔲
+## SECT-6 — Drag pages into and out of Sections; reorder Sections 🔄
+
+**Dispatched:** 2026-08-23 · Builds on accepted SECT-5 commit `1728480d`.
+Keep one `DndContext`, but replace the stale outer mixed page/step sortable list
+with typed top-level units (ungrouped page or contiguous Section block), nested
+page contexts, and active-kind collision filtering so step dragging remains
+unchanged. Pure layout helpers must make invalid Section spans unreachable,
+while named Section and ungrouped landing rails expose the pending membership
+visually and through `aria-live`. The current `fetchAPI` discards HTTP status;
+add a status-bearing Error so 400 rollback and the expected 409 empty-Section
+confirmation are distinguished without parsing copy. Retain the locally
+computed emptied Section id/title and exact rejected layout for retry, suppress
+the reorder hook's generic global error toast, never remove a Section
+optimistically, and route page moves, Section block moves, and confirmed retries
+through one submission path so every success preserves the skip-rule warning.
+Use the outline's folder/count/hairline vocabulary on the canvas, preserve a
+literal zero-Section flat branch, keyboard sensors/handles, reduced motion, and
+complete two browser critique/fix cycles before turn-in. The route's
+`autoRevertToDraft` middleware may change publication state even on a rejected
+409; this ticket's cancel guarantee is for page/Section layout and must not be
+misreported as a publication-state guarantee.
 
 **Priority: ENH** · Size: M · File: `client/src/components/builder/pages/PageCanvas.hooks.ts`
 
