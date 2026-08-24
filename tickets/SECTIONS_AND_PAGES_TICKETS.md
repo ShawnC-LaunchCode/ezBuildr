@@ -1297,6 +1297,30 @@ enough to explain in the lint message and cannot strand the run.
   `toFlowElements.ts`, `SectionSettingsDialog.tsx`, and the publish linter in
   `server/services/VersionService.ts`.
 
+**Dispatched: 2026-08-24.** Phase 2 was accepted and promoted at `137b33e5`.
+The clean pre-change integration baseline is 127 files / 1,202 passing tests / 3
+skipped. Reconnaissance corrected two stale quoted-code anchors without changing
+the acceptance contract: the canonical client hook is now
+`client/src/hooks/runner/usePageVisibility.ts`, and the runtime evaluator is
+`shared/workflowLogic.ts` (not the older batch helper with the same export name
+in `shared/conditionEvaluator.ts`). Extend those existing paths; do not add a
+parallel hook or condition language.
+
+The implementation must thread Sections through every canonical visibility
+consumer, including `RunExecutionCoordinator`, the builder preview, the MAP-7
+simulator/map inputs, and both live and pinned definition paths. Section
+conditions also participate in alias renames, and dependency extraction must
+include right-hand variable operands (`value` and `value2`). A Section-specific
+cycle cannot be expressed in the settled question-reference language, so retain
+the existing page/step cycle fixtures and prove Section dangling, same/later,
+script, and strictly-earlier cases rather than inventing Section operands.
+Conditional Section state must propagate to member-page map nodes, including
+final-document pages. Zero-Section, ungrouped-page, null/empty condition, and
+existing structurally valid expression behavior remain unchanged. This ticket
+adds no endpoint, schema change, migration, or cross-tenant surface. Because it
+touches strict-zone modules, `npm run check:strict-zones` is an additional
+required dispatch gate.
+
 ### Vertical proof
 
 - **Path:** author an earlier ungrouped page containing `filed_jointly`, then a
