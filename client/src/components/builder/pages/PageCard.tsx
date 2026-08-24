@@ -8,6 +8,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { PageLogicSheet } from "@/components/logic";
 import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Card } from "@/components/ui/card";
+import { sortableTransition } from "@/lib/dnd";
 import { cn } from "@/lib/utils";
 import type { ApiPage, ApiBlock, ApiStep } from "@/lib/vault-api";
 
@@ -79,7 +80,7 @@ export function PageCard({
   const style = {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: sortableTransition(transition),
   };
 
   return (

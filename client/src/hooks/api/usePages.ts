@@ -112,7 +112,9 @@ export function useReorderPages(): UseMutationResult<
 > {
     const queryClient = useQueryClient();
     return useMutation({
-        meta: { errorMessage: "Failed to reorder pages. The order has been reverted." },
+        // The canvas owns status-specific conflict/rollback copy. Suppressing
+        // the global mutation toast prevents a second generic error beside it.
+        meta: { suppressGlobalError: true },
         mutationFn: ({ workflowId, pages, deleteEmptySectionIds }) =>
             pageAPI.reorder(workflowId, pages, deleteEmptySectionIds ?? []),
         onMutate: async (variables) => {

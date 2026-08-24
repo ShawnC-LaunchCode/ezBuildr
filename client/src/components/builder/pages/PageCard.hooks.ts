@@ -120,7 +120,14 @@ export function usePageCardLogic(
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: page.id });
+    } = useSortable({
+        id: page.id,
+        data: {
+            kind: "page",
+            pageId: page.id,
+            sectionId: page.sectionId ?? null,
+        },
+    });
 
     const { localValue: localTitle, onChange: handleTitleChange, onBlur: flushTitle } = useDebouncedFieldMutation(
         page.title,

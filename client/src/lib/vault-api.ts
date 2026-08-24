@@ -21,6 +21,16 @@ interface ApiErrorResponse {
   errors?: string[];
 }
 
+export class FetchApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "FetchApiError";
+    this.status = status;
+  }
+}
+
 interface RefreshTokenResponse {
   token?: string;
 }
@@ -154,7 +164,10 @@ export async function fetchAPI<T>(
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText })) as ApiErrorResponse;
-    throw new Error(error.message ?? error.error ?? `HTTP ${response.status}`);
+    throw new FetchApiError(
+      error.message ?? error.error ?? `HTTP ${response.status}`,
+      response.status,
+    );
   }
   // Check for auto-revert header and dispatch event
   if (response.headers.get('X-Workflow-Auto-Reverted') === 'true') {

@@ -106,7 +106,10 @@ export function StepCard({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: step.id });
+    } = useSortable({
+        id: step.id,
+        data: { kind: "step", stepId: step.id, pageId },
+    });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -183,6 +186,7 @@ export function StepCard({
                         {/* Drag Handle */}
                         <button
                             className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded mt-1"
+                            aria-label={`Reorder question ${step.title}`}
                             {...attributes}
                             {...listeners}
                         >

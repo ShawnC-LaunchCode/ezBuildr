@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
+  cancel: vi.fn(),
+  getQueryData: vi.fn(),
+  setQueryData: vi.fn(),
   sectionList: vi.fn(),
   sectionCreate: vi.fn(),
   sectionUpdate: vi.fn(),
@@ -17,9 +20,9 @@ vi.mock("@tanstack/react-query", () => ({
   useMutation: (config: unknown) => config,
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidate,
-    cancelQueries: vi.fn(),
-    getQueryData: vi.fn(),
-    setQueryData: vi.fn(),
+    cancelQueries: mocks.cancel,
+    getQueryData: mocks.getQueryData,
+    setQueryData: mocks.setQueryData,
   }),
 }));
 
@@ -54,7 +57,10 @@ interface QueryConfig {
 }
 
 interface MutationConfig<TVariables> {
+  meta?: Record<string, unknown>;
   mutationFn: (variables: TVariables) => Promise<unknown>;
+  onMutate?: (variables: TVariables) => Promise<unknown>;
+  onError?: (error: unknown, variables: TVariables, context: unknown) => void;
   onSuccess?: (data: unknown, variables: TVariables) => Promise<void>;
   onSettled?: (data: unknown, error: unknown, variables: TVariables) => Promise<void>;
 }
@@ -62,6 +68,7 @@ interface MutationConfig<TVariables> {
 beforeEach(() => {
   for (const mock of Object.values(mocks)) { mock.mockReset(); }
   mocks.invalidate.mockResolvedValue(undefined);
+  mocks.cancel.mockResolvedValue(undefined);
   mocks.sectionList.mockResolvedValue([]);
   mocks.sectionCreate.mockResolvedValue({ id: "section-1" });
   mocks.sectionUpdate.mockResolvedValue({ id: "section-1" });
@@ -137,6 +144,42 @@ describe("Section query hooks", () => {
 
     expect(mocks.invalidate).toHaveBeenCalledWith({ queryKey: ["pages", "workflow-1"] });
     expect(mocks.invalidate).toHaveBeenCalledWith({ queryKey: ["sections", "workflow-1"] });
+  });
+
+  it("optimistically applies a complete layout, rolls it back on 400, and suppresses duplicate global copy", async () => {
+    type Variables = {
+      workflowId: string;
+      pages: Array<{ id: string; order: number; sectionId: string | null }>;
+    };
+    const previousPages = [
+      { id: "page-a", order: 0, sectionId: "section-1" },
+      { id: "page-b", order: 1, sectionId: null },
+    ];
+    mocks.getQueryData.mockReturnValue(previousPages);
+    const config = useReorderPages() as unknown as MutationConfig<Variables>;
+    const variables = {
+      workflowId: "workflow-1",
+      pages: [
+        { id: "page-b", order: 0, sectionId: "section-1" },
+        { id: "page-a", order: 1, sectionId: "section-1" },
+      ],
+    };
+
+    const context = await config.onMutate?.(variables);
+    expect(mocks.setQueryData).toHaveBeenLastCalledWith(
+      ["pages", "workflow-1"],
+      [
+        { id: "page-b", order: 0, sectionId: "section-1" },
+        { id: "page-a", order: 1, sectionId: "section-1" },
+      ],
+    );
+
+    config.onError?.(new Error("400"), variables, context);
+    expect(mocks.setQueryData).toHaveBeenLastCalledWith(
+      ["pages", "workflow-1"],
+      previousPages,
+    );
+    expect(config.meta).toEqual({ suppressGlobalError: true });
   });
 
   it("invalidates Sections when a version restore replaces the graph", async () => {

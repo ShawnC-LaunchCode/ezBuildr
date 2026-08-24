@@ -128,7 +128,10 @@ function getBlockSummary(block: ApiBlock): string | null {
 // eslint-disable-next-line complexity
 export function BlockCard({ item, workflowId, pageId: _pageId, isExpanded = false, onToggleExpand, onEnterNext: _onEnterNext, onEdit }: BlockCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+    useSortable({
+      id: item.id,
+      data: { kind: "block", blockId: item.id, pageId: _pageId },
+    });
 
   const style = {
     transform: CSS.Transform.toString(transform),

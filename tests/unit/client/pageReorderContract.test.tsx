@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { usePageDragAndDrop } from "@/components/builder/pages/PageCanvas.hooks";
-import { pageAPI, type ApiPage } from "@/lib/vault-api";
+import { pageAPI, type ApiPage, type ApiSection } from "@/lib/vault-api";
 
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/vault-hooks", () => ({
-  useReorderPages: () => ({ mutate: mocks.reorderPages }),
+  useReorderPages: () => ({
+    mutateAsync: mocks.reorderPages,
+    isPending: false,
+  }),
   useReorderSteps: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useUpdateStep: () => ({ mutateAsync: vi.fn() }),
 }));
@@ -38,14 +41,31 @@ function page(id: string, order: number, sectionId?: string | null): ApiPage {
 }
 
 describe("page reorder client contract", () => {
+  beforeEach(() => {
+    mocks.reorderPages.mockResolvedValue({ affectedSkipRules: [] });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     mocks.reorderPages.mockReset();
   });
 
   it("sends explicit nullable Section membership for every canvas page", async () => {
-    const pages = [page("page-a", 0, "section-a"), page("page-b", 1)];
-    const { result } = renderHook(() => usePageDragAndDrop("workflow-1", pages, {}));
+    const pages = [
+      page("page-a", 0, "section-a"),
+      page("page-c", 1, "section-a"),
+      page("page-b", 2),
+    ];
+    const sections: ApiSection[] = [{
+      id: "section-a",
+      workflowId: "workflow-1",
+      title: "Assets",
+      description: null,
+      createdAt: "2026-08-23T00:00:00.000Z",
+    }];
+    const { result } = renderHook(() =>
+      usePageDragAndDrop("workflow-1", pages, sections, {})
+    );
 
     act(() => {
       result.current.handleDragStart({ active: { id: "page-a" } } as DragStartEvent);
@@ -53,20 +73,19 @@ describe("page reorder client contract", () => {
     await act(async () => {
       await result.current.handleDragEnd({
         active: { id: "page-a" },
-        over: { id: "page-b" },
+        over: { id: "page-c" },
       } as DragEndEvent);
     });
 
-    expect(mocks.reorderPages).toHaveBeenCalledWith(
-      {
+    expect(mocks.reorderPages).toHaveBeenCalledWith({
         workflowId: "workflow-1",
         pages: [
-          { id: "page-b", order: 0, sectionId: null },
+          { id: "page-c", order: 0, sectionId: "section-a" },
           { id: "page-a", order: 1, sectionId: "section-a" },
+          { id: "page-b", order: 2, sectionId: null },
         ],
-      },
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
+        deleteEmptySectionIds: [],
+    });
   });
 
   it("defaults deleteEmptySectionIds to an empty list on the wire", async () => {

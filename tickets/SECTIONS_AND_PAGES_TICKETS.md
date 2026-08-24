@@ -1047,7 +1047,19 @@ structure rather than inventing a second disclosure idiom:
 
 ---
 
-## SECT-6 — Drag pages into and out of Sections; reorder Sections 🔄
+## SECT-6 — Drag pages into and out of Sections; reorder Sections ✅
+
+**Done and independently verified:** 2026-08-24 · One typed canvas drag
+context now moves pages across Section boundaries and reorders whole Section
+blocks while preserving the flat contiguous page order. Status-bearing reorder
+errors provide named 400 rollback and the 409 last-page confirmation/retry path;
+page, Section, and step keyboard dragging remain available with reduced-motion
+handling. Component coverage passed 39/39 focused tests; fresh type-check and
+lint are clean; fast passed 3,340/3,340 across 299 files. A real local browser
+drive-through captured pointer and keyboard moves, named landing feedback,
+400 rollback, 409 cancel, and confirmed atomic Section deletion. Independent
+review graded the ticket A, and cleanup proved zero tenant/user/workflow
+leftovers with no proof scripts or private listeners remaining.
 
 **Dispatched:** 2026-08-23 · Builds on accepted SECT-5 commit `1728480d`.
 Keep one `DndContext`, but replace the stale outer mixed page/step sortable list

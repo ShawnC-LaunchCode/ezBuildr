@@ -77,7 +77,8 @@ export function PageCardHeader({
             <div className="flex items-start gap-2">
                 {/* Drag handle for page reordering */}
                 <button
-                    className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
+                    className="cursor-grab rounded p-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 active:cursor-grabbing"
+                    aria-label={`Reorder page ${page.title}`}
                     {...attributes}
                     {...listeners}
                 >
