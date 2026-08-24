@@ -90,6 +90,8 @@ interface WorkflowRunnerScreenProps {
   onEditReviewStep: (stepId: string, pageId: string) => void;
   /** Section rail contents; undefined while there is nothing to navigate. */
   nav?: RunnerNavData;
+  /** Rail click handler (SECT-9): a guarded jump, never a submit. */
+  onNavigateToPage: (pageId: string) => void;
 }
 
 // `isProductionMode` stays in the loaded props: it is what tells a signature
@@ -260,6 +262,13 @@ export function WorkflowRunner({
 
   const [reviewEditStepId, setReviewEditStepId] = useState<string | null>(null);
 
+  // Reachedness is server state in production (SECT-8A) — never recomputed
+  // here, and never mirrored into a zustand store (convention 8). It gates the
+  // rail's affordance and, independently, the jump itself.
+  const visitedPageIds = isProductionMode
+    ? runtime?.run.visitedPageIds ?? NO_VISITED_PAGE_IDS
+    : previewVisitedPageIds ?? NO_VISITED_PAGE_IDS;
+
   // 6. Navigation & Validation
   const {
     currentPageIndex,
@@ -273,6 +282,7 @@ export function WorkflowRunner({
     fieldErrors,
     handleNext,
     handlePrev,
+    jumpToPage,
     handleFinalSubmit,
     completeMutationIsPending
   } = useRunNavigation({
@@ -285,6 +295,7 @@ export function WorkflowRunner({
     effectiveValues,
     transport: navigationTransport,
     returnToReviewAfterNext: reviewEditStepId !== null,
+    visitedPageIds,
   });
 
   const visiblePageSteps = currentPage != null ? getVisiblePageSteps(currentPage.id) : [];
@@ -292,15 +303,23 @@ export function WorkflowRunner({
     getVisiblePageSteps(page.id).map((step) => step.id)
   ), [getVisiblePageSteps, respondentPages]);
 
+  // Both jumps run through the same guarded machinery (SECT-9). The Review
+  // edit differs only in arming "return to review after Next"; it does so
+  // after the jump resolves, so a refused target cannot leave the flag set.
   const onEditReviewStep = useCallback((stepId: string, pageId: string) => {
-    const pageIndex = respondentPages.findIndex((page) => page.id === pageId);
-    if (pageIndex < 0) {
-      return;
-    }
-    setReviewEditStepId(stepId);
-    setCurrentPageIndex(pageIndex);
-    setShowReview(false);
-  }, [respondentPages, setCurrentPageIndex, setShowReview]);
+    void jumpToPage(pageId).then((moved) => {
+      if (moved) {
+        setReviewEditStepId(stepId);
+      }
+    });
+  }, [jumpToPage]);
+
+  const onNavigateToPage = useCallback((pageId: string) => {
+    // Clear the Review edit first: without it, Next from a page reached by the
+    // rail would bounce back to Review on behalf of an unrelated question.
+    setReviewEditStepId(null);
+    void jumpToPage(pageId);
+  }, [jumpToPage]);
 
   useEffect(() => {
     if (showReview || reviewEditStepId === null) {
@@ -332,12 +351,6 @@ export function WorkflowRunner({
     }
     onPreviewPageEntered?.(currentPage.id);
   }, [isProductionMode, currentPage, onPreviewPageEntered]);
-
-  // Reachedness is server state in production (SECT-8A) — never recomputed
-  // here, and never mirrored into a zustand store (convention 8).
-  const visitedPageIds = isProductionMode
-    ? runtime?.run.visitedPageIds ?? NO_VISITED_PAGE_IDS
-    : previewVisitedPageIds ?? NO_VISITED_PAGE_IDS;
 
   const nav = useMemo<RunnerNavData>(() => ({
     sections: sectionState.sections ?? [],
@@ -395,6 +408,7 @@ export function WorkflowRunner({
       reviewEditStepId={reviewEditStepId}
       onEditReviewStep={onEditReviewStep}
       nav={nav}
+      onNavigateToPage={onNavigateToPage}
     />
   );
 }
@@ -619,6 +633,7 @@ function ReviewRunnerScreen({
   onEditReviewStep,
   setShowReview,
   nav,
+  onNavigateToPage,
 }: LoadedRunnerScreenProps): ReactElement {
   return (
     <ClientRunnerLayout
@@ -630,6 +645,7 @@ function ReviewRunnerScreen({
       branding={branding}
       // On the review screen no page is current: the respondent is past them all.
       nav={nav && { ...nav, currentPageId: null }}
+      onNavigateToPage={onNavigateToPage}
     >
       <ReviewPage
         pages={visiblePages}
@@ -674,6 +690,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     runToken,
     reviewEditStepId,
     nav,
+    onNavigateToPage,
   } = props;
 
   const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
@@ -690,6 +707,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
       saveAndResumeAction={saveAndResumeAction}
       branding={branding}
       nav={nav}
+      onNavigateToPage={onNavigateToPage}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionPageHeader currentPage={currentPage} />

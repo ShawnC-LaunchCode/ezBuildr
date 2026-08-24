@@ -78,6 +78,7 @@ describe('useRunNavigation validation state', () => {
     const transport: RunNavigationTransport = {
       getVisiblePageSteps: () => [phoneStep],
       saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
+      recordViewMovedTo: vi.fn(),
       recordValidationPassed: vi.fn().mockResolvedValue(undefined),
       recordValidationException: vi.fn().mockResolvedValue(undefined),
       advanceAfterValidation: vi.fn().mockResolvedValue(undefined),

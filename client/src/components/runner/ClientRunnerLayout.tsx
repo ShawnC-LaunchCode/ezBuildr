@@ -1,10 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Check, AlertCircle, CloudOff, RefreshCw, Loader2, PanelLeft } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { RunnerBrandMark } from "@/components/runner/RunnerBrandMark";
-import { RunnerSectionNav, type RunnerNavData } from "@/components/runner/RunnerSectionNav";
+import { RunnerSectionNav, type NavigateHandler, type RunnerNavData } from "@/components/runner/RunnerSectionNav";
 import { useBrandedFavicon, useBrandingStyle } from "@/hooks/useRunnerBranding";
 import { cn } from "@/lib/utils";
 import { type SaveStatus } from "@/hooks/useAutoSave";
@@ -26,6 +26,11 @@ interface ClientRunnerLayoutProps {
      * navigate — the completion screen, or a run whose pages logic all removed.
      */
     nav?: RunnerNavData;
+    /**
+     * Makes the rail navigable (SECT-9). Omitted, the rail stays inert; the
+     * runner re-checks reachedness before it moves, so this is an affordance.
+     */
+    onNavigateToPage?: NavigateHandler;
 }
 
 function RunnerSaveStatus({ saveStatus }: { saveStatus: SaveStatus }) {
@@ -75,9 +80,13 @@ function RunnerSaveStatus({ saveStatus }: { saveStatus: SaveStatus }) {
  * column; the sheet's contents mount only while it is open, so the rail's page
  * titles exist exactly once in the DOM at any width.
  */
-function RunnerNavSheet({ nav }: { nav: RunnerNavData }) {
+function RunnerNavSheet({ nav, onNavigateToPage }: { nav: RunnerNavData; onNavigateToPage?: NavigateHandler }) {
+    // Controlled so a jump dismisses the sheet: leaving it open over the page
+    // the respondent just asked for would hide the answer they came to change.
+    const [open, setOpen] = useState(false);
+
     return (
-        <Sheet>
+        <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
                 aria-label="Open interview contents"
                 className="-ml-1 mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none md:hidden"
@@ -86,7 +95,13 @@ function RunnerNavSheet({ nav }: { nav: RunnerNavData }) {
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] max-w-xs overflow-y-auto p-4 pt-10">
                 <SheetTitle className="sr-only">Interview contents</SheetTitle>
-                <RunnerSectionNav data={nav} />
+                <RunnerSectionNav
+                    data={nav}
+                    onNavigate={onNavigateToPage && ((pageId) => {
+                        setOpen(false);
+                        onNavigateToPage(pageId);
+                    })}
+                />
             </SheetContent>
         </Sheet>
     );
@@ -102,7 +117,8 @@ export function ClientRunnerLayout({
     saveAndResumeAction,
     className,
     branding = DEFAULT_RESOLVED_BRANDING,
-    nav
+    nav,
+    onNavigateToPage
 }: ClientRunnerLayoutProps) {
     // Scoped to this element rather than :root so a preview rendered inside the
     // builder cannot repaint the surrounding app chrome.
@@ -122,7 +138,7 @@ export function ClientRunnerLayout({
                     {/* shrink-0: the nav trigger costs the row 36px, which was
                         enough to squeeze the brand swatch to nothing at 390px. */}
                     <div className="flex shrink-0 items-center gap-2">
-                        {hasNav && <RunnerNavSheet nav={nav} />}
+                        {hasNav && <RunnerNavSheet nav={nav} onNavigateToPage={onNavigateToPage} />}
                         <RunnerBrandMark branding={branding} />
                     </div>
                     {/* Status area (Step count + Save Status) */}
@@ -158,7 +174,7 @@ export function ClientRunnerLayout({
             <div className="flex w-full flex-1 items-start">
                 {hasNav && (
                     <aside className="sticky top-[61px] hidden h-[calc(100vh-61px)] w-64 shrink-0 overflow-y-auto border-r border-border bg-background px-3 py-4 md:block">
-                        <RunnerSectionNav data={nav} />
+                        <RunnerSectionNav data={nav} onNavigate={onNavigateToPage} />
                     </aside>
                 )}
 

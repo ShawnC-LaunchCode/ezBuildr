@@ -53,6 +53,7 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     setShowReview: vi.fn(),
     reviewEditStepId: null,
     onEditReviewStep: vi.fn(),
+    onNavigateToPage: vi.fn(),
     ...overrides,
   };
 }

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { ApiPage, ApiSection } from "@/lib/vault-api";
 
 /**
- * The runner's read-only Section rail (SECT-8B).
+ * The runner's Section rail (SECT-8B, made navigable by SECT-9).
  *
  * Three states, never two (D-6):
  *
@@ -23,9 +23,18 @@ import type { ApiPage, ApiSection } from "@/lib/vault-api";
  * this component adds is the display invariant that the page currently being
  * rendered counts as reached, because the respondent is demonstrably on it.
  *
- * This rail is deliberately inert: it renders state and does not navigate.
- * Clicking reached pages is SECT-9.
+ * Reached rows are genuinely interactive (SECT-9): a real `<button>` that asks
+ * the runner to jump, not a click handler on a `<li>`. Unreached rows are
+ * genuinely inert — `disabled`, so they are unfocusable and unclickable rather
+ * than merely dimmed. Without `onNavigate` every row is disabled, which is the
+ * read-only rail SECT-8B shipped.
+ *
+ * The jump itself is guarded again inside `useRunNavigation`; these attributes
+ * are the affordance, never the enforcement.
  */
+
+/** Asks the runner to move the view to a page; it re-checks reachedness itself. */
+export type NavigateHandler = (pageId: string) => void;
 
 export type RunnerNavPage = Pick<ApiPage, "id" | "title"> & { sectionId?: string | null };
 export type RunnerNavSection = Pick<ApiSection, "id" | "title">;
@@ -54,6 +63,12 @@ export interface RunnerNavGroup {
   section: RunnerNavSection | null;
   items: RunnerNavItem[];
   reachedCount: number;
+  /**
+   * Where clicking this group's Section header lands: its first reached page,
+   * which is its first page once the whole Section is reached. `null` when the
+   * respondent has not reached the Section at all, and the header is inert.
+   */
+  jumpTargetPageId: string | null;
 }
 
 const PAGES_REACHED_SUFFIX = " pages reached";
@@ -74,6 +89,16 @@ const NODE_CLASS: Record<RunnerNavPageState, string> = {
   reached: "border-primary bg-primary",
   unreached: "border-muted-foreground/40 bg-background",
 };
+
+// Hover and focus for an enabled row. Every enabled row gains the same
+// hairline inset outline on hover, so the row the respondent is already on
+// (which is filled with `accent` and cannot change fill) still answers the
+// pointer; a reached row fills as well. Both cues are solid tokens, because
+// `/opacity` modifiers are silently transparent on this palette (SECT-B11).
+const INTERACTIVE_CLASS =
+  "cursor-pointer hover:ring-1 hover:ring-inset hover:ring-border " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+  "focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
 const STATE_LABEL: Record<RunnerNavPageState, string> = {
   current: "current page",
@@ -120,12 +145,14 @@ export function buildRunnerNavGroups(data: RunnerNavData): RunnerNavGroup[] {
         section,
         items: [item],
         reachedCount: 0,
+        jumpTargetPageId: null,
       });
     }
   }
 
   for (const group of groups) {
     group.reachedCount = group.items.filter((item) => item.state !== "unreached").length;
+    group.jumpTargetPageId = group.items.find((item) => item.state !== "unreached")?.page.id ?? null;
   }
 
   return groups;
@@ -140,36 +167,58 @@ function ReachedCount({ reached, total }: { reached: number; total: number }) {
   );
 }
 
-function SectionHeader({ group }: { group: RunnerNavGroup }) {
+/** Clicking a Section lands on its first reached page (SECT-9 AC2). */
+function SectionHeader({ group, onNavigate }: { group: RunnerNavGroup; onNavigate?: NavigateHandler }) {
+  const target = group.jumpTargetPageId;
+  const interactive = onNavigate != null && target != null;
+
   return (
-    <div className="flex items-baseline justify-between gap-2 px-1 pb-2 pt-5">
-      <span className="text-[13px] font-semibold leading-snug text-foreground">{group.section?.title}</span>
-      <ReachedCount reached={group.reachedCount} total={group.items.length} />
+    <div className="pb-2 pt-5">
+      <button
+        type="button"
+        disabled={!interactive}
+        onClick={() => { if (target != null) { onNavigate?.(target); } }}
+        className={cn(
+          "flex w-full items-baseline justify-between gap-2 rounded-md px-1 py-0.5 text-left",
+          "transition-colors motion-reduce:transition-none",
+          interactive ? `${INTERACTIVE_CLASS} hover:bg-accent` : "cursor-default"
+        )}
+      >
+        <span className="text-[13px] font-semibold leading-snug text-foreground">{group.section?.title}</span>
+        <ReachedCount reached={group.reachedCount} total={group.items.length} />
+      </button>
     </div>
   );
 }
 
-function NavPageRow({ item }: { item: RunnerNavItem }) {
+function NavPageRow({ item, onNavigate }: { item: RunnerNavItem; onNavigate?: NavigateHandler }) {
+  const interactive = onNavigate != null && item.state !== "unreached";
+
   return (
     <li
       aria-current={item.state === "current" ? "step" : undefined}
       aria-disabled={item.state === "unreached" ? true : undefined}
-      className="relative"
+      className="relative pl-4"
     >
       <span
         aria-hidden="true"
         className={cn("absolute left-[-4px] top-[10px] h-2.5 w-2.5 rounded-full border", NODE_CLASS[item.state])}
       />
-      {/* The tint starts clear of the spine so it never paints over the thread. */}
-      <div
+      {/* The row starts clear of the spine so its fill never paints over the thread. */}
+      <button
+        type="button"
+        disabled={!interactive}
+        onClick={() => onNavigate?.(item.page.id)}
         className={cn(
-          "ml-4 rounded-md px-2 py-1.5 transition-colors motion-reduce:transition-none",
-          ROW_CLASS[item.state]
+          "block w-full rounded-md px-2 py-1.5 text-left transition-colors motion-reduce:transition-none",
+          ROW_CLASS[item.state],
+          interactive ? INTERACTIVE_CLASS : "cursor-default",
+          interactive && item.state === "reached" && "hover:bg-accent hover:text-accent-foreground"
         )}
       >
         <span className="block text-[13px] leading-snug">{item.page.title}</span>
         <span className="sr-only">{STATE_LABEL[item.state]}</span>
-      </div>
+      </button>
     </li>
   );
 }
@@ -182,7 +231,11 @@ function NavPageRow({ item }: { item: RunnerNavItem }) {
  * It is a position indicator, never a completion claim — entering a page does
  * not prove its validation was submitted (AC5).
  */
-function NavGroupList({ group, withSpine }: { group: RunnerNavGroup; withSpine: boolean }) {
+function NavGroupList({ group, withSpine, onNavigate }: {
+  group: RunnerNavGroup;
+  withSpine: boolean;
+  onNavigate?: NavigateHandler;
+}) {
   const fraction = group.items.length === 0 ? 0 : group.reachedCount / group.items.length;
 
   return (
@@ -198,7 +251,7 @@ function NavGroupList({ group, withSpine }: { group: RunnerNavGroup; withSpine: 
         </>
       )}
       {group.items.map((item) => (
-        <NavPageRow key={item.page.id} item={item} />
+        <NavPageRow key={item.page.id} item={item} onNavigate={onNavigate} />
       ))}
     </ul>
   );
@@ -207,9 +260,14 @@ function NavGroupList({ group, withSpine }: { group: RunnerNavGroup; withSpine: 
 export interface RunnerSectionNavProps {
   data: RunnerNavData;
   className?: string;
+  /**
+   * Asks the runner to jump to a page (SECT-9). Omitted, the rail is inert:
+   * every row renders disabled rather than as a control that does nothing.
+   */
+  onNavigate?: NavigateHandler;
 }
 
-export function RunnerSectionNav({ data, className }: RunnerSectionNavProps) {
+export function RunnerSectionNav({ data, className, onNavigate }: RunnerSectionNavProps) {
   const groups = buildRunnerNavGroups(data);
   const totalPages = data.visiblePages.length;
 
@@ -230,10 +288,10 @@ export function RunnerSectionNav({ data, className }: RunnerSectionNavProps) {
 
       {groups.map((group) => (
         <div key={group.key}>
-          {group.section && <SectionHeader group={group} />}
+          {group.section && <SectionHeader group={group} onNavigate={onNavigate} />}
           {/* An ungrouped page gets no spine: a lone 2px stub reads as a
               fragment of the Section above it rather than a top-level page (D-3). */}
-          <NavGroupList group={group} withSpine={group.section != null} />
+          <NavGroupList group={group} withSpine={group.section != null} onNavigate={onNavigate} />
         </div>
       ))}
     </nav>

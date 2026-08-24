@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 /**
- * SECT-8B — the runner's read-only Section rail.
+ * SECT-8B / SECT-9 — the runner's Section rail.
  *
  * Covers grouped rendering (AC1), the three D-6 states (AC4), per-Section
  * reached/visible counts (AC5), the zero-Section shape (AC6) and the
- * accessibility contract (AC8).
+ * accessibility contract (AC8) — plus SECT-9's interaction contract (AC2):
+ * reached rows are real, enabled buttons, unreached rows are genuinely
+ * disabled ones, and a Section header lands on its first reached page.
  */
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   RunnerSectionNav,
@@ -38,6 +40,14 @@ const DATA: RunnerNavData = {
   visitedPageIds: ['p-real-property', 'p-bank', 'p-cards'],
   currentPageId: 'p-cards',
 };
+
+function buttonFor(title: string): HTMLButtonElement {
+  const button = screen.getByText(title).closest('button');
+  if (!button) {
+    throw new Error(`No nav control rendered for "${title}"`);
+  }
+  return button;
+}
 
 function rowFor(title: string): HTMLElement {
   const row = screen.getByText(title).closest('li');
@@ -206,5 +216,92 @@ describe('buildRunnerNavGroups', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].section).toBeNull();
+  });
+});
+
+describe('navigating by click (SECT-9 AC2)', () => {
+  it('makes a reached page a real enabled button that asks for the jump', () => {
+    const onNavigate = vi.fn();
+    render(<RunnerSectionNav data={DATA} onNavigate={onNavigate} />);
+
+    const bank = buttonFor('Bank Accounts');
+    expect(bank.disabled).toBe(false);
+    fireEvent.click(bank);
+
+    expect(onNavigate).toHaveBeenCalledWith('p-bank');
+  });
+
+  it('renders an unreached page as a disabled button, not a dimmed clickable row', () => {
+    const onNavigate = vi.fn();
+    render(<RunnerSectionNav data={DATA} onNavigate={onNavigate} />);
+
+    const loans = buttonFor('Loans');
+    expect(loans.disabled).toBe(true);
+    fireEvent.click(loans);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('lands a Section click on its first reached page', () => {
+    const onNavigate = vi.fn();
+    // Debts holds Credit Cards (current) then Loans (unreached).
+    render(<RunnerSectionNav data={DATA} onNavigate={onNavigate} />);
+
+    fireEvent.click(buttonFor('Debts'));
+
+    expect(onNavigate).toHaveBeenCalledWith('p-cards');
+  });
+
+  it('lands a fully reached Section on its first page', () => {
+    const onNavigate = vi.fn();
+    render(<RunnerSectionNav data={DATA} onNavigate={onNavigate} />);
+
+    fireEvent.click(buttonFor('Assets'));
+
+    expect(onNavigate).toHaveBeenCalledWith('p-real-property');
+  });
+
+  it('disables a Section header the respondent has not reached at all', () => {
+    const onNavigate = vi.fn();
+    render(<RunnerSectionNav data={DATA} onNavigate={onNavigate} />);
+
+    const children = buttonFor('Children');
+    expect(children.disabled).toBe(true);
+    fireEvent.click(children);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(buildRunnerNavGroups(DATA).map((group) => group.jumpTargetPageId)).toEqual([
+      'p-real-property',
+      'p-cards',
+      null,
+      null,
+    ]);
+  });
+
+  it('puts reached rows in the tab order and keeps unreached ones out of it', () => {
+    render(<RunnerSectionNav data={DATA} onNavigate={vi.fn()} />);
+
+    const reached = buttonFor('Bank Accounts');
+    reached.focus();
+    expect(document.activeElement).toBe(reached);
+
+    // A disabled button cannot take focus, which is the difference between
+    // "greyed" and "genuinely not a control" — `aria-disabled` alone would
+    // still hand a keyboard user a dead stop.
+    const unreached = buttonFor('Loans');
+    unreached.focus();
+    expect(document.activeElement).not.toBe(unreached);
+  });
+
+  it('stays inert with no handler rather than offering controls that do nothing', () => {
+    render(<RunnerSectionNav data={DATA} />);
+
+    const buttons = screen.getAllByRole('button', { hidden: true });
+    // Three Section headers plus six page rows: an empty list here would make
+    // the assertion below vacuous.
+    expect(buttons).toHaveLength(9);
+    for (const button of buttons) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 });

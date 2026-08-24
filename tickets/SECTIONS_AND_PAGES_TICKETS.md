@@ -1770,7 +1770,7 @@ shared database. No manual migration was run against `dev`.
 
 ---
 
-## SECT-9 — Navigate by clicking reached pages 🔄
+## SECT-9 — Navigate by clicking reached pages ✅
 
 **Priority: ENH** · Size: M · File: `client/src/hooks/runner/useRunNavigation.ts`
 
@@ -1923,6 +1923,54 @@ flush.
 6. The Vertical proof path passes through the local app with autosave unmocked.
 7. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
    `npm run test:fast` and `test:unit` green.
+
+**Verified 2026-08-24 (reviewer).** All 7 criteria met. Gates re-run by the
+reviewer on the finished tree: `type-check` 0 errors · `lint` exit 0 ·
+`test:fast` **309 files / 3,428 tests** · `test:unit` **327 files / 3,588
+tests**. Nothing moved down; the unit-db half stays 18 files / 160 tests. Zero
+new `eslint-disable` directives.
+
+`jumpToPage` is right where it needs to be: it flushes via
+`transport.saveBeforeLeavingPage()` before moving, never calls
+`submitPage`/`next`, and holds the reached guard in the hook rather than
+trusting the rail's `disabled` attribute — so a rail one render behind the run
+cannot open a jump the run would refuse. The dev also ran a mutation check
+(deleting the flush and neutering the guard turned exactly 5 tests red, then
+restored), which is the evidence that separates a real test from a false green.
+
+Live proof reviewed, not just filed: `.playwright-mcp/sect9-desktop-after-jump.png`
+plus two mobile shots (gitignored). The desktop capture shows the post-jump
+state — "Contact details" current, "Asset schedule" still reached, "Finances
+0/1" with its page greyed, the ungrouped "Page 1" at top level, and the typed
+answer persisted. The autosave evidence is the part that matters: the dev typed
+and clicked the rail **1 ms later**, far inside the 1.5s debounce, and the value
+was in the database at the click — so the flush, not the debounce, wrote it.
+
+**Accepted deviations** (all disclosed):
+1. New transport method `recordViewMovedTo(pageIndex)` — a no-op in production
+   (the cursor is server-owned) and `previewEnvironment.setCurrentPage()` in
+   preview. Without it a preview jump desyncs `PreviewEnvironment.currentPageIndex`,
+   which `PreviewRunner.handleRandomFillPage` reads: a preview-only defect this
+   feature would otherwise have introduced. Correct call.
+2. **The reached guard is bypassed while `showReview` is true.** Reviewed
+   closely because it is the one place the ticket's rules are relaxed, and
+   accepted: the bypass is scoped to the Review screen only, targets remain
+   confined to `visiblePages` (so a logic-excluded page is still unreachable and
+   the information-disclosure invariant holds), and reaching Review means every
+   visible page is positionally behind the respondent — including one `skip_to`
+   jumped over, whose answers `onEditReviewStep` has always navigated to. Left
+   guarded, AC3 would have regressed. Commented in the code and covered by a
+   test.
+
+**Incident, contained.** The dev's fixture probe imported `server/db` directly,
+which reads `DATABASE_URL` from `.env` — the shared **dev** Neon branch — even
+though its HTTP calls went to a throwaway local server. One `tenants` row was
+created there. The dev caught it and deleted it; the reviewer verified
+independently rather than accepting the claim: **zero tenants created in the
+last 3 hours** and no SECT9-named rows anywhere. No migration was ever run
+against the shared database. The generalisable lesson belongs in the `verify`
+skill: overriding the server's `DATABASE_URL` does **not** cover a probe script
+that imports `server/db` in the same process.
 
 ---
 
@@ -2104,6 +2152,23 @@ these are deliberate v1 exclusions, not oversights.
   change (`--primary` → channel triple, plus `hsl(var(--primary))` at every
   consumption site), which is a repo-wide styling change and needs its own
   ticket rather than riding along with a feature.
+
+
+- **SECT-B12 — `setCurrentPageIndex` on `LoadedRunnerScreenProps` is dead.**
+  No screen consumes the prop, and it predates SECT-9 (the dev flagged it and
+  correctly left it alone rather than widening scope). Three test mocks still
+  declare it, which is exactly how dead props survive — the same shape as the
+  `RunPersistenceWriter.updateRun` orphan removed during the SECT-8A review.
+  Removing it means touching those mocks, so it wants its own small change.
+
+- **SECT-B13 — Stale probe rows in the shared `dev` Neon branch.**
+  Three `tenants` rows named "TM Gate Probe Tenant"/"TM Install Probe Tenant"
+  (2026-08-18, from the Template Marketplace work) and two probe users are still
+  sitting in the dev database. Harmless but untidy, and they are the residue of
+  the same failure mode SECT-9 hit and cleaned: a verification probe writing to
+  the shared branch. Deleting rows from a shared database is the repo owner's
+  call, so they were left in place. Pairs with the `verify`-skill note recorded
+  in SECT-9.
 
 ---
 

@@ -65,6 +65,7 @@ function makeTransport(): RunNavigationTransport {
   return {
     getVisiblePageSteps: () => [listStep],
     saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
+    recordViewMovedTo: vi.fn(),
     recordValidationPassed: vi.fn().mockResolvedValue(undefined),
     recordValidationException: vi.fn().mockResolvedValue(undefined),
     advanceAfterValidation: vi.fn().mockResolvedValue(undefined),

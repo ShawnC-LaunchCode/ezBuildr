@@ -45,6 +45,13 @@ interface AdvanceContext {
 export interface RunNavigationTransport {
   getVisiblePageSteps: (pageId: string) => ApiStep[];
   saveBeforeLeavingPage: () => Promise<void>;
+  /**
+   * Report that the view moved to a page without the run advancing (SECT-9).
+   * Preview keeps its in-memory cursor in step, because the dev toolbar's
+   * per-page tools read it; production does nothing, since the run's cursor is
+   * server-owned and a jump must never move it.
+   */
+  recordViewMovedTo: (pageIndex: number) => void;
   recordValidationPassed: (stepsValidated: number) => void | Promise<void>;
   recordValidationException: (error: unknown) => void | Promise<void>;
   advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceValidationIssue | undefined>;
@@ -68,7 +75,15 @@ interface UseRunNavigationProps {
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
   returnToReviewAfterNext?: boolean;
+  /**
+   * The reached set that gates `jumpToPage` (SECT-9): the run row's persisted
+   * `visitedPageIds` in production, the preview shell's in-memory set in
+   * preview. Never re-derived here — reachedness is owned by the run.
+   */
+  visitedPageIds?: string[];
 }
+
+const NO_VISITED_PAGE_IDS: string[] = [];
 
 function hasFinalBlock(page: ApiPage): boolean {
   return Boolean((page.config as { finalBlock?: unknown } | null | undefined)?.finalBlock);
@@ -138,6 +153,7 @@ export function useRunNavigationTransport({
       return {
         getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId, previewEnvironment),
         saveBeforeLeavingPage: async () => undefined,
+        recordViewMovedTo: (pageIndex) => { previewEnvironment.setCurrentPage(pageIndex); },
         recordValidationPassed: (stepsValidated) => {
           void previewEnvironment.addTraceEntry({
             type: 'logic',
@@ -207,6 +223,7 @@ export function useRunNavigationTransport({
     return {
       getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId),
       saveBeforeLeavingPage: saveNow,
+      recordViewMovedTo: () => undefined,
       recordValidationPassed: () => undefined,
       recordValidationException: () => undefined,
       advanceAfterValidation: async ({
@@ -304,6 +321,11 @@ export interface UseRunNavigationReturn {
   fieldErrors: Record<string, string[]>;
   handleNext: () => Promise<void>;
   handlePrev: () => Promise<void>;
+  /**
+   * Move the view to an already-reached page. Resolves `true` when the view
+   * moved (or was already there) and `false` when the target was refused.
+   */
+  jumpToPage: (pageId: string) => Promise<boolean>;
   handleFinalSubmit: () => Promise<void>;
   completeMutationIsPending: boolean;
 }
@@ -318,6 +340,7 @@ export function useRunNavigation({
   effectiveValues,
   transport,
   returnToReviewAfterNext = false,
+  visitedPageIds = NO_VISITED_PAGE_IDS,
 }: UseRunNavigationProps): UseRunNavigationReturn {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
@@ -356,6 +379,52 @@ export function useRunNavigation({
     await transport.saveBeforeLeavingPage();
     setCurrentPageIndex((prev) => Math.max(prev - 1, 0));
   }, [showReview, transport]);
+
+  const reachedPageIds = useMemo(() => new Set(visitedPageIds), [visitedPageIds]);
+
+  /**
+   * The guarded jump behind the rail and the Review screen's edit buttons
+   * (SECT-9). It is deliberately *not* a submit: `handleNext` validates the
+   * page, submits it and lets the server resolve `skip_to`, which moves the
+   * run. A jump moves only the view, so the server's forward position stays
+   * authoritative and a reload still resumes where the run really is.
+   *
+   * The reached guard lives here rather than only in the rail's `disabled`
+   * attribute, because the rail's props can be one render behind the run.
+   * The one exception is the Review screen: the respondent submitted the last
+   * page to get there, so every visible page is behind them — including one
+   * `skip_to` jumped over, whose answers must stay editable from Review.
+   */
+  const jumpToPage = useCallback(async (pageId: string): Promise<boolean> => {
+    const targetIndex = visiblePages.findIndex((page) => page.id === pageId);
+    if (targetIndex < 0) {
+      return false;
+    }
+
+    if (!showReview) {
+      if (targetIndex === currentPageIndex) {
+        // Clicking the row you are on is "back to the top of this page", not a
+        // navigation: nothing to flush, nothing to move.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return true;
+      }
+      if (!reachedPageIds.has(pageId)) {
+        return false;
+      }
+    }
+
+    // Exactly what `handlePrev` does: a jump that skips the flush drops the
+    // current page's un-debounced answers, which reads as data loss.
+    await transport.saveBeforeLeavingPage();
+
+    setErrors([]);
+    setFieldErrors({});
+    setCurrentPageIndex(targetIndex);
+    transport.recordViewMovedTo(targetIndex);
+    setShowReview(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
+  }, [visiblePages, showReview, currentPageIndex, reachedPageIds, transport]);
 
   const handleFinalSubmit = useCallback(async () => {
     if (!actualRunId || isCompleted || completeMutation.isPending) {return;}
@@ -507,6 +576,7 @@ export function useRunNavigation({
     fieldErrors,
     handleNext,
     handlePrev,
+    jumpToPage,
     handleFinalSubmit,
     completeMutationIsPending: completeMutation.isPending,
   };
