@@ -1412,7 +1412,7 @@ respondent may revisit from one they have not reached. Phase 4 therefore lands
 the persisted fact first (SECT-8A), renders it second (SECT-8B), and makes the
 rendered items interactive last (SECT-9).
 
-## SECT-8A — Persist reached pages on the run 🔲
+## SECT-8A — Persist reached pages on the run 🔄
 
 **Priority: ENH** · Size: M · File: `shared/schema/run.ts`, `server/repositories/WorkflowRunRepository.ts`
 
@@ -1455,6 +1455,44 @@ zustand (convention 8).
   response types.
 - Use the post-RLS service/transaction pattern; tenant context and the visited
   append must share the same transaction as the run-state update.
+
+**Dispatched:** 2026-08-24. Phase 3 was accepted and promoted at `1ee0ffa7`.
+The clean pre-change baseline is 302 fast files / 3,378 tests, 319 unit files /
+3,532 tests, and 128 integration files / 1,203 passing tests / 3 skipped. The
+migration chain and metadata currently end at `0039`, so plain
+`npm run db:generate` must produce the ticket-prescribed `0040_*` SQL, journal
+entry, and snapshot after the Drizzle schema edit; recheck for a numbering
+collision immediately before generation and never hand-edit migration metadata.
+Also advance the documented test-schema marker from `_v39` to `_v40` even though
+the migration fingerprint independently forces stale schemas to rebuild.
+
+Implement reachedness as a repository-owned, single-statement insertion-ordered
+set update, not a JavaScript read/modify/write: a non-null destination is
+appended only when absent, while `null` appends nothing. The same specialized
+update must atomically write `currentPageId` and `visitedPageIds` for both
+authenticated and public run creation and for the server-resolved destination
+inside `RunExecutionCoordinator`; the request body's `currentPageId` is never a
+source. Resume-link redemption already owns a tenant-scoped transaction, so its
+token rotation must ensure the row's current cursor is present using that same
+transaction and an idempotent column expression. Thread the inferred row field
+through the sanitized runtime contract, explicit create/resume payloads, and
+`client/src/lib/vault-api.ts` only; keep it in TanStack Query server state and
+add no zustand mirror. The existing `next` route is missing
+`optionalHybridAuth` ahead of `creatorOrRunTokenAuth`, unlike the runtime route;
+restore that middleware ordering so a foreign tenant's JWT reaches the
+service's concealed 404 authorization boundary instead of being misread as a
+run token. Cover the legacy direct `createAnonymousRun` entry point too (or
+consolidate it safely) so no creation path persists a cursor without reached
+state. This ticket adds no endpoint or RLS policy.
+
+Extend the existing first-next, runtime, resume-link, service, and coordinator
+tests, plus add one DB-unmocked integration vertical that proves ordered
+1→2→3 persistence across a real forward `skip_to`, runtime reload, resume-link
+hop, duplicate-safe restoration, and a foreign-tenant `next` returning 404 with
+the victim array byte-for-byte unchanged. Add focused repository coverage for
+duplicate and null destinations, inspect the generated DDL/default/snapshot,
+apply the full chain to a fresh local database, and run the schema skill's
+unit-db requirement in addition to every gate named by AC7.
 
 ### Vertical proof
 
