@@ -83,9 +83,15 @@ Also closed as **observations**, recorded so they are not rediscovered:
 `docs/INDEX.md`, `README.md`) all exist, and it is the only open roadmap item
 with evidence behind it.
 
-It moved to **`SECT-10`** in `tickets/SECTIONS_AND_PAGES_TICKETS.md`, because
-the `sections` → `pages` rename (SECT-1) rewrites the vocabulary of every
-document GH-174 would touch. Doing it before the rename means doing it twice.
+It moved to **`SECT-10`** on the Sections-above-Pages board, because the
+`sections` → `pages` rename (SECT-1) rewrites the vocabulary of every document
+GH-174 would touch. Doing it before the rename means doing it twice.
+
+**Shipped 2026-08-24** as SECT-10 (`0b175796`); that board has since retired
+into [`SECTIONS_AND_PAGES.md`](SECTIONS_AND_PAGES.md). GH-174 is therefore
+closed — do not re-file it. Two documentation follow-ups it deliberately did not
+absorb are parked as `SECT-B14` (dead links in two closed security audit
+records) and `SECT-B15` (~26 documents still branded "VaultLogic").
 
 ---
 

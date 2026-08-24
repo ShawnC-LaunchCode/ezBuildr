@@ -14,11 +14,21 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-18 the live boards are `tickets/SECTIONS_AND_PAGES_TICKETS.md`
-> (SECT-1..10) and `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` (ENV-1/ENV-3 remainders +
-> RLS-1..5).** The agreed order is **RLS Phase 2 first, then the SECT rename**, because
-> RLS-3 and SECT-2 both rewrite the `sections` RLS policies and SECT-3 adds a new tenant
-> table that needs one.
+> **As of 2026-08-24 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
+> (ENV-1/ENV-3 remainders + RLS-1..5).**
+>
+> **The Sections-above-Pages board (SECT-1..10) closed and retired into
+> `backlog/SECTIONS_AND_PAGES.md` on 2026-08-24** — all 11 tickets shipped across five
+> phase gates, and Phase 4 was live-verified end to end. It parks fifteen entries,
+> `SECT-B1..B15`, and carries ten standing decisions **D-1..D-10** that still bind
+> anything touching sections, pages or runner navigation. ⚠️ **`SECT-B11` is the entry
+> to look at first, and it is not a Sections issue:** `--primary` is a full `hsl(...)`
+> string rather than the channel triple Tailwind's `/opacity` modifier compiles against,
+> so `bg-primary/10` and every sibling render **transparent** — **45 live usages** in
+> `client/src`. The sequencing note that used to sit here (RLS Phase 2 before the SECT
+> rename, because RLS-3 and SECT-2 both rewrite the `sections` RLS policies) is now
+> spent: SECT-2 and SECT-3 have shipped, and SECT-3's new `sections` table carries its
+> own policy in migration `0039`.
 >
 > **The Template Marketplace board (TM-1..5) closed and retired into
 > `backlog/TEMPLATE_MARKETPLACE.md` on 2026-08-18** — all five tickets shipped and the gate
@@ -79,6 +89,21 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| SECT-B11 | `needs-initiative` | `/opacity` on `--primary` is silently transparent — **45 live usages** render no tint | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B2 | `product-decision` | `logic_rules` targeting a Section — needs a ruling on what `skip_to` a Section means | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B8 | `product-decision` | Cross-tenant concealment is 404 on Section create, 403 on update/delete and all of `PageService` | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B14 | `product-decision` | 22 dead links in two closed security audit records — repoint, mark historical, or leave | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B3 | `needs-initiative` | Workflow map draws Section containers — size `mapLayout.ts` before promoting | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B1 | `enhancement` | Review screen grouped by Section — where a 100-page respondent actually spends time | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B4 | `enhancement` | AI generation emits Sections — now unblocked, Phase 2 shipped | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B5 | `enhancement` | Curated marketplace templates should ship with Sections — now unblocked | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B6 | `enhancement` | Per-Section progress in the runner header ("Page 3 of 11 in Assets") | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B10 | `enhancement` | Six run routes still lack `optionalHybridAuth` before `creatorOrRunTokenAuth` | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B12 | `enhancement` | Dead `setCurrentPageIndex` prop on `LoadedRunnerScreenProps` + 3 test mocks | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B15 | `enhancement` | ~26 documents still say "VaultLogic" — two are linked from CLAUDE.md's index | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B13 | `operational` | Five stale probe rows in the shared `dev` Neon branch (from TM, 2026-08-18) | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B9 | `informational` | `updateProgress` is an RLS throw-point on the anonymous path — RLS-5 sweeps it | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B7 | `wont-fix` | `PreviewRouter.isPageVisible` ignores visibility — dead code, nothing instantiates it | `backlog/SECTIONS_AND_PAGES.md` |
 | DV-B3 | `informational` | `records`/Collections parallel data model — never investigated, likely origin of the DV-1/DV-3 bugs | `backlog/DATAVAULT.md` |
 | DV-B7 | `enhancement` | Six copies of workflow→tenant resolution, two failure semantics; creator-tenant fallback unaudited | `backlog/DATAVAULT.md` |
 | DV-B1 | `needs-initiative` | External DataVault API — token lifecycle exists but is inert | `backlog/DATAVAULT.md` |
@@ -148,6 +173,36 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Sections above Pages (SECT) — [detail](backlog/SECTIONS_AND_PAGES.md) — retired 2026-08-24
+
+**All 11 tickets shipped** (SECT-1..10, with 8A/8B) across five phase gates.
+Phase 0 renamed the existing "section" concept to **page** across ~511 files;
+Phases 1–4 then built **sections** as a real group layer above pages — authored
+in the builder, carried through publish/export/import/diff, evaluated for
+visibility, persisted as run reached-state, and navigable in the runner.
+
+**The ten standing decisions D-1..D-10 are in the detail file and still bind
+anything touching sections, pages or runner navigation.** The two most often
+got wrong: **D-2** (a Section is a *contiguous span* over one flat `pages.order`
+— there is no `sections.order`) and **D-6** (greyed ≠ hidden — a page excluded
+by `visibleIf` is absent from the nav entirely, while visible-but-unreached is
+greyed; conflating them is an information disclosure, not a cosmetic bug).
+
+⚠️ **`SECT-B11` is the one worth promoting.** `--primary` is a complete
+`hsl(...)` string, not the channel triple Tailwind's `/opacity` modifier
+compiles against, so `bg-primary/10` and every sibling resolve to **transparent**.
+**45 existing usages in `client/src`** are rendering nothing where a subtle fill
+was intended. This is a live, repo-wide visual defect that the Sections work
+merely surfaced — it is not a Sections issue and should not be promoted as one.
+
+⚠️ **Do not hand-migrate a shared Neon branch.** A SECT-8B finding claimed the
+`dev` branch needed manual migration for `0040`; `railway.json` runs
+`npm run db:migrate` as a `preDeployCommand`, so every environment migrates on
+its next deploy. A missing column on `dev` blocks *local* verification only.
+Relatedly, a verification probe that imports `server/db` reads `.env` and writes
+to the shared dev branch **even when the app under test points at a throwaway** —
+SECT-9 leaked a tenant row that way.
 
 ## Environment split & tenant isolation (ENV / RLS) — [detail](backlog/ENVIRONMENTS_AND_RLS.md) — **partially** retired 2026-08-23
 
