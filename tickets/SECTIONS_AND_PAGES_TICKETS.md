@@ -1770,7 +1770,7 @@ shared database. No manual migration was run against `dev`.
 
 ---
 
-## SECT-9 — Navigate by clicking reached pages 🔲
+## SECT-9 — Navigate by clicking reached pages 🔄
 
 **Priority: ENH** · Size: M · File: `client/src/hooks/runner/useRunNavigation.ts`
 
@@ -1846,6 +1846,49 @@ the classic seam defect this repo keeps paying for.
 - Read `tickets/backlog/WORKFLOW_MAP.md` D-5: backward *navigation* is a runner
   feature (this ticket), while a backward `skip_to` **rule** stays a
   publish-blocking error. Do not "fix" the latter here.
+
+**Dispatched:** 2026-08-24. SECT-8A landed at `5a916395` and SECT-8B at
+`a65f750f`; read both before starting, because five things changed under this
+ticket's feet:
+
+1. **`client/src/components/runner/RunnerSectionNav.tsx` now exists and is
+   deliberately inert.** It exports `RunnerNavData`, `RunnerSectionNav`, and the
+   pure `buildRunnerNavGroups`. Page rows are `<li>` carrying
+   `aria-current="step"` and `aria-disabled`. Your job is to make **reached**
+   rows genuinely interactive — a real `<button>`, not a click handler on a
+   `<li>` — while unreached rows stay genuinely non-interactive (`disabled`, not
+   merely `aria-disabled` on a non-focusable element). Do not weaken the
+   three-state model or the "excluded pages are absent" invariant.
+2. **The preview reached set lives in `PreviewRunner` component state**, not in
+   `PreviewEnvironment` — a deliberate SECT-8B deviation so it survives the hot
+   reload that recreates the environment. AC4's preview parity must be wired
+   through there.
+3. **`useNext` now patches the runtime query cache** (`useRuns.ts`) with the
+   server's returned `nextPageId` rather than invalidating. A jump is not a
+   submit and must not touch that cache or call `next`/`submitSection`.
+4. **`bg-primary/10` and every other `/opacity` modifier on `--primary` is
+   silently transparent repo-wide** — see SECT-B11. `--primary` is a full
+   `hsl(...)` string, not the channel triple Tailwind compiles `/opacity`
+   against. For hover/focus/active states use the solid `accent` token, as the
+   rail already does. A tint that "does not show up" is this bug, not your CSS.
+5. **The local app cannot create runs against the `dev` Neon branch right now**
+   — that branch is missing migration `0040` until its next deploy runs
+   `db:migrate`. For AC6's live proof, build a throwaway local Postgres and
+   apply the chain to it, as SECT-8B did. **Do not run a migration against the
+   shared `dev` database.**
+
+Baselines to protect, measured by the reviewer after SECT-8B: `test:fast`
+**307 files / 3,409 tests**, `test:unit:db` 18 files / 160 tests. A count that
+moves down is a stop condition. `test:fast` has a known order-dependent flake
+that lands on a different unrelated file each run — re-run a lone failure in
+isolation before attributing it to your change.
+
+AC2 and AC5 are the two that get faked most easily. AC2 requires a test that
+calls `jumpToPage` **directly** with an unreached id and asserts no navigation —
+proving the guard lives in the hook, not only in the rail's disabled attribute.
+AC5 requires typing into a field and jumping **without blurring**, then
+asserting the value was saved; a test that blurs first proves nothing about the
+flush.
 
 ### Vertical proof
 
