@@ -2042,7 +2042,7 @@ nothing from this gate reached it.
 
 # Phase 5 — Documentation alignment
 
-## SECT-10 — Align feature documentation with executable product status 🔲
+## SECT-10 — Align feature documentation with executable product status 🔄
 
 **Priority: P2** · Size: S · File: `docs/claude/FEATURES.md`, `docs/INDEX.md`, `README.md`
 
@@ -2094,6 +2094,46 @@ tombstone.
 - File footprint: `docs/`, `README.md`, `CLAUDE.md`. Collides with nothing in
   this initiative, since every other ticket's docs edits are scoped to its own
   acceptance criteria.
+
+**Dispatched:** 2026-08-24, after the Phase 4 gate closed at `78e5f7a8`. Every
+other ticket on this board is now ✅, so the vocabulary is final and will not
+move under you.
+
+What landed since the docs were last touched, and therefore what your audit must
+account for:
+
+- **Sections exist as a real group layer.** `sections` table (migration `0039`),
+  nullable `pages.section_id`, contiguous-span invariant, `sections.visible_if`,
+  and endpoints `POST /api/workflows/:workflowId/sections`,
+  `GET /api/workflows/:workflowId/sections`, `PUT /api/sections/:sectionId`,
+  `DELETE /api/sections/:sectionId`.
+- **`workflow_runs.visited_page_ids`** (migration `0040`, SECT-8A) — an
+  insertion-ordered `uuid[]` reached set, surfaced as `visitedPageIds` on the
+  run-create, resume and runtime payloads.
+- **The runner has navigation** (SECT-8B/9) — a Section rail with three states,
+  and click-to-jump restricted to reached pages.
+- The table count in `docs/claude/SCHEMA.md` currently reads **107**. AC1 says
+  recount from `shared/schema/`, do not increment — the previous count may
+  already be wrong, and `0039`/`0040` added a table and a column respectively.
+
+Three traps specific to this ticket:
+
+1. **AC5 says the README quick start must actually be run, not read.** A clean
+   checkout, the documented commands, in order. If a step is wrong, fix the
+   README — that is the deliverable, not a note saying it looked fine.
+2. **AC7 forbids modifying any source file.** If you find a real code defect
+   while auditing, STOP and report it as a blocker; do not fix it here. A docs
+   ticket that quietly edits `server/` cannot be reviewed as a docs ticket.
+3. **The dead-link check (AC4/AC6) must be a command with output**, not an
+   eyeball pass. State the command in your report. Note that `git rm`-ed ticket
+   files are legitimately referenced as `git log -p -- <path>` and those
+   references are correct even though the path no longer exists — do not
+   "fix" them.
+
+Do not expand into rewriting the guides. Correct what would make a reader
+**wrong**; leave thin-but-accurate prose alone. Where something no longer
+exists, delete the section and note it in `FEATURES.md`'s changelog rather than
+leaving a tombstone.
 
 ### Acceptance criteria
 
