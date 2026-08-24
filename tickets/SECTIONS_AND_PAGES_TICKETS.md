@@ -1562,7 +1562,7 @@ run routes).
 
 ---
 
-## SECT-8B — Persistent left-hand Section nav in the runner (read-only) 🔄
+## SECT-8B — Persistent left-hand Section nav in the runner (read-only) ✅
 
 **Priority: ENH** · Size: L · File: `client/src/components/runner/ClientRunnerLayout.tsx`
 
@@ -1715,6 +1715,58 @@ and shipping half of it is worse than shipping the rail inert.
     excluded by logic.
 11. Gates: `npm run type-check` 0 errors, `npm run lint` clean,
     `npm run test:fast` green.
+
+**Verified 2026-08-24 (reviewer).** All 11 criteria met. Gates re-run by the
+reviewer on the finished tree: `type-check` 0 errors · `lint` exit 0 ·
+`test:fast` **307 files / 3,409 tests** — the 302/3,378 baseline plus exactly
+the 5 new test files and 31 tests, nothing moved down. Zero new
+`eslint-disable` directives (checked against the diff, not claimed).
+
+The AC10 screenshots were opened and read, not merely confirmed to exist:
+`.playwright-mcp/sect8b-{desktop-1440,mobile-390-collapsed,mobile-390-sheet-open}.png`
+(gitignored, so they are evidence for this note rather than committed
+artifacts). Desktop shows all three D-6 states simultaneously — reached
+(Real property, Bank accounts), current (Credit cards, tinted + ringed node),
+and greyed-unreached (Loans and judgments, Custody arrangement) — with the
+ungrouped "Certification and signature" at top level between two Sections
+(D-3), and **"Children 0/1", not 0/2**: the logic-excluded page is absent from
+the rail *and* excluded from the denominator, which is the AC4/AC5 pair that
+matters. Mobile shows the sheet closed and open with a correct scrim.
+
+AC4's falsifiability requirement is genuinely satisfied rather than asserted:
+`RunnerSectionNav.test.tsx` filters one page out of the *same* fixture, asserts
+absence, then re-renders the unfiltered fixture and asserts presence — so the
+absence cannot pass trivially.
+
+**Accepted deviations** (all disclosed by the dev, all justified):
+1. `client/src/hooks/api/useRuns.ts` is outside the stated footprint.
+   `useNext` deliberately never invalidates the runtime query, so
+   `visitedPageIds` would have stayed frozen at page 1 and every later page
+   would have rendered as current *and* stale-unreached. It now patches only
+   the server's own returned `nextPageId` into the cached runtime, deduped, with
+   no refetch — reachedness stays server-owned and the documented
+   `setCurrentPageIndex` race is avoided. No-ops safely when the query is
+   unmounted.
+2. Header is full-bleed rather than centred on `max-w-2xl`. Correct: with a rail
+   present a centred lockup floats over the questions. AC2 constrains the
+   content column, which is unchanged and measured at 672px live.
+3. The "Step N of M" counter is hidden below `sm` **only when a rail exists**
+   (the rail repeats the same n/m one tap away). This was forced by real
+   horizontal overflow at 360px, not by preference, and behaviour is unchanged
+   where there is no rail.
+
+**Reviewer correction to one of the dev's findings.** The dev reported that the
+`dev` Neon branch is missing migration `0040` and that "someone will need to
+migrate the dev branch". The missing column is real — confirmed independently:
+`.env` resolves to compute `ep-frosty-firefly-ah3o6q52` → branch
+`br-shy-rain-ahpucki7` → **`dev`** (not production), which has `sections` but
+not `visited_page_ids`. The conclusion is narrower than stated, though:
+`railway.json` runs `npm run db:migrate` as a `preDeployCommand`, so `0040`
+applies to each environment automatically on its next deploy. The only real
+consequence is that **local live verification pointed at the dev branch cannot
+create runs until then** — which matters for the Phase 4 gate, and is why the
+dev correctly built a throwaway local Postgres for AC10 instead of migrating a
+shared database. No manual migration was run against `dev`.
 
 ---
 
@@ -1997,6 +2049,18 @@ these are deliberate v1 exclusions, not oversights.
   tenant's JWT is still misread as a run token instead of reaching the
   service's concealed-404 boundary. Deliberately left out of SECT-8A's scope,
   which was the `next` path only.
+
+
+- **SECT-B11 — `/opacity` modifiers on `--primary` are silently dead repo-wide.**
+  `--primary` is defined as a complete `hsl(...)` string rather than the channel
+  triple Tailwind's `/opacity` modifier compiles against, so `bg-primary/10`
+  and friends resolve to transparent instead of a 10% tint. Found while
+  building the SECT-8B rail (which uses the solid `accent` token instead);
+  **45 existing usages in `client/src` are affected** and are currently
+  rendering nothing where a subtle fill was intended. The fix is a token
+  change (`--primary` → channel triple, plus `hsl(var(--primary))` at every
+  consumption site), which is a repo-wide styling change and needs its own
+  ticket rather than riding along with a feature.
 
 ---
 

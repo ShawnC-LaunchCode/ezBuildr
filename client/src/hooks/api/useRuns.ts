@@ -74,11 +74,35 @@ export function useSubmitPage(): UseMutationResult<{ success: boolean; errors?: 
 }
 
 export function useNext(): UseMutationResult<{ nextPageId?: string }, unknown, { runId: string; currentPageId: string }> {
+    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ runId, currentPageId }: { runId: string; currentPageId: string }) =>
             runAPI.next(runId, currentPageId),
-        // Don't invalidate queries here - navigation state is managed locally in WorkflowRunner
-        // Refetching causes race conditions that interfere with setCurrentPageIndex updates
+        // Still no invalidation here - navigation state is managed locally in
+        // WorkflowRunner, and refetching causes race conditions that interfere
+        // with setCurrentPageIndex updates.
+        //
+        // The runner's Section rail (SECT-8B) nevertheless has to see the run's
+        // reached set grow as the respondent advances, so patch in the one field
+        // the server just changed: `next` appended the destination *it* resolved
+        // to `visited_page_ids`, and that exact id comes back in the response.
+        // Mirroring it keeps reachedness server-owned — the client never decides
+        // which page was reached — without a refetch (SECT-8A).
+        onSuccess: (result, variables) => {
+            const reachedPageId = result.nextPageId;
+            if (reachedPageId == null) {
+                return;
+            }
+            queryClient.setQueryData<ApiRunRuntime>(queryKeys.runRuntime(variables.runId), (previous) => {
+                if (!previous || previous.run.visitedPageIds.includes(reachedPageId)) {
+                    return previous;
+                }
+                return {
+                    ...previous,
+                    run: { ...previous.run, visitedPageIds: [...previous.run.visitedPageIds, reachedPageId] },
+                };
+            });
+        },
     });
 }
 

@@ -11,6 +11,7 @@ import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
 import { FinalDocumentsPage } from "@/components/runner/pages/FinalDocumentsPage";
 import { ReviewPage } from "@/components/runner/pages/ReviewPage";
 import { PageSteps } from "@/components/runner/PageSteps";
+import type { RunnerNavData } from "@/components/runner/RunnerSectionNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRunSession } from "@/hooks/runner/useRunSession";
@@ -32,7 +33,17 @@ interface WorkflowRunnerProps {
   previewEnvironment?: PreviewEnvironment;
   isPreview?: boolean;
   onPreviewComplete?: () => void;
+  /**
+   * Preview's reached set (SECT-8B). A preview has no run row, so the preview
+   * shell owns an ephemeral in-memory set and hands it down here; production
+   * reads the persisted `visitedPageIds` off the runtime payload instead.
+   */
+  previewVisitedPageIds?: string[];
+  /** Called in preview when navigation enters a page, so the shell can append it. */
+  onPreviewPageEntered?: (pageId: string) => void;
 }
+
+const NO_VISITED_PAGE_IDS: string[] = [];
 
 type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'settings'>;
 
@@ -77,6 +88,8 @@ interface WorkflowRunnerScreenProps {
   setShowReview: (showReview: boolean) => void;
   reviewEditStepId: string | null;
   onEditReviewStep: (stepId: string, pageId: string) => void;
+  /** Section rail contents; undefined while there is nothing to navigate. */
+  nav?: RunnerNavData;
 }
 
 // `isProductionMode` stays in the loaded props: it is what tells a signature
@@ -168,7 +181,14 @@ function resolveRunnerSectionState(input: {
   };
 }
 
-export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
+export function WorkflowRunner({
+  runId,
+  previewEnvironment,
+  isPreview: _isPreview = false,
+  onPreviewComplete,
+  previewVisitedPageIds,
+  onPreviewPageEntered,
+}: WorkflowRunnerProps) {
   // 1. Session & Initialization
   const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment);
   const isProductionMode = mode === 'production';
@@ -303,6 +323,29 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     }
   }, [showReview]);
 
+  // Preview's analogue of SECT-8A's server-side append: the preview shell owns
+  // the set, this only reports the page navigation actually resolved to. A page
+  // navigation jumped over is never reported, so it stays greyed.
+  useEffect(() => {
+    if (isProductionMode || currentPage == null) {
+      return;
+    }
+    onPreviewPageEntered?.(currentPage.id);
+  }, [isProductionMode, currentPage, onPreviewPageEntered]);
+
+  // Reachedness is server state in production (SECT-8A) — never recomputed
+  // here, and never mirrored into a zustand store (convention 8).
+  const visitedPageIds = isProductionMode
+    ? runtime?.run.visitedPageIds ?? NO_VISITED_PAGE_IDS
+    : previewVisitedPageIds ?? NO_VISITED_PAGE_IDS;
+
+  const nav = useMemo<RunnerNavData>(() => ({
+    sections: sectionState.sections ?? [],
+    visiblePages: respondentPages,
+    visitedPageIds,
+    currentPageId: currentPage?.id ?? null,
+  }), [sectionState.sections, respondentPages, visitedPageIds, currentPage?.id]);
+
   // Branding is resolved server-side on both paths so preview and production
   // agree: production reads it off the runtime payload, preview off the
   // workflow GET (GH-158 / O-9). The hook still falls back to resolving the
@@ -351,6 +394,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       setShowReview={setShowReview}
       reviewEditStepId={reviewEditStepId}
       onEditReviewStep={onEditReviewStep}
+      nav={nav}
     />
   );
 }
@@ -574,6 +618,7 @@ function ReviewRunnerScreen({
   handleFinalSubmit,
   onEditReviewStep,
   setShowReview,
+  nav,
 }: LoadedRunnerScreenProps): ReactElement {
   return (
     <ClientRunnerLayout
@@ -583,6 +628,8 @@ function ReviewRunnerScreen({
       totalSteps={visiblePages.length}
       saveStatus={saveStatus}
       branding={branding}
+      // On the review screen no page is current: the respondent is past them all.
+      nav={nav && { ...nav, currentPageId: null }}
     >
       <ReviewPage
         pages={visiblePages}
@@ -626,6 +673,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     actualRunId,
     runToken,
     reviewEditStepId,
+    nav,
   } = props;
 
   const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
@@ -641,6 +689,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
       saveStatus={saveStatus}
       saveAndResumeAction={saveAndResumeAction}
       branding={branding}
+      nav={nav}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionPageHeader currentPage={currentPage} />

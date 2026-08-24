@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 import { DevToolsPanel } from "@/components/devtools/DevToolsPanel";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,20 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     const [previewRunId, setPreviewRunId] = useState<string | null>(null);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [snapshotId, setSnapshotId] = useState<string | null>(null);
+
+    // Preview's analogue of the run row's `visited_page_ids` (SECT-8A): a
+    // preview has no run row, so the reached set lives here, insertion-ordered
+    // and append-only, and is discarded with the preview. It deliberately does
+    // NOT live in a zustand store (convention 8), and it survives the hot
+    // reload that recreates the PreviewEnvironment, exactly as answers do.
+    const [visitedPageIds, setVisitedPageIds] = useState<string[]>([]);
+    const markPageVisited = useCallback((pageId: string) => {
+        setVisitedPageIds((previous) => (previous.includes(pageId) ? previous : [...previous, pageId]));
+    }, []);
+    const resetPreview = useCallback(() => {
+        env?.reset();
+        setVisitedPageIds([]);
+    }, [env]);
 
     // Fetch workflow data
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -258,7 +272,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
             <DevToolbar
                 workflowId={workflowId}
                 onExit={onExit}
-                onReset={() => env.reset()}
+                onReset={resetPreview}
                 onRandomFill={() => { void handleRandomFill(); }}
                 onRandomFillPage={() => { void handleRandomFillPage(); }}
                 onLoadSnapshot={(id) => setSnapshotId(id)}
@@ -273,6 +287,8 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                         key={`preview-${env.getState().id}`}
                         runId={previewRunId ?? undefined}
                         previewEnvironment={env}
+                        previewVisitedPageIds={visitedPageIds}
+                        onPreviewPageEntered={markPageVisited}
                     />
                 </div>
 
