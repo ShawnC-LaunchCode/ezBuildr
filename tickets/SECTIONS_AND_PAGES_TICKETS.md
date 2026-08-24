@@ -1974,19 +1974,69 @@ that imports `server/db` in the same process.
 
 ---
 
-## Phase 4 Gate
+## Phase 4 Gate ✅
 
-- [ ] SECT-8A, SECT-8B and SECT-9 ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → clean
-- [ ] Full suite green: `test:fast`, `test:unit`, `test:integration`
-- [ ] **One batched live drive-through:** a published ~15-page workflow with
-      three Sections, one ungrouped page and one logic-excluded page — walk it
-      forward, jump back by rail, reload mid-run, confirm reached state and that
-      the excluded page never appears. Desktop **and** mobile widths.
-      Screenshots attached.
-- [ ] The feature is *Live-verified*, not merely code-complete — say so
-      explicitly in the gate note
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] SECT-8A, SECT-8B and SECT-9 ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; `npm run lint` → clean
+- [x] Full suite green: `test:fast`, `test:unit`, `test:integration`
+- [x] **One batched live drive-through** — desktop and mobile, screenshots retained
+- [x] The feature is **Live-verified**, not merely code-complete
+- [x] Reviewer has committed each passed ticket + this gate
+
+**Closed 2026-08-24 (reviewer).** Phase 4 is **Live-verified**, not merely
+code-complete: the behaviour below was observed in a real browser against a real
+published workflow and a real database, not inferred from green tests.
+
+Final gate numbers, all re-run by the reviewer on the finished tree:
+
+| Gate | Result |
+|---|---|
+| `type-check` | 0 errors |
+| `lint` | exit 0, zero new suppressions across SECT-8A/8B/9 |
+| `test:fast` | 309 files / 3,428 tests |
+| `test:unit` | 327 files / 3,588 tests |
+| `test:integration` | 129 files / 1,204 passed / 3 skipped |
+
+The integration count is unchanged from SECT-8A's, which is the expected result:
+SECT-8B and SECT-9 are client-only.
+
+**The batched drive-through.** One fixture, built by the reviewer: 15 authored
+pages across three Sections (Assets 4, Debts and liabilities 4, Children 4),
+three ungrouped pages, and one page excluded by `visibleIf` (`Child support
+worksheet`, gated on an unanswered question), published to a real version.
+
+- The runner reported **"Step 1 of 14"** and **"Children 0/3"** — the excluded
+  page is absent from the rail *and* out of the denominator (AC4/AC5 of SECT-8B,
+  the pair that actually matters). Its title never appeared anywhere in the DOM
+  at any point in the walk, at either width.
+- Walked forward to step 8. The rail grew live to `Assets 4/4`, `Debts 2/4`
+  **without a refetch**, which is SECT-9's `useNext` cache patch working.
+- Every unreached row was a genuinely `[disabled]` button, and each Section
+  header stayed disabled until its first page was reached (D-4/D-6).
+- **Jumped back by rail** to "Real property": the view moved and the reached
+  count stayed 8/14.
+- **Reloaded mid-run** — the decisive check. The run resumed on **"Loans and
+  judgments"**, the server's forward cursor, *not* the page the rail had jumped
+  to. The database agreed: `current_page_id = Loans and judgments`, eight ids in
+  exact insertion order, and the hidden page `visited = false`. A jump moves the
+  view; the server stays authoritative.
+- **Mobile at 390px:** no horizontal overflow, rail collapsed behind its
+  trigger, `aria-expanded` false→true on open, and a jump from the sheet both
+  navigated and closed the sheet.
+- Console carried only pre-existing noise (a 401 on `refresh-token` for an
+  unauthenticated respondent, and the Vite HMR socket to port 5000).
+
+Evidence: `.playwright-mcp/gate4-{desktop-walked,mobile-sheet,mobile-after-jump}.png`
+(gitignored).
+
+**Isolation and teardown, verified rather than assumed.** The fixture ran
+against a throwaway local Postgres with the full migration chain applied, and
+the probe refused to start unless its own `DATABASE_URL` was localhost — the
+guard SECT-9's near-miss earned. Afterwards: throwaway database dropped, port
+5174 free, all probe scripts deleted, `git status` clean. The shared **dev**
+Neon branch was confirmed to hold **zero** fixture rows, **zero** tenants created
+during the session, and to be **still unmigrated** — which independently proves
+nothing from this gate reached it.
 
 ---
 
