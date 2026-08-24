@@ -235,6 +235,78 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Advance the persisted cursor and reached-page history in one conditional
+   * update. The UUID array is an insertion-ordered set: a destination is
+   * appended only when it is non-null and absent. Keeping this expression in
+   * PostgreSQL avoids duplicate/lost entries under concurrent requests.
+   */
+  async advanceIfIncomplete(
+    runId: string,
+    currentPageId: string | null,
+    progress?: number,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const visitedPageIds = currentPageId === null
+      ? workflowRuns.visitedPageIds
+      : sql<string[]>`CASE
+          WHEN ${currentPageId}::uuid = ANY(${workflowRuns.visitedPageIds})
+            THEN ${workflowRuns.visitedPageIds}
+          ELSE array_append(${workflowRuns.visitedPageIds}, ${currentPageId}::uuid)
+        END`;
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({
+        currentPageId,
+        visitedPageIds,
+        ...(progress === undefined ? {} : { progress }),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) { return updated; }
+
+    const existing = await this.findById(runId, tx);
+    if (existing) { throw createError.runCompleted(); }
+    throw createError.notFound('Run', runId);
+  }
+
+  /**
+   * Rotate a resumed run's bearer token and idempotently repair its reached
+   * history from the cursor in the same update/transaction. Referencing the
+   * row's current_page_id inside the expression avoids racing a concurrent
+   * navigation update with a stale value read in application code.
+   */
+  async resumeIfIncomplete(
+    runId: string,
+    runToken: string,
+    tokenExpiresAt: Date,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({
+        runToken,
+        tokenExpiresAt,
+        visitedPageIds: sql<string[]>`CASE
+          WHEN ${workflowRuns.currentPageId} IS NULL
+            OR ${workflowRuns.currentPageId} = ANY(${workflowRuns.visitedPageIds})
+            THEN ${workflowRuns.visitedPageIds}
+          ELSE array_append(${workflowRuns.visitedPageIds}, ${workflowRuns.currentPageId})
+        END`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) { return updated; }
+
+    const existing = await this.findById(runId, tx);
+    if (existing) { throw createError.runCompleted(); }
+    throw createError.notFound('Run', runId);
+  }
+
+  /**
    * Update the generation status of a run.
    *
    * generation_status is varchar(50); a long `failed:<reason>` must not make

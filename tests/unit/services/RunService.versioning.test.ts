@@ -72,7 +72,11 @@ describe("RunService version pinning", () => {
       }),
     };
     stateService = {
-      updateProgress: vi.fn().mockResolvedValue(undefined),
+      updateProgress: vi.fn(async (_runId: string, currentPageId: string | null) => ({
+        id: "run-1",
+        currentPageId,
+        visitedPageIds: currentPageId ? [currentPageId] : [],
+      })),
     };
 
     service = new RunService(
@@ -214,7 +218,11 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
       }),
     };
     stateService = {
-      updateProgress: vi.fn().mockResolvedValue(undefined),
+      updateProgress: vi.fn(async (_runId: string, currentPageId: string | null) => ({
+        id: "run-1",
+        currentPageId,
+        visitedPageIds: currentPageId ? [currentPageId] : [],
+      })),
     };
     versionSvc = {
       createDraftVersion: vi.fn(),
@@ -354,7 +362,11 @@ describe("RunService ICW2-B9: initial currentPageId on run creation", () => {
       evaluateNavigation: vi.fn(),
     };
     stateService = {
-      updateProgress: vi.fn().mockResolvedValue(undefined),
+      updateProgress: vi.fn(async (_runId: string, currentPageId: string | null) => ({
+        id: "run-1",
+        currentPageId,
+        visitedPageIds: currentPageId ? [currentPageId] : [],
+      })),
     };
 
     service = new RunService(
@@ -400,6 +412,7 @@ describe("RunService ICW2-B9: initial currentPageId on run creation", () => {
     expect(logicSvc.evaluateNavigation).toHaveBeenCalledWith("wf-1", "run-1", null);
     expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-first");
     expect(run.currentPageId).toBe("page-first");
+    expect(run.visitedPageIds).toEqual(["page-first"]);
     // The snapshot/randomize auto-advance path must not be touched by a plain create.
     expect(lifecycleService.determineStartPage).not.toHaveBeenCalled();
   });
@@ -445,6 +458,7 @@ describe("RunService ICW2-B9: initial currentPageId on run creation", () => {
     expect(logicSvc.evaluateNavigation).not.toHaveBeenCalled();
     expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-auto-advanced");
     expect(run.currentPageId).toBe("page-auto-advanced");
+    expect(run.visitedPageIds).toEqual(["page-auto-advanced"]);
   });
 
   it("initializes createAnonymousRun's currentPageId to the first visible page", async () => {
@@ -468,5 +482,6 @@ describe("RunService ICW2-B9: initial currentPageId on run creation", () => {
     expect(logicSvc.evaluateNavigation).toHaveBeenCalledWith("wf-1", "run-1", null);
     expect(stateService.updateProgress).toHaveBeenCalledWith("run-1", "page-first");
     expect(run.currentPageId).toBe("page-first");
+    expect(run.visitedPageIds).toEqual(["page-first"]);
   });
 });

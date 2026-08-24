@@ -73,8 +73,10 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
     // Creation response and the persisted row both reflect the resolved
     // starting page — not null.
     expect(createResponse.body.data.currentPageId).toBe(firstPage.id);
+    expect(createResponse.body.data.visitedPageIds).toEqual([firstPage.id]);
     const createdRow = await getRunRow(runId);
     expect(createdRow.currentPageId).toBe(firstPage.id);
+    expect(createdRow.visitedPageIds).toEqual([firstPage.id]);
 
     // AC1: the very first POST /next advances FROM the first page to the
     // next visible page (nextPageId !== currentPageId).
@@ -92,6 +94,7 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
 
     const afterNextRow = await getRunRow(runId);
     expect(afterNextRow.currentPageId).toBe(secondPage.id);
+    expect(afterNextRow.visitedPageIds).toEqual([firstPage.id, secondPage.id]);
   });
 
   it('resolves nextPageId to null on the first /next when the workflow has only one visible page', async () => {
@@ -150,7 +153,9 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
       .expect(201);
 
     const runId = createResponse.body.data.runId as string;
+    expect(createResponse.body.data.visitedPageIds).toEqual([firstPage.id]);
     const createdRow = await getRunRow(runId);
     expect(createdRow.currentPageId).toBe(firstPage.id);
+    expect(createdRow.visitedPageIds).toEqual([firstPage.id]);
   });
 });

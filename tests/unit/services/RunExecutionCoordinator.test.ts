@@ -43,7 +43,7 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
         saveStepValue: vi.fn().mockResolvedValue(undefined),
         bulkSaveValues: vi.fn().mockResolvedValue(undefined),
         getRunValues: vi.fn(),
-        updateRun: vi.fn().mockResolvedValue(undefined)
+        advanceRun: vi.fn().mockResolvedValue(undefined),
     };
     return {
         RunPersistenceWriter: vi.fn().mockImplementation(() => mockPersistence),
@@ -545,10 +545,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 expect.objectContaining({ invalidNextPageId: 'stale-page-id', pageId: 'page-a' }),
                 expect.stringContaining('not visible in this workflow')
             );
-            expect(mockRunPersistence.updateRun).toHaveBeenCalledWith('run-1', {
-                currentPageId: 'page-b',
-                progress: 50,
-            });
+            expect(mockRunPersistence.advanceRun).toHaveBeenCalledWith('run-1', 'page-b', 50);
 
             warnSpy.mockRestore();
         });

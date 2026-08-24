@@ -281,6 +281,13 @@
       "when": 1787515509641,
       "tag": "0039_slimy_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1787583508352,
+      "tag": "0040_next_boomer",
+      "breakpoints": true
     }
   ]
 }

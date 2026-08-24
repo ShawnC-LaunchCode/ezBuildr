@@ -24,6 +24,7 @@ function makeRun() {
     workflowId,
     workflowVersionId: versionId,
     currentPageId: pageId,
+    visitedPageIds: [pageId],
     completed: false,
     generationStatus: null,
   };
@@ -111,6 +112,7 @@ describe('RunRuntimeService', () => {
       workflowId,
       workflowVersionId: versionId,
       currentPageId: pageId,
+      visitedPageIds: [pageId],
       completed: false,
       generationStatus: null,
     });

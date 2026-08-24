@@ -38,6 +38,7 @@ function makeRun(overrides: Record<string, unknown> = {}) {
     id: runId,
     workflowId: '55555555-5555-4555-8555-555555555555',
     currentPageId: pageId,
+    visitedPageIds: [pageId],
     completed: false,
     assignedToUserId: null,
     clientEmail: null,
@@ -55,6 +56,7 @@ function makeService(options: {
   const runRepo = {
     findById: vi.fn().mockResolvedValue(run),
     updateIfIncomplete: vi.fn().mockImplementation(async (_id: string, updates: Record<string, unknown>) => ({ ...run, ...updates })),
+    resumeIfIncomplete: vi.fn().mockImplementation(async () => run),
     revokeToken: vi.fn().mockResolvedValue(undefined),
   };
   const resumeRepo = {
@@ -143,7 +145,7 @@ describe('RunResumeService', () => {
     await expect(service.redeemResumeLink({ runId, token: resumeToken }))
       .rejects.toMatchObject({ statusCode: 401, message: 'Resume link is invalid or expired' });
 
-    expect(runRepo.updateIfIncomplete).not.toHaveBeenCalled();
+    expect(runRepo.resumeIfIncomplete).not.toHaveBeenCalled();
     expect(auditService.logRunEvent).not.toHaveBeenCalled();
   });
 
@@ -158,12 +160,18 @@ describe('RunResumeService', () => {
       fixedNow,
       expect.anything(),
     );
-    expect(runRepo.updateIfIncomplete).toHaveBeenCalledWith(
+    expect(runRepo.resumeIfIncomplete).toHaveBeenCalledWith(
       runId,
-      expect.objectContaining({ runToken: hashToken(rotatedRunToken) }),
+      hashToken(rotatedRunToken),
+      expect.any(Date),
       expect.anything(),
     );
-    expect(result).toMatchObject({ runId, runToken: rotatedRunToken, currentPageId: pageId });
+    expect(result).toMatchObject({
+      runId,
+      runToken: rotatedRunToken,
+      currentPageId: pageId,
+      visitedPageIds: [pageId],
+    });
     expect(auditService.logRunEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'run_resume_link_accessed' }),
       expect.anything(),

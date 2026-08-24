@@ -1039,7 +1039,8 @@ export interface ApiRun {
   id: string;
   workflowId: string;
   workflowVersionId: string | null;
-  currentPageId?: string | null;
+  currentPageId: string | null;
+  visitedPageIds: string[];
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;
@@ -1062,6 +1063,7 @@ export interface ApiRunRuntime {
     workflowId: string;
     workflowVersionId: string;
     currentPageId: string | null;
+    visitedPageIds: string[];
     completed: boolean;
     generationStatus: string | null;
   };
@@ -1107,7 +1109,7 @@ export const runAPI = {
   ) => {
     const qs = queryParams ? new URLSearchParams(queryParams).toString() : "";
     const params = qs ? `?${qs}` : "";
-    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentPageId?: string } }>(`/api/workflows/${workflowId}/runs${params}`, {
+    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentPageId: string | null; visitedPageIds: string[] } }>(`/api/workflows/${workflowId}/runs${params}`, {
       method: "POST",
       body: JSON.stringify(data),
     });

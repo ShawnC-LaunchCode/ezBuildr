@@ -7,6 +7,7 @@ import { validateValue } from "@shared/validation/Validator";
 import { workflowRunRepository, stepValueRepository, type BulkSaveResult } from "../../repositories";
 import { DbTransaction } from "../../repositories/BaseRepository";
 import { createError } from "../../utils/errors";
+import { withCurrentTenant } from "../../utils/rlsContext";
 import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
 
 interface RunValueValidationIssue {
@@ -139,12 +140,14 @@ export class RunPersistenceWriter {
     async createRun(data: InsertWorkflowRun, tx?: DbTransaction): Promise<WorkflowRun> {
         return this.runRepo.create(data, tx);
     }
-    /**
-     * Update run properties
-     */
-    async updateRun(runId: string, data: Partial<WorkflowRun>): Promise<void> {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- Drizzle update type mismatch with Partial<WorkflowRun>
-        await this.runRepo.updateIfIncomplete(runId, data as any);
+    /** Atomically persist a server-resolved cursor and its reached-page history. */
+    async advanceRun(
+        runId: string,
+        currentPageId: string | null,
+        progress?: number
+    ): Promise<WorkflowRun> {
+        return withCurrentTenant((tx) =>
+            this.runRepo.advanceIfIncomplete(runId, currentPageId, progress, tx));
     }
     /**
      * Save a single step value

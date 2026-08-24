@@ -112,10 +112,11 @@ export class RunExecutionCoordinator {
         // Or Coordinator delegates to Persistence?
         // Let's delegate to Persistence to keep it "Coordinator"
         if (navigation.nextPageId !== currentPageId) {
-            await this.persistence.updateRun(runId, {
-                currentPageId: navigation.nextPageId,
-                progress: navigation.currentProgress
-            });
+            await this.persistence.advanceRun(
+                runId,
+                navigation.nextPageId,
+                navigation.currentProgress
+            );
         }
         return navigation;
     }

@@ -25,7 +25,7 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
         saveStepValue: vi.fn().mockResolvedValue(undefined),
         bulkSaveValues: vi.fn().mockResolvedValue(undefined),
         getRunValues: vi.fn(),
-        updateRun: vi.fn().mockResolvedValue(undefined)
+        advanceRun: vi.fn().mockResolvedValue(undefined)
     };
     return {
         RunPersistenceWriter: vi.fn().mockImplementation(() => mockPersistence),

@@ -232,9 +232,10 @@ export class RunService {
     });
     // Determine start page with auto-advance logic
     let startPageId: string | null = run.currentPageId;
+    let persistedRun = run;
     if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
       startPageId = await this.lifecycleService.determineStartPage(run.id, workflowId, snapshotValueMap);
-      await this.stateService.updateProgress(run.id, startPageId);
+      persistedRun = await this.stateService.updateProgress(run.id, startPageId);
     } else {
       // ICW2-B9: initialize currentPageId to the first visible page so the
       // first POST /next advances from it instead of re-resolving to where the
@@ -242,7 +243,7 @@ export class RunService {
       // "return the first visible page").
       startPageId = await this.resolveInitialPageId(run.id, workflowId);
       if (startPageId) {
-        await this.stateService.updateProgress(run.id, startPageId);
+        persistedRun = await this.stateService.updateProgress(run.id, startPageId);
       }
     }
     // Capture metrics
@@ -258,7 +259,7 @@ export class RunService {
     // Return the plaintext token to the caller; the DB only holds its hash.
     // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentPageId: startPageId };
+    return { ...persistedRun, runToken };
   }
   /**
    * Get run by ID
@@ -554,8 +555,9 @@ export class RunService {
     // ICW2-B9: initialize currentPageId to the first visible page (see
     // createRun for the full rationale).
     const initialPageId = await this.resolveInitialPageId(run.id, workflow.id);
+    let persistedRun = run;
     if (initialPageId) {
-      await this.stateService.updateProgress(run.id, initialPageId);
+      persistedRun = await this.stateService.updateProgress(run.id, initialPageId);
     }
     // Capture metrics
     await this.metricsService.captureRunStarted(
@@ -570,7 +572,7 @@ export class RunService {
     // Return the plaintext token to the caller; the DB only holds its hash.
     // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentPageId: initialPageId };
+    return { ...persistedRun, runToken };
   }
   /**
    * List runs for a workflow

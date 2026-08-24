@@ -177,7 +177,13 @@ export class RunResumeService {
     token: string;
     ipAddress?: string | null;
     userAgent?: string | null;
-  }): Promise<{ runId: string; runToken: string; tokenExpiresAt: Date; currentPageId: string | null }> {
+  }): Promise<{
+    runId: string;
+    runToken: string;
+    tokenExpiresAt: Date;
+    currentPageId: string | null;
+    visitedPageIds: string[];
+  }> {
     const runToken = this.runTokenFactory();
     const runTokenHash = hashToken(runToken);
     const now = this.now();
@@ -203,10 +209,12 @@ export class RunResumeService {
         throw createError.notFound('Run');
       }
       this.assertIncomplete(run);
-      const updated = await this.runRepo.updateIfIncomplete(input.runId, {
-        runToken: runTokenHash,
+      const updated = await this.runRepo.resumeIfIncomplete(
+        input.runId,
+        runTokenHash,
         tokenExpiresAt,
-      }, tx);
+        tx,
+      );
       await this.auditService.logRunEvent({
         runId: input.runId,
         tenantId: link.tenantId,
@@ -227,6 +235,7 @@ export class RunResumeService {
       runToken,
       tokenExpiresAt,
       currentPageId: restored.currentPageId,
+      visitedPageIds: restored.visitedPageIds,
     };
   }
 

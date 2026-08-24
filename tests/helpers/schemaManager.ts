@@ -151,8 +151,10 @@ export class SchemaManager {
     // human-readable generation marker, NOT the correctness mechanism.
     // Bumped to _v39 for SECT-3 migration 0039, which adds the new sections
     // table, pages.section_id, its foreign key/index, and RLS policy.
+    // Bumped to _v40 for SECT-8A migration 0040, which adds the ordered-set
+    // workflow_runs.visited_page_ids history.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v39`;
+        return `test_schema_w${this.workerId}_v40`;
     }
 
     /**

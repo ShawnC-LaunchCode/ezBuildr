@@ -1412,7 +1412,7 @@ respondent may revisit from one they have not reached. Phase 4 therefore lands
 the persisted fact first (SECT-8A), renders it second (SECT-8B), and makes the
 rendered items interactive last (SECT-9).
 
-## SECT-8A — Persist reached pages on the run 🔄
+## SECT-8A — Persist reached pages on the run ✅
 
 **Priority: ENH** · Size: M · File: `shared/schema/run.ts`, `server/repositories/WorkflowRunRepository.ts`
 
@@ -1524,6 +1524,41 @@ unit-db requirement in addition to every gate named by AC7.
 6. Cross-tenant denial leaves the victim array byte-for-byte unchanged.
 7. Gates: `npm run type-check` 0 errors, `npm run lint` clean, and `npm run
    test:unit` plus `npm run test:integration` green.
+
+**Verified 2026-08-24 (reviewer).** All seven criteria met. Gates run by the
+reviewer on the finished tree, not taken from the dev's report:
+`type-check` 0 errors · `lint` clean · `test:fast` **302 files / 3,378 tests**
+(exactly the pre-change baseline) · `test:unit:db` **18 files / 160 tests** ·
+`test:integration` **129 files / 1,204 passed / 3 skipped** — baseline +1 file
+and +1 test, accounted for entirely by the new
+`tests/integration/api.runs.visited-pages.test.ts` vertical.
+
+Migration `0040_next_boomer` was inspected rather than assumed: one
+`uuid[] NOT NULL DEFAULT '{}'::uuid[]` column, journal entry `idx 40`, and a
+snapshot whose `prevId` chains to `0039` (which does not carry the column). The
+`_v40` test-schema marker forced all 128 worker schemas to rebuild from the full
+chain during the integration run, so the chain is proven against fresh
+databases.
+
+Reviewer-verified beyond the criteria: only two workflow-run creation paths
+exist and both persist reached state; nothing writes `current_page_id` outside
+`advanceIfIncomplete`/`resumeIfIncomplete`; and `POST /api/runs/:runId/next`
+never reads `req.body.currentPageId`, which the vertical proves by sending a
+forged body value naming a later page and asserting the server still advances
+from its persisted cursor.
+
+**One reviewer fix applied.** `RunPersistenceWriter.updateRun` became dead code
+when `RunExecutionCoordinator` was switched to `advanceRun` — its only
+production caller. It survived review because two test files still mocked it
+(`RunExecutionCoordinator.pinnedDefinition.test.ts` mocked the deleted method
+and did *not* mock `advanceRun`). Deleting it also removed an `eslint-disable`
+and an `as any` cast; both mocks were corrected.
+
+Observations filed rather than fixed here: **SECT-B9** (this ticket's
+`withCurrentTenant` conversion is reachable from the unauthenticated public-start
+path and will throw under `RLS_ENFORCED=true`) and **SECT-B10** (the
+`optionalHybridAuth` ordering restored on `next` is still missing on six sibling
+run routes).
 
 ---
 
@@ -1890,6 +1925,43 @@ these are deliberate v1 exclusions, not oversights.
   `Step N of M` over the whole workflow. With Sections, "Page 3 of 11 in Assets"
   is a better signal. Left out of SECT-8B to keep that ticket's scope on the rail
   itself.
+
+- **SECT-B7 — `PreviewRouter` is a dead visibility stub.**
+  `client/src/lib/previewRunner/PreviewRouter.ts`'s `isPageVisible()` is a
+  `return true` placeholder with commented-out example logic, so it ignores both
+  page and Section `visibleIf`. It is reachable only from `AutoTestRunner`,
+  which nothing instantiates — so this is dead code, not a live defect, and
+  SECT-1 merely renamed through it. Delete both, or wire `PreviewRouter` to
+  `computeVisibility` if the auto-test runner is ever revived. Found during the
+  SECT-1..7 retrospective, 2026-08-24.
+
+- **SECT-B8 — Cross-tenant concealment is asymmetric on the Section routes.**
+  `SectionService.createSection` deliberately converts a foreign-tenant
+  "Access denied" into "Workflow not found" (404), but `updateSection` and
+  `deleteSection` do not — they surface 403, which confirms the Section exists.
+  This matches `PageService`, which conceals nowhere, so the inconsistency is
+  repo-wide and pre-dates this board rather than being a SECT-3 regression.
+  Settle it as one ruling across the builder-authoring routes, most naturally
+  inside the RLS initiative's boundary work, not here.
+
+- **SECT-B9 — `updateProgress` is now an RLS throw-point on the anonymous path.**
+  SECT-8A converted `RunStateService.updateProgress` to `withCurrentTenant`,
+  which is the correct post-RLS pattern — but it is reachable from
+  `createAnonymousRun`, whose public-link route is unauthenticated and therefore
+  has no ambient tenant. Today that only logs the "running unscoped" warning;
+  under `RLS_ENFORCED=true` it will throw. The whole anonymous path is already
+  unscoped (`runRepo.create` included), so this is one more instance of what
+  RLS-5 exists to sweep, not a new hole — but RLS-5 should know it is there.
+
+- **SECT-B10 — `optionalHybridAuth` is still missing on several run routes.**
+  SECT-8A restored it ahead of `creatorOrRunTokenAuth` on `POST
+  /api/runs/:runId/next`, matching `runtime`, `submit`, `values` and
+  `values/bulk`. Still unconverted: `GET /api/runs/:runId`, `GET
+  /api/runs/:runId/values`, `PUT /api/runs/:runId/complete`, the two
+  `documents` routes and `POST /api/runs/:runId/share`. On those, a foreign
+  tenant's JWT is still misread as a run token instead of reaching the
+  service's concealed-404 boundary. Deliberately left out of SECT-8A's scope,
+  which was the `next` path only.
 
 ---
 

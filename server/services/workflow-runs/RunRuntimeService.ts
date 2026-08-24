@@ -15,7 +15,7 @@ export interface RunRuntimeDefinition {
   contractVersion: 1;
   run: Pick<
     WorkflowRun,
-    "id" | "workflowId" | "workflowVersionId" | "currentPageId" | "completed" | "generationStatus"
+    "id" | "workflowId" | "workflowVersionId" | "currentPageId" | "visitedPageIds" | "completed" | "generationStatus"
   >;
   workflow: {
     id: string;
@@ -118,6 +118,7 @@ export class RunRuntimeService {
         workflowId: run.workflowId,
         workflowVersionId: run.workflowVersionId,
         currentPageId: run.currentPageId,
+        visitedPageIds: run.visitedPageIds,
         completed: run.completed,
         generationStatus: run.generationStatus,
       },

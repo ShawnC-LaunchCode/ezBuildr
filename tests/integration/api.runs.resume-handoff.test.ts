@@ -143,12 +143,14 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     const restoredRunToken = redeemResponse.body.data.runToken as string;
     expect(restoredRunToken).not.toBe(originalRunToken);
     expect(redeemResponse.body.data.currentPageId).toBe(pageId);
+    expect(redeemResponse.body.data.visitedPageIds).toEqual([pageId]);
 
     const runtimeResponse = await request(ctx.baseURL)
       .get(`/api/runs/${runId}/runtime`)
       .set('Authorization', `Bearer ${restoredRunToken}`)
       .expect(200);
     expect(runtimeResponse.body.data.run.currentPageId).toBe(pageId);
+    expect(runtimeResponse.body.data.run.visitedPageIds).toEqual([pageId]);
     expect(runtimeResponse.body.data.values).toEqual([
       expect.objectContaining({ runId, stepId, value: 'Ada Lovelace' }),
     ]);

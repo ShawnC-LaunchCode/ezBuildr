@@ -53,7 +53,7 @@ Inventory of all **107 PostgreSQL tables**, organized by the `shared/schema/*.ts
 
 | Table | Purpose |
 |-------|---------|
-| `workflow_runs` | Execution instances: hashed run token, progress/cursor, completion, client email, and explicit assigned user |
+| `workflow_runs` | Execution instances: hashed run token, progress/cursor, insertion-ordered visited page IDs, completion, client email, and explicit assigned user |
 | `run_resume_links` | Tenant-scoped, hashed one-time save/resume and handoff credentials with expiry, use, and revocation timestamps |
 | `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
 | `step_values` | Run data storage per step |

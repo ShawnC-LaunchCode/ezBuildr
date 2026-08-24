@@ -40,6 +40,7 @@ vi.mock('@/lib/vault-hooks', () => ({
         workflowId: 'workflow-1',
         workflowVersionId: 'version-1',
         currentPageId: '33333333-3333-4333-8333-333333333333',
+        visitedPageIds: ['33333333-3333-4333-8333-333333333333'],
         completed: false,
         generationStatus: 'pending',
       },
@@ -66,7 +67,9 @@ describe('useRunSession resume-link bootstrap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.history.replaceState({}, '', `/run/${runId}?resume=${'a'.repeat(64)}`);
-    fetchAPIMock.mockResolvedValue({ data: { runId, runToken } });
+    fetchAPIMock.mockResolvedValue({
+      data: { runId, runToken, currentPageId: pageId, visitedPageIds: [pageId] },
+    });
   });
 
   it('redeems the one-time link before loading and restores the runtime state', async () => {

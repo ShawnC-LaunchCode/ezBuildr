@@ -106,6 +106,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       tokenExpiresAt: new Date(Date.now() + 60_000),
       createdBy: 'anon',
       currentPageId: pageId,
+      visitedPageIds: [pageId],
       metadata: { privateContext: 'must-not-leak' },
     }).returning();
     runId = run.id;
@@ -153,6 +154,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
         workflowId,
         workflowVersionId: versionId,
         currentPageId: pageId,
+        visitedPageIds: [pageId],
         completed: false,
       },
       workflow: {
@@ -195,6 +197,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       'currentPageId',
       'generationStatus',
       'id',
+      'visitedPageIds',
       'workflowId',
       'workflowVersionId',
     ]);

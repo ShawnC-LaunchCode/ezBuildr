@@ -26,7 +26,7 @@ import {
 } from "../../repositories";
 
 import { hashToken } from "../../utils/encryption";
-import { withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
+import { withCurrentTenant, withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 import type { WorkflowContentData } from "../WorkflowContentIngestService";
 import type { ShareTokenResult, SharedRunDetails } from "./types";
 
@@ -44,18 +44,9 @@ export class RunStateService {
     runId: string,
     currentPageId: string | null,
     progress?: number
-  ): Promise<void> {
-    const updates: Partial<WorkflowRun> = {
-      currentPageId,
-    };
-
-    if (progress !== undefined) {
-      updates.progress = progress;
-    }
-
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
-    await this.runRepo.updateIfIncomplete(runId, updates as any);
+  ): Promise<WorkflowRun> {
+    return withCurrentTenant((tx) =>
+      this.runRepo.advanceIfIncomplete(runId, currentPageId, progress, tx));
   }
 
   /**

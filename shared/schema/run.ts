@@ -55,6 +55,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     tokenExpiresAt: timestamp("token_expires_at"),
     createdBy: text("created_by"), // "creator:<userId>" or "anon"
     currentPageId: uuid("current_page_id").references(() => pages.id, { onDelete: 'set null' }),
+    visitedPageIds: uuid("visited_page_ids").array().default(sql`'{}'::uuid[]`).notNull(),
     progress: integer("progress").default(0),
     completed: boolean("completed").default(false),
     completedAt: timestamp("completed_at"),

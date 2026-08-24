@@ -76,7 +76,12 @@ async function consumeResumeLinkFromUrl(runId: string, urlParams: URLSearchParam
     return false;
   }
   const response = await fetchAPI<{
-    data: { runId: string; runToken: string };
+    data: {
+      runId: string;
+      runToken: string;
+      currentPageId: string | null;
+      visitedPageIds: string[];
+    };
   }>(`/api/runs/${runId}/resume`, {
     method: 'POST',
     body: JSON.stringify({ token: resumeToken }),

@@ -119,6 +119,7 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
     completed: false,
     completedAt: null,
     currentPageId: null,
+    visitedPageIds: [],
     progress: 0,
     metadata: null,
     generationStatus: "pending",

@@ -167,7 +167,9 @@ export function registerRunRoutes(app: Express): void {
         data: {
           runId: run.id,
           runToken: run.runToken,
-          workflowId: run.workflowId
+          workflowId: run.workflowId,
+          currentPageId: run.currentPageId,
+          visitedPageIds: run.visitedPageIds,
         }
       });
     } catch (error) {
@@ -228,7 +230,8 @@ export function registerRunRoutes(app: Express): void {
           data: {
             runId: authenticatedRun.id,
             runToken: authenticatedRun.runToken,
-            currentPageId: authenticatedRun.currentPageId
+            currentPageId: authenticatedRun.currentPageId,
+            visitedPageIds: authenticatedRun.visitedPageIds,
           }
         });
       }
@@ -245,7 +248,8 @@ export function registerRunRoutes(app: Express): void {
         data: {
           runId: anonymousRun.id,
           runToken: anonymousRun.runToken,
-          currentPageId: anonymousRun.currentPageId
+          currentPageId: anonymousRun.currentPageId,
+          visitedPageIds: anonymousRun.visitedPageIds,
         }
       });
     } catch (error) {
@@ -661,7 +665,7 @@ export function registerRunRoutes(app: Express): void {
    * Accepts creator session OR Bearer runToken
    */
 
-  app.post('/api/runs/:runId/next', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/next', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
       const userId = (req as AuthRequest).userId;
