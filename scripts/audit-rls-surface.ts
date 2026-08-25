@@ -230,7 +230,14 @@ function main(): void {
     const file = relative('.', abs).split('\\').join('/');
     // adminDb is the deliberate BYPASSRLS path (RLS-6); server/db.ts is the pool itself.
     if (file.includes('/db/adminDb') || file.endsWith('server/db.ts')) { continue; }
-    const src = readFileSync(abs, 'utf8');
+    // Normalise line endings BEFORE scanning. Several detectors below inspect a
+    // fixed CHARACTER window around a match (400 chars after a call, 900 either
+    // side of a db.execute), and CRLF costs one extra character per line — so a
+    // window spans fewer LINES on a Windows checkout than on Linux CI, and the
+    // same file yields different counts on the two platforms. Measured
+    // 2026-08-25: 32 sites locally (CRLF) vs 34 in CI (LF), which failed the
+    // ratchet on its very first run with a baseline seeded from Windows.
+    const src = readFileSync(abs, 'utf8').replace(/\r\n/g, '\n');
     const fileScoped = SCOPES.test(src);
 
     let total = 0;

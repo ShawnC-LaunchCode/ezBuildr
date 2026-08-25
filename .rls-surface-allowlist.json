@@ -1,55 +1,31 @@
 {
   "$comment": "RLS-9 ratchet (scripts/audit-rls-surface.ts). Call sites that read or write an RLS-covered table without a threaded transaction. The gate fails BOTH for an unlisted finding and for a listed entry whose count drops or disappears, so every entry is a deliberate, reviewable act with a diagnosed reason. Never add one merely to go green — see the header of scripts/audit-rls-surface.ts.",
-  "$baseline": "2026-08-25 — 32 sites, seeded from the state at the time the ratchet was turned on. THIS IS RLS-8's WORKLIST, NOT ABSOLUTION: the list exists so that site #33 cannot land, and every entry here is expected to be triaged away. As each is fixed the gate will fail until its count is lowered or the entry deleted, which is the ratchet tightening as intended.",
+  "$baseline": "2026-08-25 — 34 sites, seeded from a LINE-ENDING-NORMALISED scan. The first CI run disagreed with the local one (32 vs 34): several detectors inspect a fixed CHARACTER window (400 chars after a call, 900 either side of db.execute), and CRLF costs one extra char per line, so a window spans fewer LINES on a Windows checkout than on Linux CI. The script now normalises CRLF before scanning, so both platforms agree. Most entries are RLS-8's worklist, NOT absolution; two are verified false positives and are labelled as such.",
   "$howToTriage": "Three legitimate outcomes per entry: (1) scope it — thread `tx` or wrap in withCurrentTenant; (2) route it through the RLS-6/RLS-7 adminDb path if it is a deliberate cross-tenant admin read; (3) keep it and document why, if it is a bootstrap path that must run before a tenant is known (token-authenticated lookups, login by email). Detection is TEXTUAL, so a false positive is also a valid reason — record that too.",
   "allow": [
     {
-      "category": "repo-call",
-      "file": "server/routes/admin.routes.ts",
-      "count": 5,
-      "reason": "Deliberately cross-tenant: findAllUsers / findAllUsersWithWorkflowCounts / findAttributedToUser serve the platform admin console. Must be routed through the RLS-6 adminDb bypass path, NOT scoped — scoping would truncate the console to the acting admin's own tenant, which is the silent failure RLS-6 exists to prevent. Tracked by RLS-8."
-    },
-    {
-      "category": "repo-call",
+      "category": "bare-transaction",
       "file": "server/routes/auth.routes.ts",
       "count": 1,
-      "reason": "Authentication bootstrap: the identifying lookup runs before any tenant is known, so there is no tenant to scope to. Migration 0032 (rls_login_email_bootstrap) exists precisely to let this read succeed under enforcement. Likely a keep-and-document outcome; confirm under RLS-8."
+      "reason": "Bare db.transaction() on the authentication path, which runs before a tenant is known. Should become withCurrentTenant only if a tenant is genuinely available there. Tracked by RLS-8."
     },
     {
-      "category": "repo-call",
-      "file": "server/services/WorkflowPatchService.ts",
+      "category": "bare-transaction",
+      "file": "server/services/BlockRunner.ts",
       "count": 1,
-      "reason": "1 unthreaded site out of 27 — the file threads tx nearly everywhere, so this is a single missed call rather than an unscoped design. Straightforward fix under RLS-8."
-    },
-    {
-      "category": "db-call",
-      "file": "server/repositories/DatavaultDatabasesRepository.ts",
-      "count": 4,
-      "reason": "Direct db.* on datavault_databases, which carries a policy. Highest-count db-call site; needs threading through the caller's transaction. Tracked by RLS-8."
-    },
-    {
-      "category": "db-call",
-      "file": "server/services/SnapshotService.ts",
-      "count": 3,
-      "reason": "Snapshot reads/writes touch covered tables outside a tenant transaction. Related to WorkflowClonerService's cross-tenant admin path noted in RLS-4 precondition notes; decide scope-vs-adminDb under RLS-8."
-    },
-    {
-      "category": "db-call",
-      "file": "server/services/MfaService.ts",
-      "count": 2,
-      "reason": "MFA secrets/backup codes are keyed to the user, not the tenant, and are read during authentication before a tenant context exists. Probable keep-and-document; confirm the tables involved actually carry policies under RLS-8."
-    },
-    {
-      "category": "db-call",
-      "file": "server/services/sli.ts",
-      "count": 2,
-      "reason": "sli_configs / sli_windows are covered tables read by service-level indicator reporting, which is cross-tenant by design. Candidate for the adminDb path. Tracked by RLS-8."
+      "reason": "Bare db.transaction() during block execution; a tenant context should be ambient here, so this likely wants withCurrentTenant. Tracked by RLS-8."
     },
     {
       "category": "db-call",
       "file": "server/lib/audit/auditLogger.ts",
       "count": 1,
       "reason": "audit_logs write. Audit writes must not fail closed or an audited action becomes unauditable; needs a deliberate decision on whether it scopes or bypasses. Tracked by RLS-8."
+    },
+    {
+      "category": "db-call",
+      "file": "server/repositories/DatavaultDatabasesRepository.ts",
+      "count": 4,
+      "reason": "Direct db.* on datavault_databases, which carries a policy. Highest-count db-call site; needs threading through the caller's transaction. Tracked by RLS-8."
     },
     {
       "category": "db-call",
@@ -77,33 +53,39 @@
     },
     {
       "category": "db-call",
+      "file": "server/services/MfaService.ts",
+      "count": 2,
+      "reason": "MFA secrets/backup codes are keyed to the user, not the tenant, and are read during authentication before a tenant context exists. Probable keep-and-document; confirm the tables involved actually carry policies under RLS-8."
+    },
+    {
+      "category": "db-call",
+      "file": "server/services/SnapshotService.ts",
+      "count": 3,
+      "reason": "Snapshot reads/writes touch covered tables outside a tenant transaction. Related to WorkflowClonerService's cross-tenant admin path noted in RLS-4 precondition notes; decide scope-vs-adminDb under RLS-8."
+    },
+    {
+      "category": "db-call",
+      "file": "server/services/TemplateAnalysisService.ts",
+      "count": 1,
+      "reason": "FALSE POSITIVE, verified 2026-08-25. The call at line 639 is `db.select().from(templates)`, and `templates` has NO policy — it was deliberately removed from RLS_REPOS as a false positive (see this script's header). The db-call detector scans 400 chars after the call for a covered table name and catches `activeWorkflows`/`pinnedWorkflows` six lines below. Only surfaces on LF checkouts, where the window spans more lines — which is how it slipped past the Windows-seeded baseline."
+    },
+    {
+      "category": "db-call",
       "file": "server/services/blockRunners/ReadTableBlockRunner.ts",
       "count": 1,
       "reason": "Runs inside workflow execution, where a tenant context should already exist — likely needs the ambient context threading rather than a new scope. Tracked by RLS-8."
     },
     {
       "category": "db-call",
+      "file": "server/services/sli.ts",
+      "count": 2,
+      "reason": "sli_configs / sli_windows are covered tables read by service-level indicator reporting, which is cross-tenant by design. Candidate for the adminDb path. Tracked by RLS-8."
+    },
+    {
+      "category": "db-call",
       "file": "server/services/workflow-runs/RunStateService.ts",
       "count": 1,
       "reason": "Run-state read/write on a covered table; run paths are token-authenticated and may bootstrap before a tenant is resolved. Triage under RLS-8."
-    },
-    {
-      "category": "relational-read",
-      "file": "server/routes/public.routes.ts",
-      "count": 2,
-      "reason": "Public (unauthenticated) portal reads via db.query.<table>. These are token- or slug-authorised and run with no tenant context by design — the same shape as RLS-4 precondition 3. Probable keep-and-document; confirm under RLS-8."
-    },
-    {
-      "category": "bare-transaction",
-      "file": "server/routes/auth.routes.ts",
-      "count": 1,
-      "reason": "Bare db.transaction() on the authentication path, which runs before a tenant is known. Should become withCurrentTenant only if a tenant is genuinely available there. Tracked by RLS-8."
-    },
-    {
-      "category": "bare-transaction",
-      "file": "server/services/BlockRunner.ts",
-      "count": 1,
-      "reason": "Bare db.transaction() during block execution; a tenant context should be ambient here, so this likely wants withCurrentTenant. Tracked by RLS-8."
     },
     {
       "category": "raw-execute",
@@ -120,8 +102,32 @@
     {
       "category": "raw-execute",
       "file": "server/services/analytics/DropoffService.ts",
+      "count": 2,
+      "reason": "FALSE POSITIVE, verified 2026-08-25. Both db.execute() calls query `workflow_run_events`, which carries NO policy — it is not in COVERED_TABLES_SQL and has no CREATE POLICY in any migration. The raw-execute detector looks 900 chars either side of the call, and that window catches the word `workflows` from neighbouring SQL. Kept listed rather than narrowing the window, because a tighter window trades a false positive for a false negative, and this detector is the last line of defence for raw SQL. Re-verify if the query changes."
+    },
+    {
+      "category": "relational-read",
+      "file": "server/routes/public.routes.ts",
+      "count": 2,
+      "reason": "Public (unauthenticated) portal reads via db.query.<table>. These are token- or slug-authorised and run with no tenant context by design — the same shape as RLS-4 precondition 3. Probable keep-and-document; confirm under RLS-8."
+    },
+    {
+      "category": "repo-call",
+      "file": "server/routes/admin.routes.ts",
+      "count": 5,
+      "reason": "Deliberately cross-tenant: findAllUsers / findAllUsersWithWorkflowCounts / findAttributedToUser serve the platform admin console. Must be routed through the RLS-6 adminDb bypass path, NOT scoped — scoping would truncate the console to the acting admin's own tenant, which is the silent failure RLS-6 exists to prevent. Tracked by RLS-8."
+    },
+    {
+      "category": "repo-call",
+      "file": "server/routes/auth.routes.ts",
       "count": 1,
-      "reason": "Raw analytics SQL naming a covered table. Same verify-before-converting caveat as UserRepository. Tracked by RLS-8."
+      "reason": "Authentication bootstrap: the identifying lookup runs before any tenant is known, so there is no tenant to scope to. Migration 0032 (rls_login_email_bootstrap) exists precisely to let this read succeed under enforcement. Likely a keep-and-document outcome; confirm under RLS-8."
+    },
+    {
+      "category": "repo-call",
+      "file": "server/services/WorkflowPatchService.ts",
+      "count": 1,
+      "reason": "1 unthreaded site out of 27 — the file threads tx nearly everywhere, so this is a single missed call rather than an unscoped design. Straightforward fix under RLS-8."
     }
   ]
 }
