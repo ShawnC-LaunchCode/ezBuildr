@@ -23,6 +23,11 @@ all of the above from silently rotting — read §7 before touching the allowlis
 > `pg_policies` looked complete — and the app role had been live against them
 > for three days.
 >
+> Scope: it was **`dev` specifically** that drifted. `test` received the
+> 0024–0036 chain in one clean deploy and reads 36/36 enabled, so it was
+> enforcing all along and only lacks `FORCE`. Do not generalise dev's state to
+> the other branches — check each one.
+>
 > Cause: **enabling is a separate act from creating a policy**, and migrations
 > 0026–0036 create 23 policies with zero `ENABLE ROW LEVEL SECURITY`, assuming
 > 0001/0024 had done it. Every RLS suite runs against a freshly built test

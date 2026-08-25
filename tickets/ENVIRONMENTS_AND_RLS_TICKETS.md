@@ -30,8 +30,17 @@
 >
 > | branch | policies | tables with `relrowsecurity` | tables with `FORCE` |
 > |---|---|---|---|
-> | dev | **37** | **1** (`sections`) | 0 |
+> | dev, before 0041 | **37** | **1** (`sections`) | 0 |
+> | dev, after 0041 | 37 | **37** | **37** |
+> | test | 36 | 36 | 0 |
 > | production | 9 | 9 | 0 |
+>
+> **It was `dev` specifically that had drifted, not the whole estate.** `test`
+> got the 0024–0036 chain in one clean deploy on 2026-08-23 and its flags are
+> intact, so it *was* genuinely enforcing; it is only missing `FORCE`.
+> Production's 9 tables likewise enforce at the database level — but its app
+> connects as `neondb_owner`, which holds BYPASSRLS, so nothing is enforced
+> there in practice regardless.
 >
 > **A policy on a table whose `relrowsecurity` is false is inert** — Postgres
 > never evaluates it. So 36 of dev's 37 policies were decorative, including
@@ -57,14 +66,15 @@
 
 | environment | app role | RLS enforcing | notes |
 |---|---|---|---|
-| dev | `ezbuildr_app` | 🔄 **in progress 2026-08-25** | app role was already live, but against inert policies — 0041 supplies the missing enablement |
-| test | `ezbuildr_app` | ❌ **not enforcing** | app role live against inert policies; needs 0041 via a `dev` → `test` promotion |
+| dev | `ezbuildr_app` | ✅ **2026-08-25** | 42 migrations, 37/37/37 after 0041. Verified live: register + create project + read back on the restricted role |
+| test | `ezbuildr_app` | ⚠️ **enforcing, no FORCE** | 37 migrations, 36/36 enabled. Was enforcing all along; 0041 adds FORCE via a `dev` → `test` promotion |
 | **production** | `neondb_owner` | ❌ **not enforcing** | 24 migrations, 9 RLS tables — needs a `test` → `main` PR first |
 
-**This changes the shape of the remaining work.** Production is no longer "the
-whole of it": dev and test both need 0041, and the cutover procedure needs a
-catalog check *before* the role swap, because verifying isolation against tables
-where RLS is off passes trivially and proves nothing.
+**What this changes.** Production is still the bulk of the remaining work, but
+the cutover procedure now needs a catalog check *before* the role swap (§4.0 of
+`RLS4_CUTOVER.md`): verifying isolation against tables where row security is off
+passes trivially and proves nothing. That check is what would have caught dev,
+where the app role ran for three days against inert policies.
 
 ---
 
