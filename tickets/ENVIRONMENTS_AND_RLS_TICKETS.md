@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** one open ticket — **RLS-4, all three environments** · **Updated:** 2026-08-25
+**Status:** four open tickets — **RLS-4** (production), **RLS-8/9/10** (coverage) · **Updated:** 2026-08-25
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -118,6 +118,32 @@ non-owner role and running a full integration suite against a database you are w
 break — doing that against the production database is the hazard Phase 1 removes.
 
 ## Withdrawn findings — do not re-file
+
+### ⛔ Considered and rejected 2026-08-25: a pass/fail RLS test per DB operation
+
+The proposal was a test per database operation — own-tenant succeeds,
+cross-tenant returns nothing — so that RLS is proven at "100% of locations".
+**Measured surface:** ~980 drizzle call sites (430 `.select(`, 256 `.update(`,
+165 `.delete(`, 129 `.insert(`) across 395 repository methods, 50 repositories
+and 219 services. Two cases each with fixtures in two tenants across 37 tables
+of FK chains ≈ **200–330 hours**, plus a permanent per-method tax and roughly
+double the suite runtime (already 872s).
+
+**Rejected because the enforcement point is the table, not the operation.** If
+the policy on `projects` is correct, Postgres filters all 430 selects against it
+identically — 980 operation tests would mostly be testing Postgres. The real
+risk was never "does the policy filter", it is "does this code path set the
+tenant GUC at all", which is a static-analysis and runtime-invariant problem
+(RLS-9, and the existing throw at `server/utils/rlsContext.ts:214`), not a test-
+matrix problem.
+
+**The decisive evidence:** the 2026-08-25 defect — 36 policies defined and inert
+— would **not** have been caught by any of those 980 tests, because they would
+all have run against freshly built test schemas where the migration chain works
+correctly. It was a table-level structural property, and a table-level
+structural check is what found it. RLS-10 buys that property deliberately, for
+1–2 days instead of eight weeks.
+
 
 Five claims from earlier audits were investigated and proved **wrong**, two of
 them after misleading several passes ("branch protection is off", "migration
@@ -393,11 +419,139 @@ take the product down, and the blast radius is "every query returns zero rows".
 
 ---
 
+## RLS-8 — Close the 32 call sites that bypass tenant scoping 🔲 open
+
+**Priority: P1** · Size: M · Files: see the audit output — run
+`npx tsx scripts/audit-rls-surface.ts`
+
+### Finding
+
+The audit reports **32 remaining call sites** (down from 121 at RLS-2f). These
+are precisely the paths that do **not** go through `withCurrentTenant`, which is
+why the runtime throw at `server/utils/rlsContext.ts:214` never fires for them —
+they are the residue the tripwire cannot see.
+
+As measured 2026-08-25:
+
+| bucket | count | worst offenders |
+|---|---|---|
+| repository calls, no scoping helper at all | 5 | `admin.routes.ts` (5/5) |
+| scoped somewhere, unthreaded sites remain | 2 | `auth.routes.ts`, `WorkflowPatchService.ts` |
+| direct `db.*` on covered tables | 18 | `DatavaultDatabasesRepository` (4), `SnapshotService` (3), `MfaService` (2), `sli.ts` (2) |
+| relational `db.query.<table>` reads | 2 | `public.routes.ts` |
+| bare `db.transaction()` | 2 | `auth.routes.ts`, `BlockRunner.ts` |
+| raw `db.execute()` naming a covered table | 3 | `UserRepository`, `BranchingService`, `DropoffService` |
+
+`admin.routes.ts` is expected to be cross-tenant and should route through
+RLS-6/RLS-7's `adminDb` path rather than being "fixed" to scope. The rest need
+triage one by one — some are legitimate bootstrap paths (token-authenticated
+lookups, see RLS-4 precondition 3) and should be *documented* as such, not
+scoped.
+
+### Acceptance criteria
+
+1. Every one of the 32 sites is either scoped, routed through the admin path, or
+   annotated with a one-line reason why it is a deliberate exception.
+2. `audit-rls-surface.ts` reports zero untriaged sites.
+3. `npm run test:rls-gate` still green, allowlist still empty.
+
+### Ties
+
+- Depends on nothing; blocks nothing. Do it before RLS-9's ratchet is turned on,
+  or the ratchet starts red.
+
+---
+
+## RLS-9 — Put the surface audit in CI with a two-way ratchet 🔲 open
+
+**Priority: P1** · Size: S · Files: `scripts/audit-rls-surface.ts`,
+`.github/workflows/rls-gate.yml` (or a new workflow), a new allowlist file
+
+### Finding
+
+**`scripts/audit-rls-surface.ts` is not wired into CI.** Verified 2026-08-25: it
+appears in no workflow and in no `package.json` script, and it has no allowlist,
+no baseline and no non-zero exit. It is a tool someone must remember to run.
+
+That is the actual hole in RLS coverage. The gate (`rls-gate.yml`) catches a
+lost scope only when some integration test asserts data comes back — and RLS
+read failures are **silent**, returning empty rather than throwing. So nothing
+currently stops call site #33 from landing.
+
+### Preferred fix
+
+Give it the same **two-way ratchet** as `.rls-allowlist.json`, which is the
+design that has kept the gate honest: an unlisted finding fails the build, *and*
+a listed entry that no longer reproduces also fails, with an instruction to
+delete it. One-way lists rot into decoration — this repo has been bitten by that
+shape more than once.
+
+### Acceptance criteria
+
+1. The audit runs in CI on `dev`, `test` and `main`.
+2. A new unscoped call site fails the build.
+3. A listed entry that stops reproducing fails the build with a "delete this
+   entry" message.
+4. **Proven non-vacuous**: add a deliberately unscoped `db.select()` on a
+   covered table, watch CI go red, remove it. Paste the failure.
+
+---
+
+## RLS-10 — Data-driven proof that every policy actually isolates 🔲 open
+
+**Priority: P2** · Size: S/M · Files: `tests/integration/rls-coverage.test.ts`
+or a sibling suite
+
+### Finding
+
+`rls-coverage.test.ts` now proves every policy-bearing table is **enforcing**
+(`ENABLE` + `FORCE`, added with migration 0041). It does **not** prove any
+policy actually *isolates* — a policy could be enabled, forced, and wrong.
+
+The 27 integration files that assert cross-tenant denial cover a hand-picked
+subset of tables, chosen by whoever wrote them. There is no table-driven proof.
+
+### Preferred fix
+
+One suite that enumerates covered tables from `pg_policies` — not a hand-written
+list, which is the mistake migrations 0001/0011/0024 each made in turn — and for
+each asserts, as a non-owner role:
+
+| condition | expected |
+|---|---|
+| no tenant GUC | 0 rows |
+| GUC = `''` (the empty-string trap) | 0 rows |
+| GUC = tenant A | only tenant A's rows |
+| GUC = tenant B | 0 of tenant A's rows |
+
+New covered tables are then included automatically, which is the property that
+makes this worth writing at all.
+
+### Acceptance criteria
+
+1. Enumerated from the catalog, never a literal table list.
+2. All four conditions asserted per table.
+3. **Proven non-vacuous**: drop one policy, confirm that table fails; restore.
+4. Tables needing fixtures in two tenants are seeded generically, or skipped
+   with an explicit recorded reason — a silently skipped table is the failure
+   mode this whole initiative keeps producing.
+
+### Ties
+
+- This is the deliberate, cheap alternative to the per-operation test matrix
+  rejected under *Withdrawn findings*. Read that entry before proposing a
+  bigger version of this ticket.
+
+---
+
 ## Phase 2 Gate
 
 - [~] RLS-1 ✅, RLS-2a ✅, RLS-2b ✅, RLS-2c ✅, RLS-2d ✅, RLS-2e ✅, RLS-2f ✅, RLS-3 ✅,
-      RLS-5 ✅, RLS-6 ✅, RLS-7 ✅ (2026-08-22) — **RLS-4 is the only ticket still open**,
-      and only for `test`/`production`, both gated on the promotion chain
+      RLS-5 ✅, RLS-6 ✅, RLS-7 ✅ (2026-08-22). **RLS-4 is done for dev and test
+      (2026-08-25) and open for production.** Three coverage tickets were added
+      2026-08-25 — **RLS-8** (32 unscoped call sites), **RLS-9** (put the surface
+      audit in CI; it is wired into nothing today), **RLS-10** (data-driven proof
+      that policies isolate, not merely that they are enabled)
 - [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
       needs delivering
 - [x] A cross-tenant read proven impossible at the database level, with fail-closed evidence
@@ -430,6 +584,11 @@ RLS-2f ✅ done 2026-08-21 — the call-site sweep (121 -> 25 sites)
 RLS-7     admin.routes' remaining cross-tenant ops  (blocks RLS-4, needs an owner ruling)
 RLS-4     FORCE + restricted role   (blocked on 2b, 2f, 3, 6 and 7)
 RLS-5     gate: full integration as the restricted role
+
+added 2026-08-25, after 0041 found the policies were defined but inert:
+RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
+RLS-9     surface audit into CI, two-way ratchet  ─┘ ratchet starts red
+RLS-10    data-driven per-table isolation proof     (independent of both)
 ```
 
 RLS-2b, RLS-3 and RLS-6 are mutually disjoint — services, migrations and the admin path
