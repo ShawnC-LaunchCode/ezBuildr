@@ -88,3 +88,38 @@ jobs:
         name: rls-gate-results
         path: rls-gate-results.json
         if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # RLS-9 — the static half of the same question.
+  #
+  # Deliberately a SEPARATE job with no database and no service containers. The
+  # integration gate above answers "do the tests still pass when the app cannot
+  # see other tenants' rows", which it can only answer for paths some test
+  # actually drives — and an RLS read failure is SILENT, returning empty rather
+  # than throwing. This job answers the complementary question, "did anyone add
+  # a query that never sets a tenant at all", for every call site whether a test
+  # exercises it or not. It finishes in seconds, so a static regression is not
+  # buried behind a 15-minute suite.
+  # ---------------------------------------------------------------------------
+  rls-surface-audit:
+    name: RLS Surface Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    # Two-way ratchet against .rls-surface-allowlist.json: fails on a new or
+    # worsened unscoped call site, AND on an entry that improved or no longer
+    # reproduces (which must then be tightened or deleted). A one-way list rots
+    # into decoration that certifies nothing.
+    - name: Run the RLS surface gate
+      run: npx tsx scripts/audit-rls-surface.ts

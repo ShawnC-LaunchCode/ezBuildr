@@ -9,7 +9,23 @@
  * WITHOUT a transaction argument, so "what is left" is a finite list rather than
  * a feeling.
  *
- *   npx tsx scripts/audit-rls-surface.ts
+ *   npx tsx scripts/audit-rls-surface.ts            # report + gate
+ *   npx tsx scripts/audit-rls-surface.ts --report    # report only, always exit 0
+ *
+ * RLS-9: this is a CI GATE, not just a report. Findings are compared against
+ * `.rls-surface-allowlist.json` and the exit code is non-zero on any drift.
+ * The ratchet runs BOTH WAYS, and the second direction is the point:
+ *
+ *   1. A finding not on the list, or a listed file whose count went UP, fails
+ *      the build — no new unscoped call site can land.
+ *   2. A listed file whose count went DOWN, or that no longer appears at all,
+ *      ALSO fails, with an instruction to update or delete the entry. Without
+ *      this the list only ever grows, entries outlive the problems they
+ *      describe, and the gate quietly becomes decoration that certifies
+ *      nothing — a shape this repo has been bitten by more than once.
+ *
+ * The seeded entries are RLS-8's worklist, not absolution. Each is a known
+ * unscoped site with a recorded reason; the ratchet is what stops site #33.
  *
  * READ THE CAVEATS BEFORE TRUSTING A NUMBER:
  *  - Detection is TEXTUAL. A call whose transaction argument is named something
@@ -24,8 +40,8 @@
  * output) and docs/architecture/RLS_HANDOFF.md (state, patterns and traps).
  */
 
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, relative } from 'path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { join, relative, resolve } from 'path';
 
 /**
  * Repositories whose backing tables carry an RLS policy.
@@ -202,6 +218,7 @@ function walk(dir: string, out: string[] = []): string[] {
 interface Row { unthreaded: number; total: number; scoped: boolean; file: string }
 
 function main(): void {
+  const reportOnly = process.argv.includes('--report');
   const repoRows: Row[] = [];
   const dbRows: Array<{ hits: number; file: string }> = [];
   const rawRows: Array<{ hits: number; file: string }> = [];
@@ -324,6 +341,137 @@ function main(): void {
   for (const r of rawRows) {
     console.log(`${String(r.hits).padStart(4)}       ${r.file}`);
   }
+
+  // Structured view of the same numbers, for the ratchet. These category names
+  // are STABLE IDENTIFIERS, not the human headings above — renaming a heading
+  // must not silently invalidate every allowlist entry.
+  const findings: Finding[] = [
+    ...repoRows.map((r) => ({ category: 'repo-call', file: r.file, count: r.unthreaded })),
+    ...dbRows.map((r) => ({ category: 'db-call', file: r.file, count: r.hits })),
+    ...joinRows.map((r) => ({ category: 'relational-join', file: r.file, count: r.hits })),
+    ...relRows.map((r) => ({ category: 'relational-read', file: r.file, count: r.hits })),
+    ...txRows.map((r) => ({ category: 'bare-transaction', file: r.file, count: r.hits })),
+    ...rawRows.map((r) => ({ category: 'raw-execute', file: r.file, count: r.hits })),
+  ].sort((a, b) => a.category.localeCompare(b.category) || a.file.localeCompare(b.file));
+
+  if (reportOnly) {
+    console.log('(--report: gate skipped)');
+    return;
+  }
+  runGate(findings);
+}
+
+// ---------------------------------------------------------------------------
+// RLS-9 — the ratchet
+// ---------------------------------------------------------------------------
+
+const ALLOWLIST_PATH = resolve(process.cwd(), '.rls-surface-allowlist.json');
+
+/** One finding: a stable category, a file, and how many hits that file has. */
+interface Finding { category: string; file: string; count: number }
+
+interface AllowEntry { category: string; file: string; count: number; reason: string }
+
+function loadAllowlist(): AllowEntry[] {
+  if (!existsSync(ALLOWLIST_PATH)) {
+    console.error(`\n❌ No allowlist at ${ALLOWLIST_PATH}.`);
+    console.error('   A missing allowlist is a FAILURE, never a pass — that failure mode is how');
+    console.error('   a gate goes months without actually gating anything.');
+    process.exit(1);
+  }
+  const parsed = JSON.parse(readFileSync(ALLOWLIST_PATH, 'utf8')) as { allow?: AllowEntry[] };
+  const allow = parsed.allow ?? [];
+  for (const e of allow) {
+    if (!e.reason || e.reason.trim().length < 10) {
+      console.error(`\n❌ Allowlist entry ${e.category}:${e.file} has no usable reason.`);
+      console.error('   An unexplained entry is how this gate rots. Diagnose it or remove it.');
+      process.exit(1);
+    }
+  }
+  return allow;
+}
+
+function findingKey(f: { category: string; file: string }): string {
+  return `${f.category}\u0000${f.file}`;
+}
+
+function runGate(findings: Finding[]): void {
+  const allow = loadAllowlist();
+  const allowByKey = new Map(allow.map((e) => [findingKey(e), e]));
+  const foundByKey = new Map(findings.map((f) => [findingKey(f), f]));
+
+  const unlisted: Finding[] = [];
+  const increased: Array<{ f: Finding; was: number }> = [];
+  const decreased: Array<{ e: AllowEntry; now: number }> = [];
+  const stale: AllowEntry[] = [];
+
+  for (const f of findings) {
+    const e = allowByKey.get(findingKey(f));
+    if (!e) {
+      unlisted.push(f);
+    } else if (f.count > e.count) {
+      increased.push({ f, was: e.count });
+    }
+  }
+  for (const e of allow) {
+    const f = foundByKey.get(findingKey(e));
+    if (!f) {
+      stale.push(e);
+    } else if (f.count < e.count) {
+      decreased.push({ e, now: f.count });
+    }
+  }
+
+  const total = findings.reduce((n, f) => n + f.count, 0);
+  console.log('\n=== RLS surface gate ===');
+  console.log(`${total} call site(s) across ${findings.length} file/category pair(s); ${allow.length} allowlisted.`);
+
+  let failed = false;
+
+  if (unlisted.length > 0) {
+    failed = true;
+    console.error('\n❌ NEW unscoped call sites — these are not on the allowlist:\n');
+    for (const f of unlisted) {
+      console.error(`   ${String(f.count).padStart(3)}  ${f.category.padEnd(17)} ${f.file}`);
+    }
+    console.error('\n   Scope the query (withCurrentTenant / thread `tx`), route it through the');
+    console.error('   adminDb path if it is a deliberate cross-tenant admin read, or add it to');
+    console.error('   .rls-surface-allowlist.json WITH a diagnosed reason. Do not add an entry');
+    console.error('   merely to make the build green.');
+  }
+
+  if (increased.length > 0) {
+    failed = true;
+    console.error('\n❌ Allowlisted files that got WORSE:\n');
+    for (const { f, was } of increased) {
+      console.error(`   ${f.category.padEnd(17)} ${f.file}: ${was} -> ${f.count}`);
+    }
+    console.error('\n   An allowlist entry freezes a KNOWN count. It is not a licence to add more.');
+  }
+
+  if (decreased.length > 0) {
+    failed = true;
+    console.error('\n❌ Allowlisted files that IMPROVED — tighten the ratchet:\n');
+    for (const { e, now } of decreased) {
+      console.error(`   ${e.category.padEnd(17)} ${e.file}: ${e.count} -> ${now}   (set count to ${now})`);
+    }
+    console.error('\n   This is the good direction. Lower the count so the progress cannot');
+    console.error('   silently revert later.');
+  }
+
+  if (stale.length > 0) {
+    failed = true;
+    console.error('\n❌ Allowlist entries that no longer reproduce — DELETE them:\n');
+    for (const e of stale) {
+      console.error(`   ${e.category.padEnd(17)} ${e.file}   (was ${e.count})`);
+    }
+    console.error('\n   A list that only ever grows certifies nothing.');
+  }
+
+  if (failed) {
+    process.exit(1);
+  }
+  console.log('\n✅ RLS surface gate passed: no new unscoped sites, and every allowlist entry still earns its place.');
 }
 
 main();

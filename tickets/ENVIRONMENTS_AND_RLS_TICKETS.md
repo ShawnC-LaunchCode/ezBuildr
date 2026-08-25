@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** four open tickets — **RLS-4** (production), **RLS-8/9/10** (coverage) · **Updated:** 2026-08-25
+**Status:** three open — **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-08-25
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -270,7 +270,10 @@ Running the migrations against test out of band would work, but it would put the
 schema ahead of the code it is meant to be a snapshot of, which is the one thing
 the promotion model exists to prevent.
 
-**Priority: P0** · Size: M · **BLOCKED on RLS-2, RLS-3, and now the admin-access path below** · Files: a new migration, Railway/Neon role configuration, `.env.example`
+**Priority: P0** · Size: S · **UNBLOCKED** — RLS-2, RLS-3, RLS-6 and RLS-7 all closed
+2026-08-22, and the admin-access path called out below was built. Gated now only on a
+`test` → `main` PR, which is a promotion decision rather than an RLS one. · Files:
+Railway/Neon role configuration, `.env.example` (the migration half shipped as 0041)
 
 > ### 🔴 DISCOVERED 2026-08-18 — this ticket silently breaks the admin console
 >
@@ -462,7 +465,7 @@ scoped.
 
 ---
 
-## RLS-9 — Put the surface audit in CI with a two-way ratchet 🔲 open
+## RLS-9 — Put the surface audit in CI with a two-way ratchet ✅ DONE 2026-08-25
 
 **Priority: P1** · Size: S · Files: `scripts/audit-rls-surface.ts`,
 `.github/workflows/rls-gate.yml` (or a new workflow), a new allowlist file
@@ -486,14 +489,49 @@ a listed entry that no longer reproduces also fails, with an instruction to
 delete it. One-way lists rot into decoration — this repo has been bitten by that
 shape more than once.
 
-### Acceptance criteria
+### Acceptance criteria — all met 2026-08-25
 
-1. The audit runs in CI on `dev`, `test` and `main`.
-2. A new unscoped call site fails the build.
-3. A listed entry that stops reproducing fails the build with a "delete this
-   entry" message.
-4. **Proven non-vacuous**: add a deliberately unscoped `db.select()` on a
-   covered table, watch CI go red, remove it. Paste the failure.
+| AC | State |
+|---|---|
+| 1. Audit runs in CI on `dev`, `test`, `main` | ✅ new `rls-surface-audit` job in `.github/workflows/rls-gate.yml`, same branch triggers. Deliberately a separate job with **no database and no containers** — it finishes in seconds, so a static regression is not buried behind the 15-minute integration gate |
+| 2. A new unscoped call site fails | ✅ proven — see below |
+| 3. A stale entry fails with "delete this entry" | ✅ proven — see below |
+| 4. Proven non-vacuous | ✅ **all five directions exercised**, not just the two required |
+
+**Proof — mutate the target, confirm red** (the convention this repo exists on;
+a check that has never failed is not known to work):
+
+| mutation | result |
+|---|---|
+| new unscoped `db.select().from(projects)` in a fresh file | ❌ `NEW unscoped call sites` — exit 1 |
+| allowlisted file's count lowered (site count went UP) | ❌ `Allowlisted files that got WORSE: 1 -> 3` — exit 1 |
+| allowlisted file's count raised (site count went DOWN) | ❌ `IMPROVED — tighten the ratchet: 9 -> 3 (set count to 3)` — exit 1 |
+| fabricated entry for a file with no findings | ❌ `no longer reproduce — DELETE them` — exit 1 |
+| allowlist file removed entirely | ❌ `A missing allowlist is a FAILURE, never a pass` — exit 1 |
+| clean tree | ✅ `32 call site(s) across 20 pair(s); 20 allowlisted` — exit 0 |
+
+That last row is the one that matters most: a missing or unreadable allowlist
+**fails** rather than reading as "no findings". That exact failure shape is how
+the integration suite once went months without running in CI at all.
+
+### What shipped
+
+- `scripts/audit-rls-surface.ts` gained the gate (`--report` still gives the old
+  report-only behaviour and always exits 0).
+- `.rls-surface-allowlist.json` — **20 entries, 32 sites**, each with a
+  diagnosed reason and a recorded triage outcome. It is RLS-8's worklist, not
+  absolution.
+- `npm run audit:rls-surface` / `audit:rls-surface:report`.
+- Categories are **stable identifiers** (`repo-call`, `db-call`, `raw-execute`,
+  …), not the human headings in the report — renaming a heading must not
+  silently invalidate every allowlist entry.
+
+### Note for RLS-8
+
+The ratchet's downward direction means **fixing a site turns the build red**
+until its count is lowered or its entry deleted. That is intended: it is the
+mechanism that stops progress silently reverting. Expect to edit the allowlist
+in the same commit as each fix.
 
 ---
 
@@ -587,7 +625,7 @@ RLS-5     gate: full integration as the restricted role
 
 added 2026-08-25, after 0041 found the policies were defined but inert:
 RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
-RLS-9     surface audit into CI, two-way ratchet  ─┘ ratchet starts red
+RLS-9  ✅ surface audit into CI, two-way ratchet  ─┘ done 2026-08-25
 RLS-10    data-driven per-table isolation proof     (independent of both)
 ```
 

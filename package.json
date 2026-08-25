@@ -30,6 +30,8 @@
     "test:unit:fast": "vitest run --project unit-fast",
     "test:unit:db": "vitest run --project unit-db",
     "test:integration": "cross-env VITEST_INTEGRATION=true VITEST_SINGLE_FORK=true vitest run --project integration",
+    "audit:rls-surface": "tsx scripts/audit-rls-surface.ts",
+    "audit:rls-surface:report": "tsx scripts/audit-rls-surface.ts --report",
     "test:rls-gate": "tsx scripts/rls-gate.ts",
     "test:rls-gate:check": "tsx scripts/rls-gate.ts --check-only",
     "test:integration:parallel": "cross-env VITEST_INTEGRATION=true vitest run --project integration",
