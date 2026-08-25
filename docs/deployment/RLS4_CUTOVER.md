@@ -203,6 +203,52 @@ which is why CLAUDE.md forbids one. Nothing to change here — just do not
 
 ## 4. Verification, per environment
 
+### 4.0 Pre-flight: is there anything to enforce? (added 2026-08-25)
+
+**Run this BEFORE the role swap, on every branch, and do not skip it.** Every
+other check on this page passes trivially against a database whose policies are
+inert, because a non-owner role seeing "only its tenant's rows" and a non-owner
+role seeing rows that were never filtered are indistinguishable when the tenant
+happens to own them.
+
+```sql
+SELECT count(*) FILTER (WHERE true)                    AS policy_tables,
+       count(*) FILTER (WHERE c.relrowsecurity)        AS enabled,
+       count(*) FILTER (WHERE c.relforcerowsecurity)   AS forced
+  FROM (SELECT DISTINCT polrelid FROM pg_policy) p
+  JOIN pg_class c ON c.oid = p.polrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public';
+```
+
+**All three numbers must be equal.** Anything else means policies exist that
+Postgres is not evaluating.
+
+This is not hypothetical. Measured on the `dev` branch 2026-08-25:
+`policy_tables = 37, enabled = 1, forced = 0` — 36 policies defined and inert,
+including `projects`, `users`, `workflows` and `connections`. The app role had
+already been live there for three days against tables with RLS switched off.
+`0041_rls_enable_all_policy_tables` repairs it and fails loudly if any table is
+left behind; this query is how you confirm the repair reached a given branch.
+
+Rollback for 0041 alone, if a branch needs to be stood down without reverting
+the role swap:
+
+```sql
+DO $$ DECLARE r record; BEGIN
+  FOR r IN SELECT DISTINCT c.oid::regclass AS t FROM pg_policy p
+             JOIN pg_class c ON c.oid=p.polrelid
+             JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public'
+  LOOP
+    EXECUTE format('ALTER TABLE %s NO FORCE ROW LEVEL SECURITY', r.t);
+    EXECUTE format('ALTER TABLE %s DISABLE ROW LEVEL SECURITY', r.t);
+  END LOOP;
+END $$;
+```
+
+### 4.1 Roles
+
 Database side:
 
 ```sql

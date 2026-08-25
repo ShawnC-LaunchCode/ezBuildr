@@ -104,6 +104,25 @@ async function tableRlsState(
   return { exists: true, rlsEnabled: Boolean(row.rls_enabled), hasPolicy: Boolean(row.has_policy) };
 }
 
+/**
+ * Every base table in `schema` that carries at least one policy but is not
+ * actually enforcing it — `relrowsecurity` off (policy is inert) or
+ * `relforcerowsecurity` off (owner silently exempt).
+ */
+async function findInertPolicyTables(targetSchema: string): Promise<string[]> {
+  const r = await getOwnerDb().execute(sql`
+    SELECT DISTINCT c.relname AS table_name
+    FROM pg_policy p
+    JOIN pg_class c ON c.oid = p.polrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = ${targetSchema}
+      AND c.relkind = 'r'
+      AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+    ORDER BY 1
+  `);
+  return rows(r).map((row) => String(row.table_name));
+}
+
 beforeAll(async () => {
   schema = String(
     process.env.TEST_SCHEMA
@@ -172,6 +191,54 @@ describe("RLS coverage (RLS-3 / SEC-051)", () => {
       expect(state.hasPolicy).toBe(true);
     },
   );
+
+  // ---------------------------------------------------------------------
+  // Migration 0041 — the inverse of the check above, and the one that was
+  // missing. The tenant_id query asks "does this table that SHOULD have a
+  // policy have one". This asks "does every policy that EXISTS actually do
+  // anything". Measured on the dev Neon branch 2026-08-25: 37 policies, one
+  // enforcing table. A policy on a table with relrowsecurity = false is inert
+  // — Postgres never evaluates it — so tenant isolation was defined and not
+  // in force, with nothing in CI able to see it because these suites only
+  // ever run against a freshly built test schema.
+  // ---------------------------------------------------------------------
+  test("every table carrying a policy actually enforces it (ENABLE + FORCE)", async () => {
+    const inert = await findInertPolicyTables(schema);
+    expect(inert).toEqual([]);
+  });
+
+  test("the enforcement check is discriminating: a policy without ENABLE is flagged", async () => {
+    const probeTable = `rls_inert_probe_${schema}`;
+    await getOwnerDb().execute(sql.raw(`
+      CREATE TABLE "${schema}"."${probeTable}" (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL
+      )
+    `));
+    try {
+      // A policy, deliberately WITHOUT ENABLE ROW LEVEL SECURITY — exactly the
+      // shape the dev branch was in.
+      await getOwnerDb().execute(sql.raw(`
+        CREATE POLICY tenant_isolation ON "${schema}"."${probeTable}"
+          USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+      `));
+      expect(await findInertPolicyTables(schema)).toContain(probeTable);
+
+      // ENABLE alone is still not enough — the owner stays exempt without FORCE.
+      await getOwnerDb().execute(sql.raw(
+        `ALTER TABLE "${schema}"."${probeTable}" ENABLE ROW LEVEL SECURITY`,
+      ));
+      expect(await findInertPolicyTables(schema)).toContain(probeTable);
+
+      // Both set: it clears.
+      await getOwnerDb().execute(sql.raw(
+        `ALTER TABLE "${schema}"."${probeTable}" FORCE ROW LEVEL SECURITY`,
+      ));
+      expect(await findInertPolicyTables(schema)).not.toContain(probeTable);
+    } finally {
+      await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."${probeTable}"`));
+    }
+  });
 });
 
 afterAll(async () => {
@@ -179,6 +246,7 @@ afterAll(async () => {
   try {
     await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe_${schema}"`));
     await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_coverage_probe2_${schema}"`));
+    await getOwnerDb().execute(sql.raw(`DROP TABLE IF EXISTS "${schema}"."rls_inert_probe_${schema}"`));
   } catch {
     /* best-effort cleanup */
   }

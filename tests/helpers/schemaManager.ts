@@ -153,8 +153,13 @@ export class SchemaManager {
     // table, pages.section_id, its foreign key/index, and RLS policy.
     // Bumped to _v40 for SECT-8A migration 0040, which adds the ordered-set
     // workflow_runs.visited_page_ids history.
+    // Bumped to _v41 for migration 0041, which re-asserts ENABLE + FORCE ROW
+    // LEVEL SECURITY on every policy-bearing table. A stale _v40 schema can
+    // hold policies that are DEFINED BUT INERT (relrowsecurity = false), which
+    // is precisely the condition 0041 exists to end — and the shape that made
+    // the dev branch report 37 policies while enforcing exactly one of them.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v40`;
+        return `test_schema_w${this.workerId}_v41`;
     }
 
     /**

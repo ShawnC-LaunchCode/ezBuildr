@@ -15,6 +15,25 @@ below has a **decision**, marked reversible. And there is now a **gate**:
 `npm run test:rls-gate` / `.github/workflows/rls-gate.yml`, which is what keeps
 all of the above from silently rotting — read §7 before touching the allowlist.
 
+> 🔴 **Added 2026-08-25 — read this before trusting any enforcement claim.**
+> The policies were **defined but inert**. Measured on the `dev` Neon catalog:
+> 37 policies, **1** table with `relrowsecurity`, **0** with `FORCE`. Postgres
+> does not evaluate a policy on a table where row security is switched off, so
+> `projects`, `users`, `workflows` and `connections` were unfiltered even though
+> `pg_policies` looked complete — and the app role had been live against them
+> for three days.
+>
+> Cause: **enabling is a separate act from creating a policy**, and migrations
+> 0026–0036 create 23 policies with zero `ENABLE ROW LEVEL SECURITY`, assuming
+> 0001/0024 had done it. Every RLS suite runs against a freshly built test
+> schema where that assumption holds, so nothing in CI could see the drift on a
+> long-lived branch. Repaired by `0041_rls_enable_all_policy_tables` (driven off
+> `pg_policies`, not a table list, and it RAISEs if any table is left behind)
+> plus a matching assertion in `tests/integration/rls-coverage.test.ts`.
+>
+> §4.0 of the cutover doc is the catalog query to run before believing an
+> environment is enforcing. It is the check whose absence made this invisible.
+
 - **The cutover procedure:** [`RLS4_CUTOVER.md`](../deployment/RLS4_CUTOVER.md) —
   per-environment steps, the measured Neon facts, and the rollback. Read that for
   *how to turn enforcement on*. Read **this** file for *state, patterns and

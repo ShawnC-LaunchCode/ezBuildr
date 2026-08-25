@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** one open ticket — **RLS-4, production only** · **Updated:** 2026-08-23
+**Status:** one open ticket — **RLS-4, all three environments** · **Updated:** 2026-08-25
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -17,20 +17,54 @@
 | | |
 |---|---|
 | The patterns, §2a–§2g | [`docs/architecture/TENANT_ISOLATION_RLS.md`](../docs/architecture/TENANT_ISOLATION_RLS.md) |
-| Current state + the traps that cost real time | [`docs/architecture/RLS_HANDOFF.md`](RLS_HANDOFF.md) |
-| The cutover procedure, per environment | [`docs/deployment/RLS4_CUTOVER.md`](RLS4_CUTOVER.md) |
+| Current state + the traps that cost real time | [`docs/architecture/RLS_HANDOFF.md`](../docs/architecture/RLS_HANDOFF.md) |
+| The cutover procedure, per environment | [`docs/deployment/RLS4_CUTOVER.md`](../docs/deployment/RLS4_CUTOVER.md) |
 | How the scope was bounded (retired plan) | [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md) |
 
 ## Where enforcement actually stands
 
+> 🔴 **CORRECTED 2026-08-25. The previous version of this table said dev and
+> test were enforcing. They were not, and neither was anything else.**
+>
+> Measured directly against the Neon catalog, not inferred:
+>
+> | branch | policies | tables with `relrowsecurity` | tables with `FORCE` |
+> |---|---|---|---|
+> | dev | **37** | **1** (`sections`) | 0 |
+> | production | 9 | 9 | 0 |
+>
+> **A policy on a table whose `relrowsecurity` is false is inert** — Postgres
+> never evaluates it. So 36 of dev's 37 policies were decorative, including
+> `projects`, `users`, `workflows` and `connections`. Tenant isolation was
+> *defined* everywhere and *in force* nowhere.
+>
+> Enabling is a separate act from creating a policy, and the chain lost track of
+> that: **migrations 0026–0036 contain 23 `CREATE POLICY` statements and zero
+> `ENABLE ROW LEVEL SECURITY`**, because they assumed 0001/0024 had already done
+> it. On production 0001 silently no-op'd (its `to_regclass ... CONTINUE` guard);
+> on dev 0024 did run, and the flag was lost afterwards while 0026's recreated
+> policies survived.
+>
+> Why no test caught it: every RLS suite runs against a **freshly built test
+> schema**, where the chain does produce the right state. Nothing ever asserted
+> the property against a long-lived environment, so dev could drift silently.
+>
+> Fixed by **`0041_rls_enable_all_policy_tables`**, which drives the enable off
+> `pg_policies` rather than a hand-maintained table list, adds `FORCE` (RLS-4
+> AC1), and RAISEs if any policy-bearing table is left unenforcing.
+> `tests/integration/rls-coverage.test.ts` now asserts the same property and was
+> proven to fail when it is violated.
+
 | environment | app role | RLS enforcing | notes |
 |---|---|---|---|
-| dev | `ezbuildr_app` | ✅ 2026-08-22 | 37 migrations |
-| test | `ezbuildr_app` | ✅ 2026-08-23 | 37 migrations, 36 RLS tables |
+| dev | `ezbuildr_app` | 🔄 **in progress 2026-08-25** | app role was already live, but against inert policies — 0041 supplies the missing enablement |
+| test | `ezbuildr_app` | ❌ **not enforcing** | app role live against inert policies; needs 0041 via a `dev` → `test` promotion |
 | **production** | `neondb_owner` | ❌ **not enforcing** | 24 migrations, 9 RLS tables — needs a `test` → `main` PR first |
 
-Production is the whole of the remaining work, and it is gated on promotion
-rather than on anything RLS-specific.
+**This changes the shape of the remaining work.** Production is no longer "the
+whole of it": dev and test both need 0041, and the cutover procedure needs a
+catalog check *before* the role swap, because verifying isolation against tables
+where RLS is off passes trivially and proves nothing.
 
 ---
 
@@ -87,7 +121,7 @@ Check that table before filing anything against this area.
 
 ### Progress — 2026-08-22 · **dev is cut over and enforcing**
 
-Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](RLS4_CUTOVER.md).
+Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](../docs/deployment/RLS4_CUTOVER.md).
 
 | AC | State |
 |---|---|
@@ -154,6 +188,42 @@ The test environment only runs migrations when something deploys to it, and the
 
 **Production needs the same three steps**, and step 1 there is a `test` → `main`
 pull request, not a push.
+
+### Production checklist — measured 2026-08-25, role creation deferred to cutover
+
+Verified on branch `br-fancy-band-ahrwpxhj`: **106 tables, 9 RLS-enabled, and the
+only login roles are `neondb_owner`, `cloud_admin`, `neon_service`.** There is
+**no `ezbuildr_app` on production** — Neon copies roles at branch time, and both
+`dev` and `test` were branched on 2026-08-13, before that role existed. It must
+be created there with the SQL in `RLS4_CUTOVER.md` §2.
+
+Owner decision, 2026-08-25: **create the role during the cutover, not ahead of
+it**, so role creation and the variable swap are one operation. Password to be
+generated at that time and rotated by the owner before it is trusted.
+
+Run in this order — the first two are not RLS work:
+
+1. **`test` → `main` pull request.** `origin/test` is 138 commits ahead of
+   `origin/main`, 0 behind. Required by the `main-protection` ruleset.
+2. **Merge deploys and runs `db:migrate`**, taking production 24 → 37 migrations
+   and 9 → 36 RLS tables. This is what creates the policies.
+3. **Create and verify `ezbuildr_app`** (§2), connecting as `neondb_owner`. Use
+   SQL, never the Neon Console/API/CLI — a console-created role inherits
+   `neon_superuser` and silently bypasses RLS. Assert `rolsuper`/`rolbypassrls`
+   both `f` and `pg_auth_members` empty before going further.
+4. **Capture the current production `DATABASE_URL` first** — that exact value
+   becomes `ADMIN_DATABASE_URL`. The admin bypass role *is* `neondb_owner`; no
+   second role is created.
+5. **Set all four Railway variables together, then redeploy.** Omitting
+   `MIGRATION_DATABASE_URL` is what broke dev's first deploy: container start
+   runs `db:migrate`, which needs DDL the app role does not have.
+6. **Verify** (§4): as `ezbuildr_app`, no GUC → 0 rows; GUC `''` → 0 rows;
+   tenant A pinned → A's rows only, 0 from any other.
+
+⚠️ **Do not repoint `DATABASE_URL` before step 2 has run.** Production has no
+policy chain today, so an app role going live first reproduces exactly the
+failure that stopped the `test` cutover on 2026-08-22: enforcement "on", nothing
+to enforce, and no signal that anything is wrong.
 
 The `ezbuildr_app` role already exists on the test branch (created 2026-08-22,
 `rolbypassrls=false`, no memberships) and `ALTER DEFAULT PRIVILEGES` is set, so
