@@ -95,7 +95,6 @@ IDs are stable, heading anchors are not.
 | SECT-B14 | `product-decision` | 22 dead links in two closed security audit records — repoint, mark historical, or leave | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B3 | `needs-initiative` | Workflow map draws Section containers — size `mapLayout.ts` before promoting | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B1 | `enhancement` | Review screen grouped by Section — where a 100-page respondent actually spends time | `backlog/SECTIONS_AND_PAGES.md` |
-| SECT-B4 | `enhancement` | AI generation emits Sections — now unblocked, Phase 2 shipped | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B5 | `enhancement` | Curated marketplace templates should ship with Sections — now unblocked | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B6 | `enhancement` | Per-Section progress in the runner header ("Page 3 of 11 in Assets") | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B10 | `enhancement` | Six run routes still lack `optionalHybridAuth` before `creatorOrRunTokenAuth` | `backlog/SECTIONS_AND_PAGES.md` |
