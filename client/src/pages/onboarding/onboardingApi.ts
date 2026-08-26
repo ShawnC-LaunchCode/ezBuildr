@@ -130,6 +130,9 @@ async function applyGeneratedContent(workflowId: string, generated: AIGeneratedW
     body: JSON.stringify({
       title: generated.title,
       description: generated.description ?? undefined,
+      // Sections must travel with the pages that reference them: a page whose
+      // sectionId points at a section the payload never sent lands ungrouped.
+      sections: generated.sections,
       pages: generated.pages,
     }),
   });

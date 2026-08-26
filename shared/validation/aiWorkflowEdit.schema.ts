@@ -73,6 +73,51 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     tempId: z.string().optional(),
     visibleIf: conditionExpressionSchema,
   }),
+  z.object({
+    op: z.literal("page.setSection"),
+    id: z.string().optional(),
+    tempId: z.string().optional(),
+    // A Section id, a `section.create` tempId, or null to detach the page.
+    // Nullable-but-required so "detach" is expressible: an absent field and an
+    // explicit null would otherwise be indistinguishable.
+    sectionId: z.string().nullable(),
+  }),
+
+  // Section operations
+  //
+  // A Section groups a CONTIGUOUS span of pages in the workflow's flat page
+  // order, and may never be empty (`server/services/sectionSpans.ts`). Every op
+  // below runs through SectionService, which re-asserts that invariant inside
+  // the op's own transaction — a patch that would split or empty a Section
+  // fails instead of corrupting the layout. Pages must therefore exist before
+  // they can be grouped, so `section.create` comes after `page.create` in a
+  // batch and references the new pages by tempId.
+  z.object({
+    op: z.literal("section.create"),
+    tempId: z.string().optional(),
+    title: z.string(),
+    description: z.string().nullable().optional(),
+    // Page ids or `page.create` tempIds, in page order. At least one.
+    pageIds: z.array(z.string()).min(1),
+  }),
+  z.object({
+    op: z.literal("section.update"),
+    id: z.string().optional(),
+    tempId: z.string().optional(),
+    title: z.string().optional(),
+    description: z.string().nullable().optional(),
+  }),
+  z.object({
+    op: z.literal("section.delete"),
+    id: z.string().optional(),
+    tempId: z.string().optional(),
+  }),
+  z.object({
+    op: z.literal("section.setVisibleIf"),
+    id: z.string().optional(),
+    tempId: z.string().optional(),
+    visibleIf: conditionExpressionSchema,
+  }),
 
   // Step operations
   z.object({
@@ -273,7 +318,7 @@ export type AiWorkflowEditRequest = z.infer<typeof aiWorkflowEditRequestSchema>;
 
 export const aiEditChangeSchema = z.object({
   type: z.enum(["add", "remove", "update", "move"]),
-  entity: z.enum(["workflow", "page", "step", "logic", "document", "datavault"]),
+  entity: z.enum(["workflow", "section", "page", "step", "logic", "document", "datavault"]),
   explanation: z.string(),
 });
 

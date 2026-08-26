@@ -162,7 +162,7 @@ describe('AIService Unit Tests', () => {
             const request = {
                 workflowId: '123e4567-e89b-12d3-a456-426614174000',
                 description: 'If true then next',
-                currentWorkflow: { title: 'Flow', pages: [], logicRules: [], transformBlocks: [] },
+                currentWorkflow: { title: 'Flow', sections: [], pages: [], logicRules: [], transformBlocks: [] },
                 mode: 'easy' as const
             };
 
@@ -174,7 +174,7 @@ describe('AIService Unit Tests', () => {
         it('visualizeLogic should return graph data', async () => {
             const request = {
                 workflowId: '123e4567-e89b-12d3-a456-426614174000',
-                currentWorkflow: { title: 'Flow', pages: [], logicRules: [], transformBlocks: [] }
+                currentWorkflow: { title: 'Flow', sections: [], pages: [], logicRules: [], transformBlocks: [] }
             };
 
             const result = await aiService.visualizeLogic(request);

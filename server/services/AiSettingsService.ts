@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { buildWorkflowVocabulary } from "@shared/aiVocabulary";
+import { buildWorkflowVocabulary, getOpNames } from "@shared/aiVocabulary";
 import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
 
 import { db } from "../db";
@@ -27,6 +27,20 @@ ${buildWorkflowVocabulary()}
 Role: {{interviewerRole}}
 Reading level: {{readingLevel}}
 Tone: {{tone}}`;
+/**
+ * Operations the platform supports that a given prompt never names.
+ *
+ * `DEFAULT_SYSTEM_PROMPT` regenerates its catalogs from the schema on every
+ * boot, so it is never stale. A *saved override* is frozen text: it keeps
+ * working, but every op added after it was written is invisible to the model,
+ * which then cannot produce that capability at all and gives no hint why.
+ * Sections were exactly this shape of gap. Surfacing the difference is what
+ * turns a silent capability loss into something an admin can see and fix.
+ */
+export function findMissingOps(prompt: string): string[] {
+  return getOpNames().filter((op) => !prompt.includes(op));
+}
+
 export class AiSettingsService {
     /**
      * Get the effective system prompt: the global override if configured,

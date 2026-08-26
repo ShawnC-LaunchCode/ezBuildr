@@ -214,6 +214,11 @@ export function registerWorkflowRoutes(app: Express): void {
         .extend({ businessDayCalendar: z.enum(BUSINESS_DAY_CALENDARS).optional() })
         .passthrough()
         .optional(),
+      // Loosely typed for the same reason as `pages`: this is the deep-update
+      // payload, re-validated by WorkflowContentIngestService. Without the key
+      // here Zod strips it, so a workflow could describe its grouping and land
+      // completely flat with no error anywhere (SECT-B4).
+      sections: z.array(z.any()).optional(),
       pages: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),

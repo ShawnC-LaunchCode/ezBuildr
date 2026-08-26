@@ -6,7 +6,7 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
-import { aiSettingsService } from "../services/AiSettingsService";
+import { aiSettingsService, DEFAULT_SYSTEM_PROMPT, findMissingOps } from "../services/AiSettingsService";
 import { aiUsageRepository } from "../repositories/AiUsageRepository";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -23,9 +23,18 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                 return res.status(401).json({ message: "Unauthorized" });
             }
             const settings = await aiSettingsService.getGlobalSettings();
+            // `defaultPrompt` is now sent unconditionally. It used to be
+            // omitted whenever an override existed, which left the client's
+            // "Reset to Default" button with nothing to reset to — it silently
+            // did nothing in precisely the case an admin would reach for it.
+            const savedPrompt = settings?.systemPrompt ?? null;
             res.json({
                 settings: settings ?? null,
-                defaultPrompt: !settings ? await aiSettingsService.getEffectivePrompt() : undefined
+                defaultPrompt: DEFAULT_SYSTEM_PROMPT,
+                // Capabilities the platform has but this saved prompt never
+                // mentions. Empty for the default prompt, which regenerates
+                // its catalogs from the schema on every boot.
+                missingOps: savedPrompt === null ? [] : findMissingOps(savedPrompt),
             });
         } catch (error) {
             logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching AI settings');

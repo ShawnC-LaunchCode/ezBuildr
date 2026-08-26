@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Workflow, Page, Step, LogicRule } from "@shared/schema";
+import type { Workflow, Page, Section, Step, LogicRule } from "@shared/schema";
 
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
@@ -13,6 +13,7 @@ import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 import { aiSettingsService, DEFAULT_SYSTEM_PROMPT } from "../../services/AiSettingsService";
+import { sectionService } from "../../services/SectionService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
@@ -33,6 +34,11 @@ const logger = createLogger({ module: "ai-workflow-edit-routes" });
 interface WorkflowWithDetails extends Workflow {
   pages: (Page & { steps: Step[] })[];
   logicRules: LogicRule[];
+  // `getWorkflowWithDetails` does not load Sections — none of its many other
+  // callers need them — so the edit route fetches them alongside. Without this
+  // the model cannot see the grouping it is being asked to edit, and could
+  // only ever propose ungrouped pages.
+  sections: Section[];
 }
 
 function getValidationDetailMessages(error: unknown): string[] {
@@ -102,11 +108,15 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         const requestData = validationResult.data;
         // 2. Get current workflow
 
-        const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId) as WorkflowWithDetails;
+        const workflowDetails = await workflowService.getWorkflowWithDetails(workflowId, userId);
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!currentWorkflow) {
+        if (!workflowDetails) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
+        const currentWorkflow = {
+          ...workflowDetails,
+          sections: await sectionService.getSections(workflowId, userId),
+        } as unknown as WorkflowWithDetails;
 
         // 3. Propose-only (dry run): generate ops and return them with a diff.
         // Nothing is written — no snapshot, no version, no rows — so Discard on
@@ -451,13 +461,30 @@ function buildSystemPrompt(preferences?: z.infer<typeof aiPreferencesSchema>, te
 function buildWorkflowContext(workflow: WorkflowWithDetails): string {
   const pages = workflow.pages ?? [];
   const logicRules = workflow.logicRules ?? [];
+  const sections = workflow.sections ?? [];
+  const sectionById = new Map(sections.map((section) => [section.id, section]));
   let context = `Workflow: ${workflow.title}
 Status: ${workflow.status}
 Pages: ${pages.length}
+Sections: ${sections.length}
 `;
+  // Sections are listed with their ids, because every section.* op targets one
+  // by id, and with their page spans, so the model can see which pages it may
+  // move without breaking a Section's contiguity.
+  for (const section of sections) {
+    const members = pages
+      .filter((page) => page.sectionId === section.id)
+      .map((page) => `${page.order}`)
+      .join(', ');
+    context += `- Section "${section.title}" (id: ${section.id}) covers page(s) ${members || '(none)'}`;
+    if (section.visibleIf) { context += ` [CONDITIONAL]`; }
+    context += '\n';
+  }
   for (const page of pages) {
     const steps = page.steps ?? [];
-    context += `\n### Page ${page.order}: ${page.title}
+    const section = page.sectionId === null ? undefined : sectionById.get(page.sectionId);
+    const sectionLabel = section ? ` [in Section "${section.title}"]` : ' [ungrouped]';
+    context += `\n### Page ${page.order}: ${page.title}${sectionLabel}
 Steps: ${steps.length}
 `;
     for (const step of steps) {

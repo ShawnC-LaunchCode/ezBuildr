@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, RotateCcw, Bot, BarChart3 } from "lucide-react";
+import { Loader2, Save, RotateCcw, Bot, BarChart3, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { AIPerformanceMonitor } from "@/components/admin/AIPerformanceMonitor";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +17,16 @@ import { apiRequest } from "@/lib/queryClient";
 interface AiSettingsResponse {
     settings?: { systemPrompt: string };
     defaultPrompt?: string;
+    /**
+     * Operations the platform supports that the saved prompt never names.
+     *
+     * The default prompt regenerates its operation and step-type catalogs from
+     * the schema on every boot, so it is never stale. A saved override is
+     * frozen text — anything added after it was written is invisible to the
+     * model, which then cannot produce that capability and gives no clue why.
+     * Empty unless an override is in force.
+     */
+    missingOps?: string[];
 }
 
 interface SaveSettingsResponse {
@@ -76,6 +87,9 @@ export default function AdminAiSettings() {
         },
     });
 
+    // `defaultPrompt` now arrives on every response. It used to be omitted
+    // whenever an override was saved, so this button silently did nothing in
+    // exactly the case an admin would reach for it.
     const handleReset = () => {
         // eslint-disable-next-line sonarjs/no-collapsible-if
         if (data?.defaultPrompt) {
@@ -107,6 +121,9 @@ export default function AdminAiSettings() {
     };
 
     const missingPlaceholders = !PLACEHOLDERS.some(p => prompt.includes(p));
+    // Reported against the SAVED prompt, not the textarea: it describes what
+    // the assistant can do right now, which unsaved edits have not changed.
+    const missingOps = data?.missingOps ?? [];
 
     // Auth protection
     if (authLoading) {return null;}
@@ -173,6 +190,36 @@ export default function AdminAiSettings() {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
+                                            {missingOps.length > 0 && (
+                                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                                    <AlertTriangle className="h-4 w-4 !text-amber-600 dark:!text-amber-400" />
+                                                    <AlertTitle>
+                                                        This saved prompt is missing {missingOps.length} of the assistant&apos;s capabilities
+                                                    </AlertTitle>
+                                                    <AlertDescription className="mt-2 space-y-2">
+                                                        <p>
+                                                            The default prompt lists every supported operation automatically, so it
+                                                            stays current as the platform grows. A saved prompt is fixed text — the
+                                                            assistant cannot use an operation this prompt never mentions, and will
+                                                            not say why.
+                                                        </p>
+                                                        <p className="flex flex-wrap gap-1.5">
+                                                            {missingOps.map((op) => (
+                                                                <code
+                                                                    key={op}
+                                                                    className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-xs"
+                                                                >
+                                                                    {op}
+                                                                </code>
+                                                            ))}
+                                                        </p>
+                                                        <p>
+                                                            Reset to Default restores all of them, or paste the missing operations
+                                                            into your prompt to keep your customizations.
+                                                        </p>
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
                                             <Textarea
                                                 value={prompt}
                                                 onChange={(e) => { void setPrompt(e.target.value); }}
