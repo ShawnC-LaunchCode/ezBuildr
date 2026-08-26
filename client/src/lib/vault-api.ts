@@ -249,6 +249,8 @@ export interface ApiProject {
   ownerType?: 'user' | 'org' | null;
   ownerUuid?: string | null;
   ownerName?: string | null;
+  /** Workflows contained in this project; returned by the list endpoints. */
+  workflowCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -291,13 +293,37 @@ export interface ApiAssetCopyResult {
 }
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
-    const query = activeOnly ? '?active=true' : '';
-    const response = await fetchAPI<ApiProject[] | { items: ApiProject[], nextCursor: string | null, hasMore: boolean }>(`/api/projects${query}`);
-    // Handle both paginated and non-paginated responses
-    if (Array.isArray(response)) {
-      return response;
+    // `/api/projects` is cursor-paginated and defaults to 20 per page. The
+    // dashboard searches and sorts client-side, so it needs the whole set —
+    // reading only the first page silently hid every project past the 20th.
+    // `limit` is capped at 100 server-side (`paginationQuerySchema`).
+    const pageSize = 100;
+    const maxPages = 50; // 5,000 projects; a guard against a cursor that never advances.
+    const all: ApiProject[] = [];
+    let cursor: string | null = null;
+
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (activeOnly === true) { params.set('active', 'true'); }
+      if (cursor !== null) { params.set('cursor', cursor); }
+
+      const response = await fetchAPI<ApiProject[] | { items: ApiProject[], nextCursor: string | null, hasMore: boolean }>(
+        `/api/projects?${params.toString()}`
+      );
+
+      // Older deployments answered with a bare array and no pagination envelope.
+      if (Array.isArray(response)) {
+        return [...all, ...response];
+      }
+
+      all.push(...(response.items ?? []));
+      if (response.hasMore !== true || response.nextCursor === null) {
+        break;
+      }
+      cursor = response.nextCursor;
     }
-    return response.items ?? [];
+
+    return all;
   },
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
   listForOrganization: (orgId: string, activeOnly = true) => {

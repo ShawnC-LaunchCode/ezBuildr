@@ -3,11 +3,15 @@
  * Displays a single project with its contained workflows
  */
 
-import { ArrowLeft, Plus, Edit, Share2, Copy, ArrowRightLeft, Trash2, Users, ShieldCheck, Plug } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Plus, Edit, Share2, Copy, ArrowRightLeft, Trash2, Users, ShieldCheck, Plug, SearchX } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
+import { buildWorkflowActions } from "@/components/dashboard/assetActions";
+import { workflowToAssetRow } from "@/components/dashboard/assetRows";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import { AssetTable } from "@/components/shared/AssetTable";
+import { AssetToolbar } from "@/components/shared/AssetToolbar";
 import { CreateWorkflowForm } from "@/components/workflows/CreateWorkflowForm";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
@@ -37,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useAssetBrowser } from "@/hooks/useAssetBrowser";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/hooks/useOrganizations";
@@ -56,7 +61,7 @@ import {
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
 
-// eslint-disable-next-line max-lines-per-function
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -76,6 +81,9 @@ export default function ProjectView() {
 
   // Form states
   const [editProject, setEditProject] = useState({ title: "", description: "" });
+
+  const { search, setSearch, viewMode, setViewMode, sort, toggleSort, sortRows, matches } =
+    useAssetBrowser("ezbuildr.project.view");
 
   // Data queries
   const { data: projectWithWorkflows, isLoading } = useProject(id);
@@ -224,6 +232,32 @@ export default function ProjectView() {
     }
   };
 
+  // One handler set feeds both the cards and the list rows, so the two views
+  // expose exactly the same actions.
+  const workflowHandlers = {
+    onMove: (workflow: ApiWorkflow) => { void handleMoveWorkflowOut(workflow); },
+    onCopy: (workflow: ApiWorkflow) => setCopyingWorkflow(workflow),
+    onTransfer: (workflow: ApiWorkflow) => setTransferringWorkflow(workflow),
+    onArchive: (workflowId: string) => { void handleArchiveWorkflow(workflowId); },
+    onActivate: (workflowId: string) => { void handleActivateWorkflow(workflowId); },
+    onDelete: (workflowId: string) => setDeleteWorkflowId(workflowId),
+  };
+
+  const projectWorkflows = projectWithWorkflows?.workflows ?? [];
+  const filteredWorkflows = useMemo(() => projectWorkflows.filter(matches), [projectWorkflows, matches]);
+  const workflowRows = useMemo(
+    () => sortRows(filteredWorkflows.map((workflow) => workflowToAssetRow(
+      workflow,
+      buildWorkflowActions(
+        workflow,
+        workflowHandlers,
+        getOrgRestrictedActionReason(workflow, organizations, organizationsLoading)
+      ),
+      user?.id
+    ))),
+    [filteredWorkflows, organizations, organizationsLoading, sortRows, user?.id]
+  );
+
   const openEditDialog = () => {
     if (projectWithWorkflows) {
       setEditProject({
@@ -359,7 +393,7 @@ export default function ProjectView() {
           </div>
         </div>
 
-        {/* Workflows Grid */}
+        {/* Workflows */}
         {projectWithWorkflows.workflows.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -367,33 +401,70 @@ export default function ProjectView() {
               <p className="text-muted-foreground text-sm mb-4">
                 Get started by creating your first workflow in this project
               </p>
-              <Button onClick={() => { void setIsCreateWorkflowOpen(true); }}>
+              <Button onClick={() => { setIsCreateWorkflowOpen(true); }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Workflow
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projectWithWorkflows.workflows.map((workflow) => (
-              <WorkflowCard
-                key={workflow.id}
-                workflow={workflow}
-                currentUserId={user?.id}
-                currentUserOrgRole={getOrgRoleForAsset(workflow, organizations) ?? projectOrgRole}
-                orgRoleLoading={organizationsLoading}
-                onMove={(w) => { void handleMoveWorkflowOut(w); }}
-                onCopy={setCopyingWorkflow}
-                onTransfer={setTransferringWorkflow}
-                onArchive={(id) => { void handleArchiveWorkflow(id); }}
-                onActivate={(id) => { void handleActivateWorkflow(id); }}
-                onDelete={(id) => setDeleteWorkflowId(id)}
+          <div className="space-y-6">
+            <AssetToolbar
+              search={search}
+              onSearchChange={setSearch}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              resultCount={filteredWorkflows.length}
+              totalCount={projectWithWorkflows.workflows.length}
+              itemNoun="workflow"
+              placeholder="Search workflows in this project..."
+            />
+
+            {filteredWorkflows.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <SearchX className="w-10 h-10 text-muted-foreground mb-4" aria-hidden="true" />
+                  <h3 className="text-lg font-semibold mb-1" data-testid="text-no-search-results">
+                    No matches for &quot;{search.trim()}&quot;
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-6">
+                    Try a different name, or clear the search to see every workflow.
+                  </p>
+                  <Button variant="outline" onClick={() => setSearch("")}>
+                    Clear search
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : viewMode === "list" ? (
+              <AssetTable
+                rows={workflowRows}
+                sort={sort}
+                onSortChange={toggleSort}
+                showKind={false}
+                showWorkflowCount={false}
               />
-            ))}
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredWorkflows.map((workflow) => (
+                  <WorkflowCard
+                    key={workflow.id}
+                    workflow={workflow}
+                    currentUserId={user?.id}
+                    currentUserOrgRole={getOrgRoleForAsset(workflow, organizations) ?? projectOrgRole}
+                    orgRoleLoading={organizationsLoading}
+                    onMove={workflowHandlers.onMove}
+                    onCopy={workflowHandlers.onCopy}
+                    onTransfer={workflowHandlers.onTransfer}
+                    onArchive={workflowHandlers.onArchive}
+                    onActivate={workflowHandlers.onActivate}
+                    onDelete={workflowHandlers.onDelete}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
-
       <ResourceAccessDialog
         open={isShareOpen}
         onOpenChange={setIsShareOpen}

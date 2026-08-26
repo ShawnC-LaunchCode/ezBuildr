@@ -1,38 +1,41 @@
-
-import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy, Upload, Users, ShieldCheck } from "lucide-react";
+import { Plus, Wand2, ChevronDown, FolderPlus, Play, Loader2, Upload, SearchX } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 
+import { buildProjectActions, buildWorkflowActions } from "@/components/dashboard/assetActions";
+import { projectToAssetRow, workflowToAssetRow } from "@/components/dashboard/assetRows";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { AssetTable } from "@/components/shared/AssetTable";
+import { AssetToolbar } from "@/components/shared/AssetToolbar";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAssetBrowser } from "@/hooks/useAssetBrowser";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { getOrgRestrictedActionReason, getOrgRoleForAsset } from "@/lib/ownership";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
-import { workflowAPI, type ApiAssetCopyOptions } from "@/lib/vault-api";
+import type { ApiAssetCopyOptions, ApiProject, ApiWorkflow } from "@/lib/vault-api";
 import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject, useCopyWorkflow, useCopyProject } from "@/lib/vault-hooks";
-import type { } from "@shared/schema";
-// eslint-disable-next-line max-lines-per-function
+
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowsList() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const createSampleMutation = useCreateSampleWorkflow();
-  const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null);
+  const [deletingWorkflow, setDeletingWorkflow] = useState<{ id: string; title: string } | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -41,6 +44,10 @@ export default function WorkflowsList() {
   const [transferringProject, setTransferringProject] = useState<{ id: string; title: string } | null>(null);
   const [copyingWorkflow, setCopyingWorkflow] = useState<{ id: string; title: string } | null>(null);
   const [copyingProject, setCopyingProject] = useState<{ id: string; title: string } | null>(null);
+
+  const { search, setSearch, viewMode, setViewMode, sort, toggleSort, sortRows, matches } =
+    useAssetBrowser("ezbuildr.workflows.view");
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -52,10 +59,9 @@ export default function WorkflowsList() {
       setTimeout(() => {
         window.location.href = "/";
       }, 500);
-      // eslint-disable-next-line sonarjs/no-redundant-jump
-      return;
     }
   }, [isAuthenticated, isLoading, toast]);
+
   const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: organizations, isLoading: organizationsLoading } = useOrganizations();
@@ -66,6 +72,7 @@ export default function WorkflowsList() {
   const copyWorkflowMutation = useCopyWorkflow();
   const copyProjectMutation = useCopyProject();
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
+
   const transferringWorkflowAsset = useMemo(
     () => unfiledWorkflows?.find((workflow) => workflow.id === transferringWorkflow?.id),
     [transferringWorkflow?.id, unfiledWorkflows]
@@ -74,6 +81,20 @@ export default function WorkflowsList() {
     () => projects?.find((project) => project.id === transferringProject?.id),
     [projects, transferringProject?.id]
   );
+
+  // "Other Project" is an internal bucket, not something the user filed anything into.
+  const visibleProjects = useMemo(
+    () => (projects ?? []).filter((project) => project.title !== "Other Project"),
+    [projects]
+  );
+  const totalCount = visibleProjects.length + (unfiledWorkflows?.length ?? 0);
+  const filteredProjects = useMemo(() => visibleProjects.filter(matches), [visibleProjects, matches]);
+  const filteredWorkflows = useMemo(
+    () => (unfiledWorkflows ?? []).filter(matches),
+    [unfiledWorkflows, matches]
+  );
+  const resultCount = filteredProjects.length + filteredWorkflows.length;
+
   // Wrap the shared mutation to handle toast/reset logic locally
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
@@ -106,15 +127,12 @@ export default function WorkflowsList() {
       },
     });
   };
+
   const handleDeleteWorkflow = (workflowId: string) => {
-    setDeletingWorkflowId(workflowId);
     deleteWorkflowMutation.mutate(workflowId, {
       onSuccess: () => {
-        toast({
-          title: "Success",
-          description: "Workflow deleted successfully",
-        });
-        setDeletingWorkflowId(null);
+        toast({ title: "Success", description: "Workflow deleted successfully" });
+        setDeletingWorkflow(null);
       },
       onError: (error: unknown) => {
         toast({
@@ -122,18 +140,15 @@ export default function WorkflowsList() {
           description: error instanceof Error ? error.message : "Failed to delete workflow",
           variant: "destructive",
         });
-        setDeletingWorkflowId(null);
+        setDeletingWorkflow(null);
       },
     });
   };
+
   const handleDeleteProject = (projectId: string) => {
-    setDeletingProjectId(projectId);
     deleteProjectMutation.mutate(projectId, {
       onSuccess: () => {
-        toast({
-          title: "Success",
-          description: "Project deleted successfully",
-        });
+        toast({ title: "Success", description: "Project deleted successfully" });
         setDeletingProjectId(null);
       },
       onError: (error: unknown) => {
@@ -146,6 +161,7 @@ export default function WorkflowsList() {
       },
     });
   };
+
   const handleTransferWorkflow = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
     if (!transferringWorkflow) { return; }
     try {
@@ -154,10 +170,7 @@ export default function WorkflowsList() {
         targetOwnerType,
         targetOwnerUuid,
       });
-      toast({
-        title: "Success",
-        description: `Workflow transferred successfully`,
-      });
+      toast({ title: "Success", description: `Workflow transferred successfully` });
       setTransferringWorkflow(null);
     } catch (error: unknown) {
       toast({
@@ -168,6 +181,7 @@ export default function WorkflowsList() {
       throw error;
     }
   };
+
   const handleTransferProject = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
     if (!transferringProject) { return; }
     try {
@@ -190,6 +204,7 @@ export default function WorkflowsList() {
       throw error;
     }
   };
+
   const handleCopyWorkflow = async (options: ApiAssetCopyOptions) => {
     if (!copyingWorkflow) { return; }
     try {
@@ -210,6 +225,7 @@ export default function WorkflowsList() {
       throw error;
     }
   };
+
   const handleCopyProject = async (options: ApiAssetCopyOptions) => {
     if (!copyingProject) { return; }
     try {
@@ -228,25 +244,56 @@ export default function WorkflowsList() {
       throw error;
     }
   };
-  const handleCopyLink = async (workflowId: string) => {
-    try {
-      const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
-      await navigator.clipboard.writeText(publicUrl);
-      toast({
-        title: "Link copied!",
-        description: "The workflow link has been copied to your clipboard.",
-      });
-    } catch (error) {
-      toast({
-        title: "Failed to copy link",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    }
+
+  // Handlers passed to both the cards and the list rows, so the two views offer
+  // exactly the same menu.
+  const projectHandlers = {
+    onCopy: (id: string, title: string) => setCopyingProject({ id, title }),
+    onTransfer: (id: string, title: string) => setTransferringProject({ id, title }),
+    onDelete: (id: string) => setDeletingProjectId(id),
   };
+  const workflowHandlers = {
+    onCopy: (workflow: ApiWorkflow) => setCopyingWorkflow({ id: workflow.id, title: workflow.title }),
+    onTransfer: (workflow: ApiWorkflow) => setTransferringWorkflow({ id: workflow.id, title: workflow.title }),
+    onDelete: (id: string) => {
+      const found = (unfiledWorkflows ?? []).find((candidate) => candidate.id === id);
+      setDeletingWorkflow({ id, title: found?.title ?? "this workflow" });
+    },
+  };
+
+  const rows = useMemo(() => {
+    const projectRows = filteredProjects.map((project: ApiProject) =>
+      projectToAssetRow(
+        project,
+        buildProjectActions(
+          project,
+          projectHandlers,
+          getOrgRestrictedActionReason(project, organizations, organizationsLoading)
+        ),
+        user?.id
+      )
+    );
+    const workflowRows = filteredWorkflows.map((workflow: ApiWorkflow) =>
+      workflowToAssetRow(
+        workflow,
+        buildWorkflowActions(
+          workflow,
+          workflowHandlers,
+          getOrgRestrictedActionReason(workflow, organizations, organizationsLoading)
+        ),
+        user?.id
+      )
+    );
+    return sortRows([...projectRows, ...workflowRows]);
+  }, [filteredProjects, filteredWorkflows, organizations, organizationsLoading, sortRows, user?.id, unfiledWorkflows]);
+
   if (isLoading || !isAuthenticated) {
     return null;
   }
+
+  const dataLoading = projectsLoading || workflowsLoading;
+  const hasAnything = totalCount > 0;
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -283,7 +330,7 @@ export default function WorkflowsList() {
                       New Workflow
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { void setIsProjectDialogOpen(true); }}>
+                  <DropdownMenuItem onClick={() => { setIsProjectDialogOpen(true); }}>
                     <FolderPlus className="w-4 h-4 mr-2" />
                     New Project
                   </DropdownMenuItem>
@@ -299,191 +346,112 @@ export default function WorkflowsList() {
           }
         />
         <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Projects and Workflows Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {(projectsLoading || workflowsLoading) ? (
-              <SkeletonCard count={6} height="h-48" />
-            ) : ((projects?.length ?? 0) > 0) || ((unfiledWorkflows?.length ?? 0) > 0) ? (
-              <>
-                {/* Projects - shown first */}
-                {projects?.filter(p => p.title !== 'Other Project').map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    currentUserId={user?.id}
-                    currentUserOrgRole={getOrgRoleForAsset(project, organizations)}
-                    orgRoleLoading={organizationsLoading}
-                    onTransfer={(id, title) => setTransferringProject({ id, title })}
-                    onCopy={(id, title) => setCopyingProject({ id, title })}
-                    onDelete={(id) => setDeletingProjectId(id)}
-                  />
-                ))}
-                {/* Workflows */}
-                {unfiledWorkflows?.map((workflow) => {
-                  const workflowOrgRole = getOrgRoleForAsset(workflow, organizations);
-                  const orgRestrictedReason = getOrgRestrictedActionReason(workflow, organizations, organizationsLoading);
+          {/* Search + view switch — hidden until there is something to search. */}
+          {!dataLoading && hasAnything && (
+            <AssetToolbar
+              search={search}
+              onSearchChange={setSearch}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              resultCount={resultCount}
+              totalCount={totalCount}
+              itemNoun="item"
+              placeholder="Search projects and workflows..."
+            />
+          )}
 
-                  return (
-                  <Card key={workflow.id} className="hover:shadow-md transition-shadow min-h-[220px]">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-lg font-semibold text-foreground line-clamp-2" data-testid={`text-workflow-title-${workflow.id}`}>
-                          {workflow.title}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                          {user?.id && workflow.creatorId !== user.id ? (
-                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs px-1.5 h-5">Shared</Badge>
-                          ) : null}
-                          {workflow.ownerType === "org" && (
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200 text-xs px-1.5 h-5">
-                              <Users className="w-3 h-3 mr-1" />
-                              {workflow.ownerName ?? "Organization"}
-                            </Badge>
-                          )}
-                          {workflowOrgRole && (
-                            <Badge variant={workflowOrgRole === "admin" ? "default" : "outline"} className="text-xs px-1.5 h-5">
-                              {workflowOrgRole === "admin" && <ShieldCheck className="w-3 h-3 mr-1" />}
-                              {workflowOrgRole === "admin" ? "Admin" : "Member"}
-                            </Badge>
-                          )}
-                          <StatusBadge status={workflow.status} />
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      {workflow.description && (
-                        <p className="text-muted-foreground text-sm mb-4 line-clamp-3" data-testid={`text-workflow-description-${workflow.id}`}>
-                          {workflow.description}
-                        </p>
-                      )}
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Created: {workflow.createdAt ? new Date(workflow.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          <Link href={`/workflows/${workflow.id}/builder`}>
-                            <Button variant="outline" size="sm" data-testid={`button-edit-workflow-${workflow.id}`}>
-                              <Edit className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { void handleCopyLink(workflow.id); }}
-                            data-testid={`button-copy-link-workflow-${workflow.id}`}
-                          >
-                            <LinkIcon className="w-4 h-4 mr-1" />
-                            Copy Link
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { void setTransferringWorkflow({ id: workflow.id, title: workflow.title }); }}
-                            disabled={!!orgRestrictedReason}
-                            title={orgRestrictedReason}
-                            data-testid={`button-transfer-workflow-${workflow.id}`}
-                          >
-                            <ArrowRightLeft className="w-4 h-4 mr-1" />
-                            Transfer
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { void setCopyingWorkflow({ id: workflow.id, title: workflow.title }); }}
-                            data-testid={`button-copy-workflow-${workflow.id}`}
-                          >
-                            <Copy className="w-4 h-4 mr-1" />
-                            Copy
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                disabled={!!orgRestrictedReason}
-                                title={orgRestrictedReason}
-                                data-testid={`button-delete-workflow-${workflow.id}`}
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete &quot;{workflow.title}&quot;? This action cannot be undone.
-                                  All pages, steps, and run data will be permanently deleted.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel data-testid={`button-cancel-delete-${workflow.id}`}>
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => { void handleDeleteWorkflow(workflow.id); }}
-                                  disabled={deletingWorkflowId === workflow.id}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  data-testid={`button-confirm-delete-${workflow.id}`}
-                                >
-                                  {deletingWorkflowId === workflow.id ? "Deleting..." : "Delete Workflow"}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );})}
-              </>
-            ) : (
-              <div className="col-span-full">
-                <Card className="border-dashed bg-muted/40">
-                  <CardContent className="flex flex-col items-center justify-center py-16">
-                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/20">
-                      <Wand2 className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2" data-testid="text-no-workflows">
-                      Start your first workflow
-                    </h3>
-                    <p className="text-muted-foreground text-center mb-8 max-w-md text-sm leading-relaxed">
-                      ezBuildr helps you build powerful data collection workflows. Create one from scratch or explore a sample to see how it works.
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <Link href="/workflows/new">
-                        <Button data-testid="button-create-first-workflow" className="bg-indigo-600 hover:bg-indigo-700 min-w-[140px]">
-                          <Plus className="w-4 h-4 mr-2" />
-                          New Workflow
-                        </Button>
-                      </Link>
-                      <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">or</span>
-                      <Button
-                        variant="outline"
-                        onClick={() => { void createSampleMutation.mutate(); }}
-                        disabled={createSampleMutation.isPending}
-                        className="bg-background min-w-[140px]"
-                      >
-                        {createSampleMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Play className="w-4 h-4 mr-2 text-emerald-600" />
-                        )}
-                        Explore Sample
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+          {dataLoading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              <SkeletonCard count={6} height="h-48" />
+            </div>
+          ) : !hasAnything ? (
+            <Card className="border-dashed bg-muted/40">
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/20">
+                  <Wand2 className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2" data-testid="text-no-workflows">
+                  Start your first workflow
+                </h3>
+                <p className="text-muted-foreground text-center mb-8 max-w-md text-sm leading-relaxed">
+                  ezBuildr helps you build powerful data collection workflows. Create one from scratch or explore a sample to see how it works.
+                </p>
+                <div className="flex items-center gap-3">
+                  <Link href="/workflows/new">
+                    <Button data-testid="button-create-first-workflow" className="bg-indigo-600 hover:bg-indigo-700 min-w-[140px]">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Workflow
+                    </Button>
+                  </Link>
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">or</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => { void createSampleMutation.mutate(); }}
+                    disabled={createSampleMutation.isPending}
+                    className="bg-background min-w-[140px]"
+                  >
+                    {createSampleMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4 mr-2 text-emerald-600" />
+                    )}
+                    Explore Sample
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : resultCount === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <SearchX className="w-10 h-10 text-muted-foreground mb-4" aria-hidden="true" />
+                <h3 className="text-lg font-semibold text-foreground mb-1" data-testid="text-no-search-results">
+                  No matches for &quot;{search.trim()}&quot;
+                </h3>
+                <p className="text-muted-foreground text-sm mb-6">
+                  Try a different name, or clear the search to see everything.
+                </p>
+                <Button variant="outline" onClick={() => setSearch("")}>
+                  Clear search
+                </Button>
+              </CardContent>
+            </Card>
+          ) : viewMode === "list" ? (
+            <AssetTable rows={rows} sort={sort} onSortChange={toggleSort} />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Projects first, then unfiled workflows */}
+              {filteredProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  currentUserId={user?.id}
+                  currentUserOrgRole={getOrgRoleForAsset(project, organizations)}
+                  orgRoleLoading={organizationsLoading}
+                  onTransfer={projectHandlers.onTransfer}
+                  onCopy={projectHandlers.onCopy}
+                  onDelete={projectHandlers.onDelete}
+                />
+              ))}
+              {filteredWorkflows.map((workflow) => (
+                <WorkflowCard
+                  key={workflow.id}
+                  workflow={workflow}
+                  currentUserId={user?.id}
+                  currentUserOrgRole={getOrgRoleForAsset(workflow, organizations)}
+                  orgRoleLoading={organizationsLoading}
+                  onCopy={workflowHandlers.onCopy}
+                  onTransfer={workflowHandlers.onTransfer}
+                  onDelete={workflowHandlers.onDelete}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
+
       {/* Delete Project Confirmation Dialog */}
-      {deletingProjectId && (
-        <AlertDialog open={!!deletingProjectId} onOpenChange={() => setDeletingProjectId(null)}>
+      {deletingProjectId !== null && (
+        <AlertDialog open={deletingProjectId !== null} onOpenChange={() => setDeletingProjectId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Project</AlertDialogTitle>
@@ -495,7 +463,7 @@ export default function WorkflowsList() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => { void handleDeleteProject(deletingProjectId); }}
+                onClick={() => { handleDeleteProject(deletingProjectId); }}
                 disabled={deleteProjectMutation.isPending}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
@@ -505,6 +473,33 @@ export default function WorkflowsList() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Delete Workflow Confirmation Dialog */}
+      {deletingWorkflow !== null && (
+        <AlertDialog open={deletingWorkflow !== null} onOpenChange={() => setDeletingWorkflow(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete &quot;{deletingWorkflow.title}&quot;? This action cannot be undone.
+                All pages, steps, and run data will be permanently deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete-workflow">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => { handleDeleteWorkflow(deletingWorkflow.id); }}
+                disabled={deleteWorkflowMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete-workflow"
+              >
+                {deleteWorkflowMutation.isPending ? "Deleting..." : "Delete Workflow"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       {/* New Project Dialog */}
       <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
         <DialogContent>
@@ -521,7 +516,7 @@ export default function WorkflowsList() {
                 id="project-name"
                 placeholder="Enter project name"
                 value={newProjectName}
-                onChange={(e) => { void setNewProjectName(e.target.value); }}
+                onChange={(e) => { setNewProjectName(e.target.value); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleCreateProject();
@@ -535,7 +530,7 @@ export default function WorkflowsList() {
                 id="project-description"
                 placeholder="Enter project description (optional)"
                 value={newProjectDescription}
-                onChange={(e) => { void setNewProjectDescription(e.target.value); }}
+                onChange={(e) => { setNewProjectDescription(e.target.value); }}
                 rows={3}
               />
             </div>
@@ -552,7 +547,7 @@ export default function WorkflowsList() {
               Cancel
             </Button>
             <Button
-              onClick={() => { void handleCreateProject(); }}
+              onClick={() => { handleCreateProject(); }}
               disabled={createProjectMutation.isPending || !newProjectName.trim()}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
@@ -561,6 +556,7 @@ export default function WorkflowsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* Transfer Ownership Dialog - Workflow */}
       {transferringWorkflow && (
         <TransferOwnershipDialog
@@ -574,6 +570,7 @@ export default function WorkflowsList() {
           isPending={transferWorkflowMutation.isPending}
         />
       )}
+
       {/* Transfer Ownership Dialog - Project */}
       {transferringProject && (
         <TransferOwnershipDialog
@@ -587,6 +584,7 @@ export default function WorkflowsList() {
           isPending={transferProjectMutation.isPending}
         />
       )}
+
       {copyingWorkflow && (
         <CopyAssetDialog
           open={copyingWorkflow !== null}
@@ -597,6 +595,7 @@ export default function WorkflowsList() {
           isPending={copyWorkflowMutation.isPending}
         />
       )}
+
       {copyingProject && (
         <CopyAssetDialog
           open={copyingProject !== null}

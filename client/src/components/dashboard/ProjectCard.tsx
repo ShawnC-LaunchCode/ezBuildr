@@ -3,9 +3,10 @@
  * Displays a project folder card with workflow count
  */
 
-import { Folder, Archive, Trash2, Edit, ArrowRightLeft, Users, Copy, ShieldCheck } from "lucide-react";
+import { Folder, Users, ShieldCheck } from "lucide-react";
 
-import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
+import { buildProjectActions, getOrgRestrictedReasonFromRole } from "@/components/dashboard/assetActions";
+import { EntityCard } from "@/components/shared/EntityCard";
 import { Badge } from "@/components/ui/badge";
 import type { OrgRole } from "@/lib/ownership";
 import type { ApiProject } from "@/lib/vault-api";
@@ -33,59 +34,8 @@ export function ProjectCard({
   onTransfer,
   onDelete,
 }: ProjectCardProps) {
-  const actions: EntityAction[] = [];
-  const orgRestrictedReason = project.ownerType === "org" && currentUserOrgRole !== "admin"
-    ? (orgRoleLoading ? "Checking org role" : "Org admin required")
-    : undefined;
-
-  if (onEdit) {
-    actions.push({
-      label: "Edit",
-      icon: Edit,
-      onClick: () => onEdit(project),
-    });
-  }
-
-  if (onArchive) {
-    actions.push({
-      label: project.status === "archived" ? "Unarchive" : "Archive",
-      icon: Archive,
-      onClick: () => onArchive(project.id),
-      separator: true,
-      disabled: !!orgRestrictedReason,
-      disabledReason: orgRestrictedReason,
-    });
-  }
-
-  if (onCopy) {
-    actions.push({
-      label: "Copy",
-      icon: Copy,
-      onClick: () => onCopy(project.id, project.title),
-    });
-  }
-
-  if (onTransfer) {
-    actions.push({
-      label: "Transfer",
-      icon: ArrowRightLeft,
-      onClick: () => onTransfer(project.id, project.title),
-      disabled: !!orgRestrictedReason,
-      disabledReason: orgRestrictedReason,
-    });
-  }
-
-  if (onDelete) {
-    actions.push({
-      label: "Delete",
-      icon: Trash2,
-      onClick: () => onDelete(project.id),
-      variant: "destructive",
-      separator: true,
-      disabled: !!orgRestrictedReason,
-      disabledReason: orgRestrictedReason,
-    });
-  }
+  const orgRestrictedReason = getOrgRestrictedReasonFromRole(project, currentUserOrgRole, orgRoleLoading);
+  const actions = buildProjectActions(project, { onEdit, onArchive, onCopy, onTransfer, onDelete }, orgRestrictedReason);
 
   return (
     <EntityCard
