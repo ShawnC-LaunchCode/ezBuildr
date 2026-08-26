@@ -1,13 +1,12 @@
 import { eq, and, desc, or, inArray, getTableColumns, isNull, lt, sql, type SQL } from "drizzle-orm";
 
-import { projects, organizations, projectAccess, teamMembers, type Project, type InsertProject } from "@shared/schema";
+import { projects, organizations, projectAccess, teamMembers, workflows, type Project, type InsertProject } from "@shared/schema";
 
 import { db } from "../db";
 import type { CursorPosition } from "../utils/pagination";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-const isUuid = (id: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 /**
  * Options for the paginated creator-scoped list methods.
@@ -27,7 +26,20 @@ export interface ProjectListOptions {
  * owning org's display name (`null` for user-owned/legacy projects, or when
  * the org lookup doesn't match).
  */
-export type ProjectWithOwnerName = Project & { ownerName: string | null };
+export type ProjectWithOwnerName = Project & { ownerName: string | null; workflowCount: number };
+
+/**
+ * How many workflows a project contains, as a correlated subquery.
+ *
+ * The dashboard has always rendered this ("N workflows" on every project card,
+ * and the Workflows column in list view) but the list endpoints never returned
+ * it, so the client's `?? 0` fallback showed a flat, wrong zero everywhere. A
+ * subquery keeps the row count stable — a LEFT JOIN would multiply project rows
+ * by their workflows and break both the cursor and `hasMore`.
+ */
+const workflowCountExpr = sql<number>`(
+  select count(*)::int from ${workflows} where ${workflows.projectId} = ${projects.id}
+)`.as('workflow_count');
 
 /**
  * Build the keyset predicate for the `(createdAt desc, id desc)` ordering
@@ -92,12 +104,17 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
           )
         )
       );
-    // Primary: New ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, creatorId), statusCondition)
-      );
-    }
+    // Primary: New ownership model.
+    // `owner_uuid` is a varchar, and for `ownerType = 'user'` it holds `users.id`
+    // verbatim. `users.id` is only a UUID for locally-registered accounts —
+    // Google sign-in stores the numeric Google `sub` (`server/googleAuth.ts`).
+    // This branch was once gated on a UUID-shape test, which silently dropped it
+    // for every Google user: their newly created projects saved fine but never
+    // appeared in any list, because the legacy fallback below requires
+    // `owner_type IS NULL` and new rows always set it.
+    conditions.push(
+      and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, creatorId), statusCondition)
+    );
     // Org-owned via new model
     if (orgIds.length > 0) {
       conditions.push(
@@ -136,6 +153,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .select({
         ...getTableColumns(projects),
         ownerName: organizations.name,
+        workflowCount: workflowCountExpr,
       })
       .from(projects)
       .leftJoin(
@@ -172,6 +190,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .select({
         ...getTableColumns(projects),
         ownerName: organizations.name,
+        workflowCount: workflowCountExpr,
       })
       .from(projects)
       .leftJoin(
@@ -211,6 +230,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .select({
         ...getTableColumns(projects),
         ownerName: organizations.name,
+        workflowCount: workflowCountExpr,
       })
       .from(projects)
       .leftJoin(

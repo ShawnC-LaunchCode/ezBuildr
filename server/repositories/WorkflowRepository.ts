@@ -8,10 +8,16 @@ import { logger } from "../logger";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 /**
- * Repository for workflow data access
+ * Repository for workflow data access.
+ *
+ * A note that applies to every ownership query below: `owner_uuid` is a varchar,
+ * and for `ownerType = 'user'` it holds `users.id` verbatim. `users.id` is only
+ * a UUID for locally-registered accounts — Google sign-in stores the numeric
+ * Google `sub` (`server/googleAuth.ts`). The user-owned branch used to be gated
+ * on a UUID-shape test, which silently dropped it for Google users; where the
+ * legacy fallback is gated on `owner_type IS NULL`, that made their newly
+ * created rows invisible entirely.
  */
 export class WorkflowRepository extends BaseRepository<typeof workflows, Workflow, InsertWorkflow> {
   constructor(dbInstance?: typeof db) {
@@ -69,11 +75,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
     // Primary: New ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
-      );
-    }
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
+    );
     // Org-owned via new model
     if (orgIds.length > 0) {
       conditions.push(
@@ -127,11 +131,6 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     adminDbOverride?: DrizzleDB
   ): Promise<Array<Workflow & { ownerName: string | null }>> {
     const database = adminDbOverride ?? this.getDb(tx);
-    // ownerUuid holds a UUID; comparing a legacy non-UUID id against it in
-    // Postgres is a wasted predicate at best.
-    const ownedUnderNewModel = isUuid(userId)
-      ? [and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))]
-      : [];
     return database
       .select({
         ...getTableColumns(workflows),
@@ -148,7 +147,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(or(
         eq(workflows.creatorId, userId),
         eq(workflows.ownerId, userId),
-        ...ownedUnderNewModel
+        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
       ))
       .orderBy(desc(workflows.updatedAt));
   }
@@ -175,11 +174,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
     // 1. New ownership model: user-owned
-    if (isUuid(userId)) {
-      conditions.push(
-        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
-      );
-    }
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
+    );
     // 2. New ownership model: org-owned
     if (orgIds.length > 0) {
       conditions.push(
@@ -242,15 +239,13 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       and(eq(workflows.ownerId, creatorId), eq(workflows.status, status)),
     ];
     // User-owned via new ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(
-          eq(workflows.ownerType, 'user'),
-          eq(workflows.ownerUuid, creatorId),
-          eq(workflows.status, status)
-        )
-      );
-    }
+    conditions.push(
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        eq(workflows.status, status)
+      )
+    );
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {
       conditions.push(
@@ -373,15 +368,13 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       and(eq(workflows.ownerId, creatorId), isNull(workflows.projectId)), // Legacy
     ];
     // User-owned via new ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(
-          eq(workflows.ownerType, 'user'),
-          eq(workflows.ownerUuid, creatorId),
-          isNull(workflows.projectId)
-        )
-      );
-    }
+    conditions.push(
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        isNull(workflows.projectId)
+      )
+    );
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {
       conditions.push(
