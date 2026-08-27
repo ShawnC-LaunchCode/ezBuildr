@@ -195,13 +195,17 @@ registry entries or delete normalization aliases; family tickets do that vertica
 
 ## Phase 0 Gate
 
-- [ ] STB-1 and STB-2 are ✅ with dated verification notes.
-- [ ] The current AI prompt no longer advertises the verified inert keys.
-- [ ] Canonical metadata and preset metadata are additive; no stored workflow has changed type.
-- [ ] `npm run type-check` reports 0 errors.
-- [ ] `npm run lint` reports 0 problems.
-- [ ] `npm run test:fast` is green with no fewer passing tests than the recorded baseline.
-- [ ] Reviewer has committed each passed ticket and this phase gate.
+- [x] STB-1 and STB-2 are ✅ with dated verification notes.
+- [x] The current AI prompt no longer advertises the verified inert keys.
+- [x] Canonical metadata and preset metadata are additive; no stored workflow has changed type.
+- [x] `npm run type-check` reports 0 errors.
+- [x] `npm run lint` reports 0 problems.
+- [x] `npm run test:fast` is green with no fewer passing tests than the recorded baseline.
+- [x] Reviewer has committed each passed ticket and this phase gate.
+
+**Integrated verification 2026-08-27:** fast-forwarded to current `dev` at `dde6c6c4`; all three Phase 0 targeted
+unit-fast files passed 29/29, type-check reported 0 errors, lint reported 0 problems, and full `test:fast` passed
+3,465/3,465 tests. Reviewer committed STB-1 (`aaf9e264`), STB-2 (`cc8bbcfd`), and this gate as separate commits.
 
 ---
 
