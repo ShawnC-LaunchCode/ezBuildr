@@ -16,6 +16,36 @@
 import type { DeliveryDestination } from "./delivery";
 import type { MappingBinding } from "./documentMapping";
 
+/**
+ * Stored step identities after the toolbox migration is complete.
+ *
+ * `StepType` deliberately remains the wider persisted union during rollout.
+ * Presets and compatibility aliases must point at one of these identities
+ * without adding another canonical type.
+ */
+export const CANONICAL_STEP_TYPES = [
+  "text",
+  "boolean",
+  "phone",
+  "date_time",
+  "choice",
+  "email",
+  "number",
+  "scale",
+  "website",
+  "address",
+  "multi_field",
+  "display",
+  "file_upload",
+  "list",
+  "js_question",
+  "computed",
+  "final_documents",
+  "signature_block",
+] as const;
+
+export type CanonicalStepType = (typeof CANONICAL_STEP_TYPES)[number];
+
 // ============================================================================
 // BASE TYPES & UTILITIES
 // ============================================================================
@@ -844,6 +874,49 @@ export type StepConfig =
   | Record<string, never>
   | null
   | undefined;
+
+/**
+ * The configuration decision for every canonical stored step type.
+ *
+ * The exact-key constraint is intentional: extending
+ * `CANONICAL_STEP_TYPES` without adding a config mapping fails type-check,
+ * as does adding a mapping for a non-canonical identity. Several mappings
+ * use today's Advanced config shape because the later family tickets will
+ * converge the canonical stored name on that richer shape.
+ */
+type CanonicalStepConfig<Type extends CanonicalStepType> =
+  Type extends "text" ? TextAdvancedConfig :
+  Type extends "boolean" ? BooleanAdvancedConfig :
+  Type extends "phone" ? PhoneAdvancedConfig :
+  Type extends "date_time" ? DateTimeUnifiedConfig :
+  Type extends "choice" ? ChoiceAdvancedConfig :
+  Type extends "email" ? EmailAdvancedConfig :
+  Type extends "number" ? NumberAdvancedConfig :
+  Type extends "scale" ? ScaleAdvancedConfig :
+  Type extends "website" ? WebsiteAdvancedConfig :
+  Type extends "address" ? AddressAdvancedConfig :
+  Type extends "multi_field" ? MultiFieldConfig :
+  Type extends "display" ? DisplayAdvancedConfig :
+  Type extends "file_upload" ? FileUploadConfig :
+  Type extends "list" ? ListConfig :
+  Type extends "js_question" ? JsQuestionConfig :
+  Type extends "computed" ? ComputedStepConfig :
+  Type extends "final_documents" ? FinalBlockConfig :
+  Type extends "signature_block" ? SignatureBlockConfig :
+  never;
+
+export type StepConfigByType = {
+  [Type in CanonicalStepType]: CanonicalStepConfig<Type>;
+};
+
+type AssertNoUnmappedCanonicalStepTypes<Type extends never> = Type;
+
+/** Type-check fails here if a canonical type resolves to no config decision. */
+export type CanonicalStepConfigCoverage = AssertNoUnmappedCanonicalStepTypes<
+  {
+    [Type in CanonicalStepType]: [StepConfigByType[Type]] extends [never] ? Type : never;
+  }[CanonicalStepType]
+>;
 
 // ============================================================================
 // TYPE GUARDS

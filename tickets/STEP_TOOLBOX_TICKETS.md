@@ -138,7 +138,7 @@ lint reported 0 problems; full `test:fast` passed 3,456/3,456 tests against a 3,
 
 ---
 
-## STB-2 — Establish canonical toolbox and preset contracts 🔲
+## STB-2 — Establish canonical toolbox and preset contracts ✅
 
 **Priority: P1** · Size: M · File: `shared/types/stepConfigs.ts`
 
@@ -187,6 +187,9 @@ registry entries or delete normalization aliases; family tickets do that vertica
 5. New `tests/unit/shared/canonicalStepTypes.test.ts` and updated `blockRegistry.test.ts` prove completeness,
    unique preset IDs, valid default configs, and mode metadata.
 6. `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without a baseline count regression.
+
+**Verified 2026-08-27:** both targeted unit-fast files passed 17/17; type-check reported 0 errors; lint reported
+0 problems; full `test:fast` passed 3,465/3,465 tests against the verified 3,456-test STB-1 baseline.
 
 ---
 

@@ -12,10 +12,29 @@ import {
   BLOCK_REGISTRY,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  QUESTION_PRESETS,
   getBlockByType,
   getBlocksByCategory,
   getBlocksByMode,
 } from '../../../client/src/lib/blockRegistry';
+import { CANONICAL_STEP_TYPES } from '../../../shared/types/stepConfigs';
+import {
+  BooleanAdvancedConfigSchema,
+  ChoiceAdvancedConfigSchema,
+  DateTimeUnifiedConfigSchema,
+  FileUploadConfigSchema,
+  NumberAdvancedConfigSchema,
+  TextAdvancedConfigSchema,
+} from '../../../shared/validation/stepConfigSchemas';
+
+const canonicalPresetConfigSchemas = {
+  text: TextAdvancedConfigSchema,
+  boolean: BooleanAdvancedConfigSchema,
+  date_time: DateTimeUnifiedConfigSchema,
+  choice: ChoiceAdvancedConfigSchema,
+  number: NumberAdvancedConfigSchema,
+  file_upload: FileUploadConfigSchema,
+} as const;
 
 // Mirrors QuestionAddMenu.tsx's column split so a registry change that
 // unbalances the palette fails here, not just visually.
@@ -78,5 +97,78 @@ describe('CATEGORY_ORDER / CATEGORY_LABELS: structure', () => {
   it('keeps the Add Question palette columns balanced in advanced mode', () => {
     const [left, right] = columnBlockCounts('advanced');
     expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('QUESTION_PRESETS canonical contract', () => {
+  it('uses unique stable IDs and canonical identities', () => {
+    const ids = QUESTION_PRESETS.map((preset) => preset.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    for (const preset of QUESTION_PRESETS) {
+      expect(CANONICAL_STEP_TYPES).toContain(preset.canonicalType);
+      expect(preset).toHaveProperty('persistedType');
+      expect(preset.id).not.toBe(preset.persistedType);
+    }
+  });
+
+  it('declares usable mode metadata for every preset', () => {
+    for (const preset of QUESTION_PRESETS) {
+      expect(typeof preset.modes.easy).toBe('boolean');
+      expect(typeof preset.modes.advanced).toBe('boolean');
+      expect(preset.modes.easy || preset.modes.advanced).toBe(true);
+    }
+  });
+
+  it('produces defaults accepted by the canonical type schemas', () => {
+    for (const preset of QUESTION_PRESETS) {
+      const defaultConfig = preset.createDefaultConfig();
+      const result = canonicalPresetConfigSchemas[preset.canonicalType].safeParse(defaultConfig);
+      expect(result.success, `${preset.id} has an invalid canonical default config`).toBe(true);
+      if (result.success) {
+        expect(result.data, `${preset.id} default fields were stripped by validation`).toEqual(
+          defaultConfig,
+        );
+      }
+    }
+  });
+
+  it('defines every binding Easy preset', () => {
+    expect(QUESTION_PRESETS.map((preset) => preset.label)).toEqual([
+      'Short Text',
+      'Long Text',
+      'Yes/No',
+      'True/False',
+      'Date',
+      'Time',
+      'Date/Time',
+      'Single Select',
+      'Multiple Choice',
+      'Number',
+      'Currency',
+      'File Upload',
+    ]);
+  });
+
+  it('can expose several Easy presets for one canonical type', () => {
+    const easyTextPresets = QUESTION_PRESETS.filter(
+      (preset) => preset.modes.easy && preset.canonicalType === 'text',
+    );
+    expect(easyTextPresets.map((preset) => preset.label)).toEqual([
+      'Short Text',
+      'Long Text',
+    ]);
+    expect(new Set(easyTextPresets.map((preset) => preset.persistedType))).toEqual(
+      new Set(['short_text', 'long_text']),
+    );
+  });
+
+  it('does not change the existing registry creation path', () => {
+    expect(getBlockByType('short_text')?.createDefaultConfig()).toEqual({});
+    expect(getBlockByType('long_text')?.createDefaultConfig()).toEqual({});
+    expect(getBlockByType('radio')?.type).toBe('radio');
+    expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
+    expect(getBlockByType('currency')?.type).toBe('currency');
+    expect(getBlockByType('file_upload')).toBeUndefined();
   });
 });

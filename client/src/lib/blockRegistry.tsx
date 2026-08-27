@@ -14,7 +14,13 @@
 
 import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2, ListTree } from "lucide-react";
 
-import type { ListConfig, StepConfig } from "@shared/types/stepConfigs";
+import type {
+  CanonicalStepType,
+  ListConfig,
+  StepConfig,
+  StepConfigByType,
+} from "@shared/types/stepConfigs";
+import type { StepType } from "@shared/types/workflow";
 
 // ============================================================================
 // TYPES
@@ -60,6 +66,26 @@ export interface BlockRegistryEntry {
 
   /** Generate default config for this block type */
   createDefaultConfig: () => StepConfig;
+}
+
+/**
+ * A palette-facing choice that is independent from its stored identity.
+ *
+ * `persistedType` remains explicit during the rollout so adding metadata
+ * cannot silently change what existing builder actions write. Family tickets
+ * will move those identities to `canonicalType` one vertical slice at a time.
+ */
+export interface QuestionPreset<Type extends CanonicalStepType = CanonicalStepType> {
+  /** Stable UI identity; never used as a persisted step type. */
+  id: string;
+  label: string;
+  modes: {
+    easy: boolean;
+    advanced: boolean;
+  };
+  canonicalType: Type;
+  persistedType: StepType;
+  createDefaultConfig: () => StepConfigByType[Type];
 }
 
 /**
@@ -437,6 +463,156 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // They are special page types added via "Add Page" menu
   // Removed from registry to prevent confusion (Dec 9, 2025)
 ];
+
+function defineQuestionPreset<Type extends CanonicalStepType>(
+  preset: QuestionPreset<Type>,
+): QuestionPreset<Type> {
+  return preset;
+}
+
+/**
+ * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
+ *
+ * This is additive metadata only: the builder still reads BLOCK_REGISTRY, so
+ * legacy persisted aliases and their current defaults remain unchanged until
+ * the relevant canonical-family ticket switches that creation path.
+ */
+export const QUESTION_PRESETS = [
+  defineQuestionPreset({
+    id: "easy.short-text",
+    label: "Short Text",
+    modes: { easy: true, advanced: false },
+    canonicalType: "text",
+    persistedType: "short_text",
+    createDefaultConfig: () => ({ variant: "short" }),
+  }),
+  defineQuestionPreset({
+    id: "easy.long-text",
+    label: "Long Text",
+    modes: { easy: true, advanced: false },
+    canonicalType: "text",
+    persistedType: "long_text",
+    createDefaultConfig: () => ({ variant: "long" }),
+  }),
+  defineQuestionPreset({
+    id: "easy.yes-no",
+    label: "Yes/No",
+    modes: { easy: true, advanced: false },
+    canonicalType: "boolean",
+    persistedType: "yes_no",
+    createDefaultConfig: () => ({
+      trueLabel: "Yes",
+      falseLabel: "No",
+      storeAsBoolean: true,
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.true-false",
+    label: "True/False",
+    modes: { easy: true, advanced: false },
+    canonicalType: "boolean",
+    persistedType: "true_false",
+    createDefaultConfig: () => ({
+      trueLabel: "True",
+      falseLabel: "False",
+      storeAsBoolean: true,
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.date",
+    label: "Date",
+    modes: { easy: true, advanced: false },
+    canonicalType: "date_time",
+    persistedType: "date",
+    createDefaultConfig: () => ({ kind: "date" }),
+  }),
+  defineQuestionPreset({
+    id: "easy.time",
+    label: "Time",
+    modes: { easy: true, advanced: false },
+    canonicalType: "date_time",
+    persistedType: "time",
+    createDefaultConfig: () => ({
+      kind: "time",
+      timeFormat: "12h",
+      timeStep: 15,
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.date-time",
+    label: "Date/Time",
+    modes: { easy: true, advanced: false },
+    canonicalType: "date_time",
+    persistedType: "date_time",
+    createDefaultConfig: () => ({
+      kind: "datetime",
+      timeFormat: "12h",
+      timeStep: 15,
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.single-select",
+    label: "Single Select",
+    modes: { easy: true, advanced: false },
+    canonicalType: "choice",
+    persistedType: "radio",
+    createDefaultConfig: () => ({
+      display: "radio",
+      allowMultiple: false,
+      options: [
+        { id: "1", label: "Option 1" },
+        { id: "2", label: "Option 2" },
+        { id: "3", label: "Option 3" },
+      ],
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.multiple-choice",
+    label: "Multiple Choice",
+    modes: { easy: true, advanced: false },
+    canonicalType: "choice",
+    persistedType: "multiple_choice",
+    createDefaultConfig: () => ({
+      display: "multiple",
+      allowMultiple: true,
+      options: [
+        { id: "1", label: "Option 1" },
+        { id: "2", label: "Option 2" },
+        { id: "3", label: "Option 3" },
+      ],
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.number",
+    label: "Number",
+    modes: { easy: true, advanced: true },
+    canonicalType: "number",
+    persistedType: "number",
+    createDefaultConfig: () => ({
+      mode: "number",
+      validation: { step: 1 },
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.currency",
+    label: "Currency",
+    modes: { easy: true, advanced: false },
+    canonicalType: "number",
+    persistedType: "currency",
+    createDefaultConfig: () => ({
+      mode: "currency_decimal",
+      currency: "USD",
+    }),
+  }),
+  defineQuestionPreset({
+    id: "easy.file-upload",
+    label: "File Upload",
+    modes: { easy: true, advanced: true },
+    canonicalType: "file_upload",
+    persistedType: "file_upload",
+    createDefaultConfig: () => ({ maxFiles: 1 }),
+  }),
+] as const satisfies readonly QuestionPreset[];
 
 // ============================================================================
 // HELPER FUNCTIONS
