@@ -410,4 +410,104 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     const shownResult = evaluateRules([rule as EvaluableLogicRule], { [controller!.id]: true }, resolveAlias);
     expect(shownResult.visibleSteps.has(target!.id)).toBe(true);
   });
+
+  describe('Section ingestion (SECT-B4)', () => {
+    // Before this, `sections` and `pages[].sectionId` were accepted by the type
+    // and then dropped on the floor — a generated workflow could describe its
+    // grouping and land completely flat, with no error anywhere.
+    function grouped(): Parameters<typeof workflowContentIngestService.apply>[1] {
+      return {
+        title: 'Estate intake',
+        sections: [
+          { id: 'sec-assets', title: 'Assets' },
+          { id: 'sec-debts', title: 'Debts' },
+        ],
+        pages: [
+          { id: 'pg-1', title: 'Real property', order: 0, sectionId: 'sec-assets', steps: [] },
+          { id: 'pg-2', title: 'Accounts', order: 1, sectionId: 'sec-assets', steps: [] },
+          { id: 'pg-3', title: 'Loans', order: 2, sectionId: 'sec-debts', steps: [] },
+          { id: 'pg-4', title: 'Declarations', order: 3, steps: [] },
+        ],
+      };
+    }
+
+    async function readLayout(workflowId: string): Promise<Array<{ title: string; section: string | null }>> {
+      const persistedSections = await getOwnerDb()
+        .select()
+        .from(schema.sections)
+        .where(eq(schema.sections.workflowId, workflowId));
+      const titleById = new Map(persistedSections.map((section) => [section.id, section.title]));
+
+      const persistedPages = await getOwnerDb()
+        .select()
+        .from(schema.pages)
+        .where(eq(schema.pages.workflowId, workflowId));
+
+      return persistedPages
+        .filter((page) => page.deletedAt === null)
+        .sort((left, right) => left.order - right.order)
+        .map((page) => ({
+          title: page.title,
+          section: page.sectionId === null ? null : titleById.get(page.sectionId) ?? '(dangling)',
+        }));
+    }
+
+    it('creates Sections and points each page at the right one', async () => {
+      const workflowId = await createWorkflow('Grouped intake');
+
+      await workflowContentIngestService.apply(workflowId, grouped(), { source: 'ai' });
+
+      expect(await readLayout(workflowId)).toEqual([
+        { title: 'Real property', section: 'Assets' },
+        { title: 'Accounts', section: 'Assets' },
+        { title: 'Loans', section: 'Debts' },
+        { title: 'Declarations', section: null },
+      ]);
+    });
+
+    it('rejects a payload whose Sections interleave, committing nothing', async () => {
+      const workflowId = await createWorkflow('Interleaved intake');
+      const payload = grouped();
+      // Assets now covers orders 0 and 2 with a Debts page wedged between them,
+      // which is precisely the layout no Section may have.
+      payload.pages![1].sectionId = 'sec-debts';
+      payload.pages![2].sectionId = 'sec-assets';
+
+      await expect(
+        workflowContentIngestService.apply(workflowId, payload, { source: 'ai' })
+      ).rejects.toThrow(/contiguous/i);
+
+      // Whole transaction rolled back: not even the pages landed.
+      expect(await readLayout(workflowId)).toEqual([]);
+    });
+
+    it('drops a Section the payload no longer mentions and ungroups its pages', async () => {
+      const workflowId = await createWorkflow('Shrinking intake');
+      await workflowContentIngestService.apply(workflowId, grouped(), { source: 'ai' });
+
+      const flattened = grouped();
+      flattened.sections = [{ id: 'sec-assets', title: 'Assets' }];
+      flattened.pages![2].sectionId = undefined;
+
+      await workflowContentIngestService.apply(workflowId, flattened, { source: 'ai' });
+
+      expect(await readLayout(workflowId)).toEqual([
+        { title: 'Real property', section: 'Assets' },
+        { title: 'Accounts', section: 'Assets' },
+        { title: 'Loans', section: null },
+        { title: 'Declarations', section: null },
+      ]);
+    });
+
+    it('ungroups a page whose sectionId matches no Section in the payload', async () => {
+      const workflowId = await createWorkflow('Dangling reference intake');
+      const payload = grouped();
+      payload.pages![3].sectionId = 'sec-does-not-exist';
+
+      await workflowContentIngestService.apply(workflowId, payload, { source: 'ai' });
+
+      const layout = await readLayout(workflowId);
+      expect(layout[3]).toEqual({ title: 'Declarations', section: null });
+    });
+  });
 });

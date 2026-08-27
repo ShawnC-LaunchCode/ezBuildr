@@ -88,10 +88,35 @@ export const AIGeneratedPageSchema = z.object({
   title: z.string().min(1).describe('Page title'),
   description: z.string().nullable().optional().describe('Optional page description'),
   order: z.number().int().min(0).describe('Display order of this page'),
+  sectionId: z.string().nullable().optional().describe(
+    'Id of the Section this page belongs to, matching a `sections[].id`. ' +
+    'Omit or null for an ungrouped page. Pages sharing a Section must be ' +
+    'consecutive in `order` — a Section cannot be split across other pages.'
+  ),
   steps: z.array(AIGeneratedStepSchema).describe('Steps within this page'),
 });
 
 export type AIGeneratedPage = z.infer<typeof AIGeneratedPageSchema>;
+
+/**
+ * AI-generated Section: a named group over a contiguous run of pages
+ * (SECT-B4). Sections are optional — a short workflow is fine flat — but a
+ * long one arriving ungrouped is exactly the case the feature exists for.
+ *
+ * Membership lives on the page (`AIGeneratedPageSchema.sectionId`) rather than
+ * as a page list here, so a page can only ever belong to one Section and the
+ * two sides cannot contradict each other.
+ */
+export const AIGeneratedSectionSchema = z.object({
+  id: z.string().describe('Unique identifier for the section, referenced by pages[].sectionId'),
+  title: z.string().min(1).describe('Section title'),
+  description: z.string().nullable().optional().describe('Optional section description'),
+  visibleIf: conditionExpressionSchema.optional().describe(
+    'Visibility condition for the whole Section: a ConditionExpression tree. Omit for always-visible.'
+  ),
+});
+
+export type AIGeneratedSection = z.infer<typeof AIGeneratedSectionSchema>;
 
 /**
  * AI-generated logic rule specification
@@ -140,6 +165,9 @@ export type AIGeneratedTransformBlock = z.infer<typeof AIGeneratedTransformBlock
 export const AIGeneratedWorkflowSchema = z.object({
   title: z.string().min(1).describe('Workflow title'),
   description: z.string().nullable().optional().describe('Workflow description'),
+  sections: z.array(AIGeneratedSectionSchema).default([]).describe(
+    'Named groups over contiguous runs of pages. Optional; omit for a flat workflow.'
+  ),
   pages: z.array(AIGeneratedPageSchema).default([]).describe('Workflow pages (pages)'),
   logicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Conditional logic rules'),
   transformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('JavaScript/Python computation blocks'),

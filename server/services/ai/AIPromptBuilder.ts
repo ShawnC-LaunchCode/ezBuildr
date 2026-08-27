@@ -54,12 +54,20 @@ Output a JSON object with this exact structure:
 {
   "title": "Workflow Title",
   "description": "Brief description",
+  "sections": [
+    {
+      "id": "unique_section_id",
+      "title": "Section Title",
+      "description": "Optional description"
+    }
+  ],
   "pages": [
     {
       "id": "unique_page_id",
       "title": "Page Title",
       "description": "Optional description",
       "order": 0,
+      "sectionId": "unique_section_id_or_null",
       "steps": [
         {
           "id": "unique_step_id",
@@ -122,6 +130,10 @@ CRITICAL CONSTRAINTS:
 - For multiple_choice, radio types, ALWAYS include config.options as array of strings (minimum 2 options)
 - Transform block code MUST call emit(value) exactly once
 - NO network calls or file system access in transform blocks
+- Every page "sectionId" must match a "sections[].id" or be null
+- Pages sharing a section MUST be consecutive in "order" — a section covers one
+  unbroken run of pages and can never be empty. A workflow whose sections
+  interleave is rejected outright, so order the pages section by section.
 
 STEP TYPE SELECTION GUIDE:
 - **short_text**: Names, titles, single-line answers (< 100 chars)
@@ -140,6 +152,15 @@ STEP TYPE SELECTION GUIDE:
 - **website**: URLs with validation
 - **file_upload**: Document or image uploads
 - **display**: Information-only, no input required
+
+SECTION GUIDANCE:
+- Sections are the chapter above pages: use them to group a run of related
+  pages ("Assets", "Debts", "Declarations"), not individual questions.
+- Leave "sections" empty for a short workflow. Once a workflow runs past about
+  six pages, grouping them is what keeps it navigable — that is the case
+  sections exist for.
+- Aim for sections of two to five pages. A section holding every page says
+  nothing, and one page per section is just the flat list with extra chrome.
 
 BEST PRACTICES:
 1. Group related questions into logical pages (e.g., "Personal Information", "Contact Details")

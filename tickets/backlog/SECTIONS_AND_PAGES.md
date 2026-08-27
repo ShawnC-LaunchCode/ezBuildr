@@ -70,17 +70,6 @@ D-8 restricts v1 to
 
 **Next step:** Size `mapLayout.ts` first — the ticket warns the existing layout algorithm may need real work before React Flow parent nodes are viable.
 
-## SECT-B4 — AI generation emits Sections · `enhancement`
-
-`shared/types/ai.ts`'s
-  `AIGeneratedSectionSchema` produces a flat page list. An AI-generated
-  100-page interview arriving ungrouped undercuts the feature for exactly the
-  workflows that need it most. Needs prompt work in `AIPromptBuilder` plus
-  schema changes, and should follow real usage of Phase 2 so the AI groups the
-  way authors actually do.
-
-**Next step:** Now unblocked: Phase 2 shipped, so real authoring usage exists to model the prompt on.
-
 ## SECT-B5 — Marketplace/blueprint templates ship with Sections · `enhancement`
 
 The curated
@@ -230,6 +219,7 @@ Surfaced during SECT-10 and correctly *not* fixed there: it is a repo-wide
 | SECT-9 | Click-to-navigate to reached pages, guarded in `useRunNavigation` | `14c4aa5d` |
 | **Phase 4 gate** | Reached state + rail + navigation live-verified together | `78e5f7a8` |
 | SECT-10 | Documentation aligned with shipped product; 16 documents corrected | `0b175796` |
+| SECT-B4 | AI generation emits Sections, **and the AI edit surface gained them too** — five `section.*`/`page.setSection` patch ops, `WorkflowContentIngestService` actually persisting `sections`/`pages[].sectionId` (it accepted and dropped them before), and three page ops rerouted through `PageService` so an AI batch can no longer empty or split a Section | `6cc8da9e` |
 
 ### Withdrawn during review — do not re-file as findings
 

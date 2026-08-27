@@ -350,6 +350,8 @@ Do NOT include any explanation or markdown - just the JSON object.`;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         description: parsed.description || fallback.description,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
+        sections: (parsed.sections || fallback.sections) ?? [],
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         pages: parsed.pages,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],

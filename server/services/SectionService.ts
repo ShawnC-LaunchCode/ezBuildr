@@ -115,6 +115,45 @@ export class SectionService {
     });
   }
 
+  /**
+   * Move one page into a Section, or out of every Section (`sectionId: null`).
+   *
+   * The manual builder only ever changes membership through
+   * `PageService.reorderPages`, which demands the workflow's complete page
+   * layout — a contract no AI patch op can reasonably satisfy for a one-page
+   * change. This is the single-page equivalent: it takes the same structure
+   * lock and re-asserts the same span invariant afterwards, so a move that
+   * would split a Section, or empty one, rolls back instead of persisting a
+   * corrupt layout.
+   */
+  async setPageSection(
+    workflowId: string,
+    userId: string,
+    pageId: string,
+    sectionId: string | null,
+    callerTx?: DbTransaction,
+  ): Promise<void> {
+    await this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, "edit", tx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, tx);
+
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      if (!activePages.some((page) => page.id === pageId)) {
+        throw new Error("Page not found");
+      }
+
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+      if (sectionId !== null && !workflowSections.some((section) => section.id === sectionId)) {
+        throw new Error("Section not found");
+      }
+
+      await this.pageRepo.updateSectionId(pageId, workflowId, sectionId, tx);
+
+      const persistedPages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      assertValidSectionSpans(persistedPages, workflowSections);
+    });
+  }
+
   async updateSection(
     sectionId: string,
     userId: string,

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createLogger } from "../logger";
 import {
   pageRepository,
+  sectionRepository,
   stepRepository as defaultStepRepository,
   logicRuleRepository,
   documentTemplateRepository,
@@ -16,8 +17,11 @@ import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/
 
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
 import { DatavaultTablesService } from "./DatavaultTablesService";
+import { pageService } from "./PageService";
+import { sectionService } from "./SectionService";
 import { workflowService } from "./WorkflowService";
 const logger = createLogger({ module: "workflow-patch-service" });
+const PAGE_REF_REQUIRED = "Page ID or tempId required";
 /**
  * Applies atomic workflow patch operations with tempId resolution
  * Used by AI workflow editing system
@@ -192,6 +196,68 @@ export class WorkflowPatchService {
   }
 
   /**
+   * IDOR guard for Section references, mirroring
+   * `assertEntityBelongsToWorkflow` for pages and steps: a Section id from
+   * another tenant's workflow must not be reachable just because the caller
+   * can edit this one.
+   */
+  private async assertSectionBelongsToWorkflow(sectionId: string, workflowId: string, tx?: DbTransaction): Promise<void> {
+    const section = await sectionRepository.findById(sectionId, tx);
+    if (!section) { throw new Error(`Section not found: ${sectionId}`); }
+    if (section.workflowId !== workflowId) { throw new Error(`Section ${sectionId} does not belong to workflow ${workflowId}`); }
+  }
+
+  /**
+   * Expand a `page.reorder` op into the complete page layout
+   * `PageService.reorderPages` requires.
+   *
+   * A partial list means "reorder these among themselves": the listed pages
+   * are dealt, in the given sequence, into the order slots those same pages
+   * already occupy, and every unlisted page keeps its slot. A list naming
+   * every page therefore behaves exactly as "this is the new order", while a
+   * two-page swap no longer drags the other eight to the end of the workflow.
+   * Each page carries its existing `sectionId` through untouched, so a reorder
+   * changes sequence only — never Section membership.
+   */
+  private async buildReorderLayout(
+    workflowId: string,
+    pageRefs: string[],
+    tx: DbTransaction,
+  ): Promise<Array<{ id: string; order: number; sectionId: string | null }>> {
+    const activePages = await pageRepository.findByWorkflowId(workflowId, tx);
+    const byId = new Map(activePages.map((page) => [page.id, page]));
+    const slotted = [...activePages].sort((left, right) => left.order - right.order);
+
+    const requested: string[] = [];
+    const seen = new Set<string>();
+    for (const ref of pageRefs) {
+      const pageId = this.resolve(ref);
+      if (!pageId) { throw new Error(PAGE_REF_REQUIRED); }
+      if (!byId.has(pageId)) {
+        throw new Error(`Page ${pageId} does not belong to workflow ${workflowId}`);
+      }
+      if (seen.has(pageId)) { throw new Error("Page reorder contains duplicate page IDs"); }
+      seen.add(pageId);
+      requested.push(pageId);
+    }
+
+    const slots = slotted
+      .map((page, index) => (seen.has(page.id) ? index : -1))
+      .filter((index) => index !== -1);
+    for (const [position, slot] of slots.entries()) {
+      const pageId = requested[position];
+      const page = byId.get(pageId);
+      if (page) { slotted[slot] = page; }
+    }
+
+    return slotted.map((page, index) => ({
+      id: page.id,
+      order: index + 1,
+      sectionId: page.sectionId,
+    }));
+  }
+
+  /**
    * Apply a single operation, in one tenant-scoped transaction.
    *
    * One transaction per OP rather than per batch: `applyOps` deliberately
@@ -235,8 +301,12 @@ export class WorkflowPatchService {
       // Page Operations
       // ====================================================================
       case "page.create": {
-        const page = await pageRepository.create({
-          workflowId,
+        // Through PageService, not the repository: it takes the structure
+        // lock, enforces MAX_PAGES_PER_WORKFLOW, and re-asserts the Section
+        // span invariant. Creating pages by raw repository call skipped all
+        // three, so an AI batch could exceed the page cap or land a page at a
+        // duplicate `order` in the middle of a Section's span.
+        const page = await pageService.createPage(workflowId, userId, {
           title: op.title,
           order: op.order,
           config: op.config,
@@ -248,7 +318,7 @@ export class WorkflowPatchService {
       }
       case "page.update": {
         const pageId = this.resolve(op.id ?? op.tempId);
-        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        if (!pageId) { throw new Error(PAGE_REF_REQUIRED); }
         await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         await pageRepository.update(pageId, {
           title: op.title,
@@ -259,30 +329,100 @@ export class WorkflowPatchService {
       }
       case "page.delete": {
         const pageId = this.resolve(op.id ?? op.tempId);
-        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        if (!pageId) { throw new Error(PAGE_REF_REQUIRED); }
         await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
-        // Cascade to the page's own steps, mirroring the manual delete
-        // path in PageService.deletePage. The op's own transaction is
-        // the cascade's transaction — opening a second one here would nest.
-        await this.stepRepository.softDeleteByPageId(pageId, tx);
-        await pageRepository.softDelete(pageId, tx);
+        // Delegated to PageService rather than re-implemented here — the
+        // hand-rolled copy cascaded to steps but skipped the span assertion,
+        // so deleting a Section's only page left that Section empty and every
+        // later layout write failed on an invariant the AI had broken.
+        await pageService.deletePage(pageId, workflowId, userId, tx);
         return `Deleted page`;
       }
       case "page.reorder": {
-        // Update order for each page
-        for (let i = 0; i < op.pageIds.length; i++) {
-          const pageId = this.resolve(op.pageIds[i]);
-          if (pageId) {
-            await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
-            await pageRepository.update(pageId, { order: i + 1 }, tx);
-          }
+        // The old loop wrote `order: i + 1` to each listed page and nothing
+        // else. Two defects fell out of that: a partial list left unlisted
+        // pages on their original orders, colliding with the ones just
+        // renumbered, and nothing carried `sectionId`, so a reorder that
+        // interleaved two Sections' pages silently broke their contiguous
+        // spans. Both are avoided by handing PageService the workflow's
+        // complete layout, which is the contract the manual builder uses.
+        const layout = await this.buildReorderLayout(workflowId, op.pageIds, tx);
+        const { affectedSkipRules } = await pageService.reorderPages(
+          workflowId,
+          userId,
+          layout,
+          [],
+          tx,
+        );
+        const brokenRules = affectedSkipRules.length > 0
+          ? ` (${affectedSkipRules.length} skip_to rule(s) now point backwards)`
+          : '';
+        return `Reordered ${op.pageIds.length} pages${brokenRules}`;
+      }
+      case "page.setSection": {
+        const pageId = this.resolve(op.id ?? op.tempId);
+        if (!pageId) { throw new Error(PAGE_REF_REQUIRED); }
+        await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+        const sectionId = op.sectionId === null ? null : this.resolve(op.sectionId) ?? null;
+        await sectionService.setPageSection(workflowId, userId, pageId, sectionId, tx);
+        return sectionId === null
+          ? `Removed page from its Section`
+          : `Moved page into Section`;
+      }
+      // ====================================================================
+      // Section Operations
+      // ====================================================================
+      case "section.create": {
+        const pageIds = op.pageIds.map((ref) => this.resolve(ref)).filter((id): id is string => Boolean(id));
+        if (pageIds.length !== op.pageIds.length) {
+          throw new Error("Every section.create pageId must resolve to a page");
         }
-        return `Reordered ${op.pageIds.length} pages`;
+        for (const pageId of pageIds) {
+          await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
+        }
+        const section = await sectionService.createSection(workflowId, userId, {
+          title: op.title,
+          description: op.description,
+        }, pageIds, tx);
+        if (op.tempId) {
+          this.mapTempId(op.tempId, section.id);
+        }
+        return `Created Section '${op.title}' over ${pageIds.length} page(s)`;
+      }
+      case "section.update": {
+        const sectionId = this.resolve(op.id ?? op.tempId);
+        if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertSectionBelongsToWorkflow(sectionId, workflowId, tx);
+        await sectionService.updateSection(sectionId, userId, {
+          title: op.title,
+          description: op.description,
+        }, tx);
+        return `Updated Section`;
+      }
+      case "section.delete": {
+        const sectionId = this.resolve(op.id ?? op.tempId);
+        if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertSectionBelongsToWorkflow(sectionId, workflowId, tx);
+        // The pages survive: `pages.section_id` is ON DELETE SET NULL, so they
+        // stay in the workflow and simply become ungrouped.
+        await sectionService.deleteSection(sectionId, userId, tx);
+        return `Deleted Section`;
+      }
+      case "section.setVisibleIf": {
+        const sectionId = this.resolve(op.id ?? op.tempId);
+        if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertSectionBelongsToWorkflow(sectionId, workflowId, tx);
+        await sectionService.updateSection(sectionId, userId, {
+          visibleIf: op.visibleIf,
+        }, tx);
+        return op.visibleIf === null
+          ? `Cleared Section visibility condition`
+          : `Updated Section visibility condition`;
       }
       case "page.setVisibleIf": {
         const pageId = this.resolve(op.id ?? op.tempId);
-        if (!pageId) { throw new Error("Page ID or tempId required"); }
+        if (!pageId) { throw new Error(PAGE_REF_REQUIRED); }
         await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         await pageRepository.update(pageId, {
           visibleIf: op.visibleIf,

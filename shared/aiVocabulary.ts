@@ -77,10 +77,15 @@ export function buildActionCatalog(): string {
   return conditionalActionEnum.enumValues.join(', ');
 }
 
+/** Every op name in the patch union, in declaration order. */
+export function getOpNames(): string[] {
+  return workflowPatchOpSchema.options
+    .map((option) => (option.shape.op as z.ZodLiteral<string>).value);
+}
+
 /** Every op name in the patch union, so the list cannot drift from the schema. */
 export function buildOpCatalog(): string {
-  return workflowPatchOpSchema.options
-    .map((option) => (option.shape.op as z.ZodLiteral<string>).value)
+  return getOpNames()
     .map((op) => `- ${op}`)
     .join('\n');
 }
@@ -100,6 +105,18 @@ ${buildOperatorCatalog()}
 
 Logic rule actions:
 ${buildActionCatalog()}
+
+Sections group pages. A Section always covers a CONTIGUOUS span of pages in the
+workflow's page order and can never be empty, so:
+- Create the pages first, then group them with one section.create naming those
+  pages (by id, or by the tempId each page.create was given), in page order.
+- To put an existing page into a Section, use page.setSection. It must sit
+  directly beside that Section's existing pages, or the op is rejected.
+- page.setSection with "sectionId": null takes a page out of its Section. Doing
+  that to a Section's last page is rejected — delete the Section instead.
+- section.delete keeps every page; they simply become ungrouped.
+- A patch that would split a Section, or leave one empty, fails and is not
+  applied. Reorder pages so the span stays whole rather than working around it.
 
 Condition expressions are objects, not strings. Shape:
 {"type":"group","id":"<uuid>","operator":"AND","conditions":[{"type":"condition","id":"<uuid>","variable":"<step alias>","operator":"equals","value":<value>,"valueType":"constant"}]}

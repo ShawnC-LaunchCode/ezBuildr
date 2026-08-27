@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middleware/ai.middleware';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
-import { workflows, workflowVersions, workflowSnapshots, projects, users, pages, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
+import { workflows, workflowVersions, workflowSnapshots, projects, users, pages, sections, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
 // application under test - see tests/helpers/ownerDb.ts.
@@ -172,6 +172,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         console.warn('⚠️ Skipping auditLogs cleanup: auditLogs or testUserId is undefined', { auditLogs: !!auditLogs, testUserId });
       }
       if (pages && testWorkflowId) {await getOwnerDb().delete(pages).where(eq(pages.workflowId, testWorkflowId));}
+      if (sections && testWorkflowId) {await getOwnerDb().delete(sections).where(eq(sections.workflowId, testWorkflowId));}
       if (workflowVersions && testWorkflowId) {await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));}
       if (workflows && testWorkflowId) {await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));}
       if (projects && testProjectId) {await getOwnerDb().delete(projects).where(eq(projects.id, testProjectId));}
@@ -1367,6 +1368,157 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(usageRows.length).toBeGreaterThan(0);
 
     await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+  });
+
+  describe('Section operations (AI edit surface)', () => {
+    // These drive the real route with the model stubbed to emit section ops, so
+    // the span invariant is proven against Postgres rather than a mock. Before
+    // these ops existed the model had no way to express grouping at all, and
+    // the schema rejected any attempt.
+    async function seedPages(count: number): Promise<string[]> {
+      const rows = await getOwnerDb()
+        .insert(pages)
+        .values(
+          Array.from({ length: count }, (_, index) => ({
+            workflowId: testWorkflowId,
+            title: `Page ${index + 1}`,
+            order: index + 1,
+          })),
+        )
+        .returning();
+      return rows
+        .sort((left, right) => left.order - right.order)
+        .map((row) => row.id);
+    }
+
+    function respondWith(ops: unknown[]): void {
+      mockGenerateContent.mockResolvedValue({
+        response: {
+          text: () => JSON.stringify({
+            ops,
+            summary: ['Grouped pages'],
+            warnings: [],
+            questions: [],
+            confidence: 0.9,
+          }),
+        },
+      });
+    }
+
+    it('groups pages it created in the same batch into a Section', async () => {
+      respondWith([
+        { op: 'page.create', tempId: 'p-a', title: 'Assets', order: 1 },
+        { op: 'page.create', tempId: 'p-b', title: 'Debts', order: 2 },
+        {
+          op: 'section.create',
+          tempId: 's-1',
+          title: 'Finances',
+          pageIds: ['p-a', 'p-b'],
+        },
+      ]);
+
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Add an assets page and a debts page, grouped under Finances' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      const createdSections = await getOwnerDb()
+        .select()
+        .from(sections)
+        .where(eq(sections.workflowId, testWorkflowId));
+      expect(createdSections).toHaveLength(1);
+      expect(createdSections[0].title).toBe('Finances');
+
+      const createdPages = await getOwnerDb()
+        .select()
+        .from(pages)
+        .where(eq(pages.workflowId, testWorkflowId));
+      expect(createdPages).toHaveLength(2);
+      for (const page of createdPages) {
+        expect(page.sectionId).toBe(createdSections[0].id);
+      }
+    });
+
+    it('rejects a page.setSection that would split a Section, writing nothing', async () => {
+      const pageIds = await seedPages(4);
+      respondWith([
+        { op: 'section.create', tempId: 's-1', title: 'Finances', pageIds: [pageIds[0], pageIds[1]] },
+        // Page 4 is not adjacent to the span {1,2}: accepting this would leave
+        // the Section covering orders 1, 2 and 4.
+        { op: 'page.setSection', id: pageIds[3], sectionId: 's-1' },
+      ]);
+
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Put the last page in the Finances section too' });
+
+      expect(response.body.success).toBe(false);
+
+      // The split op rolled back: page 4 is still ungrouped.
+      const [pageFour] = await getOwnerDb()
+        .select()
+        .from(pages)
+        .where(eq(pages.id, pageIds[3]));
+      expect(pageFour.sectionId).toBeNull();
+    });
+
+    it('rejects detaching a Section last page instead of leaving it empty', async () => {
+      const pageIds = await seedPages(2);
+      respondWith([
+        { op: 'section.create', tempId: 's-1', title: 'Intro', pageIds: [pageIds[0]] },
+        { op: 'page.setSection', id: pageIds[0], sectionId: null },
+      ]);
+
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Take the first page back out of its section' });
+
+      expect(response.body.success).toBe(false);
+
+      // The Section still exists and still holds its page.
+      const remaining = await getOwnerDb()
+        .select()
+        .from(sections)
+        .where(eq(sections.workflowId, testWorkflowId));
+      expect(remaining).toHaveLength(1);
+      const [firstPage] = await getOwnerDb()
+        .select()
+        .from(pages)
+        .where(eq(pages.id, pageIds[0]));
+      expect(firstPage.sectionId).toBe(remaining[0].id);
+    });
+
+    it('keeps a Section pages when the Section itself is deleted', async () => {
+      const pageIds = await seedPages(2);
+      respondWith([
+        { op: 'section.create', tempId: 's-1', title: 'Temporary', pageIds },
+        { op: 'section.delete', tempId: 's-1' },
+      ]);
+
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Ungroup those pages' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      const remaining = await getOwnerDb()
+        .select()
+        .from(sections)
+        .where(eq(sections.workflowId, testWorkflowId));
+      expect(remaining).toHaveLength(0);
+
+      const survivingPages = await getOwnerDb()
+        .select()
+        .from(pages)
+        .where(eq(pages.workflowId, testWorkflowId));
+      expect(survivingPages).toHaveLength(2);
+      for (const page of survivingPages) {
+        expect(page.sectionId).toBeNull();
+      }
+    });
   });
 });
 

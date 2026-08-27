@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
-import { type Step, type Page, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase } from "@shared/schema";
+import { type Step, type Page, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase } from "@shared/schema";
 import type { WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.schema';
 import type {
   StepRepository,
@@ -11,7 +11,8 @@ import type {
   ProjectRepository,
   DocumentTemplateRepository,
   WorkflowTemplateRepository,
-  DatavaultDatabasesRepository
+  DatavaultDatabasesRepository,
+  SectionRepository
 } from '../../../server/repositories';
 // Every op now runs inside one tenant-scoped transaction opened at the service
 // boundary (RLS-2e) — with no tenant in the async context and RLS unenforced,
@@ -31,6 +32,9 @@ vi.mock('../../../server/repositories', () => ({
     delete: vi.fn(),
     softDelete: vi.fn(),
     findByWorkflowId: vi.fn(),
+    findById: vi.fn(),
+  },
+  sectionRepository: {
     findById: vi.fn(),
   },
   stepRepository: {
@@ -71,7 +75,7 @@ vi.mock('../../../server/services/WorkflowService', () => ({
   },
 }));
 // Shared mock functions
-const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoSoftDelete, mockStepRepoSoftDeleteByPageId, mockStepRepoFind, mockStepRepoFindByPage, mockStepRepoFindById } = vi.hoisted(() => ({
+const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoSoftDelete, mockStepRepoSoftDeleteByPageId, mockStepRepoFind, mockStepRepoFindByPage, mockStepRepoFindById, mockPageSvcCreate, mockPageSvcDelete, mockPageSvcReorder, mockSectionSvcCreate, mockSectionSvcUpdate, mockSectionSvcDelete, mockSectionSvcSetPageSection } = vi.hoisted(() => ({
   mockCreateTable: vi.fn(),
   mockRequirePermission: vi.fn(),
   mockCreateColumn: vi.fn(),
@@ -84,6 +88,33 @@ const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumn
   mockStepRepoFind: vi.fn(),
   mockStepRepoFindByPage: vi.fn(),
   mockStepRepoFindById: vi.fn(),
+  mockPageSvcCreate: vi.fn(),
+  mockPageSvcDelete: vi.fn(),
+  mockPageSvcReorder: vi.fn(),
+  mockSectionSvcCreate: vi.fn(),
+  mockSectionSvcUpdate: vi.fn(),
+  mockSectionSvcDelete: vi.fn(),
+  mockSectionSvcSetPageSection: vi.fn(),
+}));
+// Page and Section layout ops delegate to their owning services rather than
+// writing rows here: those services take the workflow structure lock and
+// re-assert the Section span invariant, which raw repository calls skipped.
+// This suite therefore asserts the delegation; the behaviour behind it is
+// covered by PageService.test.ts and SectionService's own suites.
+vi.mock('../../../server/services/PageService', () => ({
+  pageService: {
+    createPage: mockPageSvcCreate,
+    deletePage: mockPageSvcDelete,
+    reorderPages: mockPageSvcReorder,
+  },
+}));
+vi.mock('../../../server/services/SectionService', () => ({
+  sectionService: {
+    createSection: mockSectionSvcCreate,
+    updateSection: mockSectionSvcUpdate,
+    deleteSection: mockSectionSvcDelete,
+    setPageSection: mockSectionSvcSetPageSection,
+  },
 }));
 vi.mock('../../../server/services/DatavaultTablesService', () => ({
   DatavaultTablesService: class {
@@ -106,6 +137,7 @@ describe('WorkflowPatchService', () => {
   let mockDocTemplateRepo: Mocked<DocumentTemplateRepository>;
   let mockWorkflowTemplateRepo: Mocked<WorkflowTemplateRepository>;
   let mockDatavaultDatabasesRepo: Mocked<DatavaultDatabasesRepository>;
+  let mockSectionRepo: Mocked<SectionRepository>;
 
   const mockWorkflowId = 'workflow-123';
   const mockUserId = 'user-456';
@@ -117,6 +149,14 @@ describe('WorkflowPatchService', () => {
     mockStepRepoFindById.mockReset();
     mockStepRepoSoftDelete.mockReset();
     mockStepRepoSoftDeleteByPageId.mockReset();
+    mockPageSvcCreate.mockReset();
+    mockPageSvcDelete.mockReset();
+    mockPageSvcReorder.mockReset();
+    mockSectionSvcCreate.mockReset();
+    mockSectionSvcUpdate.mockReset();
+    mockSectionSvcDelete.mockReset();
+    mockSectionSvcSetPageSection.mockReset();
+    mockPageSvcReorder.mockResolvedValue({ affectedSkipRules: [] });
 
     const repos = await import('../../../server/repositories');
     mockPageRepo = repos.pageRepository as Mocked<PageRepository>;
@@ -126,6 +166,7 @@ describe('WorkflowPatchService', () => {
     mockDocTemplateRepo = repos.documentTemplateRepository as Mocked<DocumentTemplateRepository>;
     mockWorkflowTemplateRepo = repos.workflowTemplateRepository as Mocked<WorkflowTemplateRepository>;
     mockDatavaultDatabasesRepo = repos.datavaultDatabasesRepository as Mocked<DatavaultDatabasesRepository>;
+    mockSectionRepo = repos.sectionRepository as Mocked<SectionRepository>;
 
     service = new WorkflowPatchService(mockStepRepo);
 
@@ -155,11 +196,17 @@ describe('WorkflowPatchService', () => {
       id: 'step-123',
       pageId: 'page-123',
     } as unknown as Step);
+
+    // Default lookup for the Section IDOR guard.
+    mockSectionRepo.findById.mockResolvedValue({
+      id: 'section-123',
+      workflowId: mockWorkflowId,
+    } as unknown as Section);
   });
   describe('TempId Resolution', () => {
     it('should resolve page tempId to real UUID when creating step', async () => {
       // Mock page creation returning real ID
-      mockPageRepo.create.mockResolvedValue({
+      mockPageSvcCreate.mockResolvedValue({
         id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
@@ -214,7 +261,7 @@ describe('WorkflowPatchService', () => {
       );
     });
     it('should handle multi-level tempId references', async () => {
-      mockPageRepo.create.mockResolvedValue({
+      mockPageSvcCreate.mockResolvedValue({
         id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Personal Info',
@@ -511,7 +558,7 @@ describe('WorkflowPatchService', () => {
   });
   describe('Operation Application', () => {
     it('should rollback all ops if any op fails', async () => {
-      mockPageRepo.create.mockResolvedValue({
+      mockPageSvcCreate.mockResolvedValue({
         id: 'page-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
@@ -555,10 +602,10 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.summary).toHaveLength(0);
       // Page should NOT be created (validation happens before application)
-      expect(mockPageRepo.create).not.toHaveBeenCalled();
+      expect(mockPageSvcCreate).not.toHaveBeenCalled();
     });
     it('should clear tempId mappings between batch calls', async () => {
-      mockPageRepo.create.mockResolvedValue({
+      mockPageSvcCreate.mockResolvedValue({
         id: 'page-real-uuid-1',
         workflowId: mockWorkflowId,
         title: 'Page 1',
@@ -641,14 +688,227 @@ describe('WorkflowPatchService', () => {
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
       expect(result.summary[0]).toContain('Deleted page');
-      // Cascade: the page's own steps are soft-deleted first, mirroring
-      // the manual delete path's transactional cascade.
-      expect(mockStepRepo.softDeleteByPageId).toHaveBeenCalledWith('page-123', expect.anything());
-      expect(mockPageRepo.softDelete).toHaveBeenCalledWith('page-123', expect.anything());
+      // Delegated to PageService, which owns the step cascade AND the Section
+      // span assertion the hand-rolled copy here used to skip — deleting a
+      // Section's only page silently left that Section empty.
+      expect(mockPageSvcDelete).toHaveBeenCalledWith(
+        'page-123',
+        mockWorkflowId,
+        mockUserId,
+        expect.anything(),
+      );
       expect(mockPageRepo.delete).not.toHaveBeenCalled();
       expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
   });
+  describe('Section Operations', () => {
+    it('resolves page tempIds from the same batch when grouping (section.create)', async () => {
+      mockPageSvcCreate
+        .mockResolvedValueOnce({ id: 'page-real-1' } as unknown as Page)
+        .mockResolvedValueOnce({ id: 'page-real-2' } as unknown as Page);
+      mockSectionSvcCreate.mockResolvedValue({ id: 'section-real' } as unknown as Section);
+      mockPageRepo.findById.mockResolvedValue({
+        id: 'page-real-1',
+        workflowId: mockWorkflowId,
+      } as unknown as Page);
+
+      const ops: WorkflowPatchOp[] = [
+        { op: 'page.create', tempId: 'temp-a', title: 'Assets', order: 1 },
+        { op: 'page.create', tempId: 'temp-b', title: 'Debts', order: 2 },
+        {
+          op: 'section.create',
+          tempId: 'temp-section',
+          title: 'Finances',
+          pageIds: ['temp-a', 'temp-b'],
+        },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.summary[2]).toContain('Created Section');
+      expect(mockSectionSvcCreate).toHaveBeenCalledWith(
+        mockWorkflowId,
+        mockUserId,
+        expect.objectContaining({ title: 'Finances' }),
+        ['page-real-1', 'page-real-2'],
+        expect.anything(),
+      );
+    });
+
+    it('maps its own tempId so a later op can target the new Section', async () => {
+      mockSectionSvcCreate.mockResolvedValue({ id: 'section-real' } as unknown as Section);
+      mockSectionRepo.findById.mockResolvedValue({
+        id: 'section-real',
+        workflowId: mockWorkflowId,
+      } as unknown as Section);
+
+      const ops: WorkflowPatchOp[] = [
+        { op: 'section.create', tempId: 'temp-section', title: 'Finances', pageIds: ['page-123'] },
+        { op: 'section.update', tempId: 'temp-section', title: 'Money' },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockSectionSvcUpdate).toHaveBeenCalledWith(
+        'section-real',
+        mockUserId,
+        expect.objectContaining({ title: 'Money' }),
+        expect.anything(),
+      );
+    });
+
+    it('rejects a Section id belonging to another workflow (IDOR)', async () => {
+      mockSectionRepo.findById.mockResolvedValue({
+        id: 'section-999',
+        workflowId: 'someone-elses-workflow',
+      } as unknown as Section);
+
+      const ops: WorkflowPatchOp[] = [{ op: 'section.delete', id: 'section-999' }];
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors[0]).toContain('does not belong to workflow');
+      expect(mockSectionSvcDelete).not.toHaveBeenCalled();
+    });
+
+    it('detaches a page from its Section (page.setSection with null)', async () => {
+      const ops: WorkflowPatchOp[] = [
+        { op: 'page.setSection', id: 'page-123', sectionId: null },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.summary[0]).toContain('Removed page from its Section');
+      expect(mockSectionSvcSetPageSection).toHaveBeenCalledWith(
+        mockWorkflowId,
+        mockUserId,
+        'page-123',
+        null,
+        expect.anything(),
+      );
+    });
+
+    it('resolves a Section tempId when moving a page into it (page.setSection)', async () => {
+      mockSectionSvcCreate.mockResolvedValue({ id: 'section-real' } as unknown as Section);
+
+      const ops: WorkflowPatchOp[] = [
+        { op: 'section.create', tempId: 'temp-section', title: 'Finances', pageIds: ['page-123'] },
+        { op: 'page.setSection', id: 'page-123', sectionId: 'temp-section' },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockSectionSvcSetPageSection).toHaveBeenCalledWith(
+        mockWorkflowId,
+        mockUserId,
+        'page-123',
+        'section-real',
+        expect.anything(),
+      );
+    });
+
+    it('sets a Section visibility condition (section.setVisibleIf)', async () => {
+      const condition = {
+        type: 'group' as const,
+        id: 'g1',
+        operator: 'AND' as const,
+        conditions: [{
+          type: 'condition' as const,
+          id: 'c1',
+          variable: 'owns_home',
+          operator: 'is_true' as const,
+          valueType: 'constant' as const,
+        }],
+      };
+
+      const ops: WorkflowPatchOp[] = [
+        { op: 'section.setVisibleIf', id: 'section-123', visibleIf: condition },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockSectionSvcUpdate).toHaveBeenCalledWith(
+        'section-123',
+        mockUserId,
+        expect.objectContaining({ visibleIf: condition }),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('Page reorder preserves Section layout', () => {
+    beforeEach(() => {
+      mockPageRepo.findByWorkflowId.mockResolvedValue([
+        { id: 'p1', order: 1, sectionId: 's1' },
+        { id: 'p2', order: 2, sectionId: 's1' },
+        { id: 'p3', order: 3, sectionId: null },
+      ] as unknown as Page[]);
+    });
+
+    it('hands PageService the complete layout with every sectionId intact', async () => {
+      const ops: WorkflowPatchOp[] = [
+        { op: 'page.reorder', pageIds: ['p3', 'p2', 'p1'] },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockPageSvcReorder).toHaveBeenCalledWith(
+        mockWorkflowId,
+        mockUserId,
+        [
+          { id: 'p3', order: 1, sectionId: null },
+          { id: 'p2', order: 2, sectionId: 's1' },
+          { id: 'p1', order: 3, sectionId: 's1' },
+        ],
+        [],
+        expect.anything(),
+      );
+    });
+
+    it('leaves pages the op did not name in their existing slots', async () => {
+      // A two-page swap must not drag the unlisted page anywhere: p1 and p2
+      // occupy slots 1 and 2, so swapping them leaves p3 at slot 3.
+      const ops: WorkflowPatchOp[] = [
+        { op: 'page.reorder', pageIds: ['p2', 'p1'] },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockPageSvcReorder).toHaveBeenCalledWith(
+        mockWorkflowId,
+        mockUserId,
+        [
+          { id: 'p2', order: 1, sectionId: 's1' },
+          { id: 'p1', order: 2, sectionId: 's1' },
+          { id: 'p3', order: 3, sectionId: null },
+        ],
+        [],
+        expect.anything(),
+      );
+    });
+
+    it('reports skip_to rules the reorder turned backwards', async () => {
+      mockPageSvcReorder.mockResolvedValue({
+        affectedSkipRules: [{ ruleId: 'r1' }, { ruleId: 'r2' }],
+      });
+
+      const ops: WorkflowPatchOp[] = [
+        { op: 'page.reorder', pageIds: ['p3', 'p2', 'p1'] },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.summary[0]).toContain('2 skip_to rule(s) now point backwards');
+    });
+  });
+
   describe('Logic Rule Operations', () => {
     it('should create visibility rule on step', async () => {
       mockStepRepo.update.mockResolvedValue({} as unknown as Step);

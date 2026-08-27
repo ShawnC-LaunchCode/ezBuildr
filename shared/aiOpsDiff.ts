@@ -55,6 +55,42 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
           : `Make page ${op.id ?? op.tempId ?? "(unknown)"} conditional`,
       };
 
+    case "page.setSection":
+      return {
+        type: "move",
+        entity: "page",
+        explanation: op.sectionId === null
+          ? `Remove page ${op.id ?? op.tempId ?? "(unknown)"} from its section`
+          : `Move page ${op.id ?? op.tempId ?? "(unknown)"} into a section`,
+      };
+
+    case "section.create":
+      return {
+        type: "add",
+        entity: "section",
+        explanation: `Add section "${op.title}" over ${op.pageIds.length} page(s)`,
+      };
+    case "section.update":
+      return {
+        type: "update",
+        entity: "section",
+        explanation: `Update section ${label(op.title, op.id ?? op.tempId ?? "(unknown)")}`,
+      };
+    case "section.delete":
+      return {
+        type: "remove",
+        entity: "section",
+        explanation: `Delete section ${op.id ?? op.tempId ?? "(unknown)"} (its pages are kept, ungrouped)`,
+      };
+    case "section.setVisibleIf":
+      return {
+        type: "update",
+        entity: "section",
+        explanation: op.visibleIf === null
+          ? `Always show section ${op.id ?? op.tempId ?? "(unknown)"}`
+          : `Make section ${op.id ?? op.tempId ?? "(unknown)"} conditional`,
+      };
+
     case "step.create":
       return {
         type: "add",

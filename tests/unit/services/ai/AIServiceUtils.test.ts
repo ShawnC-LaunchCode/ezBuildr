@@ -79,6 +79,7 @@ describe("fenceUntrusted", () => {
 describe("validateWorkflowStructure - logic rule condition references", () => {
   function workflow(overrides: Partial<AIGeneratedWorkflow> = {}): AIGeneratedWorkflow {
     return {
+      sections: [],
       title: "Test Workflow",
       pages: [
         {
