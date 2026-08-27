@@ -14,12 +14,37 @@ import {
     buildStepTypeCatalog,
     buildWorkflowVocabulary,
     getConfigKeys,
+    TEMPORARY_CONFIG_KEY_EXCLUSIONS,
+    validateConfigKeyExclusions,
 } from '../../../shared/aiVocabulary';
 import { conditionalActionEnum, stepTypeEnum } from '../../../shared/schema/workflow';
 import { comparisonOperatorSchema } from '../../../shared/types/conditions';
 import { workflowPatchOpSchema } from '../../../shared/validation/aiWorkflowEdit.schema';
 
 import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsService';
+
+const AUDITED_INERT_CONFIG_KEYS = {
+    radio: ['displayLayout'],
+    date_time: ['showDate', 'showTime'],
+    file_upload: ['previewThumbnails'],
+    boolean: ['displayStyle'],
+    phone_advanced: ['defaultCountry', 'allowedCountries'],
+    datetime_unified: ['timezone', 'showTimezone'],
+    choice: ['allowOther', 'otherLabel', 'randomizeOrder'],
+    email_advanced: ['requireVerification'],
+    number_advanced: [
+        'mode',
+        'validation',
+        'currency',
+        'formatOnInput',
+        'thousandsSeparator',
+        'prefix',
+        'suffix',
+    ],
+    website_advanced: ['validateDns'],
+    address_advanced: ['country', 'allowedCountries'],
+    display_advanced: ['allowHtml'],
+} as const;
 
 describe('AI vocabulary derivation', () => {
     it('documents every step type in stepTypeEnum (AC1)', () => {
@@ -49,6 +74,52 @@ describe('AI vocabulary derivation', () => {
         // A type with no registered schema is still listed, just without keys.
         expect(getConfigKeys('short_text')).toBeNull();
         expect(buildStepTypeCatalog()).toContain('- short_text');
+    });
+
+    it('does not advertise the audited inert config keys (STB-1 AC1, AC4)', () => {
+        expect(TEMPORARY_CONFIG_KEY_EXCLUSIONS).toEqual(AUDITED_INERT_CONFIG_KEYS);
+
+        const catalog = buildStepTypeCatalog();
+        for (const [stepType, excludedKeys] of Object.entries(AUDITED_INERT_CONFIG_KEYS)) {
+            const advertisedKeys = getConfigKeys(stepType);
+            expect(advertisedKeys, `missing config schema for ${stepType}`).not.toBeNull();
+
+            const catalogLine = catalog
+                .split('\n')
+                .find((line) => line.startsWith(`- ${stepType}:`));
+            expect(catalogLine, `missing catalog line for ${stepType}`).toBeDefined();
+
+            for (const key of excludedKeys) {
+                expect(
+                    advertisedKeys?.some((description) =>
+                        description === key ||
+                        description.startsWith(`${key}[`) ||
+                        description.startsWith(`${key}(`)
+                    ),
+                    `${stepType}.${key} was still advertised`,
+                ).toBe(false);
+                expect(catalogLine, `${stepType}.${key} was still present in the catalog`).not.toContain(key);
+            }
+        }
+    });
+
+    it('keeps implemented sibling config keys advertised (STB-1 AC2)', () => {
+        expect(getConfigKeys('choice')).toContain('options');
+        expect(getConfigKeys('number')).toEqual(expect.arrayContaining(['min', 'max']));
+    });
+
+    it('fails loudly when an exclusion drifts from the type or schema (STB-1 AC3)', () => {
+        expect(() => validateConfigKeyExclusions({
+            choice: ['removedSchemaKey'],
+        })).toThrowError('AI vocabulary exclusion names missing schema key "choice.removedSchemaKey"');
+
+        expect(() => validateConfigKeyExclusions({
+            missing_type: ['options'],
+        })).toThrowError('AI vocabulary exclusion names unknown step type "missing_type"');
+
+        expect(() => validateConfigKeyExclusions({
+            short_text: ['placeholder'],
+        })).toThrowError('AI vocabulary exclusion names step type "short_text" with no config schema');
     });
 
     it('documents every comparison operator the engine can evaluate', () => {

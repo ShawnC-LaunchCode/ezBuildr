@@ -21,6 +21,36 @@ import { comparisonOperatorSchema } from "./types/conditions";
 import { getConfigSchema } from "./validation/stepConfigSchemas";
 import { workflowPatchOpSchema } from "./validation/aiWorkflowEdit.schema";
 
+type ConfigKeyExclusionManifest = Readonly<Record<string, readonly string[]>>;
+
+/**
+ * STB-1 temporary containment for schema fields whose behavior has not been
+ * implemented end to end. STB-16 replaces this with the canonical, mode-aware
+ * capability contract.
+ */
+export const TEMPORARY_CONFIG_KEY_EXCLUSIONS = {
+  radio: ["displayLayout"],
+  date_time: ["showDate", "showTime"],
+  file_upload: ["previewThumbnails"],
+  boolean: ["displayStyle"],
+  phone_advanced: ["defaultCountry", "allowedCountries"],
+  datetime_unified: ["timezone", "showTimezone"],
+  choice: ["allowOther", "otherLabel", "randomizeOrder"],
+  email_advanced: ["requireVerification"],
+  number_advanced: [
+    "mode",
+    "validation",
+    "currency",
+    "formatOnInput",
+    "thousandsSeparator",
+    "prefix",
+    "suffix",
+  ],
+  website_advanced: ["validateDns"],
+  address_advanced: ["country", "allowedCountries"],
+  display_advanced: ["allowHtml"],
+} as const satisfies ConfigKeyExclusionManifest;
+
 /** Unwrap optionals/defaults/nullables to reach the underlying type. */
 function unwrap(schema: z.ZodTypeAny): z.ZodTypeAny {
   let current = schema;
@@ -30,6 +60,36 @@ function unwrap(schema: z.ZodTypeAny): z.ZodTypeAny {
   }
   return current;
 }
+
+/** Fail loudly when the temporary manifest drifts from the registered schemas. */
+export function validateConfigKeyExclusions(exclusions: ConfigKeyExclusionManifest): void {
+  const knownStepTypes = new Set<string>(stepTypeEnum.enumValues);
+
+  for (const [stepType, excludedKeys] of Object.entries(exclusions)) {
+    if (!knownStepTypes.has(stepType)) {
+      throw new Error(`AI vocabulary exclusion names unknown step type "${stepType}"`);
+    }
+
+    const schema = getConfigSchema(stepType);
+    if (!schema) {
+      throw new Error(`AI vocabulary exclusion names step type "${stepType}" with no config schema`);
+    }
+
+    const unwrapped = unwrap(schema);
+    if (!(unwrapped instanceof z.ZodObject)) {
+      throw new Error(`AI vocabulary exclusion names step type "${stepType}" with a non-object config schema`);
+    }
+
+    const shape = unwrapped.shape as Record<string, z.ZodTypeAny>;
+    for (const key of excludedKeys) {
+      if (!(key in shape)) {
+        throw new Error(`AI vocabulary exclusion names missing schema key "${stepType}.${key}"`);
+      }
+    }
+  }
+}
+
+validateConfigKeyExclusions(TEMPORARY_CONFIG_KEY_EXCLUSIONS);
 
 /** Short human label for a config field's type, e.g. `options[]`, `min`. */
 function describeField(key: string, schema: z.ZodTypeAny): string {
@@ -49,7 +109,10 @@ export function getConfigKeys(stepType: string): string[] | null {
   const unwrapped = unwrap(schema);
   if (!(unwrapped instanceof z.ZodObject)) { return null; }
   const shape = unwrapped.shape as Record<string, z.ZodTypeAny>;
-  return Object.keys(shape).map((key) => describeField(key, shape[key]));
+  const exclusions = new Set<string>(TEMPORARY_CONFIG_KEY_EXCLUSIONS[stepType as keyof typeof TEMPORARY_CONFIG_KEY_EXCLUSIONS] ?? []);
+  return Object.keys(shape)
+    .filter((key) => !exclusions.has(key))
+    .map((key) => describeField(key, shape[key]));
 }
 
 /**

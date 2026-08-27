@@ -94,7 +94,7 @@ for those. A stale line number is not a broken ticket and does not require the t
 This phase stops AI from creating more false configuration and establishes metadata the later vertical tickets
 can converge on. It deliberately does not remove enum values or change persisted types.
 
-## STB-1 — Stop AI advertising verified inert config keys 🔲
+## STB-1 — Stop AI advertising verified inert config keys ✅
 
 **Priority: P1** · Size: S · File: `shared/aiVocabulary.ts`
 
@@ -132,6 +132,9 @@ STB-16 replaces this temporary mechanism with the canonical, mode-aware capabili
 3. An exclusion referring to a missing type/schema key fails a discriminating test rather than being ignored.
 4. `tests/unit/shared/aiVocabulary.test.ts` proves the exclusions and would fail if filtering were removed.
 5. `npm run type-check`, `npm run lint`, and the targeted unit-fast test pass.
+
+**Verified 2026-08-27:** targeted `aiVocabulary` unit-fast coverage passed 12/12; type-check reported 0 errors;
+lint reported 0 problems; full `test:fast` passed 3,456/3,456 tests against a 3,453-test baseline.
 
 ---
 
