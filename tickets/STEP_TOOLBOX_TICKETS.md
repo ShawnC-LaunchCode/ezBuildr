@@ -1,0 +1,1416 @@
+# Canonical Step Toolbox — Honest Types and Config Contracts (STB-1..22 + backlog)
+
+Source: verified config-key and step-type audit, expanded through code inspection and product decisions, 2026-08-26.
+Scope: shared step types/config schemas, builder presets and editors, runner controls, AI vocabulary and patches,
+workflow ingest/templates/portability, stored workflow artifacts, and the `step_type` database enum.
+Overall grade at audit time: **C−** — the core runner is usable, but the platform stores several dialects for the
+same question family and advertises config keys whose controls or runtime behavior do not exist.
+
+Every finding below was verified against the working tree at audit time. **Line numbers are advisory** — they
+were accurate when written and will drift as fixes land. The locator is the quoted code and named symbol; grep
+for those. A stale line number is not a broken ticket and does not require the ticket to be reissued.
+
+---
+
+## How to work this document
+
+- **Tickets are grouped into six non-overlapping phases.** Do not start a phase until the previous phase's
+  **Phase Gate** has been verified and committed by the reviewer.
+- Read this section, the **Decisions** section, and **your ticket only**.
+- Every ticket has **Finding**, **Preferred fix**, **Ties**, and numbered **Acceptance criteria**. Tickets spanning
+  more than one runtime layer also have **Vertical proof**.
+- Load every project skill named in the ticket's Ties before touching code. Step work uses `add-step-type`; any
+  tests use `run-tests`; UI proof uses `verify`; schema/enum work uses `db-schema-change`.
+- `npm test` naively gives misleading results here. Use the project named by the ticket, then the phase gate.
+  DB-backed tests require `npm run test:docker:up` (Postgres 5434 and Gotenberg 3009) and an explicit
+  `TEST_DATABASE_URL` unless the verified worktree already supplies one.
+- Before trusting the initiative baseline, record the passing count from `npm run test:fast`. A lower count at a
+  later gate is a stop condition even when the remaining tests are green.
+- Devs do **not** commit, stage, push, or touch another ticket. The reviewer commits one verified ticket at a
+  time, staging only that ticket's files plus this file.
+- Use `pwsh scripts/new-worktree.ps1 -Name <ticket-id>` for parallel dispatch. Tickets whose Ties list a collision
+  must be sequenced and reviewed before the next starts. Only one worktree may run DB-backed suites at a time.
+- A user-facing ticket is not ✅ merely because component tests pass. Its stated builder → preview/run path must
+  be reachable and proven at its phase gate.
+- Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
+
+## Audit summary
+
+1. `buildStepTypeCatalog()` derives AI-advertised keys from Zod object fields, not from demonstrated behavior,
+   so inert keys are presented as supported capabilities.
+2. The builder generally creates base types while the enum, AI, schemas, imports, and runner normalization retain
+   legacy and `*_advanced` dialects. A config can therefore validate for one dialect and render through another.
+3. Several author controls write values the runner ignores (`number.formatOnInput`), while Boolean's runtime
+   default (`buttons`) is not legal in its schema.
+4. `file_upload` has a working runner/upload service but no normal palette/editor path, leaving its thumbnail
+   option unreachable from authoring.
+5. Versions and blueprints store complete step definitions in JSON, and Lists recursively store field types in
+   step config; changing only `steps.type` would leave stale definitions that can later be restored or run.
+6. The curated marketplace catalog and the demo seed script hold step definitions as **repository files**, not
+   database rows. No database backfill reaches them, and both feed boundaries this initiative makes strict.
+
+## Decisions — binding for every ticket
+
+1. **One stored toolbox.** Canonical types are `text`, `boolean`, `phone`, `date_time`, `choice`, `email`,
+   `number`, `scale`, `website`, `address`, `multi_field`, `display`, `file_upload`, `list`, `js_question`,
+   `computed`, `final_documents`, and `signature_block`.
+2. **Mode is exposure, not identity.** Easy and Advanced never produce different stored type names. Switching
+   modes hides or reveals presets/settings but never rewrites existing config or runner behavior.
+3. **Easy keeps friendly presets.** Short Text, Long Text, Yes/No, True/False, Date, Time, Date/Time, Single
+   Select, Multiple Choice, Number, Currency, and File Upload are preset IDs/labels, not persisted step types.
+4. **Balanced Easy settings.** Easy exposes common content, validation, layout, Other, and upload controls.
+   Storage aliases, dynamic sources, randomization, and detailed numeric formatting remain Advanced.
+5. **Strict final boundaries.** After rollout, APIs, AI, template ingest, and portability imports reject retired
+   type names and unknown/removed config keys. They do not normalize them silently.
+6. **Boolean checkbox means consent.** It displays `trueLabel`; a required consent checkbox must be checked.
+   String storage uses `trueAlias`/`falseAlias`, never the presentation labels.
+7. **Choice values stay primitive.** Other stores direct strings/string arrays. Option order is deterministic per
+   run, stable on revisit, different across runs, and keeps Other last.
+8. **Numeric storage stays numeric.** Number/currency controls persist `number | null`. ISO currency formatting
+   owns symbols/fraction rules; custom prefix/suffix are plain-number-only. Grouping and live typing are separate.
+9. **Upload previews are display-only.** Preview images and page one of PDFs; do not persist generated thumbnails.
+10. **Display stays Markdown-only.** Raw HTML is removed, not sanitized into a new feature in this initiative.
+11. **Deferred means absent.** Country restrictions/defaults, timezone controls, respondent email verification,
+    and DNS validation leave active types/schemas/AI until separately implemented end to end.
+12. **Backfill before enum deletion.** Canonical code lands first; an idempotent, audited all-artifact backfill
+    reaches zero legacy data; enum removal follows in a separate migration ticket.
+
+### Phase overview
+
+| Phase | Theme | Tickets | Est. effort |
+|---|---|---|---:|
+| 0 | Immediate containment and shared foundation | STB-1..2 | 1–2 days |
+| 1 | Canonical families and selected UX capabilities | STB-3..12 | 10–15 days |
+| 2 | Remaining family cleanup and runtime consistency | STB-13..15A | 4–7 days |
+| 3 | AI, API, template, and portability boundaries | STB-16..18 | 3–5 days |
+| 4 | Tested stored-artifact backfill | STB-19..20 | 3–5 days |
+| 5 | Enum removal and final cross-seam proof | STB-21..22 | 2–4 days |
+| Backlog | Later initiatives; not dispatchable | STB-B1..B4 | — |
+
+---
+
+# Phase 0 — Contain New Drift and Establish the Shared Contract
+
+This phase stops AI from creating more false configuration and establishes metadata the later vertical tickets
+can converge on. It deliberately does not remove enum values or change persisted types.
+
+## STB-1 — Stop AI advertising verified inert config keys 🔲
+
+**Priority: P1** · Size: S · File: `shared/aiVocabulary.ts`
+
+### Finding
+
+`getConfigKeys()` in `shared/aiVocabulary.ts` treats schema membership as proof of implementation:
+
+```ts
+const shape = unwrapped.shape as Record<string, z.ZodTypeAny>;
+return Object.keys(shape).map((key) => describeField(key, shape[key]));
+```
+
+`buildStepTypeCatalog()` sends that list on every AI request. The known inert keys include `displayLayout`,
+`previewThumbnails`, country/timezone restrictions, Choice Other/randomization, email verification, numeric
+formatting/decorations, DNS validation, legacy date flags, `allowHtml`, and Boolean's mismatched style values.
+
+### Preferred fix
+
+Add a temporary, explicit type/key exclusion manifest next to the vocabulary builder and filter only the
+verified inert keys. Fail module/test startup if an exclusion names a missing schema field so the containment
+cannot silently rot. Do not mutate the validation schemas yet and do not hand-write a replacement full catalog;
+STB-16 replaces this temporary mechanism with the canonical, mode-aware capability contract.
+
+### Ties
+
+- Precedes STB-2 and STB-16; STB-16 owns deletion of the temporary exclusion manifest.
+- Load `add-step-type` and `run-tests`.
+- File footprint: `shared/aiVocabulary.ts`, `tests/unit/shared/aiVocabulary.test.ts` only.
+- Collision: sequence before STB-16; otherwise disjoint from the Phase 1 client work.
+
+### Acceptance criteria
+
+1. Every inert key enumerated in the audit is absent from `buildStepTypeCatalog()` for its affected type.
+2. Implemented sibling keys such as Choice `options` and Number min/max remain advertised.
+3. An exclusion referring to a missing type/schema key fails a discriminating test rather than being ignored.
+4. `tests/unit/shared/aiVocabulary.test.ts` proves the exclusions and would fail if filtering were removed.
+5. `npm run type-check`, `npm run lint`, and the targeted unit-fast test pass.
+
+---
+
+## STB-2 — Establish canonical toolbox and preset contracts 🔲
+
+**Priority: P1** · Size: M · File: `shared/types/stepConfigs.ts`
+
+### Finding
+
+The current persisted union in `shared/types/workflow.ts` contains separate legacy, Easy, and Advanced names:
+
+```ts
+export type StepType =
+    | "short_text"
+    | "long_text"
+    | "multiple_choice"
+    // ...
+    | "text"
+    | "boolean"
+    | "phone_advanced"
+```
+
+`BLOCK_REGISTRY` then models Easy/Advanced availability on those stored identities. There is no shared way to
+ask “what is the canonical type?”, “which config belongs to it?”, or “which preset may Easy expose?”
+
+### Preferred fix
+
+Introduce a shared canonical-type constant/union and an exhaustive `StepConfigByType` mapping while retaining
+the legacy persisted union temporarily for rollout. Add client `QuestionPreset` metadata whose stable preset ID,
+label, modes, canonical type, and default-config factory are distinct from persisted `type`. Use `satisfies`/
+exhaustive tests so a canonical type cannot lack config/runtime classification. Do not yet convert existing
+registry entries or delete normalization aliases; family tickets do that vertically.
+
+### Ties
+
+- Depends on STB-1. Foundation for STB-3..22.
+- Load `add-step-type` and `run-tests`.
+- File footprint: shared step-type/config metadata, `client/src/lib/blockRegistry.tsx`, new preset-contract unit
+  test, and `tests/unit/client/blockRegistry.test.ts`.
+- Collision: all later family tickets touch this contract and must start after STB-2 is reviewed.
+
+### Acceptance criteria
+
+1. The 18 canonical stored types in Decision 1 exist as one exported, exhaustive constant and TypeScript union.
+2. `StepConfigByType` maps every canonical type exactly once and fails type-check if a type is added without a
+   config decision.
+3. `QuestionPreset` can expose several Easy labels/defaults for the same canonical type without introducing a
+   persisted alias.
+4. Existing behavior and stored type creation remain unchanged until the family tickets land.
+5. New `tests/unit/shared/canonicalStepTypes.test.ts` and updated `blockRegistry.test.ts` prove completeness,
+   unique preset IDs, valid default configs, and mode metadata.
+6. `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without a baseline count regression.
+
+---
+
+## Phase 0 Gate
+
+- [ ] STB-1 and STB-2 are ✅ with dated verification notes.
+- [ ] The current AI prompt no longer advertises the verified inert keys.
+- [ ] Canonical metadata and preset metadata are additive; no stored workflow has changed type.
+- [ ] `npm run type-check` reports 0 errors.
+- [ ] `npm run lint` reports 0 problems.
+- [ ] `npm run test:fast` is green with no fewer passing tests than the recorded baseline.
+- [ ] Reviewer has committed each passed ticket and this phase gate.
+
+---
+
+# Phase 1 — Canonical Families and Selected User-Facing Capabilities
+
+Each ticket is a narrow vertical slice from preset/editor through validation, runner, and stored value. Tickets
+within one family are sequential. The Phase Gate batches the live builder/runner drive-through.
+
+**Scheduling note — this phase has effectively no parallelism.** STB-3..10 all edit the shared step-config and
+schema files, so their Ties require one continuous sequence; the 10–15 day estimate reflects ten serial M-sized
+tickets, not a fan-out. Either accept that explicitly, or first extract the shared config/type edits for all six
+families into a single prep ticket so the family tickets can afterwards be dispatched to parallel worktrees. Do
+**not** dispatch STB-3..10 concurrently into one tree on the assumption that the collisions are theoretical.
+
+## STB-3 — Canonicalize Short and Long Text as `text` presets 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/builder/cards/TextCardEditor.tsx`
+
+### Finding
+
+`BLOCK_REGISTRY` persists three identities for one renderer family:
+
+```ts
+{ type: "short_text", label: "Short Text", /* ... */ }
+{ type: "long_text", label: "Long Text", /* ... */ }
+{ type: "text", label: "Text", /* ... */ }
+```
+
+`TextCardEditor` infers Easy/Advanced from `step.type`, coupling authoring exposure to the stored type rather
+than workflow mode.
+
+### Preferred fix
+
+Make Short Text and Long Text presets create `type: "text"` with `variant: "short" | "long"`. Route/render
+only canonical `text`, and have the editor read effective workflow mode to reveal advanced validation fields
+without changing type. Keep the answer shape `string | null`; migrate data later in STB-19.
+
+### Ties
+
+- Depends on STB-2. Must precede STB-15, STB-17, and STB-19.
+- Load `add-step-type`, `run-tests`, and `verify` for the phase gate.
+- File footprint: Text presets/editor/runner, text config schema/types, Step editor routing, relevant component
+  tests. Collides with other family tickets in shared config files; sequence STB-3..10.
+
+### Vertical proof
+
+- **Path:** Easy Short Text preset → `POST /api/pages/:pageId/steps` with canonical `text` config → builder edit
+  → preview runner text control → page submission → string in `step_values`.
+- **Real, not mocked:** step config validation and the runner control/value submission seam.
+- **Cross-tenant denial:** tenant B cannot create/update a step on tenant A's page/workflow; no row changes.
+- **Suite:** targeted StepService DB/integration coverage plus unit-fast Text editor/runner tests.
+
+### Acceptance criteria
+
+1. Short/Long presets persist only canonical `text` with the correct `variant` default.
+2. Easy exposes the friendly presets; Advanced exposes the canonical editor settings without changing identity.
+3. Existing placeholder/validation/default-value behavior remains functional for both variants.
+4. New/updated Text editor and runner tests cover both variants and mode switching preserving config.
+5. The Vertical proof stores the expected string through the real validation/persistence path.
+6. Type-check, lint, targeted tests, and `test:fast` pass.
+
+---
+
+## STB-4 — Canonicalize Date, Time, and Date/Time under `date_time.kind` 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/builder/cards/DateTimeCardEditor.tsx`
+
+### Finding
+
+`DateTimeCardEditor` derives parts from stored aliases rather than config:
+
+```ts
+function hasDatePart(type: StepType): boolean {
+    return type === "date" || type === "date_time" || type === "datetime" || type === "datetime_unified";
+}
+```
+
+Meanwhile `LegacyDateTimeConfigSchema` accepts `showDate`/`showTime`, and
+`DateTimeUnifiedConfigSchema` accepts `kind`; the runner's `DateTimeBlock` reads neither legacy flag.
+
+### Preferred fix
+
+Use only `date_time` with required `kind: "date" | "time" | "datetime"`. Friendly Date/Time/Date-Time presets
+set `kind`; the canonical editor/runner branch on config. Merge currently implemented min/max, default-today,
+time-format, and minute-step behavior. Remove `showDate`/`showTime` and defer timezone keys per Decision 11.
+
+### Ties
+
+- Depends on STB-3 review because shared config/schema files overlap.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: date/time presets, `DateTimeCardEditor`, date/time runner blocks/routing, shared date config
+  schema/types, validation tests. Collides with STB-15 and STB-19.
+
+### Vertical proof
+
+- **Path:** each Easy date/time preset → canonical step creation → matching HTML control in preview → submit →
+  canonical string value persisted and returned on resume.
+- **Real, not mocked:** server config validation and run page submission/resume.
+- **Cross-tenant denial:** tenant B cannot update tenant A's canonical date step.
+- **Suite:** StepService DB tests plus targeted runner integration/component tests.
+
+### Acceptance criteria
+
+1. All three presets persist `type: "date_time"` and the correct `kind`; no new alias type is written.
+2. Date, time, and combined controls preserve their existing min/max/default/format/step behavior.
+3. `showDate`, `showTime`, `timezone`, and `showTimezone` are absent from the active canonical schema/catalog.
+4. Tests cover all three kinds, invalid configs, resume/display behavior, and mode switching without config loss.
+5. The Vertical proof passes, and type-check/lint/targeted tests/`test:fast` are green.
+
+---
+
+## STB-5 — Canonicalize Boolean with buttons, radio, and toggle styles 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/BooleanBlock.tsx`
+
+### Finding
+
+The schema allows three values while the runner implements a fourth illegal default:
+
+```ts
+displayStyle: z.enum(['toggle', 'radio', 'checkbox']).optional(),
+```
+
+```ts
+displayStyle: config?.displayStyle ?? "buttons",
+if (displayStyle === "buttons") { /* ... */ }
+// every other value falls through to the same RadioGroup
+```
+
+Thus all legal styles render as radios and `buttons` cannot survive strict validation.
+
+### Preferred fix
+
+Make Yes/No and True/False friendly presets create canonical `boolean` configs. Define legal styles
+`buttons | radio | toggle | checkbox`, implement buttons/radio/toggle here, and expose the understandable style
+selector in Easy. Preserve `boolean | string | null` storage; STB-6 adds checkbox and string-alias semantics.
+
+### Ties
+
+- Depends on STB-4 review. STB-6 is the required sequential follow-up in the same files.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Boolean presets/editor/runner, shared Boolean schema/types, validation and component tests.
+
+### Vertical proof
+
+- **Path:** Yes/No or True/False preset → canonical Boolean creation/style edit → preview selection → page submit
+  → boolean value persisted and rendered on review/resume.
+- **Real, not mocked:** config validation and page submission/persistence.
+- **Cross-tenant denial:** tenant B cannot alter tenant A's Boolean step.
+- **Suite:** StepService DB coverage plus new unit-fast Boolean editor/runner tests.
+
+### Acceptance criteria
+
+1. Both friendly presets persist canonical `boolean` configs with their intended labels and `buttons` default.
+2. `buttons`, `radio`, and `toggle` are legal, visually distinct, keyboard accessible, and preserve null/true/false.
+3. Easy/Advanced exposure follows Decision 4 and changing mode never rewrites style.
+4. New `tests/unit/client/BooleanBlock.test.tsx` and editor tests cover each implemented style and labels.
+5. The Vertical proof passes; type-check, lint, targeted tests, and `test:fast` are green.
+
+---
+
+## STB-6 — Add consent checkbox behavior and correct Boolean alias storage 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/BooleanBlock.tsx`
+
+### Finding
+
+`BooleanAdvancedConfig` declares `trueAlias`/`falseAlias`, and the editor writes them, but the runner stores
+labels instead:
+
+```ts
+if (storeAsBoolean) {
+  onChange(newValue);
+} else {
+  onChange(newValue ? trueLabel : falseLabel);
+}
+```
+
+The declared checkbox style also has no consent/required semantics anywhere in client or server validation.
+
+Because this changes what a string-mode Boolean *stores*, existing answers deserve an explicit ruling rather than
+an assumption. `getBooleanConfig` hard-codes `storeAsBoolean: true` for `yes_no` and `true_false`, so every row of
+those two types already stores a real boolean and is unaffected. Only Advanced `boolean` with
+`storeAsBoolean: false` ever persisted a label.
+
+### Preferred fix
+
+Render a single consent checkbox labelled with `trueLabel`. A required consent config is valid only when the
+stored logical result is true. When `storeAsBoolean` is false, persist `trueAlias`/`falseAlias`; labels remain
+display formatting. Align default-value coercion, server/client validation, review formatting, and logic operands.
+
+**No answer backfill, and do not add one.** Historical string-mode answers hold labels while new ones hold
+aliases. Confirm by census that the affected population is empty before relying on that: count `boolean` steps
+whose config sets `storeAsBoolean: false`, record the number in the verification note, and escalate a non-zero
+result instead of silently converting stored answers.
+
+### Ties
+
+- Depends on STB-5 and shares its files; never dispatch in parallel.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Boolean runner/editor, shared validation, server page-submit validation, answer formatting,
+  Boolean/default-value tests. Collides with STB-15.
+
+### Vertical proof
+
+- **Path:** Advanced Boolean config with checkbox + aliases → runner interaction → required submit rejection when
+  false → successful submit when true → configured alias/boolean stored and human label shown on review.
+- **Real, not mocked:** both client and server page-submit validation plus persisted `step_values`.
+- **Cross-tenant denial:** unchanged StepService ownership denial remains green.
+- **Suite:** new Boolean integration case in the runner/page-submit project plus unit-fast component tests.
+
+### Acceptance criteria
+
+1. Checkbox is legal and accessible; required false/unchecked is rejected by both validators.
+2. Optional false remains representable, and a missing value is not silently converted on component mount.
+3. String mode stores aliases, while review/template formatting uses presentation labels where appropriate.
+4. Tests discriminate labels from aliases and prove required consent through the real submit path.
+5. Existing Boolean logic/default/resume behavior remains green.
+6. A recorded census of `boolean` steps with `storeAsBoolean: false` justifies the no-answer-backfill decision;
+   any non-zero result is escalated to the reviewer rather than converted in this ticket.
+7. Type-check, lint, targeted integration/unit tests, and `test:fast` pass.
+
+---
+
+## STB-7 — Canonicalize Choice and implement radio/checkbox layout 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/ChoiceBlock.tsx`
+
+### Finding
+
+The runner normalizes three stored identities to one renderer:
+
+```ts
+multiple_choice: "choice",
+radio: "choice",
+```
+
+but `LegacyRadioConfigSchema` alone owns `displayLayout`, and `renderRadioChoices()` always emits one vertical
+`RadioGroup`. The Advanced config also stores both `display` and redundant `allowMultiple`, which can disagree.
+
+### Preferred fix
+
+Make Single Select and Multiple Choice presets create canonical `choice`. Use one authoritative display enum
+`radio | dropdown | combobox | multiple`, remove redundant `allowMultiple`, and rename layout to
+`layout: vertical | horizontal` for radio/multiple controls. Preserve option aliases and `string | string[]`
+values. Dynamic sources remain Advanced and unchanged until STB-8 extends option ordering.
+
+### Ties
+
+- Depends on STB-6 review. STB-8 shares Choice files and is strictly sequential.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Choice presets/editor/hooks/runner, shared schemas/types, validation and existing Choice tests.
+
+### Vertical proof
+
+- **Path:** Easy Single/Multiple preset → canonical Choice config/editor → preview control/layout → submit →
+  alias value(s) persisted and rendered on review.
+- **Real, not mocked:** option/config validation and page submission.
+- **Cross-tenant denial:** tenant B cannot edit tenant A's Choice step or dynamic binding.
+- **Suite:** StepService DB tests plus Choice runner/editor unit-fast tests.
+
+### Acceptance criteria
+
+1. Single/Multiple presets write only canonical `choice`; no new `radio`/`multiple_choice` rows are created.
+2. `display` alone determines cardinality, and contradictory `allowMultiple` is no longer active config.
+3. Vertical/horizontal layouts are distinct and responsive for radio and multiple controls; other displays ignore
+   and hide layout.
+4. Existing dropdown, combobox, dynamic-source, missing-option, min/max, and alias behavior remains green.
+5. Tests cover presets, all display values, both layouts, single/multiple storage, and invalid configs.
+6. The Vertical proof and standard gates pass.
+
+---
+
+## STB-8 — Implement Choice Other and stable per-run randomization 🔲
+
+**Priority: ENH** · Size: M · File: `client/src/components/runner/blocks/ChoiceBlock.tsx`
+
+### Finding
+
+`ChoiceAdvancedConfigSchema` accepts the following keys, but no Choice runner/editor consumer reads them:
+
+```ts
+allowOther: z.boolean().optional(),
+otherLabel: z.string().optional(),
+randomizeOrder: z.boolean().optional(),
+```
+
+The runner already resolves static/dynamic options and preserves missing selected options, so naïve shuffling in
+render would reorder on every visit and could move the Other input or missing-value sentinel unpredictably.
+
+### Preferred fix
+
+Add explicit Other UI to closed displays; combobox stays inherently freeform. Store entered text directly as the
+existing primitive Choice value. Add deterministic seeded shuffle after resolving normal options, using run ID +
+owning step/field identity; use a preview-session seed when no run exists. Keep synthesized missing values fixed
+after normal options and Other last. Never mutate persisted option arrays.
+
+### Ties
+
+- Depends on STB-7 and shares its files; sequence.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Choice editor state/hooks/runner, BlockRenderer/List field seed plumbing, Choice tests.
+  Collides with STB-15's runner/List cleanup.
+
+### Vertical proof
+
+- **Path:** author enables Other/randomization → two real runs resolve different deterministic orders → one run
+  revisits the page without changing order → custom text submits as a primitive value and survives resume/review.
+- **Real, not mocked:** run identity, resolved options, page submit, and persisted value.
+- **Cross-tenant denial:** tenant isolation is unchanged; run tokens may access only their own pinned definition.
+- **Suite:** targeted runner integration plus Choice component/hook unit tests.
+
+### Acceptance criteria
+
+1. Other works for radio, dropdown, and multiple; `otherLabel` defaults to “Other” and is hidden when inapplicable.
+2. Custom values persist as `string`/`string[]`, including mixed listed/custom multi-select values.
+3. Same run + step/field produces the same order across rerender/revisit/resume; different run IDs can differ.
+4. Other is last; missing-option sentinels remain stable; configured/exported option order is unchanged.
+5. Tests prove all four properties and would fail with `Math.random()` during render.
+6. Vertical proof, type-check, lint, targeted tests, and `test:fast` pass.
+
+---
+
+## STB-9 — Canonicalize plain Number formatting, grouping, prefix, and suffix 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/NumberBlock.tsx`
+
+### Finding
+
+`NumberBlockRenderer` treats Advanced config as an Easy config and reads only top-level base fields:
+
+```ts
+const config = (step.config as NumberConfig) || (step.config as NumberAdvancedConfig);
+const min = config?.min;
+const max = config?.max;
+const step_value = config?.step ?? 1;
+```
+
+The editor visibly writes `formatOnInput`, while `mode`, nested validation, grouping, prefix, and suffix are
+ignored by this control.
+
+### Preferred fix
+
+Define canonical `number` config with `mode`, nested validation, formatting switches, optional plain-number
+prefix/suffix, and placeholder. Implement a text/input-mode numeric control that keeps invalid intermediate text
+local, emits only `number | null`, formats on blur, optionally groups while typing, and renders prefix/suffix as
+non-editable adornments. Do not enforce min/max by discarding keystrokes; report validation consistently.
+
+### Ties
+
+- Depends on STB-8 review because shared config files collide. STB-10 extends the same Number files.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Number preset/editor/runner, shared Number schema/types, server sanitization/validation, tests.
+
+### Vertical proof
+
+- **Path:** Number preset → canonical config with grouping/decorations/limits → preview typing/focus/blur → page
+  submit validation → numeric `step_values` value → review/export remains numeric.
+- **Real, not mocked:** server sanitizer/validator and persisted value.
+- **Cross-tenant denial:** StepService ownership denial stays green.
+- **Suite:** StepService DB coverage plus new Number runner/editor unit-fast tests.
+
+### Acceptance criteria
+
+1. Number preset writes canonical `number` with plain-number mode and nested validation.
+2. Prefix/suffix and grouping affect display only; stored/submitted values remain numeric.
+3. `formatOnInput` controls live grouping separately from unfocused formatting; caret/intermediate negatives and
+   decimal input remain usable.
+4. Min/max/step/precision agree between editor, runner, sanitizer, and server validation.
+5. Tests cover focus/blur, live/non-live grouping, decorations, null, invalid intermediates, and boundary errors.
+6. Vertical proof and all required gates pass.
+
+---
+
+## STB-10 — Implement currency modes and retire new `currency` writes 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/NumberBlock.tsx`
+
+### Finding
+
+The builder has a separate persisted Currency type and Advanced Number modes, while the runner routes them to
+different components. `CurrencyBlockRenderer` reads but does not use the configured currency:
+
+```ts
+const _currency = config?.currency ?? "USD";
+```
+
+`number_advanced` currency modes normalize to `NumberBlock`, which ignores their presentation config.
+
+### Preferred fix
+
+Make the Currency Easy preset create canonical `number` with `mode: currency_decimal`, `currency: "USD"`, and
+grouping enabled. Implement `currency_whole`/`currency_decimal` in the canonical Number control via
+`Intl.NumberFormat`; whole uses zero fraction digits, decimal uses ISO minor-unit rules. Currency symbol and
+fraction behavior win; reject/hide plain prefix/suffix in currency modes. Stop all new `currency` writes while
+leaving old-row read compatibility for STB-19.
+
+### Ties
+
+- Depends on STB-9; same files, strictly sequential.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: Number/Currency presets/editor/runner, shared/server numeric config and validation, answer
+  formatting, numeric tests. Collides with STB-15 and STB-19.
+
+### Vertical proof
+
+- **Path:** Currency preset → canonical Number config → USD/non-USD formatted preview → submit → numeric value
+  persisted → review/template/export format without changing stored value.
+- **Real, not mocked:** server numeric sanitizer/validation and persisted value.
+- **Cross-tenant denial:** unchanged StepService denial remains green.
+- **Suite:** numeric runner/editor unit tests plus targeted page-submit DB/integration test.
+
+### Acceptance criteria
+
+1. Currency preset and Advanced currency modes persist only canonical `number`.
+2. ISO symbols/grouping/fraction digits render correctly for representative zero- and two-decimal currencies.
+3. Plain prefix/suffix are rejected or absent in currency modes; no duplicate symbol combinations are possible.
+4. Whole mode submits an integer; decimal mode preserves the allowed ISO precision; values remain numbers.
+5. Tests cover preset defaults, currency switching, focus/blur/live formatting, sanitization, and persistence.
+6. Vertical proof and standard gates pass.
+
+---
+
+## STB-11 — Make File Upload authorable and add image previews 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/FileUploadBlock.tsx`
+
+### Finding
+
+`FileUploadConfigSchema` declares `previewThumbnails`, and the runner supports upload/remove/download, but
+`BLOCK_REGISTRY` contains no `file_upload` entry and StepEditorRouter falls through to GenericStepEditor:
+
+```ts
+export const FileUploadConfigSchema = z.object({
+  maxSize: z.number().int().min(1).optional(),
+  allowedTypes: z.array(z.string()).optional(),
+  maxFiles: z.number().int().min(1).max(10).optional(),
+  previewThumbnails: z.boolean().optional(),
+}).optional();
+```
+
+### Preferred fix
+
+Add an Easy/Advanced File Upload preset and dedicated editor for max size, allowed MIME/extensions, max files,
+and previews. When enabled, render responsive previews for image MIME types using fresh signed URLs or local
+object URLs. Revoke local URLs and fall back to the existing file row on load error. Preserve upload value shape
+and existing run-token authorization.
+
+### Ties
+
+- Depends on STB-10 review. STB-12 extends the same preview component and must follow it.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: registry/preset, StepEditorRouter, new FileUpload editor/preview helper, FileUploadBlock,
+  `FileUploadBlock.test.tsx`, `RunFileUploadService.test.ts`. Collides with STB-12 and STB-15.
+
+### Vertical proof
+
+- **Path:** File Upload preset/editor → live run upload endpoint → storage-backed `FileUploadValue` → image
+  preview/download → resume refreshes signed URL → remove deletes only that run's file/value.
+- **Real, not mocked:** upload service/storage adapter and run-scoped auth; UI may mock storage only in unit tests.
+- **Cross-tenant denial:** another run token/user cannot fetch, delete, or mint a URL for the file.
+- **Suite:** existing RunFileUploadService unit coverage plus file-upload integration and component tests.
+
+### Acceptance criteria
+
+1. File Upload appears in Easy and Advanced add menus and has a dedicated, schema-valid editor.
+2. Limits/types/maxFiles/previews persist and round-trip without GenericStepEditor.
+3. Images preview before and after upload; disabled previews retain the current compact row.
+4. Object URLs are revoked; signed URL failures fall back without blocking download/remove or crashing render.
+5. Tests cover authoring, validation, local/signed images, cleanup, denial, and unchanged upload storage.
+6. Vertical proof and all required gates pass.
+
+---
+
+## STB-12 — Add lazy first-page PDF upload previews 🔲
+
+**Priority: ENH** · Size: M · File: `client/src/components/runner/blocks/FileUploadBlock.tsx`
+
+### Finding
+
+PDF uploads currently receive only a file icon:
+
+```ts
+if (mimeType === 'application/pdf') { return <FileText className="h-4 w-4" aria-hidden="true" />; }
+```
+
+The app already configures a local PDF.js worker in `PdfCanvas.tsx` and depends on `react-pdf`, so introducing
+another renderer/package would duplicate an established pattern.
+
+### Preferred fix
+
+Extract/reuse the local PDF.js worker setup and render page one with `react-pdf` only when the preview is enabled
+and visible. Bound preview dimensions, disable text/annotation layers, label it accessibly, refresh expired signed
+URLs through the existing endpoint, and fall back to the compact row on password/corruption/network/render errors.
+Do not generate or persist thumbnail assets.
+
+### Ties
+
+- Depends on STB-11 and shares FileUploadBlock/preview tests; sequence.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- Donor: `client/src/components/builder/templates/PdfCanvas.tsx`.
+- File footprint: shared PDF worker helper, upload preview component/tests. No server change expected.
+
+### Acceptance criteria
+
+1. A valid PDF renders only page one in a bounded responsive thumbnail for local and signed URLs.
+2. Rendering is lazy and does not eagerly fetch every persisted PDF before its preview becomes visible.
+3. Corrupt/password-protected/expired PDFs fall back to the normal row with no unhandled rejection.
+4. Preview has an accessible filename/page-one label and remains usable at mobile width.
+5. `tests/unit/client/FileUploadBlock.test.tsx` covers success, lazy behavior, retry/fallback, and disabled preview.
+6. Type-check, lint, targeted tests, `test:fast`, and Phase Gate browser console checks pass.
+
+---
+
+## Phase 1 Gate
+
+- [ ] STB-3..12 are ✅ with dated verification notes.
+- [ ] Easy add menu creates only canonical Text, DateTime, Boolean, Choice, Number, and File Upload rows while
+      retaining the agreed friendly preset labels.
+- [ ] Advanced reveals full implemented settings; switching modes preserves hidden config byte-for-byte.
+- [ ] Local `npm run dev:test` drive-through covers every preset, editor persistence, preview, live run submission,
+      resume/revisit, image preview, and PDF page-one preview.
+- [ ] Desktop and mobile screenshots are stored under `.playwright-mcp/`; browser console has no feature errors.
+- [ ] `npm run type-check`, `npm run lint`, and `npm run test:fast` pass with no count regression.
+- [ ] Relevant DB-backed page-submit/file suites pass with Postgres and Gotenberg healthy.
+- [ ] Reviewer has committed each passed ticket and this phase gate.
+
+---
+
+# Phase 2 — Finish Canonical Family Cleanup and Runtime Consistency
+
+These tickets remove unsupported keys from families not receiving expansion here, then make every runtime
+consumer agree on the canonical set. Internationalization and verification remain explicitly out of scope.
+
+## STB-13 — Canonicalize Phone, Email, and Website configs 🔲
+
+**Priority: P1** · Size: M · File: `shared/validation/stepConfigSchemas.ts`
+
+### Finding
+
+The schema factory maintains base and Advanced definitions for all three families:
+
+```ts
+phone: PhoneConfigSchema,
+phone_advanced: PhoneAdvancedConfigSchema,
+email: EmailConfigSchema,
+email_advanced: EmailAdvancedConfigSchema,
+website: WebsiteConfigSchema,
+website_advanced: WebsiteAdvancedConfigSchema,
+```
+
+Their Advanced schemas declare country defaults/restrictions, respondent verification, and DNS validation that
+have no complete builder → runner → server flow.
+
+### Preferred fix
+
+Give each family one canonical schema containing only behavior proven end to end today. Convert presets/editor
+routing/runner/server validation to the base canonical type. Remove `defaultCountry`, `allowedCountries`,
+`requireVerification`, and `validateDns`, plus any newly re-verified unowned sibling key, rather than preserving
+it as a promise. Keep temporary old-row read compatibility only for STB-19.
+
+### Ties
+
+- Depends on Phase 1 Gate. Precedes STB-15..20.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: shared configs/schemas, Phone/Email/Website editors and runner blocks, server sanitizer/
+  validation, associated tests. Collides with STB-14/15 in shared config files; sequence.
+
+### Vertical proof
+
+- **Path:** each canonical preset → editor config → matching runner input → page submit → sanitized primitive
+  value persisted and correctly rejected for an implemented invalid case.
+- **Real, not mocked:** server sanitizer/validator and persistence.
+- **Cross-tenant denial:** tenant B cannot edit tenant A's step; run tokens remain run-scoped.
+- **Suite:** StepService DB tests plus targeted runner/page-submit tests for all three families.
+
+### Acceptance criteria
+
+1. New Phone/Email/Website steps persist only canonical base types.
+2. Every retained config key has a named consumer and discriminating test; every unowned key is removed.
+3. Deferred country, verification, and DNS keys are absent from types, schemas, presets, editors, and AI input.
+4. Existing implemented sanitization/domain/protocol/placeholder behavior remains green and authorable.
+5. Tests cover each canonical config, removed-key rejection, valid/invalid submission, and persistence.
+6. Vertical proof and standard gates pass.
+
+---
+
+## STB-14 — Canonicalize Address, Scale, and Display configs 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/runner/blocks/DisplayBlock.tsx`
+
+### Finding
+
+Advanced aliases normalize into base renderers, but DisplayBlock reads only Markdown:
+
+```ts
+const rawMarkdown = config?.markdown || step.description || "";
+return <ReactMarkdown>{markdown}</ReactMarkdown>;
+```
+
+`DisplayAdvancedConfigSchema` additionally accepts `allowHtml`, `template`, `variables`, and style fields; Address
+accepts international/custom options the US-shaped renderer does not honor consistently.
+
+### Preferred fix
+
+Canonicalize Address, Scale, and Display to their base identities and retain only demonstrably implemented keys.
+Display becomes one Markdown/interpolation contract with no raw HTML, whitelist flag, or inert styling object.
+Address remains the current US/autocomplete capability in this initiative; remove country restriction promises.
+Scale retains only displays/labels/style options actually rendered and tested.
+
+### Ties
+
+- Depends on STB-13 review; shared config/schema collision requires sequence.
+- Load `add-step-type`, `run-tests`, and `verify`.
+- File footprint: shared configs/schemas, Address/Scale/Display presets/editors/runners, Places-related tests only
+  if behavior changes. Collides with STB-15 and STB-19.
+
+### Vertical proof
+
+- **Path:** each canonical preset → editor → runner → Address/Scale answer persistence or Display Markdown output.
+- **Real, not mocked:** config validation, Address/Scale page submit, and the real ReactMarkdown rendering path.
+- **Cross-tenant denial:** tenant B cannot edit tenant A definitions; Places auth behavior stays unchanged.
+- **Suite:** StepService DB coverage plus targeted Address/Scale/Display unit/integration tests.
+
+### Acceptance criteria
+
+1. New Address/Scale/Display definitions use canonical types only.
+2. `allowHtml`, international country restrictions, and every other unowned key are rejected and unadvertised.
+3. Markdown interpolation remains escaped/safe; no `rehype-raw` or `dangerouslySetInnerHTML` is added.
+4. Every retained Address/Scale/Display setting is reachable and changes a tested observable result.
+5. Tests cover canonical configs, removed-key rejection, runner behavior, and persisted answer shapes.
+6. Vertical proof and standard gates pass.
+
+---
+
+## STB-15 — Remove legacy routing from runner, Lists, conditions, and answer formatting 🔲
+
+**Priority: P1** · Size: M · File: `shared/types/runnerStepTypes.ts`
+
+### Finding
+
+`NORMALIZED_STEP_TYPES` is currently the seam holding multiple dialects together:
+
+```ts
+const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {
+  yes_no: "boolean",
+  multiple_choice: "choice",
+  radio: "choice",
+  datetime_unified: "date_time",
+  number_advanced: "number",
+  // ...
+};
+```
+
+This map is also relied upon by client/server validation, initial-value coercion, conditions, answer formatting,
+and recursively derived List field types. Removing aliases piecemeal would leave required rules or nested fields
+inconsistent.
+
+### Preferred fix
+
+Make canonical runner types the only creation/config vocabulary across runner classification, List fields,
+condition operator mappings, initial-value coercion, review/interpolation formatting, simulation inputs, and
+workflow lint. Retain one explicitly named temporary **persisted-row compatibility** map for STB-19/20 only;
+new/request data must never use it. Add an exhaustive cross-system registry test.
+
+### Ties
+
+- Depends on STB-13 and STB-14. Precedes Phase 3 and backfill.
+- Load `add-step-type` and `run-tests`.
+- File footprint: `runnerStepTypes.ts`, List config derivation/runtime, conditions, formatAnswerValue, initial-value
+  coercion, workflow lint/simulation tests. Collides with STB-8/10/11 files already landed.
+
+### Vertical proof
+
+- **Path:** canonical top-level and nested List questions → shared classification → client renderer + both
+  validators → submit/resume/review formatting with the same type/config interpretation.
+- **Real, not mocked:** nested List runtime and server page-submit validation.
+- **Cross-tenant denial:** unchanged run/StepService tenant boundaries remain green.
+- **Suite:** targeted List runner integration plus routing/formatting/validation unit-fast tests.
+
+### Acceptance criteria
+
+1. Every canonical type has exactly one rendered/hidden/special classification and intended condition mapping.
+2. New List fields admit canonical question types only and preserve nested config/value behavior.
+3. Client and server required validation agree for all canonical types, including Boolean consent and File Upload.
+4. Review/interpolation/simulation/default coercion consume canonical types without duplicated alias switches.
+5. A registry coverage test fails if any canonical type is unclassified or any request-facing alias remains.
+6. Vertical proof and all standard/targeted gates pass.
+
+---
+
+## STB-15A — Re-author curated templates and demo seeds to canonical types 🔲
+
+**Priority: P1** · Size: M · File: `templates/curated/`
+
+### Finding
+
+The curated marketplace catalog is **source data in the repository**, not database rows.
+`generateMarketplaceBundles()` reads it and writes the bundles TM-2 serves at runtime:
+
+```ts
+const curatedDir = options.curatedDir ?? path.resolve(process.cwd(), 'templates/curated');
+const outDir = options.outDir ?? path.resolve(process.cwd(), 'dist/marketplace');
+```
+
+All three curated workflows are authored in retired dialects — **20 of 27 step definitions**:
+
+| Template | Retired step types |
+|---|---|
+| `intake-questionnaire` | `short_text` x2, `multiple_choice` x2, `date` x2, `true_false` x1, `long_text` x1 |
+| `nda` | `short_text` x3, `multiple_choice` x1, `date` x1 |
+| `retainer-agreement` | `short_text` x2, `currency` x2, `multiple_choice` x1, `long_text` x1, `date` x1 |
+
+Both install paths land on boundaries this initiative makes strict: `TemplateService` calls
+`workflowContentIngestService.apply(...)` (STB-17) and `MarketplaceService` calls the portability import engine
+(STB-18). STB-19/STB-20 are database tools that never read `templates/curated/` or `dist/marketplace/`, so the
+catalog is still legacy after the Phase 4 zero audit reports success, and every curated install then fails.
+
+`scripts/createDemoWorkflow.ts` has the same exposure with a harsher failure mode: it inserts `short_text`,
+`long_text`, `radio` and `yes_no` through **raw SQL**, bypassing service validation entirely, so it breaks at the
+database enum after STB-21 rather than at a validation layer.
+
+Without this ticket the breakage first appears at STB-22's repo-wide search — after the enum values are gone.
+
+### Preferred fix
+
+Re-author each curated `workflow.json` to canonical types and configs (`short_text`/`long_text` -> `text` with
+`variant`, `multiple_choice` -> `choice`, `date` -> `date_time` with `kind`, `true_false` -> `boolean`,
+`currency` -> `number` with `mode`), preserving every title, alias, order, option value, logic reference and
+document variable binding so the existing `mapping.md`/`template.docx` pairs still resolve. Regenerate bundles and
+convert `scripts/createDemoWorkflow.ts`. Add a guard test that fails if a retired type reappears in curated source
+or in generated bundle output. Do **not** add a converter to the runtime install path — the catalog is source data
+and is fixed at source.
+
+### Ties
+
+- Depends on the Phase 1 Gate (canonical families must exist). **Must precede STB-17**, which makes template
+  ingest strict; sequenced after STB-15 only to keep Phase 2 commits linear.
+- Pairs with backlog `SECT-B5` (curated templates should also ship with Sections) — same three files, so consider
+  landing both edits together rather than rewriting `workflow.json` twice.
+- Load `add-step-type` and `run-tests`; load `verify` only if the marketplace install UI changes.
+- File footprint: `templates/curated/*/workflow.json`, `scripts/createDemoWorkflow.ts`, and the bundle guard test.
+- Donor pattern: `tests/unit/scripts/generateMarketplaceBundles.migrationHead.test.ts` already resolves the real
+  curated directory and drives the real generator plus `BundleReader` — extend that approach, do not invent one.
+- Collision: none with STB-13/STB-14. DB-test collision rules still apply to the integration suite.
+
+### Vertical proof
+
+- **Path:** regenerate bundles -> install each curated template through the real marketplace install endpoint ->
+  canonical steps persisted -> open in the builder -> run and submit one page -> values stored.
+- **Real, not mocked:** bundle generation, `BundleReader`, the import/ingest engine, and the resulting DB rows.
+- **Cross-tenant denial:** installing into a project the caller cannot access is denied and writes nothing.
+- **Suite:** `tests/integration/api.marketplace.install.test.ts` plus the curated guard unit test.
+
+### Acceptance criteria
+
+1. Every curated `workflow.json` step, including nested List fields, uses a canonical type with a schema-valid config.
+2. Titles, aliases, order, option values, logic references and document variable bindings are unchanged, and each
+   template's `mapping.md`/`template.docx` still resolves every variable it names.
+3. Regenerated bundles contain no retired type name, and a guard test fails if one is reintroduced in either
+   curated source or bundle output.
+4. `scripts/createDemoWorkflow.ts` inserts only canonical types and completes against a fresh test database.
+5. All three curated templates install through the strict boundary and produce runnable canonical workflows.
+6. Vertical proof, type-check, lint, `test:fast`, and the named integration/unit tests pass.
+
+---
+
+## Phase 2 Gate
+
+- [ ] STB-13..15A are ✅ with dated verification notes.
+- [ ] The config-owner ledger has zero active keys without a reachable consumer and discriminating test.
+- [ ] Country/timezone/verification/DNS/raw-HTML promises are absent from active contracts.
+- [ ] Canonical top-level and nested List types agree across builder, runner, validators, conditions, formatting,
+      and initial-value coercion.
+- [ ] Curated marketplace templates and the demo seed script contain no retired type, and regenerated bundles
+      install through the strict boundary into runnable canonical workflows.
+- [ ] `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without count regression.
+- [ ] Targeted List/page-submit DB/integration suites pass.
+- [ ] Reviewer has committed each passed ticket and this phase gate.
+
+---
+
+# Phase 3 — Canonical External Boundaries
+
+With internal behavior complete, this phase makes AI and every ingest/export boundary strict. No boundary accepts
+legacy names “for convenience”; the upcoming backfill is the only converter.
+
+## STB-16 — Make AI vocabulary and validation mode-aware and canonical-only 🔲
+
+**Priority: P1** · Size: M · File: `shared/aiVocabulary.ts`
+
+### Finding
+
+The current vocabulary is static and enumerates every DB value:
+
+```ts
+export function buildStepTypeCatalog(): string {
+  return stepTypeEnum.enumValues.map(/* schema keys */).join('\n');
+}
+```
+
+`AiSettingsService` splices `buildWorkflowVocabulary()` into a default prompt, while Easy/Advanced mode is sent
+elsewhere. Prompt filtering alone would still let a model patch hidden types/keys through server schemas.
+
+### Preferred fix
+
+Build `buildWorkflowVocabulary(mode)` from canonical capability/preset metadata. AI always outputs canonical
+types. Easy gets Easy presets/types and only Easy-visible config keys; Advanced gets all implemented canonical
+keys. Apply the same allowlist during generation and patch validation using the workflow's effective mode. Delete
+STB-1's temporary exclusions; schema membership is again safe because Phase 2 proved every active key.
+
+### Ties
+
+- Depends on Phase 2 Gate. Precedes STB-17/18.
+- Load `add-step-type` and `run-tests`.
+- File footprint: shared AI vocabulary/types/edit schema, AiSettingsService/AI workflow services, conversation
+  mode plumbing, AI vocabulary/prompt tests. Collision with STB-17 in patch schemas; sequence.
+
+### Vertical proof
+
+- **Path:** Easy and Advanced AI request → mode-specific system prompt → proposed canonical patch → server mode
+  validation → applied step → builder/runner sees the same canonical config.
+- **Real, not mocked:** prompt assembly and patch validator/application; model call may be stubbed deterministically.
+- **Cross-tenant denial:** tenant B cannot apply an AI patch to tenant A's workflow.
+- **Suite:** AI service/patch integration or DB test plus unit-fast vocabulary/prompt/conversation tests.
+
+### Acceptance criteria
+
+1. Both mode catalogs list canonical types only; removed keys and legacy type names never appear.
+2. Easy lists friendly presets/allowed settings and rejects Advanced-only types/keys server-side.
+3. Advanced lists every implemented canonical key exactly once and stays within the prompt budget.
+4. AI output and patches always persist canonical types/configs.
+5. Tests prove prompt and enforcement for both modes, including a model returning a forbidden key/type.
+6. STB-1 temporary containment is deleted; Vertical proof and standard gates pass.
+
+---
+
+## STB-17 — Enforce strict canonical configs across APIs, patches, templates, and ingest 🔲
+
+**Priority: P1** · Size: M · File: `shared/validation/stepConfigSchemas.ts`
+
+### Finding
+
+`validateStepConfig()` delegates to ordinary Zod objects:
+
+```ts
+const result = schema.safeParse(config);
+```
+
+Zod objects strip unknown keys by default, and `WorkflowContentIngestService` then persists the parsed result.
+After canonicalization this would turn retired names/keys into silent data loss rather than a clear contract error.
+
+### Preferred fix
+
+Make canonical config schemas strict at request/ingest boundaries and define clear validation errors containing
+the type and offending path. Update Step create/update/type-change, WorkflowPatchService, AI generation/content
+ingest, template instantiation, and any bulk endpoint to validate canonical type + config atomically. Reject every
+retired type name; do not call the backfill converter from a request path.
+
+### Ties
+
+- Depends on STB-16 and precedes STB-18.
+- Load `add-step-type`, `add-api-endpoint`, and `run-tests`.
+- File footprint: shared schemas, StepService, WorkflowContentIngestService, WorkflowPatchService, relevant routes
+  and StepService/ingest tests. Collision with STB-18 in ingest; sequence.
+
+### Vertical proof
+
+- **Path:** HTTP Step create/update, AI patch apply, and template instantiate → shared canonical validation →
+  service persistence → canonical step row; malformed alias/key → 400 and no partial write.
+- **Real, not mocked:** route/service validation and DB transaction.
+- **Cross-tenant denial:** tenant B inputs against tenant A workflow return the established concealed denial and
+  write nothing.
+- **Suite:** StepService DB/integration plus workflow-content-ingest/template integration coverage.
+
+### Acceptance criteria
+
+1. All request/ingest paths accept valid canonical type/config pairs and reject unknown keys with useful paths.
+2. Every retired type name is rejected; no request path normalizes it.
+3. Type changes validate the replacement config atomically and cannot leave a mismatched partial update.
+4. AI/template/bulk ingest failures roll back the whole affected operation.
+5. Tests cover valid/invalid cases for each entry path, including cross-tenant denial and no-write assertions.
+6. Vertical proof, type-check, lint, targeted DB/integration tests, and `test:fast` pass.
+
+---
+
+## STB-18 — Convert portability coverage to canonical-only round trips 🔲
+
+**Priority: P1** · Size: M · File: `tests/integration/portability.roundtrip.test.ts`
+
+### Finding
+
+`buildStepConfigs()` currently carries fixtures for every enum dialect, including configs that do not match the
+current schemas, for example:
+
+```ts
+number_advanced: { min: -50, max: 50, decimalPlaces: 3, thousandsSeparator: true },
+display_advanced: { markdown: "## Advanced display", showBorder: true },
+```
+
+The suite proves bytes round-trip, not that imported configs are supported or canonical.
+
+### Preferred fix
+
+Drive portability coverage from canonical type metadata and give each canonical type a distinctive, valid config.
+Export only canonical types. Import valid canonical bundles and reject any bundle containing a legacy type or
+removed key before apply. Preserve the existing project/workflow scope and tenant/redaction guarantees; do not
+add a second import engine.
+
+### Ties
+
+- Depends on STB-17. Precedes stored backfill so export/import is already strict when data is rewritten.
+- Load `add-step-type`, `run-tests`, and `verify` only if UI portability flow changes.
+- Read portability standing decisions in `tickets/backlog/PORTABILITY.md` before editing.
+- File footprint: portability fixtures/tests and existing Import/Export validation hooks. DB-test collision applies.
+
+### Vertical proof
+
+- **Path:** canonical workflow rows → project/workflow export bundle → preview/apply import into another tenant-
+  owned target → imported canonical steps/configs equal source; invalid legacy bundle → rejected before writes.
+- **Real, not mocked:** export/import services, ZIP/manifest path, and DB rows.
+- **Cross-tenant denial:** caller cannot export another tenant's workflow or import into an inaccessible project.
+- **Suite:** `tests/integration/portability.roundtrip.test.ts` in the integration project.
+
+### Acceptance criteria
+
+1. Fixture coverage is derived from canonical types and has no retired aliases or removed keys.
+2. Every canonical type/config round-trips at both project and workflow scope with distinctive values preserved.
+3. Export emits canonical types only; legacy/unknown import fails preview/apply with zero rows written.
+4. Existing disclosures, remapping, redaction, tenant isolation, and List recursion remain green.
+5. The named integration suite plus relevant portability unit tests prove all criteria.
+6. Type-check, lint, `test:fast`, and targeted integration tests pass.
+
+---
+
+## Phase 3 Gate
+
+- [ ] STB-16..18 are ✅ with dated verification notes.
+- [ ] Easy and Advanced AI requests are mode-correct at both prompt and server enforcement layers.
+- [ ] Step APIs, AI patches, templates, and portability reject legacy types/removed keys with no partial writes.
+- [ ] `tests/integration/portability.roundtrip.test.ts` passes for every canonical type at both scopes.
+- [ ] Cross-tenant denial cases and zero-write assertions pass.
+- [ ] `npm run type-check`, `npm run lint`, `npm run test:fast`, and relevant DB suites are green.
+- [ ] Reviewer has committed each passed ticket and this phase gate.
+
+---
+
+# Phase 4 — Tested Stored-Artifact Backfill
+
+This phase introduces the only legacy converter. It is an operator tool, dry-run by default, transactional on
+apply, and must prove idempotency. It does not change the enum yet.
+
+## STB-19 — Build the idempotent live-step and nested-List canonicalizer 🔲
+
+**Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
+
+### Finding
+
+Live persisted definitions use enum-backed `steps.type` plus arbitrary JSON config:
+
+```ts
+type: stepTypeEnum("type").notNull(),
+config: jsonb("config"),
+defaultValue: jsonb("default_value"),
+```
+
+Nested List fields repeat `type`/`config` recursively inside that JSON. No existing converter implements the
+agreed family mappings or removed-key sweep, and changing only the enum column would corrupt semantics.
+
+### Preferred fix
+
+Create a pure, exhaustively tested canonicalization function for a step definition and recursive List fields,
+then a CLI orchestrator. Dry-run is the default; `--apply` is explicit. Report counts by old→new type, removed
+key, row, workflow, and failure. Apply all live/soft-deleted step changes in a transaction, preserve IDs/aliases/
+logic/default answer meaning/order, and be idempotent. Scope flags may narrow verification but never change rules.
+
+### Ties
+
+- Depends on Phase 3 Gate. STB-20 extends the same converter and must follow it.
+- Load `add-step-type`, `db-schema-change` for data/enum context, and `run-tests`.
+- File footprint: new script/pure converter, step repository/service helpers if needed, canonicalizer unit and DB
+  integration tests. Does not edit migration SQL or enum.
+- Operational warning: never point verification at production; use the Docker/worktree test DB.
+
+### Vertical proof
+
+- **Path:** seeded legacy top-level + nested List rows → CLI dry-run report/no writes → `--apply` transaction →
+  canonical rows/config/defaults → second dry-run reports zero changes.
+- **Real, not mocked:** database reads/updates and transaction rollback on an invalid fixture.
+- **Cross-tenant denial:** not a user endpoint; the privileged operator command intentionally audits all tenants,
+  but tests prove tenant/workflow ownership fields never change or cross-link.
+- **Suite:** new `tests/integration/canonicalizeStepTypes.test.ts` in the integration project.
+
+### Acceptance criteria
+
+1. Every retired type has one explicit, tested canonical mapping, including legacy date flags and numeric configs.
+2. Nested Lists are converted recursively at all supported depths; unrelated config/value/IDs remain unchanged.
+3. Dry-run is default and writes zero rows; apply is transactional and rolls back the whole run on conversion error.
+4. Reports contain deterministic counts/details without answer contents or secrets.
+5. Applying twice is idempotent and a post-apply audit reports zero legacy live/List definitions.
+6. Named unit/integration tests, type-check, lint, `test:fast`, and targeted DB tests pass.
+
+---
+
+## STB-20 — Extend backfill to versions and blueprints with checksum repair 🔲
+
+**Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
+
+### Finding
+
+Two JSON artifact stores can later repopulate live steps:
+
+```ts
+export const workflowVersions = pgTable("workflow_versions", {
+  graphJson: jsonb("graph_json").notNull(),
+  checksum: text("checksum"),
+  // ...
+});
+
+export const workflowBlueprints = pgTable("workflow_blueprints", {
+  graphJson: jsonb("graph_json").notNull(),
+  // ...
+});
+```
+
+Template instantiation copies blueprint JSON into a version and then ingests it. Leaving these artifacts stale
+would reintroduce types that STB-17 now rejects, and changing graph JSON without checksum repair breaks integrity.
+
+### Preferred fix
+
+Extend STB-19's pure converter/orchestrator to every workflow-version and blueprint `graphJson`, including nested
+Lists. Recompute workflow-version checksums with the same canonical checksum function VersionService uses. Include
+artifact counts in dry-run/apply reports, preserve immutable metadata/IDs/timestamps except required update fields,
+and add a final audit subcommand that scans live rows plus both JSON stores.
+
+### Ties
+
+- Depends on STB-19; same script/converter, sequence.
+- Load `add-step-type`, `db-schema-change`, and `run-tests`.
+- File footprint: canonicalizer script, VersionService checksum helper extraction if needed, version/blueprint
+  repositories, canonicalizer integration tests. Collides with no enum migration until STB-21.
+
+### Vertical proof
+
+- **Path:** seeded legacy version/blueprint JSON → dry-run → apply → checksum verification → restore/instantiate
+  through real WorkflowContentIngestService → canonical live steps → final audit zero.
+- **Real, not mocked:** DB artifacts, checksum function, and template/version ingest.
+- **Cross-tenant denial:** operator is global by design; restored artifacts remain attached to their original
+  workflow/tenant and no graph crosses ownership.
+- **Suite:** canonicalizer integration plus targeted template/version ingest integration coverage.
+
+### Acceptance criteria
+
+1. Every version and blueprint graph, including nested List definitions, is scanned and converted.
+2. Dry-run writes nothing and reports artifact/type/key/checksum changes; apply is transactional/idempotent.
+3. Changed version checksums equal a fresh checksum computation; unchanged artifacts are not rewritten.
+4. A converted version restores and a converted blueprint instantiates through strict canonical ingest.
+5. Final audit proves zero legacy types/removed keys across live steps, Lists, versions, and blueprints.
+6. Named integration tests and all standard gates pass.
+
+---
+
+## Phase 4 Gate
+
+- [ ] STB-19 and STB-20 are ✅ with dated verification notes.
+- [ ] Reviewer captures a dry-run report against the intended test-data environment before apply.
+- [ ] A recoverable database snapshot/backup exists before apply; exact target/environment is recorded.
+- [ ] Apply completes transactionally and a second dry-run/final audit reports zero changes/legacy definitions.
+- [ ] Converted versions restore and blueprints instantiate through the strict canonical boundary.
+- [ ] `npm run type-check`, `npm run lint`, `npm run test:fast`, `npm run test:unit:db`, and canonicalizer
+      integration suites pass with test services healthy.
+- [ ] Reviewer has committed each passed ticket and this phase gate.
+
+---
+
+# Phase 5 — Remove Enum Values and Prove the Complete Toolbox
+
+The enum ticket is blocked until the Phase 4 zero audit is attached. The last ticket deletes every transition
+branch and performs one cross-seam drive-through rather than trusting isolated ticket tests.
+
+## STB-21 — Remove retired `step_type` enum values 🔲
+
+**Priority: P1** · Size: M · File: `shared/schema/workflow.ts`
+
+### Finding
+
+The database enum still defines three dialect groups:
+
+```ts
+export const stepTypeEnum = pgEnum('step_type', [
+  // LEGACY / EXISTING TYPES
+  'short_text', 'long_text', 'multiple_choice', /* ... */
+  // EASY MODE TYPES
+  'true_false', 'phone', 'date', /* ... */
+  // ADVANCED MODE TYPES
+  'text', 'boolean', 'phone_advanced', /* ... */
+]);
+```
+
+Keeping retired enum values after the zero audit leaves them available to raw DB paths and makes the canonical
+contract impossible to enforce exhaustively at compile time.
+
+### Preferred fix
+
+After verifying the attached Phase 4 audit, reduce `stepTypeEnum` to Decision 1's canonical list and run plain
+`npm run db:generate`; do not hand-author enum SQL or edit the journal. Inspect the generated type-recreation SQL,
+bump the schema-manager cache token, update schema docs, and prove the entire migration chain on a fresh Docker
+database. Do not run migrations against production or the shared dev URL as a test.
+
+### Ties
+
+- Hard-blocked on Phase 4 Gate/audit. STB-22 follows and deletes compatibility code.
+- Load `db-schema-change`, `add-step-type`, and `run-tests`.
+- File footprint: `shared/schema/workflow.ts`, generated migration/journal/snapshot, schema-manager token,
+  `docs/claude/SCHEMA.md`, enum/schema/portability tests. Check for unmerged migrations first.
+
+### Acceptance criteria
+
+1. The pre-migration audit attached to the ticket reports zero retired enum values in every live step row.
+2. `stepTypeEnum` contains exactly the canonical list, and drizzle-kit generated the migration/journal/snapshot.
+3. Generated SQL safely recreates the enum and contains no hand-edited journal or baseline migration changes.
+4. A fresh empty Docker database applies the full migration chain successfully; the resulting enum values match
+   the canonical constant exactly.
+5. `tests/helpers/schemaManager.ts` cache token and `docs/claude/SCHEMA.md` are updated.
+6. Type-check, lint, `test:fast`, `test:unit:db`, portability, and targeted migration integration tests pass.
+
+---
+
+## STB-22 — Delete transition code and verify the complete canonical toolbox 🔲
+
+**Priority: P1** · Size: M · File: `shared/types/runnerStepTypes.ts`
+
+### Finding
+
+Earlier tickets intentionally retain temporary old-row readers until the backfill and enum deletion. After
+STB-21, any remaining alias union, normalization branch, old schema, legacy fixture, or Generic editor fallback
+is dead code that hides future drift. Per-family tests also cannot prove the seams between builder, runner,
+persistence, AI, templates, and portability compose.
+
+### Preferred fix
+
+Delete all transition-only aliases/maps/schemas/types/routes/tests and orphaned imports; do not comment them out.
+Run a repo-wide search for every retired type/key. Update block/API/developer docs to describe presets versus
+canonical stored types and the mode-aware AI contract. Add/extend a cross-seam integration/E2E scenario that
+creates canonical presets, configures Advanced features, runs/submits/resumes, publishes/templates, and
+exports/imports without a legacy name appearing. Perform desktop/mobile local-app verification with a clean console.
+
+### Ties
+
+- Depends on STB-21 and closes the initiative.
+- Load `add-step-type`, `run-tests`, and `verify`; load `add-api-endpoint` only if cleanup touches routes.
+- File footprint: repo-wide removal across shared/client/server/tests/docs; primary anchors are runner routing,
+  StepType unions/schemas, registry/presets, AI vocabulary, and ingest/portability. Do not touch unrelated debt.
+
+### Vertical proof
+
+- **Path:** Easy preset + Advanced settings + AI-created step → publish/version → live run submit/resume/review →
+  template instantiate → project/workflow export/import → all observable definitions/values remain canonical.
+- **Real, not mocked:** local app, DB persistence, version/template ingest, runner submit/resume, portability engine.
+- **Cross-tenant denial:** representative Step/AI/export/import attempts against tenant B's resources are denied
+  with no writes.
+- **Suite:** full integration suite plus a named canonical-toolbox E2E/integration scenario; local browser proof.
+
+### Acceptance criteria
+
+1. Repo-wide search finds no retired type/key outside migration/backfill historical fixtures and this ticket file.
+2. Temporary compatibility/exclusion/conversion code not required by the completed backfill is deleted.
+3. Docs clearly separate canonical stored types, Easy presets, Advanced settings, and AI mode behavior.
+4. The Vertical proof passes with real DB/ingest/runner/portability hops and tenant denial.
+5. Local `dev:test` desktop/mobile drive-through covers Boolean, Choice, Number, image/PDF upload, mode switching,
+   AI creation, resume, and export/import with persisted config/API evidence and a clean console.
+6. `npm run type-check`, `npm run lint`, `npm run test:fast`, `npm run test:unit:db`, full integration, and the
+   final full suite are green with no count regression or skipped newly required proof.
+
+---
+
+## Phase 5 Gate — Initiative Complete
+
+- [ ] STB-21 and STB-22 are ✅ with dated verification notes.
+- [ ] Fresh-database migration proof and exact canonical enum values are attached.
+- [ ] Repo-wide retired-type/key search is clean except deliberate migration/history fixtures.
+- [ ] Full local cross-seam drive-through and desktop/mobile screenshots are attached; console is clean.
+- [ ] `npm run type-check` reports 0 errors.
+- [ ] `npm run lint` reports 0 problems.
+- [ ] `npm run test:fast` is green with no baseline count regression.
+- [ ] `npm run test:unit:db` and `npm run test:integration` are green with Postgres/Gotenberg healthy.
+- [ ] `npm test`/CI-equivalent full suite is green.
+- [ ] Reviewer has committed each passed ticket and this gate.
+- [ ] Remaining observations are triaged into `tickets/backlog/STEP_TOOLBOX.md` + `tickets/BACKLOG.md`, this active
+      file is retired, and all cross-references are fixed according to the ticket-flow skill.
+
+---
+
+## Backlog / observations — not dispatchable in this initiative
+
+### STB-B1 — International phone and address controls
+
+**Tag:** `needs-initiative`. Reintroduce phone `defaultCountry`/`allowedCountries` and address country restrictions
+only with a country-data/phone library decision, E.164 storage compatibility, international address field model,
+Google Places restriction semantics, builder UI, runner behavior, server validation, and migration tests.
+
+### STB-B2 — Timezone-aware Date/Time semantics
+
+**Tag:** `product-decision`. Before reintroducing `timezone`/`showTimezone`, decide whether the stored answer is a
+wall time plus zone or an absolute instant, and specify DST gaps/overlaps, resume formatting, templates, exports,
+and existing value migration. A timezone dropdown alone is not the feature.
+
+### STB-B3 — Respondent email verification
+
+**Tag:** `needs-initiative`. Account verification cannot simply be reused for a workflow answer. A future plan must
+define OTP/link UX, anonymous run identity, token lifetime/retry/rate limits, pending run state, delivery failures,
+and what downstream steps may do before verification completes.
+
+### STB-B4 — DNS-backed website validation
+
+**Tag:** `enhancement`. Reconsider value before implementation: DNS is asynchronous and fallible, and a safe design
+needs server-side lookup/SSRF posture, timeout/cache policy, transient-failure semantics, and clear respondent copy.
+Do not re-add `validateDns` merely because the repo already imports DNS helpers elsewhere.
