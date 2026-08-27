@@ -134,7 +134,9 @@ export function buildWorkflowActions(
   ];
 
   if (onMove) {
-    actions.push({ label: "Move to Project", icon: Move, onClick: () => onMove(workflow), separator: true });
+    // Single verb, like its Copy/Transfer/Archive/Delete siblings — and honest on
+    // surfaces where the destination may be another project or unfiled.
+    actions.push({ label: "Move", icon: Move, onClick: () => onMove(workflow), separator: true });
   }
 
   if (onCopy) {

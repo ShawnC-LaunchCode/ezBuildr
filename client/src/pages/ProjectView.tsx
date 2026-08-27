@@ -15,6 +15,7 @@ import { AssetToolbar } from "@/components/shared/AssetToolbar";
 import { CreateWorkflowForm } from "@/components/workflows/CreateWorkflowForm";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
+import { MoveWorkflowDialog } from "@/components/dialogs/MoveWorkflowDialog";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import {
   AlertDialog,
@@ -59,6 +60,7 @@ import {
   useCopyWorkflow,
   useTransferWorkflow,
   useMoveWorkflow,
+  useProjects,
 } from "@/lib/vault-hooks";
 
 // eslint-disable-next-line max-lines-per-function, complexity
@@ -78,6 +80,7 @@ export default function ProjectView() {
   const [copyingWorkflow, setCopyingWorkflow] = useState<ApiWorkflow | null>(null);
   const [transferringWorkflow, setTransferringWorkflow] = useState<ApiWorkflow | null>(null);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
+  const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
 
   // Form states
   const [editProject, setEditProject] = useState({ title: "", description: "" });
@@ -88,6 +91,7 @@ export default function ProjectView() {
   // Data queries
   const { data: projectWithWorkflows, isLoading } = useProject(id);
   const { data: organizations, isLoading: organizationsLoading } = useOrganizations();
+  const { data: allProjects } = useProjects();
 
   // Mutations
   const updateProjectMutation = useUpdateProject();
@@ -138,15 +142,31 @@ export default function ProjectView() {
     }
   };
 
-  const handleMoveWorkflowOut = async (workflow: ApiWorkflow) => {
+  // "Other Project" is an internal bucket, never somewhere a user files into.
+  const moveDestinations = useMemo(
+    () => (allProjects ?? []).filter((project) => project.title !== "Other Project"),
+    [allProjects]
+  );
+
+  const handleMoveWorkflow = async (projectId: string | null) => {
+    if (!movingWorkflow) { return; }
     try {
-      await moveWorkflowMutation.mutateAsync({
-        id: workflow.id,
-        projectId: null,
+      await moveWorkflowMutation.mutateAsync({ id: movingWorkflow.id, projectId });
+      const target = projectId === null
+        ? "Unfiled"
+        : moveDestinations.find((project) => project.id === projectId)?.title ?? "the project";
+      toast({
+        title: "Workflow moved",
+        description: `"${movingWorkflow.title}" is now in ${target}.`,
       });
-      toast({ title: "Success", description: "Workflow moved out of project" });
+      setMovingWorkflow(null);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to move workflow", variant: "destructive" });
+      toast({
+        title: "Move failed",
+        description: error instanceof Error ? error.message : "Failed to move workflow",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -235,7 +255,7 @@ export default function ProjectView() {
   // One handler set feeds both the cards and the list rows, so the two views
   // expose exactly the same actions.
   const workflowHandlers = {
-    onMove: (workflow: ApiWorkflow) => { void handleMoveWorkflowOut(workflow); },
+    onMove: (workflow: ApiWorkflow) => setMovingWorkflow(workflow),
     onCopy: (workflow: ApiWorkflow) => setCopyingWorkflow(workflow),
     onTransfer: (workflow: ApiWorkflow) => setTransferringWorkflow(workflow),
     onArchive: (workflowId: string) => { void handleArchiveWorkflow(workflowId); },
@@ -503,6 +523,17 @@ export default function ProjectView() {
           assetName={copyingWorkflow.title}
           onCopy={handleCopyWorkflow}
           isPending={copyWorkflowMutation.isPending}
+        />
+      )}
+
+      {movingWorkflow && (
+        <MoveWorkflowDialog
+          open={movingWorkflow !== null}
+          onOpenChange={(open) => !open && setMovingWorkflow(null)}
+          workflow={movingWorkflow}
+          projects={moveDestinations}
+          onMove={handleMoveWorkflow}
+          isPending={moveWorkflowMutation.isPending}
         />
       )}
 

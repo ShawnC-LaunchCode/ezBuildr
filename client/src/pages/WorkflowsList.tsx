@@ -7,6 +7,7 @@ import { projectToAssetRow, workflowToAssetRow } from "@/components/dashboard/as
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
+import { MoveWorkflowDialog } from "@/components/dialogs/MoveWorkflowDialog";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
@@ -28,7 +29,7 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { getOrgRestrictedActionReason, getOrgRoleForAsset } from "@/lib/ownership";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 import type { ApiAssetCopyOptions, ApiProject, ApiWorkflow } from "@/lib/vault-api";
-import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject, useCopyWorkflow, useCopyProject } from "@/lib/vault-hooks";
+import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject, useCopyWorkflow, useCopyProject, useMoveWorkflow } from "@/lib/vault-hooks";
 
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowsList() {
@@ -44,6 +45,7 @@ export default function WorkflowsList() {
   const [transferringProject, setTransferringProject] = useState<{ id: string; title: string } | null>(null);
   const [copyingWorkflow, setCopyingWorkflow] = useState<{ id: string; title: string } | null>(null);
   const [copyingProject, setCopyingProject] = useState<{ id: string; title: string } | null>(null);
+  const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
 
   const { search, setSearch, viewMode, setViewMode, sort, toggleSort, sortRows, matches } =
     useAssetBrowser("ezbuildr.workflows.view");
@@ -71,6 +73,7 @@ export default function WorkflowsList() {
   const transferProjectMutation = useTransferProject();
   const copyWorkflowMutation = useCopyWorkflow();
   const copyProjectMutation = useCopyProject();
+  const moveWorkflowMutation = useMoveWorkflow();
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
 
   const transferringWorkflowAsset = useMemo(
@@ -245,6 +248,28 @@ export default function WorkflowsList() {
     }
   };
 
+  const handleMoveWorkflow = async (projectId: string | null) => {
+    if (!movingWorkflow) { return; }
+    try {
+      await moveWorkflowMutation.mutateAsync({ id: movingWorkflow.id, projectId });
+      const target = projectId === null
+        ? "Unfiled"
+        : visibleProjects.find((project) => project.id === projectId)?.title ?? "the project";
+      toast({
+        title: "Workflow moved",
+        description: `"${movingWorkflow.title}" is now in ${target}.`,
+      });
+      setMovingWorkflow(null);
+    } catch (error: unknown) {
+      toast({
+        title: "Move failed",
+        description: error instanceof Error ? error.message : "Failed to move workflow",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   // Handlers passed to both the cards and the list rows, so the two views offer
   // exactly the same menu.
   const projectHandlers = {
@@ -253,6 +278,7 @@ export default function WorkflowsList() {
     onDelete: (id: string) => setDeletingProjectId(id),
   };
   const workflowHandlers = {
+    onMove: (workflow: ApiWorkflow) => setMovingWorkflow(workflow),
     onCopy: (workflow: ApiWorkflow) => setCopyingWorkflow({ id: workflow.id, title: workflow.title }),
     onTransfer: (workflow: ApiWorkflow) => setTransferringWorkflow({ id: workflow.id, title: workflow.title }),
     onDelete: (id: string) => {
@@ -439,6 +465,7 @@ export default function WorkflowsList() {
                   currentUserId={user?.id}
                   currentUserOrgRole={getOrgRoleForAsset(workflow, organizations)}
                   orgRoleLoading={organizationsLoading}
+                  onMove={workflowHandlers.onMove}
                   onCopy={workflowHandlers.onCopy}
                   onTransfer={workflowHandlers.onTransfer}
                   onDelete={workflowHandlers.onDelete}
@@ -593,6 +620,17 @@ export default function WorkflowsList() {
           assetName={copyingWorkflow.title}
           onCopy={handleCopyWorkflow}
           isPending={copyWorkflowMutation.isPending}
+        />
+      )}
+
+      {movingWorkflow && (
+        <MoveWorkflowDialog
+          open={movingWorkflow !== null}
+          onOpenChange={(open) => !open && setMovingWorkflow(null)}
+          workflow={movingWorkflow}
+          projects={visibleProjects}
+          onMove={handleMoveWorkflow}
+          isPending={moveWorkflowMutation.isPending}
         />
       )}
 
