@@ -684,8 +684,60 @@ const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentatio
   long_text: { label: "Long Text", ...LONG_TEXT_PRESET_PRESENTATION },
 };
 
-export function getQuestionTypePresentation(type: string): QuestionTypePresentation | undefined {
-  return getBlockByType(type) ?? LEGACY_TYPE_PRESENTATIONS[type];
+function isConfigRecord(config: unknown): config is Readonly<Record<string, unknown>> {
+  return typeof config === "object" && config !== null && !Array.isArray(config);
+}
+
+function isScalarDiscriminator(value: unknown): value is string | number | boolean | null {
+  return value === null || ["string", "number", "boolean"].includes(typeof value);
+}
+
+/**
+ * Resolve a stored canonical row to the preset whose discriminator it carries.
+ *
+ * Discriminator keys are inferred from scalar defaults that uniquely distinguish
+ * every sibling preset in the same canonical family. That keeps presentation
+ * coupled to QUESTION_PRESETS as new families canonicalize, without rebuilding
+ * their variant/kind/style switches in the display layer.
+ */
+function getStoredPresetPresentation(
+  type: string,
+  config: unknown,
+): QuestionTypePresentation | undefined {
+  if (!isConfigRecord(config)) { return undefined; }
+
+  const family = QUESTION_PRESETS.filter(
+    (preset) => preset.canonicalType === type && preset.persistedType === type,
+  );
+  if (family.length < 2) { return undefined; }
+
+  const defaults = family.map((preset) => preset.createDefaultConfig() as Readonly<Record<string, unknown>>);
+  const candidateKeys = Object.keys(defaults[0]).filter((key) => {
+    const values = defaults.map((defaultConfig) => defaultConfig[key]);
+    return values.every(isScalarDiscriminator)
+      && new Set(values).size === family.length;
+  });
+
+  const matches = new Set<number>();
+  for (const key of candidateKeys) {
+    const matchingIndex = defaults.findIndex(
+      (defaultConfig) => Object.is(defaultConfig[key], config[key]),
+    );
+    if (matchingIndex !== -1) { matches.add(matchingIndex); }
+  }
+
+  if (matches.size !== 1) { return undefined; }
+  const [matchingIndex] = matches;
+  return getQuestionPresetPresentation(family[matchingIndex]);
+}
+
+export function getQuestionTypePresentation(
+  type: string,
+  config?: unknown,
+): QuestionTypePresentation | undefined {
+  return getStoredPresetPresentation(type, config)
+    ?? getBlockByType(type)
+    ?? LEGACY_TYPE_PRESENTATIONS[type];
 }
 
 /**

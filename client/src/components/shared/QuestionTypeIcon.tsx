@@ -72,6 +72,8 @@ function glyphClass(glyph: string, size: "sm" | "md"): string {
 export interface QuestionTypeIconProps {
   /** Step type, e.g. "short_text". Unknown types fall back to a neutral tile. */
   type: string;
+  /** Stored config used to distinguish presets sharing one canonical type. */
+  config?: unknown;
   /** Preset-specific display metadata when stored type alone is ambiguous. */
   presentation?: QuestionTypePresentation;
   size?: "sm" | "md";
@@ -85,12 +87,13 @@ export interface QuestionTypeIconProps {
 
 export function QuestionTypeIcon({
   type,
+  config,
   presentation,
   size = "md",
   className,
   labelled = false,
 }: QuestionTypeIconProps) {
-  const entry = presentation ?? getQuestionTypePresentation(type);
+  const entry = presentation ?? getQuestionTypePresentation(type, config);
   const Icon = entry?.icon ?? FileText;
   const glyph = entry?.glyph;
   const tile = CATEGORY_TILE[entry?.category ?? "display"];

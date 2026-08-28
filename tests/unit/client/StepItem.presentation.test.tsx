@@ -14,6 +14,28 @@ vi.mock("@/store/workflow-builder", () => ({
 }));
 
 describe("StepItem question presentation", () => {
+  it.each([
+    ["short", "Short Text", "T"],
+    ["long", "Long Text", "¶"],
+  ] as const)("shows the %s preset tile for a canonical text sidebar row", (variant, label, glyph) => {
+    const step = {
+      id: `canonical-${variant}`,
+      pageId: "page-1",
+      type: "text",
+      config: { variant },
+      title: `Canonical ${variant}`,
+      required: false,
+      visibleIf: null,
+    } as unknown as ApiStep;
+
+    render(<StepItem step={step} pageId="page-1" />);
+
+    const icon = screen.getByTitle(label);
+    expect(icon).toHaveClass("bg-qtype-text");
+    expect(icon).toHaveTextContent(glyph);
+    expect(screen.queryByTitle("Text")).not.toBeInTheDocument();
+  });
+
   it("shows a friendly text-family tile for a legacy long-text sidebar row", () => {
     const step = {
       id: "legacy-long",

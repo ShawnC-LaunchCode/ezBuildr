@@ -229,6 +229,43 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
     expect(screen.queryByTitle('long_text')).not.toBeInTheDocument();
   });
 
+  it('keeps canonical text field labels and icons aligned with their variants', () => {
+    const config: ListConfig = {
+      fields: [
+        questionField({
+          id: 'short', alias: 'short', title: 'Canonical short', order: 0,
+          type: 'text', config: { variant: 'short' },
+        }),
+        questionField({
+          id: 'long', alias: 'long', title: 'Canonical long', order: 1,
+          type: 'text', config: { variant: 'long' },
+        }),
+      ],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const shortIcon = within(screen.getByRole('button', { name: 'Short Text' })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('button', { name: 'Long Text' })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(screen.queryByRole('button', { name: 'Text' })).not.toBeInTheDocument();
+  });
+
+  it('leaves a bare canonical text field on the registry presentation', () => {
+    const config: ListConfig = {
+      fields: [questionField({
+        id: 'bare', alias: 'bare', title: 'Bare text', order: 0, type: 'text',
+      })],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const icon = within(screen.getByRole('button', { name: 'Text' })).getByTitle('Text');
+    expect(icon).toHaveTextContent('T');
+    expect(screen.queryByRole('button', { name: 'Short Text' })).not.toBeInTheDocument();
+  });
+
   it('reuses the same palette component to change an existing field\'s type (AC6)', async () => {
     const config: ListConfig = {
       fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0, type: 'short_text' })],

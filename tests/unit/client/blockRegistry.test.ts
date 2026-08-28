@@ -188,4 +188,25 @@ describe('QUESTION_PRESETS canonical contract', () => {
       label: 'Long Text', glyph: '¶', category: 'text',
     });
   });
+
+  it('derives canonical text presentation from the preset config discriminator', () => {
+    expect(getQuestionTypePresentation('text', { variant: 'short' })).toMatchObject({
+      label: 'Short Text', glyph: 'T', category: 'text',
+    });
+    expect(getQuestionTypePresentation('text', { variant: 'long' })).toMatchObject({
+      label: 'Long Text', glyph: '¶', category: 'text',
+    });
+  });
+
+  it('keeps bare canonical and retired-alias presentation behavior unchanged', () => {
+    expect(getQuestionTypePresentation('text')).toMatchObject({
+      label: 'Text', glyph: 'T', category: 'text',
+    });
+    expect(getQuestionTypePresentation('email', { allowMultiple: true })).toMatchObject({
+      label: 'Email', glyph: '@', category: 'validated',
+    });
+    expect(getQuestionTypePresentation('long_text', { variant: 'short' })).toMatchObject({
+      label: 'Long Text', glyph: '¶', category: 'text',
+    });
+  });
 });

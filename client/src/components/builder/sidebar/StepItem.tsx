@@ -77,7 +77,7 @@ export function StepItem({ step, pageId }: StepItemProps) {
                     Req
                 </Badge>
             )}
-            <QuestionTypeIcon type={step.type} size="sm" className="mt-px" />
+            <QuestionTypeIcon type={step.type} config={step.config} size="sm" className="mt-px" />
             {/* Question title and alias stacked */}
             <div className="flex-1 min-w-0">
                 <div className="truncate text-xs leading-tight">{step.title || "(Untitled)"}</div>

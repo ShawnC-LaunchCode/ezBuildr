@@ -383,7 +383,7 @@ as **STB-3B**.
 
 ---
 
-## STB-3B — Resolve stored-row presentation from the config discriminator 🔲
+## STB-3B — Resolve stored-row presentation from the config discriminator ✅
 
 **Priority: P2** · Size: S · File: `client/src/components/shared/QuestionTypeIcon.tsx`
 
@@ -435,6 +435,30 @@ this adds a second resolution input, it does not replace either mechanism. Deriv
 4. The mapping is derived from `QUESTION_PRESETS`; no second hand-written variant switch is introduced.
 5. Unit tests assert the canonical long/short distinction and fail if either collapses back to the bare tile.
 6. Type-check, lint, and `test:fast` pass without count regression.
+
+**Verified 2026-08-28 (reviewer):** all six acceptance criteria checked against the working tree; gates re-run by
+the reviewer in worktree `stb-3b` — `npm run type-check` 0 errors, `npm run check:strict-zones` 6/6 zones,
+`npm run lint` 0 problems, `npm run test:fast` 315 files / 3,496 tests passed, up 8 from the 3,488 STB-3A
+baseline. The defect this ticket fixes was **observed live before the fix**, not merely reasoned from code: a
+drive-through of the real builder on the STB-3A tree showed both a short and a long canonical row rendering an
+identical `title="Text"`/`T` tile (`.playwright-mcp/stb3b-before-canonical-rows.png`), while the palette
+distinguished them correctly.
+
+The implementation is better than the ticket's preferred fix. Rather than mapping variants, it infers the
+discriminator key from the presets' own default configs — a key qualifies only when its values are scalar and
+unique across every sibling in the family — so the resolver never names a family, satisfying criterion 4 by
+construction. Two consequences worth recording:
+
+- It **deletes** `getListFieldTypeLabel`'s hand-written text switch instead of extending it, so the List row's
+  icon and label now derive from one call and agree by construction (criterion 2).
+- It is genuinely self-driving. Boolean's presets still carry `persistedType: "yes_no"`/`"true_false"`, so the
+  family is not yet matched and a canonical boolean row correctly falls back to the registry entry; STB-5
+  flipping those two fields activates the discriminator with no further edit. Ambiguous or partly-edited configs
+  resolve to `undefined` and degrade to the generic tile rather than guessing.
+
+One efficiency observation, carried into STB-3C rather than sent back: the discriminator scan runs on every icon
+render, calling `createDefaultConfig()` per sibling each time, though `QUESTION_PRESETS` is a module constant and
+the result is static. STB-3C owns this code region and memoizes it there.
 
 ---
 

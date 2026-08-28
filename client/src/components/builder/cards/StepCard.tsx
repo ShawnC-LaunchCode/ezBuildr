@@ -196,7 +196,7 @@ export function StepCard({
                         {/* Icon and Collapse Button (stacked vertically) */}
                         <div className="flex flex-col items-center gap-1">
                             <div className="mt-2 relative">
-                                {getQuestionTypeIcon(step.type)}
+                                {getQuestionTypeIcon(step.type, step.config)}
                                 {/* Show logic indicator when collapsed */}
                                 {!isExpanded && !!step.visibleIf && (
                                     <div className="absolute -top-1 -right-1">
