@@ -1026,6 +1026,19 @@ Do not generate or persist thumbnail assets.
 - [ ] Relevant DB-backed page-submit/file suites pass with Postgres and Gotenberg healthy.
 - [ ] Reviewer has committed each passed ticket and this phase gate.
 
+**Partial live proof already recorded (2026-08-28).** The text family was driven end to end in the running app
+from a clean worktree at `dev`, ahead of this gate, because STB-3 and STB-3A both deferred live proof here and
+four lanes were about to build on them. Confirmed: Easy presets persist canonical `text` with the right
+`variant`; a run submission stores plain strings in `step_values`; the palette renders `T`/`¶` with correct
+labels and descriptions; canonical short/long and a pre-STB-19 `long_text` row each render their own tile
+(`.playwright-mcp/stb3b-3c-after-canonical-rows.png`, against the pre-fix
+`stb3b-before-canonical-rows.png`); the runner renders input/textarea/textarea with the legacy row's root-level
+`maxLength: 300` and placeholder correctly lifted into canonical shape; and File Upload stays out of the Easy
+palette. **Still owed by this gate:** every other family, mode switching preserving hidden config,
+resume/revisit, image and PDF previews, and the full desktop/mobile sweep. One unrelated observation: the
+preview shell logged two `401` responses on `POST /api/workflows/:id/runs` while still rendering correctly --
+not caused by STB-3B/3C, which touch no run creation, but worth resolving before this gate closes.
+
 ---
 
 # Phase 2 — Finish Canonical Family Cleanup and Runtime Consistency
