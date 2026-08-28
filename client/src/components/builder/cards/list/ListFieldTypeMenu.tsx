@@ -21,9 +21,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/blockRegistry";
 
-import type { ListFieldQuestionType } from "@shared/types/stepConfigs";
-
-import { getListFieldPaletteByCategory, NESTED_LIST_TYPE_VALUE } from "./listEditorHelpers";
+import {
+  getListFieldPaletteByCategory,
+  NESTED_LIST_TYPE_VALUE,
+  type ListFieldTypeSelection,
+} from "./listEditorHelpers";
 
 interface ListFieldTypeMenuProps {
   /** The element that opens the menu (rendered via DropdownMenuTrigger asChild). */
@@ -31,7 +33,7 @@ interface ListFieldTypeMenuProps {
   align?: "start" | "end";
   /** Whether the "Nested List" entry should render disabled at this level/field. */
   nestedListDisabled: boolean;
-  onSelect: (type: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE) => void;
+  onSelect: (type: ListFieldTypeSelection) => void;
 }
 
 export function ListFieldTypeMenu({ trigger, align = "start", nestedListDisabled, onSelect }: ListFieldTypeMenuProps) {

@@ -122,5 +122,39 @@ describe('QuestionAddMenu', () => {
     ];
     expect(call.type).toBe('list');
     expect(call.config.fields).toHaveLength(1);
+    expect(call.config.fields[0]).toMatchObject({ type: 'text', config: { variant: 'short' } });
+  });
+
+  it.each([
+    ['Short Text', 'short'],
+    ['Long Text', 'long'],
+  ] as const)('creates the Easy %s preset as canonical text', async (label, variant) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `text-${variant}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={3} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'text',
+      title: `New ${label}`,
+      config: { variant },
+    }));
+  });
+
+  it('shows the canonical Text action in Advanced without friendly duplicate actions', async () => {
+    mockMode('advanced');
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={1} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    expect(screen.getByText('Text')).toBeInTheDocument();
+    expect(screen.queryByText('Short Text')).not.toBeInTheDocument();
+    expect(screen.queryByText('Long Text')).not.toBeInTheDocument();
   });
 });

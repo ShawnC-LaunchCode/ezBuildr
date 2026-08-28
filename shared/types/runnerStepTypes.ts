@@ -14,8 +14,6 @@
  */
 
 export type RunnerStepType =
-  | "short_text"
-  | "long_text"
   | "text"
   | "boolean"
   | "phone"
@@ -39,8 +37,6 @@ export type RunnerStepType =
   | "list";
 
 export const RUNNER_RENDERED_STEP_TYPES = [
-  "short_text",
-  "long_text",
   "text",
   "boolean",
   "phone",
@@ -70,6 +66,9 @@ export const RUNNER_HIDDEN_STEP_TYPES = [
 export const RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES = [] as const satisfies readonly RunnerStepType[];
 
 const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {
+  // Read compatibility for pre-STB-19 rows. New authoring writes `text`.
+  short_text: "text",
+  long_text: "text",
   yes_no: "boolean",
   true_false: "boolean",
   multiple_choice: "choice",

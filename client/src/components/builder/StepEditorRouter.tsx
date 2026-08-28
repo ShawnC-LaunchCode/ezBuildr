@@ -30,8 +30,8 @@ export function StepEditorRouter({ step, pageId, workflowId }: Omit<StepEditorCo
         return <DisplayCardEditor {...commonProps} />;
     }
 
-    // Text Steps
-    if (step.type === 'short_text' || step.type === 'long_text' || step.type === 'text') {
+    // Canonical text plus read compatibility for rows awaiting STB-19.
+    if (step.type === 'text' || step.type === 'short_text' || step.type === 'long_text') {
         return <TextCardEditor {...commonProps} />;
     }
 

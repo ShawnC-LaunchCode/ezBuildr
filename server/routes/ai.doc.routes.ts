@@ -20,6 +20,7 @@ import { classifyRouteError } from "../utils/routeErrors";
 import { z } from "zod";
 import { asyncHandler } from "../utils/asyncHandler";
 import { RUNNER_RENDERED_STEP_TYPES } from "../../shared/types/runnerStepTypes";
+import { TextAdvancedConfigSchema } from "../../shared/validation/stepConfigSchemas";
 
 import type { AuthRequest } from "../middleware/auth";
 import type { AIErrorCode } from "../services/ai/types";
@@ -61,6 +62,7 @@ const onboardingVariableSchema = z
     type: z.enum([...RUNNER_RENDERED_STEP_TYPES] as [string, ...string[]]),
     alias: z.string().min(1).max(200),
     label: z.string().max(500).optional(),
+    config: TextAdvancedConfigSchema.optional(),
   })
   .strip();
 const generateOnboardingWorkflowSchema = z

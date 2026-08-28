@@ -5,10 +5,11 @@
  */
 import { arrayMove } from "@dnd-kit/sortable";
 
-import { BLOCK_REGISTRY, type BlockCategory } from "@/lib/blockRegistry";
+import { BLOCK_REGISTRY, QUESTION_PRESETS, type BlockCategory } from "@/lib/blockRegistry";
 
 import {
   LIST_FIELD_QUESTION_TYPES,
+  resolveTextConfig,
   type ListConfig,
   type ListField,
   type ListFieldQuestionType,
@@ -26,10 +27,23 @@ const registryEntryByType = new Map(BLOCK_REGISTRY.map((entry) => [entry.type, e
 
 /** Sentinel value for the "Nested List" entry in the type palette (not a real ListFieldQuestionType). */
 export const NESTED_LIST_TYPE_VALUE = "__nested_list__";
+export const SHORT_TEXT_FIELD_PRESET = "easy.short-text";
+export const LONG_TEXT_FIELD_PRESET = "easy.long-text";
+
+export type ListFieldTypeSelection =
+  | ListFieldQuestionType
+  | typeof NESTED_LIST_TYPE_VALUE
+  | typeof SHORT_TEXT_FIELD_PRESET
+  | typeof LONG_TEXT_FIELD_PRESET;
+
+type AuthorableListFieldQuestionType = Exclude<
+  ListFieldQuestionType,
+  "short_text" | "long_text"
+>;
 
 /** One entry in the "Add Question" / "change type" palette (LIST2-1). */
 export interface ListFieldPaletteEntry {
-  value: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE;
+  value: ListFieldTypeSelection;
   /** BLOCK_REGISTRY type used only to resolve an icon/color tile — see QuestionTypeIcon. */
   iconType: string;
   label: string;
@@ -47,7 +61,17 @@ const nestedListRegistryEntry = registryEntryByType.get("list");
  * it (unlike QuestionAddMenu, which mode-filters BLOCK_REGISTRY).
  */
 export function getListFieldPaletteEntries(): ListFieldPaletteEntry[] {
-  const questionEntries: ListFieldPaletteEntry[] = LIST_FIELD_QUESTION_TYPES.map((type) => {
+  const textEntries: ListFieldPaletteEntry[] = QUESTION_PRESETS
+    .filter((preset) => preset.canonicalType === "text")
+    .map((preset) => ({
+      value: preset.id === LONG_TEXT_FIELD_PRESET ? LONG_TEXT_FIELD_PRESET : SHORT_TEXT_FIELD_PRESET,
+      iconType: "text",
+      label: preset.label,
+      category: "text",
+    }));
+  const questionEntries: ListFieldPaletteEntry[] = LIST_FIELD_QUESTION_TYPES
+    .filter((type) => type !== "text")
+    .map((type) => {
     const entry = registryEntryByType.get(type);
     return {
       value: type,
@@ -66,7 +90,7 @@ export function getListFieldPaletteEntries(): ListFieldPaletteEntry[] {
     category: nestedListRegistryEntry?.category ?? "structure",
   };
 
-  return [...questionEntries, nestedEntry];
+  return [...textEntries, ...questionEntries, nestedEntry];
 }
 
 /** Palette entries grouped by BLOCK_REGISTRY category, for the two-column layout. */
@@ -101,8 +125,9 @@ export function generateFieldId(): string {
 
 export function createQuestionField(
   fields: readonly ListField[],
-  type: ListFieldQuestionType = "short_text"
+  selection: Exclude<ListFieldTypeSelection, typeof NESTED_LIST_TYPE_VALUE> = SHORT_TEXT_FIELD_PRESET
 ): ListField {
+  const { type, config } = resolveQuestionSelection(selection);
   return {
     kind: "question",
     id: generateFieldId(),
@@ -110,6 +135,7 @@ export function createQuestionField(
     type,
     title: `Field ${fields.length + 1}`,
     order: fields.length,
+    ...(config ? { config } : {}),
   };
 }
 
@@ -150,7 +176,7 @@ export function appendField(config: ListConfig, field: ListField): ListConfig {
  */
 export function changeFieldType(
   field: ListField,
-  target: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE
+  target: ListFieldTypeSelection
 ): ListField {
   if (target === NESTED_LIST_TYPE_VALUE) {
     if (field.kind === "list") {
@@ -166,8 +192,16 @@ export function changeFieldType(
       list: { fields: [createQuestionField([])] },
     };
   }
+  const selection = resolveQuestionSelection(target);
+  const nextConfig = selection.type === "text"
+    ? resolveTextTransitionConfig(field, selection.config?.variant ?? "short")
+    : undefined;
   if (field.kind === "question") {
-    return { ...field, type: target };
+    return {
+      ...field,
+      type: selection.type,
+      ...(nextConfig ? { config: nextConfig } : {}),
+    };
   }
   return {
     kind: "question",
@@ -176,6 +210,33 @@ export function changeFieldType(
     title: field.title,
     description: field.description,
     order: field.order,
-    type: target,
+    type: selection.type,
+    ...(nextConfig ? { config: nextConfig } : {}),
   };
+}
+
+function resolveQuestionSelection(
+  selection: Exclude<ListFieldTypeSelection, typeof NESTED_LIST_TYPE_VALUE>
+): { type: AuthorableListFieldQuestionType; config?: { variant: "short" | "long" } } {
+  if (
+    selection === SHORT_TEXT_FIELD_PRESET
+    || selection === "short_text"
+    || selection === "text"
+  ) {
+    return { type: "text", config: { variant: "short" } };
+  }
+  if (selection === LONG_TEXT_FIELD_PRESET || selection === "long_text") {
+    return { type: "text", config: { variant: "long" } };
+  }
+  return { type: selection };
+}
+
+function resolveTextTransitionConfig(
+  field: ListField,
+  variant: "short" | "long"
+): ReturnType<typeof resolveTextConfig> {
+  if (field.kind !== "question" || !["text", "short_text", "long_text"].includes(field.type)) {
+    return { variant };
+  }
+  return { ...resolveTextConfig(field.type, field.config), variant };
 }

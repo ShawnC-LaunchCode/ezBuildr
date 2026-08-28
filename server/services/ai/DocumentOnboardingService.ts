@@ -41,6 +41,7 @@ import {
   type AIGeneratedStep,
 } from "../../../shared/types/ai";
 import { RUNNER_RENDERED_STEP_TYPES } from "../../../shared/types/runnerStepTypes";
+import { resolveTextConfig, type TextAdvancedConfig } from "../../../shared/types/stepConfigs";
 import { createLogger } from "../../logger";
 import { createAIServiceFromEnv } from "../AIService";
 import { projectService } from "../ProjectService";
@@ -61,6 +62,8 @@ export interface OnboardingVariableInput {
   alias: string;
   /** Optional human-readable label; falls back to a title-cased `name`. */
   label?: string;
+  /** Canonical text settings selected by a friendly authoring preset. */
+  config?: TextAdvancedConfig;
 }
 
 export interface GenerateOnboardingWorkflowInput {
@@ -169,7 +172,7 @@ export class DocumentOnboardingService {
   ): AIGeneratedWorkflow {
     const pages: AIGeneratedPage[] = workflow.pages.map((s) => ({
       ...s,
-      steps: [...s.steps],
+      steps: s.steps.map((step) => this.canonicalizeTextStep(step)),
     }));
     const remaining = new Map<string, OnboardingVariableInput>(
       variables.map((v) => [normalize(v.alias || v.name), v])
@@ -225,10 +228,12 @@ export class DocumentOnboardingService {
   }
 
   private applyVariable(step: AIGeneratedStep, variable: OnboardingVariableInput): AIGeneratedStep {
+    const config = variable.type === "text" ? resolveTextConfig("text", variable.config) : step.config;
     return {
       ...step,
       type: variable.type as AIGeneratedStep["type"],
       alias: variable.alias,
+      config,
     };
   }
 
@@ -239,6 +244,19 @@ export class DocumentOnboardingService {
       title: variable.label ?? titleCase(variable.name),
       alias: variable.alias,
       required: false,
+      ...(variable.type === "text" ? { config: resolveTextConfig("text", variable.config) } : {}),
+    };
+  }
+
+  /** Explicit old-row/AI-output adapter; generated definitions leave this service canonical. */
+  private canonicalizeTextStep(step: AIGeneratedStep): AIGeneratedStep {
+    if (step.type !== "text" && step.type !== "short_text" && step.type !== "long_text") {
+      return step;
+    }
+    return {
+      ...step,
+      type: "text",
+      config: resolveTextConfig(step.type, step.config),
     };
   }
 }

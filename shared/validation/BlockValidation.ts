@@ -1,6 +1,6 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
 import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
-import { StepConfig, TextAdvancedConfig, isNumberConfig, ListConfig, ListItem, ListValue } from "../types/stepConfigs";
+import { StepConfig, isNumberConfig, ListConfig, ListItem, ListValue, resolveTextConfig } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
@@ -16,11 +16,6 @@ export interface StepLike {
 /**
  * Type guard helpers for config validation
  */
-interface SimpleTextConfig {
-    minLength?: number;
-    maxLength?: number;
-}
-
 interface SimpleNumberConfig {
     min?: number;
     max?: number;
@@ -31,10 +26,6 @@ interface SimpleChoiceConfig {
     max?: number;
     minSelections?: number;
     maxSelections?: number;
-}
-
-function hasTextConstraints(config: unknown): config is SimpleTextConfig {
-    return typeof config === 'object' && config !== null;
 }
 
 function hasNumberConstraints(config: unknown): config is SimpleNumberConfig {
@@ -68,9 +59,12 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
     // Type-specific rules
     switch (step.type) {
-        case "text": {
-            // Advanced text
-            const c = config as TextAdvancedConfig;
+        case "text":
+        case "short_text":
+        case "long_text": {
+            // The aliases are read compatibility for pre-STB-19 rows. Both
+            // root-level and nested legacy constraints resolve canonically.
+            const c = resolveTextConfig(step.type, config);
             if (c.validation) {
                 if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
                 if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
@@ -81,29 +75,6 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
                         message: c.validation.patternMessage
                     });
                 }
-            }
-            break;
-        }
-
-        case "short_text":
-        case "long_text": {
-            // Check for nested validation object (new style)
-            const c = config as TextAdvancedConfig;
-            if (c?.validation) {
-                if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
-                if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
-                if (c.validation.pattern) {
-                    rules.push({
-                        type: "pattern",
-                        regex: c.validation.pattern,
-                        message: c.validation.patternMessage
-                    });
-                }
-            }
-            // Legacy/Simple style (root props)
-            else if (hasTextConstraints(config)) {
-                if (config.minLength) { rules.push({ type: "minLength", value: config.minLength }); }
-                if (config.maxLength) { rules.push({ type: "maxLength", value: config.maxLength }); }
             }
             break;
         }

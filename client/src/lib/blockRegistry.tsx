@@ -31,6 +31,9 @@ import type { StepType } from "@shared/types/workflow";
  * Defines a single block type and its properties
  */
 export interface BlockRegistryEntry {
+  /** Stable palette identity; defaults to `type` for non-preset entries. */
+  id?: string;
+
   /** Unique type identifier (stored in database) */
   type: string;
 
@@ -116,26 +119,6 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // TEXT INPUTS
   // -------------------------------------------------------------------------
   {
-    type: "short_text",
-    label: "Short Text",
-    icon: Type,
-    glyph: "T",
-    description: "Single-line text input",
-    category: "text",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({}),
-  },
-  {
-    type: "long_text",
-    label: "Long Text",
-    icon: AlignLeft,
-    glyph: "¶",
-    description: "Multi-line text area",
-    category: "text",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({}),
-  },
-  {
     type: "text",
     label: "Text",
     icon: Type,
@@ -208,9 +191,10 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
           kind: "question",
           id: "field-1",
           alias: "field_1",
-          type: "short_text",
+          type: "text",
           title: "Field 1",
           order: 0,
+          config: { variant: "short" },
         },
       ],
     }),
@@ -473,9 +457,9 @@ function defineQuestionPreset<Type extends CanonicalStepType>(
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
- * This is additive metadata only: the builder still reads BLOCK_REGISTRY, so
- * legacy persisted aliases and their current defaults remain unchanged until
- * the relevant canonical-family ticket switches that creation path.
+ * Each family remains additive metadata until its canonical-family ticket
+ * switches the relevant creation path. STB-3 routes the text presets through
+ * the builder; later family tickets do the same for their own presets.
  */
 export const QUESTION_PRESETS = [
   defineQuestionPreset({
@@ -483,7 +467,7 @@ export const QUESTION_PRESETS = [
     label: "Short Text",
     modes: { easy: true, advanced: false },
     canonicalType: "text",
-    persistedType: "short_text",
+    persistedType: "text",
     createDefaultConfig: () => ({ variant: "short" }),
   }),
   defineQuestionPreset({
@@ -491,7 +475,7 @@ export const QUESTION_PRESETS = [
     label: "Long Text",
     modes: { easy: true, advanced: false },
     canonicalType: "text",
-    persistedType: "long_text",
+    persistedType: "text",
     createDefaultConfig: () => ({ variant: "long" }),
   }),
   defineQuestionPreset({
@@ -622,7 +606,28 @@ export const QUESTION_PRESETS = [
  * Get block registry entries filtered by mode
  */
 export function getBlocksByMode(mode: "easy" | "advanced"): BlockRegistryEntry[] {
-  return BLOCK_REGISTRY.filter((block) => block.modes[mode]);
+  const registered = BLOCK_REGISTRY.filter((block) => block.modes[mode]);
+  if (mode !== "easy") { return registered; }
+
+  // STB-3 is the first family to move from legacy registry identities to
+  // presets. Later family tickets add their presets here as they canonicalize.
+  const textPresets = QUESTION_PRESETS
+    .filter((preset) => preset.modes.easy && preset.canonicalType === "text")
+    .map((preset): BlockRegistryEntry => ({
+      id: preset.id,
+      type: preset.persistedType,
+      label: preset.label,
+      icon: preset.id === "easy.long-text" ? AlignLeft : Type,
+      glyph: preset.id === "easy.long-text" ? "¶" : "T",
+      description: preset.id === "easy.long-text"
+        ? "Multi-line text area"
+        : "Single-line text input",
+      category: "text",
+      modes: preset.modes,
+      createDefaultConfig: preset.createDefaultConfig,
+    }));
+
+  return [...textPresets, ...registered];
 }
 
 /**

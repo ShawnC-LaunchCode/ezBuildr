@@ -222,6 +222,55 @@ export interface TextAdvancedConfig {
   autoComplete?: string;   // HTML autocomplete attribute
 }
 
+/** Canonical stored answer for either text variant. */
+export type TextValue = string | null;
+
+/**
+ * Read a text-family config through the canonical shape.
+ *
+ * `short_text` / `long_text` are retained here only as a read adapter for
+ * rows created before STB-3. New authoring paths persist `text` plus
+ * `variant`; STB-19 removes the aliases after stored artifacts are backfilled.
+ */
+export function resolveTextConfig(
+  stepType: string,
+  rawConfig: unknown,
+): TextAdvancedConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+  const nestedValidation = typeof config.validation === 'object' && config.validation !== null
+    ? config.validation as Record<string, unknown>
+    : {};
+  const validation: TextValidation = {};
+
+  const minLength = nestedValidation.minLength ?? config.minLength;
+  const maxLength = nestedValidation.maxLength ?? config.maxLength;
+  const pattern = nestedValidation.pattern ?? config.pattern;
+  const patternMessage = nestedValidation.patternMessage ?? config.patternMessage;
+  if (typeof minLength === 'number') { validation.minLength = minLength; }
+  if (typeof maxLength === 'number') { validation.maxLength = maxLength; }
+  if (typeof pattern === 'string') { validation.pattern = pattern; }
+  if (typeof patternMessage === 'string') { validation.patternMessage = patternMessage; }
+
+  const configuredVariant = config.variant;
+  const variant = stepType === 'long_text'
+    ? 'long'
+    : stepType === 'short_text'
+      ? 'short'
+      : configuredVariant === 'long'
+        ? 'long'
+        : 'short';
+  const resolved: TextAdvancedConfig = { variant };
+
+  if (Object.keys(validation).length > 0) { resolved.validation = validation; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  if (typeof config.helpText === 'string') { resolved.helpText = config.helpText; }
+  if (typeof config.autoComplete === 'string') { resolved.autoComplete = config.autoComplete; }
+
+  return resolved;
+}
+
 /**
  * Boolean Config (Advanced Mode)
  * Boolean with fully customizable labels
@@ -701,7 +750,15 @@ function isListFieldQuestionType(
  */
 export const LIST_FIELD_QUESTION_TYPES = RUNNER_RENDERED_STEP_TYPES.filter(isListFieldQuestionType);
 
-export type ListFieldQuestionType = (typeof LIST_FIELD_QUESTION_TYPES)[number];
+/** Pre-STB-19 nested definitions remain readable but are not authorable. */
+export const LEGACY_LIST_FIELD_QUESTION_TYPES = ["short_text", "long_text"] as const;
+
+export const STORED_LIST_FIELD_QUESTION_TYPES = [
+  ...LIST_FIELD_QUESTION_TYPES,
+  ...LEGACY_LIST_FIELD_QUESTION_TYPES,
+] as const;
+
+export type ListFieldQuestionType = (typeof STORED_LIST_FIELD_QUESTION_TYPES)[number];
 
 /** A field inside a List item. Recursive: a field may itself be a List. */
 export type ListField =

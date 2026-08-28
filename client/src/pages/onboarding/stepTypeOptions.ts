@@ -1,20 +1,20 @@
 /**
  * Question-type picker options for the document onboarding wizard (GH-167).
  *
- * The type list comes from `RUNNER_RENDERED_STEP_TYPES` — the canonical,
- * already-exported set of `stepTypeEnum` members the runner can actually
- * present a fillable control for (see the `add-step-type` skill and
- * `shared/types/runnerStepTypes.ts`). This is deliberately *not* a
- * hand-picked subset: every generated step must be fillable in
- * PreviewRunner (AC3), and `RUNNER_RENDERED_STEP_TYPES` is exactly the set
- * that guarantees that.
+ * Persisted types come from `RUNNER_RENDERED_STEP_TYPES` — the canonical,
+ * already-exported set the runner can present. Text is represented by two
+ * friendly preset identities so Short Text and Long Text can share the
+ * canonical stored `text` type without colliding in the picker.
  *
  * `BLOCK_REGISTRY` supplies labels for the types it covers; the handful of
  * runner-only types it doesn't register (file_upload, final_documents,
  * signature_block) get a small local fallback label.
  */
-import { BLOCK_REGISTRY } from "@/lib/blockRegistry";
+import { BLOCK_REGISTRY, QUESTION_PRESETS } from "@/lib/blockRegistry";
 import { RUNNER_RENDERED_STEP_TYPES } from "@shared/types/runnerStepTypes";
+
+import type { OnboardingVariable } from "./onboardingTypes";
+import type { StepConfig } from "@shared/types/stepConfigs";
 
 const FALLBACK_LABELS: Record<string, string> = {
   file_upload: "File Upload",
@@ -27,12 +27,29 @@ const registryLabels = new Map(BLOCK_REGISTRY.map((entry) => [entry.type, entry.
 export interface StepTypeOption {
   value: string;
   label: string;
+  type: string;
+  presetId?: string;
+  createDefaultConfig?: () => StepConfig;
 }
 
-export const ONBOARDING_STEP_TYPE_OPTIONS: StepTypeOption[] = RUNNER_RENDERED_STEP_TYPES.map((type) => ({
-  value: type,
-  label: registryLabels.get(type) ?? FALLBACK_LABELS[type] ?? type,
-}));
+const TEXT_PRESET_OPTIONS: StepTypeOption[] = QUESTION_PRESETS
+  .filter((preset) => preset.canonicalType === "text")
+  .map((preset) => ({
+    value: preset.id,
+    label: preset.label,
+    type: preset.persistedType,
+    presetId: preset.id,
+    createDefaultConfig: preset.createDefaultConfig,
+  }));
+
+export const ONBOARDING_STEP_TYPE_OPTIONS: StepTypeOption[] = [
+  ...TEXT_PRESET_OPTIONS,
+  ...RUNNER_RENDERED_STEP_TYPES.filter((type) => type !== "text").map((type) => ({
+    value: type,
+    label: registryLabels.get(type) ?? FALLBACK_LABELS[type] ?? type,
+    type,
+  })),
+];
 
 const RUNNER_TYPE_SET = new Set<string>(RUNNER_RENDERED_STEP_TYPES);
 
@@ -41,21 +58,57 @@ export function isOnboardingStepType(type: string): boolean {
   return RUNNER_TYPE_SET.has(type);
 }
 
-/** Best-effort default question type for an AI-analyzed variable's coarse type. */
-export function defaultStepTypeFor(analyzedType: string | undefined): string {
+function selectionFromOption(option: StepTypeOption): Pick<OnboardingVariable, "type" | "presetId" | "config"> {
+  return {
+    type: option.type,
+    presetId: option.presetId,
+    config: option.createDefaultConfig?.(),
+  };
+}
+
+export function selectOnboardingStepType(value: string): Pick<OnboardingVariable, "type" | "presetId" | "config"> {
+  const option = ONBOARDING_STEP_TYPE_OPTIONS.find((candidate) => candidate.value === value);
+  if (!option) {
+    throw new Error(`Unsupported onboarding step selection: ${value}`);
+  }
+  return selectionFromOption(option);
+}
+
+export function onboardingStepTypeValue(variable: OnboardingVariable): string {
+  if (variable.presetId && ONBOARDING_STEP_TYPE_OPTIONS.some((option) => option.value === variable.presetId)) {
+    return variable.presetId;
+  }
+  if (variable.type === "text") {
+    const variant = variable.config && "variant" in variable.config ? variable.config.variant : "short";
+    return variant === "long" ? "easy.long-text" : "easy.short-text";
+  }
+  return variable.type;
+}
+
+/** Best-effort canonical selection for an AI-analyzed variable's coarse type. */
+export function defaultStepSelectionFor(
+  analyzedType: string | undefined
+): Pick<OnboardingVariable, "type" | "presetId" | "config"> {
+  let value: string;
   switch (analyzedType) {
     case "date":
-      return "date";
+      value = "date";
+      break;
     case "number":
-      return "number";
+      value = "number";
+      break;
     case "boolean":
-      return "boolean";
+      value = "boolean";
+      break;
     case "array":
-      return "long_text";
+      value = "easy.long-text";
+      break;
     case "text":
     default:
-      return "short_text";
+      value = "easy.short-text";
+      break;
   }
+  return selectOnboardingStepType(value);
 }
 
 /** camelCase alias fallback used when the AI didn't suggest one for a variable. */

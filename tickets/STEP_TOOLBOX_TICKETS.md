@@ -80,7 +80,7 @@ for those. A stale line number is not a broken ticket and does not require the t
 | Phase | Theme | Tickets | Est. effort |
 |---|---|---|---:|
 | 0 | Immediate containment and shared foundation | STB-1..2 | 1–2 days |
-| 1 | Canonical families and selected UX capabilities | STB-3..12 | 10–15 days |
+| 1 | Canonical families and selected UX capabilities | STB-3..3A, STB-4..12 | 10–15 days |
 | 2 | Remaining family cleanup and runtime consistency | STB-13..15A | 4–7 days |
 | 3 | AI, API, template, and portability boundaries | STB-16..18 | 3–5 days |
 | 4 | Tested stored-artifact backfill | STB-19..20 | 3–5 days |
@@ -220,7 +220,7 @@ tickets, not a fan-out. Either accept that explicitly, or first extract the shar
 families into a single prep ticket so the family tickets can afterwards be dispatched to parallel worktrees. Do
 **not** dispatch STB-3..10 concurrently into one tree on the assumption that the collisions are theoretical.
 
-## STB-3 — Canonicalize Short and Long Text as `text` presets 🔲
+## STB-3 — Canonicalize Short and Long Text as `text` presets ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/builder/cards/TextCardEditor.tsx`
 
@@ -266,6 +266,84 @@ without changing type. Keep the answer shape `string | null`; migrate data later
 4. New/updated Text editor and runner tests cover both variants and mode switching preserving config.
 5. The Vertical proof stores the expected string through the real validation/persistence path.
 6. Type-check, lint, targeted tests, and `test:fast` pass.
+
+**Verified 2026-08-28 (reviewer):** all six acceptance criteria checked against the working tree, and every
+gate re-run by the reviewer in worktree `stb-3` rather than taken from the dev report — `npm run type-check`
+0 errors, `npm run check:strict-zones` 6/6 zones, `npm run lint` 0 problems, `npm run test:fast` 314 files /
+3,482 tests passed (Phase 0 baseline 3,465), `StepService.db` 9/9, and `text-canonicalization` +
+`documentOnboarding` integration 2 files / 7 tests against isolated database `ezbuildr_test_stb_3`. The vertical
+proof is real end to end: HTTP create/update of both variants, a rejected variant-less config that writes no row,
+page submission storing plain strings in `step_values`, and cross-tenant create/update denial asserted against
+unchanged rows. Two review discoveries were carried forward rather than blocking this ticket, because neither is
+covered by its acceptance criteria: preset icons collapse once two presets share one canonical type (filed as
+**STB-3A**, which must land before STB-4), and `snips/registry.ts` plus `sample-workflow.ts` still author
+`short_text` (folded into **STB-15A**). The unreachable `Inspector.tsx` chain is recorded as **STB-B5**.
+
+---
+
+## STB-3A — Give shared-canonical presets their own presentation identity 🔲
+
+**Priority: P2** · Size: S · File: `client/src/components/shared/QuestionTypeIcon.tsx`
+
+### Finding
+
+Found in the STB-3 review, and a direct consequence of the preset model STB-2/STB-3 established. Once two
+presets share one canonical stored type, every icon call site collapses them, because the tile is derived from
+the *type* rather than from the palette entry that was clicked:
+
+```tsx
+<QuestionTypeIcon type={block.type} size="md" />
+```
+
+`getBlockByType` resolves that string against `BLOCK_REGISTRY` by `type`:
+
+```ts
+export function getBlockByType(type: string): BlockRegistryEntry | undefined {
+  return BLOCK_REGISTRY.find((block) => block.type === type);
+}
+```
+
+Three consequences are live today:
+
+1. In `QuestionAddMenu`, Short Text and Long Text both pass `type: "text"`, so both render the `Type`/`T` tile.
+   The `AlignLeft`/`¶` icon STB-3 set on the Long Text preset entry is never read. `listEditorHelpers` flattens
+   the same way, giving both text palette entries `iconType: "text"`.
+2. `getBlockByType("short_text")` and `getBlockByType("long_text")` are now `undefined`, so a pre-STB-19 row in
+   `StepCard`, `StepItem` or `ListLevelEditor` falls back to the neutral `FileText` tile in the `display`
+   category colour, with the raw string `"short_text"` as its tooltip and aria-label. This is reachable without
+   touching legacy data: `snips/registry.ts` still authors `short_text` today (see STB-15A).
+3. `ListLevelEditor` fixed the legacy *label* in `getListFieldTypeLabel` but not the icon beside it
+   (`currentTypeIconType = field.type`), so that row shows a friendly label on a fallback tile.
+
+STB-4, STB-5, STB-7, STB-9 and STB-10 each add further presets over one canonical type, so this collapses again
+with every remaining family ticket unless it is fixed first.
+
+### Preferred fix
+
+Let a palette entry carry its own presentation instead of re-deriving it from the persisted type. Give
+`QuestionTypeIcon` an explicit icon/glyph/category override (or let it accept a `BlockRegistryEntry`), pass the
+preset's own entry from `QuestionAddMenu` and `ListFieldTypeMenu`, and add a small presentation-only alias map
+so retired text names still resolve to the text tile and a friendly label until STB-19 backfills them. Do **not**
+reintroduce `short_text`/`long_text` entries into `BLOCK_REGISTRY` — this compatibility is presentation only and
+must not become a creation path again.
+
+### Ties
+
+- Depends on STB-3. **Must precede STB-4**, which adds three presets over `date_time`.
+- Load `design` (user-visible builder UI) and `run-tests`; live proof rides the Phase 1 Gate drive-through.
+- File footprint: `QuestionTypeIcon.tsx`, `blockRegistry.tsx`, `QuestionAddMenu.tsx`, `ListFieldTypeMenu.tsx`,
+  `listEditorHelpers.ts`, `ListLevelEditor.tsx` and their unit tests. Collides with STB-4..10 in
+  `blockRegistry.tsx`, so land it before them.
+
+### Acceptance criteria
+
+1. Short Text and Long Text render distinct icons in the Add Question menu and in the List field palette.
+2. A pre-STB-19 `short_text`/`long_text` step renders the text-family tile and a friendly label — never the raw
+   type string — in the step card, the sidebar item and the List field row.
+3. No retired type name is reintroduced into `BLOCK_REGISTRY`; `getBlockByType` still returns `undefined` for
+   `short_text` and `long_text`.
+4. Unit tests cover both preset icons and the legacy presentation fallback, and fail if either regresses.
+5. Type-check, lint, and `test:fast` pass without count regression.
 
 ---
 
@@ -722,7 +800,7 @@ Do not generate or persist thumbnail assets.
 
 ## Phase 1 Gate
 
-- [ ] STB-3..12 are ✅ with dated verification notes.
+- [ ] STB-3, STB-3A and STB-4..12 are ✅ with dated verification notes.
 - [ ] Easy add menu creates only canonical Text, DateTime, Boolean, Choice, Number, and File Upload rows while
       retaining the agreed friendly preset labels.
 - [ ] Advanced reveals full implemented settings; switching modes preserves hidden config byte-for-byte.
@@ -928,6 +1006,12 @@ catalog is still legacy after the Phase 4 zero audit reports success, and every 
 `long_text`, `radio` and `yes_no` through **raw SQL**, bypassing service validation entirely, so it breaks at the
 database enum after STB-21 rather than at a validation layer.
 
+`client/src/lib/snips/registry.ts` and `client/src/lib/sample-workflow.ts` are the same class of problem on the
+client and were missed at audit time. Both are reachable authoring paths — `AddSnipDialog` is rendered by
+`SidebarTree`, and `useCreateSampleWorkflow` is called from `WorkflowsList` — and between them they author
+**10 `short_text` step definitions** (9 in the snip registry, 1 in the sample workflow) that no database backfill
+reaches. They keep minting retired rows for as long as they ship.
+
 Without this ticket the breakage first appears at STB-22's repo-wide search — after the enum values are gone.
 
 ### Preferred fix
@@ -947,7 +1031,8 @@ and is fixed at source.
 - Pairs with backlog `SECT-B5` (curated templates should also ship with Sections) — same three files, so consider
   landing both edits together rather than rewriting `workflow.json` twice.
 - Load `add-step-type` and `run-tests`; load `verify` only if the marketplace install UI changes.
-- File footprint: `templates/curated/*/workflow.json`, `scripts/createDemoWorkflow.ts`, and the bundle guard test.
+- File footprint: `templates/curated/*/workflow.json`, `scripts/createDemoWorkflow.ts`,
+  `client/src/lib/snips/registry.ts`, `client/src/lib/sample-workflow.ts`, and the bundle guard test.
 - Donor pattern: `tests/unit/scripts/generateMarketplaceBundles.migrationHead.test.ts` already resolves the real
   curated directory and drives the real generator plus `BundleReader` — extend that approach, do not invent one.
 - Collision: none with STB-13/STB-14. DB-test collision rules still apply to the integration suite.
@@ -969,7 +1054,9 @@ and is fixed at source.
    curated source or bundle output.
 4. `scripts/createDemoWorkflow.ts` inserts only canonical types and completes against a fresh test database.
 5. All three curated templates install through the strict boundary and produce runnable canonical workflows.
-6. Vertical proof, type-check, lint, `test:fast`, and the named integration/unit tests pass.
+6. `client/src/lib/snips/registry.ts` and `client/src/lib/sample-workflow.ts` author only canonical types, and the
+   guard test covers them alongside curated source and bundle output.
+7. Vertical proof, type-check, lint, `test:fast`, and the named integration/unit tests pass.
 
 ---
 
@@ -1424,3 +1511,16 @@ and what downstream steps may do before verification completes.
 **Tag:** `enhancement`. Reconsider value before implementation: DNS is asynchronous and fallible, and a safe design
 needs server-side lookup/SSRF posture, timeout/cache policy, transient-failure semantics, and clear respondent copy.
 Do not re-add `validateDns` merely because the repo already imports DNS helpers elsewhere.
+
+### STB-B5 — The `Inspector.tsx` chain is unreachable and still writes retired text types
+
+**Tag:** `informational`. Found in the STB-3 review. `client/src/components/builder/Inspector.tsx` is imported by
+nothing, so `StepPropertiesPanel` and `step-properties/StepTypeSettings` are dead code. That only matters because
+`handleTextTypeChange` still rewrites a step's identity to a retired name:
+
+```ts
+const newType = type === "short" ? "short_text" : "long_text";
+```
+
+It is not a live drift path today, which is why STB-3 correctly left it alone. STB-15 and STB-21 will both trip
+over it during their repo-wide sweeps — delete the three files there rather than porting them to canonical types.

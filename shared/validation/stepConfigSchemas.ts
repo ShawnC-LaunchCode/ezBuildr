@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { LIST_VALIDATION_MAX_DEPTH } from './BlockValidation';
 import { findDuplicateFieldAliases, validateFieldAliasFormat } from './listFieldHelpers';
 import { conditionExpressionSchema } from '../types/conditions';
-import { LIST_FIELD_QUESTION_TYPES, type ListConfig, type ListField } from '../types/stepConfigs';
+import { STORED_LIST_FIELD_QUESTION_TYPES, type ListConfig, type ListField } from '../types/stepConfigs';
 
 // ============================================================================
 // BASE SCHEMAS
@@ -128,7 +128,7 @@ export const TrueFalseConfigSchema = z.object({
 // ============================================================================
 
 export const TextAdvancedConfigSchema = z.object({
-  variant: z.enum(['short', 'long']).optional(),
+  variant: z.enum(['short', 'long']),
   validation: TextValidationSchema,
   placeholder: z.string().optional(),
   helpText: z.string().optional(),
@@ -466,7 +466,7 @@ const ListFieldAliasSchema = z.string().superRefine((value, ctx) => {
 });
 
 const ListFieldQuestionTypeSchema = z.string().refine(
-  (value) => (LIST_FIELD_QUESTION_TYPES as readonly string[]).includes(value),
+  (value) => (STORED_LIST_FIELD_QUESTION_TYPES as readonly string[]).includes(value),
   { message: 'Invalid list field question type' }
 );
 

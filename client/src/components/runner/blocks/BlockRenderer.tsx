@@ -15,7 +15,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
-import type { ListValue, MultiFieldValue } from "@shared/types/stepConfigs";
+import { resolveTextConfig, type ListValue, type MultiFieldValue } from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
@@ -105,6 +105,16 @@ function isListValue(value: unknown): value is ListValue {
   return typeof value === "object" && value !== null && Array.isArray((value as { items?: unknown }).items);
 }
 
+/** Adapt pre-STB-19 text rows once, before the canonical renderer. */
+function toCanonicalTextStep(step: Step): Step {
+  if (step.type === "text") { return step; }
+  return {
+    ...step,
+    type: "text",
+    config: resolveTextConfig(step.type, step.config),
+  };
+}
+
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
   // Honest, not apologetic: the runner has no control for this step type, so
   // it is not required and will not block the respondent from finishing
@@ -182,11 +192,8 @@ export function BlockRenderer(props: BlockRendererProps) {
 
     switch (normalizedType) {
       // Text blocks
-      case "short_text":
-      case "long_text":
       case "text":
-
-        return <TextBlockRenderer step={renderedStep} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <TextBlockRenderer step={toCanonicalTextStep(renderedStep)} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
       case "boolean":

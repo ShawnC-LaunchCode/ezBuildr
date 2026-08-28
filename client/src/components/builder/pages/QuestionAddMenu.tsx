@@ -122,7 +122,7 @@ export function QuestionAddMenu({
                   </DropdownMenuLabel>
                   {blocksByCategory[category]?.map((block) => (
                     <DropdownMenuItem
-                      key={block.type}
+                      key={block.id ?? block.type}
                       onClick={() => {
                         void handleAddQuestion(block);
                       }}

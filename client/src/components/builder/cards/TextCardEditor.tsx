@@ -3,66 +3,73 @@ import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
+import { resolveTextConfig, type TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
-import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCardEditor.components";
+import {
+  AdvancedTextValidationSection,
+  InputTypeSection,
+  TextContentSection,
+  TextValidationSection,
+  TextCardState,
+} from "./TextCardEditor.components";
 
-type TextEditorConfig = Partial<TextAdvancedConfig>;
+function readTextCardState(stepType: string, rawConfig: unknown): TextCardState {
+  const config = resolveTextConfig(stepType, rawConfig);
+  return {
+    variant: config.variant,
+    placeholder: config.placeholder ?? "",
+    helpText: config.helpText ?? "",
+    autoComplete: config.autoComplete ?? "",
+    minLength: config.validation?.minLength,
+    maxLength: config.validation?.maxLength,
+    pattern: config.validation?.pattern ?? "",
+    patternMessage: config.validation?.patternMessage ?? "",
+  };
+}
+
+function buildTextConfig(state: TextCardState): TextAdvancedConfig {
+  const config: TextAdvancedConfig = { variant: state.variant };
+  if (state.placeholder.trim()) { config.placeholder = state.placeholder; }
+  if (state.helpText.trim()) { config.helpText = state.helpText; }
+  if (state.autoComplete.trim()) { config.autoComplete = state.autoComplete; }
+
+  const validation = {
+    ...(state.minLength !== undefined ? { minLength: state.minLength } : {}),
+    ...(state.maxLength !== undefined ? { maxLength: state.maxLength } : {}),
+    ...(state.pattern.trim() ? { pattern: state.pattern } : {}),
+    ...(state.pattern.trim() && state.patternMessage.trim()
+      ? { patternMessage: state.patternMessage }
+      : {}),
+  };
+  if (Object.keys(validation).length > 0) { config.validation = validation; }
+  return config;
+}
 
 export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
   const { toast } = useToast();
+  const mode = workflowMode?.mode ?? "easy";
+  const isEasyMode = mode === "easy";
 
-  // Determine if this is advanced mode (type === "text") or easy mode (short_text/long_text)
-  const isAdvancedMode = step.type === "text";
-  const isEasyMode = step.type === "short_text" || step.type === "long_text";
-
-  // Get config with defaults using generic access for flexibility
-  const config = step.config as TextEditorConfig | null;
-  const variant = isAdvancedMode
-    ? (config?.variant ?? "short")
-    : step.type === "long_text"
-      ? "long"
-      : "short";
-
-  const [localConfig, setLocalConfig] = useState<TextCardState>({
-    variant: variant,
-    minLength: config?.validation?.minLength,
-    maxLength: config?.validation?.maxLength,
-    pattern: config?.validation?.pattern ?? "",
-    patternMessage: config?.validation?.patternMessage ?? "",
-  });
+  const [localConfig, setLocalConfig] = useState<TextCardState>(() => (
+    readTextCardState(step.type, step.config)
+  ));
 
   const [patternError, setPatternError] = useState<string | null>(null);
 
   useEffect(() => {
     // Re-sync local config when step props change
-    const currentConfig = step.config as TextEditorConfig | null;
-    const currentAdvanced = step.type === "text";
-
-    // Determine variant from current state
-    const newVariant = currentAdvanced
-      ? (currentConfig?.variant ?? "short")
-      : step.type === "long_text"
-        ? "long"
-        : "short";
-
-    setLocalConfig({
-      variant: newVariant,
-      minLength: currentConfig?.validation?.minLength,
-      maxLength: currentConfig?.validation?.maxLength,
-      pattern: currentConfig?.validation?.pattern ?? "",
-      patternMessage: currentConfig?.validation?.patternMessage ?? "",
-    });
+    setLocalConfig(readTextCardState(step.type, step.config));
   }, [step.config, step.type]);
 
   const validatePattern = (pattern: string): string | null => {
@@ -77,11 +84,11 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
     }
   };
 
-  const validateMinMax = (): string | null => {
+  const validateMinMax = (candidate: TextCardState = localConfig): string | null => {
     if (
-      localConfig.minLength !== undefined &&
-      localConfig.maxLength !== undefined &&
-      localConfig.minLength > localConfig.maxLength
+      candidate.minLength !== undefined &&
+      candidate.maxLength !== undefined &&
+      candidate.minLength > candidate.maxLength
     ) {
       return "Min length cannot be greater than max length";
     }
@@ -99,7 +106,7 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
     }
 
     // Validate min/max
-    const minMaxError = validateMinMax();
+    const minMaxError = validateMinMax(newConfig);
     // Logic: if min/max changed and invalid
     if (minMaxError && (updates.minLength !== undefined || updates.maxLength !== undefined)) {
       toast({
@@ -112,53 +119,11 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
 
     setLocalConfig(newConfig);
 
-    // Build the config object for advanced mode
-    const configToSave: TextAdvancedConfig = {
-      variant: newConfig.variant,
-    };
-
-    // Only include validation if there are validation rules
-    const hasValidation =
-      newConfig.minLength !== undefined ||
-      newConfig.maxLength !== undefined ||
-      (newConfig.pattern && newConfig.pattern.trim() !== "");
-
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (hasValidation) {
-      configToSave.validation = {};
-
-      if (newConfig.minLength !== undefined) {
-        configToSave.validation.minLength = newConfig.minLength;
-      }
-      if (newConfig.maxLength !== undefined) {
-        configToSave.validation.maxLength = newConfig.maxLength;
-      }
-      if (newConfig.pattern?.trim()) {
-        configToSave.validation.pattern = newConfig.pattern;
-        if (newConfig.patternMessage?.trim()) {
-          configToSave.validation.patternMessage = newConfig.patternMessage;
-        }
-      }
-    }
-
-    // If variant changed in advanced mode, also update the config
-    // eslint-disable-next-line sonarjs/no-all-duplicated-branches
-    if (isAdvancedMode) {
-      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
-    } else {
-      updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
-    }
+    updateStepMutation.mutate({ id: stepId, pageId, config: buildTextConfig(newConfig) });
   };
 
   const handleVariantChange = (newVariant: "short" | "long") => {
-    if (isEasyMode) {
-      // In easy mode, changing variant means changing the step type
-      const newType = newVariant === "short" ? "short_text" : "long_text";
-      updateStepMutation.mutate({ id: stepId, pageId, type: newType });
-    } else {
-      // In advanced mode, just update the config
-      handleUpdate({ variant: newVariant });
-    }
+    if (!isEasyMode) { handleUpdate({ variant: newVariant }); }
   };
 
   const handleAliasChange = (alias: string | null) => {
@@ -179,6 +144,10 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
 
       <Separator />
 
+      <TextContentSection localConfig={localConfig} onUpdate={handleUpdate} />
+
+      <Separator />
+
       {/* Variant Selection */}
       <InputTypeSection
         variant={localConfig.variant}
@@ -193,10 +162,20 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
         localConfig={localConfig}
         onUpdate={handleUpdate}
         minMaxError={validateMinMax()}
-        patternError={patternError}
       />
 
-      {patternError && (
+      {!isEasyMode && (
+        <>
+          <Separator />
+          <AdvancedTextValidationSection
+            localConfig={localConfig}
+            onUpdate={handleUpdate}
+            patternError={patternError}
+          />
+        </>
+      )}
+
+      {!isEasyMode && patternError && (
         <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-3 rounded-md">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
@@ -213,7 +192,7 @@ export function TextCardEditor({ stepId, pageId, workflowId, step }: StepEditorC
             pageId={pageId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
-            mode={isEasyMode ? 'easy' : 'advanced'}
+            mode={mode}
           />
           <VisibilityField
             stepId={stepId}

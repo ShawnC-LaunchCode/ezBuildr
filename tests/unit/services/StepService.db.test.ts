@@ -42,6 +42,41 @@ describeWithDb('StepService DB', () => {
     });
   });
 
+  it.each(['short', 'long'] as const)('persists canonical text config for the %s variant', async (variant) => {
+    const config = {
+      variant,
+      placeholder: `${variant} placeholder`,
+      validation: { minLength: 2, maxLength: 40 },
+    };
+
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: `${variant} text`,
+      type: 'text',
+      defaultValue: `${variant} default`,
+      config,
+    });
+    const reloaded = await stepRepository.findById(step.id);
+
+    expect(reloaded).toMatchObject({
+      type: 'text',
+      defaultValue: `${variant} default`,
+      config,
+    });
+  });
+
+  it('rejects a canonical text config without a variant and writes no row', async () => {
+    const before = await stepRepository.findByPageId(testPageId);
+
+    await expect(stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Missing variant',
+      type: 'text',
+      config: { placeholder: 'Not enough identity' },
+    })).rejects.toThrow(/validation error/i);
+
+    const after = await stepRepository.findByPageId(testPageId);
+    expect(after).toHaveLength(before.length);
+  });
+
   it('rewrites logic rules on choice alias change', async () => {
     // 1. Create a choice step
     const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {

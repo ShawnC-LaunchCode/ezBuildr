@@ -8,11 +8,36 @@ import { TextField, NumberField, SectionHeader } from "./common/EditorField";
 
 export interface TextCardState {
     variant: "short" | "long";
+    placeholder: string;
+    helpText: string;
+    autoComplete: string;
     minLength?: number;
     maxLength?: number;
     pattern: string;
     patternMessage: string;
 }
+
+export const TextContentSection = ({
+    localConfig,
+    onUpdate,
+}: {
+    localConfig: TextCardState;
+    onUpdate: (updates: Partial<TextCardState>) => void;
+}) => (
+    <div className="space-y-4">
+        <SectionHeader
+            title="Input Content"
+            description="Guide respondents without changing the stored answer"
+        />
+        <TextField
+            label="Placeholder"
+            value={localConfig.placeholder}
+            onChange={(value) => onUpdate({ placeholder: value })}
+            placeholder="Your answer..."
+            description="Hint shown while the answer is empty"
+        />
+    </div>
+);
 
 export const InputTypeSection = ({
     variant,
@@ -59,12 +84,10 @@ export const TextValidationSection = ({
     localConfig,
     onUpdate,
     minMaxError,
-    patternError
 }: {
     localConfig: TextCardState;
     onUpdate: (updates: Partial<TextCardState>) => void;
     minMaxError: string | null;
-    patternError: string | null;
 }) => (
     <div className="space-y-4">
         <SectionHeader
@@ -94,7 +117,23 @@ export const TextValidationSection = ({
             error={minMaxError ?? undefined}
         />
 
-        {/* Pattern (Regex) */}
+    </div>
+);
+
+export const AdvancedTextValidationSection = ({
+    localConfig,
+    onUpdate,
+    patternError,
+}: {
+    localConfig: TextCardState;
+    onUpdate: (updates: Partial<TextCardState>) => void;
+    patternError: string | null;
+}) => (
+    <div className="space-y-4">
+        <SectionHeader
+            title="Advanced Validation"
+            description="Optional pattern matching for user input"
+        />
         <TextField
             label="Pattern (Regex)"
             value={localConfig.pattern}
@@ -104,7 +143,6 @@ export const TextValidationSection = ({
             error={patternError ?? undefined}
         />
 
-        {/* Pattern Error Message */}
         {localConfig.pattern && localConfig.pattern.trim() !== "" && !patternError && (
             <TextField
                 label="Custom Error Message"

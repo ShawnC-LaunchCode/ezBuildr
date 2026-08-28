@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { analyzeDocument, suggestAliases } from "./onboardingApi";
-import { defaultStepTypeFor, toCamelCaseAlias, toHumanLabel } from "./stepTypeOptions";
+import { defaultStepSelectionFor, toCamelCaseAlias, toHumanLabel } from "./stepTypeOptions";
 
 import type { OnboardingVariable } from "./onboardingTypes";
 
@@ -48,7 +48,7 @@ export function UploadStep({ onExtracted }: UploadStepProps): JSX.Element {
         const reviewRows: OnboardingVariable[] = result.variables.map((v) => ({
           name: v.name,
           alias: aliasSuggestions[v.name] ?? toCamelCaseAlias(v.name),
-          type: defaultStepTypeFor(v.type),
+          ...defaultStepSelectionFor(v.type),
           label: toHumanLabel(v.name),
           confidence: v.confidence,
           source: v.source,

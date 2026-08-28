@@ -1,10 +1,8 @@
 /**
  * TextBlockRenderer - Text Input Blocks
  *
- * Handles:
- * - short_text (single-line input)
- * - long_text (multi-line textarea)
- * - text (unified with variant config)
+ * Renders the canonical `text` type. Legacy text-family rows are adapted to
+ * this shape by BlockRenderer until STB-19 backfills them.
  *
  * Features:
  * - maxLength enforcement
@@ -21,12 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Step } from "@/types";
 
-import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
+import { resolveTextConfig, type TextValue } from "@shared/types/stepConfigs";
 
 export interface TextBlockProps {
   step: Step;
-  value: string | undefined | null;
-  onChange: (value: string) => void;
+  value: TextValue | undefined;
+  onChange: (value: TextValue) => void;
   readOnly?: boolean;
   required?: boolean;
   hasError?: boolean;
@@ -36,29 +34,10 @@ export interface TextBlockProps {
 export function TextBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: TextBlockProps) {
   const currentValue = value ?? "";
 
-  // Determine if this is short or long text
-  let variant: "short" | "long" = "short";
-  let maxLength: number | undefined;
-  let placeholder: string | undefined;
-
-  if (step.type === "short_text") {
-    variant = "short";
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    maxLength = step.config?.maxLength;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    placeholder = step.config?.placeholder || "Your answer...";
-  } else if (step.type === "long_text") {
-    variant = "long";
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    maxLength = step.config?.maxLength;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    placeholder = step.config?.placeholder || "Your answer...";
-  } else if (step.type === "text") {
-    const config = step.config as TextAdvancedConfig;
-    variant = config?.variant || "short";
-    maxLength = config?.validation?.maxLength;
-    placeholder = config?.placeholder ?? "Your answer...";
-  }
+  const config = resolveTextConfig(step.type, step.config);
+  const { variant } = config;
+  const maxLength = config.validation?.maxLength;
+  const placeholder = config.placeholder ?? "Your answer...";
 
   // Handle change
   const handleChange = (newValue: string) => {

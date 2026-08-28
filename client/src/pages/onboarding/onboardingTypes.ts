@@ -6,6 +6,8 @@
  * this wizard actually reads from `/api/ai/doc/*` are redeclared here.
  */
 
+import type { StepConfig } from "@shared/types/stepConfigs";
+
 /** One row of `POST /api/ai/doc/analyze`'s `variables` array. */
 export interface AnalyzedVariable {
   name: string;
@@ -29,8 +31,12 @@ export interface OnboardingVariable {
   name: string;
   /** Author-editable alias (human-friendly variable name). */
   alias: string;
-  /** Author-editable question type — a value from ONBOARDING_STEP_TYPE_OPTIONS. */
+  /** Canonical persisted type selected by the author. */
   type: string;
+  /** Stable picker identity when friendly actions share a canonical type. */
+  presetId?: string;
+  /** Canonical type-specific config selected by the friendly action. */
+  config?: StepConfig;
   /** Human-readable label used as the generated question's title. */
   label: string;
   confidence: number;

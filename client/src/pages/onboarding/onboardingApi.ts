@@ -84,10 +84,17 @@ export interface OnboardingVariablePayload {
   type: string;
   alias: string;
   label?: string;
+  config?: OnboardingVariable["config"];
 }
 
 function toPayload(variables: OnboardingVariable[]): OnboardingVariablePayload[] {
-  return variables.map((v) => ({ name: v.name, type: v.type, alias: v.alias, label: v.label }));
+  return variables.map((v) => ({
+    name: v.name,
+    type: v.type,
+    alias: v.alias,
+    label: v.label,
+    config: v.config,
+  }));
 }
 
 /**

@@ -159,13 +159,18 @@ describe('QUESTION_PRESETS canonical contract', () => {
       'Long Text',
     ]);
     expect(new Set(easyTextPresets.map((preset) => preset.persistedType))).toEqual(
-      new Set(['short_text', 'long_text']),
+      new Set(['text']),
     );
   });
 
-  it('does not change the existing registry creation path', () => {
-    expect(getBlockByType('short_text')?.createDefaultConfig()).toEqual({});
-    expect(getBlockByType('long_text')?.createDefaultConfig()).toEqual({});
+  it('canonicalizes only the text-family creation path in STB-3', () => {
+    expect(getBlockByType('short_text')).toBeUndefined();
+    expect(getBlockByType('long_text')).toBeUndefined();
+    expect(getBlockByType('text')?.createDefaultConfig()).toEqual({ variant: 'short' });
+    expect(getBlocksByMode('easy').filter((block) => block.type === 'text')).toEqual([
+      expect.objectContaining({ id: 'easy.short-text', label: 'Short Text' }),
+      expect.objectContaining({ id: 'easy.long-text', label: 'Long Text' }),
+    ]);
     expect(getBlockByType('radio')?.type).toBe('radio');
     expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
     expect(getBlockByType('currency')?.type).toBe('currency');

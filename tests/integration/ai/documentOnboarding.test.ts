@@ -106,7 +106,13 @@ function mockGeneratedWorkflow() {
 }
 
 const APPROVED_VARIABLES = [
-  { name: 'client_name', type: 'short_text', alias: 'clientName', label: 'Client Name' },
+  {
+    name: 'client_name',
+    type: 'text',
+    alias: 'clientName',
+    label: 'Client Name',
+    config: { variant: 'long' },
+  },
   { name: 'signing_date', type: 'date', alias: 'signingDate', label: 'Signing Date' },
 ];
 
@@ -159,17 +165,20 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
       alias: string;
       type: string;
       title: string;
+      config?: Record<string, unknown>;
     }>;
 
     // The matched-and-corrected step.
     const clientNameStep = allSteps.find((s) => s.alias === 'clientName');
     expect(clientNameStep).toBeDefined();
-    expect(clientNameStep?.type).toBe('short_text');
+    expect(clientNameStep?.type).toBe('text');
+    expect(clientNameStep?.config).toEqual({ variant: 'long' });
 
-    // The unmatched AI step survives untouched.
+    // Unmatched AI content survives, but its legacy text identity is adapted at this creation boundary.
     const notesStep = allSteps.find((s) => s.alias === 'notes');
     expect(notesStep).toBeDefined();
-    expect(notesStep?.type).toBe('short_text');
+    expect(notesStep?.type).toBe('text');
+    expect(notesStep?.config).toEqual({ variant: 'short' });
 
     // The variable the LLM never produced a step for was appended, not dropped.
     const signingDateStep = allSteps.find((s) => s.alias === 'signingDate');
@@ -215,9 +224,14 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
       .expect(200);
     expect(workflowResponse.body.status).toBe('draft');
 
-    const persistedSteps = (workflowResponse.body.pages as Array<{ steps: Array<{ alias: string; type: string }> }>)
+    const persistedSteps = (workflowResponse.body.pages as Array<{
+      steps: Array<{ alias: string; type: string; config?: Record<string, unknown> }>;
+    }>)
       .flatMap((s) => s.steps);
-    expect(persistedSteps.find((s) => s.alias === 'clientName')?.type).toBe('short_text');
+    expect(persistedSteps.find((s) => s.alias === 'clientName')).toMatchObject({
+      type: 'text',
+      config: { variant: 'long' },
+    });
     expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date');
 
     // 4. Attach the original document as a template.
