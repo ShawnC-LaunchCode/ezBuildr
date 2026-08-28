@@ -282,7 +282,7 @@ export interface BooleanAdvancedConfig {
   trueAlias?: string;      // Alias for true value (if storeAsBoolean=false)
   falseAlias?: string;     // Alias for false value (if storeAsBoolean=false)
   defaultValue?: boolean | string;
-  displayStyle?: 'toggle' | 'radio' | 'checkbox';
+  displayStyle?: 'buttons' | 'radio' | 'toggle' | 'checkbox';
 }
 
 /**

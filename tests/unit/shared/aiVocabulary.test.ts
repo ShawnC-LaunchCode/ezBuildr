@@ -23,11 +23,14 @@ import { workflowPatchOpSchema } from '../../../shared/validation/aiWorkflowEdit
 
 import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsService';
 
+// Keys still awaiting an implementation. A family ticket that implements one
+// releases it from here *and* from the manifest -- the two are asserted equal
+// on purpose, so neither can drift alone. `boolean.displayStyle` was released
+// by STB-5, which implemented all four styles end to end.
 const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
     date_time: ['showDate', 'showTime'],
     file_upload: ['previewThumbnails'],
-    boolean: ['displayStyle'],
     phone_advanced: ['defaultCountry', 'allowedCountries'],
     datetime_unified: ['timezone', 'showTimezone'],
     choice: ['allowOther', 'otherLabel', 'randomizeOrder'],
@@ -108,7 +111,19 @@ describe('AI vocabulary derivation', () => {
         expect(getConfigKeys('number')).toEqual(expect.arrayContaining(['min', 'max']));
     });
 
-    it('fails loudly when an exclusion drifts from the type or schema (STB-1 AC3)', () => {
+    it('advertises a key once its family implements it (STB-5)', () => {
+        // STB-1's manifest is containment for keys with no behaviour behind
+        // them. STB-5 implemented Boolean `displayStyle` end to end -- three
+        // renderers, an editor control, a legal schema value -- so the
+        // exclusion had to come off, or AI stays barred from a capability that
+        // works. The guard only catches exclusions naming a *missing* field;
+        // nothing catches one that has quietly become unnecessary.
+        expect(getConfigKeys('boolean')).toEqual(
+            expect.arrayContaining(['displayStyle(buttons|radio|toggle|checkbox)']),
+        );
+    });
+
+  it('fails loudly when an exclusion drifts from the type or schema (STB-1 AC3)', () => {
         expect(() => validateConfigKeyExclusions({
             choice: ['removedSchemaKey'],
         })).toThrowError('AI vocabulary exclusion names missing schema key "choice.removedSchemaKey"');

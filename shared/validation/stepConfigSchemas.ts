@@ -142,7 +142,7 @@ export const BooleanAdvancedConfigSchema = z.object({
   trueAlias: z.string().optional(),
   falseAlias: z.string().optional(),
   defaultValue: z.union([z.boolean(), z.string()]).optional(),
-  displayStyle: z.enum(['toggle', 'radio', 'checkbox']).optional(),
+  displayStyle: z.enum(['buttons', 'radio', 'toggle', 'checkbox']).optional(),
 });
 
 export const PhoneAdvancedConfigSchema = z.object({

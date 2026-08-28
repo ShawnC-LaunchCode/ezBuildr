@@ -6,6 +6,7 @@ import {
     FinalBlockConfigSchema,
     TextAdvancedConfigSchema as _TextAdvancedConfigSchema,
     ChoiceAdvancedConfigSchema,
+    BooleanAdvancedConfigSchema,
     ListConfigSchema
 } from '../../../../shared/validation/stepConfigSchemas';
 import { LIST_VALIDATION_MAX_DEPTH } from '../../../../shared/validation/BlockValidation';
@@ -55,6 +56,30 @@ describe('Step Config Schemas', () => {
     });
 
     describe('Specific Schema Validations', () => {
+        describe('BooleanAdvancedConfigSchema', () => {
+            it.each(['buttons', 'radio', 'toggle', 'checkbox'] as const)(
+                'accepts the legal %s display style',
+                (displayStyle) => {
+                    const result = BooleanAdvancedConfigSchema.safeParse({
+                        trueLabel: 'Yes',
+                        falseLabel: 'No',
+                        storeAsBoolean: true,
+                        displayStyle,
+                    });
+                    expect(result.success).toBe(true);
+                }
+            );
+
+            it('rejects an unknown display style', () => {
+                expect(BooleanAdvancedConfigSchema.safeParse({
+                    trueLabel: 'Yes',
+                    falseLabel: 'No',
+                    storeAsBoolean: true,
+                    displayStyle: 'segmented',
+                }).success).toBe(false);
+            });
+        });
+
         describe('FinalBlockConfigSchema', () => {
             it('should enforce unique aliases', () => {
                 const validConfig = {

@@ -157,32 +157,6 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // BOOLEAN INPUTS
   // -------------------------------------------------------------------------
   {
-    type: "yes_no",
-    label: "Yes/No",
-    icon: ToggleLeft,
-    glyph: "Y/N",
-    description: "Yes or No toggle",
-    category: "boolean",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({
-      trueLabel: "Yes",
-      falseLabel: "No",
-    }),
-  },
-  {
-    type: "true_false",
-    label: "True/False",
-    icon: ToggleLeft,
-    glyph: "T/F",
-    description: "True or False toggle",
-    category: "boolean",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({
-      trueLabel: "True",
-      falseLabel: "False",
-    }),
-  },
-  {
     type: "boolean",
     label: "Boolean",
     icon: ToggleLeft,
@@ -194,6 +168,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
       trueLabel: "Yes",
       falseLabel: "No",
       storeAsBoolean: true,
+      displayStyle: "buttons" as const,
     }),
   },
 
@@ -488,6 +463,18 @@ const LONG_TEXT_PRESET_PRESENTATION = {
   category: "text",
 } as const satisfies Omit<QuestionTypePresentation, "label">;
 
+const YES_NO_PRESET_PRESENTATION = {
+  icon: ToggleLeft,
+  glyph: "Y/N",
+  category: "boolean",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const TRUE_FALSE_PRESET_PRESENTATION = {
+  icon: ToggleLeft,
+  glyph: "T/F",
+  category: "boolean",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
@@ -522,26 +509,32 @@ export const QUESTION_PRESETS = [
     id: "easy.yes-no",
     label: "Yes/No",
     description: "Yes or no choice",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "boolean",
-    persistedType: "yes_no",
+    persistedType: "boolean",
+    presentation: YES_NO_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       trueLabel: "Yes",
       falseLabel: "No",
       storeAsBoolean: true,
+      displayStyle: "buttons",
     }),
   }),
   defineQuestionPreset({
     id: "easy.true-false",
     label: "True/False",
     description: "True or false choice",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "boolean",
-    persistedType: "true_false",
+    persistedType: "boolean",
+    presentation: TRUE_FALSE_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       trueLabel: "True",
       falseLabel: "False",
       storeAsBoolean: true,
+      displayStyle: "buttons",
     }),
   }),
   defineQuestionPreset({
@@ -714,6 +707,8 @@ export function getBlockByType(type: string): BlockRegistryEntry | undefined {
 const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentation>> = {
   short_text: { label: "Short Text", ...SHORT_TEXT_PRESET_PRESENTATION },
   long_text: { label: "Long Text", ...LONG_TEXT_PRESET_PRESENTATION },
+  yes_no: { label: "Yes/No", ...YES_NO_PRESET_PRESENTATION },
+  true_false: { label: "True/False", ...TRUE_FALSE_PRESET_PRESENTATION },
 };
 
 function isConfigRecord(config: unknown): config is Readonly<Record<string, unknown>> {

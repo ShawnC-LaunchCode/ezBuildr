@@ -6,10 +6,12 @@
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
+import type { BooleanAdvancedConfig, LegacyYesNoConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
@@ -19,84 +21,104 @@ import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
+type BooleanDisplayStyle = NonNullable<BooleanAdvancedConfig["displayStyle"]>;
+
+interface BooleanCardState {
+  trueLabel: string;
+  falseLabel: string;
+  storeAsBoolean: boolean;
+  trueAlias: string;
+  falseAlias: string;
+  displayStyle: BooleanDisplayStyle;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(config: Record<string, unknown>, key: string): string | undefined {
+  return typeof config[key] === "string" ? config[key] : undefined;
+}
+
+function readBooleanCardState(stepType: string, rawConfig: unknown): BooleanCardState {
+  const config = isRecord(rawConfig) ? rawConfig : {};
+  const legacyYesNo = stepType === "yes_no";
+  const trueDefault = stepType === "true_false" ? "True" : "Yes";
+  const falseDefault = stepType === "true_false" ? "False" : "No";
+  const configuredStyle = readString(config, "displayStyle");
+  const displayStyle: BooleanDisplayStyle = configuredStyle === "radio"
+    || configuredStyle === "toggle"
+    || configuredStyle === "checkbox"
+    || configuredStyle === "buttons"
+    ? configuredStyle
+    : "buttons";
+
+  return {
+    trueLabel: (legacyYesNo ? readString(config, "yesLabel") : undefined)
+      ?? readString(config, "trueLabel")
+      ?? trueDefault,
+    falseLabel: (legacyYesNo ? readString(config, "noLabel") : undefined)
+      ?? readString(config, "falseLabel")
+      ?? falseDefault,
+    storeAsBoolean: typeof config.storeAsBoolean === "boolean" ? config.storeAsBoolean : true,
+    trueAlias: readString(config, "trueAlias") ?? "",
+    falseAlias: readString(config, "falseAlias") ?? "",
+    displayStyle,
+  };
+}
+
+function buildCanonicalBooleanConfig(state: BooleanCardState): BooleanAdvancedConfig {
+  const config: BooleanAdvancedConfig = {
+    trueLabel: state.trueLabel,
+    falseLabel: state.falseLabel,
+    storeAsBoolean: state.storeAsBoolean,
+    displayStyle: state.displayStyle,
+  };
+  if (state.trueAlias.trim()) { config.trueAlias = state.trueAlias; }
+  if (state.falseAlias.trim()) { config.falseAlias = state.falseAlias; }
+  return config;
+}
 
 export function BooleanCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
+  const mode = workflowMode?.mode ?? "easy";
+  const isEasyMode = mode === "easy";
+  const isCanonicalBoolean = step.type === "boolean";
+  const defaults = step.type === "true_false"
+    ? { trueLabel: "True", falseLabel: "False" }
+    : { trueLabel: "Yes", falseLabel: "No" };
 
-  // Determine if this is advanced mode (type === "boolean") or easy mode (yes_no/true_false)
-  const isAdvancedMode = step.type === "boolean";
-  const isEasyMode = !isAdvancedMode;
-
-  // Get config with defaults
-  const config = step.config as BooleanAdvancedConfig | TrueFalseConfig | undefined;
-
-  // Default labels based on type
-  const getDefaultLabels = () => {
-    if (step.type === "yes_no") {
-      return { trueLabel: "Yes", falseLabel: "No" };
-    } else if (step.type === "true_false") {
-      return { trueLabel: "True", falseLabel: "False" };
-    } else {
-      return { trueLabel: "Yes", falseLabel: "No" };
-    }
-  };
-
-  const defaults = getDefaultLabels();
-
-  const [localConfig, setLocalConfig] = useState({
-    trueLabel: config?.trueLabel ?? defaults.trueLabel,
-    falseLabel: config?.falseLabel ?? defaults.falseLabel,
-    storeAsBoolean: isAdvancedMode
-      ? ((config as BooleanAdvancedConfig)?.storeAsBoolean ?? true)
-      : true,
-    trueAlias: (config as BooleanAdvancedConfig)?.trueAlias ?? "",
-    falseAlias: (config as BooleanAdvancedConfig)?.falseAlias ?? "",
-  });
+  const [localConfig, setLocalConfig] = useState<BooleanCardState>(() => (
+    readBooleanCardState(step.type, step.config)
+  ));
 
   useEffect(() => {
-    const defaults = getDefaultLabels();
-    setLocalConfig({
-      trueLabel: config?.trueLabel ?? defaults.trueLabel,
-      falseLabel: config?.falseLabel ?? defaults.falseLabel,
-      storeAsBoolean: isAdvancedMode
-        ? ((config as BooleanAdvancedConfig)?.storeAsBoolean ?? true)
-        : true,
-      trueAlias: (config as BooleanAdvancedConfig)?.trueAlias ?? "",
-      falseAlias: (config as BooleanAdvancedConfig)?.falseAlias ?? "",
-    });
-  }, [step.config, step.type, isAdvancedMode, config]);
+    setLocalConfig(readBooleanCardState(step.type, step.config));
+  }, [step.config, step.type]);
 
-  const handleUpdate = (updates: Partial<typeof localConfig>) => {
+  const handleUpdate = (updates: Partial<BooleanCardState>) => {
     const newConfig = { ...localConfig, ...updates };
     setLocalConfig(newConfig);
 
-    // Build the config object based on mode
-    if (isAdvancedMode) {
-      const configToSave: BooleanAdvancedConfig = {
-        trueLabel: newConfig.trueLabel,
-        falseLabel: newConfig.falseLabel,
-        storeAsBoolean: newConfig.storeAsBoolean,
+    if (step.type === "yes_no") {
+      const configToSave: LegacyYesNoConfig = {
+        yesLabel: newConfig.trueLabel,
+        noLabel: newConfig.falseLabel,
       };
-
-      // Only include aliases if not storing as boolean
-      if (!newConfig.storeAsBoolean) {
-        if (newConfig.trueAlias && newConfig.trueAlias.trim() !== "") {
-          configToSave.trueAlias = newConfig.trueAlias;
-        }
-        if (newConfig.falseAlias && newConfig.falseAlias.trim() !== "") {
-          configToSave.falseAlias = newConfig.falseAlias;
-        }
-      }
-
       updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
-    } else {
-      // Easy mode - just save labels
+    } else if (step.type === "true_false") {
       const configToSave: TrueFalseConfig = {
         trueLabel: newConfig.trueLabel,
         falseLabel: newConfig.falseLabel,
       };
-
       updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
+    } else {
+      updateStepMutation.mutate({
+        id: stepId,
+        pageId,
+        config: buildCanonicalBooleanConfig(newConfig),
+      });
     }
   };
 
@@ -144,8 +166,38 @@ export function BooleanCardEditor({ stepId, pageId, workflowId, step }: StepEdit
         />
       </div>
 
+      {isCanonicalBoolean && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <SectionHeader
+              title="Answer Style"
+              description="Choose how respondents select between the two values"
+            />
+            <div className="space-y-2">
+              <Label htmlFor={`boolean-style-${stepId}`}>Control</Label>
+              <Select
+                value={localConfig.displayStyle}
+                onValueChange={(value: "buttons" | "radio" | "toggle") => {
+                  handleUpdate({ displayStyle: value });
+                }}
+              >
+                <SelectTrigger id={`boolean-style-${stepId}`} aria-label="Answer style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="buttons">Buttons</SelectItem>
+                  <SelectItem value="radio">Radio choices</SelectItem>
+                  <SelectItem value="toggle">Toggle switch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Advanced Mode Only - Storage Options */}
-      {isAdvancedMode && (
+      {!isEasyMode && isCanonicalBoolean && (
         <>
           <Separator />
 
@@ -201,7 +253,7 @@ export function BooleanCardEditor({ stepId, pageId, workflowId, step }: StepEdit
             pageId={pageId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
-            mode={isEasyMode ? 'easy' : 'advanced'}
+            mode={mode}
           />
           <VisibilityField
             stepId={stepId}

@@ -609,7 +609,7 @@ time-format, and minute-step behavior. Remove `showDate`/`showTime` and defer ti
 
 ---
 
-## STB-5 — Canonicalize Boolean with buttons, radio, and toggle styles 🔲
+## STB-5 — Canonicalize Boolean with buttons, radio, and toggle styles ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/BooleanBlock.tsx`
 
@@ -657,6 +657,32 @@ selector in Easy. Preserve `boolean | string | null` storage; STB-6 adds checkbo
 3. Easy/Advanced exposure follows Decision 4 and changing mode never rewrites style.
 4. New `tests/unit/client/BooleanBlock.test.tsx` and editor tests cover each implemented style and labels.
 5. The Vertical proof passes; type-check, lint, targeted tests, and `test:fast` are green.
+
+**Verified 2026-08-28 (reviewer):** every acceptance criterion checked against the working tree, and all gates
+re-run by the reviewer in worktree `stb-5` rather than taken from the report — `npm run type-check` 0 errors,
+`npm run check:strict-zones` 6/6 zones, `npm run lint` 0 problems, `npm run test:fast` 317 files / 3,515 tests
+(3,514 from the dev plus one reviewer assertion, against the 3,498 baseline), `StepService.db` 12/12, and
+`boolean-canonicalization` 4/4. Every figure in the turn-in reproduced exactly.
+
+This ticket got the hard parts right:
+
+- **Legacy rows stay readable**, via `getConfigString(step.config, "yesLabel") ?? …("trueLabel")`, so pre-STB-19
+  `yes_no` rows keep their labels instead of silently losing them.
+- **It used the STB-3C seam as intended** — `canonicalized: true` plus per-preset `presentation` — and so never
+  edited `getBlocksByMode`. That is the fan-out working: zero contention with the other three lanes.
+- **The contract change is minimal and aimed at the audit finding**: `displayStyle` gains `'buttons'`, the value
+  the runtime already defaulted to but the schema rejected.
+- **Alias storage was correctly left alone.** `onChange(storeAsBoolean ? … : trueLabel/falseLabel)` reads like a
+  Decision 6 violation but is pre-existing behavior only reformatted into a ternary; STB-6 owns correcting it.
+
+**Reviewer fix folded in:** `boolean: ["displayStyle"]` was still listed in STB-1's temporary AI exclusion
+manifest, so AI stayed barred from a capability this ticket had just implemented end to end. Released from the
+manifest *and* from the audited copy the test keeps beside it — the two are asserted equal on purpose, so a key
+cannot be released by accident — and pinned in the positive direction. STB-1's guard catches an exclusion naming
+a missing field, and catches the manifest drifting from its copy, but nothing catches a key that has quietly
+*become* implemented. That is the direction every family ticket travels; `radio.displayLayout` (STB-7),
+`date_time.showDate`/`showTime` (STB-4), `choice.*` (STB-8) and `file_upload.previewThumbnails` (STB-11) each
+face it next. Recorded as an observation for STB-16, which replaces the manifest.
 
 ---
 

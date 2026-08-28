@@ -64,6 +64,27 @@ describeWithDb('StepService DB', () => {
     });
   });
 
+  it.each(['buttons', 'radio', 'toggle'] as const)(
+    'persists canonical Boolean config for the %s style',
+    async (displayStyle) => {
+      const config = {
+        trueLabel: 'Approve',
+        falseLabel: 'Decline',
+        storeAsBoolean: true,
+        displayStyle,
+      };
+
+      const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+        title: `${displayStyle} Boolean`,
+        type: 'boolean',
+        config,
+      });
+      const reloaded = await stepRepository.findById(step.id);
+
+      expect(reloaded).toMatchObject({ type: 'boolean', config });
+    }
+  );
+
   it('rejects a canonical text config without a variant and writes no row', async () => {
     const before = await stepRepository.findByPageId(testPageId);
 

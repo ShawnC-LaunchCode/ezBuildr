@@ -32,7 +32,6 @@ export const TEMPORARY_CONFIG_KEY_EXCLUSIONS = {
   radio: ["displayLayout"],
   date_time: ["showDate", "showTime"],
   file_upload: ["previewThumbnails"],
-  boolean: ["displayStyle"],
   phone_advanced: ["defaultCountry", "allowedCountries"],
   datetime_unified: ["timezone", "showTimezone"],
   choice: ["allowOther", "otherLabel", "randomizeOrder"],

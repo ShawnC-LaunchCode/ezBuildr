@@ -164,13 +164,19 @@ describe('QUESTION_PRESETS canonical contract', () => {
     );
   });
 
-  it('canonicalizes only the text-family creation path in STB-3', () => {
+  it('canonicalizes the text and Boolean family creation paths', () => {
     expect(getBlockByType('short_text')).toBeUndefined();
     expect(getBlockByType('long_text')).toBeUndefined();
     expect(getBlockByType('text')?.createDefaultConfig()).toEqual({ variant: 'short' });
     expect(getBlocksByMode('easy').filter((block) => block.type === 'text')).toEqual([
       expect.objectContaining({ id: 'easy.short-text', label: 'Short Text' }),
       expect.objectContaining({ id: 'easy.long-text', label: 'Long Text' }),
+    ]);
+    expect(getBlockByType('yes_no')).toBeUndefined();
+    expect(getBlockByType('true_false')).toBeUndefined();
+    expect(getBlocksByMode('easy').filter((block) => block.type === 'boolean')).toEqual([
+      expect.objectContaining({ id: 'easy.yes-no', label: 'Yes/No' }),
+      expect.objectContaining({ id: 'easy.true-false', label: 'True/False' }),
     ]);
     expect(getBlockByType('radio')?.type).toBe('radio');
     expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
@@ -234,6 +240,15 @@ describe('QUESTION_PRESETS canonical contract', () => {
     expect(getQuestionTypePresentation('text', { variant: 'long' })).toMatchObject({
       label: 'Long Text', glyph: '¶', category: 'text',
     });
+  });
+
+  it('derives canonical Boolean presentation from the configured labels', () => {
+    expect(getQuestionTypePresentation('boolean', {
+      trueLabel: 'Yes', falseLabel: 'No', storeAsBoolean: true, displayStyle: 'buttons',
+    })).toMatchObject({ label: 'Yes/No', glyph: 'Y/N', category: 'boolean' });
+    expect(getQuestionTypePresentation('boolean', {
+      trueLabel: 'True', falseLabel: 'False', storeAsBoolean: true, displayStyle: 'buttons',
+    })).toMatchObject({ label: 'True/False', glyph: 'T/F', category: 'boolean' });
   });
 
   it('keeps bare canonical and retired-alias presentation behavior unchanged', () => {

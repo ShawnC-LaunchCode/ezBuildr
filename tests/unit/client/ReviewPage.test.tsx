@@ -10,6 +10,22 @@ const pages = [
   { id: 'hidden-page', title: 'Hidden page' },
 ];
 
+const booleanDecisionStep = {
+  id: 'boolean-decision',
+  pageId: 'contact',
+  title: 'Decision',
+  type: 'boolean',
+  config: { trueLabel: 'Approved', falseLabel: 'Rejected', displayStyle: 'buttons' },
+};
+
+const conditionalSecretStep = {
+  id: 'conditional-secret',
+  pageId: 'contact',
+  title: 'Conditional secret',
+  type: 'short_text',
+  config: {},
+};
+
 const steps = [
   {
     id: 'address',
@@ -54,13 +70,8 @@ const steps = [
       labelTemplate: '{name}',
     },
   },
-  {
-    id: 'conditional-secret',
-    pageId: 'contact',
-    title: 'Conditional secret',
-    type: 'short_text',
-    config: {},
-  },
+  booleanDecisionStep,
+  conditionalSecretStep,
   {
     id: 'hidden-page-answer',
     pageId: 'hidden-page',
@@ -86,6 +97,7 @@ const values = {
       { itemId: 'child-2', values: { name: 'Noah' } },
     ],
   },
+  'boolean-decision': false,
   'conditional-secret': 'stale hidden value',
   'hidden-page-answer': 'not on this branch',
 };
@@ -196,11 +208,27 @@ describe('ReviewPage (GH-162)', () => {
     expect(container).not.toHaveTextContent('a-id');
   });
 
+  it('renders a Boolean answer with its configured review label', () => {
+    render(
+      <ReviewPage
+        pages={[pages[0]]}
+        allSteps={[booleanDecisionStep]}
+        values={{ 'boolean-decision': false }}
+        visiblePageIds={['contact']}
+        visibleStepIds={['boolean-decision']}
+        onEditStep={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.queryByText('No')).not.toBeInTheDocument();
+  });
+
   it('omits a visible page card when none of its steps are visible', () => {
     render(
       <ReviewPage
         pages={[pages[0]]}
-        allSteps={[steps[4]]}
+        allSteps={[conditionalSecretStep]}
         values={{ 'conditional-secret': 'stale hidden value' }}
         visiblePageIds={['contact']}
         visibleStepIds={[]}

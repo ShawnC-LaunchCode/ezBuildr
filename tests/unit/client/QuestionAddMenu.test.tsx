@@ -145,6 +145,26 @@ describe('QuestionAddMenu', () => {
     }));
   });
 
+  it.each([
+    ['Yes/No', 'Yes', 'No'],
+    ['True/False', 'True', 'False'],
+  ] as const)('creates the Easy %s preset as canonical Boolean', async (label, trueLabel, falseLabel) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `boolean-${trueLabel}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={4} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'boolean',
+      title: `New ${label}`,
+      config: { trueLabel, falseLabel, storeAsBoolean: true, displayStyle: 'buttons' },
+    }));
+  });
+
   it('renders distinct presentation marks for the two canonical text presets', async () => {
     mockMode('easy');
     vi.mocked(useCreateStep).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateStep>);

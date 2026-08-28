@@ -103,6 +103,19 @@ function formatAddressValue(value: unknown, config: unknown): string {
     .join(", ");
 }
 
+function formatBooleanValue(value: boolean, config: unknown): string {
+  if (!isRecord(config)) {
+    return value ? "Yes" : "No";
+  }
+
+  const preferredKey = value ? "trueLabel" : "falseLabel";
+  const legacyKey = value ? "yesLabel" : "noLabel";
+  const configuredLabel = config[preferredKey] ?? config[legacyKey];
+  return typeof configuredLabel === "string" && configuredLabel.trim() !== ""
+    ? configuredLabel
+    : value ? "Yes" : "No";
+}
+
 export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {}): string {
   if (val === null || val === undefined || val === "") {
     return "Not answered";
@@ -117,7 +130,9 @@ export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {
   }
 
   if (typeof val === "boolean") {
-    return val ? "Yes" : "No";
+    return normalizedType === "boolean"
+      ? formatBooleanValue(val, context.config)
+      : val ? "Yes" : "No";
   }
   if (val instanceof Date) {
     return val.toLocaleDateString();
