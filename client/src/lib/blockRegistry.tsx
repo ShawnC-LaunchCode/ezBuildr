@@ -71,6 +71,12 @@ export interface BlockRegistryEntry {
   createDefaultConfig: () => StepConfig;
 }
 
+/** Display metadata for a type or preset, independent from stored identity. */
+export type QuestionTypePresentation = Pick<
+  BlockRegistryEntry,
+  "label" | "icon" | "glyph" | "category"
+>;
+
 /**
  * A palette-facing choice that is independent from its stored identity.
  *
@@ -88,6 +94,8 @@ export interface QuestionPreset<Type extends CanonicalStepType = CanonicalStepTy
   };
   canonicalType: Type;
   persistedType: StepType;
+  /** Optional preset-specific mark when several presets share one stored type. */
+  presentation?: Omit<QuestionTypePresentation, "label">;
   createDefaultConfig: () => StepConfigByType[Type];
 }
 
@@ -454,6 +462,18 @@ function defineQuestionPreset<Type extends CanonicalStepType>(
   return preset;
 }
 
+const SHORT_TEXT_PRESET_PRESENTATION = {
+  icon: Type,
+  glyph: "T",
+  category: "text",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const LONG_TEXT_PRESET_PRESENTATION = {
+  icon: AlignLeft,
+  glyph: "¶",
+  category: "text",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
@@ -468,6 +488,7 @@ export const QUESTION_PRESETS = [
     modes: { easy: true, advanced: false },
     canonicalType: "text",
     persistedType: "text",
+    presentation: SHORT_TEXT_PRESET_PRESENTATION,
     createDefaultConfig: () => ({ variant: "short" }),
   }),
   defineQuestionPreset({
@@ -476,6 +497,7 @@ export const QUESTION_PRESETS = [
     modes: { easy: true, advanced: false },
     canonicalType: "text",
     persistedType: "text",
+    presentation: LONG_TEXT_PRESET_PRESENTATION,
     createDefaultConfig: () => ({ variant: "long" }),
   }),
   defineQuestionPreset({
@@ -598,6 +620,20 @@ export const QUESTION_PRESETS = [
   }),
 ] as const satisfies readonly QuestionPreset[];
 
+export function getQuestionPresetPresentation(
+  preset: QuestionPreset,
+): QuestionTypePresentation {
+  const presentation = preset.presentation;
+  if (presentation === undefined) {
+    const registered = getBlockByType(preset.persistedType);
+    if (registered === undefined) {
+      throw new Error(`No presentation registered for question preset "${preset.id}"`);
+    }
+    return registered;
+  }
+  return { label: preset.label, ...presentation };
+}
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -613,19 +649,19 @@ export function getBlocksByMode(mode: "easy" | "advanced"): BlockRegistryEntry[]
   // presets. Later family tickets add their presets here as they canonicalize.
   const textPresets = QUESTION_PRESETS
     .filter((preset) => preset.modes.easy && preset.canonicalType === "text")
-    .map((preset): BlockRegistryEntry => ({
-      id: preset.id,
-      type: preset.persistedType,
-      label: preset.label,
-      icon: preset.id === "easy.long-text" ? AlignLeft : Type,
-      glyph: preset.id === "easy.long-text" ? "¶" : "T",
-      description: preset.id === "easy.long-text"
-        ? "Multi-line text area"
-        : "Single-line text input",
-      category: "text",
-      modes: preset.modes,
-      createDefaultConfig: preset.createDefaultConfig,
-    }));
+    .map((preset): BlockRegistryEntry => {
+      const presentation = getQuestionPresetPresentation(preset);
+      return {
+        id: preset.id,
+        type: preset.persistedType,
+        ...presentation,
+        description: preset.id === "easy.long-text"
+          ? "Multi-line text area"
+          : "Single-line text input",
+        modes: preset.modes,
+        createDefaultConfig: preset.createDefaultConfig,
+      };
+    });
 
   return [...textPresets, ...registered];
 }
@@ -635,6 +671,21 @@ export function getBlocksByMode(mode: "easy" | "advanced"): BlockRegistryEntry[]
  */
 export function getBlockByType(type: string): BlockRegistryEntry | undefined {
   return BLOCK_REGISTRY.find((block) => block.type === type);
+}
+
+/**
+ * Temporary display compatibility for stored rows awaiting STB-19.
+ *
+ * These aliases deliberately do not participate in BLOCK_REGISTRY or any
+ * authoring lookup. They only keep legacy rows recognizable in builder UI.
+ */
+const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentation>> = {
+  short_text: { label: "Short Text", ...SHORT_TEXT_PRESET_PRESENTATION },
+  long_text: { label: "Long Text", ...LONG_TEXT_PRESET_PRESENTATION },
+};
+
+export function getQuestionTypePresentation(type: string): QuestionTypePresentation | undefined {
+  return getBlockByType(type) ?? LEGACY_TYPE_PRESENTATIONS[type];
 }
 
 /**

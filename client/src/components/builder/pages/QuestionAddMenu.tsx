@@ -128,7 +128,7 @@ export function QuestionAddMenu({
                       }}
                       className="cursor-pointer gap-2.5 py-1.5"
                     >
-                      <QuestionTypeIcon type={block.type} size="md" />
+                      <QuestionTypeIcon type={block.type} presentation={block} size="md" />
                       <div className="min-w-0 flex flex-col">
                         <span>{block.label}</span>
                         {block.description !== undefined && (

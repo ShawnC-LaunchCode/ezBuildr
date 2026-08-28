@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -194,6 +194,39 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
       type: 'text',
       config: { variant },
     });
+  });
+
+  it('renders distinct presentation marks for the Short Text and Long Text presets', async () => {
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={vi.fn()} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    const shortIcon = within(screen.getByRole('menuitem', { name: /Short Text/ })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('menuitem', { name: /Long Text/ })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(shortIcon.textContent).not.toBe(longIcon.textContent);
+  });
+
+  it('shows friendly text-family presentation for legacy text rows', () => {
+    const config: ListConfig = {
+      fields: [
+        questionField({ id: 'short', alias: 'short', title: 'Legacy short', order: 0, type: 'short_text' }),
+        questionField({ id: 'long', alias: 'long', title: 'Legacy long', order: 1, type: 'long_text' }),
+      ],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const shortIcon = within(screen.getByRole('button', { name: 'Short Text' })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('button', { name: 'Long Text' })).getByTitle('Long Text');
+    expect(shortIcon).toHaveClass('bg-qtype-text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveClass('bg-qtype-text');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(screen.queryByTitle('short_text')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('long_text')).not.toBeInTheDocument();
   });
 
   it('reuses the same palette component to change an existing field\'s type (AC6)', async () => {

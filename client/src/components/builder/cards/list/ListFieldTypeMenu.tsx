@@ -65,7 +65,11 @@ export function ListFieldTypeMenu({ trigger, align = "start", nestedListDisabled
                       onClick={() => onSelect(entry.value)}
                       className="cursor-pointer gap-2.5 py-1.5"
                     >
-                      <QuestionTypeIcon type={entry.iconType} size="md" />
+                      <QuestionTypeIcon
+                        type={entry.iconType}
+                        presentation={entry.presentation}
+                        size="md"
+                      />
                       <div className="min-w-0 flex flex-col">
                         <span>{entry.label}</span>
                         {entry.description !== undefined && (

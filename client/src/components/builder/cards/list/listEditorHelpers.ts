@@ -5,7 +5,13 @@
  */
 import { arrayMove } from "@dnd-kit/sortable";
 
-import { BLOCK_REGISTRY, QUESTION_PRESETS, type BlockCategory } from "@/lib/blockRegistry";
+import {
+  BLOCK_REGISTRY,
+  QUESTION_PRESETS,
+  getQuestionPresetPresentation,
+  type BlockCategory,
+  type QuestionTypePresentation,
+} from "@/lib/blockRegistry";
 
 import {
   LIST_FIELD_QUESTION_TYPES,
@@ -46,6 +52,8 @@ export interface ListFieldPaletteEntry {
   value: ListFieldTypeSelection;
   /** BLOCK_REGISTRY type used only to resolve an icon/color tile — see QuestionTypeIcon. */
   iconType: string;
+  /** Preset-specific presentation when several choices share one stored type. */
+  presentation?: QuestionTypePresentation;
   label: string;
   description?: string;
   category: BlockCategory;
@@ -67,6 +75,7 @@ export function getListFieldPaletteEntries(): ListFieldPaletteEntry[] {
       value: preset.id === LONG_TEXT_FIELD_PRESET ? LONG_TEXT_FIELD_PRESET : SHORT_TEXT_FIELD_PRESET,
       iconType: "text",
       label: preset.label,
+      presentation: getQuestionPresetPresentation(preset),
       category: "text",
     }));
   const questionEntries: ListFieldPaletteEntry[] = LIST_FIELD_QUESTION_TYPES

@@ -57,6 +57,14 @@ function renderCard(isExpanded: boolean) {
 }
 
 describe("StepCard expand toggle accessibility (O-5)", () => {
+  it("shows a friendly text-family tile for a legacy text row", () => {
+    renderCard(false);
+    const icon = screen.getByTitle("Short Text");
+    expect(icon).toHaveClass("bg-qtype-text");
+    expect(icon).toHaveTextContent("T");
+    expect(screen.queryByTitle("short_text")).not.toBeInTheDocument();
+  });
+
   it("exposes a named toggle that says which question it belongs to", () => {
     renderCard(false);
     const toggle = screen.getByRole("button", { name: /expand settings for what is your name\?/i });

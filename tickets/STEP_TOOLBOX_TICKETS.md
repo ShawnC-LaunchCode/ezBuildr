@@ -80,7 +80,7 @@ for those. A stale line number is not a broken ticket and does not require the t
 | Phase | Theme | Tickets | Est. effort |
 |---|---|---|---:|
 | 0 | Immediate containment and shared foundation | STB-1..2 | 1–2 days |
-| 1 | Canonical families and selected UX capabilities | STB-3..3A, STB-4..12 | 10–15 days |
+| 1 | Canonical families and selected UX capabilities | STB-3..3B, STB-4..12 | 10–15 days |
 | 2 | Remaining family cleanup and runtime consistency | STB-13..15A | 4–7 days |
 | 3 | AI, API, template, and portability boundaries | STB-16..18 | 3–5 days |
 | 4 | Tested stored-artifact backfill | STB-19..20 | 3–5 days |
@@ -281,7 +281,7 @@ covered by its acceptance criteria: preset icons collapse once two presets share
 
 ---
 
-## STB-3A — Give shared-canonical presets their own presentation identity 🔲
+## STB-3A — Give shared-canonical presets their own presentation identity ✅
 
 **Priority: P2** · Size: S · File: `client/src/components/shared/QuestionTypeIcon.tsx`
 
@@ -344,6 +344,74 @@ must not become a creation path again.
    `short_text` and `long_text`.
 4. Unit tests cover both preset icons and the legacy presentation fallback, and fail if either regresses.
 5. Type-check, lint, and `test:fast` pass without count regression.
+
+**Verified 2026-08-28 (reviewer):** all five acceptance criteria checked against the working tree, with every
+gate re-run by the reviewer in worktree `stb-3a` — `npm run type-check` 0 errors, `npm run check:strict-zones`
+6/6 zones, `npm run lint` 0 problems, and `npm run test:fast` 315 files / 3,488 tests passed, up 6 from the
+3,482 STB-3 baseline. The fix matches the preferred shape: `getQuestionTypePresentation` is presentation-only,
+`LEGACY_TYPE_PRESENTATIONS` never enters `BLOCK_REGISTRY`, and `getBlockByType` still returns `undefined` for
+both retired names. Tests are discriminating — they assert that `T` and `¶` differ and that no tile is titled
+with a raw type string. The dev could not load the `design`
+skill in its session; the reviewer checked the result against the existing tile conventions instead, and the
+change reuses `CATEGORY_TILE`/`bg-qtype-text` rather than introducing new visual vocabulary. Live proof stays
+assigned to the Phase 1 Gate. One review discovery was carried forward rather than blocking: canonical rows are
+still presented from their type alone, so a `text` row with `variant: "long"` shows the short-text tile — filed
+as **STB-3B**.
+
+---
+
+## STB-3B — Resolve stored-row presentation from the config discriminator 🔲
+
+**Priority: P2** · Size: S · File: `client/src/components/shared/QuestionTypeIcon.tsx`
+
+### Finding
+
+Found in the STB-3A review. STB-3A gave *palette entries* their own presentation and gave *retired aliases* a
+friendly one, but a **canonical stored row** is still presented from its type alone:
+
+```tsx
+<QuestionTypeIcon type={step.type} size="sm" className="mt-px" />
+```
+
+`getQuestionTypePresentation("text")` returns the single `BLOCK_REGISTRY` text entry, so every row STB-3 now
+creates — short *and* long — renders the `Type`/`T` tile labelled "Text" in `StepItem`, in `StepCard` (via
+`StepIcons.getQuestionTypeIcon`) and in the `ListLevelEditor` field row. The result is inverted: a pre-STB-19
+`long_text` row shows "¶ Long Text", while the canonical `text` row with `variant: "long"` that replaces it
+shows "T Text". `ListLevelEditor` is the clearest case — `getListFieldTypeLabel` already reads the variant and
+prints "Long Text" beside a "T" tile.
+
+This is not specific to text. Every remaining family ticket collapses a discriminator into one stored type —
+STB-4 (`date_time.kind`), STB-5 (Boolean styles), STB-7 (Choice layout), STB-9/STB-10 (Number modes) — so each
+lands the same mismatch unless presentation can read the config.
+
+### Preferred fix
+
+Extend the STB-3A resolver to take the row's config: `getQuestionTypePresentation(type, config?)`, resolving a
+canonical type plus its discriminator to the matching preset's presentation and falling back to the registry
+entry when there is no discriminator. Pass `step.config` from `StepItem`, `StepIcons.getQuestionTypeIcon` and
+`ListLevelEditor`. Keep the retired-alias map and the palette `presentation` prop exactly as STB-3A left them —
+this adds a second resolution input, it does not replace either mechanism. Derive the mapping from
+`QUESTION_PRESETS` rather than hand-writing a second variant switch.
+
+### Ties
+
+- Depends on STB-3A. Should land before the Phase 1 Gate drive-through. STB-4..STB-10 each add a discriminator
+  this resolver must then cover, so landing it early stops those tickets re-inventing it.
+- Load `design` (user-visible builder UI) and `run-tests`.
+- File footprint: `blockRegistry.tsx`, `QuestionTypeIcon.tsx`, `sidebar/StepItem.tsx`,
+  `cards/common/StepIcons.tsx`, `cards/list/ListLevelEditor.tsx` and their unit tests. Collides with STB-4..10
+  in `blockRegistry.tsx`.
+
+### Acceptance criteria
+
+1. A canonical `text` row with `variant: "long"` renders the "¶ Long Text" tile, and `variant: "short"` renders
+   the "T Short Text" tile, in the step card, the sidebar item and the List field row.
+2. The List field row's icon and its existing label agree for every text field, canonical or retired.
+3. A canonical type with no discriminator (`email`, `address`, ...) is unchanged, and retired aliases keep the
+   presentation STB-3A gave them.
+4. The mapping is derived from `QUESTION_PRESETS`; no second hand-written variant switch is introduced.
+5. Unit tests assert the canonical long/short distinction and fail if either collapses back to the bare tile.
+6. Type-check, lint, and `test:fast` pass without count regression.
 
 ---
 
@@ -800,7 +868,7 @@ Do not generate or persist thumbnail assets.
 
 ## Phase 1 Gate
 
-- [ ] STB-3, STB-3A and STB-4..12 are ✅ with dated verification notes.
+- [ ] STB-3, STB-3A, STB-3B and STB-4..12 are ✅ with dated verification notes.
 - [ ] Easy add menu creates only canonical Text, DateTime, Boolean, Choice, Number, and File Upload rows while
       retaining the agreed friendly preset labels.
 - [ ] Advanced reveals full implemented settings; switching modes preserves hidden config byte-for-byte.

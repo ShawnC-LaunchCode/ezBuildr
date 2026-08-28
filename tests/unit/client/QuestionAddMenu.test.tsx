@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -143,6 +143,21 @@ describe('QuestionAddMenu', () => {
       title: `New ${label}`,
       config: { variant },
     }));
+  });
+
+  it('renders distinct presentation marks for the two canonical text presets', async () => {
+    mockMode('easy');
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={1} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    const shortIcon = within(screen.getByRole('menuitem', { name: /Short Text/ })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('menuitem', { name: /Long Text/ })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(shortIcon.textContent).not.toBe(longIcon.textContent);
   });
 
   it('shows the canonical Text action in Advanced without friendly duplicate actions', async () => {

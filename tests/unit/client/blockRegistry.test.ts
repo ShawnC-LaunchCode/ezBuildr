@@ -16,6 +16,7 @@ import {
   getBlockByType,
   getBlocksByCategory,
   getBlocksByMode,
+  getQuestionTypePresentation,
 } from '../../../client/src/lib/blockRegistry';
 import { CANONICAL_STEP_TYPES } from '../../../shared/types/stepConfigs';
 import {
@@ -175,5 +176,16 @@ describe('QUESTION_PRESETS canonical contract', () => {
     expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
     expect(getBlockByType('currency')?.type).toBe('currency');
     expect(getBlockByType('file_upload')).toBeUndefined();
+  });
+
+  it('keeps retired text aliases display-only with friendly presentation', () => {
+    expect(getBlockByType('short_text')).toBeUndefined();
+    expect(getBlockByType('long_text')).toBeUndefined();
+    expect(getQuestionTypePresentation('short_text')).toMatchObject({
+      label: 'Short Text', glyph: 'T', category: 'text',
+    });
+    expect(getQuestionTypePresentation('long_text')).toMatchObject({
+      label: 'Long Text', glyph: '¶', category: 'text',
+    });
   });
 });
