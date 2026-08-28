@@ -75,6 +75,21 @@ for those. A stale line number is not a broken ticket and does not require the t
 12. **Backfill before enum deletion.** Canonical code lands first; an idempotent, audited all-artifact backfill
     reaches zero legacy data; enum removal follows in a separate migration ticket.
 
+13. **Precision is display, never storage.** `validation.precision` controls how many decimals a number is
+    *shown* with. It never rounds, truncates or rejects what is stored: the platform keeps the most exact value
+    the respondent entered. Legal work routinely mixes figures rounded to the dollar with figures to the cent,
+    and the workflow author — not the input layer — owns the arithmetic, increasingly via the JS/Python
+    sandbox. Rounding at storage would silently corrupt the base of every downstream formula. A field showing
+    `23.15` while storing `23.148` is correct and intended: focus reveals the true value, blur shows the
+    formatted one. Ruled by the repo owner 2026-08-28 during STB-9 review, and pinned by
+    `tests/integration/number-canonicalization.test.ts`. If a real storage constraint is ever wanted it gets its
+    own explicit key — do not overload `precision`.
+
+14. **Currency uses cents-style entry.** STB-10 should implement the bank-software model, where typed digits
+    fill from the right so `2314` reads as `23.14`, rather than validating a typed decimal point. That makes
+    over-precision unrepresentable instead of an error state. The stored value stays a decimal `number`
+    (`23.14`), never cents-as-integer, or every downstream formula is out by 100x.
+
 ### Phase overview
 
 | Phase | Theme | Tickets | Est. effort |
@@ -849,7 +864,7 @@ after normal options and Other last. Never mutate persisted option arrays.
 
 ---
 
-## STB-9 — Canonicalize plain Number formatting, grouping, prefix, and suffix 🔲
+## STB-9 — Canonicalize plain Number formatting, grouping, prefix, and suffix ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/NumberBlock.tsx`
 
@@ -897,6 +912,33 @@ non-editable adornments. Do not enforce min/max by discarding keystrokes; report
 4. Min/max/step/precision agree between editor, runner, sanitizer, and server validation.
 5. Tests cover focus/blur, live/non-live grouping, decorations, null, invalid intermediates, and boundary errors.
 6. Vertical proof and all required gates pass.
+
+**Verified 2026-08-28 (reviewer, self-implemented):** worked by the reviewer rather than dispatched, so **this
+commit is not independently reviewed** — the Phase 1 Gate remains the real check on it. Gates re-run on the tree
+rebased onto STB-5: `npm run type-check` 0 errors, `npm run check:strict-zones` 6/6, `npm run lint` 0 problems,
+`npm run test:fast` 319 files / 3,561 tests, `StepService.db` 12/12, and both vertical proofs together
+(`number-` and `boolean-canonicalization`) 8/8.
+
+The control is rewritten around one rule: never discard a keystroke. The old one returned early when a parsed
+value fell outside min/max, so typing `5` into a min-10 field silently ate the character; range problems now
+surface as validation instead. Intermediate text (`-`, `1.`, `-0.`) stays on screen and emits nothing.
+`resolveNumberConfig` reads all three stored dialects and is the single source for the client rules, the runner
+and the server, so those layers cannot drift; `number_advanced` registers through STB-3C's adapter map and
+needed no switch edit.
+
+Two deliberate deviations from the ticket. `mode` is **defaulted**, not required: it has one legal value today,
+so demanding callers spell it out breaks existing writers to carry no information — STB-10 widens it. And
+`currency` is **absent** from the canonical type rather than declared-and-inert, which is the thing STB-1 removed.
+
+**What the vertical proof earned.** It found precision was enforced nowhere. `stepConfigUtils.sanitizeStepValue`
+and `validateStepValue` read configs and enforce rules but are **referenced from nowhere** — the live submit path
+is `RunPersistenceWriter -> getValidationSchema`. A precision-2 field stored `1.239` while 3,544 unit tests
+passed. Those two functions are a trap for STB-10, which will reach for them to round currency.
+
+Precision then became **display-only** by owner ruling mid-review (Decision 13). The `maxDecimalPlaces` rule
+added an hour earlier was removed, the dead sanitizer's rounding stripped, and `inputMode` fixed at `decimal` so
+a cosmetic setting cannot stop someone entering the number they have. The proof pins it: `23.148` submitted to a
+two-decimal field is stored as `23.148`, asserted explicitly *not* `23.15`.
 
 ---
 

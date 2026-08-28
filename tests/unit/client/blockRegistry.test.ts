@@ -233,6 +233,21 @@ describe('QUESTION_PRESETS canonical contract', () => {
     }
   });
 
+  it('activates the Number family through its preset, without duplicating it (STB-9)', () => {
+    const easy = getBlocksByMode('easy');
+    const numberEntries = easy.filter((block) => block.type === 'number');
+
+    // Exactly one Easy action for the family: the preset. The BLOCK_REGISTRY
+    // `number` entry moved to Advanced, as `text` did in STB-3.
+    expect(numberEntries).toEqual([
+      expect.objectContaining({ id: 'easy.number', label: 'Number' }),
+    ]);
+    expect(numberEntries[0].createDefaultConfig()).toEqual({
+      mode: 'number', validation: { step: 1 },
+    });
+    expect(getBlocksByMode('advanced').some((b) => b.type === 'number' && b.id === undefined)).toBe(true);
+  });
+
   it('derives canonical text presentation from the preset config discriminator', () => {
     expect(getQuestionTypePresentation('text', { variant: 'short' })).toMatchObject({
       label: 'Short Text', glyph: 'T', category: 'text',

@@ -1,9 +1,17 @@
 import { Separator } from "@/components/ui/separator";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@shared/types/stepConfigs";
+import {
+  resolveNumberConfig,
+  type NumberConfig,
+  type CurrencyConfig,
+  type NumberAdvancedConfig,
+  type NumberCanonicalConfig,
+} from "@shared/types/stepConfigs";
+
+import { NumberDisplaySection } from "./NumberCardEditor.components";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
@@ -14,11 +22,27 @@ import { NumberSettingsSection, type NumberEditorConfig } from "./NumberCardEdit
 
 export function NumberCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
 
   const numberConfig = step.config as NumberEditorConfig | null;
-  const isAdvancedMode = step.type === "number" && numberConfig?.mode !== undefined;
   const isCurrency = step.type === "currency";
-  const isEasyMode = !isAdvancedMode && !isCurrency;
+  // Exposure, not identity (Decision 2): mode decides which settings are
+  // visible, never what gets stored. STB-9 keeps detailed numeric formatting
+  // in Advanced per Decision 4.
+  const mode = workflowMode?.mode ?? "easy";
+  const isEasyMode = mode === "easy";
+  const showDisplaySettings = !isEasyMode && !isCurrency;
+
+  const updateDisplay = (updates: Partial<NumberCanonicalConfig>) => {
+    const current = resolveNumberConfig(step.type, step.config);
+    const next: NumberCanonicalConfig = { ...current, ...updates };
+    // The schema refuses live grouping without grouping; keep them coherent
+    // here rather than letting the author save a rejected pair.
+    if (next.thousandsSeparator !== true) { delete next.formatOnInput; }
+    if (next.prefix === "") { delete next.prefix; }
+    if (next.suffix === "") { delete next.suffix; }
+    updateStepMutation.mutate({ id: stepId, pageId, config: next });
+  };
 
   const handleConfigChange = (config: NumberConfig | CurrencyConfig | NumberAdvancedConfig) => {
     updateStepMutation.mutate({ id: stepId, pageId, config });
@@ -46,6 +70,16 @@ export function NumberCardEditor({ stepId, pageId, workflowId, step }: StepEdito
           (LIST2-7) so ListFieldSettings can render the identical panel for a
           `number` list field, always in fixed easy-mode ("number"). */}
       <NumberSettingsSection stepType={step.type} config={numberConfig} onChange={handleConfigChange} />
+
+      {showDisplaySettings && (
+        <>
+          <Separator />
+          <NumberDisplaySection
+            config={resolveNumberConfig(step.type, step.config)}
+            onChange={updateDisplay}
+          />
+        </>
+      )}
 
       {workflowId && (
         <>

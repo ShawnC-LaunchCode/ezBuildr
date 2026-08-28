@@ -104,7 +104,7 @@ describe('ListFieldSettings — scale settings persist into field.config (LIST2-
 });
 
 describe('ListFieldSettings — number settings persist into field.config (LIST2-7 AC4)', () => {
-  it('setting min/max produces a NumberConfig on field.config, fixed to easy "number" mode', () => {
+  it('setting min/max produces a canonical number config on field.config (STB-9)', () => {
     const field = questionField({ id: 'f1', alias: 'age', title: 'Age', order: 0, type: 'number' });
     const onChange = vi.fn();
 
@@ -114,9 +114,11 @@ describe('ListFieldSettings — number settings persist into field.config (LIST2
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const [next] = onChange.mock.calls[0] as [QuestionField];
-    expect(next.config).toMatchObject({ min: 18 });
-    // Fixed easy mode — no currency/advanced fields leak into a list field's config.
-    expect(next.config).not.toHaveProperty('mode');
+    // STB-9: a list number field stores the same canonical shape as a
+    // top-level one -- limits nested under `validation`, never at the root.
+    // Asserted whole rather than partially, so a stray key would fail here.
+    expect(next.config).toEqual({ mode: 'number', validation: { min: 18, step: 1 } });
+    // Currency stays out of a list field's config; STB-10 owns that family.
     expect(next.config).not.toHaveProperty('currency');
   });
 

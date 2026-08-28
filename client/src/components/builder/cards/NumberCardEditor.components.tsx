@@ -6,9 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
-import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@shared/types/stepConfigs";
+import {
+    resolveNumberConfig,
+    type NumberConfig,
+    type CurrencyConfig,
+    type NumberAdvancedConfig,
+    type NumberCanonicalConfig,
+    type NumberValidation,
+} from "@shared/types/stepConfigs";
 
-import { SectionHeader, NumberField, SwitchField } from "./common/EditorField";
+import { SectionHeader, NumberField, SwitchField, TextField } from "./common/EditorField";
 
 export interface NumberCardState {
     mode: "number" | "currency_whole" | "currency_decimal";
@@ -16,7 +23,12 @@ export interface NumberCardState {
     max?: number;
     step: number;
     allowDecimal: boolean;
+    /** Group thousands in the displayed value (display only, STB-9). */
+    thousandsSeparator: boolean;
+    /** Group while typing too, rather than only once the field blurs. */
     formatOnInput: boolean;
+    prefix: string;
+    suffix: string;
 }
 
 /** Union of every shape `step.config`/`field.config` may hold for a number-family step type. */
@@ -116,6 +128,93 @@ export const NumberValidationSection = ({
     </div>
 );
 
+/** Retired currency shape, unchanged until STB-10 canonicalizes the family. */
+function buildCurrencyConfig(state: NumberCardState): CurrencyConfig {
+    const config: CurrencyConfig = {
+        currency: "USD",
+        allowDecimal: state.mode === "currency_decimal",
+    };
+    if (state.min !== undefined) { config.min = state.min; }
+    if (state.max !== undefined) { config.max = state.max; }
+    return config;
+}
+
+/**
+ * One stored shape for the whole number family (STB-9). Easy and Advanced
+ * differ only in which of these the author can see, never in what is written.
+ *
+ * Extracted from the component so the save path stays a single expression --
+ * inlining it pushed `NumberSettingsSection` past the cognitive-complexity
+ * limit.
+ */
+function buildCanonicalNumberConfig(state: NumberCardState): NumberCanonicalConfig {
+    const validation: NumberValidation = {};
+    if (state.min !== undefined) { validation.min = state.min; }
+    if (state.max !== undefined) { validation.max = state.max; }
+    if (state.step !== undefined) { validation.step = state.step; }
+    if (!state.allowDecimal) { validation.precision = 0; }
+
+    const config: NumberCanonicalConfig = { mode: "number" };
+    if (Object.keys(validation).length > 0) { config.validation = validation; }
+    if (state.thousandsSeparator) { config.thousandsSeparator = true; }
+    // Live grouping is meaningless without grouping, and the schema rejects the
+    // pair -- never save one without the other.
+    if (state.thousandsSeparator && state.formatOnInput) { config.formatOnInput = true; }
+    if (state.prefix.trim() !== "") { config.prefix = state.prefix; }
+    if (state.suffix.trim() !== "") { config.suffix = state.suffix; }
+    return config;
+}
+
+/**
+ * Advanced-only display settings for the canonical `number` type (STB-9).
+ *
+ * Every control here changes presentation only; the stored answer stays
+ * `number | null`. Prefix/suffix are plain-number decorations -- currency
+ * symbols and fraction rules belong to ISO formatting in STB-10, not here.
+ */
+export const NumberDisplaySection = ({
+    config,
+    onChange,
+}: {
+    config: NumberCanonicalConfig;
+    onChange: (updates: Partial<NumberCanonicalConfig>) => void;
+}) => (
+    <div className="space-y-4">
+        <SectionHeader
+            title="Display"
+            description="Changes how the answer looks, never what is stored"
+        />
+        <SwitchField
+            label="Group thousands"
+            description="Show 1,234,567 instead of 1234567"
+            checked={config.thousandsSeparator ?? false}
+            onChange={(checked) => onChange({ thousandsSeparator: checked })}
+        />
+        {config.thousandsSeparator === true && (
+            <SwitchField
+                label="Group while typing"
+                description="Otherwise grouping is applied when the field loses focus"
+                checked={config.formatOnInput ?? false}
+                onChange={(checked) => onChange({ formatOnInput: checked })}
+            />
+        )}
+        <TextField
+            label="Prefix"
+            value={config.prefix ?? ""}
+            onChange={(value) => onChange({ prefix: value })}
+            placeholder="#"
+            description="Shown before the number, e.g. #"
+        />
+        <TextField
+            label="Suffix"
+            value={config.suffix ?? ""}
+            onChange={(value) => onChange({ suffix: value })}
+            placeholder="kg"
+            description="Shown after the number, e.g. kg or %"
+        />
+    </div>
+);
+
 export const NumberPreviewSection = ({ mode }: { mode: string }) => (
     <div className="bg-muted border rounded-lg p-3">
         <p className="text-xs font-medium mb-1">Format Preview</p>
@@ -153,13 +252,35 @@ function getInitialMode(
 }
 
 function toNumberCardState(stepType: string, config: NumberEditorConfig | null | undefined): NumberCardState {
+    if (stepType === "currency") {
+        // Currency keeps its retired root shape until STB-10 canonicalizes it.
+        return {
+            mode: getInitialMode(stepType, config),
+            min: config?.min,
+            max: config?.max,
+            step: config?.step ?? 1,
+            allowDecimal: config?.allowDecimal ?? false,
+            thousandsSeparator: false,
+            formatOnInput: config?.formatOnInput ?? false,
+            prefix: "",
+            suffix: "",
+        };
+    }
+
+    // Every stored number dialect -- canonical, the retired root shape, and
+    // `number_advanced` -- is read through the one resolver (STB-9), so the
+    // editor loads the same values the runner and the server will use.
+    const canonical = resolveNumberConfig(stepType, config);
     return {
-        mode: getInitialMode(stepType, config),
-        min: config?.min,
-        max: config?.max,
-        step: config?.step ?? 1,
-        allowDecimal: config?.allowDecimal ?? false,
-        formatOnInput: config?.formatOnInput ?? false,
+        mode: "number",
+        min: canonical.validation?.min,
+        max: canonical.validation?.max,
+        step: canonical.validation?.step ?? 1,
+        allowDecimal: canonical.validation?.precision !== 0,
+        thousandsSeparator: canonical.thousandsSeparator ?? false,
+        formatOnInput: canonical.formatOnInput ?? false,
+        prefix: canonical.prefix ?? "",
+        suffix: canonical.suffix ?? "",
     };
 }
 
@@ -208,43 +329,7 @@ export function NumberSettingsSection({
 
         setLocalConfig(newConfig);
 
-        if (isAdvancedMode) {
-            const configToSave: NumberAdvancedConfig = {
-                mode: newConfig.mode,
-                formatOnInput: newConfig.formatOnInput,
-                validation: {},
-            };
-
-            if (newConfig.min !== undefined) { configToSave.validation!.min = newConfig.min; }
-            if (newConfig.max !== undefined) { configToSave.validation!.max = newConfig.max; }
-            if (newConfig.step !== undefined) { configToSave.validation!.step = newConfig.step; }
-
-            if (newConfig.mode.startsWith("currency")) {
-                configToSave.currency = "USD";
-            }
-
-            onChange(configToSave);
-        } else if (isCurrency) {
-            const configToSave: CurrencyConfig = {
-                currency: "USD",
-                allowDecimal: newConfig.mode === "currency_decimal",
-            };
-
-            if (newConfig.min !== undefined) { configToSave.min = newConfig.min; }
-            if (newConfig.max !== undefined) { configToSave.max = newConfig.max; }
-
-            onChange(configToSave);
-        } else {
-            const configToSave: NumberConfig = {
-                step: newConfig.step,
-                allowDecimal: newConfig.allowDecimal,
-            };
-
-            if (newConfig.min !== undefined) { configToSave.min = newConfig.min; }
-            if (newConfig.max !== undefined) { configToSave.max = newConfig.max; }
-
-            onChange(configToSave);
-        }
+        onChange(isCurrency ? buildCurrencyConfig(newConfig) : buildCanonicalNumberConfig(newConfig));
     };
 
     return (

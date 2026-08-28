@@ -54,10 +54,34 @@ export const TEMPORARY_CONFIG_KEY_EXCLUSIONS = {
 function unwrap(schema: z.ZodTypeAny): z.ZodTypeAny {
   let current = schema;
 
-  while (current instanceof z.ZodOptional || current instanceof z.ZodDefault || current instanceof z.ZodNullable) {
-    current = (current as unknown as { _def: { innerType: z.ZodTypeAny } })._def.innerType;
+  for (;;) {
+    if (current instanceof z.ZodOptional || current instanceof z.ZodDefault || current instanceof z.ZodNullable) {
+      current = (current as unknown as { _def: { innerType: z.ZodTypeAny } })._def.innerType;
+      continue;
+    }
+    // A schema carrying a cross-field rule is a ZodEffects wrapping the object.
+    // Without this the catalog silently reported *no config at all* for that
+    // type (found in STB-9, where adding a superRefine to the number schema
+    // made `getConfigKeys('number')` return null). Every family ticket that
+    // adds a cross-field rule would have hit the same wire.
+    if (current instanceof z.ZodEffects) {
+      current = (current as unknown as { _def: { schema: z.ZodTypeAny } })._def.schema;
+      continue;
+    }
+    return current;
   }
-  return current;
+}
+
+/**
+ * Describe one level of nesting, so a canonical config that groups its limits
+ * under `validation` still advertises them. Without this, canonicalizing a
+ * family silently withdraws min/max from the AI's vocabulary.
+ */
+function describeNested(key: string, field: z.ZodTypeAny): string[] {
+  const inner = unwrap(field);
+  if (!(inner instanceof z.ZodObject)) { return []; }
+  const shape = inner.shape as Record<string, z.ZodTypeAny>;
+  return Object.keys(shape).map((child) => `${key}.${child}`);
 }
 
 /** Fail loudly when the temporary manifest drifts from the registered schemas. */
@@ -111,7 +135,10 @@ export function getConfigKeys(stepType: string): string[] | null {
   const exclusions = new Set<string>(TEMPORARY_CONFIG_KEY_EXCLUSIONS[stepType as keyof typeof TEMPORARY_CONFIG_KEY_EXCLUSIONS] ?? []);
   return Object.keys(shape)
     .filter((key) => !exclusions.has(key))
-    .map((key) => describeField(key, shape[key]));
+    .flatMap((key) => {
+      const nested = describeNested(key, shape[key]);
+      return nested.length > 0 ? nested : [describeField(key, shape[key])];
+    });
 }
 
 /**

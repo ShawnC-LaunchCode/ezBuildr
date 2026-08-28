@@ -38,6 +38,7 @@ import type {
   LegacyYesNoConfig,
   FileUploadConfig,
 } from '@shared/types/stepConfigs';
+import { resolveNumberConfig } from '@shared/types/stepConfigs';
 import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
 
 // ============================================================================
@@ -295,18 +296,17 @@ function sanitizeNumberValue(value: unknown, config?: StepConfig): number | null
     return null;
   }
 
-  const numConfig = config as (NumberConfig | NumberAdvancedConfig | CurrencyConfig) | undefined;
+  // No precision rounding here. `precision` is display-only (Decision 13);
+  // the stored value is whatever the respondent entered. This function is also
+  // currently referenced from nowhere -- the live submit path validates through
+  // `BlockValidation.getValidationSchema` -- so anything added here silently
+  // does nothing. Check for a caller before trusting it.
 
-  // Apply precision if specified
-  const precision = (numConfig as NumberValidation)?.precision ?? (numConfig as NumberAdvancedConfig)?.validation?.precision;
-  if (precision !== undefined) {
-    return parseFloat(num.toFixed(precision));
-  }
-
-  // For currency modes with no decimal
-  // Safe cast for checking mode/allowDecimal presence
-  const currencyConfig = numConfig as CurrencyConfig & NumberAdvancedConfig & NumberConfig;
-  if (currencyConfig?.mode === 'currency_whole' || (currencyConfig?.allowDecimal === false)) {
+  // `allowDecimal: false` is handled above -- the canonical resolver maps the
+  // retired boolean to `precision: 0`. Only the currency whole-unit mode is
+  // left here, and it stays until STB-10 implements currency properly.
+  const legacyMode = (config as { mode?: unknown } | undefined)?.mode;
+  if (legacyMode === 'currency_whole') {
     return Math.round(num);
   }
 
@@ -627,13 +627,9 @@ function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedCon
     return;
   }
 
-  // Handle both StepConfig and NumberValidation shapes
-  let validation: NumberValidation | undefined;
-  if (config && 'validation' in config) {
-    validation = (config).validation;
-  } else {
-    validation = config as NumberValidation | undefined;
-  }
+  // Same resolver as the sanitizer and the client rules (STB-9): min/max/step
+  // and precision are read from one place, so the four layers cannot disagree.
+  const validation = resolveNumberConfig('number', config).validation;
 
   if (validation?.min !== undefined && num < validation.min) {
     errors.push(`Value must be at least ${validation.min}`);
@@ -642,6 +638,8 @@ function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedCon
   if (validation?.max !== undefined && num > validation.max) {
     errors.push(`Value must be at most ${validation.max}`);
   }
+
+
 }
 
 function validateScale(value: unknown, config: ScaleConfig | ScaleAdvancedConfig | undefined, errors: string[]): void {

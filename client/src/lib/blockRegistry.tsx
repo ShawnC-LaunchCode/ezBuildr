@@ -336,10 +336,12 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     glyph: "#",
     description: "Numeric input",
     category: "numeric",
-    modes: { easy: true, advanced: true },
+    // Easy authors the canonical type through the `easy.number` preset (STB-9);
+    // this entry is the Advanced canonical editor, as `text` is for its family.
+    modes: { easy: false, advanced: true },
     createDefaultConfig: () => ({
-      step: 1,
-      allowDecimal: false,
+      mode: "number" as const,
+      validation: { step: 1 },
     }),
   },
   {
@@ -610,7 +612,8 @@ export const QUESTION_PRESETS = [
     id: "easy.number",
     label: "Number",
     description: "Plain number input",
-    modes: { easy: true, advanced: true },
+    canonicalized: true,
+    modes: { easy: true, advanced: false },
     canonicalType: "number",
     persistedType: "number",
     createDefaultConfig: () => ({

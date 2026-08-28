@@ -73,7 +73,12 @@ describe('AI vocabulary derivation', () => {
         // radio's config schema carries options; the model needs that key name
         // or it emits choice steps with no options (the ICW2-2 failure mode).
         expect(getConfigKeys('radio')).toContain('options[]');
-        expect(getConfigKeys('number')).toEqual(expect.arrayContaining(['min', 'max']));
+        // Canonical `number` groups its limits under `validation` (STB-9). The
+        // model must still see them, one level in -- withdrawing min/max from
+        // the vocabulary would silently cost AI the ability to set limits.
+        expect(getConfigKeys('number')).toEqual(
+            expect.arrayContaining(['validation.min', 'validation.max']),
+        );
         // A type with no registered schema is still listed, just without keys.
         expect(getConfigKeys('short_text')).toBeNull();
         expect(buildStepTypeCatalog()).toContain('- short_text');
@@ -108,7 +113,13 @@ describe('AI vocabulary derivation', () => {
 
     it('keeps implemented sibling config keys advertised (STB-1 AC2)', () => {
         expect(getConfigKeys('choice')).toContain('options');
-        expect(getConfigKeys('number')).toEqual(expect.arrayContaining(['min', 'max']));
+        expect(getConfigKeys('number')).toEqual(
+            expect.arrayContaining(['validation.min', 'validation.max']),
+        );
+        // A cross-field rule makes the schema a ZodEffects; the catalog must
+        // still see through it rather than reporting the type as freeform.
+        expect(getConfigKeys('number')).not.toBeNull();
+        expect(getConfigKeys('number')).toContain('thousandsSeparator');
     });
 
     it('advertises a key once its family implements it (STB-5)', () => {

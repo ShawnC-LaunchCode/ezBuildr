@@ -15,7 +15,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
-import { resolveTextConfig, type ListValue, type MultiFieldValue } from "@shared/types/stepConfigs";
+import { resolveNumberConfig, resolveTextConfig, type ListValue, type MultiFieldValue } from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
@@ -121,6 +121,7 @@ interface LegacyStepAdapter {
 const LEGACY_STEP_ADAPTERS: Readonly<Partial<Record<string, LegacyStepAdapter>>> = {
   short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
+  number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
 };
 
 /** Adapt a pre-STB-19 row once, before any canonical renderer sees it. */

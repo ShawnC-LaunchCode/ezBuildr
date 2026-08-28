@@ -479,6 +479,78 @@ export interface NumberAdvancedConfig {
   placeholder?: string;
 }
 
+/** Canonical stored answer for the number family. */
+export type NumberValue = number | null;
+
+/**
+ * Canonical stored config for the `number` family (STB-9).
+ *
+ * `mode` carries only the value this ticket implements. STB-10 widens it when
+ * it implements currency end to end; declaring a currency mode before then
+ * would advertise a key with no behaviour behind it, which is exactly what
+ * STB-1 removed. For the same reason there is no `currency` field here yet.
+ *
+ * Per Decision 8: display and storage are separate. `thousandsSeparator`,
+ * `formatOnInput`, `prefix` and `suffix` affect only what the respondent sees;
+ * the stored value is always `number | null`. `prefix`/`suffix` are
+ * plain-number decorations and must not be used to fake currency — ISO
+ * currency formatting owns symbols and fraction rules and belongs to STB-10.
+ */
+export interface NumberCanonicalConfig {
+  mode: 'number';
+  validation?: NumberValidation;
+  /** Group thousands in the displayed value. Display only. */
+  thousandsSeparator?: boolean;
+  /** Group while the field has focus too, rather than only once it blurs. */
+  formatOnInput?: boolean;
+  prefix?: string;
+  suffix?: string;
+  placeholder?: string;
+}
+
+/**
+ * Read a number-family config through the canonical shape.
+ *
+ * Handles three stored dialects: canonical `number`, the pre-STB-9 easy shape
+ * with `min`/`max`/`step`/`allowDecimal` at the root, and `number_advanced`.
+ * A legacy currency mode resolves to plain `number` because the runner has
+ * never honoured currency modes — `NumberBlockRenderer` read only the root
+ * base fields — so nothing that works today is lost. STB-10 implements them.
+ */
+export function resolveNumberConfig(
+  _stepType: string,
+  rawConfig: unknown,
+): NumberCanonicalConfig {
+  const config = isObjectRecord(rawConfig) ? rawConfig : {};
+  const nested = isObjectRecord(config.validation) ? config.validation : {};
+  const validation: NumberValidation = {};
+
+  const pick = (key: string): unknown => nested[key] ?? config[key];
+  const min = pick('min');
+  const max = pick('max');
+  const step = pick('step');
+  const precision = pick('precision');
+  if (typeof min === 'number') { validation.min = min; }
+  if (typeof max === 'number') { validation.max = max; }
+  if (typeof step === 'number') { validation.step = step; }
+  if (typeof precision === 'number') { validation.precision = precision; }
+
+  // The retired easy shape expressed precision as a boolean.
+  if (validation.precision === undefined && config.allowDecimal === false) {
+    validation.precision = 0;
+  }
+
+  const resolved: NumberCanonicalConfig = { mode: 'number' };
+  if (Object.keys(validation).length > 0) { resolved.validation = validation; }
+  if (config.thousandsSeparator === true) { resolved.thousandsSeparator = true; }
+  if (config.formatOnInput === true) { resolved.formatOnInput = true; }
+  if (typeof config.prefix === 'string' && config.prefix !== '') { resolved.prefix = config.prefix; }
+  if (typeof config.suffix === 'string' && config.suffix !== '') { resolved.suffix = config.suffix; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+
+  return resolved;
+}
+
 /**
  * Scale Config (Advanced Mode)
  * Advanced scale with custom styling and ranges

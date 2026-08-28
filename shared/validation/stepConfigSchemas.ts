@@ -80,6 +80,45 @@ export const NumberConfigSchema = z.object({
   placeholder: z.string().optional(),
 }).optional();
 
+/**
+ * Canonical `number` config (STB-9).
+ *
+ * `mode` admits only the implemented value; STB-10 widens it with currency.
+ * `formatOnInput` is live grouping and is meaningless without grouping at all,
+ * and `prefix`/`suffix` are plain-number decorations (Decision 8) — both are
+ * refused rather than silently ignored, so an author cannot save a config the
+ * runner will not honour.
+ */
+export const NumberCanonicalConfigSchema = z.object({
+  // Defaulted, not required. `number` is the only legal value today, so
+  // demanding callers spell it out would break every existing writer to carry
+  // zero information. STB-10 adds currency values alongside it, and a missing
+  // mode still means plain number then.
+  mode: z.enum(['number']).default('number'),
+  validation: NumberValidationSchema,
+  thousandsSeparator: z.boolean().optional(),
+  formatOnInput: z.boolean().optional(),
+  prefix: z.string().max(8).optional(),
+  suffix: z.string().max(8).optional(),
+  placeholder: z.string().optional(),
+}).superRefine((config, ctx) => {
+  if (config.formatOnInput === true && config.thousandsSeparator !== true) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['formatOnInput'],
+      message: 'formatOnInput requires thousandsSeparator: live grouping needs grouping enabled',
+    });
+  }
+  const validation = config.validation;
+  if (validation?.min !== undefined && validation.max !== undefined && validation.min > validation.max) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['validation', 'min'],
+      message: 'min cannot be greater than max',
+    });
+  }
+});
+
 export const CurrencyConfigSchema = z.object({
   currency: z.enum(['USD', 'EUR', 'GBP']).optional(),
   allowDecimal: z.boolean().optional(),
@@ -545,7 +584,7 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     time: TimeConfigSchema,
     datetime: DateTimeConfigSchema,
     email: EmailConfigSchema,
-    number: NumberConfigSchema,
+    number: NumberCanonicalConfigSchema,
     currency: CurrencyConfigSchema,
     scale: ScaleConfigSchema,
     website: WebsiteConfigSchema,

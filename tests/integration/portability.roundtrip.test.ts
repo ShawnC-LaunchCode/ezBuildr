@@ -90,7 +90,10 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
     time: { step: 15 },
     datetime: { includeSeconds: false },
     email: { placeholder: "you@example.com" },
-    number: { min: 0, max: 100, step: 5 },
+    number: {
+      mode: "number", validation: { min: 0, max: 100, step: 5, precision: 2 },
+      thousandsSeparator: true, formatOnInput: true, prefix: "#", suffix: "pts",
+    },
     currency: { currency: "USD", precision: 2 },
     scale: { min: 1, max: 10, minLabel: "Poor", maxLabel: "Great" },
     website: { requireHttps: true },

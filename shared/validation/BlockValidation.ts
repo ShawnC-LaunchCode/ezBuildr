@@ -1,6 +1,6 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
 import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
-import { StepConfig, isNumberConfig, ListConfig, ListItem, ListValue, resolveTextConfig } from "../types/stepConfigs";
+import { StepConfig, ListConfig, ListItem, ListValue, resolveNumberConfig, resolveTextConfig } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
@@ -16,10 +16,6 @@ export interface StepLike {
 /**
  * Type guard helpers for config validation
  */
-interface SimpleNumberConfig {
-    min?: number;
-    max?: number;
-}
 
 interface SimpleChoiceConfig {
     min?: number;
@@ -28,9 +24,6 @@ interface SimpleChoiceConfig {
     maxSelections?: number;
 }
 
-function hasNumberConstraints(config: unknown): config is SimpleNumberConfig {
-    return typeof config === 'object' && config !== null;
-}
 
 function hasChoiceConstraints(config: unknown): config is SimpleChoiceConfig {
     return typeof config === 'object' && config !== null;
@@ -80,19 +73,20 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
         }
 
         case "number":
+        case "number_advanced":
         case "currency": {
-            if (isNumberConfig(config)) {
-                // Check if it is advanced config (has validation object)
-                if ('validation' in config && config.validation) {
-                    const adv = config;
-                    if (adv.validation?.min !== undefined) { rules.push({ type: "minValue", value: adv.validation.min }); }
-                    if (adv.validation?.max !== undefined) { rules.push({ type: "maxValue", value: adv.validation.max }); }
-                } else if (hasNumberConstraints(config)) {
-                    // Simple config (min/max at root)
-                    if (config.min !== undefined) { rules.push({ type: "minValue", value: config.min }); }
-                    if (config.max !== undefined) { rules.push({ type: "maxValue", value: config.max }); }
-                }
-            }
+            // One resolver for every stored number dialect, so the rules the
+            // client enforces cannot drift from the config the runner reads.
+            const c = resolveNumberConfig(step.type, config);
+            if (c.validation?.min !== undefined) { rules.push({ type: "minValue", value: c.validation.min }); }
+            if (c.validation?.max !== undefined) { rules.push({ type: "maxValue", value: c.validation.max }); }
+            // `precision` is deliberately NOT a rule here: it is a display
+            // constraint, not a storage one (Decision 13). Legal work routinely
+            // mixes values rounded to the dollar with values to the cent, so the
+            // platform collects and stores exactly what the respondent entered
+            // and leaves rounding to the author's formulas. Constraining storage
+            // here would silently corrupt the base of every downstream
+            // calculation.
             break;
         }
 
