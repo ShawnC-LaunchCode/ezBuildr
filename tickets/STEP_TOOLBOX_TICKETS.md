@@ -462,7 +462,7 @@ the result is static. STB-3C owns this code region and memoizes it there.
 
 ---
 
-## STB-3C — Make the preset plumbing data-driven so families can fan out 🔲
+## STB-3C — Make the preset plumbing data-driven so families can fan out ✅
 
 **Priority: P1** · Size: S · File: `client/src/lib/blockRegistry.tsx`
 
@@ -519,15 +519,40 @@ already proven by STB-3 — behind a data-driven seam, and must leave the Text p
 
 ### Acceptance criteria
 
-1. `getBlocksByMode` names no step type or preset id; a family appears in the Easy menu solely by having
-   `persistedType === canonicalType`, proven by a test that flips a non-text preset in a fixture and sees it
-   appear without touching the function.
+1. `getBlocksByMode` names no step type or preset id; a family appears in the Easy menu solely by opting in
+   through its own preset data, proven by a test that walks `QUESTION_PRESETS` rather than naming a family.
+
+   **Amended at implementation (reviewer).** As written this criterion was wrong, and implementing it exposed
+   why. The proposed gate `persistedType === canonicalType` is already satisfied *incidentally* by
+   `easy.file-upload`, whose legacy and canonical names happen to coincide — so adopting it would have silently
+   published File Upload as an Easy palette action. File Upload has no authoring path yet and belongs to
+   **STB-11**. The gate is therefore an explicit `canonicalized: true` on the preset, which a family ticket sets
+   in the same edit where it flips `persistedType`. It keeps the fan-out property — each lane edits only its own
+   preset objects — without the accidental activation, and a test now pins File Upload out of the palette while
+   asserting `canonicalized` implies `persistedType === canonicalType`.
 2. `description` is preset data; the id-ternary is deleted, not relocated.
 3. `BlockRenderer` dispatches legacy adaptation through a per-family adapter map, and registering an adapter
    requires no edit to the switch.
 4. Text preset behavior, labels, icons, descriptions and stored output are byte-for-byte unchanged — this is a
    refactor, and the existing STB-3/STB-3A tests must pass untouched.
 5. Type-check, lint, and `test:fast` pass without count regression.
+
+**Verified 2026-08-28 (reviewer, self-implemented):** worked by the reviewer rather than dispatched, because it
+is Size S and sits between two tickets that contend for the same file. **This commit is therefore not
+independently reviewed** — the Phase 1 Gate drive-through remains the real check on it. Gates: `npm run
+type-check` 0 errors, `npm run check:strict-zones` 6/6 zones, `npm run lint` 0 problems, `npm run test:fast`
+315 files / 3,498 tests passed, up 2 from the 3,496 STB-3B baseline.
+
+What landed: `description` is preset data on all twelve presets and the `easy.long-text` id-ternary is deleted;
+`getBlocksByMode` filters on `preset.canonicalized === true && preset.modes[mode]` and names no type or id;
+`BlockRenderer` adapts retired rows once through `LEGACY_STEP_ADAPTERS` before the switch, so all seventeen
+renderer call sites now receive an already-canonical step and a family registers an adapter without touching the
+switch. The STB-3B discriminator scan is hoisted into a module-level `FAMILY_DISCRIMINATORS` map, so its
+`createDefaultConfig()` allocations happen once instead of on every icon render — the efficiency point carried
+forward from that review.
+
+Text behavior is unchanged by construction: the STB-3/STB-3A/STB-3B tests all pass untouched, and the palette,
+tiles and stored output were re-checked live (see the Phase 1 Gate note).
 
 ---
 

@@ -189,6 +189,44 @@ describe('QUESTION_PRESETS canonical contract', () => {
     });
   });
 
+  it('drives the Easy palette from preset data, naming no type or preset id (STB-3C)', () => {
+    // The whole point of STB-3C: a family joins the palette by setting
+    // `canonicalized` on its own presets, so STB-4..STB-10 never edit
+    // getBlocksByMode and cannot collide there.
+    const easy = getBlocksByMode('easy');
+    const canonicalized = QUESTION_PRESETS.filter((preset) => preset.canonicalized === true);
+
+    for (const preset of canonicalized) {
+      if (!preset.modes.easy) { continue; }
+      expect(easy).toContainEqual(expect.objectContaining({
+        id: preset.id,
+        type: preset.persistedType,
+        label: preset.label,
+        description: preset.description,
+      }));
+    }
+
+    // A preset that has not been canonicalized must not appear, even when its
+    // persistedType already equals its canonicalType. `file_upload` satisfies
+    // that incidentally and is owned by STB-11 -- this is the regression the
+    // naive `persistedType === canonicalType` gate would have introduced.
+    const fileUpload = QUESTION_PRESETS.find((preset) => preset.id === 'easy.file-upload');
+    expect(fileUpload?.persistedType).toBe(fileUpload?.canonicalType);
+    expect(fileUpload?.canonicalized).toBeUndefined();
+    expect(easy.some((block) => block.id === 'easy.file-upload')).toBe(false);
+    expect(easy.some((block) => block.type === 'file_upload')).toBe(false);
+  });
+
+  it('keeps canonicalized presets consistent with their persisted identity', () => {
+    for (const preset of QUESTION_PRESETS) {
+      expect(typeof preset.description).toBe('string');
+      expect(preset.description.length).toBeGreaterThan(0);
+      if (preset.canonicalized === true) {
+        expect(preset.persistedType).toBe(preset.canonicalType);
+      }
+    }
+  });
+
   it('derives canonical text presentation from the preset config discriminator', () => {
     expect(getQuestionTypePresentation('text', { variant: 'short' })).toMatchObject({
       label: 'Short Text', glyph: 'T', category: 'text',

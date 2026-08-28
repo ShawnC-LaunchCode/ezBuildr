@@ -88,12 +88,26 @@ export interface QuestionPreset<Type extends CanonicalStepType = CanonicalStepTy
   /** Stable UI identity; never used as a persisted step type. */
   id: string;
   label: string;
+  /** Palette copy shown under the label. Preset data, not derived from `id`. */
+  description: string;
   modes: {
     easy: boolean;
     advanced: boolean;
   };
   canonicalType: Type;
   persistedType: StepType;
+  /**
+   * Set by a family's canonicalization ticket, and the single gate for whether
+   * this preset drives authoring: once true the preset — not a BLOCK_REGISTRY
+   * entry — is the palette action, and stored rows of this family resolve their
+   * presentation through the sibling discriminator.
+   *
+   * It is deliberately explicit rather than inferred from
+   * `persistedType === canonicalType`, because some families already satisfy
+   * that incidentally (`file_upload`) without having an authoring path yet.
+   * `blockRegistry.test.ts` asserts the two agree wherever this is true.
+   */
+  canonicalized?: boolean;
   /** Optional preset-specific mark when several presets share one stored type. */
   presentation?: Omit<QuestionTypePresentation, "label">;
   createDefaultConfig: () => StepConfigByType[Type];
@@ -485,6 +499,8 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.short-text",
     label: "Short Text",
+    description: "Single-line text input",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "text",
     persistedType: "text",
@@ -494,6 +510,8 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.long-text",
     label: "Long Text",
+    description: "Multi-line text area",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "text",
     persistedType: "text",
@@ -503,6 +521,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.yes-no",
     label: "Yes/No",
+    description: "Yes or no choice",
     modes: { easy: true, advanced: false },
     canonicalType: "boolean",
     persistedType: "yes_no",
@@ -515,6 +534,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.true-false",
     label: "True/False",
+    description: "True or false choice",
     modes: { easy: true, advanced: false },
     canonicalType: "boolean",
     persistedType: "true_false",
@@ -527,6 +547,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.date",
     label: "Date",
+    description: "Calendar date",
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
     persistedType: "date",
@@ -535,6 +556,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.time",
     label: "Time",
+    description: "Time of day",
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
     persistedType: "time",
@@ -547,6 +569,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.date-time",
     label: "Date/Time",
+    description: "Date and time together",
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
     persistedType: "date_time",
@@ -559,6 +582,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.single-select",
     label: "Single Select",
+    description: "Pick exactly one option",
     modes: { easy: true, advanced: false },
     canonicalType: "choice",
     persistedType: "radio",
@@ -575,6 +599,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.multiple-choice",
     label: "Multiple Choice",
+    description: "Pick one or more options",
     modes: { easy: true, advanced: false },
     canonicalType: "choice",
     persistedType: "multiple_choice",
@@ -591,6 +616,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.number",
     label: "Number",
+    description: "Plain number input",
     modes: { easy: true, advanced: true },
     canonicalType: "number",
     persistedType: "number",
@@ -602,6 +628,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.currency",
     label: "Currency",
+    description: "Money amount",
     modes: { easy: true, advanced: false },
     canonicalType: "number",
     persistedType: "currency",
@@ -613,6 +640,7 @@ export const QUESTION_PRESETS = [
   defineQuestionPreset({
     id: "easy.file-upload",
     label: "File Upload",
+    description: "File attachment",
     modes: { easy: true, advanced: true },
     canonicalType: "file_upload",
     persistedType: "file_upload",
@@ -641,29 +669,33 @@ export function getQuestionPresetPresentation(
 /**
  * Get block registry entries filtered by mode
  */
+/** A canonicalized preset rendered as a palette action. */
+function toPaletteEntry(preset: QuestionPreset): BlockRegistryEntry {
+  return {
+    id: preset.id,
+    type: preset.persistedType,
+    ...getQuestionPresetPresentation(preset),
+    description: preset.description,
+    modes: preset.modes,
+    createDefaultConfig: preset.createDefaultConfig,
+  };
+}
+
+/**
+ * Get block registry entries filtered by mode.
+ *
+ * This names no step type and no preset id: a family joins the palette purely
+ * by setting `canonicalized` on its own presets, which is the edit its own
+ * ticket already makes. That is what lets STB-4..STB-10 run as parallel lanes
+ * without contending over this function.
+ */
 export function getBlocksByMode(mode: "easy" | "advanced"): BlockRegistryEntry[] {
   const registered = BLOCK_REGISTRY.filter((block) => block.modes[mode]);
-  if (mode !== "easy") { return registered; }
+  const presets = QUESTION_PRESETS
+    .filter((preset) => preset.canonicalized === true && preset.modes[mode])
+    .map(toPaletteEntry);
 
-  // STB-3 is the first family to move from legacy registry identities to
-  // presets. Later family tickets add their presets here as they canonicalize.
-  const textPresets = QUESTION_PRESETS
-    .filter((preset) => preset.modes.easy && preset.canonicalType === "text")
-    .map((preset): BlockRegistryEntry => {
-      const presentation = getQuestionPresetPresentation(preset);
-      return {
-        id: preset.id,
-        type: preset.persistedType,
-        ...presentation,
-        description: preset.id === "easy.long-text"
-          ? "Multi-line text area"
-          : "Single-line text input",
-        modes: preset.modes,
-        createDefaultConfig: preset.createDefaultConfig,
-      };
-    });
-
-  return [...textPresets, ...registered];
+  return [...presets, ...registered];
 }
 
 /**
@@ -700,27 +732,59 @@ function isScalarDiscriminator(value: unknown): value is string | number | boole
  * coupled to QUESTION_PRESETS as new families canonicalize, without rebuilding
  * their variant/kind/style switches in the display layer.
  */
+interface FamilyDiscriminators {
+  presentations: readonly QuestionTypePresentation[];
+  defaults: readonly Readonly<Record<string, unknown>>[];
+  keys: readonly string[];
+}
+
+/**
+ * Discriminator scan per canonical family, computed once.
+ *
+ * `QUESTION_PRESETS` is a module constant, so the scan — and the
+ * `createDefaultConfig()` allocations it makes per sibling — is static. It
+ * previously ran on every icon render.
+ */
+const FAMILY_DISCRIMINATORS: ReadonlyMap<string, FamilyDiscriminators> = (() => {
+  const byType = new Map<string, FamilyDiscriminators>();
+
+  for (const canonicalType of new Set(QUESTION_PRESETS.map((preset) => preset.canonicalType))) {
+    const family = QUESTION_PRESETS.filter(
+      (preset) => preset.canonicalized === true && preset.canonicalType === canonicalType,
+    );
+    if (family.length < 2) { continue; }
+
+    const defaults = family.map(
+      (preset) => preset.createDefaultConfig() as Readonly<Record<string, unknown>>,
+    );
+    const keys = Object.keys(defaults[0]).filter((key) => {
+      const values = defaults.map((defaultConfig) => defaultConfig[key]);
+      return values.every(isScalarDiscriminator) && new Set(values).size === family.length;
+    });
+    if (keys.length === 0) { continue; }
+
+    byType.set(canonicalType, {
+      presentations: family.map(getQuestionPresetPresentation),
+      defaults,
+      keys,
+    });
+  }
+
+  return byType;
+})();
+
 function getStoredPresetPresentation(
   type: string,
   config: unknown,
 ): QuestionTypePresentation | undefined {
   if (!isConfigRecord(config)) { return undefined; }
 
-  const family = QUESTION_PRESETS.filter(
-    (preset) => preset.canonicalType === type && preset.persistedType === type,
-  );
-  if (family.length < 2) { return undefined; }
-
-  const defaults = family.map((preset) => preset.createDefaultConfig() as Readonly<Record<string, unknown>>);
-  const candidateKeys = Object.keys(defaults[0]).filter((key) => {
-    const values = defaults.map((defaultConfig) => defaultConfig[key]);
-    return values.every(isScalarDiscriminator)
-      && new Set(values).size === family.length;
-  });
+  const family = FAMILY_DISCRIMINATORS.get(type);
+  if (!family) { return undefined; }
 
   const matches = new Set<number>();
-  for (const key of candidateKeys) {
-    const matchingIndex = defaults.findIndex(
+  for (const key of family.keys) {
+    const matchingIndex = family.defaults.findIndex(
       (defaultConfig) => Object.is(defaultConfig[key], config[key]),
     );
     if (matchingIndex !== -1) { matches.add(matchingIndex); }
@@ -728,7 +792,7 @@ function getStoredPresetPresentation(
 
   if (matches.size !== 1) { return undefined; }
   const [matchingIndex] = matches;
-  return getQuestionPresetPresentation(family[matchingIndex]);
+  return family.presentations[matchingIndex];
 }
 
 export function getQuestionTypePresentation(
