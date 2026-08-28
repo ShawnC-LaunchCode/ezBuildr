@@ -80,7 +80,7 @@ for those. A stale line number is not a broken ticket and does not require the t
 | Phase | Theme | Tickets | Est. effort |
 |---|---|---|---:|
 | 0 | Immediate containment and shared foundation | STB-1..2 | 1–2 days |
-| 1 | Canonical families and selected UX capabilities | STB-3..3B, STB-4..12 | 10–15 days |
+| 1 | Canonical families and selected UX capabilities | STB-3..3C, STB-4..12 | 6–10 days (4 lanes) |
 | 2 | Remaining family cleanup and runtime consistency | STB-13..15A | 4–7 days |
 | 3 | AI, API, template, and portability boundaries | STB-16..18 | 3–5 days |
 | 4 | Tested stored-artifact backfill | STB-19..20 | 3–5 days |
@@ -214,11 +214,34 @@ unit-fast files passed 29/29, type-check reported 0 errors, lint reported 0 prob
 Each ticket is a narrow vertical slice from preset/editor through validation, runner, and stored value. Tickets
 within one family are sequential. The Phase Gate batches the live builder/runner drive-through.
 
-**Scheduling note — this phase has effectively no parallelism.** STB-3..10 all edit the shared step-config and
-schema files, so their Ties require one continuous sequence; the 10–15 day estimate reflects ten serial M-sized
-tickets, not a fan-out. Either accept that explicitly, or first extract the shared config/type edits for all six
-families into a single prep ticket so the family tickets can afterwards be dispatched to parallel worktrees. Do
-**not** dispatch STB-3..10 concurrently into one tree on the assumption that the collisions are theoretical.
+**Scheduling — four parallel lanes, once STB-3B and STB-3C have landed.** This note previously said the phase
+had effectively no parallelism. That was re-examined at the STB-3A review and is now superseded. The
+inter-family dependencies were only ever *"shared config/schema files overlap"* — never logic — and STB-2
+already defined all twelve presets with their `canonicalType` set, so each family ticket's work in
+`blockRegistry.tsx` is data-only. **STB-3C** removes the remaining single-point edits in the shared plumbing,
+after which the four families are genuinely independent:
+
+| Lane | Tickets | Family |
+|---|---|---|
+| A | STB-4 | Date / Time / Date-Time |
+| B | STB-5 → STB-6 | Boolean |
+| C | STB-7 → STB-8 | Choice |
+| D | STB-9 → STB-10 | Number / Currency |
+
+Critical path drops from seven serial M tickets to two, plus the prep. The rules that still bind:
+
+- **Within a lane, strictly sequential.** B, C and D each rewrite one editor/runner pair twice; the second
+  ticket inherits the first's rewrite and must never be split off or dispatched alongside it.
+- **Dispatch two or three lanes at a time, never all four**, per the repo's parallel-work guidance, and give
+  each its own worktree. Never a shared tree.
+- **Only one lane may run DB-backed suites at a time.** Test-suite contention is a file footprint too: two
+  concurrent DB runs share a schema and fake dozens of failures.
+- Lanes still collide *textually* in the `stepConfigSchemas.ts` schema map and in `NORMALIZED_STEP_TYPES`,
+  where each adds and removes its own disjoint keys. Those conflicts are additive and resolve mechanically.
+  The reviewer resolves them at commit time, one ticket per commit — devs still never commit.
+- **The seams between lanes are what per-ticket gates cannot see.** Four green lanes do not prove the families
+  agree with each other; the Phase 1 Gate's cross-family checks are the only place that is caught. Do not
+  weaken them to fit a schedule.
 
 ## STB-3 — Canonicalize Short and Long Text as `text` presets ✅
 
@@ -395,8 +418,8 @@ this adds a second resolution input, it does not replace either mechanism. Deriv
 
 ### Ties
 
-- Depends on STB-3A. Should land before the Phase 1 Gate drive-through. STB-4..STB-10 each add a discriminator
-  this resolver must then cover, so landing it early stops those tickets re-inventing it.
+- Depends on STB-3A; **precedes STB-3C and every lane**. STB-4..STB-10 each add a discriminator this
+  resolver must cover, so it lands before the fan-out rather than being re-invented four times.
 - Load `design` (user-visible builder UI) and `run-tests`.
 - File footprint: `blockRegistry.tsx`, `QuestionTypeIcon.tsx`, `sidebar/StepItem.tsx`,
   `cards/common/StepIcons.tsx`, `cards/list/ListLevelEditor.tsx` and their unit tests. Collides with STB-4..10
@@ -412,6 +435,75 @@ this adds a second resolution input, it does not replace either mechanism. Deriv
 4. The mapping is derived from `QUESTION_PRESETS`; no second hand-written variant switch is introduced.
 5. Unit tests assert the canonical long/short distinction and fail if either collapses back to the bare tile.
 6. Type-check, lint, and `test:fast` pass without count regression.
+
+---
+
+## STB-3C — Make the preset plumbing data-driven so families can fan out 🔲
+
+**Priority: P1** · Size: S · File: `client/src/lib/blockRegistry.tsx`
+
+### Finding
+
+Written at the STB-3A review, to replace this phase's original "no parallelism" scheduling note.
+
+STB-2 already defined all twelve Easy presets with their `canonicalType` set; a family ticket only has to flip
+its own presets' `persistedType`, add a `createDefaultConfig` and a `presentation`. That part is data, and data
+for disjoint families does not collide. What forces the families into one sequence is a small amount of shared
+*plumbing* that still names the text family explicitly:
+
+```ts
+const textPresets = QUESTION_PRESETS
+  .filter((preset) => preset.modes.easy && preset.canonicalType === "text")
+  .map((preset): BlockRegistryEntry => {
+    // ...
+    description: preset.id === "easy.long-text"
+      ? "Multi-line text area"
+      : "Single-line text input",
+```
+
+Both the `canonicalType === "text"` filter and the id-ternary description are single expressions that **every**
+remaining family ticket would have to edit, in the same function, to light up its own presets — four lanes
+fighting over four lines. `BlockRenderer` has the same shape, where STB-3 added a one-off adapter rather than a
+dispatch point:
+
+```ts
+function toCanonicalTextStep(step: Step): Step {
+```
+
+### Preferred fix
+
+Make the plumbing read the preset data instead of naming families.
+
+Drive the Easy injection off the presets themselves: a preset participates once its family is canonical, which
+is exactly `preset.persistedType === preset.canonicalType`. A family then lights up in the Easy menu purely by
+flipping its own `persistedType` — no edit to `getBlocksByMode` ever again. Move `description` onto
+`QuestionPreset` alongside `presentation` and delete the ternary. Generalize `toCanonicalTextStep` into a
+`toCanonicalStep` that dispatches through a small map of per-family `resolve*Config` adapters, so a family
+registers its adapter rather than editing the renderer's switch.
+
+Change no stored shape and no schema in this ticket. It moves exactly one family's worth of behavior — the one
+already proven by STB-3 — behind a data-driven seam, and must leave the Text presets rendering identically.
+
+### Ties
+
+- Depends on STB-3B. **Blocks the lane fan-out**: STB-4, STB-5, STB-7 and STB-9 all depend on this, and on
+  nothing else in Phase 1.
+- Load `run-tests`. No `design` need — this ticket has no visual output of its own; if the Text presets look
+  any different afterwards, it has gone wrong.
+- File footprint: `blockRegistry.tsx`, `runner/blocks/BlockRenderer.tsx` and their unit tests. Touches the two
+  files the lanes would otherwise contend over, which is the entire point of landing it first.
+
+### Acceptance criteria
+
+1. `getBlocksByMode` names no step type or preset id; a family appears in the Easy menu solely by having
+   `persistedType === canonicalType`, proven by a test that flips a non-text preset in a fixture and sees it
+   appear without touching the function.
+2. `description` is preset data; the id-ternary is deleted, not relocated.
+3. `BlockRenderer` dispatches legacy adaptation through a per-family adapter map, and registering an adapter
+   requires no edit to the switch.
+4. Text preset behavior, labels, icons, descriptions and stored output are byte-for-byte unchanged — this is a
+   refactor, and the existing STB-3/STB-3A tests must pass untouched.
+5. Type-check, lint, and `test:fast` pass without count regression.
 
 ---
 
@@ -440,7 +532,7 @@ time-format, and minute-step behavior. Remove `showDate`/`showTime` and defer ti
 
 ### Ties
 
-- Depends on STB-3 review because shared config/schema files overlap.
+- **Lane A head.** Depends on STB-3C only; dispatch in parallel with the Lane B/C/D heads.
 - Load `add-step-type`, `run-tests`, and `verify`.
 - File footprint: date/time presets, `DateTimeCardEditor`, date/time runner blocks/routing, shared date config
   schema/types, validation tests. Collides with STB-15 and STB-19.
@@ -491,7 +583,8 @@ selector in Easy. Preserve `boolean | string | null` storage; STB-6 adds checkbo
 
 ### Ties
 
-- Depends on STB-4 review. STB-6 is the required sequential follow-up in the same files.
+- **Lane B head.** Depends on STB-3C only, not on Lane A. STB-6 is the required sequential follow-up in
+  the same files and must stay in this lane.
 - Load `add-step-type`, `run-tests`, and `verify`.
 - File footprint: Boolean presets/editor/runner, shared Boolean schema/types, validation and component tests.
 
@@ -601,7 +694,8 @@ values. Dynamic sources remain Advanced and unchanged until STB-8 extends option
 
 ### Ties
 
-- Depends on STB-6 review. STB-8 shares Choice files and is strictly sequential.
+- **Lane C head.** Depends on STB-3C only, not on Lane A or B. STB-8 shares Choice files and is strictly
+  sequential behind this ticket.
 - Load `add-step-type`, `run-tests`, and `verify`.
 - File footprint: Choice presets/editor/hooks/runner, shared schemas/types, validation and existing Choice tests.
 
@@ -702,7 +796,7 @@ non-editable adornments. Do not enforce min/max by discarding keystrokes; report
 
 ### Ties
 
-- Depends on STB-8 review because shared config files collide. STB-10 extends the same Number files.
+- **Lane D head.** Depends on STB-3C only. STB-10 extends the same Number files and stays in this lane.
 - Load `add-step-type`, `run-tests`, and `verify`.
 - File footprint: Number preset/editor/runner, shared Number schema/types, server sanitization/validation, tests.
 
@@ -868,7 +962,11 @@ Do not generate or persist thumbnail assets.
 
 ## Phase 1 Gate
 
-- [ ] STB-3, STB-3A, STB-3B and STB-4..12 are ✅ with dated verification notes.
+- [ ] STB-3, STB-3A, STB-3B, STB-3C and STB-4..12 are ✅ with dated verification notes.
+- [ ] **Cross-lane seam check.** The four families were built in parallel, so per-ticket gates never saw
+      them together: confirm one workflow holding a canonical step of every family renders, validates,
+      submits, resumes and formats consistently, and that no lane's `NORMALIZED_STEP_TYPES` or schema-map
+      edit silently dropped another lane's key.
 - [ ] Easy add menu creates only canonical Text, DateTime, Boolean, Choice, Number, and File Upload rows while
       retaining the agreed friendly preset labels.
 - [ ] Advanced reveals full implemented settings; switching modes preserves hidden config byte-for-byte.
