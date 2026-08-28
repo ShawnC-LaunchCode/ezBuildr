@@ -234,8 +234,13 @@ Critical path drops from seven serial M tickets to two, plus the prep. The rules
   ticket inherits the first's rewrite and must never be split off or dispatched alongside it.
 - **Dispatch two or three lanes at a time, never all four**, per the repo's parallel-work guidance, and give
   each its own worktree. Never a shared tree.
-- **Only one lane may run DB-backed suites at a time.** Test-suite contention is a file footprint too: two
-  concurrent DB runs share a schema and fake dozens of failures.
+- **DB suites may run concurrently, one per worktree.** This rule previously said one lane at a time; that was
+  over-conservative and is corrected here. The clobbering failure mode is two vitest runs against the *same*
+  database, because `tests/setup.ts` names schemas per **worker**, not per process. `scripts/new-worktree.ps1`
+  now provisions a database per worktree (`ezbuildr_test_stb_4`, `_stb_5`, `_stb_7`, `_stb_9`, verified
+  2026-08-28) and rewrites `TEST_DATABASE_URL`, so lanes cannot collide. What still must never happen is two
+  runs inside **one** worktree, or any lane pointing at another's database. `docker compose down` also wipes
+  the tmpfs and destroys every per-worktree database at once -- do not run it while lanes are active.
 - Lanes still collide *textually* in the `stepConfigSchemas.ts` schema map and in `NORMALIZED_STEP_TYPES`,
   where each adds and removes its own disjoint keys. Those conflicts are additive and resolve mechanically.
   The reviewer resolves them at commit time, one ticket per commit — devs still never commit.
