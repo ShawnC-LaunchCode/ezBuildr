@@ -154,7 +154,6 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     const page = await factory.createPage(workflow.id);
     const choiceConfig: ChoiceAdvancedConfig = {
       display: 'dropdown',
-      allowMultiple: false,
       options: {
         type: 'table_column',
         dataSourceId: 'native',

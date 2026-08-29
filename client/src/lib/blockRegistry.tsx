@@ -262,7 +262,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     icon: CircleDot,
     description: "Single choice (radio buttons)",
     category: "choice",
-    modes: { easy: true, advanced: false },
+    modes: { easy: false, advanced: false },
     createDefaultConfig: () => ({
       options: [
         { id: "1", label: "Option 1" },
@@ -277,7 +277,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     icon: CheckSquare,
     description: "Multiple selection (checkboxes)",
     category: "choice",
-    modes: { easy: true, advanced: false },
+    modes: { easy: false, advanced: false },
     createDefaultConfig: () => ({
       options: [
         { id: "1", label: "Option 1" },
@@ -470,6 +470,16 @@ const DATE_TIME_PRESET_PRESENTATION = {
   category: "datetime",
 } as const satisfies Omit<QuestionTypePresentation, "label">;
 
+const SINGLE_SELECT_PRESET_PRESENTATION = {
+  icon: CircleDot,
+  category: "choice",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const MULTIPLE_CHOICE_PRESET_PRESENTATION = {
+  icon: CheckSquare,
+  category: "choice",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
@@ -577,34 +587,44 @@ export const QUESTION_PRESETS = [
     id: "easy.single-select",
     label: "Single Select",
     description: "Pick exactly one option",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "choice",
-    persistedType: "radio",
+    persistedType: "choice",
+    presentation: SINGLE_SELECT_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       display: "radio",
-      allowMultiple: false,
-      options: [
-        { id: "1", label: "Option 1" },
-        { id: "2", label: "Option 2" },
-        { id: "3", label: "Option 3" },
-      ],
+      layout: "vertical",
+      options: {
+        type: "static",
+        options: [
+          { id: "1", label: "Option 1" },
+          { id: "2", label: "Option 2" },
+          { id: "3", label: "Option 3" },
+        ],
+      },
     }),
   }),
   defineQuestionPreset({
     id: "easy.multiple-choice",
     label: "Multiple Choice",
     description: "Pick one or more options",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "choice",
-    persistedType: "multiple_choice",
+    persistedType: "choice",
+    presentation: MULTIPLE_CHOICE_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       display: "multiple",
-      allowMultiple: true,
-      options: [
-        { id: "1", label: "Option 1" },
-        { id: "2", label: "Option 2" },
-        { id: "3", label: "Option 3" },
-      ],
+      layout: "vertical",
+      options: {
+        type: "static",
+        options: [
+          { id: "1", label: "Option 1" },
+          { id: "2", label: "Option 2" },
+          { id: "3", label: "Option 3" },
+        ],
+      },
     }),
   }),
   defineQuestionPreset({

@@ -293,7 +293,7 @@ function generateChoiceValue(step: ApiStep): string | string[] {
   if (config?.options && Array.isArray(config.options)) {
     const options = config.options as Array<{ id: string; alias?: string }>;
 
-    if (config.allowMultiple) {
+    if (config.display === 'multiple') {
       // Multiple selection: pick 1-3 random options
       const count = Math.min(
         Math.floor(Math.random() * 3) + 1,

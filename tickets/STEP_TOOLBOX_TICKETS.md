@@ -791,7 +791,7 @@ result instead of silently converting stored answers.
 
 ---
 
-## STB-7 — Canonicalize Choice and implement radio/checkbox layout 🔲
+## STB-7 — Canonicalize Choice and implement radio/checkbox layout ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/ChoiceBlock.tsx`
 
@@ -838,6 +838,37 @@ values. Dynamic sources remain Advanced and unchanged until STB-8 extends option
 4. Existing dropdown, combobox, dynamic-source, missing-option, min/max, and alias behavior remains green.
 5. Tests cover presets, all display values, both layouts, single/multiple storage, and invalid configs.
 6. The Vertical proof and standard gates pass.
+
+**Sent back, then completed by the reviewer, 2026-08-29.** The turn-in reported an A with type-check, lint and
+`test:fast` green, but deleted three tests and added none (3,498 -> 3,495, which this file calls a stop
+condition), left AC5 without the coverage it names, and shipped no Vertical proof for AC6.
+
+**Writing the Vertical proof found a break that would have shipped.**
+`RunPersistenceWriter.validateChoiceValue` still derived cardinality from
+`getConfigBoolean(step.config, 'allowMultiple')` — the field this ticket removed from authoring. Every canonical
+`display: 'multiple'` step therefore rendered checkboxes and then **rejected its own submission** with
+"expected one option value". The turn-in explicitly claimed this file had been stripped of `allowMultiple`; it
+had not. Nothing caught it because no test submitted a multi-select value through the server, which is exactly
+the gap AC6 exists to close. Cardinality now comes from `resolveChoiceDisplay`, as AC2 requires.
+
+**Ruling on `allowMultiple`:** honoured on **read only**, never writable. It was a *required* field before this
+ticket, and the previous resolver returned `multiple` when either it or `display` said so — a disagreement the
+ticket's own Finding notes was reachable, since AI, API and import callers bypass the editor that kept the two
+in step. Such a row is a real multi-select holding a `string[]`; deleting the signal outright would silently
+read it as a radio and orphan the answer. This matches every sibling family
+(`resolveTextConfig`, `resolveNumberConfig`, `resolveDateTimeConfig`, Boolean's `yesLabel ?? trueLabel`).
+**STB-19 must map `allowMultiple: true` to `display: 'multiple'` before removing it from stored artifacts.**
+
+Reviewer added: the three deleted precedence tests restored, one pinning that `allowMultiple: false` is ignored
+so display governs new rows, ten covering both layouts x both cardinalities plus storage shape
+(`ChoiceLayout.test.tsx`), and the five-test vertical proof (`choice-canonicalization.test.ts`) covering
+canonical creation with layout stored but inert, invalid display *and* invalid layout rejected with no row
+written, cross-tenant create/update denial with rows unchanged, string-vs-array storage, and the legacy
+disagreeing row round-tripping its array.
+
+Gates re-run on the tree rebased onto STB-4/5/9: type-check 0, `check:strict-zones` 6/6, lint 0 problems,
+`test:fast` 322 files / 3,597 tests, `StepService.db` 16/16, vertical proof 5/5. The count reconciles exactly —
+3,586 + 14 added - 3 the dev deleted — so the ticket now adds coverage instead of removing it.
 
 ---
 

@@ -379,7 +379,7 @@ export interface ChoiceAdvancedConfig {
    * `searchable: true` pairing — see `searchable` below.
    */
   display: 'radio' | 'dropdown' | 'combobox' | 'multiple';
-  allowMultiple: boolean;  // Enable multi-select
+  layout?: 'vertical' | 'horizontal';  // Layout for radio/multiple controls
   options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or DynamicConfig (Legacy)
   dynamicOptions?: DynamicOptionsConfig; // Explicit dynamic options configuration
   min?: number;            // Minimum selections (for multiple)
@@ -426,11 +426,26 @@ export type ChoiceDisplay = 'radio' | 'dropdown' | 'combobox' | 'multiple';
  *    checkboxes.
  */
 export function resolveChoiceDisplay(
-  config: Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'> | undefined | null,
+  config: Pick<ChoiceAdvancedConfig, 'display' | 'searchable'> | undefined | null,
   stepType?: string,
 ): ChoiceDisplay {
   if (stepType === 'multiple_choice') { return 'multiple'; }
-  if (config?.allowMultiple === true || config?.display === 'multiple') { return 'multiple'; }
+  if (config?.display === 'multiple') { return 'multiple'; }
+  // Read compatibility for rows written before STB-7 (reviewer, 2026-08-29).
+  // `allowMultiple` is gone from the authored schema -- nothing can write it
+  // any more, and `display` alone decides cardinality for anything new. But it
+  // was a *required* field, and the previous resolver returned 'multiple' when
+  // either it or `display` said so, which the ticket's own Finding notes could
+  // disagree. AI, API and import callers bypass the editor that kept them in
+  // step, so a stored `{ display: 'radio', allowMultiple: true }` was a real
+  // multi-select whose answer is a string[]. Dropping the signal outright would
+  // silently make it single-select and orphan that answer, so it is honoured on
+  // read only, exactly as resolveTextConfig/resolveNumberConfig/
+  // resolveDateTimeConfig do for their families. STB-19 must map it to
+  // `display: 'multiple'` before removing it from stored artifacts.
+  if ((config as { allowMultiple?: unknown } | undefined | null)?.allowMultiple === true) {
+    return 'multiple';
+  }
   if (config?.display === 'combobox') { return 'combobox'; }
   if (config?.display === 'dropdown') {
     return config.searchable === true ? 'combobox' : 'dropdown';

@@ -152,7 +152,6 @@ describe.sequential('LIST2-9: list lifecycle', () => {
           order: 1,
           config: {
             display: 'radio',
-            allowMultiple: false,
             options: {
               type: 'static',
               options: [

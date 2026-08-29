@@ -208,7 +208,7 @@ export const DateTimeUnifiedConfigSchema = DateTimeConfigSchema;
 export const ChoiceAdvancedConfigSchema = z.object({
   // 'combobox' = searchable dropdown that also accepts an unlisted answer.
   display: z.enum(['radio', 'dropdown', 'combobox', 'multiple']),
-  allowMultiple: z.boolean(),
+  layout: z.enum(['vertical', 'horizontal']).optional(),
   options: z.union([
     z.array(z.union([
       ChoiceOptionSchema,

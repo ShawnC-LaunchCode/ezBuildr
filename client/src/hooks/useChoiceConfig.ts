@@ -21,7 +21,7 @@ import type {
 
 export interface ChoiceCardState {
     display: ChoiceDisplay;
-    allowMultiple: boolean;
+    layout?: 'vertical' | 'horizontal';
     staticOptions: ChoiceOption[];
     dynamicOptions: Extract<DynamicOptionsConfig, { type: 'list' }>;
 }
@@ -107,7 +107,7 @@ function parseChoiceConfig(step: ApiStep): {
         return {
             config: {
                 display,
-                allowMultiple: display === "multiple",
+                layout: config?.layout ?? 'vertical',
                 staticOptions,
                 dynamicOptions
             },
@@ -129,7 +129,7 @@ function parseChoiceConfig(step: ApiStep): {
         return {
             config: {
                 display: step.type === "multiple_choice" ? "multiple" : "radio",
-                allowMultiple: step.type === "multiple_choice",
+                layout: "vertical",
                 staticOptions: options,
                 dynamicOptions: createEmptyDynamicConfig()
             },

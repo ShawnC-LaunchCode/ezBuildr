@@ -30,7 +30,7 @@ function withStaticOptions(
   return {
     ...config,
     display: config?.display ?? "dropdown",
-    allowMultiple: config?.allowMultiple ?? false,
+    layout: config?.layout ?? "vertical",
     options: { type: "static", options },
   };
 }

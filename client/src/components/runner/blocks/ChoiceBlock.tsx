@@ -72,6 +72,7 @@ interface ChoiceRenderProps {
   onChange: (value: string | string[]) => void;
   readOnly?: boolean;
   a11y: ChoiceA11yProps;
+  layout?: 'vertical' | 'horizontal';
 }
 
 function getOptionValue(option: ChoiceOption): string {
@@ -90,7 +91,7 @@ function getAriaProps(a11y: ChoiceA11yProps) {
   };
 }
 
-function renderRadioChoices({ step, options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
+function renderRadioChoices({ step, options, value, onChange, readOnly, a11y, layout = 'vertical' }: ChoiceRenderProps) {
   return (
     <RadioGroup
       value={toSingleValue(value)}
@@ -100,6 +101,7 @@ function renderRadioChoices({ step, options, value, onChange, readOnly, a11y }: 
         }
       }}
       disabled={readOnly}
+      className={layout === 'horizontal' ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex flex-col space-y-2'}
       {...getAriaProps(a11y)}
     >
       {options.map((option) => (
@@ -158,7 +160,7 @@ function renderDropdownChoice({ step, options, value, onChange, readOnly, a11y }
   );
 }
 
-function renderMultipleChoices({ step, options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
+function renderMultipleChoices({ step, options, value, onChange, readOnly, a11y, layout = 'vertical' }: ChoiceRenderProps) {
   const selectedAliases = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
   const handleToggle = (optionAlias: string, checked: boolean) => {
@@ -173,7 +175,7 @@ function renderMultipleChoices({ step, options, value, onChange, readOnly, a11y 
   };
 
   return (
-    <div className="space-y-2">
+    <div className={layout === 'horizontal' ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'space-y-2'}>
       {options.map((option) => {
         const optionAlias = getOptionValue(option);
         const isChecked = selectedAliases.includes(optionAlias);
@@ -309,6 +311,7 @@ export function ChoiceBlockRenderer({
     allowMultiple
   } = useChoiceOptions(step, context, aliasMap);
 
+  const layout = (step.config as ChoiceAdvancedConfig | undefined)?.layout ?? "vertical";
   const currentValue = value ?? (allowMultiple ? [] : "");
   const a11y: ChoiceA11yProps = {
     describedBy: ariaDescribedBy,
@@ -352,7 +355,7 @@ export function ChoiceBlockRenderer({
   // Render: Radio Buttons
   // -------------------------------------------------------------------------
   if (displayMode === "radio" && !allowMultiple) {
-    return renderRadioChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
+    return renderRadioChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y, layout });
   }
 
   // -------------------------------------------------------------------------
@@ -373,7 +376,7 @@ export function ChoiceBlockRenderer({
   // Render: Multiple Choice (Checkboxes)
   // -------------------------------------------------------------------------
   if (displayMode === "multiple" || allowMultiple) {
-    return renderMultipleChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
+    return renderMultipleChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y, layout });
   }
 
   // Fallback

@@ -389,7 +389,7 @@ function sanitizeChoiceValue(value: unknown, config?: StepConfig): ChoiceValue {
   }
   if (value === null || value === undefined) {
     const choiceConfig = config as (ChoiceAdvancedConfig | LegacyMultipleChoiceConfig) | undefined;
-    return choiceConfig?.allowMultiple ? [] : '';
+    return (choiceConfig && 'display' in choiceConfig && choiceConfig.display === 'multiple') ? [] : '';
   }
   return String(value);
 }
@@ -780,7 +780,7 @@ export function getDefaultValue(stepType: string, config?: StepConfig): unknown 
     case 'choice':
     case 'multiple_choice': {
       const choiceConfig = config as (ChoiceAdvancedConfig | LegacyMultipleChoiceConfig) | undefined;
-      return choiceConfig?.allowMultiple ?? (choiceConfig && 'minSelections' in choiceConfig) ? [] : '';
+      return ((choiceConfig && 'display' in choiceConfig && choiceConfig.display === 'multiple') ?? (choiceConfig && 'minSelections' in choiceConfig)) ? [] : '';
     }
 
     case 'boolean':

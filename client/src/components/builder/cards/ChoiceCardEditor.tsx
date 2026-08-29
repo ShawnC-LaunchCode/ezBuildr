@@ -101,7 +101,7 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
       // read by resolveChoiceDisplay.
       const payload: ChoiceAdvancedConfig = {
         display: newConfig.display,
-        allowMultiple: newConfig.allowMultiple,
+        layout: newConfig.layout,
         options: saveSourceMode === 'static'
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           ? { type: 'static', options: newConfig.staticOptions || [] }
@@ -186,7 +186,6 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
   const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, pageId, alias });
   const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, pageId, required });
   const handleDisplayChange = (display: ChoiceDisplay) => {
-    const allowMultiple = display === "multiple";
     // Easy-mode `radio` / `multiple_choice` steps have nowhere to store a
     // display mode, so dropdown and combobox both require promoting the step
     // to the advanced `choice` type first.
@@ -196,16 +195,16 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
       if (needsAdvancedType) {
         const payload: ChoiceAdvancedConfig = {
           display,
-          allowMultiple,
+          layout: localConfig?.layout ?? "vertical",
           options: { type: 'static', options: localConfig?.staticOptions ?? [] }
         };
         updateStepMutation.mutate({ id: stepId, pageId, type: 'choice', config: payload });
       } else {
-        const newType = allowMultiple ? "multiple_choice" : "radio";
+        const newType = display === "multiple" ? "multiple_choice" : "radio";
         updateStepMutation.mutate({ id: stepId, pageId, type: newType });
       }
     } else {
-      handleUpdate({ display, allowMultiple });
+      handleUpdate({ display });
     }
   };
 
@@ -507,6 +506,30 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
         </>
       )}
 
+      {(localConfig.display === 'radio' || localConfig.display === 'multiple') && (
+        <>
+          <div className="space-y-3">
+            <SectionHeader title="Layout" description="Visual arrangement of options" />
+            <RadioGroup
+              value={localConfig.layout ?? 'vertical'}
+              onValueChange={(v) => handleUpdate({ layout: v as 'vertical' | 'horizontal' })}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="vertical" id="layout-vertical" />
+                <Label htmlFor="layout-vertical">Vertical</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="horizontal" id="layout-horizontal" />
+                <Label htmlFor="layout-horizontal">Horizontal</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <Separator />
+        </>
+      )}
+
       {/* Options Source Toggle */}
       <Tabs value={sourceMode} onValueChange={handleSourceModeChange} className="w-full">
         <div className="flex items-center justify-between mb-4">
@@ -521,7 +544,7 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
           <ChoiceOptionsSettings
             config={{
               display: localConfig.display,
-              allowMultiple: localConfig.allowMultiple,
+              layout: localConfig.layout,
               options: { type: "static", options: localConfig.staticOptions },
             }}
             onChange={handleStaticOptionsChange}

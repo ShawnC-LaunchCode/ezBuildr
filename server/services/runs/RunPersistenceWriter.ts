@@ -396,7 +396,19 @@ export class RunPersistenceWriter {
     }
 
     private validateChoiceValue(step: PersistableStep, value: unknown, forceMultiple: boolean): string[] {
-        const allowMultiple = forceMultiple || getConfigBoolean(step.config, 'allowMultiple');
+        // Cardinality follows `display`, never a separate flag (STB-7 AC2).
+        // This previously read `allowMultiple` from config, which the ticket
+        // removed from authoring -- so every canonical `display: 'multiple'`
+        // step was rejecting its own array with "expected one option value"
+        // while the runner rendered checkboxes. Found by the STB-7 vertical
+        // proof; no unit test covered the submit path for a multi-select.
+        // resolveChoiceDisplay still honours a stored `allowMultiple` on read,
+        // so pre-STB-7 rows keep working until STB-19 backfills them.
+        const displayMode = resolveChoiceDisplay(
+            step.config as ChoiceAdvancedConfig | undefined,
+            step.type
+        );
+        const allowMultiple = forceMultiple || displayMode === 'multiple';
         if (allowMultiple) {
             if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
                 return [makeValidationMessage(step, 'an array of option values')];
@@ -415,7 +427,7 @@ export class RunPersistenceWriter {
         // unlisted value from the UI, so one still signals tampering.
         const acceptsWriteIn = resolveChoiceDisplay(
             isRecord(step.config)
-                ? (step.config as Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'>)
+                ? (step.config as Pick<ChoiceAdvancedConfig, 'display' | 'searchable'>)
                 : undefined,
             step.type
         ) === 'combobox';
