@@ -113,7 +113,7 @@ const APPROVED_VARIABLES = [
     label: 'Client Name',
     config: { variant: 'long' },
   },
-  { name: 'signing_date', type: 'date', alias: 'signingDate', label: 'Signing Date' },
+  { name: 'signing_date', type: 'date_time', alias: 'signingDate', label: 'Signing Date' },
 ];
 
 describe.sequential('Document onboarding orchestration (GH-167)', () => {
@@ -183,7 +183,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     // The variable the LLM never produced a step for was appended, not dropped.
     const signingDateStep = allSteps.find((s) => s.alias === 'signingDate');
     expect(signingDateStep).toBeDefined();
-    expect(signingDateStep?.type).toBe('date');
+    expect(signingDateStep?.type).toBe('date_time');
 
     expect(allSteps).toHaveLength(3);
   });
@@ -232,7 +232,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
       type: 'text',
       config: { variant: 'long' },
     });
-    expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date');
+    expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date_time');
 
     // 4. Attach the original document as a template.
     const templateResponse = await request(ctx.baseURL)

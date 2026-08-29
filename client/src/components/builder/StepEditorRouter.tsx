@@ -4,6 +4,7 @@ import { ChoiceCardEditor } from './cards/ChoiceCardEditor';
 import { DateTimeCardEditor } from './cards/DateTimeCardEditor';
 import { DisplayCardEditor } from './cards/DisplayCardEditor';
 import { EmailCardEditor } from './cards/EmailCardEditor';
+import { FileUploadCardEditor } from './cards/FileUploadCardEditor';
 import { GenericStepEditor } from './cards/GenericStepEditor';
 import { JsQuestionCardEditor } from './cards/JsQuestionCardEditor';
 import { ListCardEditor } from './cards/ListCardEditor';
@@ -104,6 +105,11 @@ export function StepEditorRouter({ step, pageId, workflowId }: Omit<StepEditorCo
     // List Steps (structural, nestable)
     if (step.type === 'list') {
         return <ListCardEditor {...commonProps} />;
+    }
+
+    // File Upload Steps
+    if (step.type === 'file_upload') {
+        return <FileUploadCardEditor {...commonProps} />;
     }
 
     // Fallback for legacy / imported enum types with no dedicated editor

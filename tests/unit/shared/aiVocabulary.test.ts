@@ -29,7 +29,6 @@ import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsServic
 // across STB-5 (canonical styles) and STB-6 (checkbox consent behavior).
 const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
-    file_upload: ['previewThumbnails'],
     phone_advanced: ['defaultCountry', 'allowedCountries'],
     email_advanced: ['requireVerification'],
     website_advanced: ['validateDns'],

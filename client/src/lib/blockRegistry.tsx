@@ -12,7 +12,7 @@
  * @date December 2025
  */
 
-import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2, ListTree } from "lucide-react";
+import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2, ListTree, Paperclip } from "lucide-react";
 
 import type {
   CanonicalStepType,
@@ -473,6 +473,11 @@ const CURRENCY_PRESET_PRESENTATION = {
   category: "numeric",
 } as const satisfies Omit<QuestionTypePresentation, "label">;
 
+const FILE_UPLOAD_PRESET_PRESENTATION = {
+  icon: Paperclip,
+  category: "validated",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
@@ -652,9 +657,11 @@ export const QUESTION_PRESETS = [
     id: "easy.file-upload",
     label: "File Upload",
     description: "File attachment",
+    canonicalized: true,
     modes: { easy: true, advanced: true },
     canonicalType: "file_upload",
     persistedType: "file_upload",
+    presentation: FILE_UPLOAD_PRESET_PRESENTATION,
     createDefaultConfig: () => ({ maxFiles: 1 }),
   }),
 ] as const satisfies readonly QuestionPreset[];

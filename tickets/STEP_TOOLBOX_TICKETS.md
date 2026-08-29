@@ -1127,7 +1127,7 @@ all, which is `stepTypeEnum` iteration and belongs to STB-21.
 
 ---
 
-## STB-11 — Make File Upload authorable and add image previews 🔲
+## STB-11 — Make File Upload authorable and add image previews ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/FileUploadBlock.tsx`
 
@@ -1175,6 +1175,38 @@ and existing run-token authorization.
 4. Object URLs are revoked; signed URL failures fall back without blocking download/remove or crashing render.
 5. Tests cover authoring, validation, local/signed images, cleanup, denial, and unchanged upload storage.
 6. Vertical proof and all required gates pass.
+
+**Sent back once, then verified 2026-08-29 (reviewer):** the first turn-in reported every criterion satisfied
+with `test:fast` at exactly 3,622 — the baseline — and no new test files, so AC5 and AC6 were unmet. The second
+turn-in added them. Final gates re-run by the reviewer on the tree rebased onto `dev`: type-check 0 errors,
+`check:strict-zones` 6/6, lint 0 problems, `test:fast` 326 files / 3,631 tests (+9), vertical proof and
+`documentOnboarding` green.
+
+**This ticket repaired a live crash STB-4 introduced and this reviewer missed.** `defaultStepSelectionFor`
+mapped an AI-analyzed `date` variable to the option value `"date"`, but STB-4 removed `date` from
+`RUNNER_RENDERED_STEP_TYPES`, from which `ONBOARDING_STEP_TYPE_OPTIONS` is derived — so
+`selectOnboardingStepType` threw `Unsupported onboarding step selection: date`, and the document onboarding
+wizard crashed on any document containing a date. Fixed at source (`value = "easy.date"`, routing through
+STB-4's preset). The reviewer's STB-4 pass ran portability and the four canonicalization proofs but never
+`documentOnboarding`, which is how a reachable seam reached `dev`.
+
+The dev found the failure but first "fixed" the integration fixture to match the broken behaviour, calling it a
+pre-existing test flaw. It was a pre-existing *product* flaw. Source and fixture now agree on `date_time`.
+
+**Reviewer correction to a claim in the turn-in.** The report stated the run "confirms file upload correctly
+respects real PostgreSQL Row Level Security constraints." **It does not.** `server/utils/rlsContext.ts` gates
+enforcement on `RLS_ENFORCED === "true"`, which is off, and `FORCE ROW LEVEL SECURITY` is not set — the suites
+log `RLS not enforced, running unscoped` throughout. The denials the proof demonstrates are real, but they come
+from application-layer authorization. Recorded because a note claiming RLS was proven would mislead whoever
+next scopes RLS-5.
+
+The `captcha.service` failure in the reviewer's first sweep was **not** this ticket's: it passes 10/10 in
+isolation and is the documented order-dependent `test:fast` flake, surfaced because two new test files shifted
+scheduling. Verified rather than assumed, in both directions.
+
+Reviewer fixes: two type errors (`createPage`'s second argument is column overrides, not a version id; the
+editor test omitted the required `workflowId` prop) and three unused bindings — `eq`, `expectCrossTenantDenied`
+and the `version` that removing the pin orphaned. Four gates were reported green; three were red.
 
 ---
 
@@ -2042,7 +2074,19 @@ to schedule this soon after STB rather than indefinitely.
 
 **Earliest technically safe start** is after the Phase 2 Gate — value shapes freeze at Phase 1, config shapes at
 Phase 2, and formulas read values by alias rather than branching on step type. That option is recorded, not
-recommended: the owner's decision is to wait for the full close. Still awaiting release: `file_upload.previewThumbnails` (STB-11),
+recommended: the owner's decision is to wait for the full close.
+
+### STB-B9 — File upload on version-pinned runs is unproven
+
+**Tag:** `informational`. Found during the STB-11 review. The vertical proof
+(`tests/integration/runFileUpload.test.ts`) exercises an **unpinned** run, where `RunFileUploadService` resolves
+the step's upload config from the live `steps` table. A run carrying a pinned `workflowVersionId` — what a
+published workflow produces — resolves from the immutable `graphJson` instead. That path has no coverage.
+
+Pre-existing rather than introduced by STB-11, but it matters twice: it is the path real respondents take on
+published workflows, and those `graphJson` step configs are among the stored artifacts **STB-19/STB-20** rewrite.
+A backfill that canonicalizes `graphJson` without proving pinned-run uploads still resolve would not be caught
+by anything currently in the suite. Still awaiting release: `file_upload.previewThumbnails` (STB-11),
 `phone_advanced`, `email_advanced`, `website_advanced`, `address_advanced` (STB-13/STB-14), `number_advanced`
 (retired type, STB-19), and `radio.displayLayout` — verify that one, since STB-7 has now landed.
 `display_advanced.allowHtml` stays excluded by Decision 10.

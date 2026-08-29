@@ -100,7 +100,7 @@ export function defaultStepSelectionFor(
   let value: string;
   switch (analyzedType) {
     case "date":
-      value = "date";
+      value = "easy.date";
       break;
     case "number":
       value = "number";

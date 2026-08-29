@@ -1,5 +1,5 @@
-import { Download, File, FileText, Image, Upload, X } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Download, File, FileText, Image as ImageIcon, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,6 +7,8 @@ import { formatFileSize } from '@/lib/formatting';
 import type { Step } from '@/types';
 
 import type { FileUploadConfig, FileUploadValue } from '@shared/types/stepConfigs';
+
+import { FileUploadPreview } from './FileUploadPreview';
 
 interface FileUploadBlockProps {
   step: Step;
@@ -53,7 +55,7 @@ function withoutTransientUrl(file: FileUploadValue): FileUploadValue {
 }
 
 function fileIcon(mimeType: string) {
-  if (mimeType.startsWith('image/')) { return <Image className="h-4 w-4" aria-hidden="true" />; }
+  if (mimeType.startsWith('image/')) { return <ImageIcon className="h-4 w-4" aria-hidden="true" />; }
   if (mimeType === 'application/pdf') { return <FileText className="h-4 w-4" aria-hidden="true" />; }
   return <File className="h-4 w-4" aria-hidden="true" />;
 }
@@ -139,6 +141,16 @@ export function FileUploadBlockRenderer({
     setUploading(true);
     setProgress(0);
     try {
+      // For images with previewThumbnails enabled, create local object URLs immediately to show preview while uploading
+      const localPreviewUrls: Record<string, string> = {};
+      if (config.previewThumbnails) {
+        selected.forEach(file => {
+          if (file.type.startsWith('image/')) {
+            localPreviewUrls[file.name] = URL.createObjectURL(file);
+          }
+        });
+      }
+
       const result = await new Promise<UploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `/api/runs/${runId}/steps/${owningStepId}/files`);
@@ -160,6 +172,16 @@ export function FileUploadBlockRenderer({
       });
 
       const uploaded = result.data?.files ?? [];
+      
+      // Merge local preview URLs if we created any
+      if (config.previewThumbnails) {
+        uploaded.forEach(file => {
+          if (localPreviewUrls[file.filename] && !file.url) {
+            file.url = localPreviewUrls[file.filename];
+          }
+        });
+      }
+
       setFreshUrls(current => mergeFreshUrls(current, uploaded));
       onChange(result.data?.value ?? [...files, ...uploaded.map(withoutTransientUrl)]);
       setProgress(100);
@@ -168,7 +190,7 @@ export function FileUploadBlockRenderer({
     } finally {
       setUploading(false);
     }
-  }, [files, nestedFieldId, onChange, owningStepId, runId, runToken, validateSelection]);
+  }, [config.previewThumbnails, files, nestedFieldId, onChange, owningStepId, runId, runToken, validateSelection]);
 
   const removeFile = async (file: FileUploadValue): Promise<void> => {
     setError(undefined);
@@ -187,6 +209,13 @@ export function FileUploadBlockRenderer({
         return;
       }
     }
+    
+    // Revoke object URL if exists
+    const url = freshUrls[file.fileId] ?? file.url;
+    if (url?.startsWith('blob:')) {
+      URL.revokeObjectURL(url);
+    }
+    
     onChange(files.filter(candidate => candidate.fileId !== file.fileId));
   };
 
@@ -209,6 +238,21 @@ export function FileUploadBlockRenderer({
     }
     if (url) { window.open(url, '_blank', 'noopener,noreferrer'); }
   };
+
+  // Revoke object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      Object.values(freshUrls).forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [freshUrls]);
+
+  const handleUrlFetched = useCallback((fileId: string, url: string) => {
+    setFreshUrls(current => ({ ...current, [fileId]: url }));
+  }, []);
 
   const canUpload = !readOnly && !uploading && files.length < maxFiles;
   return (
@@ -262,23 +306,43 @@ export function FileUploadBlockRenderer({
         </div>
       )}
 
-      {files.map(file => (
-        <div key={file.fileId} className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
-          {fileIcon(file.mimeType)}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{file.filename}</p>
-            <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-          </div>
-          <Button type="button" variant="ghost" size="icon" onClick={() => { void downloadFile(file); }} aria-label={`Download ${file.filename}`}>
-            <Download className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          {!readOnly && (
-            <Button type="button" variant="ghost" size="icon" onClick={() => { void removeFile(file); }} aria-label={`Remove ${file.filename}`}>
-              <X className="h-4 w-4" aria-hidden="true" />
+      {files.map(file => {
+        const url = freshUrls[file.fileId] ?? file.url;
+        if (config.previewThumbnails && file.mimeType.startsWith('image/')) {
+          return (
+            <FileUploadPreview 
+              key={file.fileId}
+              file={file}
+              url={url}
+              runId={runId}
+              runToken={runToken}
+              owningStepId={owningStepId}
+              readOnly={readOnly}
+              onDownload={() => { void downloadFile(file); }}
+              onRemove={() => { void removeFile(file); }}
+              onUrlFetched={handleUrlFetched}
+            />
+          );
+        }
+
+        return (
+          <div key={file.fileId} className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
+            {fileIcon(file.mimeType)}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{file.filename}</p>
+              <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={() => { void downloadFile(file); }} aria-label={`Download ${file.filename}`}>
+              <Download className="h-4 w-4" aria-hidden="true" />
             </Button>
-          )}
-        </div>
-      ))}
+            {!readOnly && (
+              <Button type="button" variant="ghost" size="icon" onClick={() => { void removeFile(file); }} aria-label={`Remove ${file.filename}`}>
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
+          </div>
+        );
+      })}
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
