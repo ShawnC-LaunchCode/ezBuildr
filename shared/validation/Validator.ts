@@ -34,8 +34,9 @@ export function validateValueSync(options: ValidatorOptions): ValidationResult {
     const errors: string[] = [];
     // Check required/empty first
     const isEmpty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+    const isWrongRequiredValue = schema.requiredValue !== undefined && value !== schema.requiredValue;
     // Apply "Required" shorthand from schema
-    if (schema.required && isEmpty) {
+    if (schema.required && (isEmpty || isWrongRequiredValue)) {
         // If required and empty, fail immediately (other rules usually don't apply to empty values)
         errors.push(schema.requiredMessage ?? defaultValidationMessages.required);
         return { valid: false, errors };

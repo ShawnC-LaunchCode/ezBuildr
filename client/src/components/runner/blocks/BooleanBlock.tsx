@@ -17,13 +17,20 @@
 import React from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { Step } from "@/types";
 
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanConfig,
+  resolveBooleanLogicalValue,
+  type ResolvedBooleanConfig,
+  type TrueFalseConfig,
+} from "@shared/types/stepConfigs";
 
 export interface BooleanBlockProps {
   step: Step;
@@ -34,13 +41,6 @@ export interface BooleanBlockProps {
   ariaDescribedBy?: string;
   required?: boolean;
   hasError?: boolean;
-}
-
-interface NormalizedBooleanConfig {
-  trueLabel: string;
-  falseLabel: string;
-  storeAsBoolean: boolean;
-  displayStyle: "toggle" | "radio" | "checkbox" | "buttons";
 }
 
 type BooleanFieldA11y = Pick<
@@ -67,7 +67,7 @@ function getConfigString(config: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function getBooleanConfig(step: Step): NormalizedBooleanConfig {
+function getBooleanConfig(step: Step): ResolvedBooleanConfig {
   if (step.type === "yes_no") {
     return {
       trueLabel: getConfigString(step.config, "yesLabel")
@@ -76,6 +76,8 @@ function getBooleanConfig(step: Step): NormalizedBooleanConfig {
       falseLabel: getConfigString(step.config, "noLabel")
         ?? getConfigString(step.config, "falseLabel")
         ?? "No",
+      trueAlias: "true",
+      falseAlias: "false",
       storeAsBoolean: true,
       displayStyle: "buttons",
     };
@@ -86,24 +88,22 @@ function getBooleanConfig(step: Step): NormalizedBooleanConfig {
     return {
       trueLabel: config?.trueLabel ?? "True",
       falseLabel: config?.falseLabel ?? "False",
+      trueAlias: "true",
+      falseAlias: "false",
       storeAsBoolean: true,
       displayStyle: "buttons",
     };
   }
 
   if (step.type === "boolean") {
-    const config = step.config as BooleanAdvancedConfig;
-    return {
-      trueLabel: config?.trueLabel ?? "Yes",
-      falseLabel: config?.falseLabel ?? "No",
-      storeAsBoolean: config?.storeAsBoolean ?? true,
-      displayStyle: config?.displayStyle ?? "buttons",
-    };
+    return resolveBooleanConfig(step.config);
   }
 
   return {
     trueLabel: "Yes",
     falseLabel: "No",
+    trueAlias: "true",
+    falseAlias: "false",
     storeAsBoolean: true,
     displayStyle: "buttons",
   };
@@ -227,6 +227,32 @@ function BooleanRadios({
   );
 }
 
+function BooleanConsentCheckbox({
+  step,
+  trueLabel,
+  isTrue,
+  onSelect,
+  readOnly,
+  fieldA11y,
+}: BooleanControlProps): JSX.Element {
+  const checkboxId = `${step.id}-consent`;
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        id={checkboxId}
+        checked={isTrue}
+        onCheckedChange={(checked) => { onSelect(checked === true); }}
+        disabled={readOnly}
+        className="mt-0.5"
+        {...fieldA11y}
+      />
+      <Label htmlFor={checkboxId} className="cursor-pointer text-sm leading-5">
+        {trueLabel}
+      </Label>
+    </div>
+  );
+}
+
 export function BooleanBlockRenderer({
   step,
   value,
@@ -236,11 +262,13 @@ export function BooleanBlockRenderer({
   required,
   hasError,
 }: BooleanBlockProps) {
-  const { trueLabel, falseLabel, storeAsBoolean, displayStyle } = getBooleanConfig(step);
+  const config = getBooleanConfig(step);
+  const { trueLabel, falseLabel, displayStyle } = config;
 
   // Determine current value
-  const isTrue = storeAsBoolean ? value === true : value === trueLabel;
-  const isDefined = value !== undefined && value !== null;
+  const logicalValue = resolveBooleanLogicalValue(value, config);
+  const isTrue = logicalValue === true;
+  const isDefined = logicalValue !== undefined;
   const fieldA11y: BooleanFieldA11y = {
     "aria-describedby": ariaDescribedBy,
     "aria-required": required === true ? true : undefined,
@@ -249,7 +277,7 @@ export function BooleanBlockRenderer({
 
   // Handle change
   const handleChange = (newValue: boolean): void => {
-    onChange(storeAsBoolean ? newValue : newValue ? trueLabel : falseLabel);
+    onChange(getBooleanStorageValue(newValue, config));
   };
 
   const controlProps: BooleanControlProps = {
@@ -265,8 +293,6 @@ export function BooleanBlockRenderer({
 
   if (displayStyle === "buttons") { return <BooleanButtons {...controlProps} />; }
   if (displayStyle === "toggle") { return <BooleanToggle {...controlProps} />; }
-
-  // Radio is also the temporary read-compatible fallback for checkbox configs;
-  // STB-6 adds the consent-specific checkbox semantics.
+  if (displayStyle === "checkbox") { return <BooleanConsentCheckbox {...controlProps} />; }
   return <BooleanRadios {...controlProps} />;
 }

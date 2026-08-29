@@ -17,7 +17,12 @@ import { lifecycleHookService } from "../scripting/LifecycleHookService";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
 import { normalizeFinalDocumentsTemplateEntry } from "../../../shared/finalDocumentsTemplates";
-import type { FinalBlockConfig, FinalDocumentOutputFormat } from "../../../shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanLogicalValue,
+  type FinalBlockConfig,
+  type FinalDocumentOutputFormat,
+} from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { createError } from "../../utils/errors";
@@ -81,7 +86,7 @@ function collectLegacyFinalDocumentConfig(pages: RunPage[]): {
 const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["short_text", "long_text", "text", "email", "website", "phone"]);
 const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "currency", "scale"]);
 
-function coerceInitialValueForStepType(value: unknown, stepType: string): unknown {
+function coerceInitialValueForStepType(value: unknown, stepType: string, config?: unknown): unknown {
   const normalizedType = normalizeRunnerStepType(stepType);
 
   if (TEXT_LIKE_RUNNER_STEP_TYPES.has(normalizedType)) {
@@ -97,9 +102,8 @@ function coerceInitialValueForStepType(value: unknown, stepType: string): unknow
   }
 
   if (normalizedType === "boolean") {
-    if (typeof value === "boolean") {return value;}
-    if (value === "true") {return true;}
-    if (value === "false") {return false;}
+    const logicalValue = resolveBooleanLogicalValue(value, config);
+    if (logicalValue !== undefined) { return getBooleanStorageValue(logicalValue, config); }
     return value;
   }
 
@@ -180,9 +184,9 @@ export class RunLifecycleService {
       // Priority 1: initialValues (by alias or stepId)
       if (initialValues) {
         if (step.alias && initialValues[step.alias] !== undefined) {
-          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type);
+          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type, step.config);
         } else if (initialValues[step.id] !== undefined) {
-          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type);
+          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type, step.config);
         }
       }
 
@@ -204,7 +208,7 @@ export class RunLifecycleService {
 
       // Priority 4: step's defaultValue
       if (valueToSet === undefined && step.defaultValue !== undefined && step.defaultValue !== null) {
-        valueToSet = step.defaultValue;
+        valueToSet = coerceInitialValueForStepType(step.defaultValue, step.type, step.config);
       }
 
       // Add to list if we have a value

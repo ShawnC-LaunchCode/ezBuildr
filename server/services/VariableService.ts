@@ -1,5 +1,6 @@
 import { getLegacyChoiceOptions } from "@shared/choiceOptions";
 import type { WorkflowVariable } from "@shared/schema";
+import { resolveBooleanConfig } from "@shared/types/stepConfigs";
 
 import { type DbTransaction, pageRepository, stepRepository } from "../repositories";
 import { withCurrentTenant } from "../utils/rlsContext";
@@ -81,18 +82,24 @@ export class VariableService {
       // Build variables array
       const variables: WorkflowVariable[] = steps.map(step => {
         const page = pageMap.get(step.pageId);
+        const booleanConfig = step.type === 'boolean' ? resolveBooleanConfig(step.config) : undefined;
         // O-2: options travel with the variable. The condition editor used to
         // fetch every step separately just to read them; only legacy
         // radio/multiple_choice configs carry any, so `choices` is omitted for
         // every other type rather than sent as an empty array.
-        const choices = CHOICE_STEP_TYPES.has(step.type)
+        const choices = booleanConfig?.storeAsBoolean === false
+          ? [
+              { value: booleanConfig.trueAlias, label: booleanConfig.trueLabel },
+              { value: booleanConfig.falseAlias, label: booleanConfig.falseLabel },
+            ]
+          : CHOICE_STEP_TYPES.has(step.type)
           ? getLegacyChoiceOptions(step.config)
           : undefined;
         return {
           key: step.id,
           alias: step.alias,
           label: step.title,
-          type: step.type,
+          type: booleanConfig?.storeAsBoolean === false ? 'radio' : booleanConfig ? 'yes_no' : step.type,
           pageId: step.pageId,
           pageTitle: page?.title ?? 'Unknown Page',
           stepId: step.id,

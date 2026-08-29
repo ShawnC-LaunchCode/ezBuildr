@@ -101,4 +101,34 @@ describe("VariableService.listVariables — choices (O-2)", () => {
     const [variable] = await new VariableService().listVariables("wf-1", "user-1", fakeTx);
     expect(variable).not.toHaveProperty("choices");
   });
+
+  it("exposes Boolean aliases as labelled logic operands while Boolean storage keeps shortcuts", async () => {
+    stepRepoMock.findByPageIds.mockResolvedValue([
+      step({
+        id: "alias-bool",
+        type: "boolean",
+        config: {
+          trueLabel: "Accepted",
+          falseLabel: "Declined",
+          storeAsBoolean: false,
+          trueAlias: "accepted_value",
+          falseAlias: "declined_value",
+        },
+      }),
+      step({ id: "native-bool", type: "boolean", config: { storeAsBoolean: true } }),
+    ]);
+
+    const [aliasVariable, nativeVariable] = await new VariableService()
+      .listVariables("wf-1", "user-1", fakeTx);
+
+    expect(aliasVariable).toMatchObject({
+      type: "radio",
+      choices: [
+        { value: "accepted_value", label: "Accepted" },
+        { value: "declined_value", label: "Declined" },
+      ],
+    });
+    expect(nativeVariable).toMatchObject({ type: "yes_no" });
+    expect(nativeVariable).not.toHaveProperty("choices");
+  });
 });

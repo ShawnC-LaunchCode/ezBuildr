@@ -1,6 +1,15 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
 import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
-import { StepConfig, ListConfig, ListItem, ListValue, resolveNumberConfig, resolveTextConfig } from "../types/stepConfigs";
+import {
+    getBooleanStorageValue,
+    StepConfig,
+    ListConfig,
+    ListItem,
+    ListValue,
+    resolveBooleanConfig,
+    resolveNumberConfig,
+    resolveTextConfig,
+} from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
@@ -49,6 +58,11 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
     if (!config) {
         return { rules, required: isRequired };
     }
+
+    const booleanConfig = step.type === "boolean" ? resolveBooleanConfig(config) : undefined;
+    const requiredValue = isRequired && booleanConfig?.displayStyle === "checkbox"
+        ? getBooleanStorageValue(true, booleanConfig)
+        : undefined;
 
     // Type-specific rules
     switch (step.type) {
@@ -136,7 +150,8 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
     return {
         rules,
-        required: isRequired
+        required: isRequired,
+        ...(requiredValue !== undefined ? { requiredValue } : {}),
     };
 }
 

@@ -152,6 +152,23 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
     expect(typeof saved?.[0]?.value).toBe('boolean');
   });
 
+  it('STB-6: a logical Boolean default is coerced to the configured storage alias', async () => {
+    const step = makeStep({
+      id: 'step-consent',
+      alias: 'consent',
+      type: 'boolean',
+      defaultValue: true,
+      config: {
+        storeAsBoolean: false,
+        trueAlias: 'consent_given',
+        falseAlias: 'consent_withheld',
+      },
+    });
+    const saved = await runWithStep(step, {});
+
+    expect(saved).toEqual([{ stepId: 'step-consent', value: 'consent_given' }]);
+  });
+
   it('AC4: an array prefilled onto a choice step is left untouched', async () => {
     const step = makeStep({ id: 'step-picks', alias: 'picks', type: 'choice' });
     const saved = await runWithStep(step, { picks: ['a', 'b'] });

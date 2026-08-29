@@ -6,6 +6,8 @@ export interface ValidationSchema {
     required?: boolean;
     // Custom message for the required rule shorthand
     requiredMessage?: string;
+    // Consent checkboxes require one exact logical/storage value, not merely non-empty input.
+    requiredValue?: unknown;
 }
 
 // Extends the detailed validation logic to support per-field validation in complex blocks

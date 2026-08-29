@@ -26,7 +26,7 @@ import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsServic
 // Keys still awaiting an implementation. A family ticket that implements one
 // releases it from here *and* from the manifest -- the two are asserted equal
 // on purpose, so neither can drift alone. `boolean.displayStyle` was released
-// by STB-5, which implemented all four styles end to end.
+// across STB-5 (canonical styles) and STB-6 (checkbox consent behavior).
 const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
     file_upload: ['previewThumbnails'],
@@ -119,10 +119,10 @@ describe('AI vocabulary derivation', () => {
         expect(getConfigKeys('number')).toContain('thousandsSeparator');
     });
 
-    it('advertises a key once its family implements it (STB-5)', () => {
+    it('advertises a key once its family implements it (STB-5/STB-6)', () => {
         // STB-1's manifest is containment for keys with no behaviour behind
-        // them. STB-5 implemented Boolean `displayStyle` end to end -- three
-        // renderers, an editor control, a legal schema value -- so the
+        // them. STB-5/STB-6 implemented Boolean `displayStyle` end to end --
+        // four renderers, editor controls, validation, and legal schema values -- so the
         // exclusion had to come off, or AI stays barred from a capability that
         // works. The guard only catches exclusions naming a *missing* field;
         // nothing catches one that has quietly become unnecessary.

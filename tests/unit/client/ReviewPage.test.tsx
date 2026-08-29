@@ -224,6 +224,33 @@ describe('ReviewPage (GH-162)', () => {
     expect(screen.queryByText('No')).not.toBeInTheDocument();
   });
 
+  it('maps a stored Boolean alias back to its presentation label on review', () => {
+    const aliasStep = {
+      ...booleanDecisionStep,
+      config: {
+        trueLabel: 'Approved for filing',
+        falseLabel: 'Rejected for filing',
+        trueAlias: 'filing_approved',
+        falseAlias: 'filing_rejected',
+        storeAsBoolean: false,
+        displayStyle: 'checkbox',
+      },
+    };
+    render(
+      <ReviewPage
+        pages={[pages[0]]}
+        allSteps={[aliasStep]}
+        values={{ 'boolean-decision': 'filing_approved' }}
+        visiblePageIds={['contact']}
+        visibleStepIds={['boolean-decision']}
+        onEditStep={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Approved for filing')).toBeInTheDocument();
+    expect(screen.queryByText('filing_approved')).not.toBeInTheDocument();
+  });
+
   it('omits a visible page card when none of its steps are visible', () => {
     render(
       <ReviewPage

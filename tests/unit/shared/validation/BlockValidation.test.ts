@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { getValidationSchema, type StepLike } from '../../../../shared/validation/BlockValidation';
+import { validateValueSync } from '../../../../shared/validation/Validator';
 
 /**
  * RUN2-3: a required question of a type the runner cannot render or does not
@@ -57,6 +58,33 @@ describe('getValidationSchema', () => {
 
             expect(schema.rules).not.toContainEqual(expect.objectContaining({ type: 'required' }));
             expect(schema.required).toBe(false);
+        });
+    });
+
+    describe('required Boolean consent (STB-6)', () => {
+        it('requires true rather than merely a non-empty boolean', () => {
+            const schema = getValidationSchema(baseStep({
+                type: 'boolean',
+                config: { displayStyle: 'checkbox', storeAsBoolean: true },
+            }));
+
+            expect(validateValueSync({ schema, value: false }).valid).toBe(false);
+            expect(validateValueSync({ schema, value: true }).valid).toBe(true);
+        });
+
+        it('requires trueAlias in string mode and rejects falseAlias', () => {
+            const schema = getValidationSchema(baseStep({
+                type: 'boolean',
+                config: {
+                    displayStyle: 'checkbox',
+                    storeAsBoolean: false,
+                    trueAlias: 'consent_given',
+                    falseAlias: 'consent_withheld',
+                },
+            }));
+
+            expect(validateValueSync({ schema, value: 'consent_withheld' }).valid).toBe(false);
+            expect(validateValueSync({ schema, value: 'consent_given' }).valid).toBe(true);
         });
     });
 });

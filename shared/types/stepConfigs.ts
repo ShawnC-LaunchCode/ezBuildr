@@ -284,6 +284,74 @@ export interface BooleanAdvancedConfig {
   displayStyle?: 'buttons' | 'radio' | 'toggle' | 'checkbox';
 }
 
+export interface ResolvedBooleanConfig {
+  trueLabel: string;
+  falseLabel: string;
+  trueAlias: string;
+  falseAlias: string;
+  storeAsBoolean: boolean;
+  displayStyle: 'buttons' | 'radio' | 'toggle' | 'checkbox';
+}
+
+function isBooleanConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readBooleanConfigString(
+  config: Record<string, unknown>,
+  key: string,
+  fallback: string
+): string {
+  const value = config[key];
+  return typeof value === 'string' && value.trim() !== '' ? value : fallback;
+}
+
+/** One read-compatible Boolean contract for storage, validation, logic, and display. */
+export function resolveBooleanConfig(rawConfig: unknown): ResolvedBooleanConfig {
+  const config = isBooleanConfigRecord(rawConfig) ? rawConfig : {};
+  const displayStyle = config.displayStyle;
+  const trueLabel = readBooleanConfigString(
+    config,
+    'trueLabel',
+    readBooleanConfigString(config, 'yesLabel', 'Yes')
+  );
+  const falseLabel = readBooleanConfigString(
+    config,
+    'falseLabel',
+    readBooleanConfigString(config, 'noLabel', 'No')
+  );
+  return {
+    trueLabel,
+    falseLabel,
+    trueAlias: readBooleanConfigString(config, 'trueAlias', 'true'),
+    falseAlias: readBooleanConfigString(config, 'falseAlias', 'false'),
+    storeAsBoolean: config.storeAsBoolean !== false,
+    displayStyle: displayStyle === 'radio' || displayStyle === 'toggle' || displayStyle === 'checkbox'
+      ? displayStyle
+      : 'buttons',
+  };
+}
+
+export function getBooleanStorageValue(logicalValue: boolean, rawConfig: unknown): boolean | string {
+  const config = resolveBooleanConfig(rawConfig);
+  if (config.storeAsBoolean) { return logicalValue; }
+  return logicalValue ? config.trueAlias : config.falseAlias;
+}
+
+/**
+ * Reads current aliases and historical label-backed answers. New writes must
+ * still use getBooleanStorageValue; accepting labels here is display/resume
+ * compatibility, not permission to persist another label-backed answer.
+ */
+export function resolveBooleanLogicalValue(value: unknown, rawConfig: unknown): boolean | undefined {
+  if (typeof value === 'boolean') { return value; }
+  if (typeof value !== 'string') { return undefined; }
+  const config = resolveBooleanConfig(rawConfig);
+  if (value === config.trueAlias || value === config.trueLabel) { return true; }
+  if (value === config.falseAlias || value === config.falseLabel) { return false; }
+  return undefined;
+}
+
 /**
  * Phone Config (Advanced Mode)
  * International phone support with country codes

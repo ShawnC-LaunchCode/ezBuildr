@@ -6,7 +6,11 @@
  */
 
 import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
-import type { ListConfig } from "@shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanConfig,
+  type ListConfig,
+} from "@shared/types/stepConfigs";
 import {
   getValidationSchema,
   validateListValue,
@@ -85,7 +89,10 @@ function partitionFieldErrors(
     return [];
   }
 
-  const isRequiredFailure = step.required === true && isEmpty(value);
+  const booleanConfig = step.type === 'boolean' ? resolveBooleanConfig(step.config) : undefined;
+  const isUncheckedConsent = booleanConfig?.displayStyle === 'checkbox'
+    && value !== getBooleanStorageValue(true, booleanConfig);
+  const isRequiredFailure = step.required === true && (isEmpty(value) || isUncheckedConsent);
   if (isRequiredFailure || enforce) {
     return errors;
   }

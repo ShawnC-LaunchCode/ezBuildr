@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BooleanBlockRenderer } from '../../../client/src/components/runner/blocks/BooleanBlock';
 import type { Step } from '../../../client/src/types';
 
-function step(displayStyle: 'buttons' | 'radio' | 'toggle' | 'checkbox'): Step {
+function step(
+  displayStyle: 'buttons' | 'radio' | 'toggle' | 'checkbox',
+  configOverrides: Record<string, unknown> = {},
+): Step {
   return {
     id: `boolean-${displayStyle}`,
     workflowId: 'workflow-1',
@@ -23,6 +26,7 @@ function step(displayStyle: 'buttons' | 'radio' | 'toggle' | 'checkbox'): Step {
       falseLabel: 'Decline',
       storeAsBoolean: true,
       displayStyle,
+      ...configOverrides,
     },
     createdAt: '2026-08-28T00:00:00.000Z',
   };
@@ -92,10 +96,41 @@ describe('BooleanBlockRenderer', () => {
     expect(toggle).not.toBeChecked();
   });
 
-  it('keeps checkbox configs legal but radio-compatible until STB-6 adds consent behavior', () => {
-    render(<BooleanBlockRenderer step={step('checkbox')} value={true} onChange={vi.fn()} />);
+  it('renders one accessible consent checkbox, preserves missing state, and stores aliases instead of labels', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const aliasStep = step('checkbox', {
+      storeAsBoolean: false,
+      trueAlias: 'decision_accepted',
+      falseAlias: 'decision_declined',
+    });
+    const view = render(
+      <BooleanBlockRenderer
+        step={aliasStep}
+        value={null}
+        onChange={onChange}
+        required
+        hasError
+        ariaDescribedBy="consent-error"
+      />
+    );
 
-    expect(screen.getByRole('radiogroup', { name: 'Accept decision' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Approve' })).toBeChecked();
+    const checkbox = screen.getByRole('checkbox', { name: 'Approve' });
+    expect(checkbox).not.toBeChecked();
+    expect(checkbox).toHaveAttribute('aria-required', 'true');
+    expect(checkbox).toHaveAttribute('aria-invalid', 'true');
+    expect(checkbox).toHaveAttribute('aria-describedby', 'consent-error');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByText('Decline')).not.toBeInTheDocument();
+
+    checkbox.focus();
+    await user.keyboard('[Space]');
+    expect(onChange).toHaveBeenLastCalledWith('decision_accepted');
+
+    view.rerender(
+      <BooleanBlockRenderer step={aliasStep} value="decision_accepted" onChange={onChange} />
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Approve' }));
+    expect(onChange).toHaveBeenLastCalledWith('decision_declined');
   });
 });

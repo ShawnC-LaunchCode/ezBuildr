@@ -728,7 +728,7 @@ face it next. Recorded as an observation for STB-16, which replaces the manifest
 
 ---
 
-## STB-6 — Add consent checkbox behavior and correct Boolean alias storage 🔲
+## STB-6 — Add consent checkbox behavior and correct Boolean alias storage ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/BooleanBlock.tsx`
 
@@ -788,6 +788,30 @@ result instead of silently converting stored answers.
 6. A recorded census of `boolean` steps with `storeAsBoolean: false` justifies the no-answer-backfill decision;
    any non-zero result is escalated to the reviewer rather than converted in this ticket.
 7. Type-check, lint, targeted integration/unit tests, and `test:fast` pass.
+
+**Verified 2026-08-29 (reviewer):** all gates re-run on the tree rebased onto STB-8 — type-check 0 errors,
+`check:strict-zones` 6/6, lint 0 problems, `test:fast` 322 files / 3,605 tests, `StepService.db` 16/16, vertical
+proof 5/5. The count reconciles exactly: the dev measured +5 against a 3,597 baseline, and 3,600 + 5 = 3,605.
+
+**This closes the gap STB-5 deliberately left open.** `getBooleanStorageValue` now returns
+`trueAlias`/`falseAlias` and never a presentation label (Decision 6), while `resolveBooleanLogicalValue` still
+*reads* historical label-backed answers — with a comment stating outright that accepting labels there is
+display/resume compatibility, "not permission to persist another label-backed answer." Read compat that is
+fenced rather than merely present.
+
+The riskiest edit is the one to `shared/validation/Validator.ts`, which every step type shares. It is correctly
+additive: `requiredValue?` is optional, so `undefined` short-circuits and no other type's behaviour moves. A
+required consent checkbox then fails `required` when unchecked because `BlockValidation` derives that expected
+value from `getBooleanStorageValue(true, config)` — the same helper the runner writes through, so the check and
+the storage cannot drift apart.
+
+Criterion 6 was met by measurement rather than assumption: a census returned zero `boolean` steps with
+`storeAsBoolean: false`, so no answer backfill was needed and none was invented.
+
+Reporting note, worth recording after four turn-ins that overstated: this one named every gate with its exit
+code, and disclosed that repeat in-app browser attempts hung on "Starting session…" with a Vite HMR websocket
+error rather than rounding the live check up to a pass. The integration proof independently covered rejection,
+successful submission and persisted `step_values`, which is what the criterion actually requires.
 
 ---
 

@@ -362,14 +362,10 @@ export class RunPersistenceWriter {
                 if (storeAsBoolean) {
                     return typeof value === 'boolean' ? [] : [makeValidationMessage(step, 'a boolean value')];
                 }
-                const trueLabel = getConfigString(step.config, 'trueLabel') ?? 'Yes';
-                const falseLabel = getConfigString(step.config, 'falseLabel') ?? 'No';
                 const allowedValues = new Set([
-                    trueLabel,
-                    falseLabel,
-                    getConfigString(step.config, 'trueAlias'),
-                    getConfigString(step.config, 'falseAlias'),
-                ].filter((item): item is string => item !== undefined));
+                    getConfigString(step.config, 'trueAlias') ?? 'true',
+                    getConfigString(step.config, 'falseAlias') ?? 'false',
+                ]);
                 return typeof value === 'string' && allowedValues.has(value)
                     ? []
                     : [makeValidationMessage(step, `one of ${Array.from(allowedValues).join(', ')}`)];

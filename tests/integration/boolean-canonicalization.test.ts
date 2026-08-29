@@ -14,13 +14,15 @@ import {
 import { expectCrossTenantDenied } from '../helpers/expectDenied';
 import { getOwnerDb } from '../helpers/ownerDb';
 
-describe.sequential('STB-5 canonical Boolean vertical path', () => {
+describe.sequential('STB-5/STB-6 canonical Boolean vertical path', () => {
   let ctx: IntegrationTestContext;
   let agent: ReturnType<typeof createAuthenticatedAgent>;
   let workflowId: string;
   let pageId: string;
   let yesNoStepId: string;
   let trueFalseStepId: string;
+  let booleanConsentStepId: string;
+  let aliasConsentStepId: string;
   let foreignTenantId: string;
   let foreignToken: string;
 
@@ -172,6 +174,116 @@ describe.sequential('STB-5 canonical Boolean vertical path', () => {
     expect(after.find((step) => step.id === yesNoStepId)).toEqual(originalYesNo);
   });
 
+  it('rejects unchecked required consent and persists true/trueAlias through page submit', async () => {
+    const booleanConsent = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'boolean',
+        title: 'Consent to electronic delivery',
+        alias: 'electronicDeliveryConsent',
+        required: true,
+        config: {
+          trueLabel: 'I consent to electronic delivery',
+          falseLabel: 'I do not consent',
+          storeAsBoolean: true,
+          displayStyle: 'checkbox',
+        },
+      })
+      .expect(201);
+    booleanConsentStepId = booleanConsent.body.id as string;
+
+    const aliasConsent = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'boolean',
+        title: 'Accept records policy',
+        alias: 'recordsPolicyConsent',
+        required: true,
+        config: {
+          trueLabel: 'I accept the records policy',
+          falseLabel: 'I do not accept the records policy',
+          trueAlias: 'policy_accepted',
+          falseAlias: 'policy_declined',
+          storeAsBoolean: false,
+          displayStyle: 'checkbox',
+        },
+      })
+      .expect(201);
+    aliasConsentStepId = aliasConsent.body.id as string;
+
+    const createRun = await agent
+      .post(`/api/workflows/${workflowId}/runs`)
+      .send({})
+      .expect(201);
+    const runId = createRun.body.data.runId as string;
+    const runToken = createRun.body.data.runToken as string;
+
+    const presentationLabel = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({
+        values: [
+          { stepId: yesNoStepId, value: true },
+          { stepId: booleanConsentStepId, value: true },
+          { stepId: aliasConsentStepId, value: 'I accept the records policy' },
+        ],
+      })
+      .expect(400);
+    expect(presentationLabel.body).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
+
+    const unchecked = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({
+        values: [
+          { stepId: yesNoStepId, value: true },
+          { stepId: booleanConsentStepId, value: false },
+          { stepId: aliasConsentStepId, value: 'policy_accepted' },
+        ],
+      })
+      .expect(200);
+    expect(unchecked.body).toMatchObject({ success: false });
+
+    const declinedAlias = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({
+        values: [
+          { stepId: yesNoStepId, value: true },
+          { stepId: booleanConsentStepId, value: true },
+          { stepId: aliasConsentStepId, value: 'policy_declined' },
+        ],
+      })
+      .expect(200);
+    expect(declinedAlias.body).toMatchObject({ success: false });
+
+    const afterRejected = await getOwnerDb()
+      .select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(afterRejected.find((value) => value.stepId === booleanConsentStepId)?.value).toBe(true);
+    expect(afterRejected.find((value) => value.stepId === aliasConsentStepId)?.value).toBe('policy_declined');
+
+    await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({
+        values: [
+          { stepId: yesNoStepId, value: true },
+          { stepId: booleanConsentStepId, value: true },
+          { stepId: aliasConsentStepId, value: 'policy_accepted' },
+        ],
+      })
+      .expect(200);
+
+    const saved = await getOwnerDb()
+      .select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(saved.find((value) => value.stepId === booleanConsentStepId)?.value).toBe(true);
+    expect(saved.find((value) => value.stepId === aliasConsentStepId)?.value).toBe('policy_accepted');
+  });
+
   it('persists true and false through page submission and returns them on runtime reload', async () => {
     const createRun = await agent
       .post(`/api/workflows/${workflowId}/runs`)
@@ -187,6 +299,8 @@ describe.sequential('STB-5 canonical Boolean vertical path', () => {
         values: [
           { stepId: yesNoStepId, value: true },
           { stepId: trueFalseStepId, value: false },
+          { stepId: booleanConsentStepId, value: true },
+          { stepId: aliasConsentStepId, value: 'policy_accepted' },
         ],
       })
       .expect(200);

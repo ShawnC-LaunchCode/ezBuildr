@@ -5,6 +5,7 @@
  * formatting rules.
  */
 import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
+import { resolveBooleanConfig, resolveBooleanLogicalValue } from "@shared/types/stepConfigs";
 
 export interface AnswerFormatContext {
   type?: string | null;
@@ -103,17 +104,11 @@ function formatAddressValue(value: unknown, config: unknown): string {
     .join(", ");
 }
 
-function formatBooleanValue(value: boolean, config: unknown): string {
-  if (!isRecord(config)) {
-    return value ? "Yes" : "No";
-  }
-
-  const preferredKey = value ? "trueLabel" : "falseLabel";
-  const legacyKey = value ? "yesLabel" : "noLabel";
-  const configuredLabel = config[preferredKey] ?? config[legacyKey];
-  return typeof configuredLabel === "string" && configuredLabel.trim() !== ""
-    ? configuredLabel
-    : value ? "Yes" : "No";
+function formatBooleanValue(value: unknown, config: unknown): string | undefined {
+  const logicalValue = resolveBooleanLogicalValue(value, config);
+  if (logicalValue === undefined) { return undefined; }
+  const resolvedConfig = resolveBooleanConfig(config);
+  return logicalValue ? resolvedConfig.trueLabel : resolvedConfig.falseLabel;
 }
 
 export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {}): string {
@@ -128,11 +123,12 @@ export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {
   if (normalizedType === "address") {
     return formatAddressValue(val, context.config);
   }
+  if (normalizedType === "boolean") {
+    return formatBooleanValue(val, context.config) ?? String(val);
+  }
 
   if (typeof val === "boolean") {
-    return normalizedType === "boolean"
-      ? formatBooleanValue(val, context.config)
-      : val ? "Yes" : "No";
+    return val ? "Yes" : "No";
   }
   if (val instanceof Date) {
     return val.toLocaleDateString();
