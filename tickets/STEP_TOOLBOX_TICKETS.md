@@ -1912,3 +1912,44 @@ const newType = type === "short" ? "short_text" : "long_text";
 
 It is not a live drift path today, which is why STB-3 correctly left it alone. STB-15 and STB-21 will both trip
 over it during their repo-wide sweeps — delete the three files there rather than porting them to canonical types.
+
+**Update 2026-08-29 — this is now costing real effort.** STB-4 edited both `StepPropertiesPanel.tsx` and
+`step-properties/StepTypeSettings.tsx` while canonicalizing Date/Time. The work is correct in itself, but
+nothing renders it — `Inspector.tsx` is imported by no module. That is time spent on code no author or
+respondent will ever reach, and every remaining family ticket faces the same pull. STB-15 should delete the
+three files early rather than at the end of its sweep.
+
+### STB-B6 — `sanitizeStepValue` and `validateStepValue` are dead, and STB-10 will reach for them
+
+**Tag:** `informational`. Found by the STB-9 vertical proof. `server/utils/stepConfigUtils.ts` exports
+`sanitizeStepValue` and `validateStepValue`, which read step configs and enforce range, precision and type
+rules — and **neither is referenced from anywhere**. The live submit path is
+`RunPersistenceWriter -> getValidationSchema` in `shared/validation/BlockValidation.ts`.
+
+This is an attractive nuisance rather than ordinary dead code, because both functions look exactly like the
+right home for value-level logic. STB-9 first "aligned precision" inside `sanitizeStepValue`, and a precision-2
+field stored `1.239` while 3,544 unit tests passed; only the vertical proof caught it. **STB-10 is the next
+ticket likely to walk into it**, since rounding currency to its ISO fraction digits is precisely what that
+function appears to offer. Anything added there silently does nothing.
+
+Resolve by wiring them into the submit path deliberately — a behaviour change touching every step type, so its
+own ticket — or by deleting them. Do not leave them looking usable.
+
+### STB-B7 — Nothing catches an AI exclusion that has become unnecessary
+
+**Tag:** `needs-initiative`; belongs to **STB-16**, which replaces the manifest. STB-1's
+`TEMPORARY_CONFIG_KEY_EXCLUSIONS` hides config keys with no behaviour behind them, and guards two kinds of
+drift: an exclusion naming a nonexistent schema field throws at module load, and the manifest drifting from the
+audited copy in `tests/unit/shared/aiVocabulary.test.ts` fails that test.
+
+Neither catches the direction every family ticket actually travels: **a key that has quietly become
+implemented**. Nothing fails, and AI stays barred from a capability that works. Across one batch the same hazard
+produced three outcomes — STB-4 and STB-8 released their exclusions unprompted, STB-5 did not and needed a
+reviewer fix, and STB-9 was caught only because it changed the schema *shape* and tripped the missing-field
+guard by accident. Three different results on one hazard is what a guard is for.
+
+Cheapest workable check: require every exclusion to carry the ticket ID that will release it, and fail when that
+ticket is marked ✅ in `tickets/`. Still awaiting release: `file_upload.previewThumbnails` (STB-11),
+`phone_advanced`, `email_advanced`, `website_advanced`, `address_advanced` (STB-13/STB-14), `number_advanced`
+(retired type, STB-19), and `radio.displayLayout` — verify that one, since STB-7 has now landed.
+`display_advanced.allowHtml` stays excluded by Decision 10.
