@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   adornmentPadding,
   applyLiveGrouping,
+  currencyDigitsToNumber,
+  formatCurrencyForDisplay,
   formatNumberForDisplay,
+  getCurrencyFractionDigits,
   groupDigits,
+  numberToCurrencyDigits,
   parseNumericInput,
   stripDisplay,
 } from '../../../client/src/components/runner/blocks/numberFormat';
@@ -37,6 +41,28 @@ describe('numberFormat — grouping', () => {
     expect(formatNumberForDisplay(1.239, { precision: 2 })).toBe('1.24');
     expect(formatNumberForDisplay(1234.5, { precision: 0, thousandsSeparator: true })).toBe('1,235');
     expect(formatNumberForDisplay(1.239)).toBe('1.239');
+  });
+});
+
+describe('numberFormat — ISO currency', () => {
+  it('uses ISO symbols, grouping and two-decimal USD minor units', () => {
+    const options = { mode: 'currency_decimal', currency: 'USD' } as const;
+    expect(getCurrencyFractionDigits(options)).toBe(2);
+    expect(formatCurrencyForDisplay(12345.67, options)).toBe('$12,345.67');
+  });
+
+  it('uses zero decimal places for JPY and for whole-unit mode', () => {
+    expect(getCurrencyFractionDigits({ mode: 'currency_decimal', currency: 'JPY' })).toBe(0);
+    expect(formatCurrencyForDisplay(12345, { mode: 'currency_decimal', currency: 'JPY' })).toBe('¥12,345');
+    expect(formatCurrencyForDisplay(12345.67, { mode: 'currency_whole', currency: 'USD' })).toBe('$12,346');
+  });
+
+  it('right-fills typed digits while keeping the stored value decimal', () => {
+    expect(currencyDigitsToNumber('2', 2)).toBe(0.02);
+    expect(currencyDigitsToNumber('23', 2)).toBe(0.23);
+    expect(currencyDigitsToNumber('231', 2)).toBe(2.31);
+    expect(currencyDigitsToNumber('2314', 2)).toBe(23.14);
+    expect(numberToCurrencyDigits(23.14, 2)).toBe('2314');
   });
 });
 
@@ -121,10 +147,18 @@ describe('resolveNumberConfig — stored dialects', () => {
     expect(resolveNumberConfig('number', { allowDecimal: true }).validation).toBeUndefined();
   });
 
-  it('reads number_advanced, dropping a currency mode the runner never honoured', () => {
+  it('reads number_advanced currency modes through the canonical config', () => {
     expect(resolveNumberConfig('number_advanced', {
-      mode: 'currency_whole', validation: { min: 0 }, prefix: '$',
-    })).toEqual({ mode: 'number', validation: { min: 0 }, prefix: '$' });
+      mode: 'currency_whole', validation: { min: 0 }, currency: 'jpy', prefix: '$',
+    })).toEqual({ mode: 'currency_whole', validation: { min: 0 }, currency: 'JPY' });
+  });
+
+  it('adapts retired currency rows without preserving fake decorations', () => {
+    expect(resolveNumberConfig('currency', {
+      currency: 'EUR', allowDecimal: true, min: 1, prefix: '$', suffix: 'USD',
+    })).toEqual({
+      mode: 'currency_decimal', validation: { min: 1 }, currency: 'EUR',
+    });
   });
 
   it('never returns a config without a mode', () => {

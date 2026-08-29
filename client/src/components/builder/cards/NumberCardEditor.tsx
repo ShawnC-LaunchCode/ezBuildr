@@ -25,13 +25,12 @@ export function NumberCardEditor({ stepId, pageId, workflowId, step }: StepEdito
   const { data: workflowMode } = useWorkflowMode(workflowId);
 
   const numberConfig = step.config as NumberEditorConfig | null;
-  const isCurrency = step.type === "currency";
   // Exposure, not identity (Decision 2): mode decides which settings are
   // visible, never what gets stored. STB-9 keeps detailed numeric formatting
   // in Advanced per Decision 4.
   const mode = workflowMode?.mode ?? "easy";
   const isEasyMode = mode === "easy";
-  const showDisplaySettings = !isEasyMode && !isCurrency;
+  const showDisplaySettings = !isEasyMode && resolveNumberConfig(step.type, step.config).mode === "number";
 
   const updateDisplay = (updates: Partial<NumberCanonicalConfig>) => {
     const current = resolveNumberConfig(step.type, step.config);
@@ -69,7 +68,12 @@ export function NumberCardEditor({ stepId, pageId, workflowId, step }: StepEdito
       {/* Number/Currency settings — extracted into NumberSettingsSection
           (LIST2-7) so ListFieldSettings can render the identical panel for a
           `number` list field, always in fixed easy-mode ("number"). */}
-      <NumberSettingsSection stepType={step.type} config={numberConfig} onChange={handleConfigChange} />
+      <NumberSettingsSection
+        stepType={step.type}
+        config={numberConfig}
+        modeEditable={!isEasyMode && step.type !== "currency"}
+        onChange={handleConfigChange}
+      />
 
       {showDisplaySettings && (
         <>

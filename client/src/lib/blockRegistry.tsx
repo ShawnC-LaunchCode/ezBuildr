@@ -323,19 +323,6 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     }),
   },
   {
-    type: "currency",
-    label: "Currency",
-    icon: DollarSign,
-    glyph: "$",
-    description: "Currency input with formatting",
-    category: "numeric",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({
-      currency: "USD" as const,
-      allowDecimal: true,
-    }),
-  },
-  {
     type: "scale",
     label: "Rating Scale",
     icon: Gauge,
@@ -478,6 +465,12 @@ const SINGLE_SELECT_PRESET_PRESENTATION = {
 const MULTIPLE_CHOICE_PRESET_PRESENTATION = {
   icon: CheckSquare,
   category: "choice",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const CURRENCY_PRESET_PRESENTATION = {
+  icon: DollarSign,
+  glyph: "$",
+  category: "numeric",
 } as const satisfies Omit<QuestionTypePresentation, "label">;
 
 /**
@@ -644,12 +637,15 @@ export const QUESTION_PRESETS = [
     id: "easy.currency",
     label: "Currency",
     description: "Money amount",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "number",
-    persistedType: "currency",
+    persistedType: "number",
+    presentation: CURRENCY_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       mode: "currency_decimal",
       currency: "USD",
+      thousandsSeparator: true,
     }),
   }),
   defineQuestionPreset({
@@ -735,6 +731,7 @@ const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentatio
   time: { label: "Time", ...TIME_PRESET_PRESENTATION },
   datetime: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
   datetime_unified: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
+  currency: { label: "Currency", ...CURRENCY_PRESET_PRESENTATION },
 };
 
 function isConfigRecord(config: unknown): config is Readonly<Record<string, unknown>> {

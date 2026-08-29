@@ -32,15 +32,6 @@ const AUDITED_INERT_CONFIG_KEYS = {
     file_upload: ['previewThumbnails'],
     phone_advanced: ['defaultCountry', 'allowedCountries'],
     email_advanced: ['requireVerification'],
-    number_advanced: [
-        'mode',
-        'validation',
-        'currency',
-        'formatOnInput',
-        'thousandsSeparator',
-        'prefix',
-        'suffix',
-    ],
     website_advanced: ['validateDns'],
     address_advanced: ['country', 'allowedCountries'],
     display_advanced: ['allowHtml'],
@@ -129,6 +120,25 @@ describe('AI vocabulary derivation', () => {
         expect(getConfigKeys('boolean')).toEqual(
             expect.arrayContaining(['displayStyle(buttons|radio|toggle|checkbox)']),
         );
+    });
+
+    it('releases the implemented canonical Number family vocabulary (STB-10)', () => {
+        expect(getConfigKeys('number')).toEqual(expect.arrayContaining([
+            'mode(number|currency_whole|currency_decimal)',
+            'currency',
+            'formatOnInput',
+            'thousandsSeparator',
+            'prefix',
+            'suffix',
+        ]));
+        expect(getConfigKeys('number_advanced')).toEqual(expect.arrayContaining([
+            'mode(number|currency_whole|currency_decimal)',
+            'currency',
+            'formatOnInput',
+            'thousandsSeparator',
+            'prefix',
+            'suffix',
+        ]));
     });
 
   it('fails loudly when an exclusion drifts from the type or schema (STB-1 AC3)', () => {

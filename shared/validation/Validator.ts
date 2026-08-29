@@ -136,6 +136,9 @@ function validateRule(
             break;
         case "maxDecimalPlaces":
             if (typeof value === "number" || typeof value === "string") {
+                if (rule.value === 0 && typeof value === "number" && !Number.isInteger(value)) {
+                    return formatMessage(msg, { value: rule.value });
+                }
                 const strVal = String(value);
                 if (strVal.includes(".")) {
                     const decimals = strVal.split(".")[1];

@@ -15,20 +15,22 @@ import { expectCrossTenantDenied } from '../helpers/expectDenied';
 import { getOwnerDb } from '../helpers/ownerDb';
 
 /**
- * STB-9 vertical proof: preset -> canonical config -> submit -> numeric value.
+ * STB-9/STB-10 vertical proof: preset -> canonical config -> submit -> numeric value.
  *
  * The point of this suite is that display settings never reach storage. A step
  * configured with grouping, a prefix and a suffix must still persist a bare
  * `number`, and the server -- not the client -- must be the thing enforcing
  * limits and precision.
  */
-describe.sequential('STB-9 canonical number vertical path', () => {
+describe.sequential('STB-9/STB-10 canonical number vertical path', () => {
   let ctx: IntegrationTestContext;
   let agent: ReturnType<typeof createAuthenticatedAgent>;
   let workflowId: string;
   let pageId: string;
   let decoratedStepId: string;
   let preciseStepId: string;
+  let wholeCurrencyStepId: string;
+  let decimalCurrencyStepId: string;
   let foreignTenantId: string;
   let foreignToken: string;
 
@@ -130,6 +132,59 @@ describe.sequential('STB-9 canonical number vertical path', () => {
     expect(after).toHaveLength(before.length);
   });
 
+  it('persists canonical currency modes and refuses plain-number decorations', async () => {
+    const whole = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'number',
+        title: 'Retainer in whole dollars',
+        alias: 'whole_retainer',
+        config: {
+          mode: 'currency_whole',
+          currency: 'USD',
+          thousandsSeparator: true,
+        },
+      })
+      .expect(201);
+    wholeCurrencyStepId = whole.body.id as string;
+
+    const decimal = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'number',
+        title: 'Retainer with cents',
+        alias: 'decimal_retainer',
+        config: {
+          mode: 'currency_decimal',
+          currency: 'USD',
+          thousandsSeparator: true,
+        },
+      })
+      .expect(201);
+    decimalCurrencyStepId = decimal.body.id as string;
+
+    expect(whole.body).toMatchObject({
+      type: 'number',
+      config: { mode: 'currency_whole', currency: 'USD', thousandsSeparator: true },
+    });
+    expect(decimal.body).toMatchObject({
+      type: 'number',
+      config: { mode: 'currency_decimal', currency: 'USD', thousandsSeparator: true },
+    });
+
+    const before = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.pageId, pageId));
+    await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'number',
+        title: 'Duplicate currency symbol',
+        config: { mode: 'currency_decimal', currency: 'USD', prefix: '$' },
+      })
+      .expect(400);
+    const after = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.pageId, pageId));
+    expect(after).toHaveLength(before.length);
+  });
+
   it('denies cross-tenant create and update without writing', async () => {
     const before = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.pageId, pageId));
     const original = before.find((step) => step.id === decoratedStepId);
@@ -174,6 +229,21 @@ describe.sequential('STB-9 canonical number vertical path', () => {
       .where(eq(schema.stepValues.runId, runId));
     expect(afterInvalid.find((v) => v.stepId === decoratedStepId)).toBeUndefined();
 
+    // Whole-currency is an integer-unit answer contract, not display-only
+    // precision. A direct client cannot bypass it by posting a decimal.
+    const invalidWholeCurrency = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({ values: [{ stepId: wholeCurrencyStepId, value: 2314.5 }] })
+      .expect(400);
+    expect(invalidWholeCurrency.body).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
+
+    const afterInvalidWhole = await getOwnerDb()
+      .select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(afterInvalidWhole.find((v) => v.stepId === wholeCurrencyStepId)).toBeUndefined();
+
     const valid = await request(ctx.baseURL)
       .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .set('Authorization', `Bearer ${runToken}`)
@@ -183,6 +253,8 @@ describe.sequential('STB-9 canonical number vertical path', () => {
           // More decimals than the field displays. Accepted, and stored
           // exactly (Decision 13).
           { stepId: preciseStepId, value: 23.148 },
+          { stepId: wholeCurrencyStepId, value: 2314 },
+          { stepId: decimalCurrencyStepId, value: 23.14 },
         ],
       })
       .expect(200);
@@ -208,5 +280,12 @@ describe.sequential('STB-9 canonical number vertical path', () => {
     const ratio = saved.find((v) => v.stepId === preciseStepId)?.value;
     expect(ratio).toBe(23.148);
     expect(ratio).not.toBe(23.15);
+
+    // Currency display never changes the storage contract: both modes persist
+    // decimal numbers, never formatted strings or cents-as-integer. The
+    // cents-style runner is what turns typed digits `2314` into `23.14` before
+    // this server boundary (Decision 14).
+    expect(saved.find((v) => v.stepId === wholeCurrencyStepId)?.value).toBe(2314);
+    expect(saved.find((v) => v.stepId === decimalCurrencyStepId)?.value).toBe(23.14);
   });
 });

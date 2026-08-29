@@ -16,18 +16,27 @@
  *   are reported by validation, not by refusing input.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Step } from "@/types";
 
-import { resolveNumberConfig, type NumberValue } from "@shared/types/stepConfigs";
+import {
+  resolveNumberConfig,
+  type NumberCanonicalConfig,
+  type NumberMode,
+  type NumberValue,
+} from "@shared/types/stepConfigs";
 
 import {
   adornmentPadding,
   applyLiveGrouping,
+  currencyDigitsToNumber,
+  formatCurrencyForDisplay,
   formatNumberForDisplay,
+  getCurrencyFractionDigits,
+  numberToCurrencyDigits,
   parseNumericInput,
 } from "./numberFormat";
 
@@ -45,6 +54,18 @@ export function NumberBlockRenderer({
   step, value, onChange, readOnly, ariaDescribedBy, required, hasError,
 }: NumberBlockProps) {
   const config = resolveNumberConfig(step.type, step.config);
+  const props = { step, value, onChange, readOnly, ariaDescribedBy, required, hasError };
+
+  return config.mode === "number"
+    ? <PlainNumberInput {...props} config={config} />
+    : <CurrencyNumberInput {...props} config={config} />;
+}
+
+type ResolvedNumberInputProps = NumberBlockProps & { config: NumberCanonicalConfig };
+
+function PlainNumberInput({
+  step, value, onChange, readOnly, ariaDescribedBy, required, hasError, config,
+}: ResolvedNumberInputProps) {
   const { thousandsSeparator, formatOnInput, prefix, suffix } = config;
   const precision = config.validation?.precision;
   const numericValue = typeof value === "number" ? value : null;
@@ -139,5 +160,107 @@ export function NumberBlockRenderer({
         </span>
       )}
     </div>
+  );
+}
+
+type CurrencyMode = Exclude<NumberMode, "number">;
+
+function onlyDigits(text: string): string {
+  let digits = "";
+  for (const char of text) {
+    if (char >= "0" && char <= "9") { digits += char; }
+  }
+  return digits;
+}
+
+function trimLeadingZeroes(digits: string): string {
+  let firstMeaningful = 0;
+  while (firstMeaningful < digits.length - 1 && digits[firstMeaningful] === "0") {
+    firstMeaningful += 1;
+  }
+  return digits.slice(firstMeaningful);
+}
+
+/**
+ * Bank-style currency entry (Decision 14).
+ *
+ * Digits fill from the right: with USD decimal mode, 2 -> $0.02, then 3 ->
+ * $0.23, then 1 -> $2.31. That makes over-precision impossible without ever
+ * rounding or rejecting a respondent's typed decimal text. The emitted answer
+ * remains a decimal number, never an integer count of cents.
+ */
+function CurrencyNumberInput({
+  step, value, onChange, readOnly, ariaDescribedBy, required, hasError, config,
+}: ResolvedNumberInputProps) {
+  const mode = config.mode as CurrencyMode;
+  const currency = config.currency ?? "USD";
+  const displayOptions = { mode, currency };
+  const fractionDigits = getCurrencyFractionDigits(displayOptions);
+  const numericValue = typeof value === "number" ? value : null;
+  const isFocused = useRef(false);
+  const [digits, setDigits] = useState(() => numberToCurrencyDigits(numericValue, fractionDigits));
+  const [negative, setNegative] = useState(() => (numericValue ?? 0) < 0);
+
+  useEffect(() => {
+    if (isFocused.current) { return; }
+    setDigits(numberToCurrencyDigits(numericValue, fractionDigits));
+    setNegative((numericValue ?? 0) < 0);
+  }, [numericValue, fractionDigits]);
+
+  const emitDigits = (nextDigits: string, nextNegative = negative) => {
+    const normalizedDigits = trimLeadingZeroes(nextDigits);
+    const nextValue = currencyDigitsToNumber(normalizedDigits, fractionDigits, nextNegative);
+    setDigits(normalizedDigits);
+    setNegative(nextNegative && nextValue !== null);
+    onChange(nextValue);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key.length === 1 && event.key >= "0" && event.key <= "9") {
+      event.preventDefault();
+      emitDigits(`${digits}${event.key}`);
+      return;
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      emitDigits(digits.slice(0, -1));
+      return;
+    }
+    if (event.key === "-" && digits !== "") {
+      event.preventDefault();
+      emitDigits(digits, !negative);
+    }
+  };
+
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const pastedDigits = onlyDigits(event.clipboardData.getData("text"));
+    if (pastedDigits !== "") { emitDigits(`${digits}${pastedDigits}`); }
+  };
+
+  const currentNumber = currencyDigitsToNumber(digits, fractionDigits, negative);
+  const displayValue = formatCurrencyForDisplay(currentNumber, displayOptions);
+
+  return (
+    <Input
+      id={step.id}
+      type="text"
+      inputMode="numeric"
+      value={displayValue}
+      onChange={(event) => {
+        const raw = event.target.value;
+        emitDigits(onlyDigits(raw), raw.includes("-"));
+      }}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+      onFocus={() => { isFocused.current = true; }}
+      onBlur={() => { isFocused.current = false; }}
+      placeholder={formatCurrencyForDisplay(0, displayOptions)}
+      disabled={readOnly}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="tabular-nums"
+    />
   );
 }

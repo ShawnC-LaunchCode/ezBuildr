@@ -166,6 +166,88 @@ describe('NumberBlockRenderer — decorations', () => {
   });
 });
 
+describe('NumberBlockRenderer — bank-style currency entry', () => {
+  it('fills USD cents from the right and emits a decimal number', () => {
+    const onChange = vi.fn();
+    render(
+      <NumberBlockRenderer
+        step={numberStep({ mode: 'currency_decimal', currency: 'USD', thousandsSeparator: true })}
+        value={null}
+        onChange={onChange}
+      />
+    );
+
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    fireEvent.focus(input);
+    for (const key of ['2', '3', '1', '4']) {
+      fireEvent.keyDown(input, { key });
+    }
+
+    expect(input.value).toBe('$23.14');
+    expect(onChange).toHaveBeenLastCalledWith(23.14);
+    expect(typeof onChange.mock.lastCall?.[0]).toBe('number');
+
+    fireEvent.blur(input);
+    expect(input.value).toBe('$23.14');
+  });
+
+  it('uses zero-decimal ISO formatting for JPY', () => {
+    const onChange = vi.fn();
+    render(
+      <NumberBlockRenderer
+        step={numberStep({ mode: 'currency_decimal', currency: 'JPY', thousandsSeparator: true })}
+        value={null}
+        onChange={onChange}
+      />
+    );
+
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    for (const key of ['2', '3', '1', '4']) {
+      fireEvent.keyDown(input, { key });
+    }
+
+    expect(input.value).toBe('¥2,314');
+    expect(onChange).toHaveBeenLastCalledWith(2314);
+  });
+
+  it('whole mode submits integers even for a currency with minor units', () => {
+    const onChange = vi.fn();
+    render(
+      <NumberBlockRenderer
+        step={numberStep({ mode: 'currency_whole', currency: 'USD', thousandsSeparator: true })}
+        value={null}
+        onChange={onChange}
+      />
+    );
+
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    for (const key of ['2', '3', '1', '4']) {
+      fireEvent.keyDown(input, { key });
+    }
+
+    expect(input.value).toBe('$2,314');
+    expect(onChange).toHaveBeenLastCalledWith(2314);
+  });
+
+  it('deletes from the right without getting stuck on formatted zeroes', () => {
+    const onChange = vi.fn();
+    render(
+      <NumberBlockRenderer
+        step={numberStep({ mode: 'currency_decimal', currency: 'USD' })}
+        value={null}
+        onChange={onChange}
+      />
+    );
+
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    fireEvent.keyDown(input, { key: '2' });
+    expect(input.value).toBe('$0.02');
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(input.value).toBe('');
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+});
+
 describe('BlockRenderer — retired number rows', () => {
   it('renders a number_advanced row through the canonical control', () => {
     render(
@@ -176,9 +258,21 @@ describe('BlockRenderer — retired number rows', () => {
       />
     );
 
-    // Adapted by LEGACY_STEP_ADAPTERS before the switch: it renders, and it
-    // honours the grouping the old control ignored entirely.
-    expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe('1,234');
+    // Adapted by LEGACY_STEP_ADAPTERS before the switch: the old currency mode
+    // now reaches the one implemented ISO-aware Number control.
+    expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe('$1,234');
+  });
+
+  it('renders a retired currency row through the canonical control', () => {
+    render(
+      <BlockRenderer
+        step={numberStep({ currency: 'EUR', allowDecimal: true }, 'currency')}
+        value={1234.5}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe('€1,234.50');
   });
 
   it('lifts a retired root-shape number row into nested validation', () => {

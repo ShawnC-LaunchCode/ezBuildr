@@ -9,6 +9,8 @@
  * `number | null`.
  */
 
+import type { NumberMode } from "@shared/types/stepConfigs";
+
 const GROUP_SEPARATOR = ",";
 
 /**
@@ -75,6 +77,54 @@ export function parseNumericInput(text: string): { value: number | null; interme
 export interface NumberDisplayOptions {
   thousandsSeparator?: boolean;
   precision?: number;
+}
+
+export interface CurrencyDisplayOptions {
+  mode: Exclude<NumberMode, "number">;
+  currency: string;
+}
+
+/** ISO minor-unit digits for decimal currency, or zero for whole-unit mode. */
+export function getCurrencyFractionDigits(options: CurrencyDisplayOptions): number {
+  if (options.mode === "currency_whole") { return 0; }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: options.currency,
+  }).resolvedOptions().maximumFractionDigits ?? 2;
+}
+
+/** Format a numeric answer with the configured ISO symbol, grouping and fraction rules. */
+export function formatCurrencyForDisplay(
+  value: number | null | undefined,
+  options: CurrencyDisplayOptions,
+): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) { return ""; }
+  const fractionDigits = getCurrencyFractionDigits(options);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: options.currency,
+    useGrouping: true,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
+}
+
+/** Convert right-filled keypad digits to the decimal number stored by the platform. */
+export function currencyDigitsToNumber(
+  digits: string,
+  fractionDigits: number,
+  negative = false,
+): number | null {
+  if (digits === "") { return null; }
+  const magnitude = Number(digits) / (10 ** fractionDigits);
+  if (!Number.isFinite(magnitude)) { return null; }
+  return negative ? -magnitude : magnitude;
+}
+
+/** Rebuild the editable digit buffer when a persisted currency answer is revisited. */
+export function numberToCurrencyDigits(value: number | null, fractionDigits: number): string {
+  if (value === null || !Number.isFinite(value)) { return ""; }
+  return String(Math.round(Math.abs(value) * (10 ** fractionDigits)));
 }
 
 /** Render a stored value for display when the field does not have focus. */

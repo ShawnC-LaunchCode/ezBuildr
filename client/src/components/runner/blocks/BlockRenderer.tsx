@@ -27,7 +27,6 @@ import {
 import { AddressBlockRenderer } from "./AddressBlock";
 import { BooleanBlockRenderer } from "./BooleanBlock";
 import { ChoiceBlockRenderer } from "./ChoiceBlock";
-import { CurrencyBlockRenderer } from "./CurrencyBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
@@ -126,6 +125,7 @@ const LEGACY_STEP_ADAPTERS: Readonly<Partial<Record<string, LegacyStepAdapter>>>
   short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  currency: { canonicalType: "number", resolveConfig: resolveNumberConfig },
   date: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
   time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
   datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
@@ -247,9 +247,6 @@ export function BlockRenderer(props: BlockRendererProps) {
       // Numeric inputs
       case "number":
         return <NumberBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
-      case "currency":
-        return <CurrencyBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "scale":
         return <ScaleBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;

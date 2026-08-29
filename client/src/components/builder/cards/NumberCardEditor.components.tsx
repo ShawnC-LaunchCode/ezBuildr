@@ -15,6 +15,8 @@ import {
     type NumberValidation,
 } from "@shared/types/stepConfigs";
 
+import { formatCurrencyForDisplay, getCurrencyFractionDigits } from "../../runner/blocks/numberFormat";
+
 import { SectionHeader, NumberField, SwitchField, TextField } from "./common/EditorField";
 
 export interface NumberCardState {
@@ -29,6 +31,7 @@ export interface NumberCardState {
     formatOnInput: boolean;
     prefix: string;
     suffix: string;
+    currency: string;
 }
 
 /** Union of every shape `step.config`/`field.config` may hold for a number-family step type. */
@@ -36,19 +39,17 @@ export type NumberEditorConfig = Partial<NumberConfig & CurrencyConfig & NumberA
 
 export const NumberModeSection = ({
     mode,
-    isAdvancedMode,
-    isCurrency,
+    modeEditable,
     onModeChange
 }: {
     mode: string;
-    isAdvancedMode: boolean;
-    isCurrency: boolean;
+    modeEditable: boolean;
     onModeChange: (val: "number" | "currency_whole" | "currency_decimal") => void;
 }) => (
     <div className="space-y-3">
         <SectionHeader
             title="Number Type"
-            description={isAdvancedMode ? "Choose number format" : isCurrency ? "Fixed as currency" : "Fixed as number"}
+            description={modeEditable ? "Choose number format" : mode === "number" ? "Fixed as number" : "Fixed as currency"}
         />
 
         <div className="space-y-2">
@@ -56,7 +57,7 @@ export const NumberModeSection = ({
             <Select
                 value={mode}
                 onValueChange={(val) => onModeChange(val as "number" | "currency_whole" | "currency_decimal")}
-                disabled={!isAdvancedMode}
+                disabled={!modeEditable}
             >
                 <SelectTrigger>
                     <SelectValue />
@@ -69,9 +70,9 @@ export const NumberModeSection = ({
             </Select>
         </div>
 
-        {!isAdvancedMode && (
+        {!modeEditable && (
             <p className="text-xs text-muted-foreground">
-                Mode is fixed in {isCurrency ? "currency" : "easy"} mode
+                Mode is fixed in Easy mode
             </p>
         )}
     </div>
@@ -100,7 +101,9 @@ export const NumberValidationSection = ({
             placeholder="No minimum"
             description="Smallest allowed value"
             error={minMaxError ?? undefined}
-            step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
+            step={localConfig.mode === "currency_decimal"
+                ? 10 ** -getCurrencyFractionDigits({ mode: localConfig.mode, currency: localConfig.currency })
+                : 1}
         />
 
         {/* Max */}
@@ -111,7 +114,9 @@ export const NumberValidationSection = ({
             placeholder="No maximum"
             description="Largest allowed value"
             error={minMaxError ?? undefined}
-            step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
+            step={localConfig.mode === "currency_decimal"
+                ? 10 ** -getCurrencyFractionDigits({ mode: localConfig.mode, currency: localConfig.currency })
+                : 1}
         />
 
         {/* Step - only for non-currency modes */}
@@ -128,17 +133,6 @@ export const NumberValidationSection = ({
     </div>
 );
 
-/** Retired currency shape, unchanged until STB-10 canonicalizes the family. */
-function buildCurrencyConfig(state: NumberCardState): CurrencyConfig {
-    const config: CurrencyConfig = {
-        currency: "USD",
-        allowDecimal: state.mode === "currency_decimal",
-    };
-    if (state.min !== undefined) { config.min = state.min; }
-    if (state.max !== undefined) { config.max = state.max; }
-    return config;
-}
-
 /**
  * One stored shape for the whole number family (STB-9). Easy and Advanced
  * differ only in which of these the author can see, never in what is written.
@@ -147,15 +141,20 @@ function buildCurrencyConfig(state: NumberCardState): CurrencyConfig {
  * inlining it pushed `NumberSettingsSection` past the cognitive-complexity
  * limit.
  */
-function buildCanonicalNumberConfig(state: NumberCardState): NumberCanonicalConfig {
+export function buildCanonicalNumberConfig(state: NumberCardState): NumberCanonicalConfig {
     const validation: NumberValidation = {};
     if (state.min !== undefined) { validation.min = state.min; }
     if (state.max !== undefined) { validation.max = state.max; }
-    if (state.step !== undefined) { validation.step = state.step; }
-    if (!state.allowDecimal) { validation.precision = 0; }
+    if (state.mode === "number" && state.step !== undefined) { validation.step = state.step; }
+    if (state.mode === "number" && !state.allowDecimal) { validation.precision = 0; }
 
-    const config: NumberCanonicalConfig = { mode: "number" };
+    const config: NumberCanonicalConfig = { mode: state.mode };
     if (Object.keys(validation).length > 0) { config.validation = validation; }
+    if (state.mode !== "number") {
+        config.currency = state.currency;
+        config.thousandsSeparator = true;
+        return config;
+    }
     if (state.thousandsSeparator) { config.thousandsSeparator = true; }
     // Live grouping is meaningless without grouping, and the schema rejects the
     // pair -- never save one without the other.
@@ -215,15 +214,15 @@ export const NumberDisplaySection = ({
     </div>
 );
 
-export const NumberPreviewSection = ({ mode }: { mode: string }) => (
+export const NumberPreviewSection = ({ mode, currency }: { mode: NumberCardState["mode"]; currency: string }) => (
     <div className="bg-muted border rounded-lg p-3">
         <p className="text-xs font-medium mb-1">Format Preview</p>
         {mode === "number" ? (
             <p className="text-sm font-mono">12345</p>
-        ) : mode === "currency_whole" ? (
-            <p className="text-sm font-mono">$12,345</p>
         ) : (
-            <p className="text-sm font-mono">$12,345.67</p>
+            <p className="text-sm font-mono">
+                {formatCurrencyForDisplay(12345.67, { mode, currency })}
+            </p>
         )}
     </div>
 );
@@ -252,27 +251,12 @@ function getInitialMode(
 }
 
 function toNumberCardState(stepType: string, config: NumberEditorConfig | null | undefined): NumberCardState {
-    if (stepType === "currency") {
-        // Currency keeps its retired root shape until STB-10 canonicalizes it.
-        return {
-            mode: getInitialMode(stepType, config),
-            min: config?.min,
-            max: config?.max,
-            step: config?.step ?? 1,
-            allowDecimal: config?.allowDecimal ?? false,
-            thousandsSeparator: false,
-            formatOnInput: config?.formatOnInput ?? false,
-            prefix: "",
-            suffix: "",
-        };
-    }
-
     // Every stored number dialect -- canonical, the retired root shape, and
     // `number_advanced` -- is read through the one resolver (STB-9), so the
     // editor loads the same values the runner and the server will use.
     const canonical = resolveNumberConfig(stepType, config);
     return {
-        mode: "number",
+        mode: getInitialMode(stepType, config),
         min: canonical.validation?.min,
         max: canonical.validation?.max,
         step: canonical.validation?.step ?? 1,
@@ -281,6 +265,7 @@ function toNumberCardState(stepType: string, config: NumberEditorConfig | null |
         formatOnInput: canonical.formatOnInput ?? false,
         prefix: canonical.prefix ?? "",
         suffix: canonical.suffix ?? "",
+        currency: canonical.currency ?? "USD",
     };
 }
 
@@ -298,16 +283,15 @@ function toNumberCardState(stepType: string, config: NumberEditorConfig | null |
 export function NumberSettingsSection({
     stepType,
     config,
+    modeEditable = false,
     onChange,
 }: {
     stepType: string;
     config: NumberEditorConfig | null | undefined;
+    modeEditable?: boolean;
     onChange: (config: NumberConfig | CurrencyConfig | NumberAdvancedConfig) => void;
 }): JSX.Element {
     const { toast } = useToast();
-    const isAdvancedMode = stepType === "number" && config?.mode !== undefined;
-    const isCurrency = stepType === "currency";
-
     const [localConfig, setLocalConfig] = useState<NumberCardState>(() => toNumberCardState(stepType, config));
 
     useEffect(() => {
@@ -329,15 +313,14 @@ export function NumberSettingsSection({
 
         setLocalConfig(newConfig);
 
-        onChange(isCurrency ? buildCurrencyConfig(newConfig) : buildCanonicalNumberConfig(newConfig));
+        onChange(buildCanonicalNumberConfig(newConfig));
     };
 
     return (
         <div className="space-y-4">
             <NumberModeSection
                 mode={localConfig.mode}
-                isAdvancedMode={isAdvancedMode}
-                isCurrency={isCurrency}
+                modeEditable={modeEditable}
                 onModeChange={(m) => handleUpdate({ mode: m })}
             />
 
@@ -349,7 +332,32 @@ export function NumberSettingsSection({
                 minMaxError={validateMinMax(localConfig.min, localConfig.max)}
             />
 
-            {isAdvancedMode && (
+            {modeEditable && localConfig.mode !== "number" && (
+                <>
+                    <Separator />
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium">Currency</Label>
+                        <Select
+                            value={localConfig.currency}
+                            onValueChange={(currency) => handleUpdate({ currency })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="USD">USD — US Dollar</SelectItem>
+                                <SelectItem value="EUR">EUR — Euro</SelectItem>
+                                <SelectItem value="GBP">GBP — British Pound</SelectItem>
+                                <SelectItem value="CAD">CAD — Canadian Dollar</SelectItem>
+                                <SelectItem value="AUD">AUD — Australian Dollar</SelectItem>
+                                <SelectItem value="JPY">JPY — Japanese Yen</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </>
+            )}
+
+            {modeEditable && localConfig.mode === "number" && (
                 <>
                     <Separator />
                     <div className="space-y-4">
@@ -368,7 +376,7 @@ export function NumberSettingsSection({
                 </>
             )}
 
-            <NumberPreviewSection mode={localConfig.mode} />
+            <NumberPreviewSection mode={localConfig.mode} currency={localConfig.currency} />
         </div>
     );
 }

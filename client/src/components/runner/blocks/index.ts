@@ -15,7 +15,6 @@ export { FileUploadBlockRenderer } from "./FileUploadBlock";
 export { WebsiteBlockRenderer } from "./WebsiteBlock";
 export { DateTimeBlockRenderer } from "./DateTimeBlock";
 export { NumberBlockRenderer } from "./NumberBlock";
-export { CurrencyBlockRenderer } from "./CurrencyBlock";
 export { ChoiceBlockRenderer } from "./ChoiceBlock";
 export { AddressBlockRenderer } from "./AddressBlock";
 export { MultiFieldBlockRenderer } from "./MultiFieldBlock";

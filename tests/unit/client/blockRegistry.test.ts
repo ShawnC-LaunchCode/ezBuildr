@@ -187,7 +187,7 @@ describe('QUESTION_PRESETS canonical contract', () => {
     ]);
     expect(getBlockByType('radio')?.type).toBe('radio');
     expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
-    expect(getBlockByType('currency')?.type).toBe('currency');
+    expect(getBlockByType('currency')).toBeUndefined();
     expect(getBlockByType('file_upload')).toBeUndefined();
   });
 
@@ -240,19 +240,31 @@ describe('QUESTION_PRESETS canonical contract', () => {
     }
   });
 
-  it('activates the Number family through its preset, without duplicating it (STB-9)', () => {
+  it('activates Number and Currency as canonical Number presets without retired writes (STB-9/STB-10)', () => {
     const easy = getBlocksByMode('easy');
     const numberEntries = easy.filter((block) => block.type === 'number');
 
-    // Exactly one Easy action for the family: the preset. The BLOCK_REGISTRY
-    // `number` entry moved to Advanced, as `text` did in STB-3.
     expect(numberEntries).toEqual([
       expect.objectContaining({ id: 'easy.number', label: 'Number' }),
+      expect.objectContaining({ id: 'easy.currency', label: 'Currency' }),
     ]);
     expect(numberEntries[0].createDefaultConfig()).toEqual({
       mode: 'number', validation: { step: 1 },
     });
+    expect(numberEntries[1].createDefaultConfig()).toEqual({
+      mode: 'currency_decimal', currency: 'USD', thousandsSeparator: true,
+    });
+    expect(getBlocksByMode('easy').some((block) => block.type === 'currency')).toBe(false);
     expect(getBlocksByMode('advanced').some((b) => b.type === 'number' && b.id === undefined)).toBe(true);
+  });
+
+  it('keeps retired currency rows display-only with Currency presentation', () => {
+    expect(getQuestionTypePresentation('currency')).toMatchObject({
+      label: 'Currency', glyph: '$', category: 'numeric',
+    });
+    expect(getQuestionTypePresentation('number', { mode: 'currency_decimal' })).toMatchObject({
+      label: 'Currency', glyph: '$', category: 'numeric',
+    });
   });
 
   it('derives canonical text presentation from the preset config discriminator', () => {

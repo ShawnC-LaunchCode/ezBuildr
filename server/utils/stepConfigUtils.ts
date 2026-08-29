@@ -285,7 +285,7 @@ function sanitizeWebsiteValue(value: unknown, config?: StepConfig): string {
 /**
  * Sanitize number value
  */
-function sanitizeNumberValue(value: unknown, config?: StepConfig): number | null {
+function sanitizeNumberValue(value: unknown, _config?: StepConfig): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
@@ -301,14 +301,6 @@ function sanitizeNumberValue(value: unknown, config?: StepConfig): number | null
   // currently referenced from nowhere -- the live submit path validates through
   // `BlockValidation.getValidationSchema` -- so anything added here silently
   // does nothing. Check for a caller before trusting it.
-
-  // `allowDecimal: false` is handled above -- the canonical resolver maps the
-  // retired boolean to `precision: 0`. Only the currency whole-unit mode is
-  // left here, and it stays until STB-10 implements currency properly.
-  const legacyMode = (config as { mode?: unknown } | undefined)?.mode;
-  if (legacyMode === 'currency_whole') {
-    return Math.round(num);
-  }
 
   return num;
 }

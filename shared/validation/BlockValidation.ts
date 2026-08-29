@@ -94,13 +94,21 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
             const c = resolveNumberConfig(step.type, config);
             if (c.validation?.min !== undefined) { rules.push({ type: "minValue", value: c.validation.min }); }
             if (c.validation?.max !== undefined) { rules.push({ type: "maxValue", value: c.validation.max }); }
+            if (c.mode === "currency_whole") {
+                rules.push({
+                    type: "maxDecimalPlaces",
+                    value: 0,
+                    message: "Enter a whole currency amount",
+                });
+            }
             // `precision` is deliberately NOT a rule here: it is a display
             // constraint, not a storage one (Decision 13). Legal work routinely
             // mixes values rounded to the dollar with values to the cent, so the
             // platform collects and stores exactly what the respondent entered
             // and leaves rounding to the author's formulas. Constraining storage
-            // here would silently corrupt the base of every downstream
-            // calculation.
+            // here would silently corrupt the base of every downstream calculation.
+            // Whole-currency mode is different: integer units are the mode's
+            // answer contract, not an author-selected display precision.
             break;
         }
 

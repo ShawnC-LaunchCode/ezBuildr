@@ -5,7 +5,13 @@
  * formatting rules.
  */
 import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
-import { resolveBooleanConfig, resolveBooleanLogicalValue } from "@shared/types/stepConfigs";
+import {
+  resolveBooleanConfig,
+  resolveBooleanLogicalValue,
+  resolveNumberConfig,
+} from "@shared/types/stepConfigs";
+
+import { formatCurrencyForDisplay } from "../components/runner/blocks/numberFormat";
 
 export interface AnswerFormatContext {
   type?: string | null;
@@ -125,6 +131,15 @@ export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {
   }
   if (normalizedType === "boolean") {
     return formatBooleanValue(val, context.config) ?? String(val);
+  }
+  if ((normalizedType === "number" || normalizedType === "currency") && typeof val === "number") {
+    const config = resolveNumberConfig(context.type ?? "number", context.config);
+    if (config.mode !== "number") {
+      return formatCurrencyForDisplay(val, {
+        mode: config.mode,
+        currency: config.currency ?? "USD",
+      });
+    }
   }
 
   if (typeof val === "boolean") {

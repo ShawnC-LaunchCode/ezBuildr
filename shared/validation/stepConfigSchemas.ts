@@ -81,32 +81,65 @@ export const NumberConfigSchema = z.object({
 }).optional();
 
 /**
- * Canonical `number` config (STB-9).
+ * Canonical `number` config (STB-9/STB-10).
  *
- * `mode` admits only the implemented value; STB-10 widens it with currency.
  * `formatOnInput` is live grouping and is meaningless without grouping at all,
  * and `prefix`/`suffix` are plain-number decorations (Decision 8) — both are
  * refused rather than silently ignored, so an author cannot save a config the
  * runner will not honour.
  */
 export const NumberCanonicalConfigSchema = z.object({
-  // Defaulted, not required. `number` is the only legal value today, so
-  // demanding callers spell it out would break every existing writer to carry
-  // zero information. STB-10 adds currency values alongside it, and a missing
-  // mode still means plain number then.
-  mode: z.enum(['number']).default('number'),
+  // Defaulted for pre-STB-9 rows. New writers always include the discriminator.
+  mode: z.enum(['number', 'currency_whole', 'currency_decimal']).default('number'),
   validation: NumberValidationSchema,
+  currency: z.string().regex(/^[A-Z]{3}$/, 'currency must be an uppercase ISO 4217 code').optional(),
   thousandsSeparator: z.boolean().optional(),
   formatOnInput: z.boolean().optional(),
   prefix: z.string().max(8).optional(),
   suffix: z.string().max(8).optional(),
   placeholder: z.string().optional(),
 }).superRefine((config, ctx) => {
-  if (config.formatOnInput === true && config.thousandsSeparator !== true) {
+  const isCurrency = config.mode !== 'number';
+  if (!isCurrency && config.formatOnInput === true && config.thousandsSeparator !== true) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['formatOnInput'],
       message: 'formatOnInput requires thousandsSeparator: live grouping needs grouping enabled',
+    });
+  }
+  if (isCurrency && config.prefix !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['prefix'],
+      message: 'prefix is not allowed in currency modes: the ISO currency symbol owns the prefix',
+    });
+  }
+  if (isCurrency && config.currency === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['currency'],
+      message: 'currency is required in currency modes',
+    });
+  }
+  if (isCurrency && config.suffix !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['suffix'],
+      message: 'suffix is not allowed in currency modes: ISO currency formatting owns decorations',
+    });
+  }
+  if (!isCurrency && config.currency !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['currency'],
+      message: 'currency is only allowed in currency modes',
+    });
+  }
+  if (isCurrency && config.validation?.precision !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['validation', 'precision'],
+      message: 'precision is not allowed in currency modes: the ISO currency defines fraction digits',
     });
   }
   const validation = config.validation;

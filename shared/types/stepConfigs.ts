@@ -539,7 +539,7 @@ export interface EmailAdvancedConfig {
  * Advanced number with currency and formatting options
  */
 export interface NumberAdvancedConfig {
-  mode: 'number' | 'currency_whole' | 'currency_decimal';
+  mode: NumberMode;
   validation?: NumberValidation;
   currency?: string;       // ISO currency code (for currency modes)
   formatOnInput?: boolean; // Apply formatting as user types
@@ -552,23 +552,22 @@ export interface NumberAdvancedConfig {
 /** Canonical stored answer for the number family. */
 export type NumberValue = number | null;
 
+export type NumberMode = 'number' | 'currency_whole' | 'currency_decimal';
+
 /**
  * Canonical stored config for the `number` family (STB-9).
- *
- * `mode` carries only the value this ticket implements. STB-10 widens it when
- * it implements currency end to end; declaring a currency mode before then
- * would advertise a key with no behaviour behind it, which is exactly what
- * STB-1 removed. For the same reason there is no `currency` field here yet.
  *
  * Per Decision 8: display and storage are separate. `thousandsSeparator`,
  * `formatOnInput`, `prefix` and `suffix` affect only what the respondent sees;
  * the stored value is always `number | null`. `prefix`/`suffix` are
  * plain-number decorations and must not be used to fake currency — ISO
- * currency formatting owns symbols and fraction rules and belongs to STB-10.
+ * currency formatting owns symbols and ISO fraction rules.
  */
 export interface NumberCanonicalConfig {
-  mode: 'number';
+  mode: NumberMode;
   validation?: NumberValidation;
+  /** ISO 4217 code. Present only for currency modes; defaults to USD when read. */
+  currency?: string;
   /** Group thousands in the displayed value. Display only. */
   thousandsSeparator?: boolean;
   /** Group while the field has focus too, rather than only once it blurs. */
@@ -578,44 +577,81 @@ export interface NumberCanonicalConfig {
   placeholder?: string;
 }
 
+function resolveNumberMode(
+  stepType: string,
+  config: Record<string, unknown>,
+): NumberMode {
+  const storedMode = config.mode;
+  if (storedMode === 'currency_whole' || storedMode === 'currency_decimal') {
+    return storedMode;
+  }
+  if (stepType === 'currency') {
+    return config.allowDecimal === false ? 'currency_whole' : 'currency_decimal';
+  }
+  return 'number';
+}
+
+function readNumberSetting(
+  config: Record<string, unknown>,
+  nested: Record<string, unknown>,
+  key: keyof NumberValidation,
+): number | undefined {
+  const value = nested[key] ?? config[key];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function resolveNumberValidation(
+  config: Record<string, unknown>,
+  nested: Record<string, unknown>,
+  mode: NumberMode,
+): NumberValidation {
+  const validation: NumberValidation = {};
+  const keys = ['min', 'max', 'step', 'precision'] as const;
+
+  for (const key of keys) {
+    const value = readNumberSetting(config, nested, key);
+    if (value !== undefined) {
+      validation[key] = value;
+    }
+  }
+
+  // The retired easy shape expressed precision as a boolean.
+  if (mode === 'number' && validation.precision === undefined && config.allowDecimal === false) {
+    validation.precision = 0;
+  }
+
+  return validation;
+}
+
 /**
  * Read a number-family config through the canonical shape.
  *
- * Handles three stored dialects: canonical `number`, the pre-STB-9 easy shape
- * with `min`/`max`/`step`/`allowDecimal` at the root, and `number_advanced`.
- * A legacy currency mode resolves to plain `number` because the runner has
- * never honoured currency modes — `NumberBlockRenderer` read only the root
- * base fields — so nothing that works today is lost. STB-10 implements them.
+ * Handles four stored dialects: canonical `number`, the pre-STB-9 easy shape
+ * with `min`/`max`/`step`/`allowDecimal` at the root, `number_advanced`, and
+ * legacy `currency`. Read compatibility remains until STB-19 backfills rows;
+ * every new writer uses the canonical `number` identity.
  */
 export function resolveNumberConfig(
-  _stepType: string,
+  stepType: string,
   rawConfig: unknown,
 ): NumberCanonicalConfig {
   const config = isObjectRecord(rawConfig) ? rawConfig : {};
   const nested = isObjectRecord(config.validation) ? config.validation : {};
-  const validation: NumberValidation = {};
+  const mode = resolveNumberMode(stepType, config);
+  const validation = resolveNumberValidation(config, nested, mode);
 
-  const pick = (key: string): unknown => nested[key] ?? config[key];
-  const min = pick('min');
-  const max = pick('max');
-  const step = pick('step');
-  const precision = pick('precision');
-  if (typeof min === 'number') { validation.min = min; }
-  if (typeof max === 'number') { validation.max = max; }
-  if (typeof step === 'number') { validation.step = step; }
-  if (typeof precision === 'number') { validation.precision = precision; }
-
-  // The retired easy shape expressed precision as a boolean.
-  if (validation.precision === undefined && config.allowDecimal === false) {
-    validation.precision = 0;
-  }
-
-  const resolved: NumberCanonicalConfig = { mode: 'number' };
+  const resolved: NumberCanonicalConfig = { mode };
   if (Object.keys(validation).length > 0) { resolved.validation = validation; }
   if (config.thousandsSeparator === true) { resolved.thousandsSeparator = true; }
-  if (config.formatOnInput === true) { resolved.formatOnInput = true; }
-  if (typeof config.prefix === 'string' && config.prefix !== '') { resolved.prefix = config.prefix; }
-  if (typeof config.suffix === 'string' && config.suffix !== '') { resolved.suffix = config.suffix; }
+  if (mode === 'number') {
+    if (config.formatOnInput === true) { resolved.formatOnInput = true; }
+    if (typeof config.prefix === 'string' && config.prefix !== '') { resolved.prefix = config.prefix; }
+    if (typeof config.suffix === 'string' && config.suffix !== '') { resolved.suffix = config.suffix; }
+  } else {
+    resolved.currency = typeof config.currency === 'string' && config.currency !== ''
+      ? config.currency.toUpperCase()
+      : 'USD';
+  }
   if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
 
   return resolved;
@@ -1134,7 +1170,7 @@ type CanonicalStepConfig<Type extends CanonicalStepType> =
   Type extends "date_time" ? DateTimeConfig :
   Type extends "choice" ? ChoiceAdvancedConfig :
   Type extends "email" ? EmailAdvancedConfig :
-  Type extends "number" ? NumberAdvancedConfig :
+  Type extends "number" ? NumberCanonicalConfig :
   Type extends "scale" ? ScaleAdvancedConfig :
   Type extends "website" ? WebsiteAdvancedConfig :
   Type extends "address" ? AddressAdvancedConfig :

@@ -1053,7 +1053,7 @@ two-decimal field is stored as `23.148`, asserted explicitly *not* `23.15`.
 
 ---
 
-## STB-10 — Implement currency modes and retire new `currency` writes 🔲
+## STB-10 — Implement currency modes and retire new `currency` writes ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/NumberBlock.tsx`
 
@@ -1099,6 +1099,31 @@ leaving old-row read compatibility for STB-19.
 4. Whole mode submits an integer; decimal mode preserves the allowed ISO precision; values remain numbers.
 5. Tests cover preset defaults, currency switching, focus/blur/live formatting, sanitization, and persistence.
 6. Vertical proof and standard gates pass.
+
+**Verified 2026-08-29 (reviewer):** gates re-run on the tree rebased onto STB-6 — type-check 0 errors,
+`check:strict-zones` 6/6, lint 0 problems, `test:fast` 325 files / 3,622 tests, `StepService.db` 16/16, and
+**all five vertical proofs run together** (text, boolean, choice, date/time, number) 5 files / 22 tests. The
+count reconciles exactly: 3,605 + the 17 this ticket adds. `CurrencyBlock.tsx` is deleted with no surviving
+reference — checked by grep rather than inferred from a green type-check, since a stale barrel export would
+survive one.
+
+**Decision 14 implemented as specified.** Bank-style entry maps `2314` to `$23.14`, so over-precision is
+unrepresentable rather than an error state, and the stored value stays a decimal `number` — never
+cents-as-integer, which was the trap named when the decision was recorded. JPY renders `¥2,314`, whole-currency
+decimals are refused server-side, and prefix/suffix decoration is rejected for currency modes, keeping
+Decision 8's rule that ISO formatting owns symbols and fraction rules while custom decorations stay
+plain-number-only.
+
+**Merge:** one conflict, in `client/src/lib/formatAnswerValue.ts` — the file STB-6 and this ticket both
+extended. Boolean added its branch, Number added the currency branch, neither replaced the other, and both are
+kept. Third inter-lane conflict of the initiative and the third that was purely additive; the STB-3C plumbing
+is doing its job.
+
+**Reviewer note on the AI exclusion.** The dev released `number_advanced` from the manifest, which STB-B7 had
+filed under STB-19. On inspection the release is right and the note was wrong: `number_advanced` survives only
+in `NORMALIZED_STEP_TYPES` as a read alias, is not authorable, and its keys are now genuinely implemented
+through `resolveNumberConfig`. The residual oddity is that a retired type still appears in the AI catalog at
+all, which is `stepTypeEnum` iteration and belongs to STB-21.
 
 ---
 

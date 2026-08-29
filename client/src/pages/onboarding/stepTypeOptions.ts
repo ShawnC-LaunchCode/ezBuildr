@@ -32,8 +32,8 @@ export interface StepTypeOption {
   createDefaultConfig?: () => StepConfig;
 }
 
-const TEXT_PRESET_OPTIONS: StepTypeOption[] = QUESTION_PRESETS
-  .filter((preset) => preset.canonicalType === "text")
+const ONBOARDING_PRESET_OPTIONS: StepTypeOption[] = QUESTION_PRESETS
+  .filter((preset) => preset.canonicalType === "text" || preset.id === "easy.currency")
   .map((preset) => ({
     value: preset.id,
     label: preset.label,
@@ -43,7 +43,7 @@ const TEXT_PRESET_OPTIONS: StepTypeOption[] = QUESTION_PRESETS
   }));
 
 export const ONBOARDING_STEP_TYPE_OPTIONS: StepTypeOption[] = [
-  ...TEXT_PRESET_OPTIONS,
+  ...ONBOARDING_PRESET_OPTIONS,
   ...RUNNER_RENDERED_STEP_TYPES.filter((type) => type !== "text").map((type) => ({
     value: type,
     label: registryLabels.get(type) ?? FALLBACK_LABELS[type] ?? type,
@@ -81,6 +81,14 @@ export function onboardingStepTypeValue(variable: OnboardingVariable): string {
   if (variable.type === "text") {
     const variant = variable.config && "variant" in variable.config ? variable.config.variant : "short";
     return variant === "long" ? "easy.long-text" : "easy.short-text";
+  }
+  if (variable.type === "currency") {
+    return "easy.currency";
+  }
+  if (variable.type === "number" && variable.config && "mode" in variable.config) {
+    return variable.config.mode === "currency_whole" || variable.config.mode === "currency_decimal"
+      ? "easy.currency"
+      : variable.type;
   }
   return variable.type;
 }

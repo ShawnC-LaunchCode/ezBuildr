@@ -21,7 +21,6 @@ export type RunnerStepType =
   | "website"
   | "date_time"
   | "number"
-  | "currency"
   | "scale"
   | "choice"
   | "address"
@@ -42,7 +41,6 @@ export const RUNNER_RENDERED_STEP_TYPES = [
   "website",
   "date_time",
   "number",
-  "currency",
   "scale",
   "choice",
   "address",
@@ -76,6 +74,7 @@ const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {
   phone_advanced: "phone",
   email_advanced: "email",
   number_advanced: "number",
+  currency: "number",
   scale_advanced: "scale",
   website_advanced: "website",
   address_advanced: "address",
