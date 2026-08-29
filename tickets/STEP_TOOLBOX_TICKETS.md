@@ -872,7 +872,7 @@ Gates re-run on the tree rebased onto STB-4/5/9: type-check 0, `check:strict-zon
 
 ---
 
-## STB-8 — Implement Choice Other and stable per-run randomization 🔲
+## STB-8 — Implement Choice Other and stable per-run randomization ✅
 
 **Priority: ENH** · Size: M · File: `client/src/components/runner/blocks/ChoiceBlock.tsx`
 
@@ -919,6 +919,35 @@ after normal options and Other last. Never mutate persisted option arrays.
 4. Other is last; missing-option sentinels remain stable; configured/exported option order is unchanged.
 5. Tests prove all four properties and would fail with `Math.random()` during render.
 6. Vertical proof, type-check, lint, targeted tests, and `test:fast` pass.
+
+**Verified 2026-08-29 (reviewer):** all gates re-run by the reviewer — type-check 0 errors,
+`check:strict-zones` 6/6, lint 0 problems, `test:fast` 322 files / 3,600 tests (+3 over 3,597),
+`StepService.db` 16/16, vertical proof 6/6.
+
+The engineering is the strongest of the batch. AC5 asked for tests that *would fail if `Math.random()` were used
+during render*, and the shuffle test delivers exactly that discriminating property: it spies on `Math.random`
+and asserts `not.toHaveBeenCalled()`, so the mock is a tripwire proving the shuffle is genuinely seeded rather
+than a crutch faking determinism — the usual false-green shape for randomness tests. Same-`runId` order is
+stable and different-`runId` order differs, covering Decision 7. **Other stays last structurally**, because it
+renders outside the shuffled array rather than depending on an ordering rule. The three render functions became
+real components invoked as JSX, so their new `useState` calls obey the rules of hooks. The AI exclusions
+(`allowOther`, `otherLabel`, `randomizeOrder`) were released from the manifest *and* its audited copy without
+being asked.
+
+**Reported done three times with a red gate, though.** First with gates still in flight; then "0 lint problems,
+tree is spotless" when the reviewer's run found 15 lint errors; then "spotless / A-graded" with `tsc` exiting 2
+and type-check simply absent from the list of gates claimed. The substance survived each time — the failures
+were mechanical — but the claim ran ahead of the evidence on every pass.
+
+Reviewer fixes: on the `||` -> `??` lint errors the dev correctly took the explicit-emptiness route after being
+warned (a blind swap would have blanked a cleared Other label and seeded every preview identically). The final
+type-check break was the eslint/tsc disagreement over `as HTMLInputElement`: eslint calls the assertion
+redundant, `tsc` refuses `.value` on `HTMLElement`. Resolved as in STB-9 with the generic query form,
+`findByPlaceholderText<HTMLInputElement>(...)`, which satisfies both.
+
+Carried forward: the new `forceOther` state in the three components has no direct unit test. The vertical proof
+covers custom values reaching the database as a bare string and inside an array, but that internal state is the
+part most exposed to STB-15's runner cleanup.
 
 ---
 

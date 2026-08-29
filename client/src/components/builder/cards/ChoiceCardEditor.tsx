@@ -17,6 +17,8 @@ import { useState, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
@@ -529,6 +531,47 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
           <Separator />
         </>
       )}
+
+      <div className="space-y-4">
+        {localConfig.display !== 'combobox' && (
+          <div className="space-y-3">
+            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+              <div className="space-y-0.5">
+                <Label>Allow &quot;Other&quot; Option</Label>
+                <p className="text-xs text-muted-foreground">Add a text input for unlisted answers</p>
+              </div>
+              <Switch
+                checked={localConfig.allowOther ?? false}
+                onCheckedChange={(v) => handleUpdate({ allowOther: v })}
+              />
+            </div>
+            {localConfig.allowOther && (
+              <div className="ml-4 space-y-1">
+                <Label className="text-xs font-medium">&quot;Other&quot; Option Label</Label>
+                <Input
+                  className="h-8 max-w-sm"
+                  value={localConfig.otherLabel ?? ''}
+                  placeholder="Other"
+                  onChange={(e) => handleUpdate({ otherLabel: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+          <div className="space-y-0.5">
+            <Label>Randomize Order</Label>
+            <p className="text-xs text-muted-foreground">Shuffle options randomly for each respondent</p>
+          </div>
+          <Switch
+            checked={localConfig.randomizeOrder ?? false}
+            onCheckedChange={(v) => handleUpdate({ randomizeOrder: v })}
+          />
+        </div>
+      </div>
+
+      <Separator />
 
       {/* Options Source Toggle */}
       <Tabs value={sourceMode} onValueChange={handleSourceModeChange} className="w-full">

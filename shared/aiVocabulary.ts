@@ -32,7 +32,6 @@ export const TEMPORARY_CONFIG_KEY_EXCLUSIONS = {
   radio: ["displayLayout"],
   file_upload: ["previewThumbnails"],
   phone_advanced: ["defaultCountry", "allowedCountries"],
-  choice: ["allowOther", "otherLabel", "randomizeOrder"],
   email_advanced: ["requireVerification"],
   number_advanced: [
     "mode",

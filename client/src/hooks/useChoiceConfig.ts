@@ -22,6 +22,9 @@ import type {
 export interface ChoiceCardState {
     display: ChoiceDisplay;
     layout?: 'vertical' | 'horizontal';
+    allowOther?: boolean;
+    otherLabel?: string;
+    randomizeOrder?: boolean;
     staticOptions: ChoiceOption[];
     dynamicOptions: Extract<DynamicOptionsConfig, { type: 'list' }>;
 }
@@ -108,6 +111,9 @@ function parseChoiceConfig(step: ApiStep): {
             config: {
                 display,
                 layout: config?.layout ?? 'vertical',
+                allowOther: config?.allowOther,
+                otherLabel: config?.otherLabel,
+                randomizeOrder: config?.randomizeOrder,
                 staticOptions,
                 dynamicOptions
             },

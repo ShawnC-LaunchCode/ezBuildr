@@ -256,7 +256,7 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       // Choice inputs
       case "choice":
-        return <ChoiceBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} />;
+        return <ChoiceBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} runId={props.runId} />;
 
       // Complex blocks
       case "address":

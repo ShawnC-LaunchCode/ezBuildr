@@ -220,4 +220,55 @@ describe.sequential('STB-7 canonical choice vertical path', () => {
       .where(eq(schema.stepValues.runId, runId));
     expect(saved.find((v) => v.stepId === legacyStepId)?.value).toEqual(['a', 'b']);
   });
+
+  it('STB-8: persists a custom string when allowOther is true', async () => {
+    const singleOther = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'choice',
+        title: 'Pick one other',
+        alias: 'pickOneOther',
+        config: { display: 'radio', allowOther: true, options },
+      })
+      .expect(201);
+    const singleOtherStepId = singleOther.body.id as string;
+
+    const multiOther = await agent
+      .post(`/api/pages/${pageId}/steps`)
+      .send({
+        type: 'choice',
+        title: 'Pick several other',
+        alias: 'pickSeveralOther',
+        config: { display: 'multiple', allowOther: true, options },
+      })
+      .expect(201);
+    const multiOtherStepId = multiOther.body.id as string;
+
+    const createRun = await agent
+      .post(`/api/workflows/${workflowId}/runs`)
+      .send({})
+      .expect(201);
+    const runId = createRun.body.data.runId as string;
+    const runToken = createRun.body.data.runToken as string;
+
+    await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({
+        values: [
+          { stepId: singleOtherStepId, value: 'My custom single answer' },
+          { stepId: multiOtherStepId, value: ['a', 'My custom multi answer'] },
+        ],
+      })
+      .expect(200);
+
+    const saved = await getOwnerDb()
+      .select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+
+    expect(saved.find((v) => v.stepId === singleOtherStepId)?.value).toBe('My custom single answer');
+    expect(saved.find((v) => v.stepId === multiOtherStepId)?.value).toEqual(['a', 'My custom multi answer']);
+  });
 });
+

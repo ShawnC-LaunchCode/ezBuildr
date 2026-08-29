@@ -31,7 +31,6 @@ const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
     file_upload: ['previewThumbnails'],
     phone_advanced: ['defaultCountry', 'allowedCountries'],
-    choice: ['allowOther', 'otherLabel', 'randomizeOrder'],
     email_advanced: ['requireVerification'],
     number_advanced: [
         'mode',

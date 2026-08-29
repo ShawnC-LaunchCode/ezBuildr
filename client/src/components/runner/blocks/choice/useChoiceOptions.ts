@@ -42,6 +42,45 @@ function firstUsableString(...candidates: Array<string | undefined>): string | u
     return candidates.find(isUsableString);
 }
 
+function cyrb128(str: string): number {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    }
+    return (h ^ (h >>> 13)) >>> 0;
+}
+
+function mulberry32(a: number) {
+    let state = a;
+    return function() {
+      let t = state += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+}
+
+function seededShuffle<T>(array: T[], seedStr: string): T[] {
+    const seed = cyrb128(seedStr);
+    const rng = mulberry32(seed);
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
+function getPreviewSeed(): string {
+    if (typeof window === 'undefined') { return 'server-fallback'; }
+    let seed = window.sessionStorage.getItem('ez_preview_seed');
+    if (!seed) {
+        seed = Math.random().toString(36).substring(2);
+        window.sessionStorage.setItem('ez_preview_seed', seed);
+    }
+    return seed;
+}
+
 /**
  * Single choke point for option identity. Radix's SelectItem throws on an
  * empty `value`, and `id`/`alias` both double as React keys and stored
@@ -83,7 +122,8 @@ function parseDynamicOptionsConfig(config: unknown): DynamicOptionsConfig | unde
 export function useChoiceOptions(
     step: Step,
     context?: Record<string, unknown>,
-    aliasMap?: Record<string, string>
+    aliasMap?: Record<string, string>,
+    runId?: string
 ): UseChoiceOptionsResult {
     const [options, setOptions] = useState<ChoiceOption[]>([]);
     const [loading, setLoading] = useState(false);
@@ -236,7 +276,15 @@ export function useChoiceOptions(
                 }
 
                 if (isMounted) {
-                    setOptions(normalizeChoiceOptions(newOptions));
+                    let finalOptions = normalizeChoiceOptions(newOptions);
+                    
+                    const advancedConfig = step.config as ChoiceAdvancedConfig | undefined;
+                    if (advancedConfig?.randomizeOrder) {
+                        const seedStr = `${runId ? runId : getPreviewSeed()}-${step.id}`;
+                        finalOptions = seededShuffle(finalOptions, seedStr);
+                    }
+                    
+                    setOptions(finalOptions);
                 }
 
             } catch (err) {
