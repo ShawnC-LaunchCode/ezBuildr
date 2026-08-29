@@ -1392,6 +1392,13 @@ new/request data must never use it. Add an exhaustive cross-system registry test
 - Load `add-step-type` and `run-tests`.
 - File footprint: `runnerStepTypes.ts`, List config derivation/runtime, conditions, formatAnswerValue, initial-value
   coercion, workflow lint/simulation tests. Collides with STB-8/10/11 files already landed.
+- **The scripting/sandbox surface is dormant by design, not dead — do not remove it in this sweep.**
+  `server/services/scripting/` (`ScriptEngine`, `ASTValidator`, `HelperLibrary`, `ScriptContext`), the lifecycle
+  and document hook services, and the `isolated-vm` dependency are all intact and deliberately parked pending
+  the post-STB sandbox rebuild (**STB-B8**). Parts of it can read as unreferenced while transform blocks are
+  disabled. This repo has already lost live features to exactly that inference — commit `fbe212fa` over-removed
+  feature routes and admin plus marketplace had to be restored afterwards. Removing any of it is STB-B8's
+  deliberate call, not a side effect of canonical cleanup.
 
 ### Vertical proof
 
@@ -1883,6 +1890,13 @@ exports/imports without a legacy name appearing. Perform desktop/mobile local-ap
 - Load `add-step-type`, `run-tests`, and `verify`; load `add-api-endpoint` only if cleanup touches routes.
 - File footprint: repo-wide removal across shared/client/server/tests/docs; primary anchors are runner routing,
   StepType unions/schemas, registry/presets, AI vocabulary, and ingest/portability. Do not touch unrelated debt.
+- **The scripting/sandbox surface is dormant by design, not dead — do not remove it in this sweep.**
+  `server/services/scripting/` (`ScriptEngine`, `ASTValidator`, `HelperLibrary`, `ScriptContext`), the lifecycle
+  and document hook services, and the `isolated-vm` dependency are all intact and deliberately parked pending
+  the post-STB sandbox rebuild (**STB-B8**). Parts of it can read as unreferenced while transform blocks are
+  disabled. This repo has already lost live features to exactly that inference — commit `fbe212fa` over-removed
+  feature routes and admin plus marketplace had to be restored afterwards. Removing any of it is STB-B8's
+  deliberate call, not a side effect of canonical cleanup.
 
 ### Vertical proof
 
@@ -1998,7 +2012,37 @@ reviewer fix, and STB-9 was caught only because it changed the schema *shape* an
 guard by accident. Three different results on one hazard is what a guard is for.
 
 Cheapest workable check: require every exclusion to carry the ticket ID that will release it, and fail when that
-ticket is marked ✅ in `tickets/`. Still awaiting release: `file_upload.previewThumbnails` (STB-11),
+ticket is marked ✅ in `tickets/`.
+
+### STB-B8 — Sandboxed JS/Python transforms, rebuilt after the initiative closes
+
+**Tag:** `needs-initiative`. Ruled by the repo owner 2026-08-29: the sandbox comes back as its own initiative
+**after STB closes**, not inside it. A large rebuild is expected; the existing code is kept so the rebuild can
+choose what to carry rather than starting blind.
+
+**Why after, not during.** The dependency runs one way — transforms consume the canonical contracts STB is
+finalising, and nothing in STB needs transforms. Waiting means formulas are written once, against one config
+shape per family and one type name per family, with stored artifacts already backfilled. The decisive asymmetry
+is migration: **STB-19/20 can rewrite a JSON config deterministically, but no backfill can safely rewrite an
+author's JavaScript.** Once customer formulas exist referencing retired type names, STB-21 stops being a
+migration and becomes a breaking change negotiated with users. That risk grows with every formula written, so
+the cost of starting early compounds while the cost of waiting does not.
+
+**What exists and is worth keeping.** `server/services/scripting/` holds `ScriptEngine`, `ASTValidator`,
+`HelperLibrary` (40+ helpers, documented in `docs/scripting/`), and `ScriptContext`; lifecycle and document hooks
+run today and are live-verifiable; `isolated-vm` is installed. The durable assets are the **security posture** —
+the isolated-vm choice, execution timeouts, and AST validation — and the helper library, both of which were
+expensive to get right. The cheap, rebuildable parts are the transform-block wiring, the config shapes, and the
+editor surface. Guarded against incidental deletion in STB-15 and STB-22.
+
+**Known constraint inherited from Decision 13.** Precision is display-only partly *because* the author owns the
+arithmetic via this sandbox. Until it ships, authors hold exact stored values and only the template-filter layer
+to compute with. That is a real product gap, deliberately accepted; it does not compound, but it is the reason
+to schedule this soon after STB rather than indefinitely.
+
+**Earliest technically safe start** is after the Phase 2 Gate — value shapes freeze at Phase 1, config shapes at
+Phase 2, and formulas read values by alias rather than branching on step type. That option is recorded, not
+recommended: the owner's decision is to wait for the full close. Still awaiting release: `file_upload.previewThumbnails` (STB-11),
 `phone_advanced`, `email_advanced`, `website_advanced`, `address_advanced` (STB-13/STB-14), `number_advanced`
 (retired type, STB-19), and `radio.displayLayout` — verify that one, since STB-7 has now landed.
 `display_advanced.allowHtml` stays excluded by Decision 10.
