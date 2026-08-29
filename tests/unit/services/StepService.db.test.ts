@@ -98,6 +98,34 @@ describeWithDb('StepService DB', () => {
     expect(after).toHaveLength(before.length);
   });
 
+  it.each([
+    ['date', { kind: 'date', minDate: '2026-01-01', maxDate: '2026-12-31', defaultToToday: true }],
+    ['time', { kind: 'time', timeFormat: '24h', timeStep: 5 }],
+    ['datetime', { kind: 'datetime', minDate: '2026-01-01', maxDate: '2026-12-31', timeFormat: '12h', timeStep: 15 }],
+  ] as const)('persists canonical date_time config for kind %s', async (kind, config) => {
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: `${kind} question`,
+      type: 'date_time',
+      config,
+    });
+    const reloaded = await stepRepository.findById(step.id);
+
+    expect(reloaded).toMatchObject({ type: 'date_time', config });
+  });
+
+  it('rejects date_time config without a canonical kind and writes no row', async () => {
+    const before = await stepRepository.findByPageId(testPageId);
+
+    await expect(stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Legacy flags only',
+      type: 'date_time',
+      config: { showDate: true, showTime: true },
+    })).rejects.toThrow(/validation error/i);
+
+    const after = await stepRepository.findByPageId(testPageId);
+    expect(after).toHaveLength(before.length);
+  });
+
   it('rewrites logic rules on choice alias change', async () => {
     // 1. Create a choice step
     const choiceStep = await stepService.createStep(testWorkflowId, testPageId, testUserId, {

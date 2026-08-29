@@ -95,7 +95,7 @@ describe('projectListValue (AC4, AC5)', () => {
     const config: ListConfig = {
         fields: [
             { kind: 'question', id: 'q-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
-            { kind: 'question', id: 'q-dob', alias: 'dob', type: 'date', title: 'DOB', order: 1 },
+            { kind: 'question', id: 'q-dob', alias: 'dob', type: 'date_time', title: 'DOB', order: 1, config: { kind: 'date' } },
             {
                 kind: 'list',
                 id: 'f-addresses',

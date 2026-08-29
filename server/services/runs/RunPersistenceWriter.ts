@@ -1,5 +1,5 @@
 import type { InsertWorkflowRun, WorkflowRun } from "@shared/schema";
-import { resolveChoiceDisplay } from "@shared/types/stepConfigs";
+import { resolveChoiceDisplay, resolveDateTimeConfig } from "@shared/types/stepConfigs";
 import type { ChoiceAdvancedConfig } from "@shared/types/stepConfigs";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
@@ -333,21 +333,25 @@ export class RunPersistenceWriter {
                     : [makeValidationMessage(step, 'a finite number')];
 
             case 'date':
-                return typeof value === 'string' && isIsoDate(value)
-                    ? []
-                    : [makeValidationMessage(step, 'a YYYY-MM-DD date string')];
-
+            case 'time':
             case 'date_time':
             case 'datetime':
-            case 'datetime_unified':
+            case 'datetime_unified': {
+                const kind = resolveDateTimeConfig(step.type, step.config).kind;
+                if (kind === 'date') {
+                    return typeof value === 'string' && isIsoDate(value)
+                        ? []
+                        : [makeValidationMessage(step, 'a YYYY-MM-DD date string')];
+                }
+                if (kind === 'time') {
+                    return typeof value === 'string' && isIsoTime(value)
+                        ? []
+                        : [makeValidationMessage(step, 'an HH:mm time string')];
+                }
                 return typeof value === 'string' && isIsoDateTime(value)
                     ? []
                     : [makeValidationMessage(step, 'an ISO datetime string')];
-
-            case 'time':
-                return typeof value === 'string' && isIsoTime(value)
-                    ? []
-                    : [makeValidationMessage(step, 'an HH:mm time string')];
+            }
 
             case 'yes_no':
             case 'true_false':

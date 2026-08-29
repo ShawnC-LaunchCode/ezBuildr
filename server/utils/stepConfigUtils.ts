@@ -38,7 +38,7 @@ import type {
   LegacyYesNoConfig,
   FileUploadConfig,
 } from '@shared/types/stepConfigs';
-import { resolveNumberConfig } from '@shared/types/stepConfigs';
+import { resolveDateTimeConfig, resolveNumberConfig } from '@shared/types/stepConfigs';
 import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
 
 // ============================================================================
@@ -219,7 +219,7 @@ export function sanitizeStepValue(
     case 'datetime':
     case 'datetime_unified':
     case 'date_time':
-      return sanitizeDateTimeValue(value, config);
+      return sanitizeDateTimeValue(stepType, value, config);
 
     case 'scale':
     case 'scale_advanced':
@@ -397,22 +397,27 @@ function sanitizeChoiceValue(value: unknown, config?: StepConfig): ChoiceValue {
 /**
  * Sanitize date/time value
  */
-function sanitizeDateTimeValue(value: unknown, _config?: StepConfig): string | null {
+function sanitizeDateTimeValue(stepType: string, value: unknown, config?: StepConfig): string | null {
   if (!value) {
     return null;
   }
 
   if (typeof value === 'string') {
-    // Validate ISO format
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      return null;
-    }
-    return value;
+    const kind = resolveDateTimeConfig(stepType, config).kind;
+    const valid = kind === 'date'
+      ? /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+      : kind === 'time'
+        ? /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value)
+        : !Number.isNaN(Date.parse(value)) && value.includes('T');
+    return valid ? value : null;
   }
 
   if (value instanceof Date) {
-    return value.toISOString();
+    const iso = value.toISOString();
+    const kind = resolveDateTimeConfig(stepType, config).kind;
+    if (kind === 'date') { return iso.slice(0, 10); }
+    if (kind === 'time') { return iso.slice(11, 16); }
+    return iso.slice(0, 16);
   }
 
   return null;

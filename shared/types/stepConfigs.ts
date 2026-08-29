@@ -112,13 +112,12 @@ export interface TimeConfig {
   step?: number;           // Minutes step (default: 15)
 }
 
-/**
- * DateTime Config (Easy Mode)
- * Combined date and time picker
- */
+/** Canonical config for the Date, Time, and Date/Time preset family. */
 export interface DateTimeConfig {
+  kind: 'date' | 'time' | 'datetime';
   minDate?: string;
   maxDate?: string;
+  defaultToToday?: boolean;
   timeFormat?: '12h' | '24h';
   timeStep?: number;
 }
@@ -298,20 +297,8 @@ export interface PhoneAdvancedConfig {
   };
 }
 
-/**
- * DateTime Config (Advanced Mode)
- * Unified date/time picker with metadata
- */
-export interface DateTimeUnifiedConfig {
-  kind: 'date' | 'time' | 'datetime';
-  format?: string;         // Custom format string (moment.js style)
-  minDate?: string;
-  maxDate?: string;
-  timeFormat?: '12h' | '24h';
-  timeStep?: number;
-  timezone?: string;       // IANA timezone (e.g., "America/New_York")
-  showTimezone?: boolean;  // Display timezone selector
-}
+/** @deprecated Use DateTimeConfig. Retained as a source-compatible type name. */
+export type DateTimeUnifiedConfig = DateTimeConfig;
 
 /**
  * Dynamic Options Source Type
@@ -686,6 +673,51 @@ export interface LegacyDateTimeConfig {
   format?: string;
 }
 
+function dateTimeConfigRecord(rawConfig: unknown): Record<string, unknown> {
+  return typeof rawConfig === 'object' && rawConfig !== null && !Array.isArray(rawConfig)
+    ? rawConfig as Record<string, unknown>
+    : {};
+}
+
+/**
+ * Read pre-STB-4 date/time rows through the canonical config contract.
+ * New authoring always writes `date_time`; the aliases remain readable until
+ * STB-19 backfills stored artifacts and removes them from the enum.
+ */
+export function resolveDateTimeConfig(stepType: string, rawConfig: unknown): DateTimeConfig {
+  const config = dateTimeConfigRecord(rawConfig);
+  const configuredKind = config.kind;
+  let kind: DateTimeConfig['kind'];
+
+  if (configuredKind === 'date' || configuredKind === 'time' || configuredKind === 'datetime') {
+    kind = configuredKind;
+  } else if (stepType === 'date') {
+    kind = 'date';
+  } else if (stepType === 'time') {
+    kind = 'time';
+  } else if (config.showDate === false && config.showTime === true) {
+    kind = 'time';
+  } else if (config.showDate === true && config.showTime === false) {
+    kind = 'date';
+  } else {
+    kind = 'datetime';
+  }
+
+  const resolved: DateTimeConfig = { kind };
+  if (typeof config.minDate === 'string') { resolved.minDate = config.minDate; }
+  if (typeof config.maxDate === 'string') { resolved.maxDate = config.maxDate; }
+  if (typeof config.defaultToToday === 'boolean') { resolved.defaultToToday = config.defaultToToday; }
+
+  const legacyFormat = config.format;
+  const timeFormat = config.timeFormat
+    ?? (legacyFormat === '12h' || legacyFormat === '24h' ? legacyFormat : undefined);
+  if (timeFormat === '12h' || timeFormat === '24h') { resolved.timeFormat = timeFormat; }
+
+  const timeStep = config.timeStep ?? config.step;
+  if (typeof timeStep === 'number') { resolved.timeStep = timeStep; }
+  return resolved;
+}
+
 // ============================================================================
 // SPECIAL CONFIGS
 // ============================================================================
@@ -977,7 +1009,6 @@ export type StepConfig =
   | TextAdvancedConfig
   | BooleanAdvancedConfig
   | PhoneAdvancedConfig
-  | DateTimeUnifiedConfig
   | ChoiceAdvancedConfig
   | EmailAdvancedConfig
   | NumberAdvancedConfig
@@ -1017,7 +1048,7 @@ type CanonicalStepConfig<Type extends CanonicalStepType> =
   Type extends "text" ? TextAdvancedConfig :
   Type extends "boolean" ? BooleanAdvancedConfig :
   Type extends "phone" ? PhoneAdvancedConfig :
-  Type extends "date_time" ? DateTimeUnifiedConfig :
+  Type extends "date_time" ? DateTimeConfig :
   Type extends "choice" ? ChoiceAdvancedConfig :
   Type extends "email" ? EmailAdvancedConfig :
   Type extends "number" ? NumberAdvancedConfig :
@@ -1106,7 +1137,7 @@ export function isNumberConfig(config: unknown): config is NumberConfig | Number
 /**
  * Type guard for DateTime config
  */
-export function isDateTimeConfig(config: unknown): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
+export function isDateTimeConfig(config: unknown): config is DateTimeConfig | DateConfig | TimeConfig | LegacyDateTimeConfig {
   return (
     isObjectRecord(config) &&
     (typeof config.kind === 'string' ||

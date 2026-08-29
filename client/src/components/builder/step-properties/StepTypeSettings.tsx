@@ -47,7 +47,7 @@ export function StepTypeSettings({
         );
     }
 
-    if (step.type === "date_time") {
+    if (["date", "time", "date_time", "datetime", "datetime_unified"].includes(step.type)) {
         return (
             <>
                 <Separator />

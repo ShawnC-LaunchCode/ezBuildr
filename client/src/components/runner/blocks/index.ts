@@ -13,8 +13,6 @@ export { PhoneBlockRenderer } from "./PhoneBlock";
 export { EmailBlockRenderer } from "./EmailBlock";
 export { FileUploadBlockRenderer } from "./FileUploadBlock";
 export { WebsiteBlockRenderer } from "./WebsiteBlock";
-export { DateBlockRenderer } from "./DateBlock";
-export { TimeBlockRenderer } from "./TimeBlock";
 export { DateTimeBlockRenderer } from "./DateTimeBlock";
 export { NumberBlockRenderer } from "./NumberBlock";
 export { CurrencyBlockRenderer } from "./CurrencyBlock";

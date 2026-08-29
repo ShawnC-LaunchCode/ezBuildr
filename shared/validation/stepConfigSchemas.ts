@@ -60,7 +60,7 @@ export const TimeConfigSchema = z.object({
   step: z.number().int().min(1).max(60).optional(),
 }).optional();
 
-export const DateTimeConfigSchema = z.object({
+export const LegacyCombinedDateTimeConfigSchema = z.object({
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
@@ -193,16 +193,17 @@ export const PhoneAdvancedConfigSchema = z.object({
   }).optional(),
 });
 
-export const DateTimeUnifiedConfigSchema = z.object({
+export const DateTimeConfigSchema = z.object({
   kind: z.enum(['date', 'time', 'datetime']),
-  format: z.string().optional(),
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
+  defaultToToday: z.boolean().optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
   timeStep: z.number().int().min(1).max(60).optional(),
-  timezone: z.string().optional(),
-  showTimezone: z.boolean().optional(),
 });
+
+/** @deprecated Use DateTimeConfigSchema. */
+export const DateTimeUnifiedConfigSchema = DateTimeConfigSchema;
 
 export const ChoiceAdvancedConfigSchema = z.object({
   // 'combobox' = searchable dropdown that also accepts an unlisted answer.
@@ -582,7 +583,7 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     phone: PhoneConfigSchema,
     date: DateConfigSchema,
     time: TimeConfigSchema,
-    datetime: DateTimeConfigSchema,
+    datetime: LegacyCombinedDateTimeConfigSchema,
     email: EmailConfigSchema,
     number: NumberCanonicalConfigSchema,
     currency: CurrencyConfigSchema,
@@ -596,7 +597,7 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     text: TextAdvancedConfigSchema,
     boolean: BooleanAdvancedConfigSchema,
     phone_advanced: PhoneAdvancedConfigSchema,
-    datetime_unified: DateTimeUnifiedConfigSchema,
+    datetime_unified: DateTimeConfigSchema,
     choice: ChoiceAdvancedConfigSchema,
     email_advanced: EmailAdvancedConfigSchema,
     number_advanced: NumberAdvancedConfigSchema,
@@ -610,7 +611,7 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     multiple_choice: LegacyMultipleChoiceConfigSchema,
     radio: LegacyRadioConfigSchema,
     yes_no: LegacyYesNoConfigSchema,
-    date_time: LegacyDateTimeConfigSchema,
+    date_time: DateTimeConfigSchema,
 
     // Special
     js_question: JsQuestionConfigSchema,

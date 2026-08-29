@@ -53,6 +53,41 @@ describe('Step Config Schemas', () => {
             expect(result.success).toBe(true);
             expect(result.data).toBe(config);
         });
+
+        it.each(['date', 'time', 'datetime'] as const)('accepts canonical date_time kind %s', (kind) => {
+            const config = {
+                kind,
+                minDate: '2026-01-01',
+                maxDate: '2026-12-31',
+                defaultToToday: true,
+                timeFormat: '24h',
+                timeStep: 5,
+            };
+            const result = validateStepConfig('date_time', config);
+            expect(result.success).toBe(true);
+            expect(result.data).toEqual(config);
+        });
+
+        it.each([
+            {},
+            { kind: 'calendar' },
+            { kind: 'time', timeStep: 0 },
+            { kind: 'datetime', timeFormat: 'military' },
+        ])('rejects invalid canonical date_time config %#', (config) => {
+            expect(validateStepConfig('date_time', config).success).toBe(false);
+        });
+
+        it('strips retired and deferred date_time keys from the active contract', () => {
+            const result = validateStepConfig('date_time', {
+                kind: 'datetime',
+                showDate: true,
+                showTime: true,
+                timezone: 'America/Chicago',
+                showTimezone: true,
+            });
+            expect(result.success).toBe(true);
+            expect(result.data).toEqual({ kind: 'datetime' });
+        });
     });
 
     describe('Specific Schema Validations', () => {

@@ -29,10 +29,8 @@ import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsServic
 // by STB-5, which implemented all four styles end to end.
 const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
-    date_time: ['showDate', 'showTime'],
     file_upload: ['previewThumbnails'],
     phone_advanced: ['defaultCountry', 'allowedCountries'],
-    datetime_unified: ['timezone', 'showTimezone'],
     choice: ['allowOther', 'otherLabel', 'randomizeOrder'],
     email_advanced: ['requireVerification'],
     number_advanced: [

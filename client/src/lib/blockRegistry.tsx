@@ -240,36 +240,14 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // DATE/TIME INPUTS
   // -------------------------------------------------------------------------
   {
-    type: "date",
-    label: "Date",
-    icon: Calendar,
-    description: "Date picker",
-    category: "datetime",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({
-      defaultToToday: false,
-    }),
-  },
-  {
-    type: "time",
-    label: "Time",
-    icon: Clock,
-    description: "Time picker",
-    category: "datetime",
-    modes: { easy: true, advanced: false },
-    createDefaultConfig: () => ({
-      format: "12h" as const,
-      step: 15,
-    }),
-  },
-  {
     type: "date_time",
     label: "Date/Time",
     icon: CalendarClock,
     description: "Combined date and time picker",
     category: "datetime",
-    modes: { easy: true, advanced: true },
+    modes: { easy: false, advanced: true },
     createDefaultConfig: () => ({
+      kind: "datetime" as const,
       timeFormat: "12h" as const,
       timeStep: 15,
     }),
@@ -477,6 +455,21 @@ const TRUE_FALSE_PRESET_PRESENTATION = {
   category: "boolean",
 } as const satisfies Omit<QuestionTypePresentation, "label">;
 
+const DATE_PRESET_PRESENTATION = {
+  icon: Calendar,
+  category: "datetime",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const TIME_PRESET_PRESENTATION = {
+  icon: Clock,
+  category: "datetime",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
+const DATE_TIME_PRESET_PRESENTATION = {
+  icon: CalendarClock,
+  category: "datetime",
+} as const satisfies Omit<QuestionTypePresentation, "label">;
+
 /**
  * Friendly Easy-mode choices described independently from BLOCK_REGISTRY.
  *
@@ -543,18 +536,22 @@ export const QUESTION_PRESETS = [
     id: "easy.date",
     label: "Date",
     description: "Calendar date",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
-    persistedType: "date",
-    createDefaultConfig: () => ({ kind: "date" }),
+    persistedType: "date_time",
+    presentation: DATE_PRESET_PRESENTATION,
+    createDefaultConfig: () => ({ kind: "date", defaultToToday: false }),
   }),
   defineQuestionPreset({
     id: "easy.time",
     label: "Time",
     description: "Time of day",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
-    persistedType: "time",
+    persistedType: "date_time",
+    presentation: TIME_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       kind: "time",
       timeFormat: "12h",
@@ -565,9 +562,11 @@ export const QUESTION_PRESETS = [
     id: "easy.date-time",
     label: "Date/Time",
     description: "Date and time together",
+    canonicalized: true,
     modes: { easy: true, advanced: false },
     canonicalType: "date_time",
     persistedType: "date_time",
+    presentation: DATE_TIME_PRESET_PRESENTATION,
     createDefaultConfig: () => ({
       kind: "datetime",
       timeFormat: "12h",
@@ -712,6 +711,10 @@ const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentatio
   long_text: { label: "Long Text", ...LONG_TEXT_PRESET_PRESENTATION },
   yes_no: { label: "Yes/No", ...YES_NO_PRESET_PRESENTATION },
   true_false: { label: "True/False", ...TRUE_FALSE_PRESET_PRESENTATION },
+  date: { label: "Date", ...DATE_PRESET_PRESENTATION },
+  time: { label: "Time", ...TIME_PRESET_PRESENTATION },
+  datetime: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
+  datetime_unified: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
 };
 
 function isConfigRecord(config: unknown): config is Readonly<Record<string, unknown>> {

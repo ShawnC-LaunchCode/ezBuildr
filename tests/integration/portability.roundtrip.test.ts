@@ -53,7 +53,7 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
     multiple_choice: { options: choiceOptions, allowMultiple: true },
     radio: { options: choiceOptions },
     yes_no: { trueLabel: "Affirmative", falseLabel: "Negative" },
-    date_time: { includeTime: true, timezone: "America/Chicago" },
+    date_time: { kind: "datetime", timeFormat: "24h", timeStep: 5 },
     file_upload: { maxSize: 1048576, allowedTypes: [".pdf", ".docx"] },
     computed: { formula: "a + b", inputKeys: ["a", "b"] },
     js_question: { code: "emit(1 + 1);", timeoutMs: 500 },
@@ -105,7 +105,7 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
     text: { multiline: false, maxLength: 255, placeholder: "Advanced text" },
     boolean: { display: "switch", trueLabel: "Enabled" },
     phone_advanced: { format: "E164", allowExtension: true },
-    datetime_unified: { mode: "datetime", timezone: "UTC" },
+    datetime_unified: { kind: "datetime", timeFormat: "24h" },
     choice: {
       display: "dropdown",
       allowMultiple: false,
@@ -145,9 +145,9 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
           config: { maxLength: 120 },
         },
         {
-          kind: "question", id: randomUUID(), alias: "dob", type: "date",
+          kind: "question", id: randomUUID(), alias: "dob", type: "date_time",
           title: "Date of birth", order: 1,
-          config: { maxDate: "2026-01-01" },
+          config: { kind: "date", maxDate: "2026-01-01" },
         },
         {
           kind: "question", id: randomUUID(), alias: "share", type: "number",

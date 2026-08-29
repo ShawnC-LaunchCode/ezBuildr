@@ -1,23 +1,22 @@
 /**
  * Date / Time Block Card Editor
  *
- * Handles the date/time step family: `date`, `time`, `date_time` (the live,
- * palette-creatable types) plus the legacy `datetime` / `datetime_unified`
- * variants that can exist in older or imported workflows. Replaces the generic
- * fall-through these types previously had in LegacyStepBody (ICW-B1).
+ * Authors the canonical `date_time` family by its `kind` discriminator while
+ * retaining read compatibility for aliases awaiting STB-19 backfill.
  */
 
 import { useState, useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type { StepType } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { DateConfig, TimeConfig, DateTimeConfig } from "@shared/types/stepConfigs";
+import { resolveDateTimeConfig, type DateTimeConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, type DefaultValueType } from "./common/DefaultValueField";
@@ -27,8 +26,9 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { VisibilityField } from "./common/VisibilityField";
 
-/** Normalised local mirror of the various date/time config shapes. */
+/** Local editable mirror of the canonical date/time config. */
 interface DateTimeCardState {
+    kind: DateTimeConfig['kind'];
     minDate: string;
     maxDate: string;
     defaultToToday: boolean;
@@ -36,44 +36,38 @@ interface DateTimeCardState {
     timeStep: number;
 }
 
-function hasDatePart(type: StepType): boolean {
-    return type === "date" || type === "date_time" || type === "datetime" || type === "datetime_unified";
+function hasDatePart(kind: DateTimeConfig['kind']): boolean {
+    return kind === "date" || kind === "datetime";
 }
 
-function hasTimePart(type: StepType): boolean {
-    return type === "time" || type === "date_time" || type === "datetime" || type === "datetime_unified";
+function hasTimePart(kind: DateTimeConfig['kind']): boolean {
+    return kind === "time" || kind === "datetime";
 }
 
-/** Read the (possibly type-specific) config into the normalised local state. */
+/** Read the possibly-legacy config into canonical local state. */
 function readConfig(type: StepType, raw: unknown): DateTimeCardState {
-    const cfg = (raw ?? {}) as DateConfig & TimeConfig & DateTimeConfig;
+    const config = resolveDateTimeConfig(type, raw);
     return {
-        minDate: cfg.minDate ?? "",
-        maxDate: cfg.maxDate ?? "",
-        defaultToToday: (cfg as DateConfig).defaultToToday ?? false,
-        // `time` uses `format`/`step`; the combined types use `timeFormat`/`timeStep`.
-        timeFormat: (cfg.timeFormat ?? (cfg as TimeConfig).format ?? "12h"),
-        timeStep: cfg.timeStep ?? (cfg as TimeConfig).step ?? 15,
+        kind: config.kind,
+        minDate: config.minDate ?? "",
+        maxDate: config.maxDate ?? "",
+        defaultToToday: config.defaultToToday ?? false,
+        timeFormat: config.timeFormat ?? "12h",
+        timeStep: config.timeStep ?? 15,
     };
 }
 
-/** Map the normalised state back to the config shape expected for `type`. */
-function buildConfig(type: StepType, state: DateTimeCardState): Record<string, unknown> {
-    if (type === "time") {
-        const out: TimeConfig = { format: state.timeFormat, step: state.timeStep };
-        return out as Record<string, unknown>;
-    }
-    if (type === "date") {
-        const out: DateConfig = { defaultToToday: state.defaultToToday };
-        if (state.minDate) { out.minDate = state.minDate; }
-        if (state.maxDate) { out.maxDate = state.maxDate; }
-        return out as Record<string, unknown>;
-    }
-    // date_time / datetime / datetime_unified
-    const out: DateTimeConfig = { timeFormat: state.timeFormat, timeStep: state.timeStep };
+/** Preserve all implemented sibling settings while changing `kind`. */
+function buildConfig(state: DateTimeCardState): DateTimeConfig {
+    const out: DateTimeConfig = {
+        kind: state.kind,
+        defaultToToday: state.defaultToToday,
+        timeFormat: state.timeFormat,
+        timeStep: state.timeStep,
+    };
     if (state.minDate) { out.minDate = state.minDate; }
     if (state.maxDate) { out.maxDate = state.maxDate; }
-    return out as Record<string, unknown>;
+    return out;
 }
 
 export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
@@ -81,10 +75,9 @@ export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEdi
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
 
-    const showDate = hasDatePart(step.type);
-    const showTime = hasTimePart(step.type);
-
     const [localConfig, setLocalConfig] = useState<DateTimeCardState>(() => readConfig(step.type, step.config));
+    const showDate = hasDatePart(localConfig.kind);
+    const showTime = hasTimePart(localConfig.kind);
 
     useEffect(() => {
         setLocalConfig(readConfig(step.type, step.config));
@@ -93,7 +86,7 @@ export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEdi
     const handleUpdate = (updates: Partial<DateTimeCardState>) => {
         const next = { ...localConfig, ...updates };
         setLocalConfig(next);
-        updateStepMutation.mutate({ id: stepId, pageId, config: buildConfig(step.type, next) });
+        updateStepMutation.mutate({ id: stepId, pageId, config: buildConfig(next) });
     };
 
     const handleAliasChange = (alias: string | null) => {
@@ -119,6 +112,34 @@ export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEdi
 
             {/* Date/Time Configuration */}
             <div className="space-y-4">
+                <div className="space-y-2">
+                    <Label>Date/Time type</Label>
+                    <RadioGroup
+                        value={localConfig.kind}
+                        onValueChange={(kind) => handleUpdate({ kind: kind as DateTimeConfig['kind'] })}
+                        className="grid grid-cols-3 gap-2"
+                    >
+                        {([
+                            ["date", "Date"],
+                            ["time", "Time"],
+                            ["datetime", "Date & Time"],
+                        ] as const).map(([kind, label]) => (
+                            <Label
+                                key={kind}
+                                htmlFor={`date-time-kind-${stepId}-${kind}`}
+                                className="flex items-center gap-2 rounded-md border p-2 font-normal"
+                            >
+                                <RadioGroupItem
+                                    id={`date-time-kind-${stepId}-${kind}`}
+                                    value={kind}
+                                    disabled={mode === "easy"}
+                                />
+                                {label}
+                            </Label>
+                        ))}
+                    </RadioGroup>
+                </div>
+
                 <SectionHeader
                     title={showDate && showTime ? "Date & Time Options" : showTime ? "Time Options" : "Date Options"}
                     description="Constrain the range and format for this input"
@@ -147,7 +168,7 @@ export function DateTimeCardEditor({ stepId, pageId, workflowId, step }: StepEdi
                     </div>
                 )}
 
-                {step.type === "date" && (
+                {localConfig.kind === "date" && (
                     <SwitchField
                         label="Default to today"
                         checked={localConfig.defaultToToday}

@@ -15,14 +15,19 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
-import { resolveNumberConfig, resolveTextConfig, type ListValue, type MultiFieldValue } from "@shared/types/stepConfigs";
+import {
+  resolveDateTimeConfig,
+  resolveNumberConfig,
+  resolveTextConfig,
+  type ListValue,
+  type MultiFieldValue,
+} from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
 import { BooleanBlockRenderer } from "./BooleanBlock";
 import { ChoiceBlockRenderer } from "./ChoiceBlock";
 import { CurrencyBlockRenderer } from "./CurrencyBlock";
-import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
@@ -35,7 +40,6 @@ import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
 import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRouting";
 import { TextBlockRenderer } from "./TextBlock";
-import { TimeBlockRenderer } from "./TimeBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
 import {
   interpolateRunnerText,
@@ -122,6 +126,10 @@ const LEGACY_STEP_ADAPTERS: Readonly<Partial<Record<string, LegacyStepAdapter>>>
   short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  date: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime_unified: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
 };
 
 /** Adapt a pre-STB-19 row once, before any canonical renderer sees it. */
@@ -233,12 +241,6 @@ export function BlockRenderer(props: BlockRendererProps) {
         return <WebsiteBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
-      case "date":
-        return <DateBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
-      case "time":
-        return <TimeBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
       case "date_time":
         return <DateTimeBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 

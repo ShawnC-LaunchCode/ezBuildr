@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useStep, useUpdateStep } from "@/lib/vault-hooks";
+import { resolveDateTimeConfig } from "@shared/types/stepConfigs";
 
 import { DefaultValueEditor } from "./step-properties/DefaultValueEditor";
 import { OptionsEditor } from "./step-properties/OptionsEditor";
@@ -48,9 +49,8 @@ export function StepPropertiesPanel({ stepId, pageId: propPageId }: StepProperti
       }
 
       // Initialize date/time type
-      const dtOptions = step.config as { dateTimeType?: DateTimeType } | undefined;
-      if (step.type === "date_time" && dtOptions?.dateTimeType) {
-        setDateTimeType(dtOptions.dateTimeType);
+      if (["date", "time", "date_time", "datetime", "datetime_unified"].includes(step.type)) {
+        setDateTimeType(resolveDateTimeConfig(step.type, step.config).kind);
       }
 
       // Initialize text type from step type
@@ -124,7 +124,11 @@ export function StepPropertiesPanel({ stepId, pageId: propPageId }: StepProperti
 
   const handleDateTimeTypeChange = (type: DateTimeType) => {
     setDateTimeType(type);
-    updateStepMutation.mutate({ id: stepId, pageId, config: { dateTimeType: type } });
+    updateStepMutation.mutate({
+      id: stepId,
+      pageId,
+      config: { ...resolveDateTimeConfig(step.type, step.config), kind: type },
+    });
   };
 
   const handleTextTypeChange = (type: TextType) => {

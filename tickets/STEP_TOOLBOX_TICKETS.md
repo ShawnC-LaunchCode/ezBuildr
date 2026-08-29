@@ -576,7 +576,7 @@ tiles and stored output were re-checked live (see the Phase 1 Gate note).
 
 ---
 
-## STB-4 — Canonicalize Date, Time, and Date/Time under `date_time.kind` 🔲
+## STB-4 — Canonicalize Date, Time, and Date/Time under `date_time.kind` ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/builder/cards/DateTimeCardEditor.tsx`
 
@@ -621,6 +621,33 @@ time-format, and minute-step behavior. Remove `showDate`/`showTime` and defer ti
 3. `showDate`, `showTime`, `timezone`, and `showTimezone` are absent from the active canonical schema/catalog.
 4. Tests cover all three kinds, invalid configs, resume/display behavior, and mode switching without config loss.
 5. The Vertical proof passes, and type-check/lint/targeted tests/`test:fast` are green.
+
+**Verified 2026-08-29 (reviewer):** every acceptance criterion checked, and all gates re-run by the reviewer on
+the tree **rebased onto STB-5 and STB-9** — not on the branch as turned in, because isolation is exactly what a
+per-ticket gate proves and this is the first ticket to merge with two landed lanes. `npm run type-check`
+0 errors, `check:strict-zones` 6/6, `npm run lint` 0 problems, `npm run test:fast` 321 files / 3,586 tests,
+`StepService.db` 16/16, and all four vertical proofs together — date/time, number, boolean and the portability
+round-trip — 15/15.
+
+The count is the useful check: dev stood at 3,586 = 3,561 + the 25 this ticket adds, exactly. A merge that had
+silently dropped either side's tests would have landed short, which "all passed" alone would not reveal.
+
+**Rebase produced five conflicts, all additive, all resolved keeping both sides:** the preset presentation
+constants and `LEGACY_TYPE_PRESENTATIONS` in `blockRegistry.tsx`, `LEGACY_STEP_ADAPTERS` and its imports in
+`BlockRenderer.tsx`, the `stepConfigUtils` import, and two test files where both lanes had extended the *same*
+test. Those two now assert both families. One reviewer change neither lane asked for: STB-5's palette test used
+a bare `getByText(label)` while this ticket used a menu-item-scoped selector; with three families in the palette
+a bare text match grows collision-prone, so both now use the scoped form.
+
+**This dev released the AI exclusion unprompted** — `date_time: ["showDate", "showTime"]` is gone from the
+manifest *and* the audited copy the test keeps beside it. STB-5 missed the same step and needed a reviewer fix,
+which is the argument for the guard filed against STB-16: nothing catches an exclusion that has quietly become
+unnecessary.
+
+Two notes carried forward. The superseded `DateBlock.tsx`/`TimeBlock.tsx` are deleted and nothing references
+them (checked directly, not inferred from a green type-check). And this ticket edited
+`StepPropertiesPanel.tsx`/`step-properties/StepTypeSettings.tsx`, which are the unreachable `Inspector.tsx`
+chain recorded as **STB-B5** — harmless, but effort spent on code nothing renders. Remaining lanes should know.
 
 ---
 

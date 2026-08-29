@@ -22,7 +22,7 @@ import { CANONICAL_STEP_TYPES } from '../../../shared/types/stepConfigs';
 import {
   BooleanAdvancedConfigSchema,
   ChoiceAdvancedConfigSchema,
-  DateTimeUnifiedConfigSchema,
+  DateTimeConfigSchema,
   FileUploadConfigSchema,
   NumberAdvancedConfigSchema,
   TextAdvancedConfigSchema,
@@ -31,7 +31,7 @@ import {
 const canonicalPresetConfigSchemas = {
   text: TextAdvancedConfigSchema,
   boolean: BooleanAdvancedConfigSchema,
-  date_time: DateTimeUnifiedConfigSchema,
+  date_time: DateTimeConfigSchema,
   choice: ChoiceAdvancedConfigSchema,
   number: NumberAdvancedConfigSchema,
   file_upload: FileUploadConfigSchema,
@@ -164,7 +164,7 @@ describe('QUESTION_PRESETS canonical contract', () => {
     );
   });
 
-  it('canonicalizes the text and Boolean family creation paths', () => {
+  it('keeps every canonicalized family free of retired registry actions', () => {
     expect(getBlockByType('short_text')).toBeUndefined();
     expect(getBlockByType('long_text')).toBeUndefined();
     expect(getBlockByType('text')?.createDefaultConfig()).toEqual({ variant: 'short' });
@@ -177,6 +177,13 @@ describe('QUESTION_PRESETS canonical contract', () => {
     expect(getBlocksByMode('easy').filter((block) => block.type === 'boolean')).toEqual([
       expect.objectContaining({ id: 'easy.yes-no', label: 'Yes/No' }),
       expect.objectContaining({ id: 'easy.true-false', label: 'True/False' }),
+    ]);
+    expect(getBlockByType('date')).toBeUndefined();
+    expect(getBlockByType('time')).toBeUndefined();
+    expect(getBlocksByMode('easy').filter((block) => block.type === 'date_time')).toEqual([
+      expect.objectContaining({ id: 'easy.date', label: 'Date', createDefaultConfig: expect.any(Function) }),
+      expect.objectContaining({ id: 'easy.time', label: 'Time', createDefaultConfig: expect.any(Function) }),
+      expect.objectContaining({ id: 'easy.date-time', label: 'Date/Time', createDefaultConfig: expect.any(Function) }),
     ]);
     expect(getBlockByType('radio')?.type).toBe('radio');
     expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
@@ -264,6 +271,14 @@ describe('QUESTION_PRESETS canonical contract', () => {
     expect(getQuestionTypePresentation('boolean', {
       trueLabel: 'True', falseLabel: 'False', storeAsBoolean: true, displayStyle: 'buttons',
     })).toMatchObject({ label: 'True/False', glyph: 'T/F', category: 'boolean' });
+  });
+
+  it('derives distinct Date, Time, and Date/Time presentation from kind', () => {
+    expect(getQuestionTypePresentation('date_time', { kind: 'date' })?.label).toBe('Date');
+    expect(getQuestionTypePresentation('date_time', { kind: 'time' })?.label).toBe('Time');
+    expect(getQuestionTypePresentation('date_time', { kind: 'datetime' })?.label).toBe('Date/Time');
+    expect(getQuestionTypePresentation('date')?.label).toBe('Date');
+    expect(getQuestionTypePresentation('time')?.label).toBe('Time');
   });
 
   it('keeps bare canonical and retired-alias presentation behavior unchanged', () => {

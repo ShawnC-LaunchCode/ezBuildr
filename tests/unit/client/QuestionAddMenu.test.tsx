@@ -156,12 +156,35 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     render(<QuestionAddMenu pageId="page-1" nextOrder={4} workflowId="workflow-1" />);
     await user.click(screen.getByRole('button', { name: 'Add Question' }));
-    await user.click(screen.getByText(label));
+    // Scoped to a menu item: the palette now carries several families, so a
+    // bare text match can collide as more presets are canonicalized.
+    await user.click(screen.getByText(label, { selector: '[role="menuitem"] *' }));
 
     expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
       type: 'boolean',
       title: `New ${label}`,
       config: { trueLabel, falseLabel, storeAsBoolean: true, displayStyle: 'buttons' },
+    }));
+  });
+
+  it.each([
+    ['Date', { kind: 'date', defaultToToday: false }],
+    ['Time', { kind: 'time', timeFormat: '12h', timeStep: 15 }],
+    ['Date/Time', { kind: 'datetime', timeFormat: '12h', timeStep: 15 }],
+  ] as const)('creates the Easy %s preset as canonical date_time', async (label, config) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `date-time-${config.kind}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={3} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label, { selector: '[role="menuitem"] *' }));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'date_time',
+      title: `New ${label}`,
+      config,
     }));
   });
 
