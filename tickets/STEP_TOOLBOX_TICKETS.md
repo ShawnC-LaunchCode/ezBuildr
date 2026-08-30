@@ -1317,6 +1317,154 @@ resume/revisit, image and PDF previews, and the full desktop/mobile sweep. One u
 preview shell logged two `401` responses on `POST /api/workflows/:id/runs` while still rendering correctly --
 not caused by STB-3B/3C, which touch no run creation, but worth resolving before this gate closes.
 
+### Gate run 2026-08-29 (reviewer) - NOT CLOSED
+
+Everything mechanical passed. The live drive-through found **two defects**, so the gate stays open.
+
+**Passed.** type-check 0 errors, lint 0 problems, `check:strict-zones` 6/6, `test:fast` 326 files / 3,639 tests,
+and five DB-backed suites (`api.runs.file-upload`, `runFileUpload`, `api.runs.runtime`, `api.runs.bulk-values`,
+`api.runs.resume-handoff`) at 5 files / 20 tests, with Postgres and Gotenberg healthy.
+
+**Cross-lane seam check (static), clean.** All 37 `stepTypeEnum` values resolve to a canonical home; no
+normalization target is bogus; **no canonical type is shadow-remapped**; only dead `signature` read-compat
+remains. No lane removed another lane's `BlockValidation` branch (`git log -S` shows the `date`, `boolean`,
+`yes_no`, `scale`, `radio` and `file_upload` cases never existed). Legacy read-compat holds where it matters:
+the choice branch reads canonical `min`/`max` **and** legacy `minSelections`/`maxSelections`. STB-B7 re-checked
+— all six AI exclusions are still genuinely inert, and canonical `choice.layout` is implemented and correctly
+not excluded.
+
+**Live drive-through, one workflow holding all six families.** The Easy palette writes canonical rows only:
+`text{variant:short}`, `boolean{displayStyle:buttons,storeAsBoolean:true}`, `date_time{kind:datetime}`,
+**`number{mode:currency_decimal}` for the Currency preset (STB-10's retirement confirmed live)**,
+`choice{display:multiple}`, and `file_upload`. Easy to Advanced and back left all six configs **byte-for-byte
+identical**. A real run stored canonical shapes in `step_values`: plain string, JS `true`, ISO datetime,
+**`23.14` as a decimal number rather than cents-as-integer (binding decision 14)**, and a multi-select array.
+Resume re-rendered every answer, including `$23.14` and `09/15/2026 02:30 PM` under `timeFormat:"12h"`.
+STB-12's PDF preview renders **page one only** — a two-page fixture showed `PAGE ONE MARKER` and never page
+two — labelled `Page one preview of <file>`, measuring 244x305 at 390px wide with no horizontal overflow.
+STB-11's image preview renders with `Preview of <file>`, and both stay in the compact row while
+`previewThumbnails` is unset. The browser console carried only Vite HMR websocket noise — **no feature
+errors**. Screenshots are under `.playwright-mcp/stb-gate-*.png`. Every fixture was deleted afterwards and the
+teardown proved 0 leftover rows.
+
+The 2026-08-28 `401` observation did **not** reproduce: `POST /api/workflows/:id/runs` returned 201 against a
+bearer token. It looks specific to the preview shell rather than the run API.
+
+**Blocking findings: STB-23 and STB-24.**
+
+
+---
+
+## STB-23 - File Upload is dead on Unfiled workflows
+
+**Priority: P0** * Size: M * File: `server/services/RunFileUploadService.ts`
+
+### Finding
+
+Found by the Phase 1 Gate drive-through. Every respondent upload to a workflow with no project fails:
+
+```ts
+const workflow = await this.workflowRepo.findById(run.workflowId, tx);
+if (!workflow?.projectId) { throw createError.notFound('Project for run'); }
+const project = await this.projectRepo.findById(workflow.projectId, tx);
+if (!project?.tenantId) { throw createError.notFound('Tenant for run'); }
+return { run, tenantId: project.tenantId };
+```
+
+The upload path derives `tenantId` **only** through `workflow.projectId` then `project.tenantId`. "Unfiled" is a
+supported, first-class state: `client/src/pages/NewWorkflow.tsx` seeds `projectId: ""` with the comment
+`// Unfiled`, and `PUT /api/workflows/:workflowId/move` documents "(or unfiled if projectId is null)".
+Reproduced live: the runner showed a red **"Project for run not found"** and rejected the upload; filing the
+same workflow under a project made the identical upload succeed.
+
+STB-11 did not introduce this, but it **made it reachable** by putting File Upload into the Easy palette, where
+any author can add it to an unfiled workflow.
+
+### Preferred fix
+
+Derive the tenant from something every run has. `hybridAuth` and `runTokenAuth` already pin a real tenant into
+the async context before this method runs - see the RLS-4 comment immediately above the quoted block - so
+resolve from that ambient tenant and fall back to the project only when one is present. Do **not** make
+`projectId` mandatory: that breaks the supported Unfiled state and is a product change, not a fix.
+
+### Ties
+
+- Load `add-api-endpoint`, `run-tests`, and `verify`. Related: STB-11, STB-12.
+- File footprint: `RunFileUploadService.ts` plus its unit and integration suites. No client change expected.
+
+### Vertical proof
+
+- **Path:** runner upload, upload endpoint, `RunFileUploadService`, storage plus `step_values`, on a workflow
+  with `projectId = null`; the file is retrievable afterwards and its preview renders.
+- **Real, not mocked:** route, service, tenant resolution, and DB.
+- **Cross-tenant denial:** tenant B uploading against tenant A's unfiled run gets the established concealed
+  denial and writes nothing.
+- **Suite:** `tests/integration/api.runs.file-upload.test.ts` and `runFileUpload.test.ts`.
+
+### Acceptance criteria
+
+1. Upload succeeds on a workflow with `projectId = null`, and the stored file is retrievable.
+2. Upload still succeeds on a project-filed workflow, with the resolved tenant unchanged from today.
+3. Cross-tenant upload is denied and writes nothing.
+4. A regression test covers the unfiled case specifically, and fails against today's code.
+5. Type-check, lint, the targeted DB/integration suites, and `test:fast` all pass.
+
+---
+
+## STB-24 - Easy Choice presets seed options with no alias, so answers store ids
+
+**Priority: P1** * Size: S * File: `client/src/lib/blockRegistry.tsx`
+
+### Finding
+
+Found by the Phase 1 Gate drive-through. `easy.single-select` and `easy.multiple-choice` seed their default
+options with no `alias`:
+
+```ts
+options: [
+  { id: "1", label: "Option 1" },
+  { id: "2", label: "Option 2" },
+  { id: "3", label: "Option 3" },
+],
+```
+
+The runner stores `option.alias` (`selectedAliases` and `knownAliases` in `ChoiceBlock.tsx`), and
+`normalizeChoiceOptions` computes `alias = firstUsableString(opt.alias, opt.id)` - falling back to **`id`, never
+`label`**. So a Choice question added from the Easy palette stores `"1"`, not `"Option 1"`.
+
+That contradicts the builder's own contract in two places. `ChoiceOptionsSettings.tsx:178` tells the author
+"Display text is saved as the answer by default", and the same file's option factory does exactly that:
+
+```ts
+return { id: `opt${suffix}`, label, alias: label };
+```
+
+So options the author adds through **Add Option** store the label while the three seeded defaults store ids -
+one question can hold both. Verified live: selecting the first and third seeded options stored `["1","3"]`.
+Documents and logic referencing that alias render `1, 3` instead of `Option 1, Option 3`.
+
+### Preferred fix
+
+Seed `alias: label` in both presets' `createDefaultConfig`, matching `ChoiceOptionsSettings`'s own factory.
+Prefer that over changing the runner's fallback to `label`: that fallback is the shared choke point for legacy,
+list and table-column options, and changing it would move the stored value domain for rows this initiative has
+not audited. Check `tests/unit/client/ChoiceBlock*.test.tsx` and STB-8's Other/randomization tests for
+assertions that assume id-valued defaults.
+
+### Ties
+
+- Load `add-step-type` and `run-tests`. Related: STB-7 and STB-8; the CVM initiative in `tickets/backlog/`
+  records why label-versus-id storage is sensitive here.
+- File footprint: `blockRegistry.tsx` and the Choice unit tests. No server change.
+
+### Acceptance criteria
+
+1. A Choice question added from either Easy preset stores the **display text** as the answer.
+2. Options added through **Add Option** are unchanged, so one question can no longer mix ids and labels.
+3. Existing stored rows carrying id-valued answers still render with the correct option selected.
+4. A test asserts the seeded preset's stored value is the label, and fails against today's code.
+5. Type-check, lint, targeted tests, and `test:fast` all pass.
+
 ---
 
 # Phase 2 — Finish Canonical Family Cleanup and Runtime Consistency
@@ -2112,6 +2260,15 @@ to schedule this soon after STB rather than indefinitely.
 **Earliest technically safe start** is after the Phase 2 Gate — value shapes freeze at Phase 1, config shapes at
 Phase 2, and formulas read values by alias rather than branching on step type. That option is recorded, not
 recommended: the owner's decision is to wait for the full close.
+
+### STB-B10 - Two canonical types have no config schema
+
+`getConfigSchema` covers 33 of the 37 enum values. `signature_block` and `final_documents`/`final` are
+**canonical** under Decision 1 yet have no entry, so `validateStepConfig` accepts anything for them and
+`getConfigKeys` reports them as freeform to the AI. Confirmed pre-existing rather than a lane regression -
+`git log -S` shows they never had schemas. Recorded because **STB-17 assumes a canonical schema exists to make
+strict**, and for `signature_block` there is nothing to tighten. (`short_text` and `long_text` are also absent,
+but they are retired read-only names, so the stakes are lower.)
 
 ### STB-B9 — File upload on version-pinned runs is unproven
 
