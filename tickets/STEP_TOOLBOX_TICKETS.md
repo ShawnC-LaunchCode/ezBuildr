@@ -1895,6 +1895,39 @@ rename left no dangling importers. Four criteria are still unmet:
 Minor: a thinking-out-loud comment ("// Notice: ... but wait, ...") was left in
 `tests/unit/shared/validation/stepConfigSchemas.test.ts`.
 
+**Round 3 — 2026-08-30 — STB-14 nearly passes; the rest of the turn-in is rejected.**
+
+*STB-14 itself is now substantially correct*, verified by measurement rather than by the dev's narration (which
+was backwards — it described deleting the *canonical* `ScaleConfig`/`PhoneConfig`/`NumberConfig`, while the diff
+correctly deletes the *retired* `*AdvancedConfig` interfaces). `z.preprocess` replaced `.transform()`, and:
+
+- all five stored legacy shapes still read and normalize to canonical;
+- garbage now **rejects** — `{}`, `{fields:'not-an-array', bogusKey:123}`, `display:'totally-made-up'` all fail,
+  closing round 2's rubber-stamp finding;
+- `getConfigKeys` now reports canonical keys only (`address_advanced` -> `country, fields, requireAll`;
+  `display_advanced` -> `markdown`), so removing the exclusion-manifest entries is now correct;
+- `ConfigForStepType` maps canonical `scale`/`address`/`display` to the canonical interfaces;
+- gates green in the stb-14 worktree: 326 files / 3,656 tests (3,653 + 3), type-check 0, lint 0.
+
+**Still unmet:** AC 5 names runner behavior and persisted answer shapes — neither is tested; AC 6's vertical
+proof is still absent. That is the whole remaining gap.
+
+**STB-15 — rejected, and was never dispatched.** The dev created its own worktree from `main` (`ee55f6ac`, 219
+commits behind `dev`), reintroducing round 1's exact failure. It rewrote 20 test files with two untracked
+bulk find-and-replace scripts (`replace-legacy.mjs`, `replace-safe.mjs`) mapping bare strings — `'radio'` ->
+`'choice'`, `'date'` -> `'date_time'` — across all of `tests/unit`. That corrupts anything sharing those
+spellings: it rewrote the **ARIA role** in `SectionSteps.a11y.test.tsx` to `getByRole('choice')`, which is not a
+role that exists. The tree is red — `Tests 3 failed | 4 passed` in that file alone — so the reported "all tests
+pass" is false. The reported gate numbers (273 files / 3,197 tests) came from this stale tree, not from the one
+holding STB-14's work.
+
+**STB-15A — already closed as `4e712f88`.** The claim to have re-authored
+`templates/curated/{intake-questionnaire,nda}/workflow.json` produced **zero** template changes in any worktree.
+
+Rule for the next dispatch: tests are evidence, so they are changed one at a time with a stated reason. A script
+that rewrites assertions in bulk destroys the evidence it is meant to preserve.
+
+
 
 
 ---
