@@ -45,7 +45,10 @@ const ChoiceOptionSchema = z.object({
 // ============================================================================
 
 export const PhoneConfigSchema = z.object({
-  format: z.enum(['US', 'international']).optional(),
+  format: z.enum(['national', 'international', 'US']).optional(),
+  validation: z.object({
+    strict: z.boolean().optional(),
+  }).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -69,6 +72,9 @@ export const LegacyCombinedDateTimeConfigSchema = z.object({
 
 export const EmailConfigSchema = z.object({
   allowMultiple: z.boolean().optional(),
+  maxEmails: z.number().int().min(1).optional(),
+  restrictDomains: z.array(z.string()).optional(),
+  blockDomains: z.array(z.string()).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -171,6 +177,9 @@ export const ScaleConfigSchema = z.object({
 
 export const WebsiteConfigSchema = z.object({
   requireProtocol: z.boolean().optional(),
+  allowedProtocols: z.array(z.enum(['http', 'https', 'ftp'])).optional(),
+  restrictDomains: z.array(z.string()).optional(),
+  blockDomains: z.array(z.string()).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -217,14 +226,7 @@ export const BooleanAdvancedConfigSchema = z.object({
   displayStyle: z.enum(['buttons', 'radio', 'toggle', 'checkbox']).optional(),
 });
 
-export const PhoneAdvancedConfigSchema = z.object({
-  defaultCountry: z.string().optional(),
-  allowedCountries: z.array(z.string()).optional(),
-  format: z.enum(['national', 'international']).optional(),
-  validation: z.object({
-    strict: z.boolean().optional(),
-  }).optional(),
-});
+
 
 export const DateTimeConfigSchema = z.object({
   kind: z.enum(['date', 'time', 'datetime']),
@@ -258,14 +260,7 @@ export const ChoiceAdvancedConfigSchema = z.object({
   randomizeOrder: z.boolean().optional(),
 });
 
-export const EmailAdvancedConfigSchema = z.object({
-  allowMultiple: z.boolean().optional(),
-  maxEmails: z.number().int().min(1).optional(),
-  restrictDomains: z.array(z.string()).optional(),
-  blockDomains: z.array(z.string()).optional(),
-  requireVerification: z.boolean().optional(),
-  placeholder: z.string().optional(),
-});
+
 
 export const NumberAdvancedConfigSchema = z.object({
   mode: z.enum(['number', 'currency_whole', 'currency_decimal']),
@@ -291,14 +286,7 @@ export const ScaleAdvancedConfigSchema = z.object({
   color: z.string().optional(),
 });
 
-export const WebsiteAdvancedConfigSchema = z.object({
-  requireProtocol: z.boolean(),
-  allowedProtocols: z.array(z.enum(['http', 'https', 'ftp'])).optional(),
-  restrictDomains: z.array(z.string()).optional(),
-  blockDomains: z.array(z.string()).optional(),
-  validateDns: z.boolean().optional(),
-  placeholder: z.string().optional(),
-});
+
 
 export const AddressAdvancedConfigSchema = z.object({
   country: z.string().optional(),
@@ -629,13 +617,13 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     // Advanced Mode
     text: TextAdvancedConfigSchema,
     boolean: BooleanAdvancedConfigSchema,
-    phone_advanced: PhoneAdvancedConfigSchema,
+    phone_advanced: PhoneConfigSchema,
     datetime_unified: DateTimeConfigSchema,
     choice: ChoiceAdvancedConfigSchema,
-    email_advanced: EmailAdvancedConfigSchema,
+    email_advanced: EmailConfigSchema,
     number_advanced: NumberAdvancedConfigSchema,
     scale_advanced: ScaleAdvancedConfigSchema,
-    website_advanced: WebsiteAdvancedConfigSchema,
+    website_advanced: WebsiteConfigSchema,
     address_advanced: AddressAdvancedConfigSchema,
     multi_field: MultiFieldConfigSchema,
     display_advanced: DisplayAdvancedConfigSchema,

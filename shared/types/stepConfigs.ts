@@ -85,12 +85,43 @@ export interface ChoiceOption {
 // ============================================================================
 
 /**
- * Phone Number Config (Easy Mode)
- * US phone number input with automatic formatting
+ * Canonical stored config for the `phone` family (STB-13).
  */
 export interface PhoneConfig {
-  format?: 'US' | 'international';  // Default: US
+  format?: 'national' | 'international' | 'US';
+  validation?: {
+    strict?: boolean;
+  };
   placeholder?: string;
+}
+
+/**
+ * Read a phone-family config through the canonical shape.
+ */
+export function resolvePhoneConfig(
+  rawConfig: unknown,
+): PhoneConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: PhoneConfig = {};
+  
+  if (config.format === 'national') { resolved.format = 'national'; }
+  else if (config.format === 'international') { resolved.format = 'international'; }
+  else { resolved.format = 'US'; }
+
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  
+  const nestedValidation = typeof config.validation === 'object' && config.validation !== null
+    ? config.validation as Record<string, unknown>
+    : {};
+  
+  if (typeof nestedValidation.strict === 'boolean') {
+    resolved.validation = { strict: nestedValidation.strict };
+  }
+  
+  return resolved;
 }
 
 /**
@@ -123,12 +154,33 @@ export interface DateTimeConfig {
 }
 
 /**
- * Email Config (Easy Mode)
- * Email input with basic validation
+ * Canonical stored config for the `email` family (STB-13).
  */
 export interface EmailConfig {
-  allowMultiple?: boolean; // Allow comma-separated emails
+  allowMultiple?: boolean;
+  maxEmails?: number;
+  restrictDomains?: string[];
+  blockDomains?: string[];
   placeholder?: string;
+}
+
+/**
+ * Read an email-family config through the canonical shape.
+ */
+export function resolveEmailConfig(
+  rawConfig: unknown,
+): EmailConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: EmailConfig = {};
+  if (typeof config.allowMultiple === 'boolean') { resolved.allowMultiple = config.allowMultiple; }
+  if (typeof config.maxEmails === 'number') { resolved.maxEmails = config.maxEmails; }
+  if (Array.isArray(config.restrictDomains)) { resolved.restrictDomains = config.restrictDomains as string[]; }
+  if (Array.isArray(config.blockDomains)) { resolved.blockDomains = config.blockDomains as string[]; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  return resolved;
 }
 
 /**
@@ -169,12 +221,33 @@ export interface ScaleConfig {
 }
 
 /**
- * Website Config (Easy Mode)
- * URL input with validation
+ * Canonical stored config for the `website` family (STB-13).
  */
 export interface WebsiteConfig {
-  requireProtocol?: boolean;  // Require http:// or https:// (default: false)
+  requireProtocol?: boolean;
+  allowedProtocols?: ('http' | 'https' | 'ftp')[];
+  restrictDomains?: string[];
+  blockDomains?: string[];
   placeholder?: string;
+}
+
+/**
+ * Read a website-family config through the canonical shape.
+ */
+export function resolveWebsiteConfig(
+  rawConfig: unknown,
+): WebsiteConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: WebsiteConfig = {};
+  if (typeof config.requireProtocol === 'boolean') { resolved.requireProtocol = config.requireProtocol; }
+  if (Array.isArray(config.allowedProtocols)) { resolved.allowedProtocols = config.allowedProtocols as ('http' | 'https' | 'ftp')[]; }
+  if (Array.isArray(config.restrictDomains)) { resolved.restrictDomains = config.restrictDomains as string[]; }
+  if (Array.isArray(config.blockDomains)) { resolved.blockDomains = config.blockDomains as string[]; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  return resolved;
 }
 
 /**
@@ -352,18 +425,7 @@ export function resolveBooleanLogicalValue(value: unknown, rawConfig: unknown): 
   return undefined;
 }
 
-/**
- * Phone Config (Advanced Mode)
- * International phone support with country codes
- */
-export interface PhoneAdvancedConfig {
-  defaultCountry?: string; // ISO country code (default: US)
-  allowedCountries?: string[];  // Restrict to specific countries
-  format?: 'national' | 'international';
-  validation?: {
-    strict?: boolean;      // Strict validation (default: true)
-  };
-}
+
 
 /** @deprecated Use DateTimeConfig. Retained as a source-compatible type name. */
 export type DateTimeUnifiedConfig = DateTimeConfig;
@@ -521,18 +583,7 @@ export function resolveChoiceDisplay(
   return 'radio';
 }
 
-/**
- * Email Config (Advanced Mode)
- * Advanced email with additional validation
- */
-export interface EmailAdvancedConfig {
-  allowMultiple?: boolean;
-  maxEmails?: number;      // Max number of emails (if allowMultiple)
-  restrictDomains?: string[];  // Whitelist of allowed domains
-  blockDomains?: string[];     // Blacklist of blocked domains
-  requireVerification?: boolean;  // Require email verification
-  placeholder?: string;
-}
+
 
 /**
  * Number Config (Advanced Mode)
@@ -674,18 +725,7 @@ export interface ScaleAdvancedConfig {
   color?: string;          // Custom color/theme
 }
 
-/**
- * Website Config (Advanced Mode)
- * Advanced URL validation with protocol/domain checking
- */
-export interface WebsiteAdvancedConfig {
-  requireProtocol: boolean;
-  allowedProtocols?: ('http' | 'https' | 'ftp')[];
-  restrictDomains?: string[];   // Whitelist of allowed domains
-  blockDomains?: string[];      // Blacklist of blocked domains
-  validateDns?: boolean;        // Check if domain exists (backend)
-  placeholder?: string;
-}
+
 
 /**
  * Address Config (Advanced Mode)
@@ -1127,15 +1167,12 @@ export type StepConfig =
   // Advanced Mode
   | TextAdvancedConfig
   | BooleanAdvancedConfig
-  | PhoneAdvancedConfig
   | ChoiceAdvancedConfig
-  | EmailAdvancedConfig
   | NumberAdvancedConfig
   | ScaleAdvancedConfig
-  | WebsiteAdvancedConfig
   | AddressAdvancedConfig
-  | MultiFieldConfig
   | DisplayAdvancedConfig
+  | MultiFieldConfig
   // Legacy
   | LegacyMultipleChoiceConfig
   | LegacyRadioConfig
@@ -1166,13 +1203,13 @@ export type StepConfig =
 type CanonicalStepConfig<Type extends CanonicalStepType> =
   Type extends "text" ? TextAdvancedConfig :
   Type extends "boolean" ? BooleanAdvancedConfig :
-  Type extends "phone" ? PhoneAdvancedConfig :
+  Type extends "phone" ? PhoneConfig :
   Type extends "date_time" ? DateTimeConfig :
   Type extends "choice" ? ChoiceAdvancedConfig :
-  Type extends "email" ? EmailAdvancedConfig :
+  Type extends "email" ? EmailConfig :
   Type extends "number" ? NumberCanonicalConfig :
   Type extends "scale" ? ScaleAdvancedConfig :
-  Type extends "website" ? WebsiteAdvancedConfig :
+  Type extends "website" ? WebsiteConfig :
   Type extends "address" ? AddressAdvancedConfig :
   Type extends "multi_field" ? MultiFieldConfig :
   Type extends "display" ? DisplayAdvancedConfig :

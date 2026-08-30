@@ -25,11 +25,8 @@ import type {
   ScaleAdvancedConfig,
   BooleanAdvancedConfig,
   EmailConfig,
-  EmailAdvancedConfig,
   PhoneConfig,
-  PhoneAdvancedConfig,
   WebsiteConfig,
-  WebsiteAdvancedConfig,
   NumberConfig,
   NumberAdvancedConfig,
   NumberValidation,
@@ -234,11 +231,8 @@ export function sanitizeStepValue(
 /**
  * Sanitize email value
  */
-/**
- * Sanitize email value
- */
 function sanitizeEmailValue(value: unknown, config?: StepConfig): string | string[] {
-  const emailConfig = config as (EmailConfig | EmailAdvancedConfig) | undefined;
+  const emailConfig = config as EmailConfig | undefined;
   if (typeof value === 'string') {
     const email = value.trim().toLowerCase();
     if (emailConfig?.allowMultiple && email.includes(',')) {
@@ -267,7 +261,7 @@ function sanitizePhoneValue(value: unknown, _config?: StepConfig): string {
  * Sanitize website value
  */
 function sanitizeWebsiteValue(value: unknown, config?: StepConfig): string {
-  const webConfig = config as (WebsiteConfig | WebsiteAdvancedConfig) | undefined;
+  const webConfig = config as WebsiteConfig | undefined;
   if (typeof value !== 'string') {
     return String(value);
   }
@@ -485,17 +479,17 @@ export function validateStepValue(
   switch (stepType) {
     case 'email':
     case 'email_advanced':
-      validateEmail(value, config as EmailConfig | EmailAdvancedConfig, errors);
+      validateEmail(value, config as EmailConfig, errors);
       break;
 
     case 'phone':
     case 'phone_advanced':
-      validatePhone(value, config as PhoneConfig | PhoneAdvancedConfig, errors);
+      validatePhone(value, config as PhoneConfig, errors);
       break;
 
     case 'website':
     case 'website_advanced':
-      validateWebsite(value, config as WebsiteConfig | WebsiteAdvancedConfig, errors);
+      validateWebsite(value, config as WebsiteConfig, errors);
       break;
 
     case 'number':
@@ -530,7 +524,7 @@ export function validateStepValue(
   };
 }
 
-function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig | undefined, errors: string[]): void {
+function validateEmail(value: unknown, config: EmailConfig | undefined, errors: string[]): void {
   const emails = Array.isArray(value) ? value : [value];
 
   for (const email of emails) {
@@ -561,7 +555,7 @@ function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig
   }
 }
 
-function validatePhone(value: unknown, _config: PhoneConfig | PhoneAdvancedConfig | undefined, errors: string[]): void {
+function validatePhone(value: unknown, _config: PhoneConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Phone number must be a string');
     return;
@@ -576,7 +570,7 @@ function validatePhone(value: unknown, _config: PhoneConfig | PhoneAdvancedConfi
 
 
 // eslint-disable-next-line complexity
-function validateWebsite(value: unknown, config: WebsiteConfig | WebsiteAdvancedConfig | undefined, errors: string[]): void {
+function validateWebsite(value: unknown, config: WebsiteConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Website must be a string');
     return;

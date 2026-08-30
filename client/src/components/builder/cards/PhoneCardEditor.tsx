@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { PhoneConfig } from "@shared/types/stepConfigs";
@@ -17,32 +17,42 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
-
-
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface PhoneCardState {
-  format: 'US' | 'international';
+  format: 'national' | 'international' | 'US';
   validateFormat: boolean;
   showFormattingMask: boolean;
+  strictValidation: boolean;
 }
 
 export function PhoneCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
+  const isEasyMode = workflowMode?.mode === 'easy';
 
   const config = step.config as PhoneConfig | undefined;
 
   const [localConfig, setLocalConfig] = useState<PhoneCardState>({
-    format: (config?.format ?? "US"),
+    format: config?.format ?? "US",
     validateFormat: true, // Always validate in easy mode
     showFormattingMask: true, // Show formatting by default
+    strictValidation: config?.validation?.strict ?? true,
   });
 
   useEffect(() => {
     setLocalConfig({
-      format: (config?.format ?? "US"),
+      format: config?.format ?? "US",
       validateFormat: true,
       showFormattingMask: true,
+      strictValidation: config?.validation?.strict ?? true,
     });
   }, [config]);
 
@@ -53,6 +63,10 @@ export function PhoneCardEditor({ stepId, pageId, workflowId, step }: StepEditor
     const configToSave: PhoneConfig = {
       format: newConfig.format,
     };
+    
+    if (!isEasyMode) {
+      configToSave.validation = { strict: newConfig.strictValidation };
+    }
 
     updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
   };
@@ -79,18 +93,38 @@ export function PhoneCardEditor({ stepId, pageId, workflowId, step }: StepEditor
       <div className="space-y-4">
         <SectionHeader
           title="Phone Validation"
-          description="US phone number validation is always enabled"
+          description={isEasyMode ? "US phone number validation is always enabled" : "Configure phone number format and validation"}
         />
 
-        {/* Validation Info */}
-        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-          <p className="text-xs text-blue-900 dark:text-blue-100">
-            <strong>US Phone Format:</strong> (XXX) XXX-XXXX or XXX-XXX-XXXX
-          </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-            Input will be validated and formatted automatically
-          </p>
-        </div>
+        {!isEasyMode && (
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Format</Label>
+            <Select
+              value={localConfig.format}
+              onValueChange={(val: 'national' | 'international' | 'US') => handleUpdate({ format: val })}
+            >
+              <SelectTrigger className="h-8">
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="US">US Format</SelectItem>
+                <SelectItem value="national">National</SelectItem>
+                <SelectItem value="international">International</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {isEasyMode && (
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-xs text-blue-900 dark:text-blue-100">
+              <strong>US Phone Format:</strong> (XXX) XXX-XXXX or XXX-XXX-XXXX
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+              Input will be validated and formatted automatically
+            </p>
+          </div>
+        )}
 
         {/* Show Formatting Mask Toggle */}
         <SwitchField
@@ -99,6 +133,15 @@ export function PhoneCardEditor({ stepId, pageId, workflowId, step }: StepEditor
           onChange={(val) => handleUpdate({ showFormattingMask: val })}
           description="Display (___) ___-____ placeholder while typing"
         />
+
+        {!isEasyMode && (
+          <SwitchField
+            label="Strict Validation"
+            checked={localConfig.strictValidation}
+            onChange={(val) => handleUpdate({ strictValidation: val })}
+            description="Enforce strict validation rules"
+          />
+        )}
       </div>
 
       {/* Format Preview */}

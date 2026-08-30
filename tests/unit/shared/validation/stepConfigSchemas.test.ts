@@ -90,6 +90,68 @@ describe('Step Config Schemas', () => {
         });
     });
 
+    describe('Canonical Configs (STB-13)', () => {
+        it('should accept valid canonical phone config and silently strip removed keys', () => {
+            const valid = validateStepConfig('phone', {
+                format: 'US',
+                placeholder: 'Phone number',
+                validation: { strict: true }
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('phone', {
+                format: 'US',
+                allowedCountries: ['US', 'CA'], // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ format: 'US' });
+            expect(stripped.data).not.toHaveProperty('allowedCountries');
+        });
+
+        it('should accept valid canonical email config and silently strip removed keys', () => {
+            const valid = validateStepConfig('email', {
+                allowMultiple: true,
+                maxEmails: 2,
+                restrictDomains: ['example.com']
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('email', {
+                allowMultiple: true,
+                requireVerification: true, // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ allowMultiple: true });
+            expect(stripped.data).not.toHaveProperty('requireVerification');
+        });
+
+        it('should accept valid canonical website config and silently strip removed keys', () => {
+            const valid = validateStepConfig('website', {
+                requireProtocol: true,
+                allowedProtocols: ['https']
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('website', {
+                requireProtocol: true,
+                validateDns: true, // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ requireProtocol: true });
+            expect(stripped.data).not.toHaveProperty('validateDns');
+        });
+
+        it('should still validate legacy configs under the retired type name and strip removed keys (read-compat)', () => {
+            const legacy = validateStepConfig('phone_advanced', {
+                format: 'international',
+                defaultCountry: 'US'
+            });
+            expect(legacy.success).toBe(true);
+            expect(legacy.data).toEqual({ format: 'international' });
+            expect(legacy.data).not.toHaveProperty('defaultCountry');
+        });
+    });
+
     describe('Specific Schema Validations', () => {
         describe('BooleanAdvancedConfigSchema', () => {
             it.each(['buttons', 'radio', 'toggle', 'checkbox'] as const)(

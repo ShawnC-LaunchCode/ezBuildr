@@ -1665,7 +1665,7 @@ declared files.
 These tickets remove unsupported keys from families not receiving expansion here, then make every runtime
 consumer agree on the canonical set. Internationalization and verification remain explicitly out of scope.
 
-## STB-13 — Canonicalize Phone, Email, and Website configs 🔲
+## STB-13 — Canonicalize Phone, Email, and Website configs ✅
 
 **Priority: P1** · Size: M · File: `shared/validation/stepConfigSchemas.ts`
 
@@ -1715,6 +1715,55 @@ it as a promise. Keep temporary old-row read compatibility only for STB-19.
 4. Existing implemented sanitization/domain/protocol/placeholder behavior remains green and authorable.
 5. Tests cover each canonical config, removed-key rejection, valid/invalid submission, and persistence.
 6. Vertical proof and standard gates pass.
+
+**Verified 2026-08-30 (reviewer), across three rounds.** Final gates on the tree rebased to `4e712f88` —
+type-check 0 errors, lint 0 problems, `check:strict-zones` **6/6**, `test:fast` 326 files / **3,653 tests**,
+and the **full** integration project 136 files / 1,244 passed. Arithmetic exact: 3,649 after STB-15A, +3 unit
+tests in round 2, +1 net in round 3 (three canonical tests rewritten as four) = 3,653.
+
+**Round 1 was sent back for three unmet criteria**, all evidence rather than implementation: `test:fast` sat at
+exactly the baseline with **+0/-0** `it()` blocks in both touched test files, so AC5 had no new coverage; AC6's
+vertical proof was never run; and the dev had *edited* `portability.roundtrip.test.ts` without ever running the
+integration project, shipping it red — the three fixtures were deleted with no `SKIPPED` entries, so the
+every-enum-value guard failed. Round 2 fixed all three, and its predicted arithmetic matched to the test.
+
+**Round 2 introduced a read-compat break the reviewer caught by probing rather than reading.** The dev added
+`.strict()` to the three canonical schemas, and `getConfigSchema` maps the retired names onto those same
+schemas, so each retired name rejected its own stored config:
+
+```
+phone_advanced    REJECTED  unrecognized_keys: defaultCountry, allowedCountries
+email_advanced    REJECTED  unrecognized_keys: requireVerification
+website_advanced  REJECTED  unrecognized_keys: validateDns
+```
+
+That was reachable, not theoretical: `validateAndNormalizeConfig` has three live callers — `StepService.ts:223`
+(create), `StepService.ts:341` (update) and `WorkflowContentIngestService.ts:212` (ingest) — all passing
+`strict: true`, so editing a stored `phone_advanced` step or importing a workflow containing one would throw.
+It is the same shape as STB-7's orphaning. Note `.strict()` was never asked for by this ticket; strictness at
+the request/ingest boundary is **STB-17's** job.
+
+Round 3 dropped `.strict()`. Zod's default gives both halves at once, which the reviewer proved before
+prescribing it and again after: legacy configs are **accepted** and the retired key is **stripped**, so it can
+never be written. All six cases verified live — `phone_advanced` → `{"format":"international"}`,
+`email_advanced` → `{"placeholder":"a@b.com"}`, `website_advanced` → `{"placeholder":"https://x.com"}`. The new
+guard asserts `toEqual` on the whole parsed object, so it cannot pass vacuously.
+
+**Reviewer fix, recorded.** Removing the Advanced types orphaned the `stepType` parameter of
+`resolvePhoneConfig`, `resolveEmailConfig` and `resolveWebsiteConfig` — three `TS6133` violations that
+`npm run type-check` does not catch, because `noUnusedParameters` only runs inside the strict zones. The dev had
+not run `check:strict-zones`, and it was red. The reviewer removed the three parameters and updated their three
+call sites in `PhoneBlock`/`EmailBlock`/`WebsiteBlock` rather than spend a fourth round on six mechanical lines;
+strict-zones then passed 6/6. This is the "type-check is not the commit gate" trap, hit again.
+
+Read-compat is otherwise intact: the retired names still resolve through `normalizeRunnerStepType`,
+`getConfigSchema` and `stepTypeEnum`, so no stored row is orphaned. The AI manifest correctly dropped the three
+`*_advanced` entries while keeping `radio`, `address_advanced` and `display_advanced` — the last two are
+STB-14's, and the three surviving `allowedCountries` references are all address-scoped, correctly untouched.
+
+One `captcha.service` failure in the final sweep was **verified, not assumed**: 10/10 in isolation on three
+consecutive runs, and the file carries zero references to anything this ticket changed. Documented
+order-dependent flake.
 
 ---
 

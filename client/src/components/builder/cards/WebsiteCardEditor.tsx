@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { WebsiteConfig } from "@shared/types/stepConfigs";
@@ -17,29 +17,33 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 
 
 
-interface WebsiteCardState {
-  requireProtocol: boolean;
-  validate: boolean;
-}
 
 export function WebsiteCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
+  const isEasyMode = workflowMode?.mode === 'easy';
 
   const config = step.config as WebsiteConfig | undefined;
 
-  const [localConfig, setLocalConfig] = useState<WebsiteCardState>({
+  const [localConfig, setLocalConfig] = useState({
     requireProtocol: config?.requireProtocol ?? false,
-    validate: true, // Always validate in easy mode
+    allowedProtocols: config?.allowedProtocols?.join(", ") ?? "",
+    restrictDomains: config?.restrictDomains?.join(", ") ?? "",
+    blockDomains: config?.blockDomains?.join(", ") ?? "",
   });
 
   useEffect(() => {
     setLocalConfig({
       requireProtocol: config?.requireProtocol ?? false,
-      validate: true,
+      allowedProtocols: config?.allowedProtocols?.join(", ") ?? "",
+      restrictDomains: config?.restrictDomains?.join(", ") ?? "",
+      blockDomains: config?.blockDomains?.join(", ") ?? "",
     });
   }, [step.config, config]);
 
@@ -50,6 +54,20 @@ export function WebsiteCardEditor({ stepId, pageId, workflowId, step }: StepEdit
     const configToSave: WebsiteConfig = {
       requireProtocol: newConfig.requireProtocol,
     };
+    
+    if (!isEasyMode) {
+      if (newConfig.allowedProtocols) {
+        configToSave.allowedProtocols = newConfig.allowedProtocols.split(",")
+          .map(p => p.trim())
+          .filter(p => p === 'http' || p === 'https' || p === 'ftp');
+      }
+      if (newConfig.restrictDomains) {
+        configToSave.restrictDomains = newConfig.restrictDomains.split(",").map(d => d.trim()).filter(Boolean);
+      }
+      if (newConfig.blockDomains) {
+        configToSave.blockDomains = newConfig.blockDomains.split(",").map(d => d.trim()).filter(Boolean);
+      }
+    }
 
     updateStepMutation.mutate({ id: stepId, pageId, config: configToSave });
   };
@@ -97,6 +115,43 @@ export function WebsiteCardEditor({ stepId, pageId, workflowId, step }: StepEdit
           description="Require http:// or https:// at the beginning"
         />
       </div>
+
+      {!isEasyMode && (
+        <>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Allowed Protocols</Label>
+            <Input
+              value={localConfig.allowedProtocols}
+              onChange={(e) => handleUpdate({ allowedProtocols: e.target.value })}
+              placeholder="http, https"
+              className="h-8"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated list (http, https, ftp)</p>
+          </div>
+        
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Restrict to Domains</Label>
+            <Input
+              value={localConfig.restrictDomains}
+              onChange={(e) => handleUpdate({ restrictDomains: e.target.value })}
+              placeholder="example.com, company.org"
+              className="h-8"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated list of allowed domains</p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Block Domains</Label>
+            <Input
+              value={localConfig.blockDomains}
+              onChange={(e) => handleUpdate({ blockDomains: e.target.value })}
+              placeholder="facebook.com, twitter.com"
+              className="h-8"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated list of blocked domains</p>
+          </div>
+        </>
+      )}
 
       {/* Format Preview */}
       <div className="bg-muted border rounded-lg p-3">

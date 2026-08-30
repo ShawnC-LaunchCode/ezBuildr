@@ -47,13 +47,10 @@ export const AIGeneratedStepSchema = z.object({
     // Advanced Mode Types
     'text',
     'boolean',
-    'phone_advanced',
     'datetime_unified',
     'choice',
-    'email_advanced',
     'number_advanced',
     'scale_advanced',
-    'website_advanced',
     'address_advanced',
     'multi_field',
     'display_advanced',

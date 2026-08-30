@@ -30,9 +30,6 @@ type ConfigKeyExclusionManifest = Readonly<Record<string, readonly string[]>>;
  */
 export const TEMPORARY_CONFIG_KEY_EXCLUSIONS = {
   radio: ["displayLayout"],
-  phone_advanced: ["defaultCountry", "allowedCountries"],
-  email_advanced: ["requireVerification"],
-  website_advanced: ["validateDns"],
   address_advanced: ["country", "allowedCountries"],
   display_advanced: ["allowHtml"],
 } as const satisfies ConfigKeyExclusionManifest;

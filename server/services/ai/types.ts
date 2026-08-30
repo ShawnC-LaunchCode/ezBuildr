@@ -16,8 +16,8 @@ export const VALID_STEP_TYPES = [
   'true_false', 'phone', 'date', 'time', 'datetime', 'email',
   'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
   // Advanced mode types
-  'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice',
-  'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced',
+  'text', 'boolean', 'datetime_unified', 'choice',
+  'number_advanced', 'scale_advanced',
   'address_advanced', 'multi_field', 'display_advanced',
   // Structural types
   'list',

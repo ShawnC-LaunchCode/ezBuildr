@@ -37,7 +37,11 @@ import { getOwnerDb } from "../helpers/ownerDb";
  * nothing legitimate to skip. An entry here is a claim that portability does
  * not apply to that type, and needs to say why.
  */
-const SKIPPED: Record<string, string> = {};
+const SKIPPED: Record<string, string> = {
+  phone_advanced: "Unified into canonical phone type (STB-13), portability applies only to canonical types now",
+  email_advanced: "Unified into canonical email type (STB-13)",
+  website_advanced: "Unified into canonical website type (STB-13)",
+};
 
 /** A distinctive config per step type, so a dropped or coerced key is visible. */
 function buildStepConfigs(templateId: string): Record<string, Record<string, unknown>> {
@@ -104,7 +108,6 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
     // ===== ADVANCED MODE =====
     text: { multiline: false, maxLength: 255, placeholder: "Advanced text" },
     boolean: { display: "switch", trueLabel: "Enabled" },
-    phone_advanced: { format: "E164", allowExtension: true },
     datetime_unified: { kind: "datetime", timeFormat: "24h" },
     choice: {
       display: "dropdown",
@@ -113,10 +116,8 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
       allowOther: true,
       otherLabel: "Something else",
     },
-    email_advanced: { allowedDomains: ["example.com"], confirmField: true },
     number_advanced: { min: -50, max: 50, decimalPlaces: 3, thousandsSeparator: true },
     scale_advanced: { min: 0, max: 5, step: 0.5, showValue: true },
-    website_advanced: { requireHttps: false, allowedSchemes: ["http", "https"] },
     address_advanced: { components: ["line1", "city", "postalCode"], autocomplete: true },
     multi_field: {
       fields: [
