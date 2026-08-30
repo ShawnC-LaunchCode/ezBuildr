@@ -1835,7 +1835,11 @@ Four defects, none of which the dev's own gates could have caught from that base
    dev's base, so the failure was invisible there. `address_advanced.country` also needs re-thinking: it is
    canonical-and-required now, not an inert key to hide from the AI.
 4. **Authoring sites still write retired keys.** `client/src/lib/blockRegistry.tsx` `createDefaultConfig()` for
-   `display` still emits `allowHtml: false`; nothing removed `buttons` from Scale authoring.
+   `display` still emits `allowHtml: false`.
+   *(Reviewer correction, round 2: this item originally also claimed "nothing removed `buttons` from Scale
+   authoring". That was wrong — `ScaleCardEditor` only ever offered slider/stars; `buttons` existed in the
+   schema alone. The editor's stars-count control is also fine: it auto-syncs `max`, which is what the runner
+   reads (`ScaleBlock.tsx:84`, `numStars = max`).)*
 
 Cleared, *not* counted against the dev: the `PdfConverter.ts` `waitUntil` change was a real fix on their base,
 but the identical fix is already on `dev` — stale-base residue, not scope creep.
@@ -1843,6 +1847,54 @@ but the identical fix is already on `dev` — stale-base residue, not scope cree
 The turn-in was dropped rather than rebased (owner's call): the salvageable part was ~6 mechanical deletions,
 and the merge also dragged in pre-`SECT` vocabulary (`sectionId` for `pageId` in `ScaleCardEditor`). Worktree
 removed; re-dispatch from a fresh worktree fast-forwarded to `dev`.
+
+**Root cause of round 1, found while re-creating the worktree:** `scripts/new-worktree.ps1` builds from `main`,
+and its verification step *certifies* the result — `[ok] base commit matches main (ee55f6ac)` and `[ok] test suite
+runs (3198 tests passed)`. It asserts equality with `main` (the wrong invariant) and never compares the count to
+the source branch. The dev was handed a stale tree carrying two green stamps. Always ff to `dev` and re-baseline.
+
+**Round 2 — 2026-08-30 — REJECTED, not committed.** Base correct (`55d736aa`). All four gates verified green by
+the reviewer, and the test arithmetic is honest (3,653 + 3 = 3,656). The legacy read-compat *approach* is right:
+dedicated `ScaleLegacyReadSchema` / `AddressLegacyReadSchema` / `DisplayLegacyReadSchema` that `.transform()` to
+canonical. All five stored shapes read correctly. `blockRegistry`'s `allowHtml` default is gone, and the schema
+rename left no dangling importers. Four criteria are still unmet:
+
+1. **AC 2 regressed — retired keys are now MORE advertised to the AI, not less.** Measured via `getConfigKeys`:
+
+   | type | `dev` baseline | this round |
+   |------|----------------|------------|
+   | `address_advanced` | `fields[], autoComplete, validateAddress` | `country, allowedCountries[], fields, autoComplete, validateAddress` |
+   | `display_advanced` | `markdown, template, variables[], style.*` | `markdown, allowHtml, template, variables[], style` |
+
+   `.transform()` wraps the schema in `ZodEffects`, and `unwrap()` returns the **input** object, so every retired
+   key is still derived. Deleting the `TEMPORARY_CONFIG_KEY_EXCLUSIONS` entries was only correct if the keys had
+   stopped being derived — they had not, so the deletion *unmasked* `country`, `allowedCountries` and `allowHtml`.
+   The manifest test passes because it asserts the manifest equals its audited copy; nothing asserts that inert
+   keys are absent from the catalog (see STB-B7). That is why the dev's gates were green.
+
+2. **`address_advanced` is a rubber stamp.** `fields: z.any().optional()` with every field optional and a
+   transform that ignores its input means `{}` and `{fields: "not-an-array", bogusKey: 123}` both validate and
+   return a hardcoded `{country:'US', fields:['street','city','state','zip']}`. AC 2 requires unowned keys to be
+   *rejected*. `validateAndNormalizeConfig` returns the transformed value, so this also reaches the template
+   ingest boundary (`WorkflowContentIngestService.ts:212`) that Decision 5 requires to be strict.
+
+3. **The type layer was not touched at all.** `shared/types/stepConfigs.ts` is unmodified: `ConfigForStepType`
+   still maps canonical `scale`/`address`/`display` to `ScaleAdvancedConfig`/`AddressAdvancedConfig`/
+   `DisplayAdvancedConfig` (lines 1211-1215), those interfaces still exist and remain in the `StepConfig` union,
+   and `isAddressConfig` still widens to `AddressAdvancedConfig`. So the canonical types are still TS-typed as
+   the retired shapes, declaring `allowHtml`, `allowedCountries`, `style`, `color` and `validateAddress`. AC 1
+   and AC 2 at the type layer. Round 1 deleted these correctly; round 2 dropped that work.
+
+4. **AC 5 is roughly a quarter met and AC 6 not at all.** The three added tests cover exactly the five config
+   shapes the dispatch prompt handed the dev, and nothing else. AC 5 also names canonical configs, removed-key
+   rejection, runner behavior and persisted answer shapes; AC 6 names a vertical proof (StepService DB coverage
+   plus Address/Scale/Display integration) for which there is no evidence. **Reviewer note to self:** the dev
+   treated the prompt's worked example as the spec. Future prompts should give the failing case without also
+   handing over the finished assertion list.
+
+Minor: a thinking-out-loud comment ("// Notice: ... but wait, ...") was left in
+`tests/unit/shared/validation/stepConfigSchemas.test.ts`.
+
 
 
 ---
