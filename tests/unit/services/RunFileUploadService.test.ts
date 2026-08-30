@@ -6,6 +6,7 @@ import type { Readable } from 'stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RunFileUploadService } from '../../../server/services/RunFileUploadService';
+import { runWithTenantContext } from '../../../server/utils/rlsContext';
 
 // RLS-4 precondition 2: resolveContext now reads workflow/project inside
 // withCurrentTenant (to actually use whatever ambient tenant hybridAuth/
@@ -13,7 +14,13 @@ import { RunFileUploadService } from '../../../server/services/RunFileUploadServ
 // db.transaction unavailable in unit-fast. Mock it to just invoke the
 // callback directly — these tests inject fully mocked repositories anyway,
 // so the fake tx value itself is never inspected.
-const { mockTx } = vi.hoisted(() => ({ mockTx: { __fakeTx: true } as never }));
+const { mockTx } = vi.hoisted(() => ({
+  // `execute` is needed once a test pins an ambient tenant (STB-23): that
+  // path runs through the real `withTenant`, which calls
+  // `applyTenantToTransaction(tx, tenantId)` -> `tx.execute(...)` before
+  // invoking the callback.
+  mockTx: { __fakeTx: true, execute: vi.fn().mockResolvedValue(undefined) } as never,
+}));
 vi.mock('../../../server/db', () => ({
   db: {
     transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(mockTx)),
@@ -113,6 +120,26 @@ describe('RunFileUploadService', () => {
       stepId: STEP_ID,
       value: [expect.objectContaining({ filename: 'brief.pdf', mimeType: 'application/pdf', size: 13 })],
     }));
+    expect(result.files[0].url).toBe('/api/storage/files/signed');
+  });
+
+  it('resolves the tenant from the ambient context on an Unfiled workflow (projectId null, STB-23)', async () => {
+    // "Unfiled" is a supported, first-class state (client/src/pages/NewWorkflow.tsx
+    // seeds projectId: "" with the comment "// Unfiled"); the fix must not
+    // require a project to resolve a tenant.
+    workflowRepo.findById.mockResolvedValue({ id: WORKFLOW_ID, projectId: null });
+
+    const result = await runWithTenantContext(TENANT_ID, () => upload());
+
+    expect(projectRepo.findById).not.toHaveBeenCalled();
+    expect(quota.checkQuota).toHaveBeenCalledWith(TENANT_ID, 13);
+    expect(storage.uploadStream).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^tenants/${TENANT_ID}/runs/${RUN_ID}/steps/${STEP_ID}/[0-9a-f-]+\\.pdf$`)),
+      expect.anything(),
+      13,
+      'application/pdf',
+      expect.objectContaining({ tenantId: TENANT_ID, runId: RUN_ID, stepId: STEP_ID }),
+    );
     expect(result.files[0].url).toBe('/api/storage/files/signed');
   });
 

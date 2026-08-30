@@ -12,7 +12,7 @@ import {
   workflowRunRepository,
 } from '../repositories';
 import { createError } from '../utils/errors';
-import { withCurrentTenant } from '../utils/rlsContext';
+import { getCurrentTenantId, withCurrentTenant } from '../utils/rlsContext';
 
 import { isFileTypeAccepted, MAX_FILE_SIZE } from './fileService';
 import { runDefinitionProvider } from './workflow-runs/RunDefinitionProvider';
@@ -274,12 +274,27 @@ export class RunFileUploadService {
     // (0030) before this method is ever reached. Either way there is a real
     // ambient tenant to use here now — thread it through instead of
     // bypassing RLS's whole point via the bare pool.
+    //
+    // STB-23: the old code derived tenantId ONLY via workflow.projectId ->
+    // project.tenantId, so any upload against an "Unfiled" workflow
+    // (projectId null - a supported, first-class state, see
+    // client/src/pages/NewWorkflow.tsx and PUT /api/workflows/:id/move)
+    // failed with a misleading "Project for run not found". The ambient
+    // tenant pinned above is already real and authoritative for both auth
+    // paths, so use it as the primary source and only fall back to the
+    // project's tenant when the ambient one is unavailable (e.g. unit tests
+    // that call this service directly with no request-scoped context).
     return withCurrentTenant(async (tx) => {
       const workflow = await this.workflowRepo.findById(run.workflowId, tx);
-      if (!workflow?.projectId) { throw createError.notFound('Project for run'); }
-      const project = await this.projectRepo.findById(workflow.projectId, tx);
-      if (!project?.tenantId) { throw createError.notFound('Tenant for run'); }
-      return { run, tenantId: project.tenantId };
+      if (!workflow) { throw createError.notFound('Workflow for run'); }
+
+      let tenantId = getCurrentTenantId();
+      if (!tenantId && workflow.projectId) {
+        const project = await this.projectRepo.findById(workflow.projectId, tx);
+        tenantId = project?.tenantId ?? undefined;
+      }
+      if (!tenantId) { throw createError.notFound('Tenant for run'); }
+      return { run, tenantId };
     });
   }
 

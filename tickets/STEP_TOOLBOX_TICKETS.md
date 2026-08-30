@@ -1355,7 +1355,7 @@ bearer token. It looks specific to the preview shell rather than the run API.
 
 ---
 
-## STB-23 - File Upload is dead on Unfiled workflows
+## STB-23 - File Upload is dead on Unfiled workflows ✅
 
 **Priority: P0** * Size: M * File: `server/services/RunFileUploadService.ts`
 
@@ -1408,6 +1408,39 @@ resolve from that ambient tenant and fall back to the project only when one is p
 3. Cross-tenant upload is denied and writes nothing.
 4. A regression test covers the unfiled case specifically, and fails against today's code.
 5. Type-check, lint, the targeted DB/integration suites, and `test:fast` all pass.
+
+**Verified 2026-08-29 (reviewer):** the worktree was rebased onto `dev` at `c1a00045` (after STB-24) by the
+reviewer, and all gates re-run there — type-check 0 errors (with `node_modules/typescript/tsbuildinfo` deleted
+first), lint 0 problems, `test:fast` 326 files / **3,645 tests**, and the two file-upload integration suites
+2 files / 7 tests. Arithmetic is exact: 3,644 after STB-24, plus the one new unit test, is 3,645. The two new
+integration tests correctly do not move the `test:fast` denominator because they run in the `integration`
+project.
+
+**AC4 proven by the reviewer, at both layers.** Reverting only `RunFileUploadService.ts` made the new unit test
+fail with `ApiError: Project for run not found`, and the new integration test fail with
+`expected 404 to be 201` carrying body `{"error":"Project for run not found"}` — the exact user-facing failure
+the gate drive-through hit live. Restoring the fix returned both to green.
+
+**The ticket's Preferred fix contained a factual error, and the dev was right to depart from it.** It asserted
+that "`workflows` carries owner/tenant identity directly". It does not: the table has `ownerId`, `ownerType`,
+`ownerUuid` and `projectId`, and **no `tenantId` column**. The dev instead read the ambient tenant via
+`getCurrentTenantId()`, falling back to the project's tenant only when no request-scoped context exists — which
+is exactly what the RLS-4 comment already sitting above that block prescribes, and which keeps the existing
+unit tests (that call the service with no context) on their original path. `projectId` was correctly **not**
+made mandatory, so the Unfiled state survives.
+
+**One narrow divergence recorded rather than waved past.** The tenant that owns the storage namespace now comes
+from the requester's context instead of the resource's project. `WorkflowService.verifyAccess` gates on ACL
+role, not on tenant equality, so if a cross-tenant ACL grant is ever possible these two could disagree and a
+file would be filed under the requester's tenant rather than the workflow's. There is no `workflows.tenantId`
+to prefer instead, the run-token path pins the workflow's own tenant, and admin cross-tenant behavior is
+RLS-7's open question — so this is accepted here and flagged for RLS-7 rather than solved in an ENH-scope
+upload fix.
+
+Deviation accepted: the misleading `'Project for run'` message is now split into `'Workflow for run'` and
+`'Tenant for run'`. Verified safe — no test asserted the old string, and `createError.notFound` still renders
+`${resource} not found`, which `routeErrors` maps to 404 on the `includes('not found')` rule, so the status
+contract is unchanged.
 
 ---
 
