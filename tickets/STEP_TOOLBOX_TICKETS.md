@@ -1355,7 +1355,7 @@ bearer token. It looks specific to the preview shell rather than the run API.
 
 ---
 
-## STB-23 - File Upload is dead on Unfiled workflows ✅
+## STB-23 - File Upload is dead on Unfiled workflows 🔄 REOPENED
 
 **Priority: P0** * Size: M * File: `server/services/RunFileUploadService.ts`
 
@@ -1441,6 +1441,53 @@ Deviation accepted: the misleading `'Project for run'` message is now split into
 `'Tenant for run'`. Verified safe — no test asserted the old string, and `createError.notFound` still renders
 `${resource} not found`, which `routeErrors` maps to 404 on the `includes('not found')` rule, so the status
 contract is unchanged.
+
+---
+
+### ⚠️ REOPENED 2026-08-30 by the reviewer — the fix covers the wrong path
+
+**The commit `7e433acc` stands in `dev` but does NOT close this ticket.** A live drive-through on a real unfiled
+workflow shows the respondent-facing path is still broken:
+
+| Path | Result |
+|------|--------|
+| Authenticated (`Authorization: Bearer <JWT>`) | **201** — fixed, `storageKey` under `tenants/<tenant>/...` |
+| Run token (`Authorization: Bearer <runToken>`) | **404 `Tenant for run not found`** — still broken |
+
+The run-token path is how actual respondents upload. The ticket's own Vertical proof asked for "runner upload"
+with "real, not mocked ... tenant resolution", and that is the path that is still failing — the error message
+changed from `Project for run` to `Tenant for run`, nothing more.
+
+**Why the suite went green anyway.** The new integration test authenticates with
+`.set('Authorization', 'Bearer ${ctx.authToken}')`, so it only ever exercises the authenticated path, where
+`hybridAuth` has already pinned a tenant. It never covers the run-token path. Seven integration tests passed,
+`test:fast` was 3,645, and the product was still broken for respondents.
+
+**Root cause, confirmed from the server log.** At `resolveContext` the log emits
+`withCurrentTenant called with no tenant in async context; RLS not enforced, running unscoped.` — so
+`getCurrentTenantId()` is `undefined` on the run-token path, and with `projectId` null there is no fallback
+left, hence the throw. No tenant-resolution warning appears at `LOG_LEVEL=warn`, so the pinning in
+`creatorOrRunTokenAuth` is not putting a tenant into the context the service actually sees.
+
+**The infrastructure to fix it already exists and is not being used.**
+`WorkflowTenantResolver.resolveForWorkflow(workflow, tx)` resolves project → owner → creator. The failing
+workflow carries `ownerType: 'user'`, `ownerUuid`/`creatorId` = the creator, and that creator has a
+`tenantId` — so the resolver would have returned it. Prefer it over the ambient read: keep
+`getCurrentTenantId()` as the fast path if you like, but fall back to
+`workflowTenantResolver.resolveForWorkflow(workflow, tx)` rather than to `project.tenantId` alone.
+
+**Added acceptance criteria for the re-do:**
+
+6. The upload succeeds on an unfiled workflow via the **run-token** path
+   (`Authorization: Bearer <runToken>`, no user JWT), not only the authenticated path.
+7. An integration test covers that run-token path specifically and fails against `7e433acc`.
+8. Live proof on the running app: a respondent-style upload on an unfiled workflow returns 201 and the file is
+   retrievable. A green integration suite is explicitly not sufficient for this ticket — that is exactly what
+   passed while the product stayed broken.
+
+**Reviewer's own error, recorded.** This was committed on the strength of a green integration suite, before the
+live proof was run — on a ticket whose defect was found live in the first place. The live check should have
+preceded the commit, and for the remaining Phase 1 Gate work it will.
 
 ---
 
