@@ -1,18 +1,12 @@
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import '@/lib/pdfWorker';
 
 import { PageDimension, PdfField } from './PdfMappingEditor.types';
 
 import type { DocumentFieldMapping } from '@shared/types/documentMapping';
-
-// Set worker source for react-pdf
-// Use local worker to avoid CSP issues with CDN
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-).toString();
 
 interface PdfCanvasProps {
     templateId: string;

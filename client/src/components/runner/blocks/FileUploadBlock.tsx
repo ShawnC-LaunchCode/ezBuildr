@@ -60,6 +60,10 @@ function fileIcon(mimeType: string) {
   return <File className="h-4 w-4" aria-hidden="true" />;
 }
 
+function supportsThumbnailPreview(mimeType: string): boolean {
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf';
+}
+
 function parseUploadResponse(xhr: XMLHttpRequest): UploadResponse {
   try {
     return JSON.parse(xhr.responseText) as UploadResponse;
@@ -74,6 +78,43 @@ function mergeFreshUrls(current: Record<string, string>, files: FileUploadValue[
     if (file.url !== undefined) { next[file.fileId] = file.url; }
   }
   return next;
+}
+
+function createPreviewValues(selected: globalThis.File[]): {
+  localPdfFiles: Record<string, globalThis.File>;
+  previewFiles: FileUploadValue[];
+} {
+  const localPdfFiles: Record<string, globalThis.File> = {};
+  const previewFiles = selected.map(file => {
+    const fileId = crypto.randomUUID();
+    if (file.type === 'application/pdf') { localPdfFiles[fileId] = file; }
+    return {
+      fileId,
+      filename: file.name,
+      storageKey: `preview/${fileId}`,
+      url: URL.createObjectURL(file),
+      mimeType: file.type === '' ? 'application/octet-stream' : file.type,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+    } satisfies FileUploadValue;
+  });
+  return { localPdfFiles, previewFiles };
+}
+
+function attachLocalUploadPreviews(
+  selected: globalThis.File[],
+  uploaded: FileUploadValue[],
+  localPreviewUrls: Record<string, string>,
+): Record<string, globalThis.File> {
+  const localPdfFiles: Record<string, globalThis.File> = {};
+  uploaded.forEach(file => {
+    if (localPreviewUrls[file.filename] && !file.url) { file.url = localPreviewUrls[file.filename]; }
+    const selectedFile = selected.find(candidate => candidate.name === file.filename);
+    if (file.mimeType === 'application/pdf' && selectedFile !== undefined) {
+      localPdfFiles[file.fileId] = selectedFile;
+    }
+  });
+  return localPdfFiles;
 }
 
 export function FileUploadBlockRenderer({
@@ -97,6 +138,7 @@ export function FileUploadBlockRenderer({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string>();
   const [freshUrls, setFreshUrls] = useState<Record<string, string>>({});
+  const [localPdfFiles, setLocalPdfFiles] = useState<Record<string, globalThis.File>>({});
   const owningStepId = runStepId ?? step.id;
   const nestedFieldId = owningStepId === step.id ? undefined : step.id;
 
@@ -121,18 +163,10 @@ export function FileUploadBlockRenderer({
     if (validationError !== undefined || selected.length === 0) { return; }
 
     if (!runId) {
-      const previewFiles = selected.map(file => {
-        const fileId = crypto.randomUUID();
-        return {
-          fileId,
-          filename: file.name,
-          storageKey: `preview/${fileId}`,
-          url: URL.createObjectURL(file),
-          mimeType: file.type === '' ? 'application/octet-stream' : file.type,
-          size: file.size,
-          uploadedAt: new Date().toISOString(),
-        } satisfies FileUploadValue;
-      });
+      const { localPdfFiles: nextLocalPdfFiles, previewFiles } = createPreviewValues(selected);
+      if (Object.keys(nextLocalPdfFiles).length > 0) {
+        setLocalPdfFiles(current => ({ ...current, ...nextLocalPdfFiles }));
+      }
       setFreshUrls(current => mergeFreshUrls(current, previewFiles));
       onChange([...files, ...previewFiles.map(withoutTransientUrl)]);
       return;
@@ -141,11 +175,11 @@ export function FileUploadBlockRenderer({
     setUploading(true);
     setProgress(0);
     try {
-      // For images with previewThumbnails enabled, create local object URLs immediately to show preview while uploading
+      // Show previewable files immediately while the upload is still in flight.
       const localPreviewUrls: Record<string, string> = {};
       if (config.previewThumbnails) {
         selected.forEach(file => {
-          if (file.type.startsWith('image/')) {
+          if (supportsThumbnailPreview(file.type)) {
             localPreviewUrls[file.name] = URL.createObjectURL(file);
           }
         });
@@ -175,11 +209,10 @@ export function FileUploadBlockRenderer({
       
       // Merge local preview URLs if we created any
       if (config.previewThumbnails) {
-        uploaded.forEach(file => {
-          if (localPreviewUrls[file.filename] && !file.url) {
-            file.url = localPreviewUrls[file.filename];
-          }
-        });
+        const nextLocalPdfFiles = attachLocalUploadPreviews(selected, uploaded, localPreviewUrls);
+        if (Object.keys(nextLocalPdfFiles).length > 0) {
+          setLocalPdfFiles(current => ({ ...current, ...nextLocalPdfFiles }));
+        }
       }
 
       setFreshUrls(current => mergeFreshUrls(current, uploaded));
@@ -215,7 +248,12 @@ export function FileUploadBlockRenderer({
     if (url?.startsWith('blob:')) {
       URL.revokeObjectURL(url);
     }
-    
+    setLocalPdfFiles(current => {
+      if (current[file.fileId] === undefined) { return current; }
+      const { [file.fileId]: _removed, ...remaining } = current;
+      return remaining;
+    });
+
     onChange(files.filter(candidate => candidate.fileId !== file.fileId));
   };
 
@@ -308,12 +346,13 @@ export function FileUploadBlockRenderer({
 
       {files.map(file => {
         const url = freshUrls[file.fileId] ?? file.url;
-        if (config.previewThumbnails && file.mimeType.startsWith('image/')) {
+        if (config.previewThumbnails && supportsThumbnailPreview(file.mimeType)) {
           return (
             <FileUploadPreview 
               key={file.fileId}
               file={file}
               url={url}
+              localPdfFile={localPdfFiles[file.fileId]}
               runId={runId}
               runToken={runToken}
               owningStepId={owningStepId}

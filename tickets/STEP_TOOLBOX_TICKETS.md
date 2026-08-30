@@ -1210,7 +1210,7 @@ and the `version` that removing the pin orphaned. Four gates were reported green
 
 ---
 
-## STB-12 — Add lazy first-page PDF upload previews 🔲
+## STB-12 — Add lazy first-page PDF upload previews ✅
 
 **Priority: ENH** · Size: M · File: `client/src/components/runner/blocks/FileUploadBlock.tsx`
 
@@ -1247,6 +1247,43 @@ Do not generate or persist thumbnail assets.
 4. Preview has an accessible filename/page-one label and remains usable at mobile width.
 5. `tests/unit/client/FileUploadBlock.test.tsx` covers success, lazy behavior, retry/fallback, and disabled preview.
 6. Type-check, lint, targeted tests, `test:fast`, and Phase Gate browser console checks pass.
+
+**Verified 2026-08-29 (reviewer):** every acceptance criterion checked against the tree, and all gates re-run by
+the reviewer in the ticket's own worktree at `c2143b0d` — type-check 0 errors (with
+`node_modules/typescript/tsbuildinfo` deleted first, so the green cannot be stale), lint 0 problems,
+`check:strict-zones` 6/6, `test:fast` 326 files / **3,639 tests (+8)**. The arithmetic reconciles exactly
+against an independently re-measured 3,631 baseline: six new `it()` plus one `it.each` of two cases takes the
+file from 7 to 15 tests.
+
+**The lazy boundary is this ticket's real content, and it took two attempts.** The first pass put a static
+`import { Document, Page } from 'react-pdf'` in `FileUploadPreview.tsx`. Because `BlockRenderer.tsx:33`
+statically imports `FileUploadBlockRenderer`, that pulled `pdfjs-dist` into every runner render and broke **13
+unrelated suites** with `ReferenceError: DOMMatrix is not defined` — `DateTimeBlock`, `NumberBlock`,
+`TextBlock`, `ListBlock`, `PageSteps.a11y`, `RunnerAnswerPiping`, `DisplayBlock.aliasInterpolation`,
+`ListDrillEditor`, and five `WorkflowRunner.*`. It would also have shipped pdfjs to every respondent on
+workflows containing no file-upload step. The landed implementation is `lazy(() => import('./PdfUploadThumbnail'))`
+behind `Suspense`, gated on `IntersectionObserver` with a `typeof === 'undefined'` fallback for jsdom, so
+`react-pdf` leaves the static graph entirely; all 13 suites pass. **This was a gap in the ticket, not dev
+error:** Ties named `PdfCanvas.tsx` as the donor without recording that its own static import is safe only
+because it lives in the builder-templates path, where the only tests reaching it mock it deliberately
+(`tests/unit/client/TemplatesTab.test.tsx:37`).
+
+The ref-gating is not circular, which was worth confirming rather than assuming: `previewRef` is attached to
+`CompactFileRow` through `containerRef` before any preview exists, so the observer always has a target, and it
+moves to the preview div once `pdfVisible` flips. A PDF that fails falls back to that same row (AC 3), and
+`retriedSignedUrlRef` bounds the expired-URL refresh to a single attempt.
+
+The laziness proof is real rather than nominal: it mounts 20 persisted PDFs, asserts zero `fetch` calls and zero
+`react-pdf` renders, triggers observer #7 alone, then asserts exactly one fetch and that it is for
+`evidence-7.pdf`. Binding decision 9 holds — nothing generates or persists a thumbnail. `PdfCanvas` keeps its
+behavior; its worker URL moved verbatim into `client/src/lib/pdfWorker.ts`, imported for side effect.
+
+**Owed by the Phase 1 Gate, not by this ticket.** The turn-in reported desktop 1280x720 and mobile 390x844 runs
+with measurements, but **no screenshots were stored under `.playwright-mcp/`**, so those specific claims rest on
+an artifact that does not exist. AC 6 defers browser checks to the Phase Gate, so this is not a send-back — but
+the gate drive-through must cover PDF page-one preview at both widths and capture the evidence itself. The dev
+also hit a Compose host-port collision and hosted `ezbuildr_test_stb_12` on the already-running
+Postgres/Gotenberg containers; no product deviation.
 
 ---
 
