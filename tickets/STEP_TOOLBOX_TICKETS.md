@@ -1317,7 +1317,7 @@ resume/revisit, image and PDF previews, and the full desktop/mobile sweep. One u
 preview shell logged two `401` responses on `POST /api/workflows/:id/runs` while still rendering correctly --
 not caused by STB-3B/3C, which touch no run creation, but worth resolving before this gate closes.
 
-### Gate run 2026-08-29 (reviewer) - NOT CLOSED
+### Gate run 2026-08-29 / closed 2026-08-30 (reviewer) ✅
 
 Everything mechanical passed. The live drive-through found **two defects**, so the gate stays open.
 
@@ -1351,6 +1351,43 @@ The 2026-08-28 `401` observation did **not** reproduce: `POST /api/workflows/:id
 bearer token. It looks specific to the preview shell rather than the run API.
 
 **Blocking findings: STB-23 and STB-24.**
+
+### ✅ PHASE 1 GATE CLOSED 2026-08-30
+
+Both blocking findings are fixed and **each was re-proven live**, not merely re-tested.
+
+- **STB-24** — a Choice question added from the Easy palette, filled in the real runner, now stores
+  `["Option 1"]`. The same interaction stored `["1","3"]` before the fix. That is the runner seam a unit test
+  cannot reach, which is why it was the thing that had to be checked.
+- **STB-23** — an unfiled workflow, uploaded with only `Authorization: Bearer <runToken>` and no user JWT,
+  returns **201** with a correctly tenant-scoped storage key and a `step_values` row. That exact request
+  returned `404 Tenant for run not found` before. It took two rounds: round 1 fixed only the authenticated
+  path and its suite never covered the respondent path.
+
+Final tree state at `07819036`: type-check 0 errors, lint 0 problems, `check:strict-zones` 6/6, `test:fast`
+326 files / **3,647 tests**, file-upload integration 2 files / 8 tests.
+
+Everything else on this checklist was verified in the 2026-08-29 run above and is unaffected by the two fixes,
+which touched only the Choice preset defaults and the upload service's tenant resolution: the canonical-only
+Easy palette, byte-for-byte config preservation across a mode round trip, canonical `step_values` shapes
+including a decimal `23.14`, resume/revisit, the PDF page-one and image previews, mobile at 390px with no
+horizontal overflow, and a console carrying only Vite HMR noise. Screenshots remain under
+`.playwright-mcp/stb-gate-*.png`; every fixture created for both runs was deleted and the teardown proved zero
+leftovers.
+
+**Two reviewer process failures this gate, recorded because they are the transferable part.**
+
+1. STB-23 round 1 was committed on a green integration suite *before* the live proof was run — on a ticket
+   whose defect had been found live. The suite authenticated with a JWT while the broken path used a run
+   token, so it proved the wrong entry point. Live proof now precedes the commit on any ticket whose finding
+   came from a live check.
+2. `4e4a3051` shipped the round-2 tests and ticket note **without the service file they assert against**,
+   leaving `dev` red at five failing tests. A `git stash push -u` / `merge` / `stash pop` cycle around the
+   review dropped it between a green gate run and the commit. It was caught only by the closing habit of
+   grepping for a symbol the ticket added in **both** the working tree and `HEAD` — `git status` was clean and
+   the commit summary looked plausible. Restored in `07819036`. Recovering it also came within one command of
+   pulling content out of the repo owner's unrelated `gh-171` stash, because the stash index shifted between
+   two calls: **address a stash by object SHA, never by `stash@{n}`.**
 
 
 ---
