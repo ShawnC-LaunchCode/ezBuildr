@@ -300,3 +300,37 @@ describe('QUESTION_PRESETS canonical contract', () => {
     });
   });
 });
+
+describe('STB-24 — Easy Choice presets seed label-valued aliases', () => {
+  // Prior to the fix, the seeded options carried no `alias`, so
+  // normalizeChoiceOptions' `alias = firstUsableString(opt.alias, opt.id)`
+  // fallback stored the option `id` ("1", "2", "3") as the answer instead of
+  // the display label, contradicting ChoiceOptionsSettings' own "Add Option"
+  // factory, which sets `alias: label`. This test fails against that code.
+  it.each(['easy.single-select', 'easy.multiple-choice'])(
+    "seeds %s's default options with alias equal to label",
+    (presetId) => {
+      const preset = QUESTION_PRESETS.find((candidate) => candidate.id === presetId);
+      expect(preset).toBeDefined();
+
+      const config = preset?.createDefaultConfig() as {
+        options: { type: 'static'; options: { id: string; label: string; alias?: string }[] };
+      };
+      const options = config.options.options;
+      expect(options.length).toBeGreaterThan(0);
+
+      for (const option of options) {
+        expect(option.alias).toBe(option.label);
+      }
+    }
+  );
+
+  it('leaves the persisted canonical type and cardinality untouched', () => {
+    const singleSelect = QUESTION_PRESETS.find((preset) => preset.id === 'easy.single-select');
+    const multipleChoice = QUESTION_PRESETS.find((preset) => preset.id === 'easy.multiple-choice');
+    expect(singleSelect?.persistedType).toBe('choice');
+    expect(multipleChoice?.persistedType).toBe('choice');
+    expect((singleSelect?.createDefaultConfig() as { display: string }).display).toBe('radio');
+    expect((multipleChoice?.createDefaultConfig() as { display: string }).display).toBe('multiple');
+  });
+});

@@ -596,9 +596,9 @@ export const QUESTION_PRESETS = [
       options: {
         type: "static",
         options: [
-          { id: "1", label: "Option 1" },
-          { id: "2", label: "Option 2" },
-          { id: "3", label: "Option 3" },
+          { id: "1", label: "Option 1", alias: "Option 1" },
+          { id: "2", label: "Option 2", alias: "Option 2" },
+          { id: "3", label: "Option 3", alias: "Option 3" },
         ],
       },
     }),
@@ -618,9 +618,9 @@ export const QUESTION_PRESETS = [
       options: {
         type: "static",
         options: [
-          { id: "1", label: "Option 1" },
-          { id: "2", label: "Option 2" },
-          { id: "3", label: "Option 3" },
+          { id: "1", label: "Option 1", alias: "Option 1" },
+          { id: "2", label: "Option 2", alias: "Option 2" },
+          { id: "3", label: "Option 3", alias: "Option 3" },
         ],
       },
     }),

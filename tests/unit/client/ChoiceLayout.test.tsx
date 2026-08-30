@@ -130,3 +130,32 @@ describe('ChoiceBlockRenderer — storage shape', () => {
     expect(onChange).toHaveBeenLastCalledWith(['1']);
   });
 });
+
+describe('ChoiceBlockRenderer — STB-24 pre-fix id-valued rows stay selectable', () => {
+  // `choiceStep`'s options carry no `alias` (`{ id: '1', label: 'Alpha' }`),
+  // matching a row created before STB-24 seeded `alias: label` in the Easy
+  // presets. normalizeChoiceOptions' `alias = firstUsableString(opt.alias,
+  // opt.id)` fallback is deliberately untouched by that fix, so an
+  // id-valued stored answer must still resolve to the correct selected
+  // option. Guards Decision: "existing stored rows carrying id-valued
+  // answers still render with the correct option selected."
+  it('checks the radio matching a stored id-valued answer', async () => {
+    render(
+      <ChoiceBlockRenderer step={choiceStep({ display: 'radio' })} value="2" onChange={vi.fn()} />
+    );
+    const betaRadio = await screen.findByRole<HTMLInputElement>('radio', { name: 'Beta' });
+    const alphaRadio = screen.getByRole<HTMLInputElement>('radio', { name: 'Alpha' });
+    expect(betaRadio.getAttribute('data-state')).toBe('checked');
+    expect(alphaRadio.getAttribute('data-state')).toBe('unchecked');
+  });
+
+  it('checks the checkbox matching a stored id-valued answer array', async () => {
+    render(
+      <ChoiceBlockRenderer step={choiceStep({ display: 'multiple' })} value={['2']} onChange={vi.fn()} />
+    );
+    const betaCheckbox = await screen.findByRole<HTMLInputElement>('checkbox', { name: 'Beta' });
+    const alphaCheckbox = screen.getByRole<HTMLInputElement>('checkbox', { name: 'Alpha' });
+    expect(betaCheckbox.getAttribute('data-state')).toBe('checked');
+    expect(alphaCheckbox.getAttribute('data-state')).toBe('unchecked');
+  });
+});

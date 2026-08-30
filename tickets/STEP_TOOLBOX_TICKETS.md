@@ -1411,7 +1411,7 @@ resolve from that ambient tenant and fall back to the project only when one is p
 
 ---
 
-## STB-24 - Easy Choice presets seed options with no alias, so answers store ids
+## STB-24 - Easy Choice presets seed options with no alias, so answers store ids ✅
 
 **Priority: P1** * Size: S * File: `client/src/lib/blockRegistry.tsx`
 
@@ -1464,6 +1464,31 @@ assertions that assume id-valued defaults.
 3. Existing stored rows carrying id-valued answers still render with the correct option selected.
 4. A test asserts the seeded preset's stored value is the label, and fails against today's code.
 5. Type-check, lint, targeted tests, and `test:fast` all pass.
+
+**Verified 2026-08-29 (reviewer):** all gates re-run by the reviewer in the ticket's own worktree at
+`6d1b3f0b` — type-check 0 errors (with `node_modules/typescript/tsbuildinfo` deleted first), lint 0 problems,
+`test:fast` 326 files / **3,644 tests**. The arithmetic is exact against the gate-verified 3,639 baseline:
+three tests added to `blockRegistry.test.ts` (one of them an `it.each` of two cases) and two to
+`ChoiceLayout.test.tsx` — 3,639 + 5 = 3,644, with the file count unchanged because both landed in existing
+files.
+
+**AC4 proven by the reviewer, not accepted on report.** Reverting only `blockRegistry.tsx` and re-running the
+new tests failed 2 of 3 on `expect(option.alias).toBe(option.label)`; restoring the fix returned them to green.
+The test is discriminating.
+
+The fix is the preferred one and nothing more: `alias: label` on the three seeded options of each preset,
+matching `ChoiceOptionsSettings.tsx`'s own `createOption` factory. **The shared fallback was left alone** —
+`normalizeChoiceOptions`'s `alias = firstUsableString(opt.alias, opt.id)` is untouched, confirmed by an empty
+diff, so the stored value domain for legacy, list and table-column options is unchanged.
+
+AC3 is the criterion that mattered here, and its test is honest: a step whose options carry no `alias` — exactly
+a pre-fix stored row — still resolves an id-valued answer to the right option, asserted on both the radio and
+the checkbox path, and asserting the *unselected* option is unchecked as well so it cannot pass vacuously. That
+is what keeps this fix from orphaning answers already in the database.
+
+Two judgment calls accepted: `ChoiceOptionsSettings.tsx` was correctly not touched (AC2 needed no new test since
+existing coverage already pins that factory), and the reviewer confirmed the footprint is exactly the three
+declared files.
 
 ---
 
