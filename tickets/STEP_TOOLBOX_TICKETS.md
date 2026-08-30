@@ -1382,12 +1382,21 @@ leftovers.
    token, so it proved the wrong entry point. Live proof now precedes the commit on any ticket whose finding
    came from a live check.
 2. `4e4a3051` shipped the round-2 tests and ticket note **without the service file they assert against**,
-   leaving `dev` red at five failing tests. A `git stash push -u` / `merge` / `stash pop` cycle around the
-   review dropped it between a green gate run and the commit. It was caught only by the closing habit of
-   grepping for a symbol the ticket added in **both** the working tree and `HEAD` — `git status` was clean and
-   the commit summary looked plausible. Restored in `07819036`. Recovering it also came within one command of
-   pulling content out of the repo owner's unrelated `gh-171` stash, because the stash index shifted between
-   two calls: **address a stash by object SHA, never by `stash@{n}`.**
+   leaving `dev` red at five failing tests. **Root cause: the reviewer verified and committed inside a worktree
+   whose dev agent was still running.** A concurrent bare `git stash` in that worktree reset the index between
+   the reviewer's `git add` (which staged all four files — `git diff --cached` listed them) and the `git commit`
+   (which captured three). The reviewer's own review stash was `199f902e`, carried the custom message
+   `stb-23-r2-review`, and git reported it popped **and dropped**; the stash present at commit time was
+   `WIP on stb-23: cab4a2cd`, unlabelled, i.e. a bare `git stash` the reviewer never issued. The dev
+   independently spotted the same inconsistency and reported it, having committed nothing. The standing rule
+   already covered this — stop the dev before verifying its work — and it was not followed; the worktree was
+   later torn down while that dev was still mid-verification for the same reason.
+
+   Two habits saved it and are worth keeping. It was caught **only** by grepping for a symbol the ticket added
+   in **both** the working tree and `HEAD` before closing — `git status` was clean and the commit summary looked
+   plausible, so nothing else would have shown it. And recovering it came within one command of pulling content
+   out of the repo owner's unrelated `gh-171` stash, because the stash index shifted between two calls:
+   **address a stash by object SHA, never by `stash@{n}`.**
 
 
 ---
