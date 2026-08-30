@@ -1355,7 +1355,7 @@ bearer token. It looks specific to the preview shell rather than the run API.
 
 ---
 
-## STB-23 - File Upload is dead on Unfiled workflows 🔄 REOPENED
+## STB-23 - File Upload is dead on Unfiled workflows ✅
 
 **Priority: P0** * Size: M * File: `server/services/RunFileUploadService.ts`
 
@@ -1488,6 +1488,48 @@ workflow carries `ownerType: 'user'`, `ownerUuid`/`creatorId` = the creator, and
 **Reviewer's own error, recorded.** This was committed on the strength of a green integration suite, before the
 live proof was run — on a ticket whose defect was found live in the first place. The live check should have
 preceded the commit, and for the remaining Phase 1 Gate work it will.
+
+### ✅ CLOSED 2026-08-30 (reviewer) — round 2 fixes the respondent path
+
+**Root cause, and it is worth keeping.** `POST /api/runs/:runId/steps/:stepId/files` runs multer between
+`creatorOrRunTokenAuth` and the service. Multer resumes the chain from its own stream callback, outside the
+AsyncLocalStorage frame that `runTokenAuth` set the tenant on. The route re-mounts `rlsContext` afterwards, but
+that re-seed reads `req.tenantId`, which `hybridAuth` sets and `runTokenAuth` never does — it calls
+`setCurrentTenantId` on the frame that multer has already discarded. So `getCurrentTenantId()` is reliably
+`undefined` for **every** run-token upload, which is why round 1's project-only fallback had nothing left on an
+unfiled workflow. That explains the log line the reopen note recorded.
+
+**The fix** falls back to `WorkflowTenantResolver.resolveForRun(run, workflow, tx)` — run owner → project →
+owner → creator, the same precedence `DocumentDeliveryService` already uses — keeping `getCurrentTenantId()` as
+the fast path. It needs no ambient tenant because each of its reads is its own short-lived verified bootstrap.
+The now-unused `projectRepo` dependency was removed outright rather than left dangling.
+
+**AC8 proven by the reviewer, independently, against a server started from this worktree on its own port.** A
+throwaway probe created an unfiled workflow (`projectId: null`), published it, opened a run, and uploaded with
+**only** `Authorization: Bearer <runToken>` and no user JWT anywhere on the request:
+
+```
+RUN-TOKEN UPLOAD (no JWT) -> 201
+  storageKey: tenants/a68a28d7-.../runs/6cb867a4-.../steps/4f89fa90-.../94137e4a-....pdf
+  tenant-scoped to the right tenant: true
+  step_values rows written: 1
+CLEANUP leftover tenants:0 users:0
+```
+
+That is the exact request that returned `404 Tenant for run not found` in the reopen note, and the reviewer had
+already observed that 404 first-hand against `7e433acc`, so the fail-before-fix is confirmed by direct
+observation rather than by report.
+
+Gates re-run by the reviewer on the tree rebased to `cab4a2cd` — type-check 0 errors (tsbuildinfo deleted
+first), lint 0 problems, `test:fast` 326 files / **3,647 tests**, file-upload integration 2 files / **8 tests**.
+Arithmetic exact: 3,645 after round 1, plus the two new unit tests, is 3,647; the run-token integration test
+correctly does not move the `test:fast` denominator.
+
+**The lesson this ticket paid for, twice.** Round 1 passed seven integration tests and a full `test:fast` while
+the customer-facing path stayed broken, because its test authenticated with a JWT and the real respondent path
+does not. A suite that exercises the wrong entry point is not evidence about the right one — which is why AC8
+demanded live proof on the run-token path specifically, and why that criterion, not the suite, is what closed
+this.
 
 ---
 

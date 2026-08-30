@@ -127,15 +127,28 @@ describe('run-scoped file uploads (GH-146)', () => {
     expect([403, 404]).toContain(response.status);
   });
 
-  // STB-23: `RunFileUploadService.resolveContext` used to derive tenantId
-  // ONLY via workflow.projectId -> project.tenantId, so any upload against
-  // an "Unfiled" workflow (projectId null - a supported, first-class state)
-  // failed with a misleading "Project for run not found" 404. It must
-  // instead resolve from the ambient tenant hybridAuth already pinned.
+  // STB-23 round 1: `RunFileUploadService.resolveContext` used to derive
+  // tenantId ONLY via workflow.projectId -> project.tenantId, so any upload
+  // against an "Unfiled" workflow (projectId null - a supported, first-class
+  // state) failed with a misleading "Project for run not found" 404. Round 1
+  // resolved from the ambient tenant hybridAuth already pins - but that only
+  // covers the authenticated-JWT path.
+  //
+  // STB-23 round 2: the customer-facing run-token path (how actual
+  // respondents upload) has NO ambient tenant by the time this service runs.
+  // This route reopens the RLS async context after multer
+  // (server/routes/runs.routes.ts, "re-open the tenant async context after
+  // multer"), and that reopen only re-seeds from req.tenantId - which
+  // runTokenAuth never sets. So on an Unfiled workflow (no project to fall
+  // back to either) the round-1 fix still 404'd with "Tenant for run not
+  // found" for every real respondent. The AC6/AC7 test below hits that path
+  // specifically with a bare run token, no user JWT at all.
   describe('unfiled workflow (no project)', () => {
     let unfiledWorkflowId: string;
     let unfiledStepId: string;
     let unfiledRunId: string;
+    let unfiledRunTokenPathRunId: string;
+    let unfiledRunTokenPathToken: string;
     const unfiledStoredKeys: string[] = [];
 
     beforeAll(async () => {
@@ -174,6 +187,17 @@ describe('run-scoped file uploads (GH-146)', () => {
         completed: false,
       }).returning();
       unfiledRunId = run.id;
+
+      // A second, independent run for the run-token-path test (AC6/AC7) so
+      // it doesn't share maxFiles bookkeeping or ordering with the
+      // authenticated-JWT tests above.
+      const [runTokenPathRun] = await getOwnerDb().insert(schema.workflowRuns).values({
+        workflowId: unfiledWorkflowId,
+        runToken: `unfiled-run-token-path-${Date.now()}`,
+        completed: false,
+      }).returning();
+      unfiledRunTokenPathRunId = runTokenPathRun.id;
+      unfiledRunTokenPathToken = runTokenPathRun.runToken;
     });
 
     afterAll(async () => {
@@ -212,6 +236,29 @@ describe('run-scoped file uploads (GH-146)', () => {
       expect(answers.some(a => (a.value as unknown[] | null)?.some(
         (v) => (v as { filename?: string }).filename === 'alien.pdf'
       ))).toBe(false);
+    });
+
+    it('uploads via a bare run token (no user JWT) on a project-less workflow (AC6/AC7)', async () => {
+      // This is the actual customer-facing respondent path: an anonymous
+      // link visitor with only a run token, never a user session. Round 1
+      // of this ticket only proved the authenticated-JWT path (see the
+      // header comment above) and shipped still broken here.
+      const response = await request(ctx.baseURL)
+        .post(`/api/runs/${unfiledRunTokenPathRunId}/steps/${unfiledStepId}/files`)
+        .set('Authorization', `Bearer ${unfiledRunTokenPathToken}`)
+        .attach('files', Buffer.from('%PDF-1.4 test'), { filename: 'respondent.pdf', contentType: 'application/pdf' });
+
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+      const uploaded = response.body.data.files[0] as { storageKey: string; filename: string; url: string };
+      unfiledStoredKeys.push(uploaded.storageKey);
+      expect(uploaded.storageKey).toMatch(new RegExp(`^tenants/${ctx.tenantId}/runs/${unfiledRunTokenPathRunId}/steps/${unfiledStepId}/`));
+      expect(await storageProvider.exists(uploaded.storageKey)).toBe(true);
+
+      const [answer] = await getOwnerDb().select().from(schema.stepValues)
+        .where(eq(schema.stepValues.runId, unfiledRunTokenPathRunId));
+      expect(answer.value).toEqual([
+        expect.objectContaining({ storageKey: uploaded.storageKey, filename: 'respondent.pdf', mimeType: 'application/pdf' }),
+      ]);
     });
   });
 });

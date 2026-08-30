@@ -38,7 +38,7 @@ describe('RunFileUploadService', () => {
   let filePath: string;
   const runRepo = { findById: vi.fn() };
   const workflowRepo = { findById: vi.fn() };
-  const projectRepo = { findById: vi.fn() };
+  const tenantResolver = { resolveForRun: vi.fn() };
   const valueRepo = { findByRunAndStep: vi.fn(), upsert: vi.fn() };
   const definitionProvider = { getDefinition: vi.fn() };
   const workflowAccess = { verifyAccess: vi.fn() };
@@ -57,7 +57,10 @@ describe('RunFileUploadService', () => {
     await fs.writeFile(filePath, Buffer.from('%PDF-1.4 test'));
     runRepo.findById.mockResolvedValue({ id: RUN_ID, workflowId: WORKFLOW_ID, completed: false });
     workflowRepo.findById.mockResolvedValue({ id: WORKFLOW_ID, projectId: PROJECT_ID });
-    projectRepo.findById.mockResolvedValue({ id: PROJECT_ID, tenantId: TENANT_ID });
+    // Default: stands in for WorkflowTenantResolver.resolveForRun's real
+    // project -> owner -> creator -> run-creator precedence. Individual
+    // tests override this to prove which branch a given scenario exercises.
+    tenantResolver.resolveForRun.mockResolvedValue(TENANT_ID);
     valueRepo.findByRunAndStep.mockResolvedValue(undefined);
     valueRepo.upsert.mockResolvedValue({});
     definitionProvider.getDefinition.mockResolvedValue({
@@ -86,7 +89,7 @@ describe('RunFileUploadService', () => {
     return new RunFileUploadService({
       runRepo: runRepo as never,
       workflowRepo: workflowRepo as never,
-      projectRepo: projectRepo as never,
+      tenantResolver: tenantResolver as never,
       valueRepo: valueRepo as never,
       definitionProvider: definitionProvider as never,
       workflowAccess: workflowAccess as never,
@@ -123,15 +126,17 @@ describe('RunFileUploadService', () => {
     expect(result.files[0].url).toBe('/api/storage/files/signed');
   });
 
-  it('resolves the tenant from the ambient context on an Unfiled workflow (projectId null, STB-23)', async () => {
+  it('resolves the tenant from the ambient context on an Unfiled workflow when one is present (projectId null, STB-23)', async () => {
     // "Unfiled" is a supported, first-class state (client/src/pages/NewWorkflow.tsx
     // seeds projectId: "" with the comment "// Unfiled"); the fix must not
-    // require a project to resolve a tenant.
+    // require a project to resolve a tenant. This covers the fast path: an
+    // ambient tenant IS in context (e.g. the authenticated-JWT upload path),
+    // so the resolver fallback must not even be consulted.
     workflowRepo.findById.mockResolvedValue({ id: WORKFLOW_ID, projectId: null });
 
     const result = await runWithTenantContext(TENANT_ID, () => upload());
 
-    expect(projectRepo.findById).not.toHaveBeenCalled();
+    expect(tenantResolver.resolveForRun).not.toHaveBeenCalled();
     expect(quota.checkQuota).toHaveBeenCalledWith(TENANT_ID, 13);
     expect(storage.uploadStream).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`^tenants/${TENANT_ID}/runs/${RUN_ID}/steps/${STEP_ID}/[0-9a-f-]+\\.pdf$`)),
@@ -141,6 +146,46 @@ describe('RunFileUploadService', () => {
       expect.objectContaining({ tenantId: TENANT_ID, runId: RUN_ID, stepId: STEP_ID }),
     );
     expect(result.files[0].url).toBe('/api/storage/files/signed');
+  });
+
+  it('falls back to WorkflowTenantResolver when there is no ambient tenant on an Unfiled workflow (STB-23 round 2)', async () => {
+    // Root cause of the round-2 bounce: the run-token upload route reopens
+    // the RLS async context AFTER multer (server/routes/runs.routes.ts,
+    // "re-open the tenant async context after multer"), and that reopen only
+    // re-seeds from req.tenantId - which hybridAuth sets but runTokenAuth
+    // never does. So for every run-token upload, getCurrentTenantId() is
+    // undefined by the time resolveContext runs - simulated here by NOT
+    // wrapping in runWithTenantContext, matching the live behavior verified
+    // against the running app. On an Unfiled workflow (projectId null)
+    // there is no project to fall back to either, so this must go all the
+    // way to WorkflowTenantResolver.resolveForRun (project -> owner ->
+    // creator -> run-creator).
+    workflowRepo.findById.mockResolvedValue({ id: WORKFLOW_ID, projectId: null });
+
+    const result = await upload();
+
+    expect(tenantResolver.resolveForRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: RUN_ID, workflowId: WORKFLOW_ID }),
+      expect.objectContaining({ id: WORKFLOW_ID, projectId: null }),
+      mockTx,
+    );
+    expect(quota.checkQuota).toHaveBeenCalledWith(TENANT_ID, 13);
+    expect(storage.uploadStream).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^tenants/${TENANT_ID}/runs/${RUN_ID}/steps/${STEP_ID}/[0-9a-f-]+\\.pdf$`)),
+      expect.anything(),
+      13,
+      'application/pdf',
+      expect.objectContaining({ tenantId: TENANT_ID, runId: RUN_ID, stepId: STEP_ID }),
+    );
+    expect(result.files[0].url).toBe('/api/storage/files/signed');
+  });
+
+  it('denies the upload when neither an ambient tenant nor the resolver can find one', async () => {
+    workflowRepo.findById.mockResolvedValue({ id: WORKFLOW_ID, projectId: null });
+    tenantResolver.resolveForRun.mockResolvedValue(null);
+
+    await expect(upload()).rejects.toThrow(/Tenant for run/);
+    expect(storage.uploadStream).not.toHaveBeenCalled();
   });
 
   it('rejects a disallowed MIME type before quota, scanning, or storage', async () => {
