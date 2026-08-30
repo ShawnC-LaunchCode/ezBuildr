@@ -1813,6 +1813,38 @@ Scale retains only displays/labels/style options actually rendered and tested.
 5. Tests cover canonical configs, removed-key rejection, runner behavior, and persisted answer shapes.
 6. Vertical proof and standard gates pass.
 
+### Review notes
+
+**Round 1 — 2026-08-30 — REJECTED, not committed.** The worktree was based at `ee55f6ac`, **217 commits**
+behind `dev`, so it contained none of Phase 0/1, STB-13 or STB-15A. Every gate ran against a tree without the
+initiative in it; the dev reported 3,198 passing against a 3,653 baseline, and that 455-test gap was the tell.
+Four defects, none of which the dev's own gates could have caught from that base:
+
+1. **Legacy read-compat broken.** Repointing `address_advanced`/`scale_advanced` at `AddressConfigSchema` /
+   `ScaleConfigSchema` imposes *incompatible required shapes*, not just strictness: `AddressConfigSchema`
+   requires `country: z.literal('US')` and a 4-literal `fields` tuple, while stored advanced configs carry
+   `fields` as an array of objects; `ScaleConfigSchema` drops `display: 'buttons'`. Measured against the dev's
+   own code, 3 of 5 stored shapes that validate today were rejected, through `validateAndNormalizeConfig(...,
+   {strict: true})` at `StepService.ts:223`, `StepService.ts:341` and `WorkflowContentIngestService.ts:212`.
+   Non-strict Zod strips unknown keys; it cannot rescue a required-shape mismatch. This is the STB-13 round-1
+   defect class arriving by a second mechanism.
+2. **No tests.** AC 5 names tests; no test or spec file was touched. AC 6's vertical proof had no evidence.
+3. **`shared/aiVocabulary.ts` would crash at module load.** `validateConfigKeyExclusions()` throws on a manifest
+   key missing from its schema, and `TEMPORARY_CONFIG_KEY_EXCLUSIONS` names `display_advanced.allowHtml` and
+   `address_advanced.allowedCountries` — exactly the keys this ticket deletes. The file did not exist in the
+   dev's base, so the failure was invisible there. `address_advanced.country` also needs re-thinking: it is
+   canonical-and-required now, not an inert key to hide from the AI.
+4. **Authoring sites still write retired keys.** `client/src/lib/blockRegistry.tsx` `createDefaultConfig()` for
+   `display` still emits `allowHtml: false`; nothing removed `buttons` from Scale authoring.
+
+Cleared, *not* counted against the dev: the `PdfConverter.ts` `waitUntil` change was a real fix on their base,
+but the identical fix is already on `dev` — stale-base residue, not scope creep.
+
+The turn-in was dropped rather than rebased (owner's call): the salvageable part was ~6 mechanical deletions,
+and the merge also dragged in pre-`SECT` vocabulary (`sectionId` for `pageId` in `ScaleCardEditor`). Worktree
+removed; re-dispatch from a fresh worktree fast-forwarded to `dev`.
+
+
 ---
 
 ## STB-15 — Remove legacy routing from runner, Lists, conditions, and answer formatting 🔲
@@ -2535,14 +2567,24 @@ to schedule this soon after STB rather than indefinitely.
 Phase 2, and formulas read values by alias rather than branching on step type. That option is recorded, not
 recommended: the owner's decision is to wait for the full close.
 
-### STB-B10 - Two canonical types have no config schema
+### STB-B10 - `signature_block` has no config schema
 
-`getConfigSchema` covers 33 of the 37 enum values. `signature_block` and `final_documents`/`final` are
-**canonical** under Decision 1 yet have no entry, so `validateStepConfig` accepts anything for them and
-`getConfigKeys` reports them as freeform to the AI. Confirmed pre-existing rather than a lane regression -
-`git log -S` shows they never had schemas. Recorded because **STB-17 assumes a canonical schema exists to make
-strict**, and for `signature_block` there is nothing to tighten. (`short_text` and `long_text` are also absent,
-but they are retired read-only names, so the stakes are lower.)
+**Owner ruling, 2026-08-30: add the missing schema.** Settled ahead of Phase 3 so STB-17 has something to make
+strict.
+
+**The original observation was half wrong and is corrected here.** Measured at runtime on `dev` (9f0390ff) by
+calling `getConfigSchema` rather than reading the map:
+
+| Type | Schema | Action |
+|------|--------|--------|
+| `signature_block` | **none** | Add one. STB-17 then makes it strict. |
+| `final_documents` | `FinalBlockConfigSchema` (`stepConfigSchemas.ts:457`) | **Nothing to do** — already present, and substantive. |
+| `final` (retired name) | none | Map to the canonical schema, per the STB-13 legacy-read pattern. Not part of the ruling. |
+
+The entry's claim that `git log -S` showed they *never* had schemas holds for `signature_block` only:
+`final_documents: FinalBlockConfigSchema` has been in the map since `2af80a5e`. `validateStepConfig` therefore
+accepts anything for `signature_block`, and `getConfigKeys` reports it as freeform to the AI — that is the whole
+of the gap. (`short_text`/`long_text` are also absent but are retired read-only names, so the stakes are lower.)
 
 ### STB-B9 — File upload on version-pinned runs is unproven
 
