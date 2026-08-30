@@ -10,13 +10,14 @@
       "steps": [
         {
           "alias": "client_name",
-          "type": "short_text",
+          "type": "text",
           "title": "Client legal name",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         },
         {
           "alias": "client_pronoun",
-          "type": "multiple_choice",
+          "type": "choice",
           "title": "Client's pronouns (optional — leave blank to use they/them)",
           "required": false,
           "config": {
@@ -25,14 +26,15 @@
               { "id": "she", "label": "She / her", "alias": "she/her" },
               { "id": "he", "label": "He / him", "alias": "he/him" }
             ],
-            "allowMultiple": false
+            "display": "radio"
           }
         },
         {
           "alias": "firm_name",
-          "type": "short_text",
+          "type": "text",
           "title": "Firm name",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         }
       ]
     },
@@ -41,39 +43,53 @@
       "steps": [
         {
           "alias": "matter_description",
-          "type": "long_text",
+          "type": "text",
           "title": "Describe the matter",
-          "required": true
+          "required": true,
+          "config": { "variant": "long" }
         },
         {
           "alias": "engagement_date",
-          "type": "date",
+          "type": "date_time",
           "title": "Engagement (signing) date",
-          "required": true
+          "required": true,
+          "config": { "kind": "date" }
         },
         {
           "alias": "hourly_rate",
-          "type": "currency",
+          "type": "number",
           "title": "Hourly rate",
-          "required": true
+          "required": true,
+          "config": {
+            "mode": "currency_decimal",
+            "currency": "USD",
+            "thousandsSeparator": true
+          }
         },
         {
           "alias": "retainer_fee",
-          "type": "currency",
+          "type": "number",
           "title": "Initial retainer fee",
-          "required": true
+          "required": true,
+          "config": {
+            "mode": "currency_decimal",
+            "currency": "USD",
+            "thousandsSeparator": true
+          }
         },
         {
           "alias": "response_deadline_days",
           "type": "number",
           "title": "Business days Client has to remit the initial retainer after signing",
-          "required": true
+          "required": true,
+          "config": { "mode": "number" }
         },
         {
           "alias": "additional_attorneys_count",
           "type": "number",
           "title": "Additional attorneys staffed on this matter (beyond the attorney of record)",
-          "required": true
+          "required": true,
+          "config": { "mode": "number" }
         }
       ]
     }

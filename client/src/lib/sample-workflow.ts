@@ -48,12 +48,12 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             // P1 - Step 1: Name
             await apiRequest("POST", "/api/steps", {
                 pageId: p1.id,
-                type: "short_text",
+                type: "text",
                 title: "What is your full name?",
                 alias: "full_name", // Variable alias
                 required: true,
                 order: 0,
-                config: { placeholder: "e.g. Jane Doe" }
+                config: { variant: "short", placeholder: "e.g. Jane Doe" }
             });
 
             // P1 - Step 2: Email
@@ -78,13 +78,19 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             // P2 - Step 1: Service Type
             await apiRequest("POST", "/api/steps", {
                 pageId: p2.id,
-                type: "single_choice",
+                type: "choice",
                 title: "Which service are you interested in?",
                 alias: "service_type",
                 required: true,
                 order: 0,
-                options: ["Consulting", "Development", "Design"],
-                config: {}
+                config: {
+                    display: "radio",
+                    options: [
+                        { id: "consulting", label: "Consulting", alias: "Consulting" },
+                        { id: "development", label: "Development", alias: "Development" },
+                        { id: "design", label: "Design", alias: "Design" },
+                    ],
+                }
             });
 
             // P2 - Step 2: Budget (Visible only if Development)
@@ -95,7 +101,7 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
                 alias: "budget",
                 required: false,
                 order: 1,
-                config: {},
+                config: { mode: "number" },
                 visibleIf: {
                     field: "service_type",
                     operator: "equals",

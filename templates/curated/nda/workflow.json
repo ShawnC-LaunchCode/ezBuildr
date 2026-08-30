@@ -10,19 +10,21 @@
       "steps": [
         {
           "alias": "disclosing_party",
-          "type": "short_text",
+          "type": "text",
           "title": "Disclosing Party — legal name",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         },
         {
           "alias": "receiving_party",
-          "type": "short_text",
+          "type": "text",
           "title": "Receiving Party — legal name",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         },
         {
           "alias": "receiving_party_signer_pronoun",
-          "type": "multiple_choice",
+          "type": "choice",
           "title": "Receiving Party signer's pronouns (optional — leave blank to use they/them)",
           "required": false,
           "config": {
@@ -31,14 +33,15 @@
               { "id": "she", "label": "She / her", "alias": "she/her" },
               { "id": "he", "label": "He / him", "alias": "he/him" }
             ],
-            "allowMultiple": false
+            "display": "radio"
           }
         },
         {
           "alias": "bound_individual_count",
           "type": "number",
           "title": "How many individuals at the Receiving Party will have access to Confidential Information?",
-          "required": true
+          "required": true,
+          "config": { "mode": "number" }
         }
       ]
     },
@@ -47,21 +50,24 @@
       "steps": [
         {
           "alias": "effective_date",
-          "type": "date",
+          "type": "date_time",
           "title": "Effective Date",
-          "required": true
+          "required": true,
+          "config": { "kind": "date" }
         },
         {
           "alias": "term_years",
           "type": "number",
           "title": "Confidentiality term (years)",
-          "required": true
+          "required": true,
+          "config": { "mode": "number" }
         },
         {
           "alias": "governing_law_state",
-          "type": "short_text",
+          "type": "text",
           "title": "Governing law — state",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         }
       ]
     }

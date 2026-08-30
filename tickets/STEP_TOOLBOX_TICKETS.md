@@ -1829,7 +1829,7 @@ new/request data must never use it. Add an exhaustive cross-system registry test
 
 ---
 
-## STB-15A — Re-author curated templates and demo seeds to canonical types 🔲
+## STB-15A — Re-author curated templates and demo seeds to canonical types ✅
 
 **Priority: P1** · Size: M · File: `templates/curated/`
 
@@ -1926,6 +1926,38 @@ and is fixed at source.
 - [ ] `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without count regression.
 - [ ] Targeted List/page-submit DB/integration suites pass.
 - [ ] Reviewer has committed each passed ticket and this phase gate.
+
+
+**Verified 2026-08-30 (reviewer):** all gates re-run by the reviewer in the ticket's own worktree at
+`a7ab8521` — type-check 0 errors (tsbuildinfo deleted first), lint 0 problems, `test:fast` 326 files /
+**3,649 tests**, and the portability round-trip guard 4/4. Arithmetic exact: 3,647 + 2 = 3,649.
+
+**All 27 curated steps are canonical, and the counts reconcile against the pre-work inventory.** The three
+templates held `short_text`×7, `multiple_choice`×4, `date`×4, `long_text`×2, `currency`×2 and `true_false`×1;
+they now hold `text`×9, `choice`×4, `date_time`×4, `number` (including the two ex-currency) and `boolean`×1,
+with **zero retired types remaining**. The currency conversion carries `mode: "currency_decimal"`, `currency:
+"USD"` and `thousandsSeparator: true` — byte-identical to what the Easy preset seeds, so authored and curated
+rows agree.
+
+**The guard is real, and the reviewer proved it rather than accepting the dev's mutation report.** Flipping one
+`text` step back to `short_text` failed **two** tests, at both layers that matter:
+`keeps curated, demo, snip, and sample-workflow source canonical` and
+`emits no retired step type in generated bundle rows`, each naming the file, the alias and the retired type
+(`intake-questionnaire:client_full_name uses retired step type short_text`). Restoring returned all 11 to
+green. A guard that catches the source but not the emitted bundle would have been worth little here, since the
+bundle is what installs.
+
+**One reviewer instruction was wrong and the dev was right to depart from it.** The dispatch prompt said every
+authored choice option must carry `alias: label`. Nine pronoun options deliberately do not — label
+`"They / them"` against alias `"they/them"`. That is the supported unlink (`ChoiceOptionsSettings`: "Unlink a
+row only when its saved value needs to be different"), and it is the better call: documents interpolate a clean
+token instead of display formatting. What actually mattered is that **every** option carries an explicit alias
+— zero were missing — so none can fall back to an id the way STB-24's seeded defaults did.
+
+Live evidence beyond the suites, reported by the dev and consistent with the tree: all three bundles installed
+through the real endpoint (HTTP 200, 11 / 7 / 9 canonical steps) and the demo script created a workflow on a
+fresh schema. The generated bundles land in `dist/marketplace`, which the production Dockerfile copies whole —
+the `process.cwd()` runtime-asset trap was checked rather than assumed.
 
 ---
 

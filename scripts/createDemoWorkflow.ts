@@ -1,22 +1,42 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
+import { Pool } from 'pg';
 
 import { randomUUID } from 'crypto';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-async function createDemoWorkflow() {
+export interface CreateDemoWorkflowOptions {
+  connectionString?: string;
+  userId?: string;
+  tenantId?: string;
+}
+
+export interface CreatedDemoWorkflow {
+  projectId: string;
+  workflowId: string;
+  publicLink: string;
+}
+
+export async function createDemoWorkflow(
+  options: CreateDemoWorkflowOptions = {}
+): Promise<CreatedDemoWorkflow> {
+  const connectionString = options.connectionString ?? process.env.DATABASE_URL;
+  if (connectionString === undefined) {
+    throw new Error('DATABASE_URL is required to create the demo workflow');
+  }
+
+  const pool = new Pool({ connectionString });
+  const client = await pool.connect();
+
   try {
-    // @ts-expect-error - TODO: fix type
-    neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const client = await pool.connect();
+    await client.query('BEGIN');
 
     console.log("🎨 Creating Demo Workflow: Event Registration Platform\n");
 
-    const userId = "116568744155653496130";
-    const tenantId = "2181d3ab-9a00-42c2-a9b6-0d202df1e5f0";
+    const userId = options.userId ?? "116568744155653496130";
+    const tenantId = options.tenantId ?? "2181d3ab-9a00-42c2-a9b6-0d202df1e5f0";
 
     // 1. Create a project
     console.log("📁 Creating project...");
@@ -98,15 +118,15 @@ async function createDemoWorkflow() {
     const step1_6 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, workflow_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
-        ($1, $2, 'short_text', 'Full Name', 'Enter your first and last name', true, 0, 'fullName', '{}', NOW(), NOW()),
-        ($3, $2, 'short_text', 'Email Address', 'We''ll send confirmation to this email', true, 1, 'email', '{"validation": "email"}', NOW(), NOW()),
-        ($4, $2, 'short_text', 'Phone Number', 'Include country code if international', false, 2, 'phone', '{}', NOW(), NOW()),
-        ($5, $2, 'radio', 'Attendance Type', 'How will you attend?', true, 3, 'attendanceType', '{"options": [{"label": "In-Person", "value": "in_person"}, {"label": "Virtual", "value": "virtual"}]}', NOW(), NOW()),
-        ($6, $2, 'radio', 'Dietary Restrictions', 'Do you have any dietary requirements?', true, 4, 'hasDietary', '{"options": [{"label": "Yes", "value": "yes"}, {"label": "No", "value": "no"}]}', NOW(), NOW()),
-        ($7, $2, 'long_text', 'Dietary Details', 'Please specify your dietary restrictions', true, 5, 'dietaryDetails', '{}', NOW(), NOW())
-    `, [step1_1, page1Id, step1_2, step1_3, step1_4, step1_5, step1_6]);
+        ($1, $2, $8, 'text', 'Full Name', 'Enter your first and last name', true, 0, 'fullName', '{"variant": "short"}', NOW(), NOW()),
+        ($3, $2, $8, 'text', 'Email Address', 'We''ll send confirmation to this email', true, 1, 'email', '{"variant": "short"}', NOW(), NOW()),
+        ($4, $2, $8, 'text', 'Phone Number', 'Include country code if international', false, 2, 'phone', '{"variant": "short"}', NOW(), NOW()),
+        ($5, $2, $8, 'choice', 'Attendance Type', 'How will you attend?', true, 3, 'attendanceType', '{"display": "radio", "options": [{"id": "in_person", "label": "In-Person", "alias": "In-Person"}, {"id": "virtual", "label": "Virtual", "alias": "Virtual"}]}', NOW(), NOW()),
+        ($6, $2, $8, 'choice', 'Dietary Restrictions', 'Do you have any dietary requirements?', true, 4, 'hasDietary', '{"display": "radio", "options": [{"id": "yes", "label": "Yes", "alias": "Yes"}, {"id": "no", "label": "No", "alias": "No"}]}', NOW(), NOW()),
+        ($7, $2, $8, 'text', 'Dietary Details', 'Please specify your dietary restrictions', true, 5, 'dietaryDetails', '{"variant": "long"}', NOW(), NOW())
+    `, [step1_1, page1Id, step1_2, step1_3, step1_4, step1_5, step1_6, workflowId]);
 
     // Page 2: Event Preferences
     const step2_1 = randomUUID();
@@ -115,13 +135,13 @@ async function createDemoWorkflow() {
     const step2_4 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, workflow_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
-        ($1, $2, 'radio', 'Ticket Type', 'Choose your registration tier', true, 0, 'ticketType', '{"options": [{"label": "Early Bird - $99", "value": "early_bird"}, {"label": "Standard - $149", "value": "standard"}, {"label": "VIP - $299", "value": "vip"}]}', NOW(), NOW()),
-        ($3, $2, 'checkbox', 'Workshop Sessions', 'Select workshops you''d like to attend (max 3)', false, 1, 'workshops', '{"options": [{"label": "AI & Machine Learning", "value": "ai_ml"}, {"label": "Cloud Architecture", "value": "cloud"}, {"label": "DevOps Best Practices", "value": "devops"}, {"label": "Security Fundamentals", "value": "security"}]}', NOW(), NOW()),
-        ($4, $2, 'radio', 'T-Shirt Size', 'For in-person attendees only', false, 2, 'tshirtSize', '{"options": [{"label": "Small", "value": "S"}, {"label": "Medium", "value": "M"}, {"label": "Large", "value": "L"}, {"label": "X-Large", "value": "XL"}]}', NOW(), NOW()),
-        ($5, $2, 'date_time', 'Preferred Check-in Time', 'When would you like to check in?', false, 3, 'checkinTime', '{"dateType": "datetime"}', NOW(), NOW())
-    `, [step2_1, page2Id, step2_2, step2_3, step2_4]);
+        ($1, $2, $6, 'choice', 'Ticket Type', 'Choose your registration tier', true, 0, 'ticketType', '{"display": "radio", "options": [{"id": "early_bird", "label": "Early Bird - $99", "alias": "Early Bird - $99"}, {"id": "standard", "label": "Standard - $149", "alias": "Standard - $149"}, {"id": "vip", "label": "VIP - $299", "alias": "VIP - $299"}]}', NOW(), NOW()),
+        ($3, $2, $6, 'choice', 'Workshop Sessions', 'Select workshops you''d like to attend (max 3)', false, 1, 'workshops', '{"display": "multiple", "max": 3, "options": [{"id": "ai_ml", "label": "AI & Machine Learning", "alias": "AI & Machine Learning"}, {"id": "cloud", "label": "Cloud Architecture", "alias": "Cloud Architecture"}, {"id": "devops", "label": "DevOps Best Practices", "alias": "DevOps Best Practices"}, {"id": "security", "label": "Security Fundamentals", "alias": "Security Fundamentals"}]}', NOW(), NOW()),
+        ($4, $2, $6, 'choice', 'T-Shirt Size', 'For in-person attendees only', false, 2, 'tshirtSize', '{"display": "radio", "options": [{"id": "S", "label": "Small", "alias": "Small"}, {"id": "M", "label": "Medium", "alias": "Medium"}, {"id": "L", "label": "Large", "alias": "Large"}, {"id": "XL", "label": "X-Large", "alias": "X-Large"}]}', NOW(), NOW()),
+        ($5, $2, $6, 'date_time', 'Preferred Check-in Time', 'When would you like to check in?', false, 3, 'checkinTime', '{"kind": "datetime"}', NOW(), NOW())
+    `, [step2_1, page2Id, step2_2, step2_3, step2_4, workflowId]);
 
     // Page 3: Additional Services
     const step3_1 = randomUUID();
@@ -129,23 +149,23 @@ async function createDemoWorkflow() {
     const step3_3 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, workflow_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
-        ($1, $2, 'yes_no', 'Airport Shuttle', 'Do you need airport pickup? ($50)', false, 0, 'needsShuttle', '{}', NOW(), NOW()),
-        ($3, $2, 'yes_no', 'Hotel Accommodation', 'Reserve a hotel room? ($200/night)', false, 1, 'needsHotel', '{}', NOW(), NOW()),
-        ($4, $2, 'short_text', 'Number of Nights', 'How many nights? (1-3)', false, 2, 'hotelNights', '{"validation": "number"}', NOW(), NOW())
-    `, [step3_1, page3Id, step3_2, step3_3]);
+        ($1, $2, $5, 'boolean', 'Airport Shuttle', 'Do you need airport pickup? ($50)', false, 0, 'needsShuttle', '{"trueLabel": "Yes", "falseLabel": "No", "storeAsBoolean": false, "trueAlias": "yes", "falseAlias": "no", "displayStyle": "buttons"}', NOW(), NOW()),
+        ($3, $2, $5, 'boolean', 'Hotel Accommodation', 'Reserve a hotel room? ($200/night)', false, 1, 'needsHotel', '{"trueLabel": "Yes", "falseLabel": "No", "storeAsBoolean": false, "trueAlias": "yes", "falseAlias": "no", "displayStyle": "buttons"}', NOW(), NOW()),
+        ($4, $2, $5, 'text', 'Number of Nights', 'How many nights? (1-3)', false, 2, 'hotelNights', '{"variant": "short"}', NOW(), NOW())
+    `, [step3_1, page3Id, step3_2, step3_3, workflowId]);
 
     // Page 4: Review
     const step4_1 = randomUUID();
     const step4_2 = randomUUID();
 
     await client.query(`
-      INSERT INTO steps (id, page_id, type, title, description, required, "order", alias, config, created_at, updated_at)
+      INSERT INTO steps (id, page_id, workflow_id, type, title, description, required, "order", alias, config, created_at, updated_at)
       VALUES
-        ($1, $2, 'file_upload', 'Profile Photo', 'Upload a photo for your badge (optional)', false, 0, 'profilePhoto', '{"maxFiles": 1, "allowedTypes": ["image/jpeg", "image/png"]}', NOW(), NOW()),
-        ($3, $2, 'long_text', 'Special Requests', 'Any other requirements or questions?', false, 1, 'specialRequests', '{}', NOW(), NOW())
-    `, [step4_1, page4Id, step4_2]);
+        ($1, $2, $4, 'file_upload', 'Profile Photo', 'Upload a photo for your badge (optional)', false, 0, 'profilePhoto', '{"maxFiles": 1, "allowedTypes": ["image/jpeg", "image/png"]}', NOW(), NOW()),
+        ($3, $2, $4, 'text', 'Special Requests', 'Any other requirements or questions?', false, 1, 'specialRequests', '{"variant": "long"}', NOW(), NOW())
+    `, [step4_1, page4Id, step4_2, workflowId]);
 
     console.log(`✅ Created 15 steps with aliases\n`);
 
@@ -159,82 +179,90 @@ async function createDemoWorkflow() {
 
     // Show dietary details only if hasDietary = yes
     await client.query(`
-      INSERT INTO logic_rules (id, workflow_id, condition, action, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO logic_rules (
+        id, workflow_id, condition_step_id, "when", target_type,
+        target_step_id, action, "order", created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, 'step', $5, 'show', 0, NOW(), NOW())
     `, [
       logic1Id,
       workflowId,
+      step1_5,
       JSON.stringify({
-        type: "simple",
+        type: "condition",
+        id: "demo-dietary-details-visible",
+        variable: "hasDietary",
         operator: "equals",
-        variableName: "hasDietary",
-        value: "yes"
+        value: "Yes",
+        valueType: "constant"
       }),
-      JSON.stringify({
-        type: "show",
-        targetId: step1_6,
-        targetType: "step"
-      })
+      step1_6
     ]);
 
     // Show t-shirt size only for in-person attendees
     await client.query(`
-      INSERT INTO logic_rules (id, workflow_id, condition, action, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO logic_rules (
+        id, workflow_id, condition_step_id, "when", target_type,
+        target_step_id, action, "order", created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, 'step', $5, 'show', 1, NOW(), NOW())
     `, [
       logic2Id,
       workflowId,
+      step1_4,
       JSON.stringify({
-        type: "simple",
+        type: "condition",
+        id: "demo-tshirt-size-visible",
+        variable: "attendanceType",
         operator: "equals",
-        variableName: "attendanceType",
-        value: "in_person"
+        value: "In-Person",
+        valueType: "constant"
       }),
-      JSON.stringify({
-        type: "show",
-        targetId: step2_3,
-        targetType: "step"
-      })
+      step2_3
     ]);
 
     // Show checkin time only for in-person
     await client.query(`
-      INSERT INTO logic_rules (id, workflow_id, condition, action, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO logic_rules (
+        id, workflow_id, condition_step_id, "when", target_type,
+        target_step_id, action, "order", created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, 'step', $5, 'show', 2, NOW(), NOW())
     `, [
       logic3Id,
       workflowId,
+      step1_4,
       JSON.stringify({
-        type: "simple",
+        type: "condition",
+        id: "demo-checkin-time-visible",
+        variable: "attendanceType",
         operator: "equals",
-        variableName: "attendanceType",
-        value: "in_person"
+        value: "In-Person",
+        valueType: "constant"
       }),
-      JSON.stringify({
-        type: "show",
-        targetId: step2_4,
-        targetType: "step"
-      })
+      step2_4
     ]);
 
     // Show hotel nights only if needsHotel = yes
     await client.query(`
-      INSERT INTO logic_rules (id, workflow_id, condition, action, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO logic_rules (
+        id, workflow_id, condition_step_id, "when", target_type,
+        target_step_id, action, "order", created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, 'step', $5, 'show', 3, NOW(), NOW())
     `, [
       logic4Id,
       workflowId,
+      step3_2,
       JSON.stringify({
-        type: "simple",
+        type: "condition",
+        id: "demo-hotel-nights-visible",
+        variable: "needsHotel",
         operator: "equals",
-        variableName: "needsHotel",
-        value: "yes"
+        value: "yes",
+        valueType: "constant"
       }),
-      JSON.stringify({
-        type: "show",
-        targetId: step3_3,
-        targetType: "step"
-      })
+      step3_3
     ]);
 
     console.log(`✅ Created 4 conditional logic rules\n`);
@@ -247,9 +275,9 @@ async function createDemoWorkflow() {
 
     // Create virtual step for total price
     await client.query(`
-      INSERT INTO steps (id, page_id, type, title, alias, required, "order", is_virtual, config, created_at, updated_at)
-      VALUES ($1, $2, 'computed', 'Total Price', 'totalPrice', false, 999, true, '{}', NOW(), NOW())
-    `, [virtualStep1Id, page4Id]);
+      INSERT INTO steps (id, page_id, workflow_id, type, title, alias, required, "order", is_virtual, config, created_at, updated_at)
+      VALUES ($1, $2, $3, 'computed', 'Total Price', 'totalPrice', false, 999, true, '{}', NOW(), NOW())
+    `, [virtualStep1Id, page4Id, workflowId]);
 
     // Transform block to calculate total price
     await client.query(`
@@ -270,9 +298,9 @@ let total = 0;
 
 // Base ticket price
 const ticketPrices = {
-  'early_bird': 99,
-  'standard': 149,
-  'vip': 299
+  'Early Bird - $99': 99,
+  'Standard - $149': 149,
+  'VIP - $299': 299
 };
 
 total += ticketPrices[input.ticketType] || 0;
@@ -288,16 +316,16 @@ if (input.needsHotel === 'yes') {
 }
 
 // Workshop premium for VIP
-if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0) {
+if (input.ticketType === 'VIP - $299' && input.workshops && input.workshops.length > 0) {
   // VIP workshops are included
   emit("VIP Price: $" + total + " (includes " + input.workshops.length + " workshops)");
 } else {
   emit("Total: $" + total);
 }`,
-      JSON.stringify(['ticketType', 'needsShuttle', 'needsHotel', 'hotelNights', 'workshops']),
+      ['ticketType', 'needsShuttle', 'needsHotel', 'hotelNights', 'workshops'],
       'totalPrice',
       virtualStep1Id,
-      'onWorkflowComplete',
+      'onRunComplete',
       true,
       0,
       3000
@@ -321,7 +349,7 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
     console.log(`   Public Run: http://localhost:5000/run/${publicLink}`);
     console.log(`   Preview: http://localhost:5000/workflows/${workflowId}/preview`);
     console.log("\n🎯 Features Demonstrated:");
-    console.log("   ✓ Multiple step types (text, radio, checkbox, yes/no, date, file)");
+    console.log("   ✓ Multiple step types (text, choice, Boolean, date/time, file)");
     console.log("   ✓ Conditional logic (show/hide based on answers)");
     console.log("   ✓ Transform blocks (JavaScript calculations)");
     console.log("   ✓ Step aliases (variables)");
@@ -335,12 +363,23 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
     console.log("   • Complete workflow to see total price calculation");
     console.log(`\n${  "═".repeat(60)}`);
 
-    client.release();
-    process.exit(0);
+    await client.query('COMMIT');
+    return { projectId, workflowId, publicLink };
   } catch (error: unknown) {
-    console.error("❌ Error creating demo workflow:", error);
-    process.exit(1);
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 
-createDemoWorkflow();
+const isMainModule =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isMainModule) {
+  createDemoWorkflow().catch((error: unknown) => {
+    console.error("❌ Error creating demo workflow:", error);
+    process.exitCode = 1;
+  });
+}

@@ -14,9 +14,10 @@
       "steps": [
         {
           "alias": "client_full_name",
-          "type": "short_text",
+          "type": "text",
           "title": "Full legal name",
-          "required": true
+          "required": true,
+          "config": { "variant": "short" }
         },
         {
           "alias": "client_email",
@@ -32,7 +33,7 @@
         },
         {
           "alias": "client_pronoun",
-          "type": "multiple_choice",
+          "type": "choice",
           "title": "Pronouns (optional — leave blank to use they/them)",
           "required": false,
           "config": {
@@ -41,7 +42,7 @@
               { "id": "she", "label": "She / her", "alias": "she/her" },
               { "id": "he", "label": "He / him", "alias": "he/him" }
             ],
-            "allowMultiple": false
+            "display": "radio"
           }
         }
       ]
@@ -51,7 +52,7 @@
       "steps": [
         {
           "alias": "matter_type",
-          "type": "multiple_choice",
+          "type": "choice",
           "title": "Matter type",
           "required": true,
           "config": {
@@ -62,38 +63,46 @@
               { "id": "estate_planning", "label": "Estate Planning", "alias": "Estate Planning" },
               { "id": "other", "label": "Other", "alias": "Other" }
             ],
-            "allowMultiple": false
+            "display": "radio"
           }
         },
         {
           "alias": "matter_summary",
-          "type": "long_text",
+          "type": "text",
           "title": "Briefly describe the matter",
-          "required": true
+          "required": true,
+          "config": { "variant": "long" }
         },
         {
           "alias": "co_clients_count",
           "type": "number",
           "title": "Additional individuals involved in this matter (co-owners, co-parties, etc.)",
-          "required": false
+          "required": false,
+          "config": { "mode": "number" }
         },
         {
           "alias": "referral_source",
-          "type": "short_text",
+          "type": "text",
           "title": "How did you hear about us?",
-          "required": false
+          "required": false,
+          "config": { "variant": "short" }
         },
         {
           "alias": "urgent_deadline",
-          "type": "true_false",
+          "type": "boolean",
           "title": "Is there an upcoming deadline or court date?",
-          "required": true
+          "required": true,
+          "config": {
+            "storeAsBoolean": true,
+            "displayStyle": "buttons"
+          }
         },
         {
           "alias": "urgent_deadline_date",
-          "type": "date",
+          "type": "date_time",
           "title": "Deadline date",
           "required": false,
+          "config": { "kind": "date" },
           "visibleIf": {
             "type": "condition",
             "id": "urgent-deadline-date-visible",
@@ -110,9 +119,10 @@
       "steps": [
         {
           "alias": "intake_date",
-          "type": "date",
+          "type": "date_time",
           "title": "Date of intake call",
-          "required": true
+          "required": true,
+          "config": { "kind": "date" }
         }
       ]
     }
