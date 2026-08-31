@@ -17,7 +17,6 @@ interface ProjectCardProps {
   currentUserOrgRole?: OrgRole | null;
   orgRoleLoading?: boolean;
   onEdit?: (project: ApiProject) => void;
-  onArchive?: (id: string) => void;
   onCopy?: (id: string, title: string) => void;
   onTransfer?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
@@ -29,13 +28,12 @@ export function ProjectCard({
   currentUserOrgRole,
   orgRoleLoading = false,
   onEdit,
-  onArchive,
   onCopy,
   onTransfer,
   onDelete,
 }: ProjectCardProps) {
   const orgRestrictedReason = getOrgRestrictedReasonFromRole(project, currentUserOrgRole, orgRoleLoading);
-  const actions = buildProjectActions(project, { onEdit, onArchive, onCopy, onTransfer, onDelete }, orgRestrictedReason);
+  const actions = buildProjectActions(project, { onEdit, onCopy, onTransfer, onDelete }, orgRestrictedReason);
 
   return (
     <EntityCard

@@ -134,28 +134,6 @@ export function useUpdateProject(): UseMutationResult<ApiProject, unknown, Parti
     });
 }
 
-export function useArchiveProject(): UseMutationResult<ApiProject, unknown, string> {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: projectAPI.archive,
-        onSuccess: async (data) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
-        },
-    });
-}
-
-export function useUnarchiveProject(): UseMutationResult<ApiProject, unknown, string> {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: projectAPI.unarchive,
-        onSuccess: async (data) => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
-        },
-    });
-}
-
 export function useDeleteProject(): UseMutationResult<void, unknown, string> {
     const queryClient = useQueryClient();
     return useMutation({

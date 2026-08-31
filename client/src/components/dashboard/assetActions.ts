@@ -36,7 +36,6 @@ export function getOrgRestrictedReasonFromRole(
 
 export interface ProjectActionHandlers {
   onEdit?: (project: ApiProject) => void;
-  onArchive?: (id: string) => void;
   onCopy?: (id: string, title: string) => void;
   onTransfer?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
@@ -47,26 +46,15 @@ export function buildProjectActions(
   handlers: ProjectActionHandlers,
   orgRestrictedReason: string | undefined
 ): EntityAction[] {
-  const { onEdit, onArchive, onCopy, onTransfer, onDelete } = handlers;
+  const { onEdit, onCopy, onTransfer, onDelete } = handlers;
   const actions: EntityAction[] = [];
 
   if (onEdit) {
     actions.push({ label: "Edit", icon: Edit, onClick: () => onEdit(project) });
   }
 
-  if (onArchive) {
-    actions.push({
-      label: project.status === "archived" ? "Unarchive" : "Archive",
-      icon: Archive,
-      onClick: () => onArchive(project.id),
-      separator: true,
-      disabled: !!orgRestrictedReason,
-      disabledReason: orgRestrictedReason,
-    });
-  }
-
   if (onCopy) {
-    actions.push({ label: "Copy", icon: Copy, onClick: () => onCopy(project.id, project.title) });
+    actions.push({ label: "Copy", icon: Copy, onClick: () => onCopy(project.id, project.title), separator: true });
   }
 
   if (onTransfer) {

@@ -87,7 +87,6 @@ const handleProjectUpdate = asyncHandler(async (req: Request, res: Response) => 
  * Register project-related routes
  * Handles project CRUD operations and workflow organization
  */
-// eslint-disable-next-line max-lines-per-function
 export function registerProjectRoutes(app: Express): void {
   /**
    * POST /api/projects
@@ -279,44 +278,6 @@ export function registerProjectRoutes(app: Express): void {
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), handleProjectUpdate);
-
-  /**
-   * PUT /api/projects/:projectId/archive
-   * Archive a project (soft delete)
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId/archive', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const project = await projectService.archiveProject(projectId, user.id);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error archiving project");
-      const { status, message } = classifyRouteError(error, "Failed to archive project");
-      res.status(status).json({ message });
-    }
-  }));
-
-  /**
-   * PUT /api/projects/:projectId/unarchive
-   * Unarchive a project
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId/unarchive', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const project = await projectService.unarchiveProject(projectId, user.id);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error unarchiving project");
-      const { status, message } = classifyRouteError(error, "Failed to unarchive project");
-      res.status(status).json({ message });
-    }
-  }));
 
   /**
    * DELETE /api/projects/:projectId

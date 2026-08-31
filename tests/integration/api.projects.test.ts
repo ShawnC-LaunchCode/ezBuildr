@@ -212,10 +212,13 @@ describe.sequential("Projects API Integration Tests", () => {
       const activeProjectId = activeResponse.body.id;
       const archivedProjectId = archivedResponse.body.id;
 
+      // DELETE is the soft delete: it writes the same archived state the old
+      // (now removed) archive action did, and is the only way the app produces
+      // an archived project.
       await request(baseURL)
-        .put(`/api/projects/${archivedProjectId}/archive`)
+        .delete(`/api/projects/${archivedProjectId}`)
         .set("Authorization", `Bearer ${authToken}`)
-        .expect(200);
+        .expect(204);
 
       const seenIds: string[] = [];
       let cursor: string | undefined;

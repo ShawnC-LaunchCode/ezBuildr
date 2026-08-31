@@ -51,7 +51,6 @@ import type { ApiAssetCopyOptions, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProject,
   useUpdateProject,
-  useArchiveProject,
   useDeleteProject,
   useCopyProject,
   useTransferProject,
@@ -95,7 +94,6 @@ export default function ProjectView() {
 
   // Mutations
   const updateProjectMutation = useUpdateProject();
-  const _archiveProjectMutation = useArchiveProject();
   const deleteProjectMutation = useDeleteProject();
   const copyProjectMutation = useCopyProject();
   const transferProjectMutation = useTransferProject();

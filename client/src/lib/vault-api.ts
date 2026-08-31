@@ -344,14 +344,6 @@ export const projectAPI = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  archive: (id: string) =>
-    fetchAPI<ApiProject>(`/api/projects/${id}/archive`, {
-      method: "PUT",
-    }),
-  unarchive: (id: string) =>
-    fetchAPI<ApiProject>(`/api/projects/${id}/unarchive`, {
-      method: "PUT",
-    }),
   delete: (id: string) =>
     fetchAPI<void>(`/api/projects/${id}`, {
       method: "DELETE",
