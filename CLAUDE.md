@@ -280,8 +280,12 @@ the service's Settings → Source pane is the only source of truth.
 receives the push, without waiting for Actions, so a red build still ships. Turning it
 on for `production` is the single highest-value control still available.
 
-- **Commit to `dev`.** If a task starts on `main` or `test`, branch to `dev` (or a
-  feature branch off it) first.
+- **Commit to `dev`, and push it.** If a task starts on `main` or `test`, branch to
+  `dev` (or a feature branch off it) first. **`dev` is the playground: Claude pushes
+  verified work to it without asking**, and says so in its report. A verified commit
+  sitting unpushed is invisible to the owner's second IDE and to CI, which is worse
+  than the risk of pushing it. `test` and `main` are the opposite — **they need the
+  owner's explicit approval every single time**, because they deploy.
 - **`dev` → `test`: merge and push**, once CI is green on `dev`.
 - **`test` → `main`: pull request only.** This is the hop that reaches production,
   so it gets the diff, the CI run before the merge, and the strict-zones summary
@@ -373,10 +377,10 @@ devs in one shared tree (2026-07-25) produced, in a single session:
 pwsh scripts/new-worktree.ps1 -Name <ticket-id>
 ```
 
-It creates the worktree from current `main`, **copies** `node_modules`, copies
+It creates the worktree from current `dev`, **copies** `node_modules`, copies
 `.env`, **creates a per-worktree test database**, and then *proves* the result:
 `node_modules` is a real directory with `@types`/`typescript`/`vitest` resolving,
-base commit matches `main`, the test DB is reachable, and `test:fast` actually
+base commit matches `dev`, the test DB is reachable, and `test:fast` actually
 reports passing tests. It fails loudly rather than handing you a tree that looks
 fine.
 

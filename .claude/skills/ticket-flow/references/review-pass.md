@@ -36,6 +36,18 @@ Work through these in order; stop at the first failure and triage.
      the count is unchanged *and* explained. A lower test count is a failed
      gate, not an improvement — it usually means files failed to load. Never
      accept a baseline that includes a suite covering the area being changed.
+   - **A pasted red/green proof accepted on trust.** When a criterion says the
+     guard must fail if broken, break it yourself and watch it go red. Devs have
+     pasted accurate output and devs have pasted output for a mutation that was
+     never actually applied; the two look identical in a report. Mutate the
+     *production* symbol the guard protects — not the test — then confirm the
+     failure names the right thing.
+
+     **Restore by copying the file back, never with `git checkout -- <file>`.**
+     In a review you are usually standing in a worktree holding twenty-odd
+     uncommitted files; `git checkout` on a dirty tree discards the dev's work
+     with no confirmation and no reflog entry. `cp` the file aside first, restore
+     from that copy, and verify with `cmp` before moving on.
 3. **Standards & efficiency.** Does the change match the repo's named
    patterns and the ticket's Preferred fix (or carry a stated reason for
    deviating)? Is there leftover scratch — debug logs, dead code, stray

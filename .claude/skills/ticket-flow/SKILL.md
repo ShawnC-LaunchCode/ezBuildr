@@ -184,7 +184,12 @@ the reviewer's gates and other devs' turn-ins run on the whole tree;
 (3) delete code you replace — never comment it out — and remove any
 param/prop/import your change orphans; (4) if your change trips a
 lint/complexity rule, refactor (e.g. extract a helper) until clean — do not
-turn in with new suppressions or errors. Do NOT commit or stage anything —
+turn in with new suppressions or errors; (5) NEVER bulk find-and-replace across
+test files — tests are the evidence, so change them one at a time with a stated
+reason, and if a test asserted behavior that should still hold, the code is
+wrong, not the test; (6) the test count must not go DOWN — state the arithmetic
+yourself (baseline + what you added = your number) and explain any test you
+removed. Do NOT commit or stage anything —
 the reviewer controls commits. Do NOT touch files outside your ticket's scope
 or work any other ticket. If a criterion is impossible/wrong or the scope
 explodes, STOP and report the blocker instead of improvising. Report back:
@@ -223,6 +228,19 @@ file footprint — dispatch is a lookup against it, not a blanket rule:
   DB runs share a schema and clobber each other into dozens of fake failures. If
   two ready tickets both need DB tests, sequence them even if their files differ.
 
+**Put the baseline test count in the dispatch prompt, as the dev's FIRST command,
+with an explicit STOP.** A worktree cut from the wrong branch is the cheapest
+catastrophic failure in this whole process: every gate the dev runs is green, and
+every one of them is meaningless. The tooling will not save you — a creation script
+that asserts "base matches <branch>" is asserting the wrong invariant if the default
+branch is not the one work lands on, and a bare passing-test count printed with no
+comparison launders staleness as proof. One line — "run the suite first; it must say
+N; anything else means STOP" — converts a silent stale base into an immediate halt.
+
+**Name the suite that actually executes the acceptance criterion.** Fast suites
+routinely exclude DB and integration projects by config, so a dev can honestly report
+a green run that never touched the code its criterion is about. Give the exact
+commands and the current counts for each.
 Mark a ticket 🔄 In progress when dispatched.
 
 ## Stage 4 — Working a ticket (Dev)
@@ -384,6 +402,18 @@ of the move is:
   `git rm`, the new `backlog/` detail file, the `BACKLOG.md` index entries and
   every cross-reference fix land together, so no commit in the range leaves a
   dangling pointer.
-- **Never push without the repo owner's explicit go-ahead**, and confirm branch
-  state with them before switching branches — they work the same repo from a second
-  IDE.
+- **Push verified work to the working branch without asking.** In a repo with a
+  promotion chain, the first branch is the playground: it is where work is
+  *supposed* to land, and a verified commit left unpushed is invisible to the
+  owner's other machines and to CI. The Senior pushes it as a matter of course
+  and simply says so in the status report. Asking permission for each one buys
+  nothing and trains the owner to rubber-stamp.
+- **Every branch that deploys needs the owner's explicit approval, every time.**
+  Promotion branches and production branches are not the playground. Approval
+  for one promotion is not approval for the next.
+- Confirm branch state with the owner before *switching* branches — they may
+  work the same repo from a second IDE.
+
+  In this repo specifically: **push to `dev` freely; `test` and `main` need the
+  owner's say-so each time**, and `test` → `main` goes by pull request only.
+
