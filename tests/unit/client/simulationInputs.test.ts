@@ -107,20 +107,20 @@ describe("buildStepAliasResolver (AC2)", () => {
 
 describe("toConditionStepType", () => {
   it("maps known aliases onto their ConditionSupportedStepType", () => {
-    expect(toConditionStepType("yes_no")).toBe("yes_no");
-    expect(toConditionStepType("boolean")).toBe("yes_no");
-    expect(toConditionStepType("true_false")).toBe("yes_no");
+    expect(toConditionStepType("yes_no")).toBe("boolean");
+    expect(toConditionStepType("boolean")).toBe("boolean");
+    expect(toConditionStepType("true_false")).toBe("boolean");
     expect(toConditionStepType("date")).toBe("date_time");
     expect(toConditionStepType("datetime")).toBe("date_time");
-    expect(toConditionStepType("choice")).toBe("multiple_choice");
-    expect(toConditionStepType("radio")).toBe("radio");
+    expect(toConditionStepType("choice")).toBe("choice");
+    expect(toConditionStepType("radio")).toBe("choice");
+    expect(toConditionStepType("currency")).toBe("number");
   });
 
-  it("falls back to short_text for any type the condition system doesn't have a dedicated operator list for", () => {
-    expect(toConditionStepType("currency")).toBe("short_text");
-    expect(toConditionStepType("scale")).toBe("short_text");
-    expect(toConditionStepType("signature_block")).toBe("short_text");
-    expect(toConditionStepType("totally-unknown-type")).toBe("short_text");
+  it("falls back to text for any type the condition system doesn't have a dedicated operator list for", () => {
+    expect(toConditionStepType("scale")).toBe("text");
+    expect(toConditionStepType("signature_block")).toBe("text");
+    expect(toConditionStepType("totally-unknown-type")).toBe("text");
   });
 });
 

@@ -59,7 +59,9 @@ export const RUNNER_HIDDEN_STEP_TYPES = [
 
 export const RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES = [] as const satisfies readonly RunnerStepType[];
 
-const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {
+import type { CanonicalStepType } from "./stepConfigs";
+
+export const PERSISTED_ROW_COMPATIBILITY_MAP: Record<string, CanonicalStepType> = {
   // Read compatibility for pre-STB-19 rows. New authoring writes `text`.
   short_text: "text",
   long_text: "text",
@@ -83,26 +85,43 @@ const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {
   signature: "signature_block",
 };
 
-const renderedTypes = new Set<string>(RUNNER_RENDERED_STEP_TYPES);
+export const LEGACY_RENDERED_STEP_TYPES = [
+  "short_text",
+  "long_text",
+  "yes_no",
+  "true_false",
+  "multiple_choice",
+  "radio",
+  "date",
+  "time",
+  "datetime",
+  "datetime_unified",
+  "phone_advanced",
+  "email_advanced",
+  "number_advanced",
+  "currency",
+  "scale_advanced",
+  "website_advanced",
+  "address_advanced",
+  "display_advanced",
+  "final",
+  "signature",
+] as const;
+
+const renderedTypes = new Set<string>([...RUNNER_RENDERED_STEP_TYPES, ...LEGACY_RENDERED_STEP_TYPES]);
 const hiddenTypes = new Set<string>(RUNNER_HIDDEN_STEP_TYPES);
 const unsupportedTypes = new Set<string>(RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES);
-
-export function normalizeRunnerStepType(type: string): string {
-  return NORMALIZED_STEP_TYPES[type] ?? type;
-}
 
 export type RunnerStepTypeStatus = "rendered" | "hidden" | "unsupported" | "unknown";
 
 export function getRunnerStepTypeStatus(type: string): RunnerStepTypeStatus {
-  const normalized = normalizeRunnerStepType(type);
-
-  if (renderedTypes.has(normalized)) {
+  if (renderedTypes.has(type)) {
     return "rendered";
   }
-  if (hiddenTypes.has(normalized)) {
+  if (hiddenTypes.has(type)) {
     return "hidden";
   }
-  if (unsupportedTypes.has(normalized)) {
+  if (unsupportedTypes.has(type)) {
     return "unsupported";
   }
 

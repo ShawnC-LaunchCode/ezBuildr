@@ -4,11 +4,12 @@
  * values inside a List item) so the two surfaces can't grow independent
  * formatting rules.
  */
-import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
+
 import {
   resolveBooleanConfig,
   resolveBooleanLogicalValue,
   resolveNumberConfig,
+  adaptLegacyStep,
 } from "@shared/types/stepConfigs";
 
 import { formatCurrencyForDisplay } from "../components/runner/blocks/numberFormat";
@@ -122,18 +123,19 @@ export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {
     return "Not answered";
   }
 
-  const normalizedType = context.type ? normalizeRunnerStepType(context.type) : undefined;
-  if (normalizedType === "choice") {
-    return formatChoiceValue(val, context.config);
+  const adapted = context.type ? adaptLegacyStep({ type: context.type, config: context.config }) : { type: undefined, config: undefined };
+  const type = adapted.type;
+  if (type === "choice") {
+    return formatChoiceValue(val, adapted.config);
   }
-  if (normalizedType === "address") {
-    return formatAddressValue(val, context.config);
+  if (type === "address") {
+    return formatAddressValue(val, adapted.config);
   }
-  if (normalizedType === "boolean") {
-    return formatBooleanValue(val, context.config) ?? String(val);
+  if (type === "boolean") {
+    return formatBooleanValue(val, adapted.config) ?? String(val);
   }
-  if ((normalizedType === "number" || normalizedType === "currency") && typeof val === "number") {
-    const config = resolveNumberConfig(context.type ?? "number", context.config);
+  if (type === "number" && typeof val === "number") {
+    const config = resolveNumberConfig("number", adapted.config);
     if (config.mode !== "number") {
       return formatCurrencyForDisplay(val, {
         mode: config.mode,

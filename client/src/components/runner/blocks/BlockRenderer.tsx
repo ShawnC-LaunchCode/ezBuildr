@@ -16,9 +16,6 @@ import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
 import {
-  resolveDateTimeConfig,
-  resolveNumberConfig,
-  resolveTextConfig,
   type ListValue,
   type MultiFieldValue,
 } from "@shared/types/stepConfigs";
@@ -37,7 +34,9 @@ import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
 import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
-import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRouting";
+import { getRunnerStepTypeStatus } from "./stepTypeRouting";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+
 import { TextBlockRenderer } from "./TextBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
 import {
@@ -116,32 +115,7 @@ function isListValue(value: unknown): value is ListValue {
  * exist only for rows written before STB-19 backfills them; nothing new is
  * ever authored with these types.
  */
-interface LegacyStepAdapter {
-  canonicalType: string;
-  resolveConfig: (storedType: string, storedConfig: unknown) => unknown;
-}
 
-const LEGACY_STEP_ADAPTERS: Readonly<Partial<Record<string, LegacyStepAdapter>>> = {
-  short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
-  long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
-  number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
-  currency: { canonicalType: "number", resolveConfig: resolveNumberConfig },
-  date: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
-  time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
-  datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
-  datetime_unified: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
-};
-
-/** Adapt a pre-STB-19 row once, before any canonical renderer sees it. */
-function toCanonicalStep(step: Step): Step {
-  const adapter = LEGACY_STEP_ADAPTERS[step.type];
-  if (adapter === undefined) { return step; }
-  return {
-    ...step,
-    type: adapter.canonicalType,
-    config: adapter.resolveConfig(step.type, step.config),
-  } as Step;
-}
 
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
   // Honest, not apologetic: the runner has no control for this step type, so
@@ -168,10 +142,10 @@ function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "uns
 // ============================================================================
 
 export function BlockRenderer(props: BlockRendererProps) {
-  const { step, value, onChange, required, error, readOnly, showValidation } = props;
-  const normalizedType = normalizeRunnerStepType(step.type);
+  const { step: rawStep, value, onChange, required, error, readOnly, showValidation } = props;
+  const step = adaptLegacyStep(rawStep);
   const typeStatus = getRunnerStepTypeStatus(step.type);
-  const renderedStep = normalizedType === "display" ? step : {
+  const renderedStep = step.type === "display" ? step : {
     ...step,
     title: interpolateRunnerText(
       step.title,
@@ -190,9 +164,6 @@ export function BlockRenderer(props: BlockRendererProps) {
       )
       : step.description,
   };
-  // Adapt retired types once, here, so every renderer below receives a
-  // canonical step and no case has to know a legacy name.
-  const canonicalStep = toCanonicalStep(renderedStep);
   // Unsupported/unknown types are never required (RUN2-3) — don't mark them
   // required in the label when there's no control to answer with.
   const showRequiredIndicator = required && typeStatus !== "unsupported" && typeStatus !== "unknown";
@@ -221,53 +192,53 @@ export function BlockRenderer(props: BlockRendererProps) {
       return <ExplicitRunnerTypeNotice type={step.type} status={typeStatus} />;
     }
 
-    switch (normalizedType) {
+    switch (step.type) {
       // Text blocks
       case "text":
-        return <TextBlockRenderer step={canonicalStep} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <TextBlockRenderer step={renderedStep} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
       case "boolean":
-        return <BooleanBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <BooleanBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Validated inputs
       case "phone":
-        return <PhoneBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <PhoneBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "email":
-        return <EmailBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <EmailBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "website":
-        return <WebsiteBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <WebsiteBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
       case "date_time":
-        return <DateTimeBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <DateTimeBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Numeric inputs
       case "number":
-        return <NumberBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <NumberBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "scale":
-        return <ScaleBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <ScaleBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Choice inputs
       case "choice":
-        return <ChoiceBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} runId={props.runId} />;
+        return <ChoiceBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} runId={props.runId} />;
 
       // Complex blocks
       case "address":
-        return <AddressBlockRenderer step={canonicalStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <AddressBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "multi_field":
-        return <MultiFieldBlockRenderer step={canonicalStep} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <MultiFieldBlockRenderer step={renderedStep} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "file_upload":
-        return <FileUploadBlockRenderer step={canonicalStep} value={value} onChange={onChange} runId={props.runId} runToken={props.runToken} runStepId={props.runStepId} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <FileUploadBlockRenderer step={renderedStep} value={value} onChange={onChange} runId={props.runId} runToken={props.runToken} runStepId={props.runStepId} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Nestable, repeating question (LIST-8)
       case "list":
-        return <ListBlockRenderer step={canonicalStep} value={isListValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <ListBlockRenderer step={renderedStep} value={isListValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":
@@ -277,7 +248,7 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "signature_block":
         return (
           <SignatureBlockRenderer
-            step={canonicalStep}
+            step={renderedStep}
             stepValues={props.context}
             runId={props.runId}
             runToken={props.runToken}
@@ -296,7 +267,7 @@ export function BlockRenderer(props: BlockRendererProps) {
   // Render block with label and error
   // -------------------------------------------------------------------------
   // Display blocks, final blocks, and signature blocks don't have labels
-  if (normalizedType === "display" || normalizedType === "final_documents" || normalizedType === "signature_block") {
+  if (step.type === "display" || step.type === "final_documents" || step.type === "signature_block") {
     return renderBlockInput();
   }
 

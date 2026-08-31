@@ -125,15 +125,15 @@ export function buildStepAliasResolver(steps: AliasableStep[]): (variableName: s
  * behaviour differs from the rest of the condition system.
  */
 const CONDITION_STEP_TYPE_ALIASES: Record<string, ConditionSupportedStepType> = {
-  short_text: "short_text",
-  text: "short_text",
-  long_text: "long_text",
-  multiple_choice: "multiple_choice",
-  choice: "multiple_choice",
-  radio: "radio",
-  yes_no: "yes_no",
-  boolean: "yes_no",
-  true_false: "yes_no",
+  short_text: "text",
+  text: "text",
+  long_text: "text",
+  multiple_choice: "choice",
+  choice: "choice",
+  radio: "choice",
+  yes_no: "boolean",
+  boolean: "boolean",
+  true_false: "boolean",
   computed: "computed",
   date: "date_time",
   date_time: "date_time",
@@ -143,13 +143,16 @@ const CONDITION_STEP_TYPE_ALIASES: Record<string, ConditionSupportedStepType> = 
   file_upload: "file_upload",
   js_question: "js_question",
   list: "list",
+  number: "number",
+  currency: "number",
+  number_advanced: "number",
 };
 
 export function toConditionStepType(type: string): ConditionSupportedStepType {
-  return CONDITION_STEP_TYPE_ALIASES[type] ?? "short_text";
+  return CONDITION_STEP_TYPE_ALIASES[type] ?? "text";
 }
 
-const CHOICE_STEP_TYPES = new Set<string>(["radio", "multiple_choice"]);
+const CHOICE_STEP_TYPES = new Set<string>(["choice"]);
 
 /** A step type is walking distance from Yes/No is a fine answer even though every visible-if operator for it needs none (is_true/is_false/is_empty/is_not_empty). */
 const YES_NO_ANSWER_CHOICES: ChoiceOptionDescriptor[] = [
@@ -176,7 +179,7 @@ function buildOperatorConfig(
   stepType: ConditionSupportedStepType,
   legacyChoices: ChoiceOptionDescriptor[] | undefined
 ): { operatorConfig: OperatorConfig; choices?: ChoiceOptionDescriptor[] } {
-  if (stepType === "yes_no") {
+  if (stepType === "boolean") {
     return {
       operatorConfig: { value: "is_true", label: "answer", needsValue: true, valueType: "choices" },
       choices: YES_NO_ANSWER_CHOICES,
@@ -203,7 +206,7 @@ export function buildSimulationFields(
 ): SimulationField[] {
   return referencedSteps.map((step) => {
     const stepType = toConditionStepType(step.type);
-    const legacyChoices = CHOICE_STEP_TYPES.has(step.type) ? getLegacyChoiceOptions(step.config) : undefined;
+    const legacyChoices = CHOICE_STEP_TYPES.has(stepType) ? getLegacyChoiceOptions(step.config) : undefined;
     const { operatorConfig, choices } = buildOperatorConfig(stepType, legacyChoices);
 
     const variable: VariableInfo = {

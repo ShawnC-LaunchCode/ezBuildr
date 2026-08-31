@@ -317,4 +317,153 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     expect(renderedText).toContain('Member=Ava Whitmore;');
     expect(renderedText).toContain('Address=12 Oak Street;');
   });
+
+  it('serves canonical nested List fields to the runner and validates them on page submit', async () => {
+    enterTenantContextForTests(ctx.tenantId);
+    const workflowResponse = await agent
+      .post('/api/workflows')
+      .send({ title: 'Canonical List runner workflow', projectId: ctx.projectId });
+    expect(workflowResponse.status, JSON.stringify(workflowResponse.body)).toBe(201);
+    const workflowId = workflowResponse.body.id as string;
+
+    const pageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
+      .send({ title: 'Visit details' });
+    expect(pageResponse.status, JSON.stringify(pageResponse.body)).toBe(201);
+    const pageId = pageResponse.body.id as string;
+
+    const listConfig: ListConfig = {
+      fields: [
+        {
+          kind: 'question',
+          id: 'visitor-name',
+          alias: 'name',
+          type: 'text',
+          title: 'Name',
+          order: 0,
+        },
+        {
+          kind: 'list',
+          id: 'visitor-visits',
+          alias: 'visits',
+          title: 'Visits',
+          order: 1,
+          list: {
+            fields: [
+              {
+                kind: 'question',
+                id: 'visit-date',
+                alias: 'date',
+                type: 'date_time',
+                title: 'Visit date',
+                order: 0,
+                config: { kind: 'date' },
+              },
+              {
+                kind: 'question',
+                id: 'visit-attendees',
+                alias: 'attendees',
+                type: 'number',
+                title: 'Attendees',
+                order: 1,
+                config: { min: 1, max: 5 },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const listStepResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({
+        type: 'list',
+        title: 'Visitors',
+        alias: 'visitors',
+        config: listConfig,
+      });
+    expect(listStepResponse.status, JSON.stringify(listStepResponse.body)).toBe(201);
+    const listStepId = listStepResponse.body.id as string;
+
+    const pinnedVersion = await versionService.createDraftVersion(workflowId, ctx.userId);
+    expect(pinnedVersion).not.toBeNull();
+    if (pinnedVersion === null) {
+      throw new Error('Expected the canonical List workflow to produce a draft version');
+    }
+    await getOwnerDb()
+      .update(schema.workflows)
+      .set({ currentVersionId: pinnedVersion.id })
+      .where(eq(schema.workflows.id, workflowId));
+
+    const runResponse = await agent.post(`/api/workflows/${workflowId}/runs`).send({});
+    expect(runResponse.status, JSON.stringify(runResponse.body)).toBe(201);
+    const runId = runResponse.body.data.runId as string;
+    const runToken = runResponse.body.data.runToken as string;
+
+    const runtimeResponse = await request(ctx.baseURL)
+      .get(`/api/runs/${runId}/runtime`)
+      .set('Authorization', `Bearer ${runToken}`);
+    expect(runtimeResponse.status, JSON.stringify(runtimeResponse.body)).toBe(200);
+    const runtimeStep = (runtimeResponse.body.data.steps as Array<{
+      id: string;
+      type: string;
+      config: ListConfig;
+    }>).find((step) => step.id === listStepId);
+    expect(runtimeStep).toMatchObject({ type: 'list' });
+    expect(runtimeStep?.config.fields[0]).toMatchObject({ kind: 'question', type: 'text' });
+    const nestedList = runtimeStep?.config.fields[1];
+    expect(nestedList).toMatchObject({ kind: 'list', alias: 'visits' });
+    if (nestedList?.kind !== 'list') {
+      throw new Error('Expected the runner contract to retain the nested List field');
+    }
+    expect(nestedList.list.fields).toEqual([
+      expect.objectContaining({ kind: 'question', type: 'date_time' }),
+      expect.objectContaining({ kind: 'question', type: 'number' }),
+    ]);
+
+    const makeValue = (attendees: number): ListValue => ({
+      items: [
+        {
+          itemId: 'visitor-1',
+          values: {
+            name: 'Ava Whitmore',
+            visits: {
+              items: [
+                {
+                  itemId: 'visit-1',
+                  values: { date: '2026-08-31', attendees },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    });
+
+    const invalidSubmitResponse = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({ values: [{ stepId: listStepId, value: makeValue(6) }] });
+    expect(invalidSubmitResponse.status, JSON.stringify(invalidSubmitResponse.body)).toBe(200);
+    expect(invalidSubmitResponse.body.success).toBe(false);
+    expect(invalidSubmitResponse.body.errors).toEqual([
+      expect.stringMatching(/^Visitors \(visitors\[0\]\.visits\[0\]\.attendees\):.*5/),
+    ]);
+
+    const validValue = makeValue(5);
+    const validSubmitResponse = await request(ctx.baseURL)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({ values: [{ stepId: listStepId, value: validValue }] });
+    expect(validSubmitResponse.status, JSON.stringify(validSubmitResponse.body)).toBe(200);
+    expect(validSubmitResponse.body).toMatchObject({ success: true });
+
+    const valuesResponse = await request(ctx.baseURL)
+      .get(`/api/runs/${runId}/values`)
+      .set('Authorization', `Bearer ${runToken}`);
+    expect(valuesResponse.status, JSON.stringify(valuesResponse.body)).toBe(200);
+    expect(valuesResponse.body.data.values).toContainEqual(
+      expect.objectContaining({ stepId: listStepId, value: validValue }),
+    );
+  });
 });

@@ -176,7 +176,7 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
     expect(saved).toEqual([{ stepId: 'step-picks', value: ['a', 'b'] }]);
   });
 
-  it('AC5: currency and scale (numeric-family types) are also coerced via normalizeRunnerStepType', async () => {
+  it('AC5: currency and scale (numeric-family types) are also coerced via adaptLegacyStep', async () => {
     const currencyStep = makeStep({ id: 'step-price', alias: 'price', type: 'currency' });
     const savedCurrency = await runWithStep(currencyStep, { price: '19.99' });
     expect(savedCurrency).toEqual([{ stepId: 'step-price', value: 19.99 }]);

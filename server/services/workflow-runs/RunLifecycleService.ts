@@ -32,8 +32,6 @@ import { workflowTenantResolver } from "../WorkflowTenantResolver";
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
 import { runDefinitionProvider, RunDefinitionProvider, type RunPage } from "./RunDefinitionProvider";
-import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
-
 export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
@@ -83,11 +81,13 @@ function collectLegacyFinalDocumentConfig(pages: RunPage[]): {
 // alone rather than becoming NaN), and a boolean alias always stores a real
 // boolean. Everything else (choice, address, multi_field, date/time, ...)
 // legitimately carries arrays/objects and is left as parsed.
-const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["short_text", "long_text", "text", "email", "website", "phone"]);
-const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "currency", "scale"]);
+const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["text", "email", "website", "phone"]);
+const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "scale"]);
+
+import { adaptLegacyStep } from "../../../shared/types/stepConfigs";
 
 function coerceInitialValueForStepType(value: unknown, stepType: string, config?: unknown): unknown {
-  const normalizedType = normalizeRunnerStepType(stepType);
+  const normalizedType = adaptLegacyStep({ type: stepType, config }).type;
 
   if (TEXT_LIKE_RUNNER_STEP_TYPES.has(normalizedType)) {
     return typeof value === "string" ? value : String(value);

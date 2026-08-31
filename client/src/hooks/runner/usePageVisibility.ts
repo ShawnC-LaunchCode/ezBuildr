@@ -3,7 +3,7 @@ import type { ApiStep, ApiPage, ApiSection } from "@/lib/vault-api";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { LogicRule } from "@shared/schema";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
-import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 
 interface VisibilityTraceRecorder {
   addTraceEntry: (entry: {
@@ -72,7 +72,7 @@ export function usePageVisibility(
     }
     
     const pageSteps = allSteps.filter(
-      (step) => step.pageId === pageId && !step.isVirtual && normalizeRunnerStepType(step.type) !== 'final_documents'
+      (step) => step.pageId === pageId && !step.isVirtual && adaptLegacyStep({ type: step.type }).type !== 'final_documents'
     );
 
     return pageSteps.filter((step) => {

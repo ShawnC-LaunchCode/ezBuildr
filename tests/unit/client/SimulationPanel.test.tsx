@@ -28,8 +28,8 @@ function step(overrides: Partial<ApiStep> & Pick<ApiStep, "id" | "pageId" | "typ
 
 function textField(id: string, title: string): SimulationField {
   return {
-    step: step({ id, pageId: "page-1", type: "short_text", title }),
-    variable: { id, alias: null, label: title, title, type: "short_text", pageId: "page-1", pageTitle: "Page One" },
+    step: step({ id, pageId: "page-1", type: "text", title }),
+    variable: { id, alias: null, label: title, title, type: "text", pageId: "page-1", pageTitle: "Page One" },
     operatorConfig: { value: "equals", label: "equals", needsValue: true, valueType: "text" },
   };
 }
@@ -113,13 +113,13 @@ describe("SimulationPanel (MAP-8)", () => {
 
   it("labels a field with its alias, distinctly from the title, when the step has one", () => {
     const aliasField: SimulationField = {
-      step: step({ id: "s1", pageId: "page-1", type: "short_text", title: "Full Name", alias: "full_name" }),
+      step: step({ id: "s1", pageId: "page-1", type: "text", title: "Full Name", alias: "full_name" }),
       variable: {
         id: "s1",
         alias: "full_name",
         label: "full_name",
         title: "Full Name",
-        type: "short_text",
+        type: "text",
         pageId: "page-1",
         pageTitle: "Page One",
       },

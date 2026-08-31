@@ -13,16 +13,15 @@ import { z } from "zod";
 // =====================================================================
 
 export type ConditionSupportedStepType =
-  | "short_text"
-  | "long_text"
-  | "multiple_choice"
-  | "radio"
-  | "yes_no"
+  | "text"
+  | "choice"
+  | "boolean"
   | "computed"
   | "date_time"
   | "file_upload"
   | "js_question"
-  | "list";
+  | "list"
+  | "number";
 
 // =====================================================================
 // OPERATORS
@@ -102,15 +101,15 @@ const IS_NOT_EMPTY_LABEL = "is not empty";
 
 export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, OperatorConfig[]> = {
   // Boolean type - simplified operators
-  yes_no: [
+  boolean: [
     { value: "is_true", label: "is Yes", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is No", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
     { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
-  // Short text
-  short_text: [
+  // Text
+  text: [
     { value: "equals", label: "equals", needsValue: true, valueType: "text" },
     { value: "not_equals", label: "does not equal", needsValue: true, valueType: "text" },
     { value: "contains", label: "contains", needsValue: true, valueType: "text" },
@@ -121,28 +120,21 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
-  // Long text - same as short text
-  long_text: [
-    { value: "equals", label: "equals", needsValue: true, valueType: "text" },
-    { value: "not_equals", label: "does not equal", needsValue: true, valueType: "text" },
-    { value: "contains", label: "contains", needsValue: true, valueType: "text" },
-    { value: "not_contains", label: "does not contain", needsValue: true, valueType: "text" },
-    { value: "starts_with", label: "starts with", needsValue: true, valueType: "text" },
-    { value: "ends_with", label: "ends with", needsValue: true, valueType: "text" },
+  // Number
+  number: [
+    { value: "equals", label: "equals", needsValue: true, valueType: "number" },
+    { value: "not_equals", label: "does not equal", needsValue: true, valueType: "number" },
+    { value: "greater_than", label: "is greater than", needsValue: true, valueType: "number" },
+    { value: "less_than", label: "is less than", needsValue: true, valueType: "number" },
+    { value: "greater_or_equal", label: "is greater than or equal to", needsValue: true, valueType: "number" },
+    { value: "less_or_equal", label: "is less than or equal to", needsValue: true, valueType: "number" },
+    { value: "between", label: "is between", needsValue: true, valueType: "number", needsTwoValues: true },
     { value: "is_empty", label: "is empty", needsValue: false },
     { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
-  // Single-select choice (radio, dropdown)
-  radio: [
-    { value: "equals", label: "is", needsValue: true, valueType: "choices" },
-    { value: "not_equals", label: "is not", needsValue: true, valueType: "choices" },
-    { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
-  ],
-
-  // Multiple choice (single select mode)
-  multiple_choice: [
+  // Choice
+  choice: [
     { value: "equals", label: "is", needsValue: true, valueType: "choices" },
     { value: "not_equals", label: "is not", needsValue: true, valueType: "choices" },
     { value: "includes", label: "includes", needsValue: true, valueType: "multi_choices" },
@@ -246,7 +238,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
  * Get operators for a given step type
  */
 export function getOperatorsForStepType(stepType: ConditionSupportedStepType): OperatorConfig[] {
-  return OPERATORS_BY_STEP_TYPE[stepType] ?? OPERATORS_BY_STEP_TYPE.short_text;
+  return OPERATORS_BY_STEP_TYPE[stepType] ?? OPERATORS_BY_STEP_TYPE.text;
 }
 
 /**

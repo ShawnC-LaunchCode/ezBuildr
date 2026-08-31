@@ -25,8 +25,8 @@ import { extractFormulaReferences } from "@shared/types/documentMapping";
 import {
   getRunnerStepTypeStatus,
   isRunnerRequirableStepType,
-  normalizeRunnerStepType,
 } from "@shared/types/runnerStepTypes";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 import type { WorkflowLintCategory, WorkflowLintTarget } from "@shared/types/workflowLint";
 
 import type { LintResult, LintableWorkflowContent } from "./workflowLintRules";
@@ -326,7 +326,7 @@ function checkChoiceSteps(pages: Record<string, any>[], results: LintResult[]): 
   for (const page of pages) {
     for (const step of stepsOf(page)) {
       if (step.isVirtual === true) { continue; }
-      if (normalizeRunnerStepType(String(step.type ?? "")) !== "choice") { continue; }
+      if (adaptLegacyStep({ type: String(step.type ?? "") }).type !== "choice") { continue; }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
       const config = (step.config ?? {}) as Record<string, any>;

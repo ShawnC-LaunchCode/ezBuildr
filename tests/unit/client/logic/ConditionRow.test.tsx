@@ -37,7 +37,7 @@ const VARIABLES: VariableInfo[] = [
     alias: 'first_name',
     label: 'First name',
     title: 'First name',
-    type: 'short_text',
+    type: 'text',
     pageId: 'sec1',
     pageTitle: 'Page 1',
   },

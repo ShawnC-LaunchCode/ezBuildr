@@ -54,7 +54,7 @@ const SIBLING_VARIABLES: VariableInfo[] = [
     alias: 'trigger',
     label: 'Trigger field',
     title: 'Trigger field',
-    type: 'short_text',
+    type: 'text',
     pageId: 'this-item',
     pageTitle: "This item's fields",
   },

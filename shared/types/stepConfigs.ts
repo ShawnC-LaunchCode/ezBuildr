@@ -1320,3 +1320,36 @@ export interface FileUploadValue {
 // ============================================================================
 
 
+export const LEGACY_STEP_ADAPTERS: Record<string, { canonicalType: string; resolveConfig: (type: string, config: unknown) => unknown }> = {
+  short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
+  long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
+  number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  currency: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  date: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime_unified: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  yes_no: { canonicalType: "boolean", resolveConfig: resolveBooleanConfig },
+  true_false: { canonicalType: "boolean", resolveConfig: resolveBooleanConfig },
+  multiple_choice: { canonicalType: "choice", resolveConfig: (_, config) => config },
+  radio: { canonicalType: "choice", resolveConfig: (_, config) => config },
+  phone_advanced: { canonicalType: "phone", resolveConfig: (_, config) => config },
+  email_advanced: { canonicalType: "email", resolveConfig: (_, config) => config },
+  scale_advanced: { canonicalType: "scale", resolveConfig: (_, config) => config },
+  website_advanced: { canonicalType: "website", resolveConfig: (_, config) => config },
+  address_advanced: { canonicalType: "address", resolveConfig: (_, config) => config },
+  display_advanced: { canonicalType: "display", resolveConfig: (_, config) => config },
+  final: { canonicalType: "final_documents", resolveConfig: (_, config) => config },
+  signature: { canonicalType: "signature_block", resolveConfig: (_, config) => config },
+};
+
+/** Adapt a pre-STB-19 row once at the read boundary, returning a canonical step. */
+export function adaptLegacyStep<T extends { type: string; config?: unknown }>(step: T): T {
+  const adapter = LEGACY_STEP_ADAPTERS[step.type];
+  if (adapter === undefined) { return step; }
+  return {
+    ...step,
+    type: adapter.canonicalType,
+    config: adapter.resolveConfig(step.type, step.config),
+  };
+}

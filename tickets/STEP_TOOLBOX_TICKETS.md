@@ -1952,7 +1952,7 @@ duplicated assertion and thinking-out-loud comments, replaced with element-type 
 
 ---
 
-## STB-15 — Remove legacy routing from runner, Lists, conditions, and answer formatting 🔲
+## STB-15 — Remove legacy routing from runner, Lists, conditions, and answer formatting ✅
 
 **Priority: P1** · Size: M · File: `shared/types/runnerStepTypes.ts`
 
@@ -2041,6 +2041,34 @@ files / 3,840; test:integration 136 files / 1,244 passed + 3 skipped; type-check
 gates" — `test:unit`, `test:integration` and `check:strict-zones` (the actual commit gate) were skipped. The
 reviewer ran them and they pass, but a vertical proof claimed against a suite that cannot execute it is the
 single most repeated failure of this initiative. The turn-in also listed 5 changed files; there are 20.
+
+**Round 2 — 2026-08-31 — ✅ PASSED, committed.** Two test files added/extended; no production code changed, and
+a reviewer probe confirms behavior identical to round 1. All four evidence gaps are closed:
+
+1. `runnerStepTypeRouting.test.ts` pins all 20 `PERSISTED_ROW_COMPATIBILITY_MAP` entries against an
+   **independently written** expected map, asserts `LEGACY_RENDERED_STEP_TYPES` equals its keys so the
+   hand-maintained list cannot drift, and iterates every legacy name proving it adapts to its canonical type and
+   still classifies as `rendered`. Stronger than the guard that was deleted.
+2. A second test proves no persisted alias leaks into any of six request-facing registries (`CANONICAL_STEP_TYPES`,
+   rendered/hidden/unsupported, `LIST_FIELD_QUESTION_TYPES`, `OPERATORS_BY_STEP_TYPE`) — AC 5's missing half.
+3. `tests/integration/list-lifecycle.test.ts` adds the AC 6 vertical: real HTTP through workflow → page → List
+   step → version pin → run, runtime fetched with a **run token** (not a JWT — the STB-23 lesson applied
+   unprompted), nested List fields asserted canonical, an invalid nested value rejected at the full path
+   `visitors[0].visits[0].attendees`, then the valid value persisted and read back.
+4. Test count went UP: 3,660 → 3,662 fast, 1,244 → 1,245 integration.
+
+**The reviewer reproduced the red/green rather than trusting it**, mutating production and restoring from file
+copies (never `git checkout`, which would have destroyed the uncommitted work): dropping `address_advanced` from
+`LEGACY_RENDERED_STEP_TYPES` failed 2 tests (`address_advanced stopped rendering`); leaking `short_text` into
+`CANONICAL_STEP_TYPES` failed 1 with `canonical contains request-facing aliases`. Both files verified
+byte-identical afterwards.
+
+Reviewer-run gates, all six: test:fast 329 files / 3,662; test:unit 348 / 3,842; test:integration 136 / 1,245
+passed + 3 skipped; type-check 0; lint 0; strict-zones 6/6.
+
+The gate report was complete and honest this round — six gates, stated arithmetic, full 21-file inventory. That
+is the standard the rest of the initiative should hold to.
+
 
 
 ---

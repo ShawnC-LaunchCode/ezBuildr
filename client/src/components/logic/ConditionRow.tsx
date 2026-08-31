@@ -51,7 +51,7 @@ export function ConditionRow({
   const selectedVariable = variables.find(
     (v) => v.id === condition.variable || v.alias === condition.variable
   );
-  const stepType: StepType = selectedVariable?.type ?? "short_text";
+  const stepType: StepType = selectedVariable?.type ?? "text";
   const operators = getOperatorsForStepType(stepType);
   const currentOperator = getOperatorConfig(stepType, condition.operator);
 
@@ -64,7 +64,7 @@ export function ConditionRow({
   // Handlers
   const handleVariableChange = (value: string) => {
     const newVariable = variables.find((v) => v.id === value || v.alias === value);
-    const newStepType: StepType = newVariable?.type ?? "short_text";
+    const newStepType: StepType = newVariable?.type ?? "text";
     const newOperators = getOperatorsForStepType(newStepType);
 
     // Check if current operator is valid for new type, otherwise reset
