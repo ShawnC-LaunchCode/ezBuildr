@@ -36,6 +36,7 @@ import { workflowOptimizationService, WorkflowOptimizationService } from './ai/W
 import { WorkflowSuggestionService } from './ai/WorkflowSuggestionService';
 import { WorkflowWithAliases } from './AliasResolver';
 import { QualityScore } from './WorkflowQualityValidator';
+import type { Mode } from '../../shared/mode';
 const logger = createLogger({ module: 'ai-service' });
 /**
  * AI Service for workflow generation and suggestions
@@ -63,8 +64,9 @@ export class AIService {
    */
   async generateWorkflow(
     request: AIWorkflowGenerationRequest,
+    mode: Mode,
   ): Promise<AIGeneratedWorkflow> {
-    return this.generationService.generateWorkflow(request);
+    return this.generationService.generateWorkflow(request, mode);
   }
 
   /**
@@ -85,13 +87,14 @@ export class AIService {
    */
   async generateWorkflowWithQualityLoop(
     request: AIWorkflowGenerationRequest,
+    mode: Mode,
     qualityConfig?: Partial<QualityImprovementConfig>,
   ): Promise<{
     workflow: AIGeneratedWorkflow;
     qualityScore: QualityScore;
     improvement: ImprovementResult;
   }> {
-    return this.generationService.generateWorkflowWithQualityLoop(request, qualityConfig);
+    return this.generationService.generateWorkflowWithQualityLoop(request, mode, qualityConfig);
   }
   /**
    * Suggest improvements to an existing workflow

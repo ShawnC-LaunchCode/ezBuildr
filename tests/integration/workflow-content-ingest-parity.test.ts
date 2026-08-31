@@ -358,8 +358,14 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
           title: 'Page 1',
           order: 0,
           steps: [
-            { id: 'step_1', type: 'yes_no', title: 'Do you have pets?', alias: 'has_pets', required: false },
-            { id: 'step_2', type: 'short_text', title: 'Pet name', alias: 'pet_name', required: false },
+            {
+              id: 'step_1', type: 'boolean', title: 'Do you have pets?', alias: 'has_pets', required: false,
+              config: { trueLabel: 'Yes', falseLabel: 'No', displayStyle: 'buttons' },
+            },
+            {
+              id: 'step_2', type: 'text', title: 'Pet name', alias: 'pet_name', required: false,
+              config: { variant: 'short' },
+            },
           ],
         },
       ],

@@ -9,6 +9,7 @@ import {
 } from "../../shared/types/ai";
 import { createLogger } from "../logger";
 import { createAIServiceFromEnv } from "../services/AIService";
+import { accountService } from "../services/AccountService";
 import { geminiService } from "../services/geminiService";
 import { variableService } from "../services/VariableService";
 import { workflowService } from "../services/WorkflowService";
@@ -147,8 +148,13 @@ export class AiController {
         const userId = authReq.userId;
 
         try {
+            if (!userId) {
+                res.status(401).json({ message: 'Authentication required' });
+                return;
+            }
             // Validate request body
             const requestData = AIWorkflowGenerationRequestSchema.parse(req.body);
+            const { defaultMode } = await accountService.getPreferences(userId);
 
             aiLogger.info({
                 userId,
@@ -161,7 +167,7 @@ export class AiController {
             const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate workflow
-            const generatedWorkflow = await aiService.generateWorkflow(requestData);
+            const generatedWorkflow = await aiService.generateWorkflow(requestData, defaultMode);
 
             const duration = Date.now() - startTime;
 

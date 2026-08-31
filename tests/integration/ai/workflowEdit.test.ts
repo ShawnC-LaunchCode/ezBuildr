@@ -13,12 +13,16 @@ import { buildTestWhen } from '../../helpers/conditionFixtures';
 import { getOwnerDb } from "../../helpers/ownerDb";
 import { setCurrentTenantId } from "../../../server/utils/rlsContext";
 import { createBareTestApp } from "../../helpers/testApp";
-const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
-  mockUserId: crypto.randomUUID(),
-  mockTenantId: crypto.randomUUID(),
-  authConfig: { shouldFail: false },
-  mockGenerateContent: vi.fn(),
-}));
+const { mockUserId, mockTenantId, authConfig, mockGenerateContent, mockGetGenerativeModel } = vi.hoisted(() => {
+  const generateContent = vi.fn();
+  return {
+    mockUserId: crypto.randomUUID(),
+    mockTenantId: crypto.randomUUID(),
+    authConfig: { shouldFail: false },
+    mockGenerateContent: generateContent,
+    mockGetGenerativeModel: vi.fn((..._args: unknown[]) => ({ generateContent })),
+  };
+});
 // Mock authentication middleware
 
 vi.mock('../../../server/middleware/auth', () => ({
@@ -70,8 +74,8 @@ vi.mock('@google/generative-ai', () => {
   return {
     GoogleGenerativeAI: class {
       constructor(_apiKey?: string) { }
-      getGenerativeModel() {
-        return { generateContent: mockGenerateContent };
+      getGenerativeModel(...args: unknown[]) {
+        return mockGetGenerativeModel(...args);
       }
     },
   };
@@ -124,6 +128,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
     // Reset mock to default AI response for each test
     mockGenerateContent.mockReset();
+    mockGetGenerativeModel.mockClear();
     mockGenerateContent.mockResolvedValue({
       response: {
         text: () => JSON.stringify({
@@ -217,6 +222,213 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();
   });
+  it('uses the Easy vocabulary and persists a canonical Easy model patch (STB-16 vertical proof)', async () => {
+    await getOwnerDb().update(users).set({ defaultMode: 'easy' }).where(eq(users.id, testUserId));
+    await getOwnerDb().update(workflows).set({ modeOverride: null }).where(eq(workflows.id, testWorkflowId));
+    mockGenerateContent.mockResolvedValueOnce({
+      response: {
+        text: () => JSON.stringify({
+          ops: [
+            { op: 'page.create', tempId: 'easy-page', title: 'Easy page', order: 1 },
+            {
+              op: 'step.create',
+              pageRef: 'easy-page',
+              type: 'text',
+              title: 'Easy name',
+              alias: 'easy_name',
+              config: { variant: 'short' },
+            },
+          ],
+          summary: ['Added a short text question'],
+          warnings: [],
+          questions: [],
+          confidence: 0.95,
+        }),
+      },
+    });
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a short name question' })
+      .expect(200);
+
+    const modelParams = mockGetGenerativeModel.mock.calls.at(-1)?.[0] as { systemInstruction?: string };
+    expect(modelParams.systemInstruction).toContain('for easy mode');
+    expect(modelParams.systemInstruction).toContain('Short Text => {"variant":"short"}');
+    expect(modelParams.systemInstruction).not.toContain('- js_question');
+    const [stored] = await getOwnerDb().select().from(steps).where(eq(steps.alias, 'easy_name'));
+    expect(stored.type).toBe('text');
+    expect(stored.config).toEqual({ variant: 'short' });
+  });
+
+  it('lets a workflow Advanced override win and persists an Advanced-only canonical type', async () => {
+    await getOwnerDb().update(users).set({ defaultMode: 'easy' }).where(eq(users.id, testUserId));
+    await getOwnerDb().update(workflows).set({ modeOverride: 'advanced' }).where(eq(workflows.id, testWorkflowId));
+    mockGenerateContent.mockResolvedValueOnce({
+      response: {
+        text: () => JSON.stringify({
+          ops: [
+            { op: 'page.create', tempId: 'advanced-page', title: 'Advanced page', order: 1 },
+            {
+              op: 'step.create',
+              pageRef: 'advanced-page',
+              type: 'js_question',
+              title: 'Derived value',
+              alias: 'advanced_value',
+              config: { display: 'hidden', code: 'return 1;', inputKeys: [], outputKey: 'result' },
+            },
+          ],
+          summary: ['Added an advanced JavaScript question'],
+          warnings: [],
+          questions: [],
+          confidence: 0.9,
+        }),
+      },
+    });
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add an advanced derived value' })
+      .expect(200);
+
+    const modelParams = mockGetGenerativeModel.mock.calls.at(-1)?.[0] as { systemInstruction?: string };
+    expect(modelParams.systemInstruction).toContain('for advanced mode');
+    expect(modelParams.systemInstruction).toContain('- js_question:');
+    const [stored] = await getOwnerDb().select().from(steps).where(eq(steps.alias, 'advanced_value'));
+    expect(stored.type).toBe('js_question');
+    expect(stored.config).toMatchObject({ outputKey: 'result' });
+  });
+
+  it.each([
+    {
+      label: 'Advanced-only type',
+      step: {
+        op: 'step.create', pageRef: 'forbidden-page', type: 'js_question', title: 'Hidden code', alias: 'forbidden_type',
+        config: { display: 'hidden', code: 'return 1;', inputKeys: [], outputKey: 'result' },
+      },
+      expected: 'forbids step type "js_question"',
+    },
+    {
+      label: 'Advanced-only key',
+      step: {
+        op: 'step.create', pageRef: 'forbidden-page', type: 'number', title: 'Formatted number', alias: 'forbidden_key',
+        config: { mode: 'number', formatOnInput: true },
+      },
+      expected: 'formatOnInput',
+    },
+  ])('rejects a model-returned Easy $label before applying any op', async ({ step, expected }) => {
+    await getOwnerDb().update(users).set({ defaultMode: 'easy' }).where(eq(users.id, testUserId));
+    await getOwnerDb().update(workflows).set({ modeOverride: null }).where(eq(workflows.id, testWorkflowId));
+    mockGenerateContent.mockResolvedValueOnce({
+      response: {
+        text: () => JSON.stringify({
+          ops: [
+            { op: 'page.create', tempId: 'forbidden-page', title: 'Must not exist', order: 1 },
+            step,
+          ],
+          summary: [],
+          warnings: [],
+          questions: [],
+          confidence: 0.8,
+        }),
+      },
+    });
+
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Return a forbidden Easy capability' })
+      .expect(400);
+
+    expect(response.body.details[0]).toContain(expected);
+    const writtenPages = await getOwnerDb().select().from(pages).where(eq(pages.workflowId, testWorkflowId));
+    expect(writtenPages).toHaveLength(0);
+  });
+
+  it('rejects caller-supplied Easy ops with an Advanced-only key at the application boundary', async () => {
+    await getOwnerDb().update(users).set({ defaultMode: 'easy' }).where(eq(users.id, testUserId));
+    await getOwnerDb().update(workflows).set({ modeOverride: null }).where(eq(workflows.id, testWorkflowId));
+    const [page] = await getOwnerDb().insert(pages).values({
+      workflowId: testWorkflowId,
+      title: 'Existing page',
+      order: 1,
+      config: {},
+    }).returning();
+
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Apply a reviewed number question',
+        ops: [{
+          op: 'step.create',
+          pageId: page.id,
+          type: 'number',
+          title: 'Forbidden formatting',
+          alias: 'caller_forbidden_key',
+          config: { mode: 'number', formatOnInput: true },
+        }],
+      })
+      .expect(400);
+
+    expect(response.body.details[0]).toContain('formatOnInput');
+    const written = await getOwnerDb().select().from(steps).where(eq(steps.alias, 'caller_forbidden_key'));
+    expect(written).toHaveLength(0);
+  });
+
+  it('denies tenant B from applying a patch to tenant A workflow rows', async () => {
+    const tenantBId = crypto.randomUUID();
+    const userBId = crypto.randomUUID();
+    const [tenantB] = await getOwnerDb().insert(tenants).values({
+      id: tenantBId,
+      name: 'Tenant B',
+      plan: 'pro',
+    }).returning();
+    const [userB] = await getOwnerDb().insert(users).values({
+      id: userBId,
+      email: `tenant-b-${userBId}@example.com`,
+      fullName: 'Tenant B User',
+      tenantId: tenantB.id,
+    }).returning();
+    const [projectB] = await getOwnerDb().insert(projects).values({
+      title: 'Tenant B Project',
+      name: 'Tenant B Project',
+      creatorId: userB.id,
+      createdBy: userB.id,
+      ownerId: userB.id,
+      tenantId: tenantB.id,
+    }).returning();
+    const [workflowB] = await getOwnerDb().insert(workflows).values({
+      title: 'Tenant B Workflow',
+      projectId: projectB.id,
+      status: 'active',
+      creatorId: userB.id,
+      ownerId: userB.id,
+    }).returning();
+    const [pageB] = await getOwnerDb().insert(pages).values({
+      workflowId: workflowB.id,
+      title: 'Tenant B Page',
+      order: 1,
+      config: {},
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${workflowB.id}/ai/edit`)
+        .send({ userMessage: 'Cross tenant attempt' });
+
+      expect([403, 404, 500]).toContain(response.status);
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+      const tenantBSteps = await getOwnerDb().select().from(steps).where(eq(steps.pageId, pageB.id));
+      expect(tenantBSteps).toHaveLength(0);
+    } finally {
+      await getOwnerDb().delete(steps).where(eq(steps.pageId, pageB.id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, workflowB.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflowB.id));
+      await getOwnerDb().delete(projects).where(eq(projects.id, projectB.id));
+      await getOwnerDb().delete(users).where(eq(users.id, userB.id));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantB.id));
+    }
+  });
+
   it('should enforce draft mode (revert active workflow to draft)', async () => {
     // Verify workflow starts as active
     const [workflowBefore] = await getOwnerDb().select()
@@ -325,7 +537,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
               op: 'step.create',
               tempId: 'temp-step-emergency-name',
               pageRef: 'temp-page-emergency',
-              type: 'short_text',
+              type: 'text',
+              config: { variant: 'short' },
               title: 'Emergency Contact Name',
               alias: 'emergency_contact_name',
               required: true,
@@ -459,7 +672,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
             {
               op: 'step.create',
               pageId: page.id,
-              type: 'short_text',
+              type: 'text',
+              config: { variant: 'short' },
               title: 'Backup Email',
               alias: 'email', // Duplicate!
               required: false,
@@ -657,7 +871,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     mockGenerateContent.mockResolvedValueOnce({
       response: {
         text: () => JSON.stringify({
-          ops: [{ op: 'step.create', pageId: foreignPage.id, type: 'short_text', title: 'INJECTED' }],
+          ops: [{
+            op: 'step.create',
+            pageId: foreignPage.id,
+            type: 'text',
+            title: 'INJECTED',
+            config: { variant: 'short' },
+          }],
           summary: [],
           warnings: [],
           questions: [],
@@ -960,10 +1180,13 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
             {
               op: 'step.create',
               pageRef: 's1',
-              type: 'radio',
+              type: 'choice',
               title: 'Preferred contact method',
               alias: 'contact_method',
-              config: { options: [{ label: 'Email', value: 'email' }, { label: 'Phone', value: 'phone' }] },
+              config: {
+                display: 'radio',
+                options: [{ id: 'email', label: 'Email' }, { id: 'phone', label: 'Phone' }],
+              },
             },
             {
               op: 'step.create',
@@ -971,7 +1194,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
               type: 'number',
               title: 'Household size',
               alias: 'household_size',
-              config: { validation: { min: 1, max: 12 } },
+              config: { mode: 'number', validation: { min: 1, max: 12 } },
             },
           ],
           summary: ['Added preferences'],
@@ -993,7 +1216,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
     expect(choice).toBeDefined();
     expect((choice!.config as { options?: unknown[] }).options).toHaveLength(2);
-    expect((choice!.config as { options?: { value: string }[] }).options?.map((o) => o.value))
+    expect((choice!.config as { options?: { id: string }[] }).options?.map((o) => o.id))
       .toEqual(['email', 'phone']);
 
     expect(numeric).toBeDefined();
@@ -1011,11 +1234,11 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const [step] = await getOwnerDb().insert(steps).values({
       workflowId: testWorkflowId,
       pageId: page.id,
-      type: 'radio',
+      type: 'choice',
       title: 'Colour',
       alias: 'colour',
       order: 1,
-      config: { options: [{ label: 'Red', value: 'red' }] },
+      config: { display: 'radio', options: [{ id: 'red', label: 'Red' }] },
     }).returning();
 
     await request(app)
@@ -1025,13 +1248,16 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         ops: [{
           op: 'step.update',
           id: step.id,
-          config: { options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }] },
+          config: {
+            display: 'radio',
+            options: [{ id: 'red', label: 'Red' }, { id: 'blue', label: 'Blue' }],
+          },
         }],
       })
       .expect(200);
 
     const [updated] = await getOwnerDb().select().from(steps).where(eq(steps.id, step.id));
-    expect((updated.config as { options?: { value: string }[] }).options?.map((o) => o.value))
+    expect((updated.config as { options?: { id: string }[] }).options?.map((o) => o.id))
       .toEqual(['red', 'blue']);
   });
 

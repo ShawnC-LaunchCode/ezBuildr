@@ -6,6 +6,8 @@ import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowRateLimit, aiDailyRateLimit } from "../../middleware/ai.middleware";
 import { buildOpsDiff } from "@shared/aiOpsDiff";
+import { validateWorkflowPatchOpsForMode } from "@shared/aiVocabulary";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { AIError } from "../../services/ai/AIError";
@@ -20,6 +22,7 @@ import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
 import type { AuthRequest } from "../../middleware/auth";
+import type { Mode } from "@shared/mode";
 import type {
   AiEditProposal,
   AiModelResponse,
@@ -117,15 +120,20 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           ...workflowDetails,
           sections: await sectionService.getSections(workflowId, userId),
         } as unknown as WorkflowWithDetails;
+        const { mode } = await workflowService.getResolvedMode(workflowId, userId);
 
         // 3. Propose-only (dry run): generate ops and return them with a diff.
         // Nothing is written — no snapshot, no version, no rows — so Discard on
         // the client is genuinely a no-op (ICW2-10).
         if (requestData.dryRun === true) {
-          return await proposeEdit(res, requestData, currentWorkflow, workflowId, authReq.tenantId);
+          return await proposeEdit(res, requestData, currentWorkflow, {
+            workflowId,
+            mode,
+            tenantId: authReq.tenantId,
+          });
         }
 
-        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, tenantId: authReq.tenantId });
+        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, mode, tenantId: authReq.tenantId });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const actual = error instanceof Error ? error.message : "";
@@ -182,15 +190,14 @@ function respondToModelFailure(res: Response, error: unknown, workflowId: string
 async function generateOps(
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
+  mode: Mode,
   tenantId?: string,
 ): Promise<AiModelResponse> {
-  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
+  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt(mode);
   return callAiForWorkflowEdit(
     requestData.userMessage ?? '',
     currentWorkflow,
-    requestData.preferences,
-    systemPromptTemplate,
-    tenantId,
+    { preferences: requestData.preferences, systemPromptTemplate, mode, tenantId },
   );
 }
 
@@ -201,12 +208,12 @@ async function proposeEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
-  workflowId: string,
-  tenantId?: string,
+  ctx: { workflowId: string; mode: Mode; tenantId?: string },
 ): Promise<Response> {
+  const { workflowId, mode, tenantId } = ctx;
   let aiResponse: AiModelResponse;
   try {
-    aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+    aiResponse = await generateOps(requestData, currentWorkflow, mode, tenantId);
   } catch (error) {
     return respondToModelFailure(res, error, workflowId);
   }
@@ -235,9 +242,9 @@ async function applyEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
-  ctx: { workflowId: string; userId: string; tenantId?: string },
+  ctx: { workflowId: string; userId: string; mode: Mode; tenantId?: string },
 ): Promise<Response> {
-  const { workflowId, userId, tenantId } = ctx;
+  const { workflowId, userId, mode, tenantId } = ctx;
   // Create BEFORE snapshot.
   // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
   // exists, so if we cannot create one we abort before mutating anything
@@ -273,7 +280,7 @@ async function applyEdit(
   } else {
     let aiResponse: AiModelResponse;
     try {
-      aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+      aiResponse = await generateOps(requestData, currentWorkflow, mode, tenantId);
     } catch (error) {
       return respondToModelFailure(res, error, workflowId);
     }
@@ -368,10 +375,14 @@ async function applyEdit(
 async function callAiForWorkflowEdit(
   userMessage: string,
   currentWorkflow: WorkflowWithDetails,
-  preferences?: z.infer<typeof aiPreferencesSchema>,
-  systemPromptTemplate?: string,
-  tenantId?: string,
+  options: {
+    preferences?: z.infer<typeof aiPreferencesSchema>;
+    systemPromptTemplate?: string;
+    mode: Mode;
+    tenantId?: string;
+  },
 ): Promise<AiModelResponse> {
+  const { preferences, systemPromptTemplate, mode, tenantId } = options;
   // maxTokens raised above the provider's 4k default to fit larger edit outputs.
   // tenantId (ICW2-B7): when present, AIProviderClient enforces/records the
   // per-tenant AI budget for this call; omitted callers get no enforcement.
@@ -439,6 +450,19 @@ Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
     });
   }
 
+  const existingStepTypes = new Map(
+    currentWorkflow.pages.flatMap((page) => page.steps.map((step) => [step.id, step.type] as const)),
+  );
+  try {
+    validateWorkflowPatchOpsForMode(validationResult.data.ops, mode, existingStepTypes);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI patch violates the workflow mode";
+    throw Object.assign(new Error(message), {
+      code: 'VALIDATION_ERROR',
+      details: [{ message }],
+    });
+  }
+
   return validationResult.data;
 }
 /**
@@ -488,7 +512,8 @@ Sections: ${sections.length}
 Steps: ${steps.length}
 `;
     for (const step of steps) {
-      context += `  - [${step.type}] ${step.title}`;
+      const canonicalStep = adaptLegacyStep(step);
+      context += `  - [${canonicalStep.type}] ${step.title}`;
       if (step.alias) { context += ` (alias: ${step.alias})`; }
       if (step.required) { context += ` [REQUIRED]`; }
       if (step.visibleIf) { context += ` [CONDITIONAL]`; }

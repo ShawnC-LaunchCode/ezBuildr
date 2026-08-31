@@ -12,6 +12,9 @@ import type {
   AIConnectLogicRequest,
   AIVisualizeLogicRequest,
 } from '../../../shared/types/ai';
+import { buildStepTypeCatalog } from '../../../shared/aiVocabulary';
+
+import type { Mode } from '../../../shared/mode';
 
 export class AIPromptBuilder {
   /**
@@ -32,7 +35,7 @@ export class AIPromptBuilder {
   /**
    * Build the prompt for workflow generation
    */
-  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): { systemMessage: string; userPrompt: string } {
+  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest, mode: Mode): { systemMessage: string; userPrompt: string } {
     const constraints = request.constraints ?? {};
     const maxPages = constraints.maxPages ?? 10;
     const maxStepsPerPage = constraints.maxStepsPerPage ?? 10;
@@ -71,7 +74,7 @@ Output a JSON object with this exact structure:
       "steps": [
         {
           "id": "unique_step_id",
-          "type": "short_text|long_text|multiple_choice|radio|checkbox|yes_no|date_time|file_upload",
+          "type": "canonical type from the mode catalog below",
           "title": "Question or field title",
           "description": "Optional description",
           "alias": "camelCaseVariableName",
@@ -127,7 +130,7 @@ CRITICAL CONSTRAINTS:
 - ALWAYS generate a descriptive, meaningful alias for EVERY step - NEVER leave empty
 - All IDs must be unique and use lowercase_with_underscores format
 - Step titles must be clear questions or instructions (e.g., "What is your full name?" not "Name")
-- For multiple_choice, radio types, ALWAYS include config.options as array of strings (minimum 2 options)
+- For choice, ALWAYS include config.options with at least 2 canonical option objects
 - Transform block code MUST call emit(value) exactly once
 - NO network calls or file system access in transform blocks
 - Every page "sectionId" must match a "sections[].id" or be null
@@ -135,23 +138,10 @@ CRITICAL CONSTRAINTS:
   unbroken run of pages and can never be empty. A workflow whose sections
   interleave is rejected outright, so order the pages section by section.
 
-STEP TYPE SELECTION GUIDE:
-- **short_text**: Names, titles, single-line answers (< 100 chars)
-- **long_text**: Descriptions, explanations, comments (> 100 chars)
-- **email**: Email addresses (use this instead of short_text for emails)
-- **phone**: Phone numbers with formatting
-- **number**: Numeric values, quantities, counts
-- **currency**: Money amounts (auto-formats with $ symbol)
-- **date**: Date selection without time
-- **date_time**: Date with time selection
-- **radio**: Single selection from 2-7 options (mutually exclusive)
-- **multiple_choice**: Multi-select from 2-10 options (checkboxes)
-- **yes_no**: Simple binary choice
-- **scale**: Rating or scale (1-5, 1-10, etc.)
-- **address**: Full mailing address
-- **website**: URLs with validation
-- **file_upload**: Document or image uploads
-- **display**: Information-only, no input required
+STEP TYPE CATALOG FOR ${mode.toUpperCase()} MODE:
+Friendly preset names below map to canonical stored types/configs; never use a
+preset label or a retired alias as the step type.
+${buildStepTypeCatalog(mode)}
 
 SECTION GUIDANCE:
 - Sections are the chapter above pages: use them to group a run of related

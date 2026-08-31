@@ -2253,7 +2253,7 @@ the `process.cwd()` runtime-asset trap was checked rather than assumed.
 With internal behavior complete, this phase makes AI and every ingest/export boundary strict. No boundary accepts
 legacy names “for convenience”; the upcoming backfill is the only converter.
 
-## STB-16 — Make AI vocabulary and validation mode-aware and canonical-only 🔲
+## STB-16 — Make AI vocabulary and validation mode-aware and canonical-only ✅
 
 **Priority: P1** · Size: M · File: `shared/aiVocabulary.ts`
 
@@ -2300,6 +2300,41 @@ STB-1's temporary exclusions; schema membership is again safe because Phase 2 pr
 4. AI output and patches always persist canonical types/configs.
 5. Tests prove prompt and enforcement for both modes, including a model returning a forbidden key/type.
 6. STB-1 temporary containment is deleted; Vertical proof and standard gates pass.
+
+### Review notes
+
+**Round 1 — 2026-08-31 — ✅ PASSED, committed.** First ticket of the initiative to pass on its first round.
+Reviewer-run gates, all six, matching the dev's report exactly: test:fast 330 files / 3,668 (3,662 + 6);
+test:unit 349 / 3,848; test:integration 136 / 1,251 passed + 3 skipped (1,245 + 6); type-check 0; lint 0;
+strict-zones 6/6.
+
+Verified independently rather than accepted:
+
+- **Containment is gone (AC 6).** `TEMPORARY_CONFIG_KEY_EXCLUSIONS`, `validateConfigKeyExclusions`, its
+  module-load call and the audited copy in the test all return zero matches.
+- **One `resolveMode`, not two.** It moved to `shared/mode.ts`; `client/src/lib/mode.ts` re-exports rather than
+  keeping a copy, so client and server cannot drift. `WorkflowService.getResolvedMode` reads
+  `workflow.modeOverride` and `user.defaultMode` behind `verifyAccess`. No zustand mirror (CLAUDE.md #8, O-10).
+- **Mode reaches enforcement, not just the prompt.** Generation validates the *model's output* via
+  `validateGeneratedWorkflowForMode`; the edit route and `WorkflowPatchService` both resolve mode and call
+  `validateWorkflowPatchOpsForMode`, the service doing so inside the transaction.
+- **AC 5 is real.** The integration test POSTs an Easy patch carrying the Advanced-only `formatOnInput`, asserts
+  400, and then asserts `written).toHaveLength(0)` — rejection *and* absence of side effect. Cross-tenant denial
+  builds a genuine second tenant.
+- **`signature_block` handled without inventing a contract**, as instructed: the catalog line reads
+  `(no config contract; omit config)`, omitted config validates, invented config rejects. STB-17's schema work
+  is left untouched.
+
+**A number that looks wrong and is not.** Both catalogs measure exactly **1,718 characters** despite Easy
+carrying 13 types and Advanced 18. The reviewer measured it rather than assuming a copy-paste error: the strings
+differ (13 vs 18 lines), and the lengths coincide because Easy has fewer types but annotates each with its
+friendly presets while Advanced lists more types more tersely. Vocabulary totals are 4,126 (Easy) and 4,130
+(Advanced), roughly 21% below the previous static 5,213 and well inside the 8,000 budget.
+
+The Easy/Advanced split matches Decision 4 exactly — `storeAsBoolean`/`trueAlias`/`falseAlias`,
+`searchable`/`randomizeOrder` and email's `restrictDomains`/`blockDomains` are Advanced-only, while Easy carries
+the Decision 3 presets.
+
 
 ---
 

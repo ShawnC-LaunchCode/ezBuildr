@@ -44,6 +44,7 @@ import { RUNNER_RENDERED_STEP_TYPES } from "../../../shared/types/runnerStepType
 import { resolveTextConfig, type TextAdvancedConfig } from "../../../shared/types/stepConfigs";
 import { createLogger } from "../../logger";
 import { createAIServiceFromEnv } from "../AIService";
+import { accountService } from "../AccountService";
 import { projectService } from "../ProjectService";
 
 const logger = createLogger({ module: "document-onboarding-service" });
@@ -122,6 +123,7 @@ export class DocumentOnboardingService {
     const placeholders = input.variables.map((v) => v.name);
 
     const aiService = createAIServiceFromEnv(tenantId);
+    const { defaultMode } = await accountService.getPreferences(userId);
     const generated = await aiService.generateWorkflow({
       description,
       projectId: input.projectId,
@@ -130,7 +132,7 @@ export class DocumentOnboardingService {
         maxPages: 10,
         maxStepsPerPage: Math.max(input.variables.length, 5),
       },
-    });
+    }, defaultMode);
 
     const overlaid = this.overlayApprovedFields(generated, input.variables);
 
@@ -250,7 +252,7 @@ export class DocumentOnboardingService {
 
   /** Explicit old-row/AI-output adapter; generated definitions leave this service canonical. */
   private canonicalizeTextStep(step: AIGeneratedStep): AIGeneratedStep {
-    if (step.type !== "text" && step.type !== "short_text" && step.type !== "long_text") {
+    if (step.type !== "text") {
       return step;
     }
     return {

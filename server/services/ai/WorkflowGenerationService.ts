@@ -5,6 +5,7 @@ import {
     AIGeneratedWorkflow,
     DEFAULT_MIN_QUALITY_SCORE,
 } from '../../../shared/types/ai';
+import { validateGeneratedWorkflowForMode } from '../../../shared/aiVocabulary';
 import { createLogger } from '../../logger';
 import { QualityScore, workflowQualityValidator } from '../WorkflowQualityValidator';
 
@@ -13,7 +14,6 @@ import { AIPromptBuilder } from './AIPromptBuilder';
 import { AIProviderClient } from './AIProviderClient';
 import {
     createAIError,
-    normalizeWorkflowTypes,
     validateWorkflowStructure,
 } from './AIServiceUtils';
 import {
@@ -21,6 +21,8 @@ import {
     QualityImprovementConfig,
     ImprovementResult,
 } from './IterativeQualityImprover';
+
+import type { Mode } from '../../../shared/mode';
 
 /**
  * Get the minimum quality threshold from various sources
@@ -68,12 +70,13 @@ export class WorkflowGenerationService {
      */
     async generateWorkflow(
         request: AIWorkflowGenerationRequest,
+        mode: Mode,
     ): Promise<AIGeneratedWorkflow> {
         const startTime = Date.now();
         const minQualityThreshold = getMinQualityThreshold(request.minQualityScore);
 
         try {
-            const prompt = this.promptBuilder.buildWorkflowGenerationPrompt(request);
+            const prompt = this.promptBuilder.buildWorkflowGenerationPrompt(request, mode);
             const response = await this.client.callLLM(prompt.userPrompt, 'workflow_generation', prompt.systemMessage);
 
             // Parse and validate the response
@@ -81,8 +84,7 @@ export class WorkflowGenerationService {
             const parsed = JSON.parse(response);
             const validated = AIGeneratedWorkflowSchema.parse(parsed);
 
-            // Validate and Normalize workflow structure
-            normalizeWorkflowTypes(validated);
+            validateGeneratedWorkflowForMode(validated, mode);
             validateWorkflowStructure(validated);
 
             // Quality validation
@@ -171,6 +173,7 @@ export class WorkflowGenerationService {
      */
     async generateWorkflowWithQualityLoop(
         request: AIWorkflowGenerationRequest,
+        mode: Mode,
         qualityConfig?: Partial<QualityImprovementConfig>,
     ): Promise<{
         workflow: AIGeneratedWorkflow;
@@ -190,7 +193,7 @@ export class WorkflowGenerationService {
         // We temporarily set minQualityScore to 0 to allow the initial generation to pass
         // The quality loop will try to improve it, and we'll check threshold at the end
         const initialRequest = { ...request, minQualityScore: 0 };
-        const initialWorkflow = await this.generateWorkflow(initialRequest);
+        const initialWorkflow = await this.generateWorkflow(initialRequest, mode);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         const initialQualityScore = (initialWorkflow as any).__qualityScore as QualityScore;
 

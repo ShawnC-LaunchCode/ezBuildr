@@ -13,6 +13,7 @@ import {
   type DbTransaction,
 } from "../repositories";
 import { withCurrentTenant } from "../utils/rlsContext";
+import { parseStepConfigForMode, validateWorkflowPatchOpsForMode } from "@shared/aiVocabulary";
 import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
@@ -27,6 +28,7 @@ const PAGE_REF_REQUIRED = "Page ID or tempId required";
  * Used by AI workflow editing system
  */
 import type { StepType } from "../../shared/types/workflow";
+import type { Mode } from "@shared/mode";
 
 export class WorkflowPatchService {
   private tempIdMap: Map<string, string> = new Map();
@@ -119,11 +121,35 @@ export class WorkflowPatchService {
   ): Promise<{ summary: string[]; errors: string[] }> {
     const summary: string[] = [];
     const errors: string[] = [];
+    let mode: Mode = "easy";
     this.clearMappings();
     // Validate all ops before applying. One tenant-scoped transaction for the
     // whole pass — every check inside is a read, so there is no reason to open
     // (and pin the GUC on) one per op.
     await this.withTx(undefined, async (tx) => {
+      mode = (await workflowService.getResolvedMode(workflowId, userId, tx)).mode;
+      const parsedOps: WorkflowPatchOp[] = [];
+      for (const op of ops) {
+        const parsed = workflowPatchOpSchema.safeParse(op);
+        if (!parsed.success) {
+          errors.push(`Validation failed for ${op.op}: Invalid operation schema: ${parsed.error.issues[0].message}`);
+          continue;
+        }
+        parsedOps.push(parsed.data);
+      }
+      if (errors.length > 0) { return; }
+      const existingSteps = await this.stepRepository.findByWorkflowId(workflowId, tx) ?? [];
+      try {
+        validateWorkflowPatchOpsForMode(
+          parsedOps,
+          mode,
+          new Map(existingSteps.map((step) => [step.id, step.type])),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown mode validation error";
+        errors.push(`Validation failed for workflow patch: ${message}`);
+        return;
+      }
       for (const op of ops) {
         try {
           await this.validateOp(workflowId, op, tx);
@@ -139,7 +165,7 @@ export class WorkflowPatchService {
     // Apply ops sequentially (order matters for tempId resolution)
     for (const op of ops) {
       try {
-        const result = await this.applyOp(workflowId, userId, op);
+        const result = await this.applyOp(workflowId, userId, op, mode);
         summary.push(result);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -268,9 +294,10 @@ export class WorkflowPatchService {
   private async applyOp(
     workflowId: string,
     userId: string,
-    op: WorkflowPatchOp
+    op: WorkflowPatchOp,
+    mode: Mode,
   ): Promise<string> {
-    return this.withTx(undefined, (tx) => this.applyOpInTx(workflowId, userId, op, tx));
+    return this.withTx(undefined, (tx) => this.applyOpInTx(workflowId, userId, op, mode, tx));
   }
   /**
    * The operation body. Every DB call here takes the caller's `tx` so the whole
@@ -284,6 +311,7 @@ export class WorkflowPatchService {
     workflowId: string,
     userId: string,
     op: WorkflowPatchOp,
+    mode: Mode,
     tx: DbTransaction
   ): Promise<string> {
     switch (op.op) {
@@ -446,6 +474,7 @@ export class WorkflowPatchService {
         await this.assertEntityBelongsToWorkflow(pageId, workflowId, 'page', tx);
         // Get max order for this page if not specified
         const order = op.order ?? await this.getNextStepOrder(pageId, tx);
+        const canonicalConfig = parseStepConfigForMode(op.type, op.config, mode);
         const step = await this.stepRepository.create({
           workflowId,
           pageId,
@@ -456,7 +485,7 @@ export class WorkflowPatchService {
           order,
           // Without this, choice steps land with no options and date/number
           // steps with no validation — the ICW2-2 defect, at the ops seam.
-          config: op.config,
+          config: canonicalConfig,
           defaultValue: op.defaultValue,
         }, tx);
         if (op.tempId) {
@@ -470,12 +499,18 @@ export class WorkflowPatchService {
         // eslint-disable-next-line sonarjs/no-duplicate-string
         if (!stepId) { throw new Error("Step ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
+        const existingStep = await this.stepRepository.findById(stepId, tx);
+        if (!existingStep) { throw new Error(`Step not found: ${stepId}`); }
+        const effectiveType = op.type ?? existingStep.type;
+        const canonicalConfig = op.config === undefined
+          ? undefined
+          : parseStepConfigForMode(effectiveType, op.config, mode);
         await this.stepRepository.update(stepId, {
           type: op.type as StepType,
           title: op.title,
           alias: op.alias,
           required: op.required,
-          config: op.config,
+          config: canonicalConfig,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ConditionExpression validated by Zod schema
           visibleIf: op.visibleIf as any,
           defaultValue: op.defaultValue,

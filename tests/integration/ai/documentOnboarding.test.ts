@@ -90,8 +90,14 @@ function mockGeneratedWorkflow() {
         title: 'Details',
         order: 0,
         steps: [
-          { id: 'step1', type: 'long_text', title: 'Client Name', alias: 'client_name', required: true },
-          { id: 'step2', type: 'short_text', title: 'Notes', alias: 'notes', required: false },
+          {
+            id: 'step1', type: 'text', title: 'Client Name', alias: 'client_name', required: true,
+            config: { variant: 'short' },
+          },
+          {
+            id: 'step2', type: 'text', title: 'Notes', alias: 'notes', required: false,
+            config: { variant: 'short' },
+          },
         ],
       },
     ],
@@ -174,7 +180,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     expect(clientNameStep?.type).toBe('text');
     expect(clientNameStep?.config).toEqual({ variant: 'long' });
 
-    // Unmatched AI content survives, but its legacy text identity is adapted at this creation boundary.
+    // Unmatched canonical AI content survives unchanged.
     const notesStep = allSteps.find((s) => s.alias === 'notes');
     expect(notesStep).toBeDefined();
     expect(notesStep?.type).toBe('text');

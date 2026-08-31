@@ -72,6 +72,7 @@ vi.mock('../../../server/repositories', () => ({
 vi.mock('../../../server/services/WorkflowService', () => ({
   workflowService: {
     updateWorkflow: vi.fn(),
+    getResolvedMode: vi.fn().mockResolvedValue({ mode: 'advanced', source: 'user' }),
   },
 }));
 // Shared mock functions
@@ -156,6 +157,7 @@ describe('WorkflowPatchService', () => {
     mockSectionSvcUpdate.mockReset();
     mockSectionSvcDelete.mockReset();
     mockSectionSvcSetPageSection.mockReset();
+    mockStepRepoFind.mockResolvedValue([]);
     mockPageSvcReorder.mockResolvedValue({ affectedSkipRules: [] });
 
     const repos = await import('../../../server/repositories');
@@ -240,7 +242,8 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.create',
           pageRef: 'temp-page-1', // References tempId
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Email',
           alias: 'email',
           required: true,
@@ -307,7 +310,8 @@ describe('WorkflowPatchService', () => {
           op: 'step.create',
           tempId: 'temp-step-1',
           pageRef: 'temp-page-1',
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Name',
           alias: 'name',
           required: true,
@@ -315,7 +319,8 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.create',
           pageRef: 'temp-page-1',
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Email',
           alias: 'email',
           required: true,
@@ -370,7 +375,8 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.create',
           pageId: 'page-1',
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Backup Email',
           alias: 'email', // Duplicate!
           required: false,
@@ -591,7 +597,8 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.create',
           pageRef: 'temp-page-1',
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Duplicate Email',
           alias: 'email', // Will fail validation!
           required: false,
@@ -648,7 +655,8 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.create',
           pageRef: 'temp-page-1', // Should NOT resolve to batch1's page
-          type: 'short_text',
+          type: 'text',
+          config: { variant: 'short' },
           title: 'Field 1',
           alias: 'field1',
         },

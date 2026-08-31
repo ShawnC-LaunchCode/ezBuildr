@@ -87,8 +87,8 @@ describe("validateWorkflowStructure - logic rule condition references", () => {
           title: "Page 1",
           order: 0,
           steps: [
-            { id: "step_1", type: "short_text", title: "Step 1", alias: "step1", required: false, visibleIf: null },
-            { id: "step_2", type: "short_text", title: "Step 2", alias: "step2", required: false, visibleIf: null },
+            { id: "step_1", type: "text", title: "Step 1", alias: "step1", required: false, visibleIf: null, config: { variant: "short" } },
+            { id: "step_2", type: "text", title: "Step 2", alias: "step2", required: false, visibleIf: null, config: { variant: "short" } },
           ],
         },
       ],

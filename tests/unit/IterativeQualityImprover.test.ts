@@ -42,7 +42,7 @@ describe('IterativeQualityImprover', () => {
         steps: [
           {
             id: 'step-1',
-            type: 'short_text' as const,
+            type: 'text' as const,
             title: 'First Name',
             alias: score >= 80 ? 'firstName' : 'field1', // Good alias if high score
             required: true,
@@ -50,7 +50,7 @@ describe('IterativeQualityImprover', () => {
           },
           {
             id: 'step-2',
-            type: (score >= 80 ? 'email' : 'short_text'), // Correct type if high score
+            type: (score >= 80 ? 'email' : 'text'), // Correct type if high score
             title: 'Email Address',
             alias: score >= 80 ? 'emailAddress' : 'field2',
             required: true,

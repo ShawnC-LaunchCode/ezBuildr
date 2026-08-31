@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { buildWorkflowVocabulary, getOpNames } from "@shared/aiVocabulary";
+import type { Mode } from "@shared/mode";
 import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
 
 import { db } from "../db";
@@ -22,11 +23,23 @@ Guidelines:
 - Always set a step "config" when the type takes one (a choice step with no
   options is unusable)
 
-${buildWorkflowVocabulary()}
+{{workflowVocabulary}}
 
 Role: {{interviewerRole}}
 Reading level: {{readingLevel}}
 Tone: {{tone}}`;
+
+/** Render the mode-specific canonical catalog into a prompt template. */
+export function renderWorkflowVocabulary(template: string, mode: Mode): string {
+    const vocabulary = buildWorkflowVocabulary(mode);
+    return template.includes('{{workflowVocabulary}}')
+        ? template.replace(/{{workflowVocabulary}}/g, vocabulary)
+        : `${template}\n\n${vocabulary}`;
+}
+
+export function buildDefaultSystemPrompt(mode: Mode): string {
+    return renderWorkflowVocabulary(DEFAULT_SYSTEM_PROMPT, mode);
+}
 /**
  * Operations the platform supports that a given prompt never names.
  *
@@ -49,12 +62,9 @@ export class AiSettingsService {
      * NOTE: per-user / per-org overrides are not implemented. Re-add scoping
      * params here when that feature is scheduled (ICW-15).
      */
-    async getEffectivePrompt(): Promise<string> {
+    async getEffectivePrompt(mode: Mode): Promise<string> {
         const globalSettings = await this.getGlobalSettings();
-        if (globalSettings?.systemPrompt) {
-            return globalSettings.systemPrompt;
-        }
-        return DEFAULT_SYSTEM_PROMPT;
+        return renderWorkflowVocabulary(globalSettings?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT, mode);
     }
     /**
      * Get global AI settings

@@ -1,21 +1,8 @@
-/**
- * Mode System Utilities
- * Helpers for Easy/Advanced mode feature gating
- */
+/** Mode System Utilities — persisted mode resolution lives in shared/. */
+import type { Mode, ModeSource } from '@shared/mode';
 
-export type Mode = 'easy' | 'advanced';
-export type ModeSource = 'user' | 'workflow';
-
-/**
- * Resolve the effective mode for a workflow
- * Precedence: workflow.modeOverride ?? user.defaultMode
- */
-export function resolveMode(
-  workflowModeOverride: Mode | null | undefined,
-  userDefaultMode: Mode
-): Mode {
-  return workflowModeOverride ?? userDefaultMode;
-}
+export { resolveMode } from '@shared/mode';
+export type { Mode, ModeSource } from '@shared/mode';
 
 /**
  * Feature definitions for each mode

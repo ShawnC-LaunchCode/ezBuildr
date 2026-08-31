@@ -87,8 +87,14 @@ describe("AIGeneratedWorkflowSchema", () => {
           title: "Page 1",
           order: 0,
           steps: [
-            { id: "step_1", type: "yes_no", title: "Do you have pets?", alias: "hasPets", required: false },
-            { id: "step_2", type: "short_text", title: "Pet name", alias: "petName", required: false },
+            {
+              id: "step_1", type: "boolean", title: "Do you have pets?", alias: "hasPets", required: false,
+              config: { trueLabel: "Yes", falseLabel: "No", displayStyle: "buttons" },
+            },
+            {
+              id: "step_2", type: "text", title: "Pet name", alias: "petName", required: false,
+              config: { variant: "short" },
+            },
           ],
         },
       ],

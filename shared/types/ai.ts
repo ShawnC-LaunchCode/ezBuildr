@@ -8,56 +8,14 @@
 import { z } from 'zod';
 
 import { conditionExpressionSchema } from './conditions';
+import { CANONICAL_STEP_TYPES } from './stepConfigs';
 
 /**
  * AI-generated step (question/action) specification
  */
 export const AIGeneratedStepSchema = z.object({
   id: z.string().describe('Unique identifier for the step'),
-  type: z.enum([
-    // Legacy / Existing Types
-    'short_text',
-    'long_text',
-    'multiple_choice',
-    'radio',
-    'checkbox', // Kept for AI compatibility if used, though not in DB enum explicitly? (Check usage)
-    'yes_no',
-    'date_time',
-    'file_upload',
-    'computed',
-    'js_question',
-    'final_documents',
-    'signature_block',
-
-    // Easy Mode Types
-    'true_false',
-    'phone',
-    'date',
-    'time',
-    'datetime',
-    'email',
-    'number',
-    'currency',
-    'scale',
-    'website',
-    'display',
-    'address',
-    'final',
-
-    // Advanced Mode Types
-    'text',
-    'boolean',
-    'datetime_unified',
-    'choice',
-    'number_advanced',
-    'scale_advanced',
-    'address_advanced',
-    'multi_field',
-    'display_advanced',
-
-    // Structural Types
-    'list',
-  ]).describe('Step type (question type)'),
+  type: z.enum(CANONICAL_STEP_TYPES).describe('Canonical step type (question type)'),
   title: z.string().min(1).describe('Step title/question text'),
   description: z.string().nullable().optional().describe('Optional step description'),
   alias: z.string().nullable().optional().describe('Human-friendly variable name for this step'),

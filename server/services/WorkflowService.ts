@@ -5,6 +5,7 @@ import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, Acc
 import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
 import type { IntakeConfig } from "@shared/types/intake";
 import type { ConditionExpression } from "@shared/types/conditions";
+import { resolveMode, type Mode } from "@shared/mode";
 
 interface GraphConfig {
   title?: string;
@@ -499,17 +500,11 @@ export class WorkflowService {
       if (!user) {
         throw new Error("User not found");
       }
-      // If workflow has a mode override, use it
-      if (workflow.modeOverride) {
-        return {
-          mode: workflow.modeOverride as 'easy' | 'advanced',
-          source: 'workflow' as const,
-        };
-      }
-      // Otherwise, use user's default mode
+      const workflowMode = workflow.modeOverride as Mode | null;
+      const userMode = user.defaultMode as Mode;
       return {
-        mode: (user.defaultMode as 'easy' | 'advanced') || 'easy',
-        source: 'user' as const,
+        mode: resolveMode(workflowMode, userMode),
+        source: workflowMode === null ? 'user' as const : 'workflow' as const,
       };
     });
   }

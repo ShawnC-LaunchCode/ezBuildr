@@ -108,17 +108,19 @@ describe('AIService', () => {
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'First Name',
                 alias: 'firstName',
                 required: true,
+                config: { variant: 'short' },
               },
               {
                 id: 'step_2',
-                type: 'short_text',
+                type: 'text',
                 title: 'Last Name',
                 alias: 'lastName',
                 required: true,
+                config: { variant: 'short' },
               },
             ],
           },
@@ -135,7 +137,7 @@ describe('AIService', () => {
       const result = await openaiService.generateWorkflow({
         description: 'Create a form to collect personal information',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
@@ -172,7 +174,7 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
+        }, 'advanced')
       ).rejects.toThrow('Duplicate page IDs');
     });
 
@@ -187,15 +189,17 @@ describe('AIService', () => {
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 1',
                 alias: 'step1',
+                config: { variant: 'short' },
               },
               {
                 id: 'step_1', // Duplicate ID
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 2',
                 alias: 'step2',
+                config: { variant: 'short' },
               },
             ],
           },
@@ -212,7 +216,7 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
+        }, 'advanced')
       ).rejects.toThrow('Duplicate step ID');
     });
 
@@ -227,9 +231,10 @@ describe('AIService', () => {
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 1',
                 alias: 'step1',
+                config: { variant: 'short' },
               },
             ],
           },
@@ -254,7 +259,7 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
+        }, 'advanced')
       ).rejects.toThrow('references non-existent step alias');
     });
 
@@ -275,7 +280,7 @@ describe('AIService', () => {
         await openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        });
+        }, 'advanced');
         expect.fail('Should have thrown rate limit error');
       } catch (error: unknown) {
         // The service wraps/re-throws rate limit errors
@@ -294,7 +299,7 @@ describe('AIService', () => {
         await openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        });
+        }, 'advanced');
         expect.fail('Should have thrown parsing error');
       } catch (error: unknown) {
         expect((error as { code: string }).code).toBe('INVALID_RESPONSE');
@@ -328,10 +333,11 @@ describe('AIService', () => {
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'First Name',
                 alias: 'firstName',
                 required: true,
+                config: { variant: 'short' },
               },
             ],
           },
@@ -347,7 +353,7 @@ describe('AIService', () => {
       const result = await anthropicService.generateWorkflow({
         description: 'Create a form to collect personal information',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
@@ -379,7 +385,7 @@ describe('AIService', () => {
       const result = await anthropicService.generateWorkflow({
         description: 'Test',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');

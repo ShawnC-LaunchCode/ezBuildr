@@ -118,7 +118,7 @@ describe('AIService Unit Tests', () => {
                 constraints: { maxPages: 5 }
             };
 
-            const result = await aiService.generateWorkflow(request);
+            const result = await aiService.generateWorkflow(request, 'easy');
             expect(result.title).toBe('Generated Flow');
             expect(result.pages).toHaveLength(1);
         });
