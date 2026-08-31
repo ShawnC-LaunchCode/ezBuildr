@@ -2160,17 +2160,60 @@ and is fixed at source.
 
 ## Phase 2 Gate
 
-- [ ] STB-13..15A are ✅ with dated verification notes.
-- [ ] The config-owner ledger has zero active keys without a reachable consumer and discriminating test.
-- [ ] Country/timezone/verification/DNS/raw-HTML promises are absent from active contracts.
-- [ ] Canonical top-level and nested List types agree across builder, runner, validators, conditions, formatting,
+- [x] STB-13..15A are ✅ with dated verification notes.
+- [x] The config-owner ledger has zero active keys without a reachable consumer and discriminating test.
+- [x] Country/timezone/verification/DNS/raw-HTML promises are absent from active contracts.
+- [x] Canonical top-level and nested List types agree across builder, runner, validators, conditions, formatting,
       and initial-value coercion.
-- [ ] Curated marketplace templates and the demo seed script contain no retired type, and regenerated bundles
+- [x] Curated marketplace templates and the demo seed script contain no retired type, and regenerated bundles
       install through the strict boundary into runnable canonical workflows.
-- [ ] `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without count regression.
-- [ ] Targeted List/page-submit DB/integration suites pass.
-- [ ] Reviewer has committed each passed ticket and this phase gate.
+- [x] `npm run type-check`, `npm run lint`, and `npm run test:fast` pass without count regression.
+- [x] Targeted List/page-submit DB/integration suites pass.
+- [x] Reviewer has committed each passed ticket and this phase gate.
 
+
+**GATE CLOSED 2026-08-31 (reviewer).** Re-run in full against current `dev` (`74bc513c`) in a clean worktree,
+because the main checkout carried unrelated uncommitted work that would have contaminated the integration run.
+
+| Gate | Result |
+|------|--------|
+| `test:fast` | 329 files / **3,662** (was 3,649 at the STB-15A note — up, no regression) |
+| `test:unit` | 348 files / 3,842 |
+| `test:integration` | 136 files / 1,245 passed + 3 skipped |
+| `type-check` | 0 |
+| `lint` | 0 |
+| `check:strict-zones` | 6/6 |
+
+**The one failure was run down, not waved off.** `VersionService.serialization.test.ts` failed inside the
+back-to-back combined run — twice, which made it look persistent. It passes in isolation, passes a standalone
+`test:fast` in the same worktree, and passes a full `test:fast` in a second worktree at the same commit. Three
+clean datapoints: it is the documented order-dependent flake, surfaced by scheduling when suites run in sequence.
+Worth recording that this flake *can* repeat within one session and still be a flake.
+
+**Checklist findings beyond the suites:**
+
+- *Deferred promises absent from active contracts* ✅ — `allowedCountries`, `validateAddress` and `allowHtml`
+  survive only inside the `StrictLegacy*` input schemas, which `z.preprocess` into the canonical schema. That is
+  the read boundary, not an active contract, exactly as Decision 11 requires.
+- *Audit findings 3 and 4 are genuinely closed* ✅ — `number.formatOnInput` and `file_upload.previewThumbnails`
+  both have reachable runner consumers now (`NumberBlock.tsx`, `FileUploadBlock.tsx`).
+- *Canonical/nested List agreement* ✅ — `LIST_FIELD_QUESTION_TYPES` derives from the canonical rendered set with
+  legacy and stored variants kept separate, and STB-15's guard proves no alias leaks into any of six
+  request-facing registries.
+
+**Two carry-forwards into Phase 3 — neither blocks the gate, both are already owned:**
+
+1. **`signature_block` has no config schema at all.** `getConfigKeys('signature_block')` returns `null`, so the AI
+   is told it is freeform. STB-B10; owner ruled a schema is added; assigned to **STB-17**. It interacts with
+   STB-16 AC 1, so STB-16 must tolerate a canonical type with no config contract.
+2. **The "config-owner ledger" in this checklist was never built as an artifact** — it is named only here. The de
+   facto ledger is `TEMPORARY_CONFIG_KEY_EXCLUSIONS`, now down to a single vestigial entry,
+   `radio: ["displayLayout"]`, on a retired read-only name. **STB-16 AC 6 deletes it.** Every other canonical
+   type's advertised keys were checked to have a consumer, so the intent of the line is met.
+
+Phase 3 (STB-16..22) is unblocked.
+
+---
 
 **Verified 2026-08-30 (reviewer):** all gates re-run by the reviewer in the ticket's own worktree at
 `a7ab8521` — type-check 0 errors (tsbuildinfo deleted first), lint 0 problems, `test:fast` 326 files /
