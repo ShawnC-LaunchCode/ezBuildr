@@ -273,7 +273,7 @@ export const NumberAdvancedConfigSchema = z.object({
   placeholder: z.string().optional(),
 });
 
-export const ScaleAdvancedConfigSchema = z.object({
+const StrictLegacyScale = z.object({
   min: z.number(),
   max: z.number(),
   step: z.number(),
@@ -284,11 +284,29 @@ export const ScaleAdvancedConfigSchema = z.object({
   maxLabel: z.string().optional(),
   labels: z.record(z.number(), z.string()).optional(),
   color: z.string().optional(),
-});
+}).strict();
+
+export const ScaleLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyScale.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  const display = parsed.data.display === 'stars' || parsed.data.display === 'slider' ? parsed.data.display : 'slider';
+  return {
+    min: parsed.data.min,
+    max: parsed.data.max,
+    step: parsed.data.step,
+    display,
+    showValue: parsed.data.showValue,
+    minLabel: parsed.data.minLabel,
+    maxLabel: parsed.data.maxLabel,
+  };
+}, ScaleConfigSchema);
 
 
 
-export const AddressAdvancedConfigSchema = z.object({
+const StrictLegacyAddress = z.object({
   country: z.string().optional(),
   allowedCountries: z.array(z.string()).optional(),
   fields: z.array(z.object({
@@ -300,7 +318,19 @@ export const AddressAdvancedConfigSchema = z.object({
   })),
   autoComplete: z.boolean().optional(),
   validateAddress: z.boolean().optional(),
-});
+}).strict();
+
+export const AddressLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyAddress.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  return {
+    country: 'US',
+    fields: ['street', 'city', 'state', 'zip']
+  };
+}, AddressConfigSchema);
 
 export const MultiFieldConfigSchema = z.object({
   layout: z.enum(['first_last', 'contact', 'date_range', 'custom']),
@@ -315,7 +345,7 @@ export const MultiFieldConfigSchema = z.object({
   storeAs: z.enum(['separate', 'combined']),
 });
 
-export const DisplayAdvancedConfigSchema = z.object({
+const StrictLegacyDisplay = z.object({
   markdown: z.string(),
   allowHtml: z.boolean(),
   template: z.boolean().optional(),
@@ -325,8 +355,19 @@ export const DisplayAdvancedConfigSchema = z.object({
     textColor: z.string().optional(),
     fontSize: z.enum(['sm', 'md', 'lg']).optional(),
     alignment: z.enum(['left', 'center', 'right']).optional(),
-  }).optional(),
-});
+  }).strict().optional(),
+}).strict();
+
+export const DisplayLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyDisplay.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  return {
+    markdown: parsed.data.markdown,
+  };
+}, DisplayConfigSchema);
 
 // ============================================================================
 // LEGACY SCHEMAS
@@ -622,11 +663,11 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     choice: ChoiceAdvancedConfigSchema,
     email_advanced: EmailConfigSchema,
     number_advanced: NumberAdvancedConfigSchema,
-    scale_advanced: ScaleAdvancedConfigSchema,
+    scale_advanced: ScaleLegacyReadSchema,
     website_advanced: WebsiteConfigSchema,
-    address_advanced: AddressAdvancedConfigSchema,
+    address_advanced: AddressLegacyReadSchema,
     multi_field: MultiFieldConfigSchema,
-    display_advanced: DisplayAdvancedConfigSchema,
+    display_advanced: DisplayLegacyReadSchema,
 
     // Legacy
     multiple_choice: LegacyMultipleChoiceConfigSchema,

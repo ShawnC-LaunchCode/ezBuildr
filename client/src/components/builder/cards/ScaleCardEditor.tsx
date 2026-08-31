@@ -3,7 +3,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
+import type { ScaleConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { RequiredToggle } from "./common/RequiredToggle";
@@ -15,9 +15,9 @@ import { ScaleSettingsSection } from "./ScaleCardEditor.components";
 export function ScaleCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
-  const config = step.config as ScaleAdvancedConfig | undefined;
+  const config = step.config as ScaleConfig | undefined;
 
-  const handleConfigChange = (nextConfig: ScaleAdvancedConfig) => {
+  const handleConfigChange = (nextConfig: ScaleConfig) => {
     updateStepMutation.mutate({ id: stepId, pageId, config: nextConfig });
   };
 

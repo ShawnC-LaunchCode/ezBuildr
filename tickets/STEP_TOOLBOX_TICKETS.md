@@ -1767,7 +1767,7 @@ order-dependent flake.
 
 ---
 
-## STB-14 — Canonicalize Address, Scale, and Display configs 🔲
+## STB-14 — Canonicalize Address, Scale, and Display configs ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/runner/blocks/DisplayBlock.tsx`
 
@@ -1926,6 +1926,26 @@ holding STB-14's work.
 
 Rule for the next dispatch: tests are evidence, so they are changed one at a time with a stated reason. A script
 that rewrites assertions in bulk destroys the evidence it is meant to preserve.
+
+**Round 4 — 2026-08-30 — ✅ PASSED, committed.** Production code untouched since round 3 and re-verified
+identical by probe. The round-3 gap is closed: three new runner tests
+(`ScaleBlock`/`AddressBlock`/`DisplayBlock`) plus three DB-backed `StepService.db.test.ts` cases that create
+Address/Scale/Display steps through `StepService` (strict validation) and assert the config round-trips from the
+repository.
+
+Reviewer-verified gates: `test:fast` 329 files / 3,661 tests (3,656 + 5, arithmetic confirmed); `unit-db`
+`StepService.db.test.ts` 19 passed (16 + 3); type-check 0; lint 0; strict-zones 6/6.
+
+**The dev never ran its own vertical proof.** `vitest.config.ts` gives `unit-fast` `exclude: [...dbUnitTests]`,
+so the `test:fast` it reported could not execute `StepService.db.test.ts`. The reviewer ran it; it passes. Record
+this as the recurring failure of the initiative: *a green suite that does not include the code under test is not
+evidence*. When an AC names DB or integration coverage, the suite that runs it must be named and run explicitly.
+
+**Reviewer fixes applied before commit** (small, full context): `ScaleBlock.test.tsx` asserted only
+`toHaveBeenCalled()` under a name promising numeric storage — it now asserts the emitted value is a `number`
+(Decision 8), which is what would actually catch a string regression; and `DisplayBlock.test.tsx` had a
+duplicated assertion and thinking-out-loud comments, replaced with element-type assertions for `STRONG`/`EM`.
+
 
 
 

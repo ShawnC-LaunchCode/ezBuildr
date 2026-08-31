@@ -29,8 +29,6 @@ import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsServic
 // across STB-5 (canonical styles) and STB-6 (checkbox consent behavior).
 const AUDITED_INERT_CONFIG_KEYS = {
     radio: ['displayLayout'],
-    address_advanced: ['country', 'allowedCountries'],
-    display_advanced: ['allowHtml'],
 } as const;
 
 describe('AI vocabulary derivation', () => {

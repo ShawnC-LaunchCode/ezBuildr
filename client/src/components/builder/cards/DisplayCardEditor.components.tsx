@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepConfigs";
+import type { DisplayConfig } from "@shared/types/stepConfigs";
 
 import { SectionHeader, TextAreaField } from "./common/EditorField";
 
@@ -18,7 +18,7 @@ export function DisplayContentSection({
   config,
   onChange,
 }: {
-  config: (DisplayConfig | DisplayAdvancedConfig) | undefined;
+  config: DisplayConfig | undefined;
   onChange: (config: DisplayConfig) => void;
 }): JSX.Element {
   const [localConfig, setLocalConfig] = useState({

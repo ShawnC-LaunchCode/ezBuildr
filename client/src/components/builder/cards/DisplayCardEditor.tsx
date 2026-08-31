@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
-import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepConfigs";
+import type { DisplayConfig } from "@shared/types/stepConfigs";
 
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
@@ -27,7 +27,7 @@ export function DisplayCardEditor({ stepId, pageId, step, workflowId }: StepEdit
   const updateStepMutation = useUpdateStep();
 
   // Parse config (works for both easy and advanced mode)
-  const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
+  const config = step.config as DisplayConfig | undefined;
 
   const handleConfigChange = (nextConfig: DisplayConfig) => {
     updateStepMutation.mutate({ id: stepId, pageId, config: nextConfig });

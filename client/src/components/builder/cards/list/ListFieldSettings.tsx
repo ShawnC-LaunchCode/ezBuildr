@@ -23,11 +23,10 @@ import type {
 } from "@shared/types/conditions";
 import type {
   ChoiceAdvancedConfig,
-  DisplayAdvancedConfig,
   DisplayConfig,
   ListField,
   MultiFieldConfig,
-  ScaleAdvancedConfig,
+  ScaleConfig,
   StepConfig,
 } from "@shared/types/stepConfigs";
 
@@ -69,7 +68,7 @@ function renderTypeSettings(field: QuestionListField, onConfigChange: (config: S
     case "scale":
       return (
         <ScaleSettingsSection
-          config={field.config as ScaleAdvancedConfig | undefined}
+          config={field.config as ScaleConfig | undefined}
           onChange={onConfigChange}
         />
       );
@@ -84,7 +83,7 @@ function renderTypeSettings(field: QuestionListField, onConfigChange: (config: S
     case "display":
       return (
         <DisplayContentSection
-          config={field.config as DisplayConfig | DisplayAdvancedConfig | undefined}
+          config={field.config as DisplayConfig | undefined}
           onChange={onConfigChange}
         />
       );

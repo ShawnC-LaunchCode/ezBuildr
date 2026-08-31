@@ -20,9 +20,7 @@ import type {
   ChoiceAdvancedConfig,
   MultiFieldConfig,
   AddressConfig,
-  AddressAdvancedConfig,
   ScaleConfig,
-  ScaleAdvancedConfig,
   BooleanAdvancedConfig,
   EmailConfig,
   PhoneConfig,
@@ -308,13 +306,12 @@ function sanitizeAddressValue(value: unknown, config?: StepConfig): AddressValue
   }
 
   const address: AddressValue = {};
-  const addrConfig = config as (AddressConfig | AddressAdvancedConfig) | undefined;
+  const addrConfig = config as AddressConfig | undefined;
 
   // Ensure all expected fields are present
   const fields = addrConfig?.fields ?? ['street', 'city', 'state', 'zip'];
 
-  for (const field of fields) {
-    const fieldKey = typeof field === 'string' ? field : field.key;
+  for (const fieldKey of fields) {
     const valObj = value as Record<string, unknown>;
     if (valObj[fieldKey]) {
       (address as Record<string, string>)[fieldKey] = String(valObj[fieldKey]).trim();
@@ -419,7 +416,7 @@ function sanitizeScaleValue(value: unknown, config?: StepConfig): number | null 
     return null;
   }
 
-  const scaleConfig = config as (ScaleConfig | ScaleAdvancedConfig) | undefined;
+  const scaleConfig = config as ScaleConfig | undefined;
 
   // Clamp to min/max
   if (scaleConfig?.min !== undefined && num < scaleConfig.min) {
@@ -500,7 +497,7 @@ export function validateStepValue(
 
     case 'scale':
     case 'scale_advanced':
-      validateScale(value, config as ScaleConfig | ScaleAdvancedConfig, errors);
+      validateScale(value, config as ScaleConfig, errors);
       break;
 
     case 'choice':
@@ -510,7 +507,7 @@ export function validateStepValue(
 
     case 'address':
     case 'address_advanced':
-      validateAddress(value, config as AddressConfig | AddressAdvancedConfig, errors);
+      validateAddress(value, config as AddressConfig, errors);
       break;
 
     case 'multi_field':
@@ -633,7 +630,7 @@ function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedCon
 
 }
 
-function validateScale(value: unknown, config: ScaleConfig | ScaleAdvancedConfig | undefined, errors: string[]): void {
+function validateScale(value: unknown, config: ScaleConfig | undefined, errors: string[]): void {
   validateNumber(value, config, errors);
 }
 
@@ -674,7 +671,7 @@ function validateChoice(value: unknown, config: ChoiceAdvancedConfig | LegacyMul
   }
 }
 
-function validateAddress(value: unknown, config: AddressConfig | AddressAdvancedConfig | undefined, errors: string[]): void {
+function validateAddress(value: unknown, config: AddressConfig | undefined, errors: string[]): void {
   if (!value || typeof value !== 'object') {
     errors.push('Address must be an object');
     return;
@@ -689,11 +686,9 @@ function validateAddress(value: unknown, config: AddressConfig | AddressAdvanced
     ? (config?.fields ?? ['street', 'city', 'state', 'zip'])
     : [];
 
-  for (const field of requiredFields) {
-    const fieldKey = typeof field === 'string' ? field : field.key;
+  for (const fieldKey of requiredFields) {
     if (!valObj[fieldKey] || String(valObj[fieldKey]).trim() === '') {
-      const fieldLabel = typeof field === 'object' ? field.label : fieldKey;
-      errors.push(`${fieldLabel} is required`);
+      errors.push(`${fieldKey} is required`);
     }
   }
 }

@@ -413,4 +413,78 @@ describe('Step Config Schemas', () => {
             });
         });
     });
+
+    describe('STB-14 Acceptance Tests (Round 3)', () => {
+        describe('AC 5/6: Legacy read-compat strict rejection & canonical output', () => {
+            it('address_advanced: validates strictly and returns canonical shape', () => {
+                const legacyValid = {country:'US', fields:[{key:'street1',label:'Street',type:'text',required:true}], autoComplete:true};
+                const legacyGarbage = {...legacyValid, bogusKey: 123};
+                const legacyMissingField = {country:'US', autoComplete:true}; // missing fields
+
+                // Valid legacy read
+                const result1 = validateStepConfig('address_advanced', legacyValid);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ country: 'US', fields: ['street', 'city', 'state', 'zip'] });
+
+                // Strict rejection
+                const result2 = validateStepConfig('address_advanced', legacyGarbage);
+                expect(result2.success).toBe(false);
+
+                // Missing required legacy keys
+                const result3 = validateStepConfig('address_advanced', legacyMissingField);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape (when reading as standard address)
+                const canonicalValid = { country: 'US', fields: ['street', 'city', 'state', 'zip'] };
+                const result4 = validateStepConfig('address', canonicalValid);
+                expect(result4.success).toBe(true);
+            });
+
+            it('scale_advanced: validates strictly and returns canonical shape', () => {
+                const config1 = {min:1,max:5,step:1,display:'buttons' as const,showValue:true};
+                const config2 = {min:1,max:5,step:1,display:'stars' as const,stars:5,color:'#ff0000'};
+                const configGarbage = {min:1,max:5,step:1,display:'slider' as const, foo: 'bar'};
+
+                // Valid legacy read mapping to canonical (buttons -> slider)
+                const result1 = validateStepConfig('scale_advanced', config1);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ min: 1, max: 5, step: 1, display: 'slider', showValue: true });
+
+                // Valid legacy read mapping to canonical (stars -> stars)
+                const result2 = validateStepConfig('scale_advanced', config2);
+                expect(result2.success).toBe(true);
+                expect(result2.data).toEqual({ min: 1, max: 5, step: 1, display: 'stars' });
+
+                // Strict rejection
+                const result3 = validateStepConfig('scale_advanced', configGarbage);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape (when reading as standard scale)
+                const canonicalValid = { min: 1, max: 5, step: 1, display: 'slider' };
+                const result4 = validateStepConfig('scale', canonicalValid);
+                expect(result4.success).toBe(true);
+            });
+
+            it('display_advanced: validates strictly and returns canonical shape', () => {
+                const config = {markdown:'# H', allowHtml:false, template:true, variables:['firstName']};
+                const configGarbage = {...config, unknownProp: 42};
+                const configMissing = {allowHtml: false}; // missing markdown
+
+                const result1 = validateStepConfig('display_advanced', config);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ markdown: '# H' });
+
+                const result2 = validateStepConfig('display_advanced', configGarbage);
+                expect(result2.success).toBe(false);
+
+                const result3 = validateStepConfig('display_advanced', configMissing);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape
+                const canonicalValid = { markdown: '# H' };
+                const result4 = validateStepConfig('display', canonicalValid);
+                expect(result4.success).toBe(true);
+            });
+        });
+    });
 });

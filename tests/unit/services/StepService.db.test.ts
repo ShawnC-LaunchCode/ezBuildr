@@ -394,4 +394,37 @@ describeWithDb('StepService DB', () => {
     expect(updateSpy).not.toHaveBeenCalled();
     updateSpy.mockRestore();
   });
+
+  it('persists canonical scale config', async () => {
+    const config = { min: 1, max: 10, step: 1, display: 'slider' as const };
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Scale step',
+      type: 'scale',
+      config,
+    });
+    const reloaded = await stepRepository.findById(step.id);
+    expect(reloaded).toMatchObject({ type: 'scale', config });
+  });
+
+  it('persists canonical address config', async () => {
+    const config = { country: 'US' as const, fields: ['street', 'city', 'state', 'zip'] as const };
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Address step',
+      type: 'address',
+      config,
+    });
+    const reloaded = await stepRepository.findById(step.id);
+    expect(reloaded).toMatchObject({ type: 'address', config });
+  });
+
+  it('persists canonical display config', async () => {
+    const config = { markdown: '**Welcome**' };
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Display step',
+      type: 'display',
+      config,
+    });
+    const reloaded = await stepRepository.findById(step.id);
+    expect(reloaded).toMatchObject({ type: 'display', config });
+  });
 });

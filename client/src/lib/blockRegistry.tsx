@@ -350,7 +350,6 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     modes: { easy: true, advanced: true },
     createDefaultConfig: () => ({
       markdown: "",
-      allowHtml: false,
     }),
   },
   {

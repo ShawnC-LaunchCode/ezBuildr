@@ -708,42 +708,6 @@ export function resolveNumberConfig(
   return resolved;
 }
 
-/**
- * Scale Config (Advanced Mode)
- * Advanced scale with custom styling and ranges
- */
-export interface ScaleAdvancedConfig {
-  min: number;
-  max: number;
-  step: number;
-  display: 'slider' | 'stars' | 'buttons';
-  stars?: number;          // Number of stars (if display=stars)
-  showValue?: boolean;
-  minLabel?: string;
-  maxLabel?: string;
-  labels?: Record<number, string>;  // Custom labels for specific values
-  color?: string;          // Custom color/theme
-}
-
-
-
-/**
- * Address Config (Advanced Mode)
- * International address support with flexible field configuration
- */
-export interface AddressAdvancedConfig {
-  country?: string;        // ISO country code (default: US)
-  allowedCountries?: string[];  // Restrict to specific countries
-  fields: Array<{
-    key: string;           // Field identifier (e.g., "street1", "city")
-    label: string;         // Display label
-    type: 'text' | 'select';
-    required: boolean;
-    options?: string[];    // For select fields (e.g., states)
-  }>;
-  autoComplete?: boolean;  // Enable address autocomplete
-  validateAddress?: boolean;  // Validate address via API
-}
 
 /**
  * Multi-Field Config (Advanced Mode)
@@ -760,23 +724,6 @@ export interface MultiFieldConfig {
     validation?: TextValidation | NumberValidation;
   }>;
   storeAs: 'separate' | 'combined';  // Store as separate step values or single object
-}
-
-/**
- * Display Config (Advanced Mode)
- * Rich display with templates and dynamic content
- */
-export interface DisplayAdvancedConfig {
-  markdown: string;
-  allowHtml: boolean;
-  template?: boolean;      // Enable variable substitution (e.g., {{firstName}})
-  variables?: string[];    // Whitelisted variables for template
-  style?: {
-    backgroundColor?: string;
-    textColor?: string;
-    fontSize?: 'sm' | 'md' | 'lg';
-    alignment?: 'left' | 'center' | 'right';
-  };
 }
 
 // ============================================================================
@@ -1169,9 +1116,6 @@ export type StepConfig =
   | BooleanAdvancedConfig
   | ChoiceAdvancedConfig
   | NumberAdvancedConfig
-  | ScaleAdvancedConfig
-  | AddressAdvancedConfig
-  | DisplayAdvancedConfig
   | MultiFieldConfig
   // Legacy
   | LegacyMultipleChoiceConfig
@@ -1208,11 +1152,11 @@ type CanonicalStepConfig<Type extends CanonicalStepType> =
   Type extends "choice" ? ChoiceAdvancedConfig :
   Type extends "email" ? EmailConfig :
   Type extends "number" ? NumberCanonicalConfig :
-  Type extends "scale" ? ScaleAdvancedConfig :
+  Type extends "scale" ? ScaleConfig :
   Type extends "website" ? WebsiteConfig :
-  Type extends "address" ? AddressAdvancedConfig :
+  Type extends "address" ? AddressConfig :
   Type extends "multi_field" ? MultiFieldConfig :
-  Type extends "display" ? DisplayAdvancedConfig :
+  Type extends "display" ? DisplayConfig :
   Type extends "file_upload" ? FileUploadConfig :
   Type extends "list" ? ListConfig :
   Type extends "js_question" ? JsQuestionConfig :
@@ -1269,7 +1213,7 @@ export function isMultiFieldConfig(config: unknown): config is MultiFieldConfig 
 /**
  * Type guard for Address config
  */
-export function isAddressConfig(config: unknown): config is AddressConfig | AddressAdvancedConfig {
+export function isAddressConfig(config: unknown): config is AddressConfig {
   return (
     isObjectRecord(config) &&
     (config.country === 'US' || typeof config.country === 'string') &&
