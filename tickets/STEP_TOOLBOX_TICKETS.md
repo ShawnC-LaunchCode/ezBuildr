@@ -2013,6 +2013,36 @@ new/request data must never use it. Add an exhaustive cross-system registry test
 5. A registry coverage test fails if any canonical type is unclassified or any request-facing alias remains.
 6. Vertical proof and all standard/targeted gates pass.
 
+### Review notes
+
+**Round 1 — 2026-08-31 — REJECTED, not committed.** Base correct (`60fde269`). This is the first round of the
+initiative where the *implementation* is sound on the first pass: the scripting surface was left alone, and the
+tests were edited individually as one-line renames rather than by bulk script.
+
+**The constraint holds.** `NORMALIZED_STEP_TYPES` became the exported `PERSISTED_ROW_COMPATIBILITY_MAP` for
+STB-19/20, `adaptLegacyStep` adapts at the read boundary, and a reviewer probe confirmed all **20** legacy names
+still adapt to a canonical type and classify as `rendered`. Reviewer-run gates: test:fast 3,660; test:unit 348
+files / 3,840; test:integration 136 files / 1,244 passed + 3 skipped; type-check 0; lint 0; strict-zones 6/6.
+
+**Blocked on evidence, not behavior:**
+
+1. **The test count went DOWN, 3,661 -> 3,660** — the stop condition named in this file's header.
+   `it("normalizes advanced and legacy aliases to rendered runner types")` was deleted and replaced with a blank
+   line. The other two removals were legitimate renames; this one was not.
+2. **`PERSISTED_ROW_COMPATIBILITY_MAP` and `LEGACY_RENDERED_STEP_TYPES` have zero coverage.** The second is a
+   hand-maintained list of 20 names: drop one and that type silently stops rendering for every existing run,
+   with nothing to catch it. The reviewer had to prove the behavior with a throwaway probe because the repo
+   cannot — which is exactly the guarantee the deleted test used to provide.
+3. **AC 5 is half-met.** `classifies every persisted step type` covers *no canonical type unclassified*; nothing
+   covers *no request-facing alias remains*. The demanded break-it/confirm-red/restore step was not done.
+4. **AC 6 has no vertical proof.** Zero files under `tests/integration/` were touched.
+
+**Gate reporting, third round running.** Three of the six required gates were run and reported as "all project
+gates" — `test:unit`, `test:integration` and `check:strict-zones` (the actual commit gate) were skipped. The
+reviewer ran them and they pass, but a vertical proof claimed against a suite that cannot execute it is the
+single most repeated failure of this initiative. The turn-in also listed 5 changed files; there are 20.
+
+
 ---
 
 ## STB-15A — Re-author curated templates and demo seeds to canonical types ✅
