@@ -89,6 +89,9 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| ZR-B1 | `needs-initiative` | **Client ask: ephemeral runs** — workflow saved, run data and generated documents never retained. 14 tables + blob store + 4 third-party egress paths, none with an off switch | `backlog/ZERO_RETENTION.md` |
+| ZR-B2 | `product-decision` | What "nothing stored" must cover — analytics, audit logs, PDF converter / AI / ESP / DocuSign copies, Neon PITR. **`ZR-B1` is blocked on this ruling** | `backlog/ZERO_RETENTION.md` |
+| ZR-B3 | `enhancement` | **There is no way to delete a run.** No `deleteRun` anywhere; runs die only via the workflow FK cascade, and no cron ages them out | `backlog/ZERO_RETENTION.md` |
 | SECT-B11 | `needs-initiative` | `/opacity` on `--primary` is silently transparent — **45 live usages** render no tint | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B2 | `product-decision` | `logic_rules` targeting a Section — needs a ruling on what `skip_to` a Section means | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B8 | `product-decision` | Cross-tenant concealment is 404 on Section create, 403 on update/delete and all of `PageService` | `backlog/SECTIONS_AND_PAGES.md` |
@@ -170,6 +173,39 @@ IDs are stable, heading anchors are not.
 | GH-O5 | `enhancement` | `pingClamd` misreads a `PONG\0` split across TCP segments as an unhealthy scanner | `backlog/ROADMAP.md` |
 | GH-O15 | `informational` | `totalGenerated` counts output *files*, not documents — DOCX+PDF from one template reports 1 attempted, 2 generated | `backlog/ROADMAP.md` |
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
+
+---
+
+## Zero-retention / ephemeral runs (ZR) — [detail](backlog/ZERO_RETENTION.md) — filed 2026-09-01
+
+**Not a retired initiative — a live client ask, parked before any audit.** A
+client wants ezBuildr used with nothing retained that could later be subpoenaed:
+the ezBuildr user's **workflow** is saved as normal, but the **run** is not —
+no answers, no client data, and no surviving copy of any document generated from
+them, while end users must still be able to generate those documents in-session.
+
+- **ZR-B1 — ephemeral run mode** · `needs-initiative`. There is no flag, mode, or
+  branch anywhere that suppresses a run write today. The detail file inventories
+  the fourteen tables that persist client data (`step_values` holds every answer
+  and is upserted on autosave; `transform_block_runs.outputSample` and
+  `script_execution_log.inputSample` hold derived answer data *by design*), plus
+  the generated-document bytes in the storage provider. Two candidate models —
+  never write, or write-then-shred — and choosing between them is most of the
+  design work. Write-then-shred is materially weaker for the stated legal
+  purpose, because Neon PITR and branch snapshots retain what a purge deletes.
+- **ZR-B2 — the erasure boundary** · `product-decision`. "Nothing that could be
+  subpoenaed" is a statement about custody, not code. Analytics? Audit logs? The
+  PDF converter, AI providers, the ESP and DocuSign, which all receive run data
+  and are **not ezBuildr's to delete**? And is the promise "we do not retain" or
+  "we cannot produce it"? **ZR-B1 cannot be scoped until this is ruled**, ideally
+  with the client's counsel.
+- **ZR-B3 — no per-run delete exists** · `enhancement`. Independent of the ask
+  and the cheapest partial answer to it. `deleteRun`/`purgeRun`/`removeRun` match
+  nothing in `server/` or `client/src`; the only run-scoped deletes are for a
+  run's *documents* and a step's *files*. A run dies only as collateral of
+  deleting its parent workflow, and `server/cron.ts` runs no retention sweep — so
+  a tenant cannot honour one client's deletion request without destroying the
+  workflow every other client also ran. Promotable on its own as a normal ticket.
 
 ---
 
