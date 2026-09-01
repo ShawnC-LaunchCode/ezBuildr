@@ -99,18 +99,38 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
         order: 1,
       });
 
+      // STB-18: portability import now enforces the canonical `steps.config`
+      // shape (validateCanonicalStepConfig), so this fixture can no longer
+      // carry the sentinel under an arbitrary `deep.arrayConfig[]` path on a
+      // `text` step -- that path isn't a legal TextAdvancedConfigSchema key.
+      // A `list` field's own `config` is `z.unknown()` by design (the List
+      // schema validates structure, not each field's per-type config), so it
+      // stays a legal, unconstrained place to plant an arbitrary-depth
+      // secret-shaped literal while the outer step itself is fully canonical.
       await insert(steps).values({
         workflowId: testWorkflowId,
         pageId: page.id,
-        type: 'text',
+        type: 'list',
         title: 'Step with secret',
         order: 1,
         config: {
-          deep: {
-            arrayConfig: [
-              { secretValue: STEP_CONFIG_SENTINEL }
-            ]
-          }
+          fields: [
+            {
+              kind: 'question',
+              id: 'field-with-secret',
+              alias: 'field_with_secret',
+              type: 'text',
+              title: 'Field with secret',
+              order: 0,
+              config: {
+                deep: {
+                  arrayConfig: [
+                    { secretValue: STEP_CONFIG_SENTINEL }
+                  ]
+                }
+              }
+            }
+          ]
         }
       });
 

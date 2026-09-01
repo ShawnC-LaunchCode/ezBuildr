@@ -2420,7 +2420,7 @@ accepted.
 
 ---
 
-## STB-18 — Convert portability coverage to canonical-only round trips 🔲
+## STB-18 — Convert portability coverage to canonical-only round trips ✅
 
 **Priority: P1** · Size: M · File: `tests/integration/portability.roundtrip.test.ts`
 
@@ -2466,6 +2466,42 @@ add a second import engine.
 4. Existing disclosures, remapping, redaction, tenant isolation, and List recursion remain green.
 5. The named integration suite plus relevant portability unit tests prove all criteria.
 6. Type-check, lint, `test:fast`, and targeted integration tests pass.
+
+### Review notes
+
+**Round 1 — 2026-09-01 — ✅ PASSED, committed with one reviewer fix.** Reviewer-run gates reproduced the dev's
+report exactly: test:fast 330 / 3,714; test:unit 349 / 3,899; test:integration 137 / 1,268 + 3 skipped
+(1,263 + 5); type-check 0; lint 0; strict-zones 6/6.
+
+The suite now proves configs are **canonical and valid**, not merely byte-identical. The old fixtures contained
+keys that do not exist (`decimalPlaces`, `showBorder`) and passed anyway, because byte-equality never asks
+whether a config is supported. Every `CANONICAL_STEP_TYPES` value now has a fixture asserted valid through
+`validateCanonicalStepConfig`, round-tripped at both project and workflow scope, with real HTTP, real
+ExportService/ImportService, real ZIP/manifest and real DB rows. Zero-write assertions query the tables rather
+than trusting a status code.
+
+**Reviewer fix — a deliberate hole in the new boundary.** The dev added
+`ImportService.stripKnownCanonicalSchemaGaps`, which removed `dynamicOptions` from a choice config *before*
+validating, on the stated grounds that it is "a real, still-written field". It is not, and three sources say so:
+`VariableNormalizer.ts:277` records that "`config.options` is the authoritative field ... the deprecated
+`dynamicOptions` field ... is never written by current saves"; `ChoiceCardEditor.tsx` writes the dynamic source
+into `options`; and `ChoiceAdvancedConfigSchema.options` already accepts that object form via `.passthrough()`.
+`dynamicOptions` is legacy **read** compat, import is a **write** boundary, and AC 3 requires rejecting a bundle
+that carries a removed key. The strip is deleted and the fixture moved to `options: { type: 'table_column', … }`.
+
+Safe because `REF_KEY_TO_ENTITY` (`shared/types/stepConfigRefs.ts`) matches on key **names**, not paths, so
+DataVault reference detection is unaffected — the reported path simply becomes `config.options.*`. Verified
+after the change: the canonical shape is accepted, `dynamicOptions` is rejected as an unknown key.
+
+**The reviewer's own fix broke a test, and the gate run caught it.** Changing the shared `tableColumnChoice()`
+helper moved the nested-List paths too, and only the top-level assertions had been updated: test:unit went
+3,899 -> 3,898. Corrected, plus a stale local named `dynamicOptions` that was reading `.options` renamed to
+`dynamicSource`. Recorded because it is the same shared-fixture trap this board has sent back to devs — the only
+difference was re-running the gates rather than trusting the edit.
+
+Prior rounds' guarantees re-confirmed green: disclosures, remapping, redaction, tenant isolation and List
+recursion, plus the full 10-file portability unit-db suite.
+
 
 ---
 

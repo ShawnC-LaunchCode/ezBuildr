@@ -15,6 +15,7 @@ import { projectRepository, type DbTransaction } from '../../repositories';
 import { canManageOrg } from '../../utils/ownershipAccess';
 import { remapJsonIds } from '../../utils/remapJsonIds';
 import { collectConfigEntityRefs } from '@shared/types/stepConfigRefs';
+import { validateCanonicalStepConfig, getCanonicalConfigSchema } from '@shared/validation/stepConfigSchemas';
 import { storageProvider } from '../storage';
 import { storageQuotaService } from '../StorageQuotaService';
 import { virusScanner } from '../security/VirusScanner';
@@ -413,6 +414,33 @@ export class ImportService {
     return warnings;
   }
 
+
+  /**
+   * The portability write boundary for `steps` (STB-18): reuses STB-17's
+   * `validateCanonicalStepConfig` rather than a second validation engine.
+   * A retired type name is always rejected, regardless of whether a config
+   * was carried. An absent config is otherwise left alone -- the
+   * stored-artifact backfill that would make every *existing* row
+   * canonical-shaped is STB-19/20's, still open -- but a config that IS
+   * present in the bundle must be a canonical, fully-recognised shape for
+   * its type, matching Decision 5 (strict final boundaries).
+   */
+  private validateCanonicalStepEntity(data: Record<string, unknown>): string | null {
+    const type = typeof data['type'] === 'string' ? data['type'] : undefined;
+    if (type === undefined) { return null; }
+    const rawConfig = data['config'];
+    if (rawConfig === null || rawConfig === undefined) {
+      return getCanonicalConfigSchema(type) === undefined
+        ? `Step type "${type}" is retired or is not canonical`
+        : null;
+    }
+    const result = validateCanonicalStepConfig(type, rawConfig);
+    if (result.success) { return null; }
+    return result.error!.issues
+      .map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('; ');
+  }
+
   private checkDanglingReferences(desc: EntityDescriptor, data: Record<string, unknown>, bundleIds: Set<string>, result: ImportPreview): void {
     for (const colName of desc.refs ?? []) {
       const val = data[colName];
@@ -444,6 +472,47 @@ export class ImportService {
     }
   }
 
+  /**
+   * The per-entity-type side effects `processEntityStream` needs beyond the
+   * generic schema/dangling-reference/config-ref checks every row gets:
+   * name extraction for collision detection, the steps alias collision
+   * check, and (STB-18) the canonical `steps.type`/`config` write boundary.
+   * Split out purely to keep `processEntityStream` under the complexity
+   * budget -- one more `if (desc.name === 'steps')` branch there tipped it
+   * over.
+   */
+  private applyEntitySpecificPreviewChecks(
+    desc: EntityDescriptor,
+    data: Record<string, unknown>,
+    extracted: { projects: Set<string>; workflows: Set<string>; tableSlugs: Set<string>; stepAliases: Set<string> },
+    result: ImportPreview
+  ): void {
+    if (desc.name === 'workflows' && typeof data['title'] === 'string' && data['title'] !== '') {
+      extracted.workflows.add(data['title']);
+    }
+    if (desc.name === 'projects' && typeof data['name'] === 'string' && data['name'] !== '') {
+      extracted.projects.add(data['name']);
+    }
+    if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
+      extracted.tableSlugs.add(data['slug']);
+    }
+    if (desc.name !== 'steps') { return; }
+
+    if (typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
+      const scopeKey = `${data['workflowId']}::${data['alias']}`;
+      if (extracted.stepAliases.has(scopeKey)) {
+        result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
+      } else {
+        extracted.stepAliases.add(scopeKey);
+      }
+    }
+    const stepError = this.validateCanonicalStepEntity(data);
+    if (stepError !== null) {
+      result.errors.push(`Validation failed in steps: ${stepError}`);
+      result.canProceed = false;
+    }
+  }
+
   private async processEntityStream(
     reader: BundleReader,
     desc: EntityDescriptor,
@@ -454,7 +523,7 @@ export class ImportService {
     let count = 0;
     const schema = this.getZodSchema(desc);
     const stream = reader.readEntityStream(desc.name);
-    
+
     for await (const row of stream) {
       const parsed = schema.safeParse(row);
       if (!parsed.success) {
@@ -468,30 +537,14 @@ export class ImportService {
       }
 
       const data = parsed.data as Record<string, unknown>;
-      if (desc.name === 'workflows' && typeof data['title'] === 'string' && data['title'] !== '') {
-        extracted.workflows.add(data['title']);
-      }
-      if (desc.name === 'projects' && typeof data['name'] === 'string' && data['name'] !== '') {
-        extracted.projects.add(data['name']);
-      }
-      if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
-        extracted.tableSlugs.add(data['slug']);
-      }
-      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
-        const scopeKey = `${data['workflowId']}::${data['alias']}`;
-        if (extracted.stepAliases.has(scopeKey)) {
-          result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
-        } else {
-          extracted.stepAliases.add(scopeKey);
-        }
-      }
+      this.applyEntitySpecificPreviewChecks(desc, data, extracted, result);
 
       this.checkDanglingReferences(desc, data, bundleIds, result);
       result.warnings.push(...this.collectConfigRefWarnings(desc, data, bundleIds));
 
       count++;
     }
-    
+
     if (count > 0) {
       result.entityCounts[desc.name] = count;
     }
@@ -1107,8 +1160,14 @@ export class ImportService {
       }
       
       const data = parsed.data as Record<string, unknown>;
+      if (ctx.desc.name === 'steps') {
+        const stepError = this.validateCanonicalStepEntity(data);
+        if (stepError !== null) {
+          throw new Error(`Validation failed in steps: ${stepError}`);
+        }
+      }
       const oldId = typeof data['id'] === 'string' ? data['id'] : undefined;
-      
+
       const { rootId, skipped } = await this.processSingleEntity(ctx, data, oldId);
       if (skipped) {
         continue;

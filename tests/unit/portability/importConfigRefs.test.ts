@@ -32,13 +32,25 @@ describeWithDb('ImportService - config entity references', () => {
     projectId = t.project.id;
   });
 
-  /** A choice config bound to a DataVault table column. */
+  /**
+   * A choice config bound to a DataVault table column.
+   *
+   * STB-18: ImportService now validates `steps.config` against the
+   * canonical `ChoiceAdvancedConfigSchema` (`display`/`alias`, `options`
+   * non-empty), not the pre-canonical `allowMultiple`/`options: []` vocabulary
+   * this fixture used before.
+   *
+   * The dynamic source lives in `options`, not the retired top-level
+   * `dynamicOptions`: `ChoiceCardEditor` writes `options: { type: 'list' | ... }`,
+   * and `VariableNormalizer` records that `dynamicOptions` "is never written by
+   * current saves". Reference detection is unaffected -- `REF_KEY_TO_ENTITY` in
+   * `shared/types/stepConfigRefs.ts` matches on key NAMES wherever they appear,
+   * so the reported path simply becomes `config.options.*`.
+   */
   function tableColumnChoice(ids: { databaseId: string; tableId: string; columnId: string }) {
     return {
       display: 'dropdown',
-      allowMultiple: false,
-      options: [],
-      dynamicOptions: {
+      options: {
         type: 'table_column',
         dataSourceId: ids.databaseId,
         tableId: ids.tableId,
@@ -100,9 +112,9 @@ describeWithDb('ImportService - config entity references', () => {
       expect.arrayContaining([vault.databaseId, vault.tableId, vault.columnId])
     );
     expect(danglingColumns(applied.warnings, 'steps')).toEqual(expect.arrayContaining([
-      'config.dynamicOptions.dataSourceId',
-      'config.dynamicOptions.tableId',
-      'config.dynamicOptions.columnId',
+      'config.options.dataSourceId',
+      'config.options.tableId',
+      'config.options.columnId',
     ]));
   });
 
@@ -148,8 +160,8 @@ describeWithDb('ImportService - config entity references', () => {
     expect(reported).toEqual(expect.arrayContaining([shallow.tableId, deep.tableId]));
 
     expect(danglingColumns(applied.warnings)).toEqual(expect.arrayContaining([
-      'config.fields[0].config.dynamicOptions.tableId',
-      'config.fields[1].list.fields[0].config.dynamicOptions.tableId',
+      'config.fields[0].config.options.tableId',
+      'config.fields[1].list.fields[0].config.options.tableId',
     ]));
   });
 
@@ -204,15 +216,15 @@ describeWithDb('ImportService - config entity references', () => {
     const imported = await db.select().from(steps).where(eq(steps.workflowId, applied.rootId));
     const choice = imported.find(s => s.type === 'choice');
     expect(choice).toBeDefined();
-    const dynamicOptions = (choice!.config as {
-      dynamicOptions: { dataSourceId: string; tableId: string; columnId: string };
-    }).dynamicOptions;
+    const dynamicSource = (choice!.config as {
+      options: { dataSourceId: string; tableId: string; columnId: string };
+    }).options;
 
     // Remapped, not carried over: the imported copy must point at its own rows.
-    expect(dynamicOptions.dataSourceId).not.toBe(vault.databaseId);
-    expect(dynamicOptions.tableId).not.toBe(vault.tableId);
-    expect(dynamicOptions.columnId).not.toBe(vault.columnId);
-    expect(dynamicOptions.dataSourceId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(dynamicSource.dataSourceId).not.toBe(vault.databaseId);
+    expect(dynamicSource.tableId).not.toBe(vault.tableId);
+    expect(dynamicSource.columnId).not.toBe(vault.columnId);
+    expect(dynamicSource.dataSourceId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('AC 5: never warns about locally-scoped ids in a config', async () => {
@@ -223,11 +235,10 @@ describeWithDb('ImportService - config entity references', () => {
       alias: 'colour', order: 1,
       config: {
         display: 'radio',
-        allowMultiple: false,
         // Every id here is UUID-shaped and local to the config.
         options: [
-          { id: randomUUID(), label: 'Red', value: 'red' },
-          { id: randomUUID(), label: 'Blue', value: 'blue' },
+          { id: randomUUID(), label: 'Red', alias: 'red' },
+          { id: randomUUID(), label: 'Blue', alias: 'blue' },
         ],
       },
     });

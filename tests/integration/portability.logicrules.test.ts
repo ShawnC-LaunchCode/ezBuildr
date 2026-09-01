@@ -61,22 +61,29 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
       order: 0,
     }).returning();
 
+    // STB-18: portability import now enforces the canonical `steps.type`/
+    // `config` boundary (validateCanonicalStepConfig), which rejects the
+    // retired `yes_no`/`short_text` names outright regardless of config. The
+    // remapping behaviour under test here is orthogonal to step type, so
+    // swap in the canonical `boolean`/`text` equivalents with valid configs.
     const [controllerStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
       pageId: page.id,
-      type: 'yes_no',
+      type: 'boolean',
       title: 'Has pets?',
       alias: 'has_pets',
       order: 0,
+      config: { trueLabel: 'Yes', falseLabel: 'No' },
     }).returning();
 
     const [targetStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
       pageId: page.id,
-      type: 'short_text',
+      type: 'text',
       title: 'Pet name',
       alias: 'pet_name',
       order: 1,
+      config: { variant: 'short' },
     }).returning();
 
     // The `when` payload's own operand deliberately references the step by

@@ -1,14 +1,15 @@
 import { randomUUID } from "crypto";
 import { type Server } from "http";
-import { eq } from "drizzle-orm";
+import AdmZip from "adm-zip";
+import { and, eq, ne } from "drizzle-orm";
 import express, { type Express } from "express";
 import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
-import { stepTypeEnum } from "@shared/schema";
-import { LIST_FIELD_QUESTION_TYPES } from "@shared/types/stepConfigs";
+import { CANONICAL_STEP_TYPES, LIST_FIELD_QUESTION_TYPES, type CanonicalStepType } from "@shared/types/stepConfigs";
+import { validateCanonicalStepConfig } from "@shared/validation/stepConfigSchemas";
 import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { seedTemplate } from "../helpers/bundleTestHelper";
@@ -17,52 +18,79 @@ import { seedTemplate } from "../helpers/bundleTestHelper";
 import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
- * IEX3-3 — portability fidelity across every step type.
+ * STB-18 — portability coverage proves canonical-only round trips.
  *
- * Before this file, the portability suites proved that one `text` step
- * survived a project-scope round trip. Both live defects fixed in IEX3-1 and
- * IEX3-2 sat undetected behind that gap, which is the argument for covering
- * the whole enum rather than the types that happen to look risky.
+ * Before this file, IEX3-3's suite proved that BYTES round-trip, with
+ * fixtures for every enum dialect including configs that never matched a
+ * current schema (`number_advanced: { decimalPlaces: 3 }`,
+ * `display_advanced: { showBorder: true }`). Byte-equality never asked
+ * whether the config was supported, so those dead keys round-tripped clean
+ * forever.
  *
- * The fixture is derived from `stepTypeEnum` itself and the test fails if a
- * new value appears that is neither covered nor explicitly skipped — the same
- * discipline `LIST_FIELD_QUESTION_TYPES` uses, and for the same reason: a
- * hand-maintained list went stale and that is what retired `RepeaterFieldType`
- * (LIST-13). Adding a step type should force a decision about portability.
+ * This file derives its fixtures from `CANONICAL_STEP_TYPES` (the 18 stored
+ * identities named in the STB initiative's Decision 1) instead of the full,
+ * still-wider `stepTypeEnum`, and proves each fixture is not just present
+ * but *canonically valid* via `validateCanonicalStepConfig` — the same
+ * write-boundary validator STB-17 built and STB-18 wires into
+ * `ImportService` (see `ImportService.validateCanonicalStepEntity`). Adding
+ * a canonical type without a fixture here fails AC 1, the same discipline
+ * `LIST_FIELD_QUESTION_TYPES` uses for List fields.
  */
 
-/**
- * Step types deliberately not exercised, each with the reason. Empty on
- * purpose: every current type can hold a config and round-trip, so there is
- * nothing legitimate to skip. An entry here is a claim that portability does
- * not apply to that type, and needs to say why.
- */
-const SKIPPED: Record<string, string> = {
-  phone_advanced: "Unified into canonical phone type (STB-13), portability applies only to canonical types now",
-  email_advanced: "Unified into canonical email type (STB-13)",
-  website_advanced: "Unified into canonical website type (STB-13)",
-};
-
-/** A distinctive config per step type, so a dropped or coerced key is visible. */
-function buildStepConfigs(templateId: string): Record<string, Record<string, unknown>> {
-  const choiceOptions = [
-    { id: randomUUID(), label: "Yes", value: "yes" },
-    { id: randomUUID(), label: "No", value: "no" },
+/** A distinctive, canonically-valid config per canonical step type. */
+function buildStepConfigs(templateId: string): Record<CanonicalStepType, Record<string, unknown>> {
+  const choiceOptions = () => [
+    { id: randomUUID(), label: "Yes", alias: "yes" },
+    { id: randomUUID(), label: "No", alias: "no" },
   ];
 
   return {
-    // ===== LEGACY =====
-    short_text: { placeholder: "Legacy short", maxLength: 40 },
-    long_text: { placeholder: "Legacy long", rows: 5 },
-    multiple_choice: { options: choiceOptions, allowMultiple: true },
-    radio: { options: choiceOptions },
-    yes_no: { trueLabel: "Affirmative", falseLabel: "Negative" },
-    date_time: { kind: "datetime", timeFormat: "24h", timeStep: 5 },
-    file_upload: { maxSize: 1048576, allowedTypes: [".pdf", ".docx"] },
+    text: {
+      variant: "long",
+      validation: { minLength: 5, maxLength: 500 },
+      placeholder: "Tell us more",
+      helpText: "Be detailed",
+      autoComplete: "off",
+    },
+    boolean: {
+      trueLabel: "I agree", falseLabel: "I do not agree",
+      displayStyle: "checkbox", trueAlias: "agreed", falseAlias: "declined",
+    },
+    phone: { format: "international", validation: { strict: true }, placeholder: "+1 555 555 5555" },
+    date_time: { kind: "datetime", minDate: "2020-01-01", maxDate: "2030-12-31", timeFormat: "24h", timeStep: 15 },
+    choice: {
+      display: "dropdown", layout: "vertical", options: choiceOptions(),
+      allowOther: true, otherLabel: "Something else", randomizeOrder: true,
+    },
+    email: { allowMultiple: true, maxEmails: 3, restrictDomains: ["example.com"], placeholder: "you@example.com" },
+    number: {
+      mode: "number", validation: { min: 0, max: 1000, step: 5, precision: 2 },
+      thousandsSeparator: true, formatOnInput: true, prefix: "#", suffix: "pts",
+    },
+    scale: { min: 1, max: 10, step: 1, display: "stars", showValue: true, minLabel: "Poor", maxLabel: "Great" },
+    website: {
+      requireProtocol: true, allowedProtocols: ["https"],
+      restrictDomains: ["example.com"], placeholder: "https://example.com",
+    },
+    address: { country: "US", fields: ["street", "city", "state", "zip"], requireAll: true },
+    multi_field: {
+      layout: "first_last",
+      fields: [
+        { key: "first", label: "First", type: "text", required: true },
+        { key: "last", label: "Last", type: "text", required: true },
+      ],
+      storeAs: "separate",
+    },
+    display: { markdown: "## Please review before continuing" },
+    file_upload: { maxSize: 5242880, allowedTypes: [".pdf", ".docx"], maxFiles: 3, previewThumbnails: true },
+    js_question: {
+      display: "visible", code: "emit(a + b);", inputKeys: ["a", "b"], outputKey: "sum",
+      timeoutMs: 2000, helpText: "Computes a+b",
+    },
     computed: { formula: "a + b", inputKeys: ["a", "b"] },
-    js_question: { code: "emit(1 + 1);", timeoutMs: 500 },
     final_documents: {
       markdownHeader: "## Your documents",
+      outputFormats: ["pdf"],
       documents: [{
         id: randomUUID(),
         documentId: templateId,
@@ -85,52 +113,11 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
       documents: [{ id: randomUUID(), documentId: templateId }],
       provider: "native",
       expiresInDays: 14,
+      allowDecline: true,
     },
-
-    // ===== EASY MODE =====
-    true_false: { trueLabel: "On", falseLabel: "Off" },
-    phone: { format: "US", placeholder: "(555) 555-5555" },
-    date: { minDate: "2020-01-01", maxDate: "2030-12-31" },
-    time: { step: 15 },
-    datetime: { includeSeconds: false },
-    email: { placeholder: "you@example.com" },
-    number: {
-      mode: "number", validation: { min: 0, max: 100, step: 5, precision: 2 },
-      thousandsSeparator: true, formatOnInput: true, prefix: "#", suffix: "pts",
-    },
-    currency: { currency: "USD", precision: 2 },
-    scale: { min: 1, max: 10, minLabel: "Poor", maxLabel: "Great" },
-    website: { requireHttps: true },
-    display: { markdown: "### Read this first" },
-    address: { requireCountry: true, defaultCountry: "US" },
-    final: { markdownHeader: "All done", documents: [] },
-
-    // ===== ADVANCED MODE =====
-    text: { multiline: false, maxLength: 255, placeholder: "Advanced text" },
-    boolean: { display: "switch", trueLabel: "Enabled" },
-    datetime_unified: { kind: "datetime", timeFormat: "24h" },
-    choice: {
-      display: "dropdown",
-      allowMultiple: false,
-      options: choiceOptions,
-      allowOther: true,
-      otherLabel: "Something else",
-    },
-    number_advanced: { min: -50, max: 50, decimalPlaces: 3, thousandsSeparator: true },
-    scale_advanced: { min: 0, max: 5, step: 0.5, showValue: true },
-    address_advanced: { components: ["line1", "city", "postalCode"], autocomplete: true },
-    multi_field: {
-      fields: [
-        { id: randomUUID(), alias: "first", label: "First", type: "text", order: 0 },
-        { id: randomUUID(), alias: "last", label: "Last", type: "text", order: 1 },
-      ],
-    },
-    display_advanced: { markdown: "## Advanced display", showBorder: true },
-
-    // ===== STRUCTURAL =====
     // Deliberately the richest fixture in the file: four distinct question
     // types, one carrying visibleIf, and a nested kind:"list" field with its
-    // own question (AC 3). A List is the only step whose config is itself a
+    // own question (AC 2). A List is the only step whose config is itself a
     // tree, so it is the only one where a shallow copy would still look right.
     list: {
       minItems: 1,
@@ -143,7 +130,7 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
         {
           kind: "question", id: randomUUID(), alias: "full_name", type: "text",
           title: "Full name", order: 0, required: true,
-          config: { maxLength: 120 },
+          config: { variant: "short", validation: { maxLength: 120 } },
         },
         {
           kind: "question", id: randomUUID(), alias: "dob", type: "date_time",
@@ -153,17 +140,20 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
         {
           kind: "question", id: randomUUID(), alias: "share", type: "number",
           title: "Share %", order: 2,
-          config: { min: 0, max: 100 },
+          config: { mode: "number", validation: { min: 0, max: 100 } },
         },
         {
           kind: "question", id: randomUUID(), alias: "is_minor", type: "choice",
           title: "Is a minor?", order: 3,
-          config: { display: "radio", allowMultiple: false, options: choiceOptions },
+          config: { display: "radio", options: choiceOptions() },
           // A per-field condition is part of the config tree and must survive.
           visibleIf: {
-            type: "comparison",
-            operator: "is_not_empty",
-            left: { kind: "variable", name: "full_name" },
+            type: "group",
+            id: "vis-1",
+            operator: "AND",
+            conditions: [
+              { type: "condition", id: "vis-1-c1", variable: "full_name", operator: "is_not_empty", valueType: "constant" },
+            ],
           },
         },
         {
@@ -175,7 +165,7 @@ function buildStepConfigs(templateId: string): Record<string, Record<string, unk
             fields: [
               {
                 kind: "question", id: randomUUID(), alias: "street", type: "text",
-                title: "Street", order: 0, config: { maxLength: 200 },
+                title: "Street", order: 0, config: { variant: "short", validation: { maxLength: 200 } },
               },
             ],
           },
@@ -212,7 +202,7 @@ function normalizeIds(value: unknown): unknown {
   return value;
 }
 
-describe.sequential("Portability round-trip fidelity across step types", () => {
+describe.sequential("Portability round-trip fidelity across canonical step types (STB-18)", () => {
   let app: Express;
   let server: Server;
   let baseURL: string;
@@ -221,22 +211,27 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
   let userId: string;
   let projectId: string;
   let workflowId: string;
-  let stepConfigs: Record<string, Record<string, unknown>>;
+  let stepConfigs: Record<CanonicalStepType, Record<string, unknown>>;
   /** Aliases actually seeded, so the round-trip cannot pass by comparing nothing. */
   const seededAliases: string[] = [];
 
-  async function downloadBundle(scope: string, id: string): Promise<Buffer> {
+  // A second tenant, wholly unrelated to the fixture above, for the
+  // cross-tenant denial cases (ticket's vertical proof).
+  let otherTenantId: string;
+  let otherAuthToken: string;
+  let otherProjectId: string;
+
+  async function downloadBundle(scope: string, id: string, token: string = authToken): Promise<{ status: number; body: Buffer }> {
     const response = await request(baseURL)
       .get(`/api/portability/export/${scope}/${id}`)
-      .set("Authorization", `Bearer ${authToken}`)
+      .set("Authorization", `Bearer ${token}`)
       .buffer(true)
       .parse((res, cb) => {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => cb(null, Buffer.concat(chunks)));
-      })
-      .expect(200);
-    return response.body as Buffer;
+      });
+    return { status: response.status, body: response.body as Buffer };
   }
 
   /** alias -> normalised config, for every step of a workflow. */
@@ -248,6 +243,54 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       out[row.alias ?? row.id] = normalizeIds(row.config);
     }
     return out;
+  }
+
+  /** Every `type` value carried by a bundle's `entities/steps.jsonl`. */
+  function stepTypesInBundle(bundle: Buffer): string[] {
+    const zip = new AdmZip(bundle);
+    const entry = zip.getEntry("entities/steps.jsonl");
+    if (entry === null) { return []; }
+    return entry.getData().toString("utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (JSON.parse(line) as { type: string }).type);
+  }
+
+  /**
+   * Build a one-step, one-page workflow under the main project/tenant whose
+   * step config is deliberately NOT canonical, export it, and return the raw
+   * bundle bytes plus the SOURCE workflow id — the "legacy/unknown bundle"
+   * half of AC 3. The source id lets callers prove no *new* copy of the
+   * marker-titled step exists after a rejected import, distinct from the
+   * one legitimately seeded here to build the bundle in the first place.
+   */
+  async function seedInvalidBundle(
+    opts: { stepType: (typeof schema.stepTypeEnum.enumValues)[number]; stepConfig: unknown; markerTitle: string }
+  ): Promise<{ bundle: Buffer; sourceWorkflowId: string }> {
+    const [workflow] = await getOwnerDb().insert(schema.workflows).values({
+      title: `Invalid Bundle Source ${randomUUID().slice(0, 8)}`,
+      name: "Invalid Bundle Source",
+      projectId, creatorId: userId, ownerId: userId,
+      ownerType: "user", ownerUuid: userId,
+    }).returning();
+
+    const [page] = await getOwnerDb().insert(schema.pages).values({
+      workflowId: workflow.id, title: "Page", order: 0,
+    }).returning();
+
+    await getOwnerDb().insert(schema.steps).values({
+      workflowId: workflow.id,
+      pageId: page.id,
+      type: opts.stepType,
+      title: opts.markerTitle,
+      alias: `alias_${randomUUID().slice(0, 8)}`,
+      order: 0,
+      config: opts.stepConfig,
+    });
+
+    const { status, body } = await downloadBundle("workflow", workflow.id);
+    expect(status).toBe(200);
+    return { bundle: body, sourceWorkflowId: workflow.id };
   }
 
   beforeAll(async () => {
@@ -312,15 +355,8 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
 
     stepConfigs = buildStepConfigs(template.templateId);
 
-    // Iterate the *fixtures*, not the raw enum. A newly added enum value with
-    // no fixture must be reported by the coverage test below, not crash this
-    // setup on an enum the local database has not migrated yet — otherwise the
-    // suite dies before it can say what is actually wrong.
     let order = 0;
-    for (const type of stepTypeEnum.enumValues) {
-      if (type in SKIPPED || !(type in stepConfigs)) {
-        continue;
-      }
+    for (const type of CANONICAL_STEP_TYPES) {
       const alias = `alias_${type}`;
       await getOwnerDb().insert(schema.steps).values({
         workflowId,
@@ -333,6 +369,33 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       });
       seededAliases.push(alias);
     }
+
+    // A wholly separate tenant/user/project for the cross-tenant denial cases.
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
+      name: "Round-trip Outsider Tenant", plan: "free",
+    }).returning();
+    otherTenantId = otherTenant.id;
+
+    const otherRegisterResponse = await request(baseURL)
+      .post("/api/auth/register")
+      .send({
+        email: `roundtrip-outsider-${nanoid()}@example.com`,
+        password: "TestPassword123!@#Strong",
+        firstName: "Out", lastName: "Sider",
+      })
+      .expect(201);
+    otherAuthToken = otherRegisterResponse.body.token;
+    const otherUserId = otherRegisterResponse.body.user.id;
+    await getOwnerDb().update(schema.users)
+      .set({ tenantId: otherTenantId, tenantRole: "owner" })
+      .where(eq(schema.users.id, otherUserId));
+
+    const otherProjectResponse = await request(baseURL)
+      .post("/api/projects")
+      .set("Authorization", `Bearer ${otherAuthToken}`)
+      .send({ name: `Outsider Project ${nanoid()}` })
+      .expect(201);
+    otherProjectId = otherProjectResponse.body.id;
   });
 
   afterAll(async () => {
@@ -340,26 +403,39 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
       await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
       await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
+    if (otherTenantId) {
+      await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+    }
     if (server) {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
     }
   });
 
-  it("AC 1 & 2: every stepTypeEnum value is covered by a fixture or explicitly skipped", () => {
+  it("AC 1: every canonical step type has a fixture, and every fixture is itself canonically valid", () => {
     const configs = buildStepConfigs(randomUUID());
-    const uncovered = stepTypeEnum.enumValues.filter(
-      (type) => !(type in configs) && !(type in SKIPPED)
-    );
 
+    const uncovered = CANONICAL_STEP_TYPES.filter((type) => !(type in configs));
     expect(
       uncovered,
-      `These step types have no portability fixture and no entry in SKIPPED, so a ` +
-      `round trip has never been proven for them. Add a config to buildStepConfigs() ` +
-      `in this file, or add a SKIPPED entry saying why portability does not apply.`
+      `These canonical step types have no portability fixture, so a round trip ` +
+      `has never been proven for them. Add a config to buildStepConfigs() in this file.`
     ).toEqual([]);
+
+    // The fixture is not just present -- it must actually pass the same
+    // write-boundary validator ImportService now enforces (STB-17's
+    // validateCanonicalStepConfig). This is what makes "no retired aliases or
+    // removed keys" a proven property of this suite rather than an assertion.
+    for (const type of CANONICAL_STEP_TYPES) {
+      const result = validateCanonicalStepConfig(type, configs[type]);
+      expect(
+        result.success,
+        `Fixture for "${type}" is not canonically valid: ${JSON.stringify(result.error?.issues)}`
+      ).toBe(true);
+    }
   });
 
-  it("AC 3: the List fixture covers four question types, a visibleIf and a nested list", () => {
+  it("AC 2: the List fixture covers four question types, a visibleIf and a nested list", () => {
     const list = buildStepConfigs(randomUUID()).list as {
       fields: Array<Record<string, unknown>>;
     };
@@ -386,8 +462,9 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     expect(nested!.list.fields[0].kind).toBe("question");
   });
 
-  it("AC 4: every step config survives a project-scope round trip byte-for-byte", async () => {
-    const bundle = await downloadBundle("project", projectId);
+  it("AC 2: every canonical step config survives a project-scope round trip byte-for-byte", async () => {
+    const { status, body: bundle } = await downloadBundle("project", projectId);
+    expect(status).toBe(200);
 
     const applied = await request(baseURL)
       .post("/api/portability/import/apply")
@@ -410,8 +487,9 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
     expect(after).toEqual(before);
   });
 
-  it("AC 5: every step config survives a workflow-scope round trip byte-for-byte", async () => {
-    const bundle = await downloadBundle("workflow", workflowId);
+  it("AC 2: every canonical step config survives a workflow-scope round trip byte-for-byte", async () => {
+    const { status, body: bundle } = await downloadBundle("workflow", workflowId);
+    expect(status).toBe(200);
 
     const applied = await request(baseURL)
       .post("/api/portability/import/apply")
@@ -428,5 +506,141 @@ describe.sequential("Portability round-trip fidelity across step types", () => {
 
     expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort());
     expect(after).toEqual(before);
+  });
+
+  it("AC 3: export emits canonical types only", async () => {
+    const { status, body: projectBundle } = await downloadBundle("project", projectId);
+    expect(status).toBe(200);
+    const projectTypes = stepTypesInBundle(projectBundle);
+    expect(projectTypes.length).toBeGreaterThan(0);
+    for (const type of projectTypes) {
+      expect(CANONICAL_STEP_TYPES as readonly string[], `"${type}" is not a canonical step type`).toContain(type);
+    }
+
+    const { status: wfStatus, body: workflowBundle } = await downloadBundle("workflow", workflowId);
+    expect(wfStatus).toBe(200);
+    const workflowTypes = stepTypesInBundle(workflowBundle);
+    expect(workflowTypes.length).toBeGreaterThan(0);
+    for (const type of workflowTypes) {
+      expect(CANONICAL_STEP_TYPES as readonly string[], `"${type}" is not a canonical step type`).toContain(type);
+    }
+  });
+
+  it("AC 3: a bundle carrying a retired step type is rejected before any row is written", async () => {
+    const markerTitle = `Retired Type Marker ${randomUUID()}`;
+    const { bundle, sourceWorkflowId } = await seedInvalidBundle({
+      stepType: "short_text",
+      stepConfig: { placeholder: "legacy" },
+      markerTitle,
+    });
+
+    // Dedicated, empty target project so "zero rows written" is unambiguous.
+    const targetProjectResponse = await request(baseURL)
+      .post("/api/projects")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({ name: `Rejected Import Target ${nanoid()}` })
+      .expect(201);
+    const targetProjectId = targetProjectResponse.body.id;
+
+    const preview = await request(baseURL)
+      .post("/api/portability/import/preview")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("targetProjectId", targetProjectId)
+      .attach("file", bundle, "legacy.ezb")
+      .expect(200);
+    expect(preview.body.canProceed).toBe(false);
+    expect(preview.body.errors.join(" ")).toMatch(/retired|not canonical/i);
+
+    const beforeWorkflows = await getOwnerDb().select().from(schema.workflows)
+      .where(eq(schema.workflows.projectId, targetProjectId));
+    expect(beforeWorkflows).toHaveLength(0);
+
+    await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("targetProjectId", targetProjectId)
+      .attach("file", bundle, "legacy.ezb")
+      .expect(400);
+
+    // The actual proof: query the table, don't trust the status code alone.
+    const afterWorkflows = await getOwnerDb().select().from(schema.workflows)
+      .where(eq(schema.workflows.projectId, targetProjectId));
+    expect(afterWorkflows).toHaveLength(0);
+
+    // A stronger, table-level proof than the project scope above: no NEW
+    // step carrying this marker title exists anywhere, only the one
+    // legitimately seeded to build the bundle in the first place.
+    const stray = await getOwnerDb().select().from(schema.steps)
+      .where(and(eq(schema.steps.title, markerTitle), ne(schema.steps.workflowId, sourceWorkflowId)));
+    expect(stray).toHaveLength(0);
+  });
+
+  it("AC 3: a bundle carrying an unknown config key on a canonical type is rejected before any row is written", async () => {
+    const markerTitle = `Unknown Key Marker ${randomUUID()}`;
+    // A real defect this initiative found: `decimalPlaces` was never a
+    // legal key on any canonical `number` config, only ever advertised by
+    // schema membership (STB-1).
+    const { bundle, sourceWorkflowId } = await seedInvalidBundle({
+      stepType: "number",
+      stepConfig: { mode: "number", validation: {}, decimalPlaces: 3 },
+      markerTitle,
+    });
+
+    const targetProjectResponse = await request(baseURL)
+      .post("/api/projects")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({ name: `Rejected Import Target ${nanoid()}` })
+      .expect(201);
+    const targetProjectId = targetProjectResponse.body.id;
+
+    const preview = await request(baseURL)
+      .post("/api/portability/import/preview")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("targetProjectId", targetProjectId)
+      .attach("file", bundle, "unknown-key.ezb")
+      .expect(200);
+    expect(preview.body.canProceed).toBe(false);
+    expect(preview.body.errors.join(" ")).toMatch(/decimalPlaces/);
+
+    await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("targetProjectId", targetProjectId)
+      .attach("file", bundle, "unknown-key.ezb")
+      .expect(400);
+
+    const afterWorkflows = await getOwnerDb().select().from(schema.workflows)
+      .where(eq(schema.workflows.projectId, targetProjectId));
+    expect(afterWorkflows).toHaveLength(0);
+
+    const stray = await getOwnerDb().select().from(schema.steps)
+      .where(and(eq(schema.steps.title, markerTitle), ne(schema.steps.workflowId, sourceWorkflowId)));
+    expect(stray).toHaveLength(0);
+  });
+
+  it("cross-tenant denial: a caller cannot export another tenant's workflow", async () => {
+    const response = await request(baseURL)
+      .get(`/api/portability/export/workflow/${workflowId}`)
+      .set("Authorization", `Bearer ${otherAuthToken}`);
+    expect([403, 404]).toContain(response.status);
+  });
+
+  it("cross-tenant denial: a caller cannot import into a project they cannot access", async () => {
+    const { status, body: bundle } = await downloadBundle("workflow", workflowId);
+    expect(status).toBe(200);
+
+    const beforeWorkflows = await getOwnerDb().select().from(schema.workflows)
+      .where(eq(schema.workflows.projectId, otherProjectId));
+
+    const response = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("targetProjectId", otherProjectId)
+      .attach("file", bundle, "workflow.ezb");
+    expect([403, 404]).toContain(response.status);
+
+    const afterWorkflows = await getOwnerDb().select().from(schema.workflows)
+      .where(eq(schema.workflows.projectId, otherProjectId));
+    expect(afterWorkflows).toHaveLength(beforeWorkflows.length);
   });
 });
