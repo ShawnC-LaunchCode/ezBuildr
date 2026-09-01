@@ -13,7 +13,7 @@ import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecre
 import type { StepConfig } from "../../shared/types/stepConfigs";
 import type { ConditionExpression } from "../../shared/types/conditions";
 
-import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
+import { validateWorkflowStructure } from "./ai/AIServiceUtils";
 import { assertValidSectionSpans } from "./sectionSpans";
 import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
 
@@ -199,28 +199,26 @@ interface StepUpsertContext {
 }
 
 function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Record<string, unknown> | null {
-  let config: Record<string, unknown> | null = null;
+  let config: unknown;
   if (stepData.config !== undefined) {
     config = stepData.config;
   } else if (stepData.options !== undefined) {
     config = { options: stepData.options };
   }
 
-  if (config && stepData.type) {
-    try {
-      // Enforce strict validation
-      config = validateAndNormalizeConfig(stepData.type, config as StepConfig, { strict: true }) as Record<string, unknown> | null;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      createLogger({ module: 'ingest-service' }).warn(
-        { stepType: stepData.type, workflowId, error: message },
-        "Step config validation failed during ingest"
-      );
-      throw new Error(`Validation error: ${message}`);
-    }
+  try {
+    // Validate even when config is omitted so a retired type cannot bypass the
+    // canonical request boundary. Stored rows still use validateStepConfig.
+    const parsed = validateAndNormalizeConfig(stepData.type, config as StepConfig, { strict: true });
+    return parsed === undefined ? null : parsed as Record<string, unknown> | null;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    createLogger({ module: 'ingest-service' }).warn(
+      { stepType: stepData.type, workflowId, error: message },
+      "Step config validation failed during ingest"
+    );
+    throw new Error(`Validation error: ${message}`);
   }
-
-  return config;
 }
 
 function normalizeContent(data: WorkflowContentData): WorkflowContentData {
@@ -231,7 +229,6 @@ function normalizeContent(data: WorkflowContentData): WorkflowContentData {
   normalizedData.logicRules ??= [];
   normalizedData.transformBlocks ??= [];
 
-  normalizeWorkflowTypes(normalizedData as unknown as AIGeneratedWorkflow);
   validateWorkflowStructure(normalizedData as unknown as AIGeneratedWorkflow);
 
   // Aggregate size caps (ICW-11): the deep-update path replaces the whole

@@ -13,7 +13,14 @@ import { z } from 'zod';
 import { LIST_VALIDATION_MAX_DEPTH } from './BlockValidation';
 import { findDuplicateFieldAliases, validateFieldAliasFormat } from './listFieldHelpers';
 import { conditionExpressionSchema } from '../types/conditions';
-import { STORED_LIST_FIELD_QUESTION_TYPES, type ListConfig, type ListField } from '../types/stepConfigs';
+import { documentFieldMappingSchema } from '../types/documentMapping';
+import {
+  CANONICAL_STEP_TYPES,
+  STORED_LIST_FIELD_QUESTION_TYPES,
+  type CanonicalStepType,
+  type ListConfig,
+  type ListField,
+} from '../types/stepConfigs';
 
 // ============================================================================
 // BASE SCHEMAS
@@ -526,10 +533,7 @@ export const FinalBlockConfigSchema = z.object({
     alias: z.string().min(1, 'Document alias is required'),
     pinnedVersionId: z.string().uuid().nullable().optional(),
     conditions: conditionExpressionSchema.optional(),
-    mapping: z.record(z.object({
-      type: z.literal('variable'),
-      source: z.string(),
-    })).optional(),
+    mapping: documentFieldMappingSchema.optional(),
   })).refine(
     (docs) => {
       // Check for duplicate aliases
@@ -539,6 +543,39 @@ export const FinalBlockConfigSchema = z.object({
     { message: 'Document aliases must be unique' }
   ),
   deliveryDestinations: z.array(DeliveryDestinationSchema).optional(),
+});
+
+/**
+ * Canonical signature-block authoring contract.
+ *
+ * This type was canonical but previously had no schema, so every writer
+ * accepted arbitrary JSON while the runtime only recognized this shape.
+ */
+export const SignatureBlockConfigSchema = z.object({
+  signerRole: z.string().min(1),
+  routingOrder: z.number().int().min(1),
+  documents: z.array(z.object({
+    id: z.string().min(1),
+    documentId: z.string().min(1),
+    mapping: documentFieldMappingSchema.optional(),
+  })),
+  conditions: conditionExpressionSchema.nullable().optional(),
+  markdownHeader: z.string().optional(),
+  provider: z.enum(['docusign', 'hellosign', 'native']).optional(),
+  allowDecline: z.boolean().optional(),
+  expiresInDays: z.number().int().min(1).optional(),
+  signerEmail: z.string().optional(),
+  signerName: z.string().optional(),
+  message: z.string().optional(),
+  redirectUrl: z.string().optional().refine(val => {
+    if (!val) { return true; }
+    try {
+      const url = new URL(val, 'http://localhost');
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  }, { message: 'Invalid redirect URL scheme' }),
 });
 
 // ============================================================================
@@ -633,6 +670,189 @@ export const ListConfigSchema = buildListConfigSchema(1) as z.ZodType<ListConfig
 // CONFIG VALIDATOR FACTORY
 // ============================================================================
 
+const configSchemaMap: Partial<Record<string, z.ZodTypeAny>> = {
+  // Canonical stored types
+  text: TextAdvancedConfigSchema,
+  boolean: BooleanAdvancedConfigSchema,
+  phone: PhoneConfigSchema,
+  date_time: DateTimeConfigSchema,
+  choice: ChoiceAdvancedConfigSchema,
+  email: EmailConfigSchema,
+  number: NumberCanonicalConfigSchema,
+  scale: ScaleConfigSchema,
+  website: WebsiteConfigSchema,
+  address: AddressConfigSchema,
+  multi_field: MultiFieldConfigSchema,
+  display: DisplayConfigSchema,
+  file_upload: FileUploadConfigSchema,
+  list: ListConfigSchema,
+  js_question: JsQuestionConfigSchema,
+  computed: ComputedStepConfigSchema,
+  final_documents: FinalBlockConfigSchema,
+  signature_block: SignatureBlockConfigSchema,
+
+  // Retired names remain readable until the stored-artifact backfill. They
+  // are intentionally absent from the canonical write boundary below.
+  date: DateConfigSchema,
+  time: TimeConfigSchema,
+  datetime: LegacyCombinedDateTimeConfigSchema,
+  currency: CurrencyConfigSchema,
+  true_false: TrueFalseConfigSchema,
+  phone_advanced: PhoneConfigSchema,
+  datetime_unified: DateTimeConfigSchema,
+  email_advanced: EmailConfigSchema,
+  number_advanced: NumberAdvancedConfigSchema,
+  scale_advanced: ScaleLegacyReadSchema,
+  website_advanced: WebsiteConfigSchema,
+  address_advanced: AddressLegacyReadSchema,
+  display_advanced: DisplayLegacyReadSchema,
+  multiple_choice: LegacyMultipleChoiceConfigSchema,
+  radio: LegacyRadioConfigSchema,
+  yes_no: LegacyYesNoConfigSchema,
+};
+
+const canonicalTypeSet = new Set<string>(CANONICAL_STEP_TYPES);
+
+function unwrapSchemaForTraversal(schema: z.ZodTypeAny): z.ZodTypeAny {
+  let current = schema;
+  for (;;) {
+    if (
+      current instanceof z.ZodOptional ||
+      current instanceof z.ZodDefault ||
+      current instanceof z.ZodNullable
+    ) {
+      current = (current as unknown as { _def: { innerType: z.ZodTypeAny } })._def.innerType;
+      continue;
+    }
+    if (current instanceof z.ZodEffects) {
+      current = (current as unknown as { _def: { schema: z.ZodTypeAny } })._def.schema;
+      continue;
+    }
+    if (current instanceof z.ZodLazy) {
+      current = (current as unknown as { _def: { getter: () => z.ZodTypeAny } })._def.getter();
+      continue;
+    }
+    return current;
+  }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function selectMatchingSchema(options: readonly z.ZodTypeAny[], value: unknown): z.ZodTypeAny | undefined {
+  return options.find(option => option.safeParse(value).success) ?? options[0];
+}
+
+function collectObjectUnknownConfigKeyIssues(
+  shape: Partial<Record<string, z.ZodTypeAny>>,
+  unknownKeys: string,
+  value: Record<string, unknown>,
+  path: Array<string | number>,
+  issues: z.ZodIssue[]
+): void {
+  for (const [key, child] of Object.entries(value)) {
+    const childSchema = shape[key];
+    if (childSchema === undefined) {
+      if (unknownKeys !== 'passthrough') {
+        const issuePath = [...path, key];
+        issues.push({
+          code: z.ZodIssueCode.custom,
+          path: issuePath,
+          message: `Unknown config key "${issuePath.join('.')}"`,
+        });
+      }
+      continue;
+    }
+    collectUnknownConfigKeyIssues(childSchema, child, [...path, key], issues);
+  }
+}
+
+/**
+ * Find keys Zod would otherwise silently strip. The walk is recursive so the
+ * issue path identifies the exact nested key (including array indexes), while
+ * deliberately preserving schemas that explicitly opt into `.passthrough()`.
+ */
+function collectUnknownConfigKeyIssues(
+  inputSchema: z.ZodTypeAny,
+  value: unknown,
+  path: Array<string | number>,
+  issues: z.ZodIssue[]
+): void {
+  const schema = unwrapSchemaForTraversal(inputSchema);
+
+  if (schema instanceof z.ZodObject) {
+    if (!isObjectRecord(value)) { return; }
+    const shape = schema.shape as unknown as Partial<Record<string, z.ZodTypeAny>>;
+    const unknownKeys = (schema as unknown as { _def: { unknownKeys: string } })._def.unknownKeys;
+    collectObjectUnknownConfigKeyIssues(shape, unknownKeys, value, path, issues);
+    return;
+  }
+
+  if (schema instanceof z.ZodArray) {
+    if (!Array.isArray(value)) { return; }
+    const element = (schema as unknown as { _def: { type: z.ZodTypeAny } })._def.type;
+    value.forEach((item, index) => collectUnknownConfigKeyIssues(element, item, [...path, index], issues));
+    return;
+  }
+
+  if (schema instanceof z.ZodTuple) {
+    if (!Array.isArray(value)) { return; }
+    const items = (schema as unknown as { _def: { items: z.ZodTypeAny[] } })._def.items;
+    items.forEach((item, index) => collectUnknownConfigKeyIssues(item, value[index], [...path, index], issues));
+    return;
+  }
+
+  if (schema instanceof z.ZodRecord) {
+    if (!isObjectRecord(value)) { return; }
+    const valueType = (schema as unknown as { _def: { valueType: z.ZodTypeAny } })._def.valueType;
+    for (const [key, child] of Object.entries(value)) {
+      collectUnknownConfigKeyIssues(valueType, child, [...path, key], issues);
+    }
+    return;
+  }
+
+  if (schema instanceof z.ZodDiscriminatedUnion || schema instanceof z.ZodUnion) {
+    const options = (schema as unknown as { _def: { options: z.ZodTypeAny[] } })._def.options;
+    const selected = selectMatchingSchema(options, value);
+    if (selected) { collectUnknownConfigKeyIssues(selected, value, path, issues); }
+  }
+}
+
+/**
+ * Mirror the legacy read adapters' strict-input/preprocess pattern without
+ * changing the permissive schemas used to read rows already in the database.
+ */
+function canonicalBoundarySchema(readSchema: z.ZodTypeAny): z.ZodTypeAny {
+  const objectSchema = unwrapSchemaForTraversal(readSchema);
+  const strictInput = objectSchema instanceof z.ZodObject
+    ? z.object(objectSchema.shape as z.ZodRawShape).strict()
+    : objectSchema;
+  const strictInputWithOptionality = readSchema.safeParse(undefined).success
+    ? strictInput.optional()
+    : strictInput;
+
+  // `fatal` is load-bearing. Returning z.NEVER does NOT stop Zod running the
+  // outer readSchema on the discarded value, so without it every rejection
+  // trailed phantom `Required` issues for fields the caller DID supply. Those
+  // reach the 400 body verbatim, and STB-16 routes them to the AI patch loop,
+  // where a model would 'fix' a field that was never missing.
+  return z.preprocess((value, ctx) => {
+    const issues: z.ZodIssue[] = [];
+    collectUnknownConfigKeyIssues(readSchema, value, [], issues);
+    if (issues.length > 0) {
+      issues.forEach(issue => ctx.addIssue({ ...issue, fatal: true }));
+      return z.NEVER;
+    }
+    const parsed = strictInputWithOptionality.safeParse(value);
+    if (!parsed.success) {
+      parsed.error.issues.forEach(issue => ctx.addIssue({ ...issue, fatal: true }));
+      return z.NEVER;
+    }
+    return parsed.data;
+  }, readSchema);
+}
+
 /**
  * Get the appropriate validation schema for a step type
  *
@@ -640,52 +860,41 @@ export const ListConfigSchema = buildListConfigSchema(1) as z.ZodType<ListConfig
  * @returns Zod schema for validating the config, or undefined if no validation needed
  */
 export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
-  const schemaMap: Record<string, z.ZodTypeAny> = {
-    // Easy Mode
-    phone: PhoneConfigSchema,
-    date: DateConfigSchema,
-    time: TimeConfigSchema,
-    datetime: LegacyCombinedDateTimeConfigSchema,
-    email: EmailConfigSchema,
-    number: NumberCanonicalConfigSchema,
-    currency: CurrencyConfigSchema,
-    scale: ScaleConfigSchema,
-    website: WebsiteConfigSchema,
-    display: DisplayConfigSchema,
-    address: AddressConfigSchema,
-    true_false: TrueFalseConfigSchema,
+  return configSchemaMap[stepType];
+}
 
-    // Advanced Mode
-    text: TextAdvancedConfigSchema,
-    boolean: BooleanAdvancedConfigSchema,
-    phone_advanced: PhoneConfigSchema,
-    datetime_unified: DateTimeConfigSchema,
-    choice: ChoiceAdvancedConfigSchema,
-    email_advanced: EmailConfigSchema,
-    number_advanced: NumberAdvancedConfigSchema,
-    scale_advanced: ScaleLegacyReadSchema,
-    website_advanced: WebsiteConfigSchema,
-    address_advanced: AddressLegacyReadSchema,
-    multi_field: MultiFieldConfigSchema,
-    display_advanced: DisplayLegacyReadSchema,
+/** Return the strict canonical-only schema used by request/ingest writers. */
+export function getCanonicalConfigSchema(stepType: string): z.ZodTypeAny | undefined {
+  if (!canonicalTypeSet.has(stepType)) { return undefined; }
+  const schema = configSchemaMap[stepType as CanonicalStepType];
+  return schema === undefined ? undefined : canonicalBoundarySchema(schema);
+}
 
-    // Legacy
-    multiple_choice: LegacyMultipleChoiceConfigSchema,
-    radio: LegacyRadioConfigSchema,
-    yes_no: LegacyYesNoConfigSchema,
-    date_time: DateTimeConfigSchema,
-
-    // Special
-    js_question: JsQuestionConfigSchema,
-    computed: ComputedStepConfigSchema,
-    file_upload: FileUploadConfigSchema,
-    final_documents: FinalBlockConfigSchema,
-
-    // Structural
-    list: ListConfigSchema,
-  };
-
-  return schemaMap[stepType];
+/**
+ * Validate a canonical type/config pair at a write boundary. Unlike
+ * `validateStepConfig`, this rejects retired/unknown type names and unknown
+ * config keys instead of preserving read compatibility.
+ */
+export function validateCanonicalStepConfig(stepType: string, config: unknown): {
+  success: boolean;
+  data?: unknown;
+  error?: z.ZodError;
+} {
+  const schema = getCanonicalConfigSchema(stepType);
+  if (!schema) {
+    return {
+      success: false,
+      error: new z.ZodError([{
+        code: z.ZodIssueCode.custom,
+        path: ['type'],
+        message: `Step type "${stepType}" is retired or is not canonical`,
+      }]),
+    };
+  }
+  const result = schema.safeParse(config);
+  return result.success
+    ? { success: true, data: result.data }
+    : { success: false, error: result.error };
 }
 
 /**

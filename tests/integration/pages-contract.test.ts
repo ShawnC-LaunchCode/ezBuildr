@@ -309,7 +309,7 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
     await request(owner.baseURL)
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .set("Authorization", `Bearer ${owner.authToken}`)
-      .send({ type: "short_text", title: "Legal name", alias: "legalName" })
+      .send({ type: "text", title: "Legal name", alias: "legalName", config: { variant: "short" } })
       .expect(201);
 
     const sectionResponse = await request(owner.baseURL)

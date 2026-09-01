@@ -189,7 +189,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
 
     const res = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "First name", alias: "first_name" });
+      .send({ type: "text", title: "First name", alias: "first_name", config: { variant: "short" } });
 
     expect(res.status).toBe(201);
     expect(res.body.alias).toBe("first_name");
@@ -201,7 +201,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
 
     const res = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "list", title: "Children" });
+      .send({ type: "list", title: "Children", config: { fields: [] } });
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("list");
@@ -221,7 +221,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
         title: "Children",
         config: {
           fields: [
-            { kind: "question", id: "f-1", alias: "2bad", type: "short_text", title: "Bad alias", order: 0 },
+            { kind: "question", id: "f-1", alias: "2bad", type: "text", title: "Bad alias", order: 0, config: { variant: "short" } },
           ],
         },
       });
@@ -248,7 +248,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
                       kind: "list", id: "f-3", alias: "level3", title: "Level 3", order: 0,
                       list: {
                         fields: [
-                          { kind: "question", id: "f-4", alias: "leaf", type: "short_text", title: "Leaf", order: 0 },
+                          { kind: "question", id: "f-4", alias: "leaf", type: "text", title: "Leaf", order: 0, config: { variant: "short" } },
                         ],
                       },
                     },
@@ -274,7 +274,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
 
     const res = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Bad", alias: "1st-question" });
+      .send({ type: "text", title: "Bad", alias: "1st-question", config: { variant: "short" } });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/variable names must/i);
@@ -285,12 +285,12 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
 
     const first = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Q1", alias: "email" });
+      .send({ type: "text", title: "Q1", alias: "email", config: { variant: "short" } });
     expect(first.status).toBe(201);
 
     const dup = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Q2", alias: "email" });
+      .send({ type: "text", title: "Q2", alias: "email", config: { variant: "short" } });
 
     expect(dup.status).toBe(400);
     expect(dup.body.message).toMatch(/already in use/i);
@@ -313,7 +313,7 @@ describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
 
     const res = await agent
       .post(`/api/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Via simplified route" });
+      .send({ type: "text", title: "Via simplified route", config: { variant: "short" } });
 
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
@@ -354,15 +354,15 @@ describe("aggregate size caps (ICW-11)", () => {
     const { workflowId, pageId } = await makeWorkflowWithPage();
 
     expect(
-      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "short_text", title: "q1" })).status
+      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "text", title: "q1", config: { variant: "short" } })).status
     ).toBe(201);
     expect(
-      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "short_text", title: "q2" })).status
+      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "text", title: "q2", config: { variant: "short" } })).status
     ).toBe(201);
 
     const overflow = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "q3" });
+      .send({ type: "text", title: "q3", config: { variant: "short" } });
     expect(overflow.status).toBe(400);
     expect(overflow.body.message).toMatch(/question limit reached/i);
   });
@@ -416,7 +416,7 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
 
     const createStep = await sharedAgent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Not allowed" });
+      .send({ type: "text", title: "Not allowed", config: { variant: "short" } });
     expect(createStep.status).toBe(403);
 
     const reorder = await sharedAgent
@@ -438,7 +438,7 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
 
     const createStep = await sharedAgent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Editor question" });
+      .send({ type: "text", title: "Editor question", config: { variant: "short" } });
     expect(createStep.status).toBe(201);
   });
 });
@@ -486,7 +486,7 @@ describe("reorder ids are scoped to their workflow/page (ICW2-1)", () => {
     const mkStep = async (targetPageId: string, title: string): Promise<string> => {
       const res = await agent
         .post(`/api/workflows/${workflowId}/pages/${targetPageId}/steps`)
-        .send({ type: "short_text", title });
+        .send({ type: "text", title, config: { variant: "short" } });
       expect(res.status).toBe(201);
       return res.body.id as string;
     };
@@ -524,7 +524,7 @@ describe("update payloads cannot mass-assign immutable/server-controlled fields 
     const { workflowId, pageId } = await makeWorkflowWithPage();
     const created = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Original" });
+      .send({ type: "text", title: "Original", config: { variant: "short" } });
     expect(created.status).toBe(201);
     const stepId = created.body.id as string;
     const hijackId = randomUUID();
@@ -590,11 +590,11 @@ describe("cross-page step moves assign proper order (ICW2-5)", () => {
     const destPageId = destinationPageResponse.body.id as string;
 
     // Create steps in dest page to bump the max order
-    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "short_text", title: "Dest Step 1" });
-    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "short_text", title: "Dest Step 2" });
+    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "text", title: "Dest Step 1", config: { variant: "short" } });
+    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "text", title: "Dest Step 2", config: { variant: "short" } });
 
     // Create step in source page
-    const mkRes = await agent.post(`/api/workflows/${workflowId}/pages/${srcPageId}/steps`).send({ type: "short_text", title: "Moving Step" });
+    const mkRes = await agent.post(`/api/workflows/${workflowId}/pages/${srcPageId}/steps`).send({ type: "text", title: "Moving Step", config: { variant: "short" } });
     const movingStepId = mkRes.body.id as string;
 
     // Move step via simplified PUT endpoint
@@ -636,11 +636,11 @@ describe("workflow settings persist across save + reload (ICW2-9)", () => {
 });
 
 describe("GET /api/steps/:stepId/delete-impact + /api/pages/:pageId/delete-impact (ICW2-13)", () => {
-  /** Create a short_text step under the given workflow/page; return its id. */
+  /** Create a short text step under the given workflow/page; return its id. */
   async function makeStep(workflowId: string, pageId: string, alias: string): Promise<string> {
     const res = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: alias, alias });
+      .send({ type: "text", title: alias, alias, config: { variant: "short" } });
     expect(res.status).toBe(201);
     return res.body.id as string;
   }
@@ -709,7 +709,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
 
     const original = await agent
       .post(`/api/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Original", alias: "clientName", config: { variant: "short" } });
+      .send({ type: "text", title: "Original", alias: "clientName", config: { variant: "short" } });
     expect(original.status).toBe(201);
 
     const dup = await agent.post(`/api/steps/${original.body.id}/duplicate`);
@@ -729,8 +729,8 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
   it("shifts a later sibling down by one to make room for the copy", async () => {
     const { pageId } = await makeWorkflowWithPage();
 
-    const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "short_text", title: "Q1" });
-    const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "short_text", title: "Q2" });
+    const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q1", config: { variant: "short" } });
+    const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q2", config: { variant: "short" } });
     expect(step1.body.order).toBe(1);
     expect(step2.body.order).toBe(2);
 
@@ -755,7 +755,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     const pageId = pageResponse.body.id as string;
     const stepRes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Q1" });
+      .send({ type: "text", title: "Q1", config: { variant: "short" } });
     const stepId = stepRes.body.id as string;
 
     const sharedUser = await createTestUser(ctx, "builder");
@@ -780,7 +780,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     LIMITS.MAX_STEPS_PER_WORKFLOW = 1;
     try {
       const { pageId } = await makeWorkflowWithPage();
-      const step = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "short_text", title: "Only one" });
+      const step = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Only one", config: { variant: "short" } });
       expect(step.status).toBe(201);
 
       const dup = await agent.post(`/api/steps/${step.body.id}/duplicate`);
@@ -798,10 +798,10 @@ describe("POST /api/pages/:id/duplicate (ICW2-B5)", () => {
 
     const step1 = await agent
       .post(`/api/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Q1", alias: "q_one" });
+      .send({ type: "text", title: "Q1", alias: "q_one", config: { variant: "short" } });
     const step2 = await agent
       .post(`/api/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Q2", alias: "q_two" });
+      .send({ type: "text", title: "Q2", alias: "q_two", config: { variant: "short" } });
     expect(step1.status).toBe(201);
     expect(step2.status).toBe(201);
 
@@ -895,8 +895,8 @@ describe("POST /api/pages/:id/duplicate (ICW2-B5)", () => {
     LIMITS.MAX_STEPS_PER_WORKFLOW = 2;
     try {
       const { pageId } = await makeWorkflowWithPage();
-      const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "short_text", title: "Q1" });
-      const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "short_text", title: "Q2" });
+      const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q1", config: { variant: "short" } });
+      const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q2", config: { variant: "short" } });
       expect(step1.status).toBe(201);
       expect(step2.status).toBe(201);
 

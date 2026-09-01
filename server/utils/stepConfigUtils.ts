@@ -34,7 +34,12 @@ import type {
   FileUploadConfig,
 } from '@shared/types/stepConfigs';
 import { resolveDateTimeConfig, resolveNumberConfig } from '@shared/types/stepConfigs';
-import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
+import { validateCanonicalStepConfig } from '@shared/validation/stepConfigSchemas';
+
+function formatConfigIssuePath(path: Array<string | number>): string {
+  if (path[0] === 'type') { return 'type'; }
+  return path.length === 0 ? 'config' : `config.${path.join('.')}`;
+}
 
 // ============================================================================
 // CONFIG VALIDATION
@@ -60,12 +65,12 @@ export function validateAndNormalizeConfig(
   const { strict = true, normalize = true } = options;
 
   // Validate config
-  const result = validateStepConfig(stepType, config);
+  const result = validateCanonicalStepConfig(stepType, config);
 
   if (!result.success) {
     if (strict) {
       const errorMessages = result.error!.errors
-        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .map(e => `${formatConfigIssuePath(e.path)}: ${e.message}`)
         .join(', ');
       throw new Error(`Invalid config for step type '${stepType}': ${errorMessages}`);
     } else {

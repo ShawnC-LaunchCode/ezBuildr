@@ -64,11 +64,11 @@ async function makeWorkflowWithPage(): Promise<{ workflowId: string; pageId: str
   return { workflowId, pageId: pageResponse.body.id as string };
 }
 
-/** Create a short_text step under the given workflow/page; return its id. */
+/** Create a short text step under the given workflow/page; return its id. */
 async function makeStep(workflowId: string, pageId: string, alias: string): Promise<string> {
   const res = await agent
     .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-    .send({ type: "short_text", title: alias, alias });
+    .send({ type: "text", title: alias, alias, config: { variant: "short" } });
   expect(res.status).toBe(201);
   return res.body.id as string;
 }
@@ -194,7 +194,7 @@ describe("a soft-deleted step's alias frees up for reuse (ICW2-B1 AC3)", () => {
 
     const recreate = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Reused", alias: "reusable_alias" });
+      .send({ type: "text", title: "Reused", alias: "reusable_alias", config: { variant: "short" } });
     expect(recreate.status).toBe(201);
     expect(recreate.body.alias).toBe("reusable_alias");
     expect(recreate.body.id).not.toBe(originalStepId);
@@ -319,8 +319,8 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
           title: "Page A",
           order: 0,
           steps: [
-            { id: "step-keep", type: "short_text", title: "Keep Me", alias: "ingestKeepMe", order: 0 },
-            { id: "step-remove", type: "short_text", title: "Remove Me", alias: "ingestRemoveMe", order: 1 },
+            { id: "step-keep", type: "text", title: "Keep Me", alias: "ingestKeepMe", order: 0, config: { variant: "short" } },
+            { id: "step-remove", type: "text", title: "Remove Me", alias: "ingestRemoveMe", order: 1, config: { variant: "short" } },
           ],
         },
       ],
@@ -351,7 +351,7 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
           title: "Page A",
           order: 0,
           steps: [
-            { id: keepStep.id, type: "short_text", title: "Keep Me", alias: "ingestKeepMe", order: 0 },
+            { id: keepStep.id, type: "text", title: "Keep Me", alias: "ingestKeepMe", order: 0, config: { variant: "short" } },
           ],
         },
       ],
@@ -388,13 +388,13 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
           id: "page-keep",
           title: "Kept Page",
           order: 0,
-          steps: [{ id: "step-a", type: "short_text", title: "A", alias: "ingestPageA", order: 0 }],
+          steps: [{ id: "step-a", type: "text", title: "A", alias: "ingestPageA", order: 0, config: { variant: "short" } }],
         },
         {
           id: "page-remove",
           title: "Removed Page",
           order: 1,
-          steps: [{ id: "step-b", type: "short_text", title: "B", alias: "ingestPageB", order: 0 }],
+          steps: [{ id: "step-b", type: "text", title: "B", alias: "ingestPageB", order: 0, config: { variant: "short" } }],
         },
       ],
     };
@@ -418,7 +418,7 @@ describe("WorkflowContentIngestService reconciliation soft-deletes removed rows 
           id: keepPage.id,
           title: "Kept Page",
           order: 0,
-          steps: [{ id: dbStepsBefore.find((s) => s.alias === "ingestPageA")!.id, type: "short_text", title: "A", alias: "ingestPageA", order: 0 }],
+          steps: [{ id: dbStepsBefore.find((s) => s.alias === "ingestPageA")!.id, type: "text", title: "A", alias: "ingestPageA", order: 0, config: { variant: "short" } }],
         },
       ],
     };

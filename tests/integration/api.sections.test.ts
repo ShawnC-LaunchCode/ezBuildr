@@ -375,7 +375,7 @@ describe.sequential("SECT-3 Sections API and contiguous membership", () => {
     const sectionId = sectionResponse.body.id as string;
     const stepResponse = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageIds[0]}/steps`)
-      .send({ type: "short_text", title: "Answer me" });
+      .send({ type: "text", title: "Answer me", config: { variant: "short" } });
     expect(stepResponse.status).toBe(201);
 
     const deleted = await agent.delete(`/api/pages/${pageIds[0]}`);

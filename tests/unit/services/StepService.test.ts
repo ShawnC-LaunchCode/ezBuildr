@@ -127,10 +127,10 @@ describe("StepService", () => {
 
       // Intentionally omit `order` to exercise the service's auto-increment.
       const newStepData: Omit<InsertStep, 'pageId' | 'workflowId' | 'order'> = {
-        type: "short_text",
+        type: "text",
         title: "New Step",
         required: false,
-        config: {},
+        config: { variant: "short" },
       };
 
       const createdStep = createTestStep(page.id, { ...newStepData, order: 3 });
@@ -157,10 +157,10 @@ describe("StepService", () => {
       const page = createTestPage(workflow.id);
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "First Step",
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 
@@ -186,10 +186,10 @@ describe("StepService", () => {
 
       await expect(
         service.createStep(workflow.id, page.id, "user-123", {
-          type: "short_text",
+          type: "text",
           title: "One too many",
           required: false,
-          config: {},
+          config: { variant: "short" },
         })
       ).rejects.toThrow(/Question limit reached/);
       expect(mockStepRepo.create).not.toHaveBeenCalled();
@@ -208,10 +208,10 @@ describe("StepService", () => {
 
       await expect(
         service.createStep(workflow.id, page.id, "user-123", {
-          type: "short_text",
+          type: "text",
           title: "Last one in",
           required: false,
-          config: {},
+          config: { variant: "short" },
         })
       ).resolves.toBeDefined();
     });
@@ -224,11 +224,11 @@ describe("StepService", () => {
       ];
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "Duplicate Alias",
         alias: "firstName",
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 
@@ -247,11 +247,11 @@ describe("StepService", () => {
       const page = createTestPage(workflow.id);
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "What is your first name?",
         alias: null,
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 
@@ -302,11 +302,11 @@ describe("StepService", () => {
       const page = createTestPage(workflow.id);
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "Dotted",
         alias: "client.name",
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 
@@ -322,10 +322,10 @@ describe("StepService", () => {
       const workflow = createTestWorkflow();
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "New Step",
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 
@@ -342,10 +342,10 @@ describe("StepService", () => {
       const page = createTestPage(workflow.id);
 
       const newStepData: Omit<InsertStep, "pageId" | "workflowId"> = {
-        type: "short_text",
+        type: "text",
         title: "New Step",
         required: false,
-        config: {},
+        config: { variant: "short" },
         order: 1,
       };
 

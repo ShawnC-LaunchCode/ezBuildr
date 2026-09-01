@@ -20,7 +20,7 @@ import { classifyRouteError } from "../utils/routeErrors";
 import { z } from "zod";
 import { asyncHandler } from "../utils/asyncHandler";
 import { RUNNER_RENDERED_STEP_TYPES } from "../../shared/types/runnerStepTypes";
-import { TextAdvancedConfigSchema } from "../../shared/validation/stepConfigSchemas";
+import { validateCanonicalStepConfig } from "../../shared/validation/stepConfigSchemas";
 
 import type { AuthRequest } from "../middleware/auth";
 import type { AIErrorCode } from "../services/ai/types";
@@ -62,9 +62,22 @@ const onboardingVariableSchema = z
     type: z.enum([...RUNNER_RENDERED_STEP_TYPES] as [string, ...string[]]),
     alias: z.string().min(1).max(200),
     label: z.string().max(500).optional(),
-    config: TextAdvancedConfigSchema.optional(),
+    config: z.record(z.unknown()).optional(),
   })
-  .strip();
+  .strip()
+  .superRefine((variable, ctx) => {
+    const result = validateCanonicalStepConfig(variable.type, variable.config);
+    if (result.success) {
+      return;
+    }
+    for (const issue of result.error?.issues ?? []) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['config', ...issue.path],
+        message: issue.message,
+      });
+    }
+  });
 const generateOnboardingWorkflowSchema = z
   .object({
     projectId: z.string().uuid(),

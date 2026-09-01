@@ -41,7 +41,7 @@ import {
   type AIGeneratedStep,
 } from "../../../shared/types/ai";
 import { RUNNER_RENDERED_STEP_TYPES } from "../../../shared/types/runnerStepTypes";
-import { resolveTextConfig, type TextAdvancedConfig } from "../../../shared/types/stepConfigs";
+import { resolveTextConfig } from "../../../shared/types/stepConfigs";
 import { createLogger } from "../../logger";
 import { createAIServiceFromEnv } from "../AIService";
 import { accountService } from "../AccountService";
@@ -63,8 +63,8 @@ export interface OnboardingVariableInput {
   alias: string;
   /** Optional human-readable label; falls back to a title-cased `name`. */
   label?: string;
-  /** Canonical text settings selected by a friendly authoring preset. */
-  config?: TextAdvancedConfig;
+  /** Canonical settings for the selected step type. */
+  config?: Record<string, unknown>;
 }
 
 export interface GenerateOnboardingWorkflowInput {
@@ -230,7 +230,7 @@ export class DocumentOnboardingService {
   }
 
   private applyVariable(step: AIGeneratedStep, variable: OnboardingVariableInput): AIGeneratedStep {
-    const config = variable.type === "text" ? resolveTextConfig("text", variable.config) : step.config;
+    const config = variable.type === "text" ? resolveTextConfig("text", variable.config) : variable.config;
     return {
       ...step,
       type: variable.type as AIGeneratedStep["type"],
@@ -246,7 +246,7 @@ export class DocumentOnboardingService {
       title: variable.label ?? titleCase(variable.name),
       alias: variable.alias,
       required: false,
-      ...(variable.type === "text" ? { config: resolveTextConfig("text", variable.config) } : {}),
+      config: variable.type === "text" ? resolveTextConfig("text", variable.config) : variable.config,
     };
   }
 

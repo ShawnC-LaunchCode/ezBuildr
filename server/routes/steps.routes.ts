@@ -9,15 +9,58 @@ import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTok
 import { pageRepository } from "../repositories/PageRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
+import { workflowService } from "../services/WorkflowService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { withCurrentTenant } from "../utils/rlsContext";
 import { classifyRouteError } from "../utils/routeErrors";
+import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 
 import type { Express, Request, Response, NextFunction } from "express";
+import type { StepConfig } from "@shared/types/stepConfigs";
 
 const logger = createLogger({ module: "steps-routes" });
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+
+function rejectInvalidStepRequest(res: Response, error: unknown): void {
+  const message = error instanceof Error ? error.message : "Invalid step input";
+  res.status(400).json({ message: `Validation error: ${message}` });
+}
+
+/** Validate the canonical type/config pair before autoRevert can write. */
+function validateStepCreateRequest(req: Request, res: Response, next: NextFunction): void {
+  try {
+    const data = insertStepSchema.partial().parse(req.body);
+    if (data.type === undefined) {
+      throw new Error("Step type is required at type");
+    }
+    validateAndNormalizeConfig(data.type, data.config as StepConfig, { strict: true });
+    next();
+  } catch (error) {
+    rejectInvalidStepRequest(res, error);
+  }
+}
+
+/** Validate config/type updates atomically before autoRevert can write. */
+function validateStepUpdateRequest(req: Request, res: Response, next: NextFunction): void {
+  try {
+    const data = insertStepSchema.partial().parse(req.body);
+    const existingType = res.locals.stepType as string | undefined;
+    if (data.type !== undefined && data.type !== existingType && data.config === undefined) {
+      throw new Error(`replacement config is required when changing type to "${data.type}" at config`);
+    }
+    if (data.config !== undefined) {
+      const effectiveType = data.type ?? existingType;
+      if (effectiveType === undefined) {
+        throw new Error("Step type is required at type");
+      }
+      validateAndNormalizeConfig(effectiveType, data.config as StepConfig, { strict: true });
+    }
+    next();
+  } catch (error) {
+    rejectInvalidStepRequest(res, error);
+  }
+}
 /**
  * Middleware helper: Look up workflowId from stepId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -29,6 +72,7 @@ async function lookupWorkflowIdFromStepMiddleware(
 ): Promise<void> {
   try {
     const { stepId } = req.params;
+    const userId = (req as AuthRequest).userId;
     if (!stepId) {
       return next();
     }
@@ -47,14 +91,30 @@ async function lookupWorkflowIdFromStepMiddleware(
       if (!page) {
         return { error: "Page not found" as const };
       }
-      return { workflowId: page.workflowId };
+      if (!userId) {
+        return { error: "Step not found" as const };
+      }
+      try {
+        await workflowService.verifyAccess(page.workflowId, userId, 'edit', tx);
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('Access denied')) {
+          return { accessDenied: true as const };
+        }
+        return { error: "Step not found" as const };
+      }
+      return { workflowId: page.workflowId, stepType: step.type };
     });
+    if ('accessDenied' in resolved) {
+      res.status(403).json({ message: "Access denied - insufficient permissions for this workflow" });
+      return;
+    }
     if ('error' in resolved) {
       res.status(404).json({ message: resolved.error });
       return;
     }
 
     req.params.workflowId = resolved.workflowId;
+    res.locals.stepType = resolved.stepType;
     next();
   } catch (error) {
     logger.error({ error }, "Error in lookupWorkflowIdFromStepMiddleware");
@@ -106,22 +166,76 @@ async function lookupWorkflowIdFromPageMiddleware(
 ): Promise<void> {
   try {
     const { pageId } = req.params;
+    const userId = (req as AuthRequest).userId;
     if (!pageId) {
       return next();
     }
     // RLS-5: `pages` is RLS-covered via its parent workflow's
     // ownership-derived policy — read inside the tenant-scoped transaction.
-    const page = await withCurrentTenant((tx) =>
-      pageRepository.findById(pageId, tx));
-    if (!page) {
+    const resolved = await withCurrentTenant(async (tx) => {
+      const page = await pageRepository.findById(pageId, tx);
+      if (!page || !userId) { return { page: undefined }; }
+      try {
+        await workflowService.verifyAccess(page.workflowId, userId, 'edit', tx);
+      } catch (error) {
+        return error instanceof Error && error.message.startsWith('Access denied')
+          ? { accessDenied: true as const }
+          : { page: undefined };
+      }
+      return { page };
+    });
+    if ('accessDenied' in resolved) {
+      res.status(403).json({ message: "Access denied - insufficient permissions for this workflow" });
+      return;
+    }
+    if (!resolved.page) {
       res.status(404).json({ message: "Page not found" });
       return;
     }
 
-    req.params.workflowId = page.workflowId;
+    req.params.workflowId = resolved.page.workflowId;
     next();
   } catch (error) {
     logger.error({ error }, "Error in lookupWorkflowIdFromPageMiddleware");
+    next(error);
+  }
+}
+
+/** Conceal a missing/foreign/mismatched page before request-body validation. */
+async function verifyScopedPageMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { pageId, workflowId } = req.params;
+    const userId = (req as AuthRequest).userId;
+    if (!pageId || !workflowId) {
+      return next();
+    }
+    const access = await withCurrentTenant(async (tx) => {
+      const page = await pageRepository.findById(pageId, tx);
+      if (!page || page.workflowId !== workflowId || !userId) { return 'not-found' as const; }
+      try {
+        await workflowService.verifyAccess(workflowId, userId, 'edit', tx);
+        return 'permitted' as const;
+      } catch (error) {
+        return error instanceof Error && error.message.startsWith('Access denied')
+          ? 'denied' as const
+          : 'not-found' as const;
+      }
+    });
+    if (access === 'denied') {
+      res.status(403).json({ message: "Access denied - insufficient permissions for this workflow" });
+      return;
+    }
+    if (access === 'not-found') {
+      res.status(404).json({ message: "Page not found" });
+      return;
+    }
+    next();
+  } catch (error) {
+    logger.error({ error }, "Error in verifyScopedPageMiddleware");
     next(error);
   }
 }
@@ -135,7 +249,7 @@ function registerWorkflowStepRoutes(app: Express): void {
    * Create a new step
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
-  app.post('/api/workflows/:workflowId/pages/:pageId/steps', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/:workflowId/pages/:pageId/steps', hybridAuth, createLimiter, verifyScopedPageMiddleware, validateStepCreateRequest, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
@@ -258,7 +372,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
    * Create a new step (workflow looked up automatically)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
-  app.post('/api/pages/:pageId/steps', hybridAuth, createLimiter, lookupWorkflowIdFromPageMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/pages/:pageId/steps', hybridAuth, createLimiter, lookupWorkflowIdFromPageMiddleware, validateStepCreateRequest, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
@@ -362,7 +476,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
    * Update a step (workflow looked up automatically)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
-  app.put('/api/steps/:stepId', hybridAuth, lookupWorkflowIdFromStepMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.put('/api/steps/:stepId', hybridAuth, lookupWorkflowIdFromStepMiddleware, validateStepUpdateRequest, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {

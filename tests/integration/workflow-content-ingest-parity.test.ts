@@ -62,20 +62,20 @@ const parityFixture: WorkflowContentData = {
       steps: [
         {
           id: 'applicant-name',
-          type: 'short_text',
+          type: 'text',
           title: 'Applicant name',
           alias: 'applicantName',
           required: true,
-          config: { placeholder: 'Full legal name' },
+          config: { variant: 'short', placeholder: 'Full legal name' },
           order: 0,
         },
         {
           id: 'contact-preference',
-          type: 'radio',
+          type: 'choice',
           title: 'Preferred contact method',
           alias: 'contactPreference',
           required: true,
-          options: ['Email', 'Phone'],
+          config: { display: 'radio', options: ['Email', 'Phone'] },
           order: 1,
         },
       ],
@@ -101,11 +101,11 @@ const parityFixture: WorkflowContentData = {
         },
         {
           id: 'eligibility-notes',
-          type: 'long_text',
+          type: 'text',
           title: 'Eligibility notes',
           alias: 'eligibilityNotes',
           required: false,
-          config: { maxLength: 500, rows: 4 },
+          config: { variant: 'long', validation: { maxLength: 500 } },
           order: 1,
         },
       ],
@@ -293,6 +293,44 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
         expect(alias).toMatch(/^[a-zA-Z_][a-zA-Z0-9_]*$/);
       }
     }
+  });
+
+  it('rejects an unknown nested config key and rolls back earlier content in the ingest transaction', async () => {
+    const workflowId = await createWorkflow('Strict ingest rollback workflow');
+    const payload = cloneFixture();
+    const invalidStep = payload.pages?.[1]?.steps?.[0];
+    if (invalidStep === undefined) {
+      throw new Error('Expected later fixture step to exist');
+    }
+    invalidStep.config = {
+      trueLabel: 'Veteran',
+      falseLabel: 'Civilian',
+      displayStyle: 'toggle',
+      validation: { invented: true },
+    };
+
+    await expect(
+      workflowContentIngestService.apply(workflowId, payload, { source: 'manual' })
+    ).rejects.toThrow(/config\.validation/i);
+
+    expect(await readPersistedShape(workflowId)).toEqual({ pages: [], logicRules: [] });
+  });
+
+  it('rejects a retired step type without normalizing it and commits no content', async () => {
+    const workflowId = await createWorkflow('Retired ingest type workflow');
+    const payload = cloneFixture();
+    const retiredStep = payload.pages?.[1]?.steps?.[0];
+    if (retiredStep === undefined) {
+      throw new Error('Expected later fixture step to exist');
+    }
+    retiredStep.type = 'short_text';
+    retiredStep.config = { placeholder: 'Legacy' };
+
+    await expect(
+      workflowContentIngestService.apply(workflowId, payload, { source: 'ai' })
+    ).rejects.toThrow(/type/i);
+
+    expect(await readPersistedShape(workflowId)).toEqual({ pages: [], logicRules: [] });
   });
 
   it('rolls back metadata and audit log when content sync fails mid-transaction (ICW-3)', async () => {

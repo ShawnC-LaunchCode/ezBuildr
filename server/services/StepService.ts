@@ -216,19 +216,18 @@ export class StepService {
         );
       }
 
-      let finalConfig = data.config;
-      if (finalConfig) {
-        try {
-          // Enforce strict validation
-          finalConfig = validateAndNormalizeConfig(data.type, finalConfig as StepConfig, { strict: true });
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          logger.warn(
-            { stepType: data.type, workflowId, error: message },
-            "Step config validation failed during creation"
-          );
-          throw new Error(`Validation error: ${message}`);
-        }
+      let finalConfig: StepConfig;
+      try {
+        // Validate the type/config pair even when config is omitted: a retired
+        // type name must never bypass the canonical boundary via `undefined`.
+        finalConfig = validateAndNormalizeConfig(data.type, data.config as StepConfig, { strict: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          { stepType: data.type, workflowId, error: message },
+          "Step config validation failed during creation"
+        );
+        throw new Error(`Validation error: ${message}`);
       }
 
       // Validate alias if provided; otherwise auto-generate one from the
@@ -364,6 +363,66 @@ export class StepService {
     }
   }
 
+  private async preparePageMove(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>,
+    tx: DbTransaction
+  ): Promise<void> {
+    if (!data.pageId || data.pageId === step.pageId) { return; }
+    const newPage = await this.pageRepo.findById(data.pageId, tx);
+    if (!newPage || newPage.workflowId !== workflowId) {
+      throw new Error("Cannot move step to a page in a different workflow");
+    }
+    if (data.order === undefined) {
+      data.order = await this.resolveCrossPageOrder(data.pageId, tx);
+    }
+  }
+
+  private async validateAliasChange(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>,
+    tx: DbTransaction
+  ): Promise<void> {
+    if (data.alias === undefined || data.alias === step.alias) { return; }
+    if (data.alias) {
+      validateAliasFormat(data.alias);
+    }
+    await this.validateAliasUniqueness(workflowId, data.alias, step.id, tx);
+  }
+
+  private buildValidatedStepUpdates(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>
+  ): { updates: Partial<InsertStep>; aliasChanges: Map<string, string> } {
+    const updates = { ...data };
+    delete updates.workflowId;
+    delete updates.id;
+    delete updates.isVirtual;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+    delete updates.deletedAt;
+
+    if (data.type !== undefined && data.type !== step.type && data.config === undefined) {
+      throw new Error(
+        `Validation error: Invalid config for step type '${data.type}': config: replacement config is required when changing type`
+      );
+    }
+
+    let aliasChanges = new Map<string, string>();
+    if (data.config !== undefined || data.type !== undefined) {
+      const typeToValidate = data.type ?? step.type;
+      const configToValidate = data.config ?? step.config;
+      updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, configToValidate);
+      if (CHOICE_STEP_TYPES.has(typeToValidate)) {
+        aliasChanges = diffChoiceOptionAliases(step.config, updates.config);
+      }
+    }
+    return { updates, aliasChanges };
+  }
+
   /**
    * Update step
    */
@@ -389,48 +448,10 @@ export class StepService {
         throw new Error("Step not found in this workflow");
       }
 
-      // If pageId is being changed, validate new page belongs to same workflow
-      if (data.pageId && data.pageId !== step.pageId) {
-        const newPage = await this.pageRepo.findById(data.pageId, tx);
-        if (!newPage || newPage.workflowId !== workflowId) {
-          throw new Error("Cannot move step to a page in a different workflow");
-        }
-
-        // If moving across pages and no explicit order provided, append to end of new page
-        if (data.order === undefined) {
-          data.order = await this.resolveCrossPageOrder(data.pageId, tx);
-        }
-      }
-
-      // Validate alias format + uniqueness if alias is being changed
-      // (existing aliases are grandfathered until edited)
-      if (data.alias !== undefined && data.alias !== step.alias) {
-        if (data.alias) {
-          validateAliasFormat(data.alias);
-        }
-        await this.validateAliasUniqueness(workflowId, data.alias, stepId, tx);
-      }
-
-      const updates = { ...data };
-      delete updates.workflowId;
-      delete updates.id;
-      delete updates.isVirtual;
-      delete updates.createdAt;
-      delete updates.updatedAt;
-      delete updates.deletedAt;
-
-      const finalConfig = data.config;
-      let aliasChanges = new Map<string, string>();
-
-      if (finalConfig) {
-        const typeToValidate = data.type ?? step.type;
-        updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, finalConfig);
-
-        // If step is a choice type, compute alias diff for logic rules
-        if (CHOICE_STEP_TYPES.has(typeToValidate)) {
-          aliasChanges = diffChoiceOptionAliases(step.config, updates.config);
-        }
-      }
+      await this.preparePageMove(step, workflowId, data, tx);
+      // Existing aliases are grandfathered until edited.
+      await this.validateAliasChange(step, workflowId, data, tx);
+      const { updates, aliasChanges } = this.buildValidatedStepUpdates(step, workflowId, data);
 
       const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
       if (regenerated !== null) {

@@ -121,6 +121,7 @@ export class WorkflowPatchService {
   ): Promise<{ summary: string[]; errors: string[] }> {
     const summary: string[] = [];
     const errors: string[] = [];
+    const parsedOps: WorkflowPatchOp[] = [];
     let mode: Mode = "easy";
     this.clearMappings();
     // Validate all ops before applying. One tenant-scoped transaction for the
@@ -128,7 +129,6 @@ export class WorkflowPatchService {
     // (and pin the GUC on) one per op.
     await this.withTx(undefined, async (tx) => {
       mode = (await workflowService.getResolvedMode(workflowId, userId, tx)).mode;
-      const parsedOps: WorkflowPatchOp[] = [];
       for (const op of ops) {
         const parsed = workflowPatchOpSchema.safeParse(op);
         if (!parsed.success) {
@@ -150,7 +150,7 @@ export class WorkflowPatchService {
         errors.push(`Validation failed for workflow patch: ${message}`);
         return;
       }
-      for (const op of ops) {
+      for (const op of parsedOps) {
         try {
           await this.validateOp(workflowId, op, tx);
         } catch (error: unknown) {
@@ -163,7 +163,7 @@ export class WorkflowPatchService {
       return { summary, errors };
     }
     // Apply ops sequentially (order matters for tempId resolution)
-    for (const op of ops) {
+    for (const op of parsedOps) {
       try {
         const result = await this.applyOp(workflowId, userId, op, mode);
         summary.push(result);
@@ -501,6 +501,9 @@ export class WorkflowPatchService {
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step', tx);
         const existingStep = await this.stepRepository.findById(stepId, tx);
         if (!existingStep) { throw new Error(`Step not found: ${stepId}`); }
+        if (op.type !== undefined && op.config === undefined) {
+          throw new Error(`step.update changing type to "${op.type}" requires replacement config`);
+        }
         const effectiveType = op.type ?? existingStep.type;
         const canonicalConfig = op.config === undefined
           ? undefined

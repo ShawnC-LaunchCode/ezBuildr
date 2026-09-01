@@ -131,13 +131,22 @@ describe('mode-aware canonical AI vocabulary', () => {
             .toThrow('Easy mode forbids step type "multi_field"');
     });
 
-    it('handles signature_block without inventing a config contract (AC3)', () => {
-        expect(getConfigKeys('signature_block', 'advanced')).toBeNull();
+    it('advertises and enforces the new signature_block config contract (STB-17)', () => {
+        expect(getConfigKeys('signature_block', 'advanced')).toEqual([
+            'signerRole', 'routingOrder', 'documents[]', 'conditions', 'markdownHeader',
+            'provider(docusign|hellosign|native)', 'allowDecline', 'expiresInDays',
+            'signerEmail', 'signerName', 'message', 'redirectUrl',
+        ]);
         expect(catalogLine(buildStepTypeCatalog('advanced'), 'signature_block'))
-            .toBe('- signature_block: (no config contract; omit config)');
-        expect(parseStepConfigForMode('signature_block', undefined, 'advanced')).toBeUndefined();
+            .toBe('- signature_block: signerRole, routingOrder, documents[], conditions, markdownHeader, provider(docusign|hellosign|native), allowDecline, expiresInDays, signerEmail, signerName, message, redirectUrl');
+        expect(parseStepConfigForMode('signature_block', {
+            signerRole: 'Applicant',
+            routingOrder: 1,
+            documents: [{ id: 'signature-document', documentId: 'template-id' }],
+            provider: 'native',
+        }, 'advanced')).toMatchObject({ signerRole: 'Applicant', routingOrder: 1 });
         expect(() => parseStepConfigForMode('signature_block', { penColor: 'blue' }, 'advanced'))
-            .toThrow('has no config contract; omit config');
+            .toThrow('Advanced mode forbids config key(s) for "signature_block": penColor');
     });
 
     it('uses the same allowlist for generated workflows and patch ops (AC4, AC5)', () => {

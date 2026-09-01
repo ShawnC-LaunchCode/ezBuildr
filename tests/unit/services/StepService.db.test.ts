@@ -98,6 +98,78 @@ describeWithDb('StepService DB', () => {
     expect(after).toHaveLength(before.length);
   });
 
+  it('rejects an unknown canonical config key with its path and writes no row', async () => {
+    const before = await stepRepository.findByPageId(testPageId);
+
+    await expect(stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Unknown key',
+      type: 'text',
+      config: { variant: 'short', validation: { minLength: 1, removedRule: true } },
+    })).rejects.toThrow(/config\.validation\.removedRule/);
+
+    expect(await stepRepository.findByPageId(testPageId)).toHaveLength(before.length);
+  });
+
+  it('rejects a retired type even when config is omitted and writes no row', async () => {
+    const before = await stepRepository.findByPageId(testPageId);
+
+    await expect(stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Retired short text',
+      type: 'short_text',
+    })).rejects.toThrow(/type.*short_text.*retired/i);
+
+    expect(await stepRepository.findByPageId(testPageId)).toHaveLength(before.length);
+  });
+
+  it('requires replacement config for a type change and leaves the row unchanged', async () => {
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Atomic type change',
+      type: 'text',
+      config: { variant: 'short', placeholder: 'Original' },
+    });
+    const before = await stepRepository.findById(step.id);
+
+    await expect(stepService.updateStep(step.id, testWorkflowId, testUserId, {
+      type: 'date_time',
+    })).rejects.toThrow(/replacement config is required/i);
+
+    expect(await stepRepository.findById(step.id)).toEqual(before);
+  });
+
+  it('rejects an invalid replacement config atomically without changing type or config', async () => {
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Invalid replacement',
+      type: 'text',
+      config: { variant: 'long', placeholder: 'Original' },
+    });
+    const before = await stepRepository.findById(step.id);
+
+    await expect(stepService.updateStep(step.id, testWorkflowId, testUserId, {
+      type: 'date_time',
+      config: { kind: 'date', removedTimezone: 'UTC' },
+    })).rejects.toThrow(/config\.removedTimezone/);
+
+    expect(await stepRepository.findById(step.id)).toEqual(before);
+  });
+
+  it('persists a valid type and replacement config in the same update', async () => {
+    const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
+      title: 'Valid replacement',
+      type: 'text',
+      config: { variant: 'short' },
+    });
+
+    await stepService.updateStep(step.id, testWorkflowId, testUserId, {
+      type: 'date_time',
+      config: { kind: 'datetime', timeFormat: '24h', timeStep: 5 },
+    });
+
+    expect(await stepRepository.findById(step.id)).toMatchObject({
+      type: 'date_time',
+      config: { kind: 'datetime', timeFormat: '24h', timeStep: 5 },
+    });
+  });
+
   it.each([
     ['date', { kind: 'date', minDate: '2026-01-01', maxDate: '2026-12-31', defaultToToday: true }],
     ['time', { kind: 'time', timeFormat: '24h', timeStep: 5 }],
@@ -133,7 +205,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [
@@ -170,7 +241,6 @@ describeWithDb('StepService DB', () => {
     const updated = await stepService.updateStepById(choiceStep.id, testUserId, {
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [
@@ -201,7 +271,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [
@@ -214,7 +283,8 @@ describeWithDb('StepService DB', () => {
     // 2. Create another step with visibleIf referencing 'old_val1'
     await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Dependent Step',
-      type: 'short_text',
+      type: 'text',
+      config: { variant: 'short' },
       visibleIf: { '===': [{ var: `steps.${choiceStep.alias}` }, 'old_val1'] }
     });
 
@@ -222,7 +292,6 @@ describeWithDb('StepService DB', () => {
     const updated = await stepService.updateStepById(choiceStep.id, testUserId, {
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [
@@ -245,7 +314,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'shared_val' }]
@@ -258,7 +326,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'shared_val' }]
@@ -283,7 +350,6 @@ describeWithDb('StepService DB', () => {
     await stepService.updateStepById(choiceStep.id, testUserId, {
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'new_val' }]
@@ -301,7 +367,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'old_val' }]
@@ -324,7 +389,6 @@ describeWithDb('StepService DB', () => {
     await expect(stepService.updateStepById(choiceStep.id, testUserId, {
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'new_val' }]
@@ -342,7 +406,8 @@ describeWithDb('StepService DB', () => {
   it('rolls back the step alias update when propagation fails atomically (DEBT-16)', async () => {
     const step = await stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Contact Email',
-      type: 'short_text',
+      type: 'text',
+      config: { variant: 'short' },
       alias: 'contactEmail',
     });
 
@@ -370,7 +435,6 @@ describeWithDb('StepService DB', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'old_val' }]
@@ -383,7 +447,6 @@ describeWithDb('StepService DB', () => {
     await stepService.updateStepById(choiceStep.id, testUserId, {
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: {
           type: 'static',
           options: [{ id: 'opt1', label: 'Option 1', alias: 'new_val' }]

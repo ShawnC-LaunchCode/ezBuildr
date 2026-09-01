@@ -1165,6 +1165,51 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(pagesAfter).toHaveLength(0);
   });
 
+  it('rejects an unknown nested config key before applying any earlier AI patch operation', async () => {
+    const before = await readWorkflowState();
+
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Add a page and a malformed question',
+        ops: [
+          { op: 'page.create', tempId: 'strict-page', title: 'Strict page', order: 1 },
+          {
+            op: 'step.create',
+            pageRef: 'strict-page',
+            type: 'boolean',
+            title: 'Confirmed',
+            alias: 'confirmed',
+            config: { displayStyle: 'toggle', validation: { invented: true } },
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe('Failed to apply operations');
+    expect(response.body.details[0]).toContain('validation');
+    expect(await readWorkflowState()).toEqual(before);
+  });
+
+  it('rejects a retired AI patch step type without normalizing or writing it', async () => {
+    const before = await readWorkflowState();
+
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Add a retired question type',
+        ops: [
+          { op: 'page.create', tempId: 'legacy-page', title: 'Legacy page', order: 1 },
+          { op: 'step.create', pageRef: 'legacy-page', type: 'short_text', title: 'Legacy', alias: 'legacy' },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe('Failed to apply operations');
+    expect(response.body.details[0]).toContain('not canonical');
+    expect(await readWorkflowState()).toEqual(before);
+  });
+
   // ==========================================================================
   // ICW2-11 — initial generation runs through this same pipeline, so the
   // ICW2-2 class of bug (generated step `config` silently dropped) has to be

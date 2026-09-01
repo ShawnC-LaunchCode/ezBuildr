@@ -2338,7 +2338,7 @@ the Decision 3 presets.
 
 ---
 
-## STB-17 — Enforce strict canonical configs across APIs, patches, templates, and ingest 🔲
+## STB-17 — Enforce strict canonical configs across APIs, patches, templates, and ingest ✅
 
 **Priority: P1** · Size: M · File: `shared/validation/stepConfigSchemas.ts`
 
@@ -2384,6 +2384,39 @@ retired type name; do not call the backfill converter from a request path.
 4. AI/template/bulk ingest failures roll back the whole affected operation.
 5. Tests cover valid/invalid cases for each entry path, including cross-tenant denial and no-write assertions.
 6. Vertical proof, type-check, lint, targeted DB/integration tests, and `test:fast` pass.
+
+### Review notes
+
+**Round 1 — 2026-09-01 — ✅ PASSED, committed with one reviewer fix.** Reviewer-run gates matched the dev's
+report exactly before the fix: test:fast 330 / 3,713; test:unit 349 / 3,898; test:integration 137 / 1,263 + 3
+skipped; type-check 0; lint 0; strict-zones 6/6. After the fix: 3,714 / 3,899, others unchanged.
+
+**The read/write split is the right shape**, and it is the constraint this initiative had already broken twice
+(STB-13 round 1, STB-15 near-miss). Two functions with the split documented in code: `validateStepConfig` stays
+permissive for stored rows, `validateCanonicalStepConfig` is the write boundary. Reviewer probes confirm all
+five legacy stored shapes still read, while the boundary rejects `short_text`/`address_advanced`/`radio` by name
+and unknown keys with real nested paths (`validation.wat`).
+
+**`signature_block`'s schema is derived from behavior, not invented** — the exact failure mode STB-1 was written
+to stop. All 12 keys were checked against consumers in `EnvelopeBuilder.ts`, `DocusignProvider.ts` and
+`SignatureBlockService.ts:117`. Note this also retires an old belief that the e-sign registry is never
+initialized: `initializeEsignProviders()` is now called from `server/index.ts` and `server/production.ts`.
+No second `final_documents` schema was added.
+
+**Reviewer fix — phantom validation errors.** `canonicalBoundarySchema` called `ctx.addIssue(...)` then returned
+`z.NEVER`, but Zod still runs the outer `readSchema` on the discarded value, so every rejection trailed
+`Required` issues for fields the caller **did** supply:
+
+```
+display {markdown:'hi', bogus:1}  ->  bogus: Unknown config key "bogus" | markdown: Required
+```
+
+`validateAndNormalizeConfig` joins every issue into the 400 body, and STB-16 routes those errors to the AI patch
+loop — so a model would 'correct' a field that was never missing. Marking the added issues `fatal` fixes it;
+genuinely absent fields are still reported (`display {}` -> `markdown: Required`). A regression test now asserts
+`issues` has length 1. The dev's tests asserted only `issues[0]`, which is why this went unnoticed rather than
+accepted.
+
 
 ---
 

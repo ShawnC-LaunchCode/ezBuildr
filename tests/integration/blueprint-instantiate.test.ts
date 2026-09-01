@@ -64,18 +64,18 @@ describe("Blueprint instantiate (ICW2-15)", () => {
 
     const stepARes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "First name", alias: "first_name" });
+      .send({ type: "text", title: "First name", alias: "first_name", config: { variant: "short" } });
     expect(stepARes.status).toBe(201);
 
     const stepBRes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "yes_no", title: "Has pets?", alias: "has_pets" });
+      .send({ type: "boolean", title: "Has pets?", alias: "has_pets", config: {} });
     expect(stepBRes.status).toBe(201);
     const stepBId = stepBRes.body.id as string;
 
     const stepCRes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Pet name", alias: "pet_name" });
+      .send({ type: "text", title: "Pet name", alias: "pet_name", config: { variant: "short" } });
     expect(stepCRes.status).toBe(201);
     const stepCId = stepCRes.body.id as string;
 
@@ -130,9 +130,9 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     for (const step of newPage.steps) {
       stepsByAlias[step.alias as string] = step;
     }
-    expect(stepsByAlias.first_name).toMatchObject({ title: "First name", type: "short_text" });
-    expect(stepsByAlias.has_pets).toMatchObject({ title: "Has pets?", type: "yes_no" });
-    expect(stepsByAlias.pet_name).toMatchObject({ title: "Pet name", type: "short_text" });
+    expect(stepsByAlias.first_name).toMatchObject({ title: "First name", type: "text" });
+    expect(stepsByAlias.has_pets).toMatchObject({ title: "Has pets?", type: "boolean" });
+    expect(stepsByAlias.pet_name).toMatchObject({ title: "Pet name", type: "text" });
 
     // Logic rule should have been remapped onto the *new* steps, not the
     // original workflow's step ids.
@@ -170,13 +170,13 @@ describe("Blueprint instantiate (ICW2-15)", () => {
 
     const stepBRes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "yes_no", title: "Has pets?", alias: "has_pets" });
+      .send({ type: "boolean", title: "Has pets?", alias: "has_pets", config: {} });
     expect(stepBRes.status).toBe(201);
     const stepBId = stepBRes.body.id as string;
 
     const stepCRes = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
-      .send({ type: "short_text", title: "Pet name", alias: "pet_name" });
+      .send({ type: "text", title: "Pet name", alias: "pet_name", config: { variant: "short" } });
     expect(stepCRes.status).toBe(201);
     const stepCId = stepCRes.body.id as string;
 
@@ -232,6 +232,82 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     const res = await agent.post(`/api/blueprints/${blueprint.id}/instantiate`).send({});
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/no content/i);
+
+    const created = await getOwnerDb()
+      .select({ id: schema.workflows.id })
+      .from(schema.workflows)
+      .where(eq(schema.workflows.sourceBlueprintId, blueprint.id));
+    expect(created).toHaveLength(0);
+  });
+
+  it("rejects an unknown nested step config key and rolls back workflow, version, and earlier content", async () => {
+    const [blueprint] = await getOwnerDb()
+      .insert(schema.workflowBlueprints)
+      .values({
+        tenantId: ctx.tenantId,
+        creatorId: ctx.userId,
+        name: `Invalid config ${nanoid()}`,
+        graphJson: {
+          title: "Invalid config template",
+          pages: [{
+            id: "page-1",
+            title: "Page 1",
+            order: 0,
+            steps: [
+              { id: "valid-step", type: "text", title: "Name", alias: "name", order: 0, config: { variant: "short" } },
+              {
+                id: "invalid-step",
+                type: "boolean",
+                title: "Confirmed",
+                alias: "confirmed",
+                order: 1,
+                config: { displayStyle: "toggle", validation: { invented: true } },
+              },
+            ],
+          }],
+        },
+        isPublic: false,
+      })
+      .returning();
+
+    const res = await agent
+      .post(`/api/blueprints/${blueprint.id}/instantiate`)
+      .send({ projectId: ctx.projectId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/config\.validation/i);
+
+    const created = await getOwnerDb()
+      .select({ id: schema.workflows.id })
+      .from(schema.workflows)
+      .where(eq(schema.workflows.sourceBlueprintId, blueprint.id));
+    expect(created).toHaveLength(0);
+  });
+
+  it("rejects a retired template step type without normalization and creates nothing", async () => {
+    const [blueprint] = await getOwnerDb()
+      .insert(schema.workflowBlueprints)
+      .values({
+        tenantId: ctx.tenantId,
+        creatorId: ctx.userId,
+        name: `Retired type ${nanoid()}`,
+        graphJson: {
+          title: "Retired type template",
+          pages: [{
+            id: "page-1",
+            title: "Page 1",
+            order: 0,
+            steps: [{ id: "step-1", type: "short_text", title: "Name", alias: "name", order: 0 }],
+          }],
+        },
+        isPublic: false,
+      })
+      .returning();
+
+    const res = await agent
+      .post(`/api/blueprints/${blueprint.id}/instantiate`)
+      .send({ projectId: ctx.projectId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/type/i);
 
     const created = await getOwnerDb()
       .select({ id: schema.workflows.id })

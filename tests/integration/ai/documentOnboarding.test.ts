@@ -119,7 +119,13 @@ const APPROVED_VARIABLES = [
     label: 'Client Name',
     config: { variant: 'long' },
   },
-  { name: 'signing_date', type: 'date_time', alias: 'signingDate', label: 'Signing Date' },
+  {
+    name: 'signing_date',
+    type: 'date_time',
+    alias: 'signingDate',
+    label: 'Signing Date',
+    config: { kind: 'date' },
+  },
 ];
 
 describe.sequential('Document onboarding orchestration (GH-167)', () => {

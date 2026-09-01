@@ -245,24 +245,6 @@ async function applyEdit(
   ctx: { workflowId: string; userId: string; mode: Mode; tenantId?: string },
 ): Promise<Response> {
   const { workflowId, userId, mode, tenantId } = ctx;
-  // Create BEFORE snapshot.
-  // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
-  // exists, so if we cannot create one we abort before mutating anything
-  // rather than proceed with no safety net (ICW-16).
-  let beforeSnapshot;
-  try {
-    beforeSnapshot = await snapshotService.createSnapshot(
-      workflowId,
-      `AI Edit BEFORE: ${new Date().toISOString()}`
-    );
-  } catch (error) {
-    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
-    return res.status(503).json({
-      success: false,
-      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
-    });
-  }
-
   // Ops from a reviewed proposal, or freshly generated for auto-apply.
   let ops: WorkflowPatchOp[];
   let summary: string[];
@@ -289,6 +271,41 @@ async function applyEdit(
     confidence = aiResponse.confidence;
     warnings = aiResponse.warnings ?? [];
     questions = aiResponse.questions ?? [];
+  }
+
+  // Reject every malformed step config before the snapshot pipeline writes
+  // anything. applyOps repeats this validation against fresh database state,
+  // but the early pass is what keeps a rejected patch truly write-free.
+  try {
+    validateWorkflowPatchOpsForMode(
+      ops,
+      mode,
+      new Map(currentWorkflow.pages.flatMap((page) => page.steps.map((step) => [step.id, step.type]))),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown mode validation error";
+    return res.status(400).json({
+      success: false,
+      error: "Failed to apply operations",
+      details: [`Validation failed for workflow patch: ${message}`],
+    });
+  }
+
+  // Create BEFORE snapshot only after the whole patch is known to have valid
+  // canonical step/config pairs. If snapshot creation fails, abort before any
+  // operation mutates the workflow (ICW-16).
+  let beforeSnapshot;
+  try {
+    beforeSnapshot = await snapshotService.createSnapshot(
+      workflowId,
+      `AI Edit BEFORE: ${new Date().toISOString()}`
+    );
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
+    return res.status(503).json({
+      success: false,
+      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
+    });
   }
 
   const { errors } = await workflowPatchService.applyOps(workflowId, userId, ops);

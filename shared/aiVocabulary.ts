@@ -15,7 +15,7 @@ import {
   type ListConfig,
   type ListField,
 } from "./types/stepConfigs";
-import { getConfigSchema } from "./validation/stepConfigSchemas";
+import { getConfigSchema, validateCanonicalStepConfig } from "./validation/stepConfigSchemas";
 import { workflowPatchOpSchema, type WorkflowPatchOp } from "./validation/aiWorkflowEdit.schema";
 
 import type { Mode } from "./mode";
@@ -230,13 +230,6 @@ function requireAllowedStepType(stepType: string, mode: Mode): CanonicalStepType
   return stepType;
 }
 
-function parseConfigWithoutSchema(stepType: CanonicalStepType, config: unknown): unknown {
-  const hasConfig = config !== undefined && config !== null &&
-    (typeof config !== "object" || Array.isArray(config) || Object.keys(config as Record<string, unknown>).length > 0);
-  if (hasConfig) { throw new Error(`Step type "${stepType}" has no config contract; omit config`); }
-  return config;
-}
-
 function validateModeConfigKeys(stepType: CanonicalStepType, config: unknown, mode: Mode): void {
   if (config === undefined || config === null) { return; }
   if (typeof config !== "object" || Array.isArray(config)) {
@@ -263,22 +256,45 @@ export function parseStepConfigForMode(
   mode: Mode,
 ): unknown {
   const canonicalType = requireAllowedStepType(stepType, mode);
-  const schema = getConfigSchema(canonicalType);
-  if (!schema) {
-    return parseConfigWithoutSchema(canonicalType, config);
-  }
-
   validateModeConfigKeys(canonicalType, config, mode);
 
-  const result = schema.safeParse(config);
+  const result = validateCanonicalStepConfig(canonicalType, config);
   if (!result.success) {
-    const issue = result.error.issues[0];
+    const issue = result.error!.issues[0];
     throw new Error(`Invalid canonical config for "${canonicalType}" at ${issue.path.join(".") || "config"}: ${issue.message}`);
   }
   if (canonicalType === "list" && result.data !== undefined) {
     validateListConfig(result.data as ListConfig, mode);
   }
   return result.data;
+}
+
+type StepUpdatePatchOp = Extract<WorkflowPatchOp, { op: 'step.update' }>;
+
+function validateStepUpdatePatchOp(
+  op: StepUpdatePatchOp,
+  mode: Mode,
+  existingStepTypes: ReadonlyMap<string, string>,
+  tempStepTypes: Map<string, string>,
+): void {
+  if (op.type === undefined && op.config === undefined) { return; }
+  if (op.type !== undefined && op.config === undefined) {
+    throw new Error(`step.update changing type to "${op.type}" requires replacement config`);
+  }
+  const existingType = op.id === undefined
+    ? (op.tempId === undefined ? undefined : tempStepTypes.get(op.tempId))
+    : existingStepTypes.get(op.id);
+  const effectiveType = op.type ?? existingType;
+  if (effectiveType === undefined) {
+    if (op.config !== undefined) {
+      throw new Error("Cannot validate step.update config without a canonical step type");
+    }
+    return;
+  }
+  parseStepConfigForMode(effectiveType, op.config, mode);
+  if (op.tempId !== undefined && op.type !== undefined) {
+    tempStepTypes.set(op.tempId, op.type);
+  }
 }
 
 /** Validate a whole generated/applied patch against one effective mode. */
@@ -294,20 +310,9 @@ export function validateWorkflowPatchOpsForMode(
       if (op.tempId) { tempStepTypes.set(op.tempId, op.type); }
       continue;
     }
-    if (op.op !== "step.update") { continue; }
-    if (op.type === undefined && op.config === undefined) { continue; }
-    const existingType = op.id === undefined
-      ? (op.tempId === undefined ? undefined : tempStepTypes.get(op.tempId))
-      : existingStepTypes.get(op.id);
-    const effectiveType = op.type ?? existingType;
-    if (effectiveType === undefined) {
-      if (op.config !== undefined) {
-        throw new Error("Cannot validate step.update config without a canonical step type");
-      }
-      continue;
+    if (op.op === "step.update") {
+      validateStepUpdatePatchOp(op, mode, existingStepTypes, tempStepTypes);
     }
-    parseStepConfigForMode(effectiveType, op.config, mode);
-    if (op.tempId && op.type) { tempStepTypes.set(op.tempId, op.type); }
   }
 }
 

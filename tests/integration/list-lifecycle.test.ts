@@ -139,9 +139,10 @@ describe.sequential('LIST2-9: list lifecycle', () => {
           kind: 'question',
           id: 'member-name',
           alias: 'name',
-          type: 'short_text',
+          type: 'text',
           title: 'Name',
           order: 0,
+          config: { variant: 'short' },
         },
         {
           kind: 'question',
@@ -182,9 +183,10 @@ describe.sequential('LIST2-9: list lifecycle', () => {
                 kind: 'question',
                 id: 'address-street',
                 alias: 'street',
-                type: 'short_text',
+                type: 'text',
                 title: 'Street',
                 order: 0,
+                config: { variant: 'short' },
               },
             ],
           },
@@ -221,7 +223,7 @@ describe.sequential('LIST2-9: list lifecycle', () => {
     const finalStepResponse = await agent
       .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({
-        type: 'final',
+        type: 'final_documents',
         title: 'Final documents',
         config: {
           markdownHeader: '',

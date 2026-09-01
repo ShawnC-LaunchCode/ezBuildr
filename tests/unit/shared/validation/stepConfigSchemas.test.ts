@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
     getConfigSchema,
+    validateCanonicalStepConfig,
     validateStepConfig,
     FinalBlockConfigSchema,
     TextAdvancedConfigSchema as _TextAdvancedConfigSchema,
@@ -87,6 +88,106 @@ describe('Step Config Schemas', () => {
             });
             expect(result.success).toBe(true);
             expect(result.data).toEqual({ kind: 'datetime' });
+        });
+    });
+
+    describe('canonical request/ingest boundary (STB-17)', () => {
+        it.each([
+            ['text', { variant: 'short' }],
+            ['boolean', { displayStyle: 'buttons' }],
+            ['phone', { format: 'US' }],
+            ['date_time', { kind: 'date' }],
+            ['choice', { display: 'radio', options: [{ id: 'yes', label: 'Yes' }] }],
+            ['email', { placeholder: 'name@example.com' }],
+            ['number', { mode: 'number' }],
+            ['scale', { min: 1, max: 5 }],
+            ['website', { allowedProtocols: ['https'] }],
+            ['address', { country: 'US', fields: ['street', 'city', 'state', 'zip'] }],
+            ['multi_field', { layout: 'first_last', fields: [], storeAs: 'separate' }],
+            ['display', { markdown: '# Heading' }],
+            ['file_upload', { maxFiles: 1 }],
+            ['list', { fields: [] }],
+            ['js_question', { display: 'visible', code: 'emit(1)', inputKeys: [], outputKey: 'result' }],
+            ['computed', {}],
+            ['final_documents', { markdownHeader: 'Done', documents: [] }],
+            ['signature_block', {
+                signerRole: 'Applicant',
+                routingOrder: 1,
+                documents: [{ id: 'signature-document', documentId: 'template-id' }],
+                provider: 'native',
+            }],
+        ] as const)('accepts a valid canonical %s pair', (stepType, config) => {
+            expect(validateCanonicalStepConfig(stepType, config).success).toBe(true);
+        });
+
+        it.each([
+            'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no',
+            'true_false', 'date', 'time', 'datetime', 'currency', 'final',
+            'phone_advanced', 'datetime_unified', 'email_advanced', 'number_advanced',
+            'scale_advanced', 'website_advanced', 'address_advanced', 'display_advanced',
+            'unknown_type',
+        ])('rejects retired or unknown type %s at the type path', (stepType) => {
+            const result = validateCanonicalStepConfig(stepType, {});
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['type'] });
+            expect(result.error?.issues[0]?.message).toContain(stepType);
+        });
+
+        it('rejects a top-level unknown key with its exact path instead of stripping it', () => {
+            const result = validateCanonicalStepConfig('display', {
+                markdown: '# Heading',
+                allowHtml: false,
+            });
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['allowHtml'] });
+            expect(result.error?.issues[0]?.message).toContain('allowHtml');
+        });
+
+        it('rejects a nested unknown key with its exact path instead of stripping it', () => {
+            const result = validateCanonicalStepConfig('text', {
+                variant: 'short',
+                validation: { minLength: 1, removedRule: true },
+            });
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['validation', 'removedRule'] });
+            expect(result.error?.issues[0]?.message).toContain('validation.removedRule');
+        });
+
+        it('reports only the real issue, with no phantom Required for supplied fields', () => {
+            // Returning z.NEVER from a preprocess does not stop Zod running the
+            // outer schema on the discarded value, so these rejections used to
+            // trail `markdown: Required` / `variant: Required` for fields that
+            // WERE supplied. Those strings reach the 400 body and the AI patch
+            // loop, which would then correct a field that was never missing.
+            const unknownKey = validateCanonicalStepConfig('display', {
+                markdown: '# Heading',
+                allowHtml: false,
+            });
+            expect(unknownKey.success).toBe(false);
+            expect(unknownKey.error?.issues).toHaveLength(1);
+            expect(unknownKey.error?.issues[0]).toMatchObject({ path: ['allowHtml'] });
+
+            const nested = validateCanonicalStepConfig('text', {
+                variant: 'short',
+                validation: { minLength: 1, removedRule: true },
+            });
+            expect(nested.success).toBe(false);
+            expect(nested.error?.issues).toHaveLength(1);
+
+            // A genuinely absent required field must still be reported.
+            const reallyMissing = validateCanonicalStepConfig('display', {});
+            expect(reallyMissing.success).toBe(false);
+            expect(reallyMissing.error?.issues[0]).toMatchObject({ path: ['markdown'] });
+        });
+
+        it.each([
+            ['address_advanced', { country: 'US', fields: [{ key: 'street1', label: 'Street', type: 'text', required: true }], autoComplete: true }],
+            ['address_advanced', { country: 'CA', allowedCountries: ['CA', 'US'], fields: [{ key: 'street1', label: 'Street', type: 'text', required: true }] }],
+            ['scale_advanced', { min: 1, max: 5, step: 1, display: 'buttons', showValue: true }],
+            ['scale_advanced', { min: 1, max: 5, step: 1, display: 'stars', stars: 5, color: '#ff0000' }],
+            ['display_advanced', { markdown: '# H', allowHtml: false, template: true, variables: ['firstName'] }],
+        ] as const)('keeps stored legacy %s rows readable', (stepType, config) => {
+            expect(validateStepConfig(stepType, config).success).toBe(true);
         });
     });
 
