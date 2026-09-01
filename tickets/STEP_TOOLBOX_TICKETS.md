@@ -2507,13 +2507,52 @@ recursion, plus the full 10-file portability unit-db suite.
 
 ## Phase 3 Gate
 
-- [ ] STB-16..18 are ✅ with dated verification notes.
-- [ ] Easy and Advanced AI requests are mode-correct at both prompt and server enforcement layers.
-- [ ] Step APIs, AI patches, templates, and portability reject legacy types/removed keys with no partial writes.
-- [ ] `tests/integration/portability.roundtrip.test.ts` passes for every canonical type at both scopes.
-- [ ] Cross-tenant denial cases and zero-write assertions pass.
-- [ ] `npm run type-check`, `npm run lint`, `npm run test:fast`, and relevant DB suites are green.
-- [ ] Reviewer has committed each passed ticket and this phase gate.
+- [x] STB-16..18 are ✅ with dated verification notes.
+- [x] Easy and Advanced AI requests are mode-correct at both prompt and server enforcement layers.
+- [x] Step APIs, AI patches, templates, and portability reject legacy types/removed keys with no partial writes.
+- [x] `tests/integration/portability.roundtrip.test.ts` passes for every canonical type at both scopes.
+- [x] Cross-tenant denial cases and zero-write assertions pass.
+- [x] `npm run type-check`, `npm run lint`, `npm run test:fast`, and relevant DB suites are green.
+- [x] Reviewer has committed each passed ticket and this phase gate.
+
+**GATE CLOSED 2026-09-01 (reviewer).** Verified against `de1bfb76` in a clean worktree.
+
+| Gate | Result |
+|------|--------|
+| `test:fast` | 330 files / **3,714** |
+| `test:unit` | 349 files / 3,899 |
+| `test:integration` | 137 files / 1,268 passed + 3 skipped |
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6/6 |
+
+**All four write boundaries reach the same canonical validator**, checked by call path rather than assumed:
+
+| Boundary | Path to `validateCanonicalStepConfig` |
+|----------|----------------------------------------|
+| Step API | `StepService` -> `validateAndNormalizeConfig` |
+| AI patches | `WorkflowPatchService:477,510` -> `parseStepConfigForMode` -> it (`aiVocabulary.ts:261`) |
+| Template / bulk ingest | `WorkflowContentIngestService` -> `validateAndNormalizeConfig` |
+| Portability import | `ImportService.validateCanonicalStepEntity` -> it |
+
+A first pass grepped only for the validator's own name and reported the AI patch path as unwired. It is wired,
+through the mode-aware wrapper - the correct layering, since STB-16 owns mode and STB-17 owns shape. Recorded
+because a narrow grep nearly produced a false gate failure on work that was correct.
+
+**AI mode-correctness holds at both layers**: the prompt gets `buildStepTypeCatalog(mode)`, and the server
+independently enforces it - `validateGeneratedWorkflowForMode` on the model's own output, and
+`validateWorkflowPatchOpsForMode` at both the edit route and inside the patch service's transaction.
+
+**Zero-write assertions exist in all three boundary suites** (`step-config-boundaries`, `ai/workflowEdit`,
+`portability.roundtrip`) and assert row counts, not status codes. `portability.roundtrip.test.ts` derives from
+`CANONICAL_STEP_TYPES`, fails if any type lacks a fixture, asserts each fixture is itself canonically valid, and
+round-trips every type at **both** project and workflow scope.
+
+**Observation for Phase 4 - not a defect, and not a blocker.** Configs nested inside a `list` step's fields are
+not validated at any boundary: List config is `z.unknown()` by design, so List validates structure while each
+field's per-type config is deliberately opaque. A bundle carrying a retired key *inside* a List field therefore
+still imports. STB-19's canonicalizer walks nested List fields, so that is where it should be handled; flagged
+here so it is not rediscovered as a portability bug.
+
+Phase 4 (STB-19..20) is unblocked. It is the first phase that rewrites stored customer data.
 
 ---
 
