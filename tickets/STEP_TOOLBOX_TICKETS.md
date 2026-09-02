@@ -2561,7 +2561,7 @@ Phase 4 (STB-19..20) is unblocked. It is the first phase that rewrites stored cu
 This phase introduces the only legacy converter. It is an operator tool, dry-run by default, transactional on
 apply, and must prove idempotency. It does not change the enum yet.
 
-## STB-19 — Build the idempotent live-step and nested-List canonicalizer 🔲
+## STB-19 — Build the idempotent live-step and nested-List canonicalizer 🔄
 
 **Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
 
@@ -2675,6 +2675,106 @@ after conversion is the cheapest proof of that, and is required.
    specifically that `resolveChoiceDisplay` returns the same value before and after, including the
    `allowMultiple: true` + `display: 'radio'` disagreement case and a `multiple_choice` row whose stored answer
    is a `string[]`.
+
+### Review round 1 - 2026-09-02 - SENT BACK (reviewer)
+
+**All six gates are green, and the ticket is still not done.** Gates verified by the reviewer in the worktree,
+not taken from the report: `type-check` 0, `lint` 0, `check:strict-zones` 6/6, `test:fast` 330 files / 3,714
+(unchanged - correct, no unit tests were added), `test:integration` **138 files / 1,274 passed + 3 skipped**,
+which reconciles exactly against the 137 / 1,268 + 3 baseline as +1 file and +6 tests.
+
+**Reporting problem that must not recur.** The turn-in claimed `test:fast` output "includes
+tests/integration/canonicalizeStepTypes.test.ts running 6/6 passing tests". That is structurally impossible:
+`vitest.config.ts` gives the `unit-fast` project `include: ["tests/unit/**"]`, so it cannot run anything under
+`tests/integration/`. The count sitting *exactly* at baseline was the tell. `test:integration` was never run or
+reported, and `check:strict-zones` was not reported at all. The tests are real and they do pass - but the
+evidence offered for them was not evidence.
+
+#### Proven defects
+
+**1. AC1 fails: 4 of the 19 retired types cannot convert at all.** Probing `canonicalizeStepDefinition`
+directly with one realistic fixture per retired type: 15 convert, and `multiple_choice`, `radio`,
+`address_advanced` and `final` all throw. The two unit tests cover `short_text` and a nested `yes_no` - the two
+easiest cases - so nothing caught it.
+
+The root cause is one shared mechanism, not four bugs. For families whose `LEGACY_STEP_ADAPTERS` entry uses an
+identity `resolveConfig`, nothing synthesizes the keys the canonical schema now *requires*. The prune loop can
+only ever **delete** unknown keys; it can never **add** a required one, so it spins once and throws:
+
+```
+Invalid canonical config for choice: [{ "path": ["display"], "message": "Required" }]
+```
+
+This is exactly the failure the pre-dispatch amendment named. `ChoiceAdvancedConfigSchema.display` is required,
+`resolveChoiceDisplay(config, stepType)` is the authority for what a stored row means, and the converter never
+calls it. `address` additionally requires `country` and `fields`; `final_documents` requires `markdownHeader`
+and `documents`. Each needs its family's read-side resolution written into the stored config.
+
+**2. AC3 fails: `--apply` partially commits. Proven on a live database, not inferred.** Seeded one convertible
+`short_text` row and one realistic stored `multiple_choice` row (options present, no `display`) into the test
+schema, then ran `--apply`. The script exited non-zero **and the good row was still committed**:
+
+```
+- Expected (AC3: whole run rolls back)      + Received
+-   "type": "short_text"                    +   "type": "text"
+-   "junkKey": true                         +   "variant": "short"
+```
+
+The cause is ordering: the transaction in `run()` is applied *before* `stats.failures` is checked, so the run
+exits 1 after the successful rows have already committed. Combined with defect 1, **every realistic `--apply`
+will be a partial write** - it converts what it can, fails every choice/address/final row, and leaves the
+database in a mixed state. That is the precise outcome Phase 4 exists to prevent.
+
+**3. Acceptance criteria with no implementation.** AC5's post-apply audit subcommand does not exist. The
+ticket's "scope flags may narrow verification" is unimplemented - `--apply` is the only flag, and the script
+processes `db.select().from(steps)` for the entire database. Inside a shared test schema that also means the
+script rewrites rows belonging to other tests. Amendment AC7 (a test asserting every retired enum value has an
+adapter entry), AC8 (validation asserted at each List depth) and AC9 (read-resolution unchanged per family,
+including the `allowMultiple: true` + `display: 'radio'` case) are all unimplemented. There is not one Choice
+test in the file.
+
+**4. The AC3 rollback test does not test rollback.** It seeds a bad row, runs `--apply`, and asserts only that
+the *bad* row is unchanged - which is trivially true, because a row that fails conversion never enters
+`updates`. By that point in the sequential file every good row had already been converted by the previous test,
+so `updates` was empty and no transaction ran at all. The assertion would pass against a script with no
+transaction whatsoever.
+
+**5. Nested Lists are converted at exactly one depth, not "all supported depths" (AC2).** The recursion into
+`field.kind === 'list'` -> `field.list` is structurally correct against `buildListFieldSchema`, but no test
+exercises depth 2, and the nested branch never validates the inner list's own config.
+
+#### The one genuinely good catch, which the report mis-described
+
+The change to `shared/types/stepConfigs.ts` is reported as "a previously failing lint issue related to an
+unused type assertion". It is not. It is a **real, shipped, live bug**: `resolveBooleanConfig(rawConfig)` takes
+one argument, but `adaptLegacyStep` calls `adapter.resolveConfig(step.type, step.config)`, so every `yes_no` /
+`true_false` row was passing the *step type string* as its config. `isBooleanConfigRecord("yes_no")` is false,
+so the config collapsed to `{}` and every stored boolean row silently resolved to default labels, discarding
+`trueLabel` / `falseLabel` / `trueAlias` / `falseAlias`. TypeScript cannot catch it - an arity-1 function is
+assignable to an arity-2 signature - and the existing guard in
+`tests/unit/client/runnerStepTypeRouting.test.ts` passes `config: {}` and asserts only `adapted.type`, so it
+never looked at the config.
+
+The fix is correct and is kept. It changes runner behavior for stored boolean rows, so it needs a regression
+test of its own asserting that `adaptLegacyStep({ type: 'yes_no', config: { yesLabel: 'Yep' } })` resolves
+`trueLabel` to `'Yep'`. Describe a change like this accurately in the turn-in - a reviewer skimming "lint fix"
+would have waved through a live behavior change to a shipped read path.
+
+#### Also worth knowing (not blockers)
+
+- The `--apply` guard requiring `localhost:5434` is a good addition and satisfies the dispatch's refusal
+  requirement, but it is untested, and it means this script can never perform the real backfill without being
+  edited. The Phase 4 Gate needs an apply against a named environment, so the guard should become an explicit
+  opt-in (a required `--database-url` plus confirmation) rather than a hardcoded host check.
+- `lodash` is already a dependency, so `isEqual` adds nothing new. Using it over `JSON.stringify` is right.
+- No incident occurred: `tests/setup.ts` repoints `DATABASE_URL` at the test database before anything runs, so
+  the dev's runs never touched the shared Neon dev branch.
+
+**Disposition: back to the same dev.** The structure is sound - the adapter reuse, the strict-validation
+post-condition, the List recursion shape and the safety guard are all the right shapes. What is missing is the
+per-family resolution for identity-adapter families, moving the failure check before the transaction, and the
+tests that would have caught both.
+
 
 
 ---
