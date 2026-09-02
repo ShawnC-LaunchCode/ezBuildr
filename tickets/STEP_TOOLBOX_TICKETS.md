@@ -2611,6 +2611,72 @@ logic/default answer meaning/order, and be idempotent. Scope flags may narrow ve
 5. Applying twice is idempotent and a post-apply audit reports zero legacy live/List definitions.
 6. Named unit/integration tests, type-check, lint, `test:fast`, and targeted DB tests pass.
 
+### Reviewer amendment 2026-09-01 - pre-dispatch findings (binding)
+
+Three facts established by reading the shipped Phase 1-3 code before dispatch. They narrow the ticket and
+remove its two biggest ways to go wrong. Treat them as part of the Preferred fix.
+
+**1. The type mapping already exists. Reuse it; do not re-derive it.**
+`LEGACY_STEP_ADAPTERS` and `adaptLegacyStep()` in `shared/types/stepConfigs.ts` are the read-boundary adapters
+STB-3C landed, and their own doc comment says *"Adapt a pre-STB-19 row once at the read boundary"* - this ticket
+is the write-side counterpart. The map covers **all 19 retired enum values** (`short_text`, `long_text`,
+`multiple_choice`, `radio`, `yes_no`, `true_false`, `date`, `time`, `datetime`, `datetime_unified`, `currency`,
+`final`, `number_advanced`, and the five other `*_advanced` names). AC1 is therefore mostly satisfied by shipped
+code: the converter's type mapping must be *driven by that map* so the two can never disagree, and a test must
+assert every retired enum value has an entry. A second, parallel mapping table is an automatic send-back.
+
+The map also carries a `signature` key, which the `step_type` enum does not permit. That is not dead: nested
+List field types and version/blueprint graph JSON are not enum-constrained. Leave it alone; it matters in STB-20.
+
+**2. The converter's post-condition is machine-checkable. Pin it.**
+`getCanonicalConfigSchema()` builds a **strict** boundary (`canonicalBoundarySchema` -> `.strict()` plus the
+recursive `collectUnknownConfigKeyIssues`), so unknown keys are rejected, not stripped. Any row this backfill
+writes that still carries a retired key is data the platform's own STB-17 write boundary would now refuse -
+the backfill would create exactly the corruption it exists to remove.
+
+So the rule is not "sweep a hand-written list of removed keys". It is:
+
+> for every row the converter touches, `validateCanonicalStepConfig(newType, newConfig).success === true`.
+
+Assert that in the converter itself (fail the run, roll back) and in the tests, at top level and at every List
+nesting depth. This replaces guesswork about which keys were removed with the boundary's own answer.
+
+**3. `adaptLegacyStep()` alone is NOT sufficient for Choice, and this is the one irreversible defect available
+in this ticket.**
+The Choice entries in the adapter map use an identity `resolveConfig`, because read-side cardinality is resolved
+separately by `resolveChoiceDisplay()`. Feed a stored `multiple_choice` row through `adaptLegacyStep()` and the
+result fails canonical validation three ways:
+
+- `ChoiceAdvancedConfigSchema.display` is **required**, and `LegacyMultipleChoiceConfigSchema` has no `display`;
+- legacy `minSelections` / `maxSelections` are unknown keys where canonical uses `min` / `max`.
+
+The authority for what a stored row *means today* is `resolveChoiceDisplay(config, stepType)`, whose precedence
+is: `stepType === 'multiple_choice'` -> `multiple`; else `display === 'multiple'` -> `multiple`; else
+`allowMultiple === true` -> `multiple`; else `combobox`; else `dropdown` + `searchable === true` -> `combobox`;
+else `radio`. The converter must call it and **write the answer into `display`**.
+
+If `allowMultiple` is stripped without first being mapped to `display: 'multiple'`, a genuine multi-select row
+holding a `string[]` becomes a radio and its stored answers are orphaned, silently and unrecoverably. This is the
+STB-7 ruling's warning, restated here because it is the failure this ticket is most likely to ship.
+
+Generalize the lesson to every family: for each retired type, **the read path already decides what the row
+means** (`resolveTextConfig`, `resolveNumberConfig`, `resolveDateTimeConfig`, Boolean's `yesLabel ?? trueLabel`,
+`resolveChoiceDisplay`). The converter's job is to make that existing resolution *explicit in stored config*,
+never to invent a new interpretation. A test per family that asserts read-resolution is identical before and
+after conversion is the cheapest proof of that, and is required.
+
+### Added acceptance criteria
+
+7. The converter derives its type mapping from `LEGACY_STEP_ADAPTERS`; a test asserts every retired `step_type`
+   enum value has an adapter entry, so adding one later cannot silently bypass the backfill.
+8. Every row written passes `validateCanonicalStepConfig(newType, newConfig)`, asserted in the converter (the
+   run fails and rolls back otherwise) and in tests at top level and at each supported List depth.
+9. For each converted family, a test asserts the read-side resolution of the row is **unchanged** by conversion -
+   specifically that `resolveChoiceDisplay` returns the same value before and after, including the
+   `allowMultiple: true` + `display: 'radio'` disagreement case and a `multiple_choice` row whose stored answer
+   is a `string[]`.
+
+
 ---
 
 ## STB-20 — Extend backfill to versions and blueprints with checksum repair 🔲
