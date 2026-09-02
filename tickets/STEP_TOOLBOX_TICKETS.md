@@ -2953,7 +2953,7 @@ signature. The per-worktree database lives on tmpfs, so restarting the container
 
 ---
 
-## STB-20 — Extend backfill to versions and blueprints with checksum repair 🔲
+## STB-20 — Extend backfill to versions and blueprints with checksum repair 🔄
 
 **Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
 
@@ -3008,6 +3008,83 @@ and add a final audit subcommand that scans live rows plus both JSON stores.
 4. A converted version restores and a converted blueprint instantiates through strict canonical ingest.
 5. Final audit proves zero legacy types/removed keys across live steps, Lists, versions, and blueprints.
 6. Named integration tests and all standard gates pass.
+
+### Reviewer amendment 2026-09-02 — pre-dispatch findings (binding)
+
+Established by reading the shipped code before dispatch. The first item is a trap that produces a converter
+which reports success while converting nothing.
+
+**1. The graph shape is `pages[].steps[]`. Do NOT trust `WorkflowGraphSchema`.**
+`shared/zod-schemas.ts` exports a `WorkflowGraphSchema` whose pages contain **`blocks`**, and which requires a
+top-level `id`. Stored graphs have neither. It is never `.parse`d anywhere — it is reached only through
+`z.infer` and a cast (`as unknown as WorkflowGraph` in `VersionService`), so nothing has ever forced it to match
+reality. A converter written against it walks a key that does not exist, changes nothing, and prints
+`Rows changed: 0` — indistinguishable from a clean run.
+
+The real shape is whatever `VersionService.serializeWorkflowInTx` returns, and its step entries are exactly the
+input `canonicalizeStepDefinition` already takes:
+
+```ts
+pages: fullData.pages.map(page => ({
+  id: page.id, sectionId: ..., title: ..., order: ..., visibleIf: ..., config: ...,
+  steps: page.steps.map(step => ({
+    id: step.id,
+    type: step.type,
+    title: step.title,
+    config: step.config as Record<string, unknown> | undefined,
+    order: step.order,
+    alias: step.alias ?? undefined,
+    visibleIf: ...,
+    defaultValue: step.defaultValue ?? undefined,
+    isVirtual: step.isVirtual,
+  })),
+})),
+```
+
+Nested Lists live inside `step.config` exactly as they do on live rows, so STB-19's converter handles them with
+no change. Reuse `canonicalizeStepDefinition` as-is; do not fork it.
+
+**2. Checksums: one function, one call shape, and key order is part of the hash.**
+`computeChecksum` lives in `server/utils/checksum.ts`. `VersionService` calls it with **only** `graphJson`:
+
+```ts
+const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
+```
+
+Passing `bindings` or `templateIds` produces a different hash than the service would, so a version repaired that
+way would fail its own integrity check later. It normalizes with plain `JSON.stringify`, which means **property
+order is significant**: rebuild graph objects by mutating or spreading in the original order, or untouched
+artifacts will hash differently and the run will rewrite everything. `verifyChecksum(content, expected)` is
+exported alongside it and is the natural assertion for AC3.
+
+**3. Blueprints have no checksum column.** `workflowBlueprints` is
+`{ id, tenantId, creatorId, name, description, graphJson, metadata, sourceWorkflowId, isPublic, createdAt, updatedAt }`.
+AC3's checksum work is **versions-only**; blueprints need their `graphJson` rewritten and nothing else.
+
+**4. `workflowVersions.checksum` is nullable — decide, and say so in the report.** Some rows legitimately have
+no checksum. The converter must not invent integrity metadata that was previously absent: recompute only where
+a checksum already existed, leave `NULL` as `NULL`, and count both cases separately in the report. If you
+believe the opposite is right, stop and raise it rather than choosing silently.
+
+**5. `type: 'signature'` is reachable here.** `LEGACY_STEP_ADAPTERS` carries a `signature` -> `signature_block`
+entry that the `step_type` enum forbids, so it is unreachable on live rows — but graph JSON is not
+enum-constrained, so a stored version or blueprint can carry it. This is the artifact store where that entry
+finally matters. Cover it.
+
+**6. Immutable metadata.** Only `graphJson` (and `checksum`, per item 4) may change. `id`, `workflowId`,
+`baseId`, `versionNumber`, `isDraft`, `published`, `publishedAt`, `createdBy`, `createdAt`, and every blueprint
+field besides `graphJson` must be byte-identical after an apply.
+
+### Added acceptance criteria
+
+7. The converter walks `graphJson.pages[].steps[]`, and a test proves a version whose graph contains a legacy
+   step is **actually changed** — asserting a non-zero converted count, so a converter that silently walks the
+   wrong key fails instead of reporting a clean run.
+8. Recomputed checksums are verified with `verifyChecksum({ graphJson }, checksum)`, and an artifact requiring
+   no conversion keeps a byte-identical `graphJson` **and** its original checksum.
+9. A stored graph carrying `type: 'signature'` converts to `signature_block`, at both the version and blueprint
+   stores.
+
 
 ---
 
