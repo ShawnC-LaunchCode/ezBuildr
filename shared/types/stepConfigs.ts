@@ -1320,6 +1320,21 @@ export interface FileUploadValue {
 // ============================================================================
 
 
+function resolveLegacyChoice(type: string, rawConfig: unknown): unknown {
+  const config = (typeof rawConfig === 'object' && rawConfig !== null) ? rawConfig as Record<string, unknown> : {};
+  const display = resolveChoiceDisplay(config as unknown as Pick<ChoiceAdvancedConfig, 'display' | 'searchable'>, type);
+  const resolved: Record<string, unknown> = { ...config, display };
+  if (config.minSelections !== undefined) {
+    resolved.min = config.minSelections;
+    delete resolved.minSelections;
+  }
+  if (config.maxSelections !== undefined) {
+    resolved.max = config.maxSelections;
+    delete resolved.maxSelections;
+  }
+  return resolved;
+}
+
 export const LEGACY_STEP_ADAPTERS: Record<string, { canonicalType: string; resolveConfig: (type: string, config: unknown) => unknown }> = {
   short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
   long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
@@ -1329,10 +1344,10 @@ export const LEGACY_STEP_ADAPTERS: Record<string, { canonicalType: string; resol
   time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
   datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
   datetime_unified: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
-  yes_no: { canonicalType: "boolean", resolveConfig: resolveBooleanConfig },
-  true_false: { canonicalType: "boolean", resolveConfig: resolveBooleanConfig },
-  multiple_choice: { canonicalType: "choice", resolveConfig: (_, config) => config },
-  radio: { canonicalType: "choice", resolveConfig: (_, config) => config },
+  yes_no: { canonicalType: "boolean", resolveConfig: (_, config) => resolveBooleanConfig(config) },
+  true_false: { canonicalType: "boolean", resolveConfig: (_, config) => resolveBooleanConfig(config) },
+  multiple_choice: { canonicalType: "choice", resolveConfig: resolveLegacyChoice },
+  radio: { canonicalType: "choice", resolveConfig: resolveLegacyChoice },
   phone_advanced: { canonicalType: "phone", resolveConfig: (_, config) => config },
   email_advanced: { canonicalType: "email", resolveConfig: (_, config) => config },
   scale_advanced: { canonicalType: "scale", resolveConfig: (_, config) => config },

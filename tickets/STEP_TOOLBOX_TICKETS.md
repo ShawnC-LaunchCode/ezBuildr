@@ -2561,7 +2561,7 @@ Phase 4 (STB-19..20) is unblocked. It is the first phase that rewrites stored cu
 This phase introduces the only legacy converter. It is an operator tool, dry-run by default, transactional on
 apply, and must prove idempotency. It does not change the enum yet.
 
-## STB-19 — Build the idempotent live-step and nested-List canonicalizer 🔄
+## STB-19 — Build the idempotent live-step and nested-List canonicalizer ✅
 
 **Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
 
@@ -2882,6 +2882,71 @@ a ruling on the address default.
 `stepConfigSchemas.ts` in full, and the invented defaults in the address/final adapters - restore all six
 pre-existing tests to their committed state, confirm they pass untouched, and move the nested-config
 strictness into the canonicalizer where this ticket's own AC8 asked for it.
+
+### ✅ Verified 2026-09-02 (reviewer) - round 3, PASSED
+
+Every item from both send-backs is fixed, and the fixes were verified by probe rather than by reading the diff.
+
+| Send-back item | Verified |
+|---|---|
+| Read path tightened (`QuestionListFieldSchema.superRefine`) | Reverted. `validateStepConfig('list', ...)` on a legacy `short_text` field returns `true` again |
+| Six pre-existing tests edited to hide it | All restored to committed state, zero net diff, confirmed by `git diff --stat` |
+| Invented defaults in `LEGACY_STEP_ADAPTERS` (read path) | Removed; synthesis moved into `canonicalizeStepDefinition` |
+| `--database-url` honoured only by an init race | Fixed properly - `server/db` is now `await import`ed *after* `process.env.DATABASE_URL` is set |
+| Rollback test could not fail | Rewritten: seeds a convertible **and** an unconvertible row, asserts the convertible one is unchanged |
+| `--apply` partially committed | Failure check now precedes the transaction; the rewritten test pins it |
+| Weak AC7 assertion duplicating the real one | Deleted; the real AC7 test walks `stepTypeEnum.enumValues` in `runnerStepTypeRouting.test.ts` |
+| Cross-test contamination (no scoping) | `--workflow-id` added and used by every CLI test |
+| `--apply` refusal untested | `refuses to apply without a database-url` test added |
+
+**Gates, all six, run by the reviewer in the worktree:**
+
+| Gate | Result | Arithmetic |
+|---|---|---|
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6-of-6 | |
+| `test:fast` | 330 files / **3,717** | 3,714 + 3 |
+| `test:unit` | 349 files / **3,902** | 3,899 + 3 |
+| `test:integration` | 138 files / **1,279 passed + 3 skipped** | 1,268 + 10 + 1 |
+
+#### Reviewer fix, disclosed
+
+Two changes are the reviewer's, not the dev's.
+
+**1. `address_advanced` could not convert, and that was the reviewer's fault.** The round-2 note told the dev not
+to synthesize a country "anywhere", citing Decision 11. That was right about the *read* path and wrong about the
+converter. `AddressConfigSchema` is `country: z.literal('US')` and `fields: z.tuple(['street','city','state','zip'])`
+- each admits exactly one legal value, so supplying them is forced, not a product choice. Decision 11 defers
+country restrictions and defaults as an **authoring capability**; it does not make the schema's single legal
+discriminator optional. Without this, no stored address row could ever be canonicalized. The converter now
+synthesizes both, with that reasoning recorded at the call site.
+
+**2. Added an AC1 guard driven off the enum.** Two consecutive rounds each shipped a retired type that could not
+convert at all - round 1 missed four, round 2 missed one - while every per-family test passed, because the
+family nobody wrote a fixture for was never exercised. `AC1: every retired enum type converts to a canonically
+valid config` walks `stepTypeEnum.enumValues` minus `CANONICAL_STEP_TYPES`, asserts the fixture table covers
+that set exactly (so a new retired type fails loudly rather than being skipped), converts each one, and asserts
+the result passes `validateCanonicalStepConfig` - the same strict boundary STB-17 enforces on writes.
+
+Proved the guard is real rather than decorative: removing the `country` synthesis turns it red
+(`1 failed | 10 passed`), restoring it turns it green (`11 passed`).
+
+#### Notes carried into STB-20
+
+- The converter is scoped by `--workflow-id` only. STB-20 adds version and blueprint artifacts, which are not
+  reachable by workflow id in the same way; it will need its own scoping vocabulary.
+- `LEGACY_STEP_ADAPTERS` carries a `signature` key the `step_type` enum does not permit. It is not dead - nested
+  List field types and version/blueprint graph JSON are not enum-constrained. STB-20 is where it matters.
+- The Phase 4 Gate still requires a dry-run report and a recoverable snapshot against a **named** environment
+  before any real apply. The script now refuses `--apply` without an explicit `--database-url`, so that target
+  is a deliberate argument rather than whatever `.env` happens to hold.
+
+#### Process note
+
+The environment failed mid-verification in a way worth recording: Docker Desktop stopped, and the integration
+suite returned ~100 failed **files** with near-zero test time. That is the environment signature, not a code
+signature. The per-worktree database lives on tmpfs, so restarting the container required recreating
+`ezbuildr_test_stb_19` before the suite would run. Diagnosed and re-run green; no code was implicated.
+
 
 
 

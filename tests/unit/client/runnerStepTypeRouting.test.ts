@@ -9,6 +9,7 @@ import {
   adaptLegacyStep,
   CANONICAL_STEP_TYPES,
   LIST_FIELD_QUESTION_TYPES,
+  LEGACY_STEP_ADAPTERS,
 } from "../../../shared/types/stepConfigs";
 import {
   LEGACY_RENDERED_STEP_TYPES,
@@ -25,6 +26,15 @@ describe("runner step type routing", () => {
     );
 
     expect(unknownTypes).toEqual([]);
+  });
+
+  it("provides a legacy adapter for every non-canonical step type", () => {
+    const canonicalSet = new Set<string>(CANONICAL_STEP_TYPES);
+    const retiredTypes = stepTypeEnum.enumValues.filter(type => !canonicalSet.has(type));
+    
+    for (const retiredType of retiredTypes) {
+      expect(LEGACY_STEP_ADAPTERS).toHaveProperty(retiredType);
+    }
   });
 
   it("adapts every persisted legacy name to its canonical rendered runner type", () => {

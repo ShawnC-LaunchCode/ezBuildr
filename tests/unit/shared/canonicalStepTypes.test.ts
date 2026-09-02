@@ -4,9 +4,9 @@ import {
   CANONICAL_STEP_TYPES,
   type CanonicalStepType,
   type StepConfigByType,
+  adaptLegacyStep,
 } from "../../../shared/types/stepConfigs";
 import { getRunnerStepTypeStatus } from "../../../shared/types/runnerStepTypes";
-
 describe("canonical step types", () => {
   it("contains exactly the 18 canonical stored identities", () => {
     expect(CANONICAL_STEP_TYPES).toEqual([
@@ -42,5 +42,24 @@ describe("canonical step types", () => {
         "unknown",
       );
     }
+  });
+
+  describe("STB-19 backward compatibility and validation", () => {
+
+    it("AC9: read-side choice display remains unchanged by conversion", () => {
+      const radioMulti = adaptLegacyStep({ type: "radio", config: { display: "radio", allowMultiple: true, options: [] } });
+      expect(radioMulti.type).toBe("choice");
+      expect((radioMulti.config as any).display).toBe("multiple");
+
+      const multChoice = adaptLegacyStep({ type: "multiple_choice", config: { options: [] } });
+      expect(multChoice.type).toBe("choice");
+      expect((multChoice.config as any).display).toBe("multiple");
+    });
+
+    it("boolean trueLabel regression", () => {
+      const boolStep = adaptLegacyStep({ type: "yes_no", config: { yesLabel: "Yep" } });
+      expect(boolStep.type).toBe("boolean");
+      expect((boolStep.config as any).trueLabel).toBe("Yep");
+    });
   });
 });
