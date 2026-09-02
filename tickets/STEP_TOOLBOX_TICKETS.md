@@ -2775,6 +2775,115 @@ post-condition, the List recursion shape and the safety guard are all the right 
 per-family resolution for identity-adapter families, moving the failure check before the transaction, and the
 tests that would have caught both.
 
+### Review round 2 - 2026-09-02 - SENT BACK (reviewer)
+
+Round 1's named defects were genuinely fixed: the choice/address/final adapters now resolve, the failure check
+moved ahead of the transaction, an `--audit` mode exists, `--workflow-id` scoping exists, and the AC7/AC8/AC9
+tests were written - the AC7 test in `runnerStepTypeRouting.test.ts` walks `stepTypeEnum.enumValues` against
+`CANONICAL_STEP_TYPES` and is exactly right. The boolean regression test is there too.
+
+**It is sent back anyway, for something larger than what it fixed.**
+
+#### 1. The permissive read path was tightened. This is the house rule, and it broke.
+
+`QuestionListFieldSchema` gained a `superRefine` that runs `validateCanonicalStepConfig` on every nested List
+field config. `configSchemaMap` is a **single** map serving both `getConfigSchema` (the permissive read path
+behind `validateStepConfig`) and `getCanonicalConfigSchema` (the strict write boundary), so tightening the
+schema tightened **reads**.
+
+Proven, same input on both trees:
+
+```
+validateStepConfig('list', { fields: [{ kind:'question', type:'short_text', config:{ variant:'short' }, ... }] })
+
+  dev (a4727e38)          -> true
+  this worktree           -> false
+     "Step type \"short_text\" is retired or is not canonical"  at fields.0.config.type
+```
+
+`short_text` is not an edge case: `LEGACY_LIST_FIELD_QUESTION_TYPES = ["short_text", "long_text"]` exists
+precisely so those remain readable inside a List. Every stored List containing one is now unreadable through
+the read validator - and those are exactly the rows STB-19 must read in order to convert them.
+
+This also contradicts a documented invariant. The Phase 3 Gate recorded that nested field configs are
+`z.unknown()` **by design**, and `listFieldSettingsConfigRoundTrip.test.ts` exists as a regression net over that
+gate; its header says so in as many words.
+
+If nested List field configs should be validated at the **write** boundary - and they probably should, the
+Phase 3 Gate flagged it as an open seam - that is its own ticket, applied in `canonicalBoundarySchema` where
+the strict wrapper already lives, never in the shared read schema.
+
+#### 2. Six pre-existing tests were edited to accommodate that regression.
+
+The turn-in did not mention them. `git status` shows five modified test files beyond the new one, plus a shared
+validation schema. Each edit is the code breaking a test and the test being changed to match:
+
+| File | Edit |
+|---|---|
+| `list-lifecycle.test.ts` | nested number config `{min,max}` -> `{mode,validation:{...}}` (x2) |
+| `listFieldSettingsConfigRoundTrip.test.ts` | same rewrite, in the test written to prove configs are *not* reshaped |
+| `portability.import.test.ts` | `dynamicOptions` -> `options`, and the warning-path assertion moved with it |
+| `exportRedaction.test.ts` | deep nested secret fixture flattened; `expect(canProceed).toBe(true)` replaced by a conditional `throw` |
+
+Proof that these are accommodations rather than corrections - the **unmodified** test, restored from HEAD and
+run against the new code:
+
+```
+git show HEAD:tests/unit/shared/validation/listFieldSettingsConfigRoundTrip.test.ts > zzOrig.test.ts
+  x preserves scale/number/display/multi_field config, description, and visibleIf on every field
+    Error: Invalid config for step type 'list': config.fields.1: Invalid input
+```
+
+The `exportRedaction.test.ts` edit is the worst of the four and would be a send-back on its own. That test
+proves secret scanning reaches **deeply nested** config values; its fixture
+`{ deep: { arrayConfig: [{ secretValue: SENTINEL }] } }` was replaced with a flat
+`{ variant:'short', placeholder: SENTINEL }`. That is a security test made materially weaker so it would pass.
+The same file also has `expect(preview.canProceed).toBe(true)` swapped for
+`if (!preview.canProceed) { throw new Error(JSON.stringify(...)) }` - debugging scaffolding left in, which also
+removes an assertion.
+
+Tests are the evidence. When one that asserted behavior which should still hold goes red, the code is wrong.
+
+#### 3. Read semantics for three families were changed without being reported.
+
+`LEGACY_STEP_ADAPTERS` is not the converter's private table - `adaptLegacyStep` is the live runner read path.
+Three entries now synthesize values into stored rows at read time:
+
+- `address_advanced` injects `country: 'US'` and `fields: ['street','city','state','zip']`. **Decision 11 of
+  this document says country restrictions/defaults are deferred and "deferred means absent."** Inventing a
+  default country for every stored address row is a product decision, not a dev one, and it is currently made
+  in a read path.
+- `final` injects `markdownHeader: ''` and `documents: []`. Note the spread order,
+  `{ markdownHeader: raw.markdownHeader ?? '', ..., ...raw }` - `...raw` last means a stored key whose value is
+  explicitly `undefined` overwrites the default back to `undefined`.
+- `resolveLegacyChoice` is correct and is the right shape: it defers to `resolveChoiceDisplay` and maps
+  `minSelections`/`maxSelections`. Keep it.
+
+The converter needs canonical values for required keys; the runner does not need them invented behind its back.
+Put the synthesis in the canonicalizer, or if it truly belongs in the shared adapter, say so explicitly and get
+a ruling on the address default.
+
+#### 4. Smaller items
+
+- **`--database-url` works, but by a race rather than by design.** `server/db` auto-initializes at import when
+  `NODE_ENV !== 'test'`, and `initializeDatabase()` early-returns on `dbInitialized`. The override happens to
+  win because the import-time init has not finished when `run()` calls it again. Verified it does currently
+  route correctly - an ambient URL on 5434 with `--database-url` pointing at a closed port gave `ECONNREFUSED`
+  on the closed port, so the flag is honoured. But it is ordering-dependent. Set `process.env.DATABASE_URL`
+  **before** importing `server/db` (dynamic `await import`), or assert after init that the pool matches.
+- The AC7 assertion inside `canonicalizeStepTypes.test.ts` is a hand-wave - `Object.keys(...).length > 0` plus
+  four `toHaveProperty` calls, with a comment saying "we just assert that there are adapters defined for the
+  known ones." The real AC7 test in `runnerStepTypeRouting.test.ts` supersedes it; delete the weak one rather
+  than leave two tests claiming the same criterion.
+- Gates were **not** re-run this round beyond the targeted probes, because the tree is going back. The green
+  reported in the turn-in is explained by item 2.
+
+**Disposition: back to the same dev.** The canonicalizer itself is close. Revert the read-path changes -
+`stepConfigSchemas.ts` in full, and the invented defaults in the address/final adapters - restore all six
+pre-existing tests to their committed state, confirm they pass untouched, and move the nested-config
+strictness into the canonicalizer where this ticket's own AC8 asked for it.
+
+
 
 
 ---
