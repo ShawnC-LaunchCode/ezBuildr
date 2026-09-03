@@ -3156,14 +3156,133 @@ with no data loss — and it is inherent to rewriting the artifact, not a flaw i
 
 ## Phase 4 Gate
 
-- [ ] STB-19 and STB-20 are ✅ with dated verification notes.
-- [ ] Reviewer captures a dry-run report against the intended test-data environment before apply.
-- [ ] A recoverable database snapshot/backup exists before apply; exact target/environment is recorded.
-- [ ] Apply completes transactionally and a second dry-run/final audit reports zero changes/legacy definitions.
-- [ ] Converted versions restore and blueprints instantiate through the strict canonical boundary.
-- [ ] `npm run type-check`, `npm run lint`, `npm run test:fast`, `npm run test:unit:db`, and canonicalizer
+- [x] STB-19 and STB-20 are ✅ with dated verification notes.
+- [x] Reviewer captures a dry-run report against the intended test-data environment before apply.
+- [x] A recoverable database snapshot/backup exists before apply; exact target/environment is recorded.
+- [x] Apply completes transactionally and a second dry-run/final audit reports zero changes/legacy definitions.
+- [x] Converted versions restore and blueprints instantiate through the strict canonical boundary.
+- [x] `npm run type-check`, `npm run lint`, `npm run test:fast`, `npm run test:unit:db`, and canonicalizer
       integration suites pass with test services healthy.
-- [ ] Reviewer has committed each passed ticket and this phase gate.
+- [x] Reviewer has committed each passed ticket and this phase gate.
+
+**GATE CLOSED 2026-09-02 (reviewer).** Verified against `9d797c3e`.
+
+Phase 4 is the first phase that rewrites stored customer data, so the gate was closed by performing a full
+operator rehearsal — dry-run, snapshot, apply, re-verify — rather than by re-reading the tickets.
+
+### Environment, named explicitly
+
+| | |
+|---|---|
+| Database | `ezbuildr_gate_p4` |
+| Host | local Docker container `stb-3-test-db-1`, `localhost:5434` |
+| Built by | `CREATE DATABASE` + `npm run db:migrate` (full migration chain, clean) |
+| **Not** | not production, not `www.ezbuildr.com`, and **not** the shared Neon dev branch that `.env` points at |
+
+The dry-run was run with `DATABASE_URL` set explicitly to the gate database on every invocation. `--apply`
+additionally requires `--database-url` and refuses to fall back to ambient `DATABASE_URL`, so the target was a
+deliberate argument rather than whatever the environment happened to hold.
+
+### Seeded legacy fixture
+
+Six live `steps` rows spanning `short_text`, `multiple_choice` (with `minSelections`/`maxSelections`), `yes_no`,
+`currency`, `address_advanced`, and a `list` whose nested field is `true_false` with a stale key; one
+`workflow_versions` row whose graph carries `short_text` and `signature` plus a deliberately wrong checksum
+(`stale-checksum-value`); one `workflow_blueprints` row whose graph carries `long_text`.
+
+### Snapshot before apply
+
+`pg_dump --format=custom` → 367,927 bytes, and proven restorable rather than merely produced:
+`pg_restore --list` enumerates 109 table-data entries. Taken **before** the apply.
+
+Note for the production run: that dump lives in a session scratchpad and is ephemeral. The production backfill
+needs its own snapshot, retained somewhere durable, with the restore rehearsed before the apply — not after.
+
+### Dry-run report (default mode, no writes)
+
+```
+Starting canonicalization in DRY-RUN mode...
+Found 6 total steps (live and soft-deleted).
+Found 1 workflow-version artifacts.
+Found 1 workflow-blueprint artifacts.
+
+Total rows processed: 6          Rows changed: 6          Workflows affected: 1
+Version artifacts processed: 1   changed: 1   step definitions 2 -> converted 2
+Version checksums recomputed: 1  changed: 1   NULL preserved: 0
+Blueprint artifacts processed: 1 changed: 1   step definitions 1 -> converted 1
+Failures: 0
+
+Type Mappings:
+  short_text -> text: 2          multiple_choice -> choice: 1     yes_no -> boolean: 1
+  currency -> number: 1          address_advanced -> address: 1   signature -> signature_block: 1
+  long_text -> text: 1
+
+Removed Keys:
+  legacyJunk, minSelections, maxSelections, yesLabel, noLabel, requireStreet, rows,
+  sub.config.staleKey
+```
+
+**Zero writes confirmed after the dry-run**, by querying the database rather than trusting the mode label:
+step types were still `short_text,multiple_choice,yes_no,currency,address_advanced,list`, the version checksum
+was still `stale-checksum-value`, and the blueprint step was still `long_text`.
+
+### Apply, and what it produced
+
+`Applying 8 updates in a transaction... Transaction committed successfully.` — `Failures: 0`.
+
+| Check | Result |
+|---|---|
+| Live step types | `text,choice,boolean,number,address,list` |
+| Version graph step 2 | `signature` → `signature_block` |
+| Blueprint graph step | `long_text` → `text` |
+| Version checksum | `stale-checksum-value` → `a6c11167e8ba…67a29` |
+| Checksum coherence | `verifyChecksum({ graphJson: stored }, stored.checksum)` → **true** |
+| Second dry-run | `Rows changed: 0`, `Version artifacts changed: 0`, `Blueprint artifacts changed: 0` |
+| `--audit` | `Audit passed. Zero legacy definitions found.` (exit 0) |
+
+`signature` is the case that only exists here: the `step_type` enum forbids it, but graph JSON is not
+enum-constrained, so it is reachable in stored artifacts and was converted in both artifact stores.
+
+### Restore and instantiate through the strict boundary
+
+Proven in `tests/integration/canonicalizeStepTypes.artifacts.test.ts` through unmocked hops: a converted version
+restores through `PUT /api/workflows/:id` and a converted blueprint instantiates through
+`POST /api/blueprints/:id/instantiate`, both strict canonical ingest, with the resulting `steps` rows asserted
+canonical.
+
+### Gates
+
+| Gate | Result |
+|---|---|
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6-of-6 |
+| `test:fast` | 330 files / 3,717 |
+| `test:unit` (includes `unit-db`) | 349 files / 3,902 |
+| `test:integration` | 139 files / 1,282 passed + 3 skipped |
+
+Test services healthy: Postgres on 5434 and Gotenberg on 3009. Recorded because this phase hit an environment
+failure worth recognising on sight — Docker Desktop stopped mid-verification and the integration suite returned
+~100 failed **files** with near-zero test time. That is the environment signature, not a code signature. The
+per-worktree database lives on tmpfs, so restarting the container also required recreating
+`ezbuildr_test_stb_19` before anything would run.
+
+### What this gate does NOT cover
+
+**The production backfill has not been run, and Phase 4 does not authorise it.** This rehearsal proves the tool
+on a seeded fixture in a disposable database. Before production:
+
+1. Take and **restore-test** a durable snapshot of the production database.
+2. Run the dry-run against production first and read the report — the type-mapping and removed-key counts are
+   the review artifact, not a formality.
+3. Confirm the intended `--database-url` explicitly; the guard refuses ambient `DATABASE_URL` for exactly this
+   reason.
+4. Expect `STB-B11`: each converted workflow will create one extra draft version on its next save, because a
+   backfilled checksum cannot equal what `VersionService` computes from a freshly serialized graph. One per
+   workflow, once, no data loss.
+
+Phase 5 (STB-21..22) is unblocked: STB-21's enum removal was gated on a zero audit, and the audit above is that
+evidence for the rehearsal environment. It must be re-run against production data before the enum migration
+actually ships.
+
 
 ---
 
