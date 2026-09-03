@@ -213,7 +213,8 @@ indefinitely. **A gate that requires interpretation is not a gate.** Fix the
 mock's setup/teardown so it is order-independent.
 
 **AISL-B12 — "AI Auto-Fill" is not AI, and its values are type-shaped but not
-semantically shaped.** `enhancement`, Size M. **Owner request, filed 2026-09-03.**
+semantically shaped.** `product-decision`, unsized. **Owner request, filed
+2026-09-03; parked for thinking, no approach chosen.**
 Asked for: preview auto-fill should answer the question it is actually looking at —
 a question labelled "Client full name" should get `Jane Doe`, not `banana cherry`;
 "Employer" should get a company; "Matter description" should get a sentence about a
@@ -246,17 +247,37 @@ anyone estimates this:
    the *same* limitation and its fallback is ``` `Sample ${label}` ``` — it at least
    echoes the label.
 
-**Preferred shape (not yet a ticket, and deliberately not one).** The cheap 80%
-is a label-classification layer in front of the existing synthetic generators:
-match `step.title`/`alias` against a small ordered pattern table (name, first
-name, last name, company, job title, city, description, …) and pick a faker-style
-generator per class, falling back to today's behavior on no match. That is
-deterministic, offline, testable, and needs no model call. The expensive 20% is
-the real AI path — one batched call over the page's `{alias, type, label, config}`
-list, which the dead `AIRandomRequest` payload already describes correctly. If
-that path is built, it must go through the AI service layer
-(`callLLM`/`TaskType`/`ai_usage`), not a bespoke route, or it re-creates the
-second AI stack AISL-1..12 spent an initiative deleting.
+**No approach chosen — this is a thinking item.** Owner was explicit
+(2026-09-03) that nothing is committed to yet. The options below are recorded so
+the thinking starts from a real menu, **not** as a recommendation, and none has
+been costed.
+
+- **A — pre-generated value pool (owner's current thinking).** Make a handful of
+  model calls *once*, offline, to produce a list of realistic values per semantic
+  class, commit that list, and have fill-time just draw from it. No runtime model
+  call, no latency, no per-fill spend, nothing to wire through the AI service
+  layer. Essentially: use AI to *author the fixture data*, not to serve it.
+- **B — label classification over synthetic generators.** Match
+  `step.title`/`alias` against an ordered pattern table (name, company, city,
+  description, …) and pick a generator per class, falling back to today's
+  behavior. Deterministic and offline, but the mapping is hand-maintained.
+- **C — live batched model call.** One call per page over the
+  `{alias, type, label, config}` list — which the dead `AIRandomRequest` payload
+  already describes correctly. Most flexible, most expensive, and it **must** go
+  through the AI service layer (`callLLM`/`TaskType`/`ai_usage`) rather than a
+  bespoke route, or it re-creates the second AI stack AISL-1..12 spent an
+  initiative deleting.
+
+A and B are not exclusive — a pool still needs *something* to decide which class
+a given question belongs to, so A likely contains a smaller version of B's
+matching problem. Questions worth resolving before picking, all open:
+
+- What keys the pool — the label text, an inferred class, or the step type?
+- Is the list authored once and shipped static, or generated per workflow at
+  author time and stored?
+- What happens when a question is reworded after the pool is built?
+- Does the same value need to recur across a whole fill (the same client name in
+  six questions), or is per-question independence fine?
 
 **Stale-evidence warnings for whoever promotes this.**
 `sanitizeAIValue`'s `switch` and `generateRandomValueForBlock`'s if-chain still
@@ -268,12 +289,11 @@ stored steps. Meanwhile the canonical types `list`, `file_upload`,
 to `randomShortText()` / `undefined`. Any work here should re-derive the type table
 from `shared/schema/workflow.ts` rather than editing what is there.
 
-**Next step:** owner ruling on scope — label-classification only (Size M, no model
-call, shippable alone), or label-classification *plus* wiring the real AI path
-through the AI service layer (Size L, needs its own file). Whichever is chosen,
-delete or honestly relabel the inert AI branch, the unused `AI_AUTOFILL` flag and
-the "AI Randomizer" menu label in the same change — a feature that names a
-capability it does not have is worse than one that does not claim it.
+**Next step:** owner thinks it through and picks a direction — no ruling yet, and
+nothing here is dispatchable until there is one. Whatever is chosen, delete or
+honestly relabel the inert AI branch, the unused `AI_AUTOFILL` flag and the
+"AI Randomizer" menu label in the same change — a feature that names a capability
+it does not have is worse than one that does not claim it.
 
 ---
 
