@@ -62,7 +62,8 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 >
 > **The AI Service Layer initiative (AISL-1..12) closed and retired into
 > `backlog/AI_SERVICE_LAYER.md` on 2026-08-10.** All twelve tickets and all three
-> phase gates passed; it parks eleven entries, `AISL-B1..B11`. Before auditing
+> phase gates passed; it parks twelve entries, `AISL-B1..B12` (`B12` added 2026-09-03
+> by owner request, not by the initiative). Before auditing
 > anything in `server/services/ai/`, `server/lib/ai/`, or the `/api/ai/*` routes,
 > read that file — **`AISL-B7` in particular**, because
 > `WorkflowOptimizationService` looks like an AI service, is served at
@@ -151,6 +152,7 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B12 | `enhancement` | **Owner request 2026-09-03: make preview auto-fill type-smart** (a "name" question should get a name). Note **"AI Auto-Fill" makes no AI call** — `isAIRandomAvailable()` is hardcoded `false`, `/api/ai/random-fill` does not exist, and `AI_AUTOFILL` is read by nothing | `backlog/AI_SERVICE_LAYER.md` |
 | ~~G171-B1..B5~~ | ✅ all fixed | Template filter family + the dead `unresolved_variables` report (filed as G171-O1..O3 by a concurrent session). **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
 | LD-O1 | `enhancement` | No `spellNumber` filter — retainer renders "2 additional attorneys" where drafting convention spells small numbers | `backlog/LEGAL_DRAFTING.md` |

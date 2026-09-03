@@ -212,6 +212,69 @@ reasonable-sounding but false description that would justify shipping red
 indefinitely. **A gate that requires interpretation is not a gate.** Fix the
 mock's setup/teardown so it is order-independent.
 
+**AISL-B12 — "AI Auto-Fill" is not AI, and its values are type-shaped but not
+semantically shaped.** `enhancement`, Size M. **Owner request, filed 2026-09-03.**
+Asked for: preview auto-fill should answer the question it is actually looking at —
+a question labelled "Client full name" should get `Jane Doe`, not `banana cherry`;
+"Employer" should get a company; "Matter description" should get a sentence about a
+matter. Today it gets a word salad drawn from a fixed 20-word list.
+
+Two separate facts underlie the request, and both need to be understood before
+anyone estimates this:
+
+1. **The AI path is inert.** `isAIRandomAvailable()`
+   (`client/src/lib/randomizer/aiRandomFill.ts`) is `return false;` with the
+   comment *"For now, we'll return false as AI integration is optional"*, so
+   `generateAIRandomValues` always takes its synthetic branch. The endpoint the
+   other branch would call, `POST /api/ai/random-fill`, **does not exist** —
+   `grep -rn "random-fill" server/` is empty. `FeatureFlag.AI_AUTOFILL`
+   (`client/src/lib/featureFlags/definitions.ts`) is defined, defaulted `false`,
+   and **read by nothing**. The Preview toolbar's menu is nevertheless labelled
+   *"AI Randomizer"* with a *"Generating…"* spinner state
+   (`client/src/components/preview/DevToolbar.tsx`). So `requestAIRandomValues`
+   and `sanitizeAIValue` are ~200 lines of unreachable code, and the visible
+   feature is 100% `generateRandomValueForBlock`
+   (`client/src/lib/randomizer/randomFill.ts`).
+
+2. **The synthetic generator dispatches on `step.type` only — never on the
+   label.** `generateTextValue` reads `config.variant` to pick short vs long and
+   then returns `randomShortText()`, which joins 1–3 words from a hardcoded list
+   (`'apple', 'banana', 'cherry', …`). `step.title` is passed nowhere. The one
+   place a name is produced today is `generateMultiFieldValue`'s
+   `layout === 'first_last'` branch, and that is keyed off config, not language.
+   Note the sibling module `client/src/lib/sampleData.ts` (template preview) has
+   the *same* limitation and its fallback is ``` `Sample ${label}` ``` — it at least
+   echoes the label.
+
+**Preferred shape (not yet a ticket, and deliberately not one).** The cheap 80%
+is a label-classification layer in front of the existing synthetic generators:
+match `step.title`/`alias` against a small ordered pattern table (name, first
+name, last name, company, job title, city, description, …) and pick a faker-style
+generator per class, falling back to today's behavior on no match. That is
+deterministic, offline, testable, and needs no model call. The expensive 20% is
+the real AI path — one batched call over the page's `{alias, type, label, config}`
+list, which the dead `AIRandomRequest` payload already describes correctly. If
+that path is built, it must go through the AI service layer
+(`callLLM`/`TaskType`/`ai_usage`), not a bespoke route, or it re-creates the
+second AI stack AISL-1..12 spent an initiative deleting.
+
+**Stale-evidence warnings for whoever promotes this.**
+`sanitizeAIValue`'s `switch` and `generateRandomValueForBlock`'s if-chain still
+branch on **retired** step types — `short_text`, `long_text`, `yes_no`,
+`true_false`, `radio`, `multiple_choice`, `time`, `date`, `currency` — which
+STB-21 (migration `0042`) removed from `stepTypeEnum`. Those branches are dead for
+stored steps. Meanwhile the canonical types `list`, `file_upload`,
+`signature_block`, `multi_field` (in `sanitizeAIValue`) and `computed` fall through
+to `randomShortText()` / `undefined`. Any work here should re-derive the type table
+from `shared/schema/workflow.ts` rather than editing what is there.
+
+**Next step:** owner ruling on scope — label-classification only (Size M, no model
+call, shippable alone), or label-classification *plus* wiring the real AI path
+through the AI service layer (Size L, needs its own file). Whichever is chosen,
+delete or honestly relabel the inert AI branch, the unused `AI_AUTOFILL` flag and
+the "AI Randomizer" menu label in the same change — a feature that names a
+capability it does not have is worse than one that does not claim it.
+
 ---
 
 ## Lessons that cost the most to learn
