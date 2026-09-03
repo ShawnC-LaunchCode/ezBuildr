@@ -316,7 +316,13 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
-      res.json(workflow);
+      // Activation turns on public access and mints the participant link, so
+      // return the resolved URL alongside the row — the builder copies it to
+      // the clipboard instead of making the user hunt for it in Settings.
+      const publicUrl = workflow.publicLink
+        ? workflowService.constructPublicUrl(workflow.publicLink)
+        : undefined;
+      res.json({ ...workflow, publicUrl });
     } catch (error) {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, status: req.body.status }, "Error changing workflow status");

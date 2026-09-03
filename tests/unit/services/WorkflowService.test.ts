@@ -138,6 +138,7 @@ describe("WorkflowService", () => {
       update: vi.fn(),
       delete: vi.fn(),
       findByUserAccess: vi.fn(),
+      findPublicLinksByPrefix: vi.fn().mockResolvedValue([]),
       transaction: vi.fn(async (callback: (tx: DbTransaction) => Promise<unknown>) => callback({} as DbTransaction)),
       moveToProject: vi.fn(),
       findUnfiledByCreatorId: vi.fn(),
@@ -574,9 +575,40 @@ describe("WorkflowService", () => {
       expect(result.status).toBe("active");
       expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
         workflow.id,
-        { status: "active", currentVersionId: "version-1" },
+        {
+          status: "active",
+          currentVersionId: "version-1",
+          // Publishing is what makes the workflow reachable, so it turns on
+          // public access and mints the participant link in the same write.
+          isPublic: true,
+          publicLink: expect.any(String) as unknown as string,
+        },
         expect.any(Object)
       );
+      // Uniqueness is checked against public_link, not the slug column.
+      expect(mockWorkflowRepo.findPublicLinksByPrefix).toHaveBeenCalled();
+    });
+    it("should reuse an existing public link rather than minting a second one", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        status: "draft",
+        publicLink: "already-shared",
+      });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockWorkflowRepo.findById.mockResolvedValue(workflow);
+      mockWorkflowRepo.update.mockResolvedValue({ ...workflow, status: "active" as const });
+
+      await service.changeStatus(workflow.id, "user-123", "active");
+
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        expect.objectContaining({ isPublic: true, publicLink: "already-shared" }),
+        expect.any(Object)
+      );
+      // A link already in circulation must never be regenerated — that would
+      // silently break every copy of it participants already hold.
+      expect(mockWorkflowRepo.findPublicLinksByPrefix).not.toHaveBeenCalled();
     });
     it("should change workflow status to archived", async () => {
       enterTenantContextForTests(TEST_TENANT_ID);

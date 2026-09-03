@@ -105,4 +105,61 @@ describe("ICW2-7 activation creates a version and unblocks anonymous runs", () =
     expect(run.workflowVersionId).toBe(activated.currentVersionId);
     expect(run.createdBy).toBe("anon");
   });
+
+  it("publishing turns on public access and mints links that stay unique per title", async () => {
+    enterTenantContextForTests(tenantId);
+
+    // Two workflows sharing a title, neither public and neither holding a link:
+    // exactly the state the builder's Publish button starts from.
+    const sharedTitle = `Collision Interview ${randomUUID().slice(0, 8)}`;
+    const createdIds: string[] = [];
+
+    for (let i = 0; i < 2; i++) {
+      const [wf] = await getOwnerDb().insert(workflows).values({
+        title: sharedTitle,
+        projectId,
+        creatorId: userId,
+        ownerId: userId,
+        status: "draft",
+        isPublic: false,
+        publicLink: null,
+      }).returning();
+      createdIds.push(wf.id);
+      const [page] = await getOwnerDb().insert(pages)
+        .values({ workflowId: wf.id, title: "Page 1", order: 0 }).returning();
+      await getOwnerDb().insert(steps).values({
+        workflowId: wf.id, pageId: page.id, title: "Your name", type: "text", alias: "name", order: 0,
+      });
+    }
+
+    try {
+      const first = await workflowService.changeStatus(createdIds[0], userId, "active");
+      const second = await workflowService.changeStatus(createdIds[1], userId, "active");
+
+      // Publishing alone is now enough to make the workflow reachable.
+      for (const activated of [first, second]) {
+        expect(activated.status).toBe("active");
+        expect(activated.isPublic).toBe(true);
+        expect(activated.publicLink).toBeTruthy();
+      }
+
+      // The links must not collide: public_link has no unique constraint, and
+      // findByPublicLink would otherwise resolve one owner's link to the other's
+      // workflow.
+      expect(first.publicLink).not.toBe(second.publicLink);
+
+      // Both links actually start a run, against their own workflow.
+      const firstRun = await runService.createAnonymousRun(first.publicLink!);
+      const secondRun = await runService.createAnonymousRun(second.publicLink!);
+      expect(firstRun.workflowId).toBe(createdIds[0]);
+      expect(secondRun.workflowId).toBe(createdIds[1]);
+    } finally {
+      for (const id of createdIds) {
+        await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, id));
+        await getOwnerDb().delete(steps).where(eq(steps.workflowId, id));
+        await getOwnerDb().delete(pages).where(eq(pages.workflowId, id));
+        await getOwnerDb().delete(workflows).where(eq(workflows.id, id));
+      }
+    }
+  });
 });

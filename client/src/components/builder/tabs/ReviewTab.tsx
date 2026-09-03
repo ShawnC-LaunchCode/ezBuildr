@@ -63,13 +63,37 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
             // fetchAPI injects the bearer token, refreshes it on a mid-session
             // 401, and throws with the server's message (e.g. the activation
             // validation errors) on failure.
-            await fetchAPI(`/api/workflows/${workflowId}/status`, {
+            const published = await fetchAPI<{ publicUrl?: string }>(`/api/workflows/${workflowId}/status`, {
                 method: 'PUT',
                 body: JSON.stringify({ status: 'active' }),
             });
+
+            // Activation turns on public access and mints the participant link
+            // server-side, so put it straight on the clipboard rather than making
+            // the user go find it under Settings -> Publishing. Clipboard writes
+            // fail in insecure contexts and when permission is denied, so the URL
+            // is shown in the toast either way.
+            const publicUrl = published.publicUrl;
+            let copied = false;
+            if (publicUrl) {
+                try {
+                    await navigator.clipboard.writeText(publicUrl);
+                    copied = true;
+                } catch {
+                    copied = false;
+                }
+            }
+
             toast({
-                title: "Success",
-                description: "Workflow activated and published successfully.",
+                title: copied ? "Published — link copied" : "Workflow published",
+                description: publicUrl
+                    ? (
+                        <span className="block">
+                            Share this participant link:{" "}
+                            <span className="font-mono break-all">{publicUrl}</span>
+                        </span>
+                    )
+                    : "Public access is on. The participant link is under Settings → Publishing.",
             });
             await refetchWorkflow();
             await refetchLint();

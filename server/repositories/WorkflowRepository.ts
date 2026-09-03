@@ -279,6 +279,23 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     return rows.filter((r): r is { id: string; slug: string } => r.slug !== null);
   }
   /**
+   * Find all workflows whose public link starts with the given prefix.
+   *
+   * Deliberately separate from findSlugsByPrefix: `slug` and `public_link` are
+   * different columns with independent namespaces, so uniqueness for one says
+   * nothing about the other. Generated public links must be checked here, or
+   * two same-titled workflows mint the same link and findByPublicLink hands
+   * one owner's participants to the other's workflow.
+   */
+  async findPublicLinksByPrefix(prefix: string, tx?: DbTransaction): Promise<Array<{ id: string; publicLink: string }>> {
+    const database = this.getDb(tx);
+    const rows = await database
+      .select({ id: workflows.id, publicLink: workflows.publicLink })
+      .from(workflows)
+      .where(sql`${workflows.publicLink} LIKE ${`${prefix}%`}`); // eslint-disable-line sonarjs/no-nested-template-literals
+    return rows.filter((r): r is { id: string; publicLink: string } => r.publicLink !== null);
+  }
+  /**
    * Find workflow by slug (Stage 12: Intake Portal)
    */
   async findBySlug(slug: string, tx?: DbTransaction): Promise<Workflow | null> {

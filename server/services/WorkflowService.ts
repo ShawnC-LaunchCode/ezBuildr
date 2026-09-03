@@ -370,6 +370,37 @@ export class WorkflowService {
     });
   }
   /**
+   * Ensure a generated public link is unique against the `public_link` column.
+   *
+   * ensureUniqueSlug cannot stand in for this: it queries `workflows.slug`,
+   * which is a separate (and DB-unique) column, while public links live in the
+   * non-unique `public_link`. Using the slug check to mint a public link means
+   * two workflows sharing a title get the same link, and findByPublicLink
+   * resolves it to whichever row Postgres returns first.
+   */
+  async ensureUniquePublicLink(title: string, workflowId: string, tx?: DbTransaction): Promise<string> {
+    return this.withTx(tx, async (scopedTx) => {
+      let baseLink = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .substring(0, 50)
+        .replace(/^-+|-+$/g, '');
+      if (!baseLink) { baseLink = 'workflow'; }
+
+      const existing = await this.workflowRepo.findPublicLinksByPrefix(baseLink, scopedTx);
+      const takenByOthers = new Set(
+        existing.filter(r => r.id !== workflowId).map(r => r.publicLink)
+      );
+
+      if (!takenByOthers.has(baseLink)) { return baseLink; }
+      for (let counter = 2; counter <= 101; counter++) {
+        const candidate = `${baseLink}-${counter}`;
+        if (!takenByOthers.has(candidate)) { return candidate; }
+      }
+      return `${baseLink}-${crypto.randomUUID().replace(/-/g, '').substring(0, 6)}`;
+    });
+  }
+  /**
    * Delete workflow
    */
   async deleteWorkflow(workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
@@ -400,6 +431,16 @@ export class WorkflowService {
         const { versionService } = await import("./VersionService");
         const version = await versionService.publishVersion(workflowId, userId, 'Published from builder', false, scopedTx);
         updateData.currentVersionId = version.id;
+
+        // Publishing is what makes a workflow reachable by participants, so it
+        // turns on public access and mints the participant link in the same
+        // transaction. Doing this only in Settings -> Publishing left activated
+        // workflows in a state that looks published in the builder but that
+        // createAnonymousRun still rejects with "Workflow is not public", with
+        // no URL surfaced anywhere.
+        updateData.isPublic = true;
+        updateData.publicLink = workflow.publicLink
+          ?? await this.ensureUniquePublicLink(workflow.title, workflowId, scopedTx);
       }
 
       return this.workflowRepo.update(workflowId, updateData, scopedTx);
@@ -634,18 +675,23 @@ export class WorkflowService {
   async getOrGeneratePublicLink(workflowId: string, userId: string, tx?: DbTransaction): Promise<string> {
     return this.withTx(tx, async (scopedTx) => {
       const workflow = await this.verifyAccess(workflowId, userId, 'owner', scopedTx);
-      // If publicLink already exists, return it
+      // Reuse an existing link, but still assert isPublic: a link that exists
+      // while is_public is false is dead — createAnonymousRun rejects it — and
+      // this method's whole contract is "hand back a usable public link".
       if (workflow.publicLink) {
+        if (!workflow.isPublic) {
+          await this.workflowRepo.update(workflowId, { isPublic: true }, scopedTx);
+        }
         return this.constructPublicUrl(workflow.publicLink);
       }
-      // Generate a unique slug (using robust logic now)
-      const slug = await this.ensureUniqueSlug(workflow.title, workflowId, scopedTx);
+      // Generate a link unique within the public_link namespace
+      const link = await this.ensureUniquePublicLink(workflow.title, workflowId, scopedTx);
       // Update workflow with new publicLink
       await this.workflowRepo.update(workflowId, {
-        publicLink: slug,
+        publicLink: link,
         isPublic: true
       }, scopedTx);
-      return this.constructPublicUrl(slug);
+      return this.constructPublicUrl(link);
     });
   }
   /**
@@ -666,7 +712,7 @@ export class WorkflowService {
   /**
    * Construct full public URL from slug
    */
-  private constructPublicUrl(slug: string): string {
+  constructPublicUrl(slug: string): string {
     const baseUrl = process.env.BASE_URL ?? process.env.VITE_BASE_URL ?? 'http://localhost:5000';
     return `${baseUrl}/w/${slug}`;
   }
