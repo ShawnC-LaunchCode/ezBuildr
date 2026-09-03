@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
-import { getOwnerDb } from '../helpers/ownerDb';
+import { getOwnerDb, getOwnerConnectionString } from '../helpers/ownerDb';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { canonicalizeStepDefinition } from '../../scripts/canonicalizeStepTypes';
 import { CANONICAL_STEP_TYPES, LEGACY_STEP_ADAPTERS } from '../../shared/types/stepConfigs';
@@ -287,7 +287,7 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
     });
 
     it('runs dry-run by default without writing to DB', async () => {
-      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --workflow-id ${workflowId}`, { encoding: 'utf-8', env: process.env });
+      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --workflow-id ${workflowId}`, { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } });
       expect(out).toContain('DRY-RUN mode');
       expect(out).toContain('Total rows processed:');
       
@@ -299,7 +299,7 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
     it('refuses to apply without a database-url', () => {
       let failed = false;
       try {
-        execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId}`, { encoding: 'utf-8', env: process.env });
+        execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId}`, { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } });
       } catch (err: any) {
         failed = true;
         expect(err.stderr.toString()).toContain('--apply requires an explicit --database-url argument');
@@ -308,8 +308,8 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
     });
 
     it('updates rows in --apply mode transactionally', async () => {
-      const dbUrl = process.env.DATABASE_URL || '';
-      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: process.env });
+      const dbUrl = getOwnerConnectionString();
+      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } });
       expect(out).toContain('APPLY mode');
       expect(out).toContain('Transaction committed successfully.');
       
@@ -321,8 +321,8 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
     });
 
     it('is idempotent on second --apply', () => {
-      const dbUrl = process.env.DATABASE_URL || '';
-      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: process.env });
+      const dbUrl = getOwnerConnectionString();
+      const out = execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } });
       expect(out).toContain('Rows changed:         0');
     });
 
@@ -360,9 +360,9 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       }).returning();
 
       let failed = false;
-      const dbUrl = process.env.DATABASE_URL || '';
+      const dbUrl = getOwnerConnectionString();
       try {
-        execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: process.env });
+        execSync(`npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${dbUrl}"`, { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } });
       } catch (err: any) {
         failed = true;
         expect(err.stderr.toString()).toContain('Aborting without writes.');

@@ -42,6 +42,18 @@ let pool: Pool | null = null;
 // creation through the observer instead of the application pool.
 let instance: NodePgDatabase<typeof schema> | null = null;
 
+/**
+ * The owner connection string, for tests that must hand a database URL to a
+ * CHILD PROCESS rather than use a handle — e.g. the canonicalizer CLI, which is
+ * an operator tool and is meant to run as the owner. Under RLS_RESTRICTED the
+ * ambient `DATABASE_URL` is the restricted role, so a child process inheriting
+ * it would see only RLS-visible rows and convert nothing while reporting
+ * success. Same observer/app separation as `getOwnerDb`, same caveats.
+ */
+export function getOwnerConnectionString(): string {
+  return ownerConnectionString();
+}
+
 function ownerConnectionString(): string {
   const url = (global as typeof globalThis & { __OWNER_DB_URL__?: string }).__OWNER_DB_URL__;
   if (typeof url === 'string' && url.length > 0) {

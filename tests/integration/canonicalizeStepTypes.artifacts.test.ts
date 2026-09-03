@@ -12,7 +12,7 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
-import { getOwnerDb } from "../helpers/ownerDb";
+import { getOwnerDb, getOwnerConnectionString } from "../helpers/ownerDb";
 
 type VersionRow = typeof schema.workflowVersions.$inferSelect;
 type BlueprintRow = typeof schema.workflowBlueprints.$inferSelect;
@@ -232,7 +232,7 @@ describe.sequential("STB-20 canonicalize stored version and blueprint artifacts"
   it("AC7: dry-run walks pages[].steps[], reports a non-zero conversion count, and writes nothing", async () => {
     const out = execSync(
       `npx tsx scripts/canonicalizeStepTypes.ts --workflow-id ${workflowId}`,
-      { encoding: "utf-8", env: process.env },
+      { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } },
     );
 
     expect(out).toContain("DRY-RUN mode");
@@ -253,11 +253,11 @@ describe.sequential("STB-20 canonicalize stored version and blueprint artifacts"
   });
 
   it("AC8/AC9: apply repairs version checksums, preserves absent checksums and metadata, and converts signature in both stores", async () => {
-    const databaseUrl = process.env.DATABASE_URL;
+    const databaseUrl = getOwnerConnectionString();
     expect(databaseUrl).toBeTruthy();
     const out = execSync(
       `npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${databaseUrl}"`,
-      { encoding: "utf-8", env: process.env },
+      { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } },
     );
 
     expect(out).toContain("APPLY mode");
@@ -378,10 +378,10 @@ describe.sequential("STB-20 canonicalize stored version and blueprint artifacts"
     expect(storedVersion?.workflowId).toBe(workflowId);
     expect(storedBlueprint?.tenantId).toBe(ctx.tenantId);
 
-    const databaseUrl = process.env.DATABASE_URL;
+    const databaseUrl = getOwnerConnectionString();
     const secondApply = execSync(
       `npx tsx scripts/canonicalizeStepTypes.ts --apply --workflow-id ${workflowId} --database-url "${databaseUrl}"`,
-      { encoding: "utf-8", env: process.env },
+      { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } },
     );
     expect(secondApply).toContain("Rows changed:         0");
     expect(secondApply).toContain("Version artifacts changed:         0");
@@ -389,7 +389,7 @@ describe.sequential("STB-20 canonicalize stored version and blueprint artifacts"
 
     const audit = execSync(
       `npx tsx scripts/canonicalizeStepTypes.ts --audit --workflow-id ${workflowId}`,
-      { encoding: "utf-8", env: process.env },
+      { encoding: 'utf-8', env: { ...process.env, DATABASE_URL: getOwnerConnectionString() } },
     );
     expect(audit).toContain("Audit passed. Zero legacy definitions found.");
   });
