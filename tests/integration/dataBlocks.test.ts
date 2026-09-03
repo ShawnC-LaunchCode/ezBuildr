@@ -278,7 +278,7 @@ describe('Data Block Integration Tests', () => {
             id: inputBlockId,
             workflowId: workflow.id,
             pageId: page.id,
-            type: 'short_text',
+            type: 'text',
             title: 'Enter Text',
             order: 0,
         } as any);

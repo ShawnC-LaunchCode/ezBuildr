@@ -40,7 +40,7 @@ function makeSteps(pages: Page[]): Step[] {
             id: `${page.id}-step-${index + 1}`,
             workflowId: 'wf-1',
             pageId: page.id,
-            type: 'short_text',
+            type: 'text',
             title: `${page.title} Step ${index + 1}`,
             order: index,
             required: false,

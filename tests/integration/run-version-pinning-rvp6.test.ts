@@ -84,7 +84,7 @@ describe("RVP-6 pin every new run at creation (Option B)", () => {
     }).returning();
     const [page] = await getOwnerDb().insert(pages).values({ workflowId: workflow.id, title: "Page 1", order: 0 }).returning();
     await getOwnerDb().insert(steps).values({
-      workflowId: workflow.id, pageId: page.id, title: "Your name", type: "short_text", alias: "name", order: 0,
+      workflowId: workflow.id, pageId: page.id, title: "Your name", type: "text", alias: "name", order: 0,
     });
     return workflow;
   }

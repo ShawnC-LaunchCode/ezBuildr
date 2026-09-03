@@ -115,7 +115,10 @@ describeWithDb('StepService DB', () => {
 
     await expect(stepService.createStep(testWorkflowId, testPageId, testUserId, {
       title: 'Retired short text',
-      type: 'short_text',
+      // Deliberately a retired name. STB-21 removed it from `StepType`, so the
+      // cast is what lets this test still submit the invalid value it exists to
+      // reject -- the point is the runtime refusal, not the compile-time one.
+      type: 'short_text' as never,
     })).rejects.toThrow(/type.*short_text.*retired/i);
 
     expect(await stepRepository.findByPageId(testPageId)).toHaveLength(before.length);

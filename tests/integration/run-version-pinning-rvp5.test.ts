@@ -121,29 +121,29 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     }).returning();
 
     const [stepName] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "text",
       title: "Your name", alias: "name", required: true, order: 0,
     }).returning();
     const [stepToDelete] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "text",
       title: "About to be deleted", alias: "toDelete", required: false, order: 1,
     }).returning();
     const [stepWantsExtra] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "text",
       title: "Want extra detail?", alias: "wantsExtra", required: true, order: 2,
     }).returning();
     const [stepExtraDetail] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page1.id, type: "short_text",
+      workflowId, pageId: page1.id, type: "text",
       title: "Extra detail", alias: "extraDetail", required: false, order: 3,
     }).returning();
 
     const [stepDetail1] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page2.id, type: "short_text",
+      workflowId, pageId: page2.id, type: "text",
       title: "Detail", alias: "detail1", required: true, order: 0,
     }).returning();
 
     const [stepFinal1] = await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page3.id, type: "short_text",
+      workflowId, pageId: page3.id, type: "text",
       title: "Final answer", alias: "final1", required: true, order: 0,
     }).returning();
 
@@ -219,7 +219,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
         // exactly what an author editing the published workflow does). It
         // belongs to page3, which the respondent has not reached yet.
         const [liveOnlyRequired] = await getOwnerDb().insert(steps).values({
-          workflowId, pageId: page3.id, type: "short_text",
+          workflowId, pageId: page3.id, type: "text",
           title: "Added after the run started", alias: "liveOnlyRequired",
           required: true, order: 1,
         }).returning();

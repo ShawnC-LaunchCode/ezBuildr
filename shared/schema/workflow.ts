@@ -34,18 +34,26 @@ export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'active', 
 export const versionStatusEnum = pgEnum('version_status', ['draft', 'published']);
 export const templateTypeEnum = pgEnum('template_type', ['docx', 'html', 'pdf']);
 
-// Step (question) type enum
+/**
+ * Step (question) type enum — the canonical toolbox, and nothing else.
+ *
+ * Reduced from 37 values to 18 by STB-21 once the STB-19/20 backfill reported a
+ * zero audit. Easy-mode names like Short Text, Yes/No and Currency are **preset
+ * ids**, not stored types (Decision 3); `*_advanced` was never a separate
+ * identity, only an exposure level (Decision 2).
+ *
+ * Retired names remain READABLE — `LEGACY_STEP_ADAPTERS` in
+ * `shared/types/stepConfigs.ts` still maps every one of them, because an export
+ * bundle or a pre-`pages` artifact written before the backfill can still arrive
+ * at an import boundary. They are simply no longer WRITABLE: this enum is the
+ * database's refusal, and `validateCanonicalStepConfig` is the API's.
+ *
+ * Adding a value here is a step-type change — see the `add-step-type` skill.
+ */
 export const stepTypeEnum = pgEnum('step_type', [
-    // ===== LEGACY / EXISTING TYPES =====
-    'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload',
-    'computed', 'js_question', 'final_documents', 'signature_block',
-    // ===== EASY MODE TYPES =====
-    'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
-    // ===== ADVANCED MODE TYPES =====
-    'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice', 'email_advanced', 'number_advanced', 'scale_advanced',
-    'website_advanced', 'address_advanced', 'multi_field', 'display_advanced',
-    // ===== STRUCTURAL TYPES =====
-    'list'
+    'text', 'boolean', 'phone', 'date_time', 'choice', 'email', 'number', 'scale',
+    'website', 'address', 'multi_field', 'display', 'file_upload', 'list',
+    'js_question', 'computed', 'final_documents', 'signature_block'
 ]);
 
 export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['page', 'step']);

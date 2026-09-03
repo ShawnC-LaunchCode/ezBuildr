@@ -157,7 +157,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -167,7 +167,7 @@ describe('Automatic document generation on run completion', () => {
       'Contract for {{clientName}}'
     );
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -205,7 +205,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -213,7 +213,7 @@ describe('Automatic document generation on run completion', () => {
     const templateA = await createTemplateOnDisk('Pinned Contract', 'Contract A for {{clientName}}');
     const templateB = await createTemplateOnDisk('Edited Contract', 'Contract B for {{clientName}}');
     const finalStep = await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -286,7 +286,7 @@ describe('Automatic document generation on run completion', () => {
       config: { finalBlock: true, templates: [template.id] },
     });
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -313,7 +313,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const statusStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Status',
       alias: 'status',
       order: 0,
@@ -321,7 +321,7 @@ describe('Automatic document generation on run completion', () => {
     const approvedTemplate = await createTemplateOnDisk('Approval Letter', 'Congratulations, you are approved.');
     const rejectionTemplate = await createTemplateOnDisk('Rejection Letter', 'We are sorry, you were not approved.');
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -414,13 +414,13 @@ describe('Automatic document generation on run completion', () => {
       },
     });
     const nameStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     const tierStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Tier',
       alias: 'tier',
       order: 1,
@@ -459,7 +459,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Anything',
       alias: 'anything',
     });
@@ -504,7 +504,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -512,7 +512,7 @@ describe('Automatic document generation on run completion', () => {
     // Aliased, so it is part of the data contract -- but left unanswered below,
     // so it arrives as null and must be reported rather than raising.
     await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Matter number',
       alias: 'matterNumber',
       order: 1,
@@ -522,7 +522,7 @@ describe('Automatic document generation on run completion', () => {
       'Hello {{clientName}}, matter {{matterNumber}}?'
     );
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 2,
       config: {
@@ -563,7 +563,7 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -574,7 +574,7 @@ describe('Automatic document generation on run completion', () => {
       'Hello {{clientName}}, where is the {{unknownTag}}?'
     );
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -617,14 +617,14 @@ describe('Automatic document generation on run completion', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Anything',
       alias: 'anything',
     });
     
     // Provide a non-existent template ID so the resolver throws
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {

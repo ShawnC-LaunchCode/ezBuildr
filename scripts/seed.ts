@@ -177,7 +177,7 @@ async function seed() {
       .values({
         workflowId: workflow.id,
         pageId: page.id,
-        type: 'short_text',
+        type: 'text',
         title: 'Full Name',
         description: 'Enter your full legal name',
         required: true,
@@ -191,7 +191,7 @@ async function seed() {
       .values({
         workflowId: workflow.id,
         pageId: page.id,
-        type: 'short_text',
+        type: 'text',
         title: 'Email Address',
         description: 'Enter your work email address',
         required: true,

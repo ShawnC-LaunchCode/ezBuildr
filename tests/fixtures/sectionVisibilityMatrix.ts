@@ -35,7 +35,7 @@ export const sectionPageVisibilityFixture = {
     createdAt,
     steps: [{
       id: SECTION_MATRIX_STEP_ID,
-      type: "short_text",
+      type: "text",
       title: "Member question",
       description: null,
       required: true,
@@ -49,7 +49,7 @@ export const sectionPageVisibilityFixture = {
     id: SECTION_MATRIX_STEP_ID,
     workflowId: SECTION_MATRIX_WORKFLOW_ID,
     pageId: SECTION_MATRIX_PAGE_ID,
-    type: "short_text" as const,
+    type: "text" as const,
     title: "Member question",
     description: null,
     required: true,

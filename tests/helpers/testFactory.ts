@@ -303,7 +303,7 @@ export class TestFactory {
           id: generateId(),
           workflowId,
           pageId,
-          type: 'short_text',
+          type: 'text',
           title: 'Test Step',
           description: 'Test step',
           required: false,

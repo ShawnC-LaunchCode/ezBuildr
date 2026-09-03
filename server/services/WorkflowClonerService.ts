@@ -626,7 +626,7 @@ export class WorkflowClonerService {
             title: sourceStep.title,
             description: sourceStep.description,
             required: sourceStep.required,
-            config: sourceStep.type === 'final_documents' || sourceStep.type === 'final'
+            config: sourceStep.type === 'final_documents'
               ? protectFinalBlockDeliverySecrets(sourceStep.config)
               : sourceStep.config,
             alias: sourceStep.alias,

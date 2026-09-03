@@ -127,7 +127,7 @@ beforeAll(async () => {
 
   await getOwnerDb().execute(sql`INSERT INTO sections (id, workflow_id, title) VALUES (${sectionA}, ${wfUserA}, 'Section A'), (${sectionB}, ${wfUserB}, 'Section B')`);
   await getOwnerDb().execute(sql`INSERT INTO pages (id, workflow_id, section_id, title, "order") VALUES (${pageA}, ${wfUserA}, ${sectionA}, 'Page A', 1), (${pageB}, ${wfUserB}, ${sectionB}, 'Page B', 1)`);
-  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, page_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'short_text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'short_text', 'Step B', 1)`);
+  await getOwnerDb().execute(sql`INSERT INTO steps (id, workflow_id, page_id, type, title, "order") VALUES (${stepA}, ${wfUserA}, ${pageA}, 'text', 'Step A', 1), (${stepB}, ${wfUserB}, ${pageB}, 'text', 'Step B', 1)`);
 });
 
 afterAll(async () => {

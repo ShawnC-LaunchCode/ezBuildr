@@ -267,7 +267,7 @@ describeWithDb('ImportService - preview', () => {
       title: 'Step 1',
       order: 1,
       alias: 'duplicate_alias', 
-      type: 'short_text' 
+      type: 'text' 
     };
     const stepRow2 = { 
       id: randomUUID(), 
@@ -276,7 +276,7 @@ describeWithDb('ImportService - preview', () => {
       title: 'Step 2',
       order: 2,
       alias: 'duplicate_alias', 
-      type: 'short_text' 
+      type: 'text' 
     };
     
     // Delete existing steps.jsonl and add the tampered one
@@ -319,7 +319,7 @@ describeWithDb('ImportService - preview', () => {
         title: 'Email Step A',
         order: 1,
         alias: 'email', 
-        type: 'short_text' 
+        type: 'text' 
       };
       const stepRow2 = { 
         id: randomUUID(), 
@@ -328,7 +328,7 @@ describeWithDb('ImportService - preview', () => {
         title: 'Email Step B',
         order: 1,
         alias: 'email', 
-        type: 'short_text' 
+        type: 'text' 
       };
       
       // Since it's a project bundle, it might not have steps.jsonl yet, or we can just create/overwrite it

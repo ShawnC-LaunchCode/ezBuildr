@@ -133,7 +133,7 @@ describe('External Send Block Integration', () => {
             id: inputStepId,
             workflowId,
             pageId,
-            type: 'short_text',
+            type: 'text',
             title: 'Input',
             order: 0
         } as any);
@@ -204,7 +204,7 @@ describe('External Send Block Integration', () => {
             id: inputStepId,
             workflowId,
             pageId,
-            type: 'short_text',
+            type: 'text',
             title: 'Input',
             order: 0
         } as any);

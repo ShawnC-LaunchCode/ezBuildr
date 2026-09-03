@@ -152,7 +152,7 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
       logicRules: [],
       steps: [{
         id: 'final-step',
-        type: 'final',
+        type: 'final_documents',
         config: {
           markdownHeader: '',
           documents: [{ id: 'document-1', documentId: 'template-1', alias: 'contract' }],

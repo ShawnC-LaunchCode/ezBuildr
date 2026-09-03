@@ -45,7 +45,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const step1 = await factory.createStep(page.id, {
       title: 'First Name',
       alias: 'firstName',
-      type: 'short_text',
+      type: 'text',
       order: 0
     });
     stepId1 = step1.id;
@@ -53,7 +53,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const step2 = await factory.createStep(page.id, {
       title: 'Last Name',
       alias: 'lastName',
-      type: 'short_text',
+      type: 'text',
       order: 1
     });
     stepId2 = step2.id;
@@ -61,7 +61,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const radioStep = await factory.createStep(page.id, {
       title: 'Plan',
       alias: 'plan',
-      type: 'radio',
+      type: 'choice',
       order: 2,
       config: {
         options: [
@@ -75,7 +75,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const dateStep = await factory.createStep(page.id, {
       title: 'Start Date',
       alias: 'startDate',
-      type: 'date',
+      type: 'date_time',
       order: 3,
       config: {},
     });
@@ -93,7 +93,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const requiredRadioStep = await factory.createStep(page.id, {
       title: 'Required Plan',
       alias: 'requiredPlan',
-      type: 'radio',
+      type: 'choice',
       order: 5,
       required: true,
       config: {
@@ -111,7 +111,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     const otherPageStep = await factory.createStep(otherPage.id, {
       title: 'Other Page Step',
       alias: 'otherPageStep',
-      type: 'short_text',
+      type: 'text',
       order: 0,
     });
     otherPageStepId = otherPageStep.id;

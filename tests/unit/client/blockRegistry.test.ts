@@ -185,8 +185,18 @@ describe('QUESTION_PRESETS canonical contract', () => {
       expect.objectContaining({ id: 'easy.time', label: 'Time', createDefaultConfig: expect.any(Function) }),
       expect.objectContaining({ id: 'easy.date-time', label: 'Date/Time', createDefaultConfig: expect.any(Function) }),
     ]);
-    expect(getBlockByType('radio')?.type).toBe('radio');
-    expect(getBlockByType('multiple_choice')?.type).toBe('multiple_choice');
+    // STB-22: these were the last two retired names still carrying registry
+    // entries, which is what this test's own title forbids. They now behave like
+    // every other retired family above -- absent from the registry, but still
+    // resolvable for presentation so a stored row renders with a friendly label.
+    expect(getBlockByType('radio')).toBeUndefined();
+    expect(getBlockByType('multiple_choice')).toBeUndefined();
+    expect(getQuestionTypePresentation('radio')).toMatchObject({
+      label: 'Single Select', category: 'choice',
+    });
+    expect(getQuestionTypePresentation('multiple_choice')).toMatchObject({
+      label: 'Multiple Choice', category: 'choice',
+    });
     expect(getBlockByType('currency')).toBeUndefined();
   });
 

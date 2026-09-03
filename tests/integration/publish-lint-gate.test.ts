@@ -91,7 +91,7 @@ describe("RUN2-7 publish is gated on lint", () => {
       workflowId: validWorkflowId,
       pageId: validPage.id,
       title: "Your name",
-      type: "short_text",
+      type: "text",
       alias: "name",
       order: 0,
     });

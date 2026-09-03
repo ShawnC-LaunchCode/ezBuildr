@@ -148,14 +148,14 @@ describe("AliasRenameService.propagateRename", () => {
     mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-final",
-        type: "final",
+        type: "final_documents",
         config: {
           documents: [
             { documentId: "d1", mapping: { name: { type: "variable", source: "oldName" } } },
           ],
         },
       },
-      { id: "step-text", type: "short_text", config: null },
+      { id: "step-text", type: "text", config: null },
     ] as never);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");
@@ -175,7 +175,7 @@ describe("AliasRenameService.propagateRename", () => {
     mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-dependent",
-        type: "short_text",
+        type: "text",
         config: null,
         visibleIf: {
           type: "group",
@@ -186,7 +186,7 @@ describe("AliasRenameService.propagateRename", () => {
           ],
         },
       },
-      { id: "step-untouched", type: "short_text", config: null, visibleIf: null },
+      { id: "step-untouched", type: "text", config: null, visibleIf: null },
     ] as never);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");
@@ -271,7 +271,7 @@ describe("AliasRenameService.propagateRename", () => {
     mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-nested",
-        type: "short_text",
+        type: "text",
         config: null,
         visibleIf: {
           type: "group",
@@ -315,7 +315,7 @@ describe("AliasRenameService.propagateRename", () => {
     mockStepRepo.findByPageIds.mockResolvedValue([
       {
         id: "step-other",
-        type: "short_text",
+        type: "text",
         config: null,
         visibleIf: {
           type: "group",
@@ -343,7 +343,7 @@ describe("AliasRenameService.propagateRename", () => {
     // to be a logic rule's target.
     mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: "page-1", visibleIf: null }] as never);
     mockStepRepo.findByPageIds.mockResolvedValue([
-      { id: "step-target", type: "short_text", config: null, visibleIf: null },
+      { id: "step-target", type: "text", config: null, visibleIf: null },
     ] as never);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");

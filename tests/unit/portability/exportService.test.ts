@@ -37,7 +37,7 @@ describeWithDb('ExportService', () => {
       testWorkflowId = workflow.id;
 
       const page = await txFactory.createPage(testWorkflowId, { title: 'Test Page' });
-      await txFactory.createStep(page.id, { type: 'short_text', title: 'Test Question' });
+      await txFactory.createStep(page.id, { type: 'text', title: 'Test Question' });
 
       const other = await txFactory.createTenant();
       otherUserId = other.user.id;

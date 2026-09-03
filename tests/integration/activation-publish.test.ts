@@ -61,7 +61,7 @@ describe("ICW2-7 activation creates a version and unblocks anonymous runs", () =
 
     const [page] = await getOwnerDb().insert(pages).values({ workflowId, title: "Page 1", order: 0 }).returning();
     await getOwnerDb().insert(steps).values({
-      workflowId, pageId: page.id, title: "Your name", type: "short_text", alias: "name", order: 0,
+      workflowId, pageId: page.id, title: "Your name", type: "text", alias: "name", order: 0,
     });
   });
 

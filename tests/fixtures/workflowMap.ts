@@ -51,7 +51,7 @@ export function workflowWithForwardSkip(): BuildWorkflowMapInput {
       { id: "page-c", title: "Page C", order: 2 },
     ],
     steps: [
-      { id: "step-a-trigger", pageId: "page-a", type: "short_text", title: "Skip ahead?" },
+      { id: "step-a-trigger", pageId: "page-a", type: "text", title: "Skip ahead?" },
     ],
     rules: [
       {
@@ -81,7 +81,7 @@ export function workflowWithBackwardSkip(): BuildWorkflowMapInput {
       { id: "page-c", title: "Page C", order: 2 },
     ],
     steps: [
-      { id: "step-c-trigger", pageId: "page-c", type: "short_text", title: "Go back?" },
+      { id: "step-c-trigger", pageId: "page-c", type: "text", title: "Go back?" },
     ],
     rules: [
       {
@@ -113,7 +113,7 @@ export function workflowWithUnreachablePage(): BuildWorkflowMapInput {
       { id: "page-c", title: "Page C", order: 2 },
     ],
     steps: [
-      { id: "step-a-cond", pageId: "page-a", type: "short_text", title: "Condition source" },
+      { id: "step-a-cond", pageId: "page-a", type: "text", title: "Condition source" },
     ],
     rules: [
       {
@@ -159,7 +159,7 @@ export function workflowWithDanglingSkipTarget(): BuildWorkflowMapInput {
       { id: "page-b", title: "Page B", order: 1 },
     ],
     steps: [
-      { id: "step-a-trigger", pageId: "page-a", type: "short_text", title: "Skip ahead?" },
+      { id: "step-a-trigger", pageId: "page-a", type: "text", title: "Skip ahead?" },
     ],
     rules: [
       {
@@ -187,8 +187,8 @@ export function workflowWithConditionalPage(): BuildWorkflowMapInput {
       { id: "page-b", title: "Page B", order: 1 },
     ],
     steps: [
-      { id: "step-a-cond", pageId: "page-a", type: "short_text", title: "Pet name", visibleIf: conditionExpr("has_pet") },
-      { id: "step-a-plain", pageId: "page-a", type: "short_text", title: "Unconditional step" },
+      { id: "step-a-cond", pageId: "page-a", type: "text", title: "Pet name", visibleIf: conditionExpr("has_pet") },
+      { id: "step-a-plain", pageId: "page-a", type: "text", title: "Unconditional step" },
     ],
     rules: [],
   };

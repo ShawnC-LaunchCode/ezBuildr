@@ -116,7 +116,7 @@ describe("Templates API Integration Tests", () => {
       workflowId,
       pageId: page.id,
       title: "Your name",
-      type: "short_text",
+      type: "text",
       alias: "name",
       order: 0,
     });

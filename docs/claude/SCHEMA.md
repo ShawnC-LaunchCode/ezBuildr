@@ -133,11 +133,24 @@ All DataVault tables are `datavault_`-prefixed:
 
 ## Key Enums (defined in `shared/schema/workflow.ts`)
 
-**Step types (`stepTypeEnum`, 37 values):**
-- Legacy/existing: `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `date_time`, `file_upload`, `computed`, `js_question`, `final_documents`, `signature_block`
-- Easy mode: `true_false`, `phone`, `date`, `time`, `datetime`, `email`, `number`, `currency`, `scale`, `website`, `display`, `address`, `final`
-- Advanced mode: `text`, `boolean`, `phone_advanced`, `datetime_unified`, `choice`, `email_advanced`, `number_advanced`, `scale_advanced`, `website_advanced`, `address_advanced`, `multi_field`, `display_advanced`
-- Structural: `list` (nestable repeating question, fully supported in the runner via drill-in navigation; both List initiatives closed 2026-08-02, parked follow-ups in `tickets/BACKLOG.md`). Replaced `repeater`/`loop_group`, both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
+**Step types (`stepTypeEnum`, 18 values):** the canonical toolbox, and nothing else. Reduced from 37 by
+STB-21 (migration `0042`) once the STB-19/20 backfill reported a zero audit.
+- Input: `text`, `boolean`, `phone`, `date_time`, `choice`, `email`, `number`, `scale`, `website`, `address`, `multi_field`
+- Structural / non-input: `display`, `file_upload`, `list`, `js_question`, `computed`, `final_documents`, `signature_block`
+
+`list` is the nestable repeating question, fully supported in the runner via drill-in navigation; both List
+initiatives closed 2026-08-02, parked follow-ups in `tickets/BACKLOG.md`. It replaced `repeater`/`loop_group`,
+both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
+
+**Retired names are readable, not writable.** Easy-mode labels (Short Text, Long Text, Yes/No, True/False,
+Date, Time, Date/Time, Single Select, Multiple Choice, Currency) are **preset ids** in the builder, never
+stored types; `*_advanced` was an exposure level, never a separate identity. The 19 retired names
+(`short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `true_false`, `date`, `time`, `datetime`,
+`datetime_unified`, `currency`, `final`, `number_advanced`, `scale_advanced`, `phone_advanced`,
+`email_advanced`, `website_advanced`, `address_advanced`, `display_advanced`) are still mapped by
+`LEGACY_STEP_ADAPTERS` in `shared/types/stepConfigs.ts`, so an export bundle or a pre-`pages` artifact written
+before the backfill still imports. The database now refuses to store them, and
+`validateCanonicalStepConfig` refuses to accept them at every write boundary.
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 

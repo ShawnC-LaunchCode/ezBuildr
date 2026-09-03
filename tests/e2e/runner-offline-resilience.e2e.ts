@@ -61,7 +61,7 @@ test.describe("Runner Offline Buffering & Resilience E2E", () => {
       headers: authHeaders,
       data: {
         title: "Full Name",
-        type: "short_text",
+        type: "text",
         alias: "full_name",
         order: 0,
         required: true,
@@ -75,7 +75,7 @@ test.describe("Runner Offline Buffering & Resilience E2E", () => {
       headers: authHeaders,
       data: {
         title: "Email Address",
-        type: "short_text",
+        type: "text",
         alias: "email_address",
         order: 1,
         required: true,

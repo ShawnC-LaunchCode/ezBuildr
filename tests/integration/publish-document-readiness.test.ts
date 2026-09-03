@@ -94,7 +94,7 @@ describe("GH-152 publish is gated on document readiness", () => {
       workflowId,
       pageId: page.id,
       title: "Your name",
-      type: "short_text",
+      type: "text",
       alias: "name",
       order: 0,
     });

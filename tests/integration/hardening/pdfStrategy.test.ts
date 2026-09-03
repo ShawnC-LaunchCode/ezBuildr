@@ -138,7 +138,7 @@ describe('Hardening: generated documents record the real converter', () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -157,7 +157,7 @@ describe('Hardening: generated documents record the real converter', () => {
     });
 
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {

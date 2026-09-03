@@ -279,7 +279,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       await getOwnerDb().insert(steps).values({
         workflowId: testWorkflowId,
         pageId: testFinalPageId,
-        type: 'final',
+        type: 'final_documents',
         title: 'Final documents',
         order: 3,
         config: finalBlockConfig,

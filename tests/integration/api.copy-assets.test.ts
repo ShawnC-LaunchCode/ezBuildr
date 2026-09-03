@@ -170,7 +170,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       id: randomUUID(),
       workflowId: workflow.id,
       pageId: page.id,
-      type: "short_text",
+      type: "text",
       title: "Name",
       alias: "name",
       order: 1,

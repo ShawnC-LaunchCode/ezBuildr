@@ -233,7 +233,7 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
   return {
     workflowId: overrides?.workflowId || uuidv4(),
     pageId: overrides?.pageId || uuidv4(), // Fix: page-${uniqueId} -> uuidv4
-    type: overrides?.type || 'short_text',
+    type: overrides?.type || 'text',
     title: overrides?.title || `Step ${uniqueId}`,
     description: overrides?.description || null,
     required: overrides?.required ?? false,
@@ -453,8 +453,7 @@ export function generateStepValues(stepTypes: Array<{ id: string; type: string }
 
   for (const step of stepTypes) {
     switch (step.type) {
-      case 'short_text':
-      case 'long_text':
+      case 'text':
         values[step.id] = `Sample text for ${step.id}`;
         break;
       case 'email':
@@ -464,7 +463,6 @@ export function generateStepValues(stepTypes: Array<{ id: string; type: string }
         values[step.id] = generatePhoneNumber();
         break;
       case 'number':
-      case 'currency':
         values[step.id] = Math.floor(Math.random() * 1000);
         break;
       case 'boolean':

@@ -79,7 +79,7 @@ describe.sequential('completed run answer immutability', () => {
     const step = await factory.createStep(page.id, {
       title: 'Name',
       alias: 'name',
-      type: 'short_text',
+      type: 'text',
       order: 0,
       required: false,
     });

@@ -491,7 +491,7 @@ export class RunLifecycleService {
 
       const finalBlockConfigs: FinalBlockConfig[] = [];
       for (const step of definitionSteps) {
-        if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
+        if (step.type !== 'final_documents') {continue;}
         if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
         const config = step.config as FinalBlockConfig | null;
         if (config?.documents && config.documents.length > 0) {

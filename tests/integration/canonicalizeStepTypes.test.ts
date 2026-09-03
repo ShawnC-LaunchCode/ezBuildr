@@ -7,8 +7,7 @@ import * as schema from '@shared/schema';
 import { getOwnerDb } from '../helpers/ownerDb';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { canonicalizeStepDefinition } from '../../scripts/canonicalizeStepTypes';
-import { CANONICAL_STEP_TYPES } from '../../shared/types/stepConfigs';
-import { stepTypeEnum } from '../../shared/schema/workflow';
+import { CANONICAL_STEP_TYPES, LEGACY_STEP_ADAPTERS } from '../../shared/types/stepConfigs';
 import { validateCanonicalStepConfig } from '../../shared/validation/stepConfigSchemas';
 
 describe.sequential('STB-19 canonicalizeStepTypes', () => {
@@ -67,8 +66,8 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
     // strict boundary that STB-17 enforces on writes. Added by the reviewer
     // (2026-09-02) after two review rounds each shipped a retired type that
     // could not convert at all -- the per-family tests passed while the family
-    // nobody wrote a fixture for threw. Driving this off the enum means a type
-    // cannot be missed by omission.
+    // nobody wrote a fixture for threw. Driving it off the adapter map means a
+    // type cannot be missed by omission.
     const RETIRED_TYPE_FIXTURES: Record<string, unknown> = {
       short_text: { placeholder: 'hi' },
       long_text: { rows: 4 },
@@ -89,11 +88,19 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       address_advanced: { requireStreet: true },
       display_advanced: { markdown: 'hello' },
       final: {},
+      // Not an enum value even before STB-21, but reachable in graph JSON,
+      // which is not enum-constrained. See STB-20.
+      signature: { signerRole: 'Applicant', routingOrder: 1, documents: [] },
     };
 
-    it('AC1: every retired enum type converts to a canonically valid config', () => {
+    it('AC1: every retired type converts to a canonically valid config', () => {
       const canonical = new Set<string>(CANONICAL_STEP_TYPES);
-      const retired = stepTypeEnum.enumValues.filter((type) => !canonical.has(type));
+
+      // Driven by LEGACY_STEP_ADAPTERS, not by the enum. STB-21 removed the
+      // retired names from `stepTypeEnum`, so deriving the subject from the enum
+      // would leave this guard iterating an EMPTY set and passing vacuously --
+      // the exact failure it was written to prevent.
+      const retired = Object.keys(LEGACY_STEP_ADAPTERS).filter((type) => !canonical.has(type));
 
       // Fail loudly if a retired type has no fixture, rather than skipping it.
       expect(Object.keys(RETIRED_TYPE_FIXTURES).sort()).toEqual([...retired].sort());
@@ -248,25 +255,20 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
   describe('CLI orchestrator', () => {
     let step1Id: string;
 
+    // STB-21 removed the retired names from the `step_type` enum, so a legacy
+    // TOP-LEVEL row can no longer be inserted at all -- Postgres rejects it. A
+    // nested List field type lives in jsonb, which is not enum-constrained, so
+    // that is where the CLI still has genuine legacy work to do on a live row.
+    // Top-level legacy conversion stays covered by the pure-canonicalizer tests
+    // above and by the Phase 4 Gate rehearsal, which ran pre-migration.
     beforeAll(async () => {
       const [step1] = await getOwnerDb().insert(schema.steps).values({
         workflowId,
         pageId,
-        type: 'short_text' as any,
+        type: 'list',
         title: 'Q1',
         alias: 'q1',
         order: 1,
-        config: { variant: 'short', oldStuff: true },
-      }).returning();
-      step1Id = step1.id;
-
-      await getOwnerDb().insert(schema.steps).values({
-        workflowId,
-        pageId,
-        type: 'list' as any,
-        title: 'Q2',
-        alias: 'q2',
-        order: 2,
         config: {
           fields: [
             {
@@ -276,11 +278,12 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
               type: 'true_false',
               title: 'Sub Q',
               order: 1,
-              config: { badKey: 123 }
+              config: { trueLabel: 'Yep', falseLabel: 'Nope', badKey: 123 }
             }
           ]
-        }
-      });
+        },
+      }).returning();
+      step1Id = step1.id;
     });
 
     it('runs dry-run by default without writing to DB', async () => {
@@ -289,8 +292,8 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       expect(out).toContain('Total rows processed:');
       
       const rows = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.id, step1Id));
-      expect(rows[0].type).toBe('short_text');
-      expect((rows[0].config as any).oldStuff).toBe(true);
+      expect((rows[0].config as any).fields[0].type).toBe('true_false');
+      expect((rows[0].config as any).fields[0].config.badKey).toBe(123);
     });
 
     it('refuses to apply without a database-url', () => {
@@ -311,8 +314,10 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       expect(out).toContain('Transaction committed successfully.');
       
       const rows = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.id, step1Id));
-      expect(rows[0].type).toBe('text');
-      expect((rows[0].config as any).oldStuff).toBeUndefined();
+      const field = (rows[0].config as any).fields[0];
+      expect(field.type).toBe('boolean');
+      expect(field.config.trueLabel).toBe('Yep');
+      expect(field.config.badKey).toBeUndefined();
     });
 
     it('is idempotent on second --apply', () => {
@@ -325,17 +330,29 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       const [goodStep] = await getOwnerDb().insert(schema.steps).values({
         workflowId,
         pageId,
-        type: 'short_text' as any,
+        type: 'list',
         title: 'Good',
         alias: 'good',
         order: 3,
-        config: { variant: 'short', unknownKey: 'remove me' },
+        config: {
+          fields: [
+            {
+              kind: 'question',
+              id: nanoid(),
+              alias: 'goodSub',
+              type: 'true_false',
+              title: 'Good Sub',
+              order: 1,
+              config: { trueLabel: 'Y', falseLabel: 'N', unknownKey: 'remove me' }
+            }
+          ]
+        },
       }).returning();
 
       const [badStep] = await getOwnerDb().insert(schema.steps).values({
         workflowId,
         pageId,
-        type: 'number' as any,
+        type: 'number',
         title: 'Bad',
         alias: 'bad',
         order: 4,
@@ -356,7 +373,7 @@ describe.sequential('STB-19 canonicalizeStepTypes', () => {
       expect((rows[0].config as any).mode).toBe('invalid_mode_that_causes_crash');
       
       const goodRows = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.id, goodStep.id));
-      expect((goodRows[0].config as any).unknownKey).toBe('remove me');
+      expect((goodRows[0].config as any).fields[0].config.unknownKey).toBe('remove me');
 
       await getOwnerDb().delete(schema.steps).where(eq(schema.steps.id, badStep.id));
       await getOwnerDb().delete(schema.steps).where(eq(schema.steps.id, goodStep.id));

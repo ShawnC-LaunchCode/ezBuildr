@@ -67,7 +67,7 @@ export function createTestStep(pageId: string, overrides?: Partial<Step>): Step 
     id: `step-${  Math.random().toString(36).substring(7)}`,
     workflowId: overrides?.workflowId ?? "workflow-test-123",
     pageId,
-    type: "short_text",
+    type: "text",
     title: "Test Step",
     description: null,
     alias: null,
@@ -155,8 +155,8 @@ export function createTestWorkflowWithDetails(overrides?: {
   );
 
   const steps = (overrides?.steps || [
-    { title: "Step 1", type: "short_text" as const },
-    { title: "Step 2", type: "long_text" as const },
+    { title: "Step 1", type: "text" as const },
+    { title: "Step 2", type: "text" as const },
   ]).map((stepData, index) =>
     createTestStep(pages[0].id, { workflowId: workflow.id, order: index + 1, ...stepData })
   );

@@ -175,7 +175,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
     const { workflow } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
     const page = await factory.createPage(workflow.id);
     const finalStep = await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       config: {
         markdownHeader: '',

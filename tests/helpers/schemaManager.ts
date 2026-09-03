@@ -158,8 +158,12 @@ export class SchemaManager {
     // hold policies that are DEFINED BUT INERT (relrowsecurity = false), which
     // is precisely the condition 0041 exists to end — and the shape that made
     // the dev branch report 37 policies while enforcing exactly one of them.
+    // Bumped to _v42 for STB-21 migration 0042, which recreates the step_type
+    // enum with only the 18 canonical values. A stale _v41 schema still holds
+    // the 37-value type, so inserts of retired names would keep succeeding
+    // there and the tests that prove they are rejected would pass vacuously.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v41`;
+        return `test_schema_w${this.workerId}_v42`;
     }
 
     /**

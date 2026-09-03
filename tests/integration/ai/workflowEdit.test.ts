@@ -921,7 +921,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     const [condStep] = await getOwnerDb().insert(steps).values({
       workflowId: otherWorkflow.id,
       pageId: otherPage.id,
-      type: 'short_text',
+      type: 'text',
       title: 'Trigger',
       order: 1,
       config: {},
@@ -1200,6 +1200,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         userMessage: 'Add a retired question type',
         ops: [
           { op: 'page.create', tempId: 'legacy-page', title: 'Legacy page', order: 1 },
+          // Must stay a RETIRED name: this test asserts the AI patch boundary
+          // rejects it with 'not canonical' and writes nothing.
           { op: 'step.create', pageRef: 'legacy-page', type: 'short_text', title: 'Legacy', alias: 'legacy' },
         ],
       })
@@ -1326,7 +1328,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       workflowId: testWorkflowId, title, order: 1, config: {},
     }).returning();
     const [step] = await getOwnerDb().insert(steps).values({
-      workflowId: testWorkflowId, pageId: page.id, type: 'yes_no',
+      workflowId: testWorkflowId, pageId: page.id, type: 'boolean',
       title: 'Trigger', alias: `trigger_${Date.now()}`, order: 1, config: {},
     }).returning();
     return { pageId: page.id, stepId: step.id };
@@ -1415,9 +1417,9 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       workflowId: testWorkflowId, title: 'Ordered', order: 1, config: {},
     }).returning();
     const inserted = await getOwnerDb().insert(steps).values([
-      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'A', alias: 'a', order: 1, config: {} },
-      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'B', alias: 'b', order: 2, config: {} },
-      { workflowId: testWorkflowId, pageId: page.id, type: 'short_text', title: 'C', alias: 'c', order: 3, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'text', title: 'A', alias: 'a', order: 1, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'text', title: 'B', alias: 'b', order: 2, config: {} },
+      { workflowId: testWorkflowId, pageId: page.id, type: 'text', title: 'C', alias: 'c', order: 3, config: {} },
     ]).returning();
     const byAlias = Object.fromEntries(inserted.map((s) => [s.alias, s.id]));
 
@@ -1443,7 +1445,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       workflowId: testWorkflowId, title: 'Reorder IDOR', order: 1, config: {},
     }).returning();
     const [own] = await getOwnerDb().insert(steps).values({
-      workflowId: testWorkflowId, pageId: page.id, type: 'short_text',
+      workflowId: testWorkflowId, pageId: page.id, type: 'text',
       title: 'Own', alias: 'own', order: 1, config: {},
     }).returning();
 
@@ -1455,7 +1457,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       workflowId: otherWorkflow.id, title: 'Foreign', order: 1, config: {},
     }).returning();
     const [foreignStep] = await getOwnerDb().insert(steps).values({
-      workflowId: otherWorkflow.id, pageId: otherPage.id, type: 'short_text',
+      workflowId: otherWorkflow.id, pageId: otherPage.id, type: 'text',
       title: 'Foreign', alias: 'foreign_step', order: 1, config: {},
     }).returning();
 

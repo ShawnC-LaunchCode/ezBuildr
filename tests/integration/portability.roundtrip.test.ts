@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { type Server } from "http";
 import AdmZip from "adm-zip";
 import { and, eq, ne } from "drizzle-orm";
@@ -264,8 +264,61 @@ describe.sequential("Portability round-trip fidelity across canonical step types
    * marker-titled step exists after a rejected import, distinct from the
    * one legitimately seeded here to build the bundle in the first place.
    */
+  /**
+   * Re-seal a bundle after rewriting a step's stored type.
+   *
+   * STB-21 removed the retired names from the `step_type` enum, so a bundle
+   * carrying one can no longer be produced by seeding the database and
+   * exporting -- Postgres refuses the insert. Such a bundle can now only come
+   * from an export taken BEFORE the migration, which is exactly the case the
+   * import boundary still has to reject. So the bundle is authored here: export
+   * a canonical workflow, rewrite the type inside `entities/steps.jsonl`, then
+   * recompute `manifest.checksum` with the same algorithm `BundleReader`
+   * verifies (sorted entity entries, then sorted blobs, then blobs/index.json)
+   * so the reader reaches the type check instead of failing on the checksum.
+   */
+  function resealWithStepType(bundle: Buffer, fromType: string, toType: string): Buffer {
+    const zip = new AdmZip(bundle);
+    const stepsEntry = zip.getEntry("entities/steps.jsonl");
+    if (!stepsEntry) { throw new Error("bundle has no entities/steps.jsonl"); }
+
+    const rewritten = stepsEntry.getData().toString("utf8")
+      .split(/\r?\n/)
+      .map((line) => {
+        if (line.trim() === "") { return line; }
+        const row = JSON.parse(line) as Record<string, unknown>;
+        if (row.type === fromType) { row.type = toType; }
+        return JSON.stringify(row);
+      })
+      .join("\n");
+    zip.updateFile(stepsEntry, Buffer.from(rewritten));
+
+    const hash = createHash("sha256");
+    const entries = zip.getEntries();
+    const byName = (a: { entryName: string }, b: { entryName: string }) =>
+      a.entryName.localeCompare(b.entryName);
+    for (const e of entries.filter((e) => e.entryName.startsWith("entities/")
+      && e.entryName.endsWith(".jsonl")).sort(byName)) {
+      hash.update(e.getData());
+    }
+    for (const e of entries.filter((e) => e.entryName.startsWith("blobs/")
+      && e.entryName !== "blobs/index.json" && !e.entryName.endsWith("/")).sort(byName)) {
+      hash.update(e.getData());
+    }
+    const indexEntry = zip.getEntry("blobs/index.json");
+    if (indexEntry) { hash.update(indexEntry.getData()); }
+
+    const manifestEntry = zip.getEntry("manifest.json");
+    if (!manifestEntry) { throw new Error("bundle has no manifest.json"); }
+    const manifest = JSON.parse(manifestEntry.getData().toString("utf8")) as Record<string, unknown>;
+    manifest.checksum = hash.digest("hex");
+    zip.updateFile(manifestEntry, Buffer.from(JSON.stringify(manifest)));
+
+    return zip.toBuffer();
+  }
+
   async function seedInvalidBundle(
-    opts: { stepType: (typeof schema.stepTypeEnum.enumValues)[number]; stepConfig: unknown; markerTitle: string }
+    opts: { stepType: string; stepConfig: unknown; markerTitle: string }
   ): Promise<{ bundle: Buffer; sourceWorkflowId: string }> {
     const [workflow] = await getOwnerDb().insert(schema.workflows).values({
       title: `Invalid Bundle Source ${randomUUID().slice(0, 8)}`,
@@ -281,7 +334,8 @@ describe.sequential("Portability round-trip fidelity across canonical step types
     await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
       pageId: page.id,
-      type: opts.stepType,
+      // Inserted canonical; the retired name is written into the bundle below.
+      type: "text",
       title: opts.markerTitle,
       alias: `alias_${randomUUID().slice(0, 8)}`,
       order: 0,
@@ -290,7 +344,10 @@ describe.sequential("Portability round-trip fidelity across canonical step types
 
     const { status, body } = await downloadBundle("workflow", workflow.id);
     expect(status).toBe(200);
-    return { bundle: body, sourceWorkflowId: workflow.id };
+    const bundle = opts.stepType === "text"
+      ? body
+      : resealWithStepType(body, "text", opts.stepType);
+    return { bundle, sourceWorkflowId: workflow.id };
   }
 
   beforeAll(async () => {
@@ -529,6 +586,7 @@ describe.sequential("Portability round-trip fidelity across canonical step types
   it("AC 3: a bundle carrying a retired step type is rejected before any row is written", async () => {
     const markerTitle = `Retired Type Marker ${randomUUID()}`;
     const { bundle, sourceWorkflowId } = await seedInvalidBundle({
+      // Must stay RETIRED: this bundle exists to be rejected at import.
       stepType: "short_text",
       stepConfig: { placeholder: "legacy" },
       markerTitle,
@@ -549,7 +607,14 @@ describe.sequential("Portability round-trip fidelity across canonical step types
       .attach("file", bundle, "legacy.ezb")
       .expect(200);
     expect(preview.body.canProceed).toBe(false);
-    expect(preview.body.errors.join(" ")).toMatch(/retired|not canonical/i);
+    // STB-21 narrowed the step-entity schema to the canonical enum, so the
+    // rejection now comes from that layer rather than from
+    // validateCanonicalStepEntity's "retired or is not canonical" message.
+    // Both are accepted, and the offending value must be named either way --
+    // that is stricter than the message match this replaces.
+    const previewErrors = preview.body.errors.join(" ");
+    expect(previewErrors).toMatch(/retired|not canonical|invalid_enum_value/i);
+    expect(previewErrors).toContain("short_text");
 
     const beforeWorkflows = await getOwnerDb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, targetProjectId));

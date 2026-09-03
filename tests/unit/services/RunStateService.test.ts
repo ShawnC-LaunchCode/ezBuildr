@@ -88,8 +88,8 @@ describe('RunStateService.getSharedRunDetails', () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
       pages: [
-        { id: 's1', steps: [{ id: 'st1', type: 'short_text', config: {} }] },
-        { id: 's2', steps: [{ id: 'st2', type: 'final', config: { documents: ['doc1'] } }] },
+        { id: 's1', steps: [{ id: 'st1', type: 'text', config: {} }] },
+        { id: 's2', steps: [{ id: 'st2', type: 'final_documents', config: { documents: ['doc1'] } }] },
       ],
     });
 
@@ -114,7 +114,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC2: returns null when the pinned version has no final block', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      pages: [{ id: 's1', steps: [{ id: 'st1', type: 'short_text', config: {} }] }],
+      pages: [{ id: 's1', steps: [{ id: 'st1', type: 'text', config: {} }] }],
     });
 
     const result = await service.getSharedRunDetails('token');
@@ -125,7 +125,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC4: a legacy nodes[] graph shape is no longer read (dead branch removed, not a fallback)', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      nodes: [{ type: 'final', data: { config: { documents: ['legacy'] } } }],
+      nodes: [{ type: 'final_documents', data: { config: { documents: ['legacy'] } } }],
     });
 
     const result = await service.getSharedRunDetails('token');
@@ -136,7 +136,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC3: the draft-run path (no workflowVersionId) is unchanged — reads live steps table, never touches db.select', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: null }));
     vi.mocked(stepRepository.findByWorkflowIdWithAliases).mockResolvedValue([
-      { id: 'st1', type: 'final', config: { documents: ['draft-doc'] } },
+      { id: 'st1', type: 'final_documents', config: { documents: ['draft-doc'] } },
     ] as never);
 
     const result = await service.getSharedRunDetails('token');

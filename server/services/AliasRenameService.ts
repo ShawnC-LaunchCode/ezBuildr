@@ -178,7 +178,7 @@ export class AliasRenameService {
 
     // Final Block document mapping sources
     for (const step of steps) {
-      if (step.type !== 'final' && step.type !== 'final_documents') {
+      if (step.type !== 'final_documents') {
         continue;
       }
       const rewritten = rewriteFinalBlockMapping(step.config, oldAlias, newAlias);

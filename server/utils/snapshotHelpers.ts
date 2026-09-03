@@ -6,6 +6,7 @@
  */
 
 import type { Step } from '@shared/schema';
+import { resolveChoiceDisplay } from '@shared/types/stepConfigs';
 
 /**
  * Information about a missing or invalid snapshot value
@@ -76,21 +77,20 @@ export function findMissingValues(
     // Value exists - validate format for complex types
     const value = snapshotValues[key];
 
-    if (step.type === 'address' && typeof value !== 'object') {
-      missingValues.push({
-        stepId: step.id,
-        alias: step.alias,
-        reason: 'invalid_format',
-      });
-    // eslint-disable-next-line sonarjs/no-duplicated-branches
-    } else if (step.type === 'multi_field' && typeof value !== 'object') {
-      missingValues.push({
-        stepId: step.id,
-        alias: step.alias,
-        reason: 'invalid_format',
-      });
-    // eslint-disable-next-line sonarjs/no-duplicated-branches
-    } else if (step.type === 'multiple_choice' && !Array.isArray(value)) {
+    // All three shapes report the same finding, so they are one condition rather
+    // than three identical branches carrying duplicate-branch suppressions.
+    // Choice cardinality comes from resolveChoiceDisplay: a canonical single
+    // select stores a string, only a multi-select stores an array.
+    const isInvalidFormat =
+      (step.type === 'address' && typeof value !== 'object')
+      || (step.type === 'multi_field' && typeof value !== 'object')
+      || (
+        step.type === 'choice'
+        && resolveChoiceDisplay(step.config as never, step.type) === 'multiple'
+        && !Array.isArray(value)
+      );
+
+    if (isInvalidFormat) {
       missingValues.push({
         stepId: step.id,
         alias: step.alias,
@@ -191,8 +191,9 @@ export function isValueComplete(stepType: string, value: unknown): boolean {
     case 'multi_field':
       return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
 
-    case 'multiple_choice':
-      return Array.isArray(value) && value.length > 0;
+    case 'choice':
+      // Single-select stores a string, multi-select a string[].
+      return Array.isArray(value) ? value.length > 0 : typeof value === 'string';
 
     default:
       return true;

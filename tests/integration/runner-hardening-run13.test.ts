@@ -119,7 +119,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
       config: { finalBlock: true, templates: [templateId] },
     });
     await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       required: false,
@@ -166,14 +166,14 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     const templateId = await createTemplateOnDisk(ctx.projectId!, 'Concurrent Contract', 'Contract for {{clientName}}');
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {

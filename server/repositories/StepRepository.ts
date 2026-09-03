@@ -16,7 +16,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   }
 
   async create(data: InsertStep, tx?: DbTransaction): Promise<Step> {
-    const protectedData = data.type === 'final_documents' || data.type === 'final'
+    const protectedData = data.type === 'final_documents'
       ? { ...data, config: protectFinalBlockDeliverySecrets(data.config) }
       : data;
     return super.create(protectedData, tx);
@@ -32,7 +32,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       throw new Error('Step not found');
     }
     const type = updates.type ?? existing.type;
-    const protectedUpdates = type === 'final_documents' || type === 'final'
+    const protectedUpdates = type === 'final_documents'
       ? { ...updates, config: protectFinalBlockDeliverySecrets(updates.config) }
       : updates;
     return super.update(id, protectedUpdates, tx);

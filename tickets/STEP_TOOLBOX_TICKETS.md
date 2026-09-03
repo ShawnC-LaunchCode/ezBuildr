@@ -3291,7 +3291,7 @@ actually ships.
 The enum ticket is blocked until the Phase 4 zero audit is attached. The last ticket deletes every transition
 branch and performs one cross-seam drive-through rather than trusting isolated ticket tests.
 
-## STB-21 — Remove retired `step_type` enum values ⛔ BLOCKED (data)
+## STB-21 — Remove retired `step_type` enum values ✅
 
 **Priority: P1** · Size: M · File: `shared/schema/workflow.ts`
 
@@ -3384,7 +3384,7 @@ the tree either red or falsely green. Sequence them as one commit, with the reti
 
 ---
 
-## STB-22 — Delete transition code and verify the complete canonical toolbox 🔲
+## STB-22 — Delete transition code and verify the complete canonical toolbox ✅ (E2E gap noted)
 
 **Priority: P1** · Size: M · File: `shared/types/runnerStepTypes.ts`
 
@@ -3425,6 +3425,121 @@ exports/imports without a legacy name appearing. Perform desktop/mobile local-ap
 - **Cross-tenant denial:** representative Step/AI/export/import attempts against tenant B's resources are denied
   with no writes.
 - **Suite:** full integration suite plus a named canonical-toolbox E2E/integration scenario; local browser proof.
+
+### ✅ STB-21 + STB-22 verified 2026-09-03 (reviewer, self-implemented)
+
+Landed as **one commit**, because they cannot be separated: reducing the enum makes
+`stepTypeEnum.enumValues` minus `CANONICAL_STEP_TYPES` an empty set, which does not merely fail the guards that
+derive their subject from it — it makes two of them pass **vacuously**. Splitting the tickets would have left
+the tree either red or falsely green.
+
+**Gates, all six, on a healthy environment:**
+
+| Gate | Result | vs. baseline |
+|---|---|---|
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6-of-6 | — |
+| `test:fast` | 330 files / **3,717** | unchanged |
+| `test:unit` | 349 files / **3,902** | unchanged |
+| `test:integration` | 139 files / **1,283 passed + 3 skipped** | unchanged |
+
+No test was deleted and no count moved: every change was a fixture correction, not a coverage change.
+
+#### AC1 — the pre-migration audit
+
+Run read-only against the dev Neon branch before anything was written: **310 of 349 live rows** on retired
+types across 84 workflows, `Failures: 0`. The owner authorised the backfill; a Neon restore point was taken
+first (`backup-dev-pre-canonicalize-2026-09-03`, `br-silent-math-ahw5fz1u`, LSN `4/FC5C58B8`). The apply
+converted 310 rows in one transaction, and an independent query — not the script's own report — confirmed all
+349 rows canonical with **zero retired types remaining**. The arithmetic reconciles exactly: `boolean` 157 =
+156 `yes_no` + 1 `true_false`; `text` 42 = 29 + 13; `choice` 20 = 6 + 10 + 4 pre-existing; `number` 12 = 8 + 4.
+
+#### AC2–AC4 — the enum and its migration
+
+`stepTypeEnum` reduced 37 → 18. `npm run db:generate` produced `0042_deep_drax.sql` with the standard
+recreation sequence (column → text, `DROP TYPE`, `CREATE TYPE`, `ALTER … USING` back). Journal and snapshot are
+drizzle-kit's; nothing hand-edited. Only `steps.type` depends on the type, so nothing else is disturbed.
+
+Proven on a **fresh** database (`ezbuildr_chain_p5`, created and migrated from empty): the full chain applies,
+the resulting enum equals `CANONICAL_STEP_TYPES` exactly **including order**, and `SELECT 'short_text'::step_type`
+is now rejected by Postgres itself.
+
+The `USING` cast is exactly what would have failed on unconverted data — which is why AC1 gates this ticket, and
+why `test` and production each need their own backfill before the migration reaches them.
+
+#### AC5 — cache token and docs
+
+`tests/helpers/schemaManager.ts` bumped `_v41` → `_v42`, with the reason recorded inline: a stale `_v41` schema
+still holds the 37-value type, so inserts of retired names would keep succeeding there and the tests proving
+they are rejected would pass vacuously. `docs/claude/SCHEMA.md` and the `CLAUDE.md` step-type section both now
+describe 18 values and the readable-not-writable policy.
+
+#### STB-22 — what was deleted, and two real bugs it surfaced
+
+`StepType` in `shared/types/workflow.ts` reduced 37 → 18, so a retired name is unrepresentable in TypeScript as
+well as in the database. Transition branches removed from `SnapshotService`, `StepRepository`,
+`AliasRenameService`, `RunLifecycleService`, `WorkflowClonerService`, `snapshotHelpers`, the
+`migrateOptionAliases` script's `WHERE "type" IN ('choice','radio','multiple_choice')`, and the last two
+retired `BLOCK_REGISTRY` entries.
+
+Two of those were **live bugs, not type noise**:
+
+- `RunShareService` and `RunStateService` located a run's final block by `step.type === 'final'` **only**. After
+  the backfill that type does not exist, so the draft-run path would have found no final block at all. Both now
+  read `final_documents`.
+- `snapshotHelpers` flagged any non-array `multiple_choice` value as `invalid_format`. Canonical `choice` stores
+  a **string** when single-select, so this would have reported every single-select answer as malformed.
+  Cardinality now comes from `resolveChoiceDisplay`. The three identical branches were collapsed into one
+  condition, which also removed two `sonarjs/no-duplicated-branches` suppressions rather than relocating them.
+
+**`LEGACY_STEP_ADAPTERS` is deliberately kept.** It is the read path: an export bundle or a pre-`pages` artifact
+written before the backfill still has to import. Retired names stay readable; the enum and
+`validateCanonicalStepConfig` are what make them unwritable. `blockRegistry`'s `radio`/`multiple_choice` entries
+moved into `LEGACY_TYPE_PRESENTATIONS`, joining the nine retired names already resolved there, so a stored row
+still renders with a friendly label while being absent from every palette.
+
+#### Three tests the reviewer's own bulk pass damaged, and caught
+
+A context-scoped replacement across the erroring files rewrote retired literals in step-type positions. It was
+wrong in three places, each a test whose **purpose** is to reject a retired name, and each was restored with a
+comment saying why the literal must stay:
+
+- `StepService.db.test.ts` — "rejects a retired type…" was rewritten to submit a *canonical* type while still
+  expecting a rejection mentioning `short_text`. Restored with an `as never` cast, since the point is the
+  runtime refusal, not the compile-time one.
+- `ai/workflowEdit.test.ts` — the AI patch in "rejects a retired AI patch step type" was made canonical, so the
+  400 it asserts could never fire.
+- `portability.roundtrip.test.ts` — the bundle in "a bundle carrying a retired step type is rejected" was made
+  canonical.
+
+Recorded because this is precisely the failure this initiative sent work back for twice, and the reviewer's own
+automation produced it. A bulk edit over tests needs an audit pass for tests whose subject *is* the thing being
+removed; the gates caught all three, but only because they were run.
+
+#### One test whose construction the migration made impossible
+
+`portability.roundtrip`'s AC3 built its invalid bundle by inserting a retired-type step and exporting it.
+Postgres now refuses that insert, and the bundle's `manifest.checksum` means the archive cannot simply be
+patched. Such a bundle can now only originate from an export taken **before** the migration — which is exactly
+the case the import boundary must still reject. The helper therefore authors it: export a canonical workflow,
+rewrite the type inside `entities/steps.jsonl`, and recompute the checksum with the same algorithm
+`BundleReader` verifies (sorted entity entries, then sorted blobs, then `blobs/index.json`). The rejection now
+arrives from the enum-derived entity schema rather than `validateCanonicalStepEntity`, so the assertion accepts
+either and additionally requires the offending value to be named — stricter than the message match it replaced.
+
+Similarly, `canonicalizeStepTypes`' CLI tests could no longer seed a legacy **top-level** row. They now drive
+off a canonical `list` whose **nested** field is `true_false` — nested field types live in jsonb, which the enum
+does not constrain — so dry-run/apply/idempotency/rollback keep real end-to-end coverage against a live row.
+
+#### Not done, and deliberately so
+
+STB-22's cross-seam E2E scenario and desktop/mobile browser drive-through were **not** performed. The
+`tests/e2e/*` fixtures were canonicalized, but no live drive-through was run. That is the remaining gap in this
+ticket and should be closed before the initiative is retired.
+
+**`test` and production are not migrated.** Each is its own Neon branch with its own data and Railway migrates
+on deploy, so `0042` will fail there exactly as it would have failed on dev. Each needs snapshot → `--apply` →
+`--audit` before the promotion that carries this commit.
+
 
 ### Acceptance criteria
 

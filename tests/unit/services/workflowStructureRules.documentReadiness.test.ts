@@ -44,7 +44,7 @@ function baseWorkflow(extraPages: TestPage[] = []): { pages: TestPage[]; logicRu
         id: PAGE_A,
         title: "Page 1",
         order: 0,
-        steps: [{ id: STEP_QUESTION, type: "short_text", title: "Your name", alias: "name" }],
+        steps: [{ id: STEP_QUESTION, type: "text", title: "Your name", alias: "name" }],
       },
       ...extraPages,
     ],
@@ -195,7 +195,7 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
           id: PAGE_FINAL,
           title: "Ordinary page",
           order: 1,
-          steps: [{ id: STEP_SIGNATURE, type: "short_text", title: "Notes", alias: "notes" }],
+          steps: [{ id: STEP_SIGNATURE, type: "text", title: "Notes", alias: "notes" }],
           config: { finalBlock: false, templates: [MISSING_TEMPLATE] },
         },
       ]);

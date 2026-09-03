@@ -84,7 +84,7 @@ describe('Lifecycle Hooks Execution', () => {
         id: stepId,
         workflowId,
         pageId,
-        type: 'short_text',
+        type: 'text',
         alias: 'user_name',
         title: 'Your Name',
         order: 0,

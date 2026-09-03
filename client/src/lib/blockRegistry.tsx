@@ -257,36 +257,6 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // CHOICE INPUTS
   // -------------------------------------------------------------------------
   {
-    type: "radio",
-    label: "Single Select",
-    icon: CircleDot,
-    description: "Single choice (radio buttons)",
-    category: "choice",
-    modes: { easy: false, advanced: false },
-    createDefaultConfig: () => ({
-      options: [
-        { id: "1", label: "Option 1" },
-        { id: "2", label: "Option 2" },
-        { id: "3", label: "Option 3" }
-      ],
-    }),
-  },
-  {
-    type: "multiple_choice",
-    label: "Multiple Choice",
-    icon: CheckSquare,
-    description: "Multiple selection (checkboxes)",
-    category: "choice",
-    modes: { easy: false, advanced: false },
-    createDefaultConfig: () => ({
-      options: [
-        { id: "1", label: "Option 1" },
-        { id: "2", label: "Option 2" },
-        { id: "3", label: "Option 3" }
-      ],
-    }),
-  },
-  {
     type: "choice",
     label: "Choice",
     icon: ListChecks,
@@ -738,6 +708,11 @@ const LEGACY_TYPE_PRESENTATIONS: Readonly<Record<string, QuestionTypePresentatio
   datetime: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
   datetime_unified: { label: "Date/Time", ...DATE_TIME_PRESET_PRESENTATION },
   currency: { label: "Currency", ...CURRENCY_PRESET_PRESENTATION },
+  // STB-22: these two lost their BLOCK_REGISTRY entries with the enum. A stored
+  // row is adapted to `choice` before it reaches the renderer, but
+  // getQuestionTypePresentation can still be called with a raw persisted name.
+  radio: { label: "Single Select", icon: CircleDot, category: "choice" },
+  multiple_choice: { label: "Multiple Choice", icon: CheckSquare, category: "choice" },
 };
 
 function isConfigRecord(config: unknown): config is Readonly<Record<string, unknown>> {

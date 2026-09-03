@@ -77,7 +77,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page1[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'First Name',
       alias: 'firstName',
       required: true,
@@ -86,7 +86,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page1[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Last Name',
       alias: 'lastName',
       required: true,
@@ -95,7 +95,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page1[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Email Address',
       alias: 'email',
       required: true,
@@ -104,7 +104,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page1[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Phone Number',
       alias: 'phone',
       required: true,
@@ -123,7 +123,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page1[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Social Security Number',
       alias: 'ssn',
       required: true,
@@ -150,7 +150,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: employmentTypeStepId,
       pageId: page2[0].id,
-      type: 'radio' as const,
+      type: 'choice' as const,
       title: 'Employment Status',
       alias: 'employmentStatus',
       required: true,
@@ -162,7 +162,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page2[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Employer Name',
       alias: 'employerName',
       required: true,
@@ -177,7 +177,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page2[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Job Title',
       alias: 'jobTitle',
       required: false,
@@ -191,7 +191,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page2[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Annual Income (before taxes)',
       alias: 'annualIncome',
       required: true,
@@ -201,7 +201,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page2[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Monthly Debt Payments',
       alias: 'monthlyDebt',
       required: true,
@@ -227,7 +227,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page3[0].id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Requested Loan Amount',
       alias: 'loanAmount',
       required: true,
@@ -237,7 +237,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page3[0].id,
-      type: 'radio' as const,
+      type: 'choice' as const,
       title: 'Loan Purpose',
       alias: 'loanPurpose',
       required: true,
@@ -249,7 +249,7 @@ async function createLoanApplicationWorkflow() {
     {
       id: randomUUID(),
       pageId: page3[0].id,
-      type: 'radio' as const,
+      type: 'choice' as const,
       title: 'Preferred Loan Term',
       alias: 'loanTerm',
       required: true,

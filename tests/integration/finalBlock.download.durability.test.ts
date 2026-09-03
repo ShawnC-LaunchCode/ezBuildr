@@ -101,7 +101,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     const { workflow } = await factory.createWorkflow(projectId, ctx.userId);
     const page = await factory.createPage(workflow.id);
     const textStep = await factory.createStep(page.id, {
-      type: 'short_text',
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -117,7 +117,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     });
 
     await factory.createStep(page.id, {
-      type: 'final',
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {

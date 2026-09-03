@@ -195,16 +195,13 @@ export class SnapshotService {
       let typeMismatch = false;
       switch (step.type) {
         case 'number':
-        case 'currency':
           if (typeof value !== 'number') { typeMismatch = true; }
           break;
-        case 'short_text':
-        case 'long_text':
+        case 'text':
         case 'email':
           if (typeof value !== 'string') { typeMismatch = true; }
           break;
-        case 'yes_no':
-        case 'true_false':
+        case 'boolean':
           if (typeof value !== 'boolean' && value !== 'yes' && value !== 'no') { typeMismatch = true; }
           break;
         // Add more types as needed

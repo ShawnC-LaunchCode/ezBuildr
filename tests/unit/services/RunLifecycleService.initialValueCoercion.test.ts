@@ -108,7 +108,7 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
   }
 
   it('AC1: a numeric-looking string prefilled onto a short_text step stays a string', async () => {
-    const step = makeStep({ id: 'step-ref', alias: 'ref', type: 'short_text' });
+    const step = makeStep({ id: 'step-ref', alias: 'ref', type: 'text' });
     const saved = await runWithStep(step, { ref: 12345 }); // JSON.parse("12345") -> number 12345
 
     expect(saved).toEqual([{ stepId: 'step-ref', value: '12345' }]);
@@ -177,11 +177,11 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
   });
 
   it('AC5: currency and scale (numeric-family types) are also coerced via adaptLegacyStep', async () => {
-    const currencyStep = makeStep({ id: 'step-price', alias: 'price', type: 'currency' });
+    const currencyStep = makeStep({ id: 'step-price', alias: 'price', type: 'number' });
     const savedCurrency = await runWithStep(currencyStep, { price: '19.99' });
     expect(savedCurrency).toEqual([{ stepId: 'step-price', value: 19.99 }]);
 
-    const scaleStep = makeStep({ id: 'step-rating', alias: 'rating', type: 'scale_advanced' });
+    const scaleStep = makeStep({ id: 'step-rating', alias: 'rating', type: 'scale' });
     const savedScale = await runWithStep(scaleStep, { rating: '5' });
     expect(savedScale).toEqual([{ stepId: 'step-rating', value: 5 }]);
   });

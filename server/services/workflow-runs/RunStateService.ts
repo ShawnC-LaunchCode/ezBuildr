@@ -183,7 +183,7 @@ export class RunStateService {
         const content = version.graphJson as WorkflowContentData;
         const finalStep = (content.pages ?? [])
           .flatMap(page => page.steps ?? [])
-          .find(step => step.type === 'final' || step.type === 'final_documents');
+          .find(step => step.type === 'final_documents');
         if (finalStep?.config) {
           finalBlockConfig = finalStep.config;
         }
@@ -193,7 +193,8 @@ export class RunStateService {
       const { stepRepository } = await import('../../repositories');
       const allSteps = await withTenant(tenantId, (tx) =>
         stepRepository.findByWorkflowIdWithAliases(run.workflowId, tx));
-      const finalStep = allSteps.find(s => s.type === 'final');
+      // Was the retired 'final' alias until STB-21; see RunShareService.
+      const finalStep = allSteps.find(s => s.type === 'final_documents');
 
       if (finalStep?.config) {
         finalBlockConfig = finalStep.config;

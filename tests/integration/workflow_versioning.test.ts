@@ -75,7 +75,7 @@ describe("Workflow Versioning & Lineage", () => {
             pages: [{
                 id: "p1",
                 steps: [
-                    { id: "b1", type: "short_text", title: "Name", alias: "name" }
+                    { id: "b1", type: "text", title: "Name", alias: "name" }
                 ]
             }]
         };
@@ -83,7 +83,7 @@ describe("Workflow Versioning & Lineage", () => {
             pages: [{
                 id: "p1",
                 steps: [
-                    { id: "b1", type: "short_text", title: "Name", alias: "name_updated" }, // Modified
+                    { id: "b1", type: "text", title: "Name", alias: "name_updated" }, // Modified
                     { id: "b2", type: "email", title: "Email", alias: "email" }   // Added
                 ]
             }]
@@ -101,7 +101,7 @@ describe("Workflow Versioning & Lineage", () => {
             workflowId, title: "Page 1", order: 0
         }).returning();
         await getOwnerDb().insert(steps).values({
-            workflowId, pageId: page.id, title: "Short Text", type: "short_text", alias: "text_1", order: 0
+            workflowId, pageId: page.id, title: "Short Text", type: "text", alias: "text_1", order: 0
         }).returning();
 
         const v1 = await versionService.publishVersion(workflowId, userId, "Initial version");

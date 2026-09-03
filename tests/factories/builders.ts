@@ -12,11 +12,11 @@
  *   .withTitle('My Workflow')
  *   .addPage('Contact Info', (page) => {
  *     page
- *       .addStep('short_text', { alias: 'name', title: 'Name' })
+ *       .addStep('text', { alias: 'name', title: 'Name' })
  *       .addStep('email', { alias: 'email', title: 'Email' });
  *   })
  *   .addPage('Details', (page) => {
- *     page.addStep('long_text', { alias: 'description' });
+ *     page.addStep('text', { alias: 'description' });
  *   })
  *   .build(db);
  * ```
@@ -49,7 +49,7 @@ export class PageBuilder {
   }
   /**
    * Add a step to this page
-   * @param type Step type (e.g., 'short_text', 'email', 'phone')
+   * @param type Step type (e.g., 'text', 'email', 'phone')
    * @param overrides Additional step properties
    */
   addStep(type: ReturnType<typeof createTestStep>["type"], overrides?: Record<string, unknown>): this {
@@ -344,7 +344,7 @@ export async function createSimpleWorkflow(
   for (let i = 0; i < pageCount; i++) {
     builder.addPage(`Page ${i + 1}`, (page) => {
       for (let j = 0; j < stepsPerPage; j++) {
-        page.addStep('short_text', {
+        page.addStep('text', {
           alias: `page${i + 1}_step${j + 1}`,
           title: `Step ${j + 1}`,
         });

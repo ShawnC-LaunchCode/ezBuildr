@@ -25,13 +25,13 @@ function validWorkflow(): TestWorkflow {
         id: PAGE_A,
         title: "Page 1",
         order: 0,
-        steps: [{ id: STEP_1, type: "short_text", title: "Your name", alias: "name", required: true }],
+        steps: [{ id: STEP_1, type: "text", title: "Your name", alias: "name", required: true }],
       },
       {
         id: PAGE_B,
         title: "Page 2",
         order: 1,
-        steps: [{ id: STEP_2, type: "short_text", title: "Your city", alias: "city" }],
+        steps: [{ id: STEP_2, type: "text", title: "Your city", alias: "city" }],
       },
     ],
     logicRules: [],
@@ -212,7 +212,7 @@ describe("validateWorkflowStructure (RUN2-9)", () => {
     it("accepts a legacy multiple_choice question with a plain string option list", () => {
       const data = validWorkflow();
       data.pages[0].steps[0] = {
-        id: STEP_1, type: "multiple_choice", title: "Pick some", alias: "pick",
+        id: STEP_1, type: "choice", title: "Pick some", alias: "pick",
         config: { options: ["A", "B"] },
       };
       expect(errorsOf(data)).toEqual([]);

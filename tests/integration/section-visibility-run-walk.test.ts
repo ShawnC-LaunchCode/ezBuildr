@@ -63,16 +63,16 @@ describe.sequential("SECT-7 conditional Section vertical run walk", () => {
       const [filedJointly] = await getOwnerDb().insert(steps).values({
         workflowId: workflow.id,
         pageId: intro.id,
-        type: "yes_no",
+        type: "boolean",
         title: "Filed jointly?",
         alias: "filed_jointly",
         required: true,
         order: 0,
       }).returning();
       const memberSteps = await getOwnerDb().insert(steps).values([
-        { workflowId: workflow.id, pageId: jointOne.id, type: "short_text", title: "Joint one answer", alias: "joint_one", required: false, order: 0 },
-        { workflowId: workflow.id, pageId: ownFalse.id, type: "short_text", title: "Hidden answer", alias: "hidden_answer", required: false, order: 0 },
-        { workflowId: workflow.id, pageId: jointThree.id, type: "short_text", title: "Joint three answer", alias: "joint_three", required: false, order: 0 },
+        { workflowId: workflow.id, pageId: jointOne.id, type: "text", title: "Joint one answer", alias: "joint_one", required: false, order: 0 },
+        { workflowId: workflow.id, pageId: ownFalse.id, type: "text", title: "Hidden answer", alias: "hidden_answer", required: false, order: 0 },
+        { workflowId: workflow.id, pageId: jointThree.id, type: "text", title: "Joint three answer", alias: "joint_three", required: false, order: 0 },
       ]).returning();
 
       const published = await versionService.publishVersion(workflow.id, ctx.userId, "SECT-7 vertical");

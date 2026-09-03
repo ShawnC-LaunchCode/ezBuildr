@@ -243,7 +243,7 @@ describe("Workflow/template cluster service-boundary tenant transaction (RLS-2e)
     await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
       pageId: page!.id,
-      type: "short_text",
+      type: "text",
       title: "Q1",
       alias: "q1",
       order: 1,

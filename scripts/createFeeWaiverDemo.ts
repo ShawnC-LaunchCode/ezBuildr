@@ -150,7 +150,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const page1Steps = [
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'First Name',
       alias: 'firstName',
       required: true,
@@ -159,7 +159,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Middle Name',
       alias: 'middleName',
       required: false,
@@ -168,7 +168,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Last Name',
       alias: 'lastName',
       required: true,
@@ -186,7 +186,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Street Address',
       alias: 'streetAddress',
       required: true,
@@ -195,7 +195,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'City',
       alias: 'city',
       required: true,
@@ -204,7 +204,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'State',
       alias: 'state',
       required: true,
@@ -213,7 +213,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'ZIP Code',
       alias: 'zipCode',
       required: true,
@@ -222,7 +222,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Phone Number',
       alias: 'phoneNumber',
       required: true,
@@ -231,7 +231,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page1.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Email Address',
       alias: 'emailAddress',
       required: false,
@@ -266,7 +266,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const page2Steps = [
     {
       pageId: page2.id,
-      type: 'multiple_choice' as const,
+      type: 'choice' as const,
       title: 'Number of People in Household',
       description: 'Include yourself, spouse, and any dependents',
       alias: 'householdSize',
@@ -278,7 +278,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page2.id,
-      type: 'radio' as const,
+      type: 'choice' as const,
       title: 'Employment Status',
       alias: 'employmentStatus',
       required: true,
@@ -289,7 +289,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page2.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Employer Name',
       alias: 'employerName',
       required: false,
@@ -298,7 +298,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page2.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Monthly Gross Income (Before Taxes)',
       description: 'Enter your total monthly income from employment',
       alias: 'monthlyIncome',
@@ -308,7 +308,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page2.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Other Monthly Income',
       description: 'Social Security, disability, child support, etc.',
       alias: 'otherIncome',
@@ -318,7 +318,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page2.id,
-      type: 'multiple_choice' as const,
+      type: 'choice' as const,
       title: 'Do you receive any of the following public benefits?',
       description: 'Select all that apply',
       alias: 'publicBenefits',
@@ -364,7 +364,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const page3Steps = [
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Rent or Mortgage',
       alias: 'expenseRent',
       required: true,
@@ -373,7 +373,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Utilities (Electric, Gas, Water)',
       alias: 'expenseUtilities',
       required: true,
@@ -382,7 +382,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Food & Groceries',
       alias: 'expenseFood',
       required: true,
@@ -391,7 +391,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Transportation (Car payment, gas, insurance)',
       alias: 'expenseTransportation',
       required: true,
@@ -400,7 +400,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Medical & Healthcare',
       alias: 'expenseMedical',
       required: true,
@@ -409,7 +409,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Childcare',
       alias: 'expenseChildcare',
       required: false,
@@ -418,7 +418,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page3.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Other Monthly Expenses',
       description: 'Clothing, personal care, phone, etc.',
       alias: 'expenseOther',
@@ -454,7 +454,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const page4Steps = [
     {
       pageId: page4.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Cash on Hand & Bank Accounts',
       alias: 'cashAndBank',
       required: true,
@@ -463,7 +463,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page4.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Value of Vehicle(s)',
       alias: 'vehicleValue',
       required: false,
@@ -472,7 +472,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page4.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Real Estate Value',
       alias: 'realEstateValue',
       required: false,
@@ -481,7 +481,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page4.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Other Assets',
       description: 'Investments, retirement accounts, valuable property',
       alias: 'otherAssets',
@@ -491,7 +491,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page4.id,
-      type: 'short_text' as const,
+      type: 'text' as const,
       title: 'Total Debt',
       description: 'Credit cards, loans, medical bills',
       alias: 'totalDebt',
@@ -606,7 +606,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const page6Steps = [
     {
       pageId: page6.id,
-      type: 'long_text' as const,
+      type: 'text' as const,
       title: 'Additional Information',
       description: 'Provide any additional information to support your fee waiver request',
       alias: 'additionalInfo',
@@ -616,7 +616,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     },
     {
       pageId: page6.id,
-      type: 'yes_no' as const,
+      type: 'boolean' as const,
       title: 'Certification',
       description:
         'I declare under penalty of perjury that the information I have provided is true and correct to the best of my knowledge.',

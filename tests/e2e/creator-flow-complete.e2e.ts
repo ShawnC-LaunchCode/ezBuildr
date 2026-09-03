@@ -89,7 +89,7 @@ test.describe("Creator Flow - Complete E2E", () => {
       {
         data: {
           title: "What is your name?",
-          type: "short_text",
+          type: "text",
           alias: "user_name",
           order: 0,
           required: true,
@@ -112,7 +112,7 @@ test.describe("Creator Flow - Complete E2E", () => {
       {
         data: {
           title: "Do you agree to terms?",
-          type: "yes_no",
+          type: "boolean",
           alias: "agree_terms",
           order: 1,
           required: true,

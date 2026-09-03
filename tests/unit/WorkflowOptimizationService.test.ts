@@ -15,7 +15,7 @@ describe("WorkflowOptimizationService", () => {
                     title: "Page 1",
                     order: 0,
                     blocks: [
-                        { id: "b1", type: "short_text", title: "Name" },
+                        { id: "b1", type: "text", title: "Name" },
                         { id: "b2", type: "email", title: "Email" }
                     ]
                 }
@@ -31,7 +31,7 @@ describe("WorkflowOptimizationService", () => {
     it("should detect long pages", async () => {
         const blocks: WorkflowBlock[] = Array.from({ length: 12 }, (_, i) => ({
             id: `b${i}`,
-            type: "short_text" as const,
+            type: "text" as const,
             title: `Q${i}`
         }));
 
@@ -58,7 +58,7 @@ describe("WorkflowOptimizationService", () => {
         // Setup similar to above
         const blocks = Array.from({ length: 12 }, (_, i) => ({
             id: `b${i}`,
-            type: "short_text" as const,
+            type: "text" as const,
             title: `Q${i}`
         }));
 
@@ -91,8 +91,8 @@ describe("WorkflowOptimizationService", () => {
                     title: "P1",
                     order: 0,
                     blocks: [
-                        { id: "b1", type: "short_text", title: "What is your name?" },
-                        { id: "b2", type: "long_text", title: "What is your name?" }
+                        { id: "b1", type: "text", title: "What is your name?" },
+                        { id: "b2", type: "text", title: "What is your name?" }
                     ]
                 }
             ]
