@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
+import { canonicalizeGraphJson } from "../../scripts/canonicalizeStepTypes";
 import { computeChecksum, verifyChecksum } from "../../server/utils/checksum";
 import {
   createAuthenticatedAgent,
@@ -305,6 +306,36 @@ describe.sequential("STB-20 canonicalize stored version and blueprint artifacts"
 
     expect(graphSteps(blueprintAfter!.graphJson)[0].type).toBe("signature_block");
     expect(blueprintMetadata(blueprintAfter!)).toEqual(blueprintMetadata(blueprintBefore));
+  });
+
+  // Reviewer, 2026-09-02. The dev Neon branch holds 56 version artifacts in the
+  // pre-pages `blocks[]` shape. All of them are empty, so nothing is skipped in
+  // practice -- but a shape this converter does not understand must never be
+  // indistinguishable from a clean run, or the production backfill could report
+  // success while leaving legacy definitions behind.
+  it("counts, rather than silently skips, artifacts in an unrecognized graph shape", () => {
+    const emptyLegacy = canonicalizeGraphJson({ title: "old", sections: [], blocks: [] });
+    expect(emptyLegacy.unrecognizedShape).toBe(true);
+    expect(emptyLegacy.unconvertedDefinitions).toBe(0);
+    expect(emptyLegacy.definitionsChanged).toBe(0);
+
+    const populatedLegacy = canonicalizeGraphJson({
+      title: "old",
+      blocks: [
+        { id: "b1", type: "short_text", title: "Name" },
+        { id: "b2", type: "yes_no", title: "Agree" },
+      ],
+    });
+    expect(populatedLegacy.unrecognizedShape).toBe(true);
+    expect(populatedLegacy.unconvertedDefinitions).toBe(2);
+    // Untouched: the converter reports the shape, it does not guess at it.
+    expect(populatedLegacy.graphJson).toEqual({
+      title: "old",
+      blocks: [
+        { id: "b1", type: "short_text", title: "Name" },
+        { id: "b2", type: "yes_no", title: "Agree" },
+      ],
+    });
   });
 
   it("restores converted version content and instantiates a converted blueprint through strict ingest, then audits cleanly", async () => {

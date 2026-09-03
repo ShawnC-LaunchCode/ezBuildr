@@ -3291,7 +3291,7 @@ actually ships.
 The enum ticket is blocked until the Phase 4 zero audit is attached. The last ticket deletes every transition
 branch and performs one cross-seam drive-through rather than trusting isolated ticket tests.
 
-## STB-21 — Remove retired `step_type` enum values 🔲
+## STB-21 — Remove retired `step_type` enum values ⛔ BLOCKED (data)
 
 **Priority: P1** · Size: M · File: `shared/schema/workflow.ts`
 
@@ -3336,6 +3336,51 @@ database. Do not run migrations against production or the shared dev URL as a te
    the canonical constant exactly.
 5. `tests/helpers/schemaManager.ts` cache token and `docs/claude/SCHEMA.md` are updated.
 6. Type-check, lint, `test:fast`, `test:unit:db`, portability, and targeted migration integration tests pass.
+
+### ⛔ BLOCKED 2026-09-02 (reviewer) — AC1 cannot be met, and the blocker is data, not code
+
+**AC1 requires a pre-migration audit reporting zero retired enum values in every live step row. The dev Neon
+branch fails that audit by 310 rows.** Read-only dry-run against `DATABASE_URL` from `.env`
+(`ep-frosty-firefly-…neon.tech`), no `--apply`:
+
+```
+Found 349 total steps (live and soft-deleted).
+Rows changed: 310          Workflows affected: 84          Failures: 0
+
+  yes_no  -> boolean:  156      date            -> date_time: 70
+  short_text -> text:   29      long_text       -> text:      13
+  radio   -> choice:     10     currency        -> number:     8
+  multiple_choice -> choice: 6  true_false      -> boolean:     1
+```
+
+**Why this blocks the migration rather than merely annoying it.** Postgres cannot drop enum values in place, so
+`db:generate` emits a type recreation — create the new type, `ALTER TABLE … USING` cast, drop the old. That cast
+fails on any row still holding a retired value. Railway runs `db:migrate` as a **pre-deploy command on every
+environment**, so merging this ticket to `dev` would fail the dev deploy immediately, and the same applies to
+`test` and `main` on promotion. Each environment is its own Neon branch with its own data, so each needs its own
+backfill before this can ship there.
+
+`Failures: 0` across all 349 real rows is the useful half of the news: the STB-19/20 converter handles the real
+dev dataset cleanly. The backfill is ready; it just has not been authorised to run against a shared environment.
+
+**Unblocking sequence, in order:**
+
+1. Owner authorises the backfill against the `dev` Neon branch. Snapshot first — Neon branch/restore point, not
+   a scratch `pg_dump`.
+2. `npx tsx scripts/canonicalizeStepTypes.ts --apply --database-url "<dev url>"`, then `--audit` until clean.
+3. Only then land STB-21 + STB-22 and let the dev deploy migrate.
+4. Repeat 1–3 for `test`, then for production, each before the promotion that carries the migration.
+
+**STB-21 and STB-22 must land in the same change.** This was checked, not assumed. Reducing `stepTypeEnum` makes
+`stepTypeEnum.enumValues` minus `CANONICAL_STEP_TYPES` an empty set, which silently guts three guards that derive
+their subject from it — `tests/integration/canonicalizeStepTypes.test.ts` (the AC1 per-retired-type conversion
+guard), `tests/unit/client/runnerStepTypeRouting.test.ts` (adapter coverage), and
+`tests/unit/scripts/generateMarketplaceBundles.test.ts` (`retiredStepTypes`). The first would fail outright; the
+other two would pass vacuously, which is worse. `StepType` in `shared/types/workflow.ts` is also still a
+hand-written union naming every retired type. All of that is STB-22's deletion work, so splitting the two leaves
+the tree either red or falsely green. Sequence them as one commit, with the retired-type guards re-pointed at
+`LEGACY_STEP_ADAPTERS` (which must keep its retired keys — it is the read path) rather than at the enum.
+
 
 ---
 
@@ -3570,3 +3615,21 @@ instead of being skipped. Once per workflow, no data loss.
 Options if it is ever worth addressing: have `computeChecksum` sort keys canonically before hashing (changes
 every existing checksum, so it needs its own migration), or accept the one-time drift and document it. Parked as
 `informational` unless draft-version noise becomes a real complaint.
+
+
+
+### STB-B12 - Pre-`pages` version graphs are counted, not converted
+
+Found at the STB-21 audit (2026-09-02). 56 of the 60 stored `workflow_versions` on the dev Neon branch use the
+older top-level `blocks[]` graph shape rather than `pages[].steps[]`; 4 have neither key. **Every one of those
+`blocks` arrays is empty**, so nothing is being skipped in practice on dev.
+
+`canonicalizeGraphJson` converts only `pages[].steps[]`. Rather than guess at a shape that cannot be tested
+against real content, it now sets `unrecognizedShape` and counts `unconvertedDefinitions`, the CLI reports both,
+and `--audit` fails if any unconverted definition is found. So a populated legacy artifact can no longer look
+like a clean run.
+
+Promote this to a ticket only if a `--audit` against `test` or production reports a non-zero
+"Definitions left unconverted by shape" - at which point the `blocks[]` walker becomes real, testable work
+against known content. Note a third shape exists on paper: `WorkflowGraphSchema` in `shared/zod-schemas.ts`
+declares `pages[].blocks[]`, is never parsed, and matches nothing that is stored.

@@ -12,6 +12,10 @@ interface GraphCanonicalizationResult {
   definitionsChanged: number;
   oldToNewTypeCounts: Record<string, number>;
   removedKeysCounts: Record<string, number>;
+  /** True when the graph carries no `pages` array this converter understands. */
+  unrecognizedShape: boolean;
+  /** Step-like definitions found in an unrecognized shape and therefore NOT converted. */
+  unconvertedDefinitions: number;
 }
 
 function incrementCount(counts: Record<string, number>, key: string, amount = 1): void {
@@ -105,10 +109,18 @@ export function canonicalizeStepDefinition(step: any) {
 }
 
 /**
- * Canonicalize the actual stored workflow graph shape emitted by
- * VersionService.serializeWorkflowInTx: pages[].steps[]. The shared
- * WorkflowGraphSchema describes an obsolete pages[].blocks[] shape and must
- * not be used for persisted artifacts.
+ * Canonicalize the stored workflow graph shape emitted by
+ * `VersionService.serializeWorkflowInTx`: `pages[].steps[]`.
+ *
+ * Three shapes exist and only one is written today:
+ *  - `pages[].steps[]`  — what the serializer emits now; the one converted here.
+ *  - top-level `blocks[]` — older artifacts predating the pages/steps split.
+ *    Every such artifact on the dev branch carries an EMPTY `blocks` array, so
+ *    there is nothing to convert; rather than guess at a shape that cannot be
+ *    tested against real content, those are counted and reported.
+ *  - `pages[].blocks[]` — what the unused `WorkflowGraphSchema` in
+ *    `shared/zod-schemas.ts` declares. Nothing parses it and nothing stores it;
+ *    do not reach for it here.
  */
 export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalizationResult {
   if (typeof graphJson !== 'object' || graphJson === null || Array.isArray(graphJson)) {
@@ -122,9 +134,25 @@ export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalization
     definitionsChanged: 0,
     oldToNewTypeCounts: {},
     removedKeysCounts: {},
+    unrecognizedShape: false,
+    unconvertedDefinitions: 0,
   };
 
   if (!Array.isArray(clonedGraph.pages)) {
+    // Artifacts written before the pages/steps serializer store definitions
+    // under a top-level `blocks` array instead. This converter deliberately
+    // does NOT rewrite a shape it cannot test against real content -- but a
+    // shape it skipped must never be indistinguishable from a clean run, so
+    // count what was left behind and let the caller surface and fail on it.
+    // (Reviewer, 2026-09-02: every such artifact on the dev branch has an
+    // empty `blocks` array, so this counts 0 there; other environments are
+    // their own question, which is exactly why it is reported.)
+    stats.unrecognizedShape = true;
+    stats.unconvertedDefinitions = Array.isArray(clonedGraph.blocks)
+      ? clonedGraph.blocks.filter(
+        (block) => typeof block === 'object' && block !== null && 'type' in block,
+      ).length
+      : 0;
     return stats;
   }
 
@@ -298,6 +326,8 @@ async function run() {
     blueprintArtifactsChanged: 0,
     blueprintDefinitionsProcessed: 0,
     blueprintDefinitionsChanged: 0,
+    unrecognizedShapeArtifacts: 0,
+    unconvertedDefinitions: 0,
   };
 
   const updates: Array<{ id: string, type: any, config: any }> = [];
@@ -344,6 +374,8 @@ async function run() {
       const result = canonicalizeGraphJson(version.graphJson);
       stats.versionDefinitionsProcessed += result.definitionsProcessed;
       stats.versionDefinitionsChanged += result.definitionsChanged;
+      stats.unrecognizedShapeArtifacts += result.unrecognizedShape ? 1 : 0;
+      stats.unconvertedDefinitions += result.unconvertedDefinitions;
       mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
       mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
 
@@ -372,6 +404,8 @@ async function run() {
       const result = canonicalizeGraphJson(blueprint.graphJson);
       stats.blueprintDefinitionsProcessed += result.definitionsProcessed;
       stats.blueprintDefinitionsChanged += result.definitionsChanged;
+      stats.unrecognizedShapeArtifacts += result.unrecognizedShape ? 1 : 0;
+      stats.unconvertedDefinitions += result.unconvertedDefinitions;
       mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
       mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
 
@@ -400,6 +434,8 @@ async function run() {
   console.log(`Blueprint artifacts changed:         ${stats.blueprintArtifactsChanged}`);
   console.log(`Blueprint step definitions processed: ${stats.blueprintDefinitionsProcessed}`);
   console.log(`Blueprint step definitions converted: ${stats.blueprintDefinitionsChanged}`);
+  console.log(`Artifacts in an unrecognized graph shape: ${stats.unrecognizedShapeArtifacts}`);
+  console.log(`Definitions left unconverted by shape:    ${stats.unconvertedDefinitions}`);
   console.log(`Failures:             ${stats.failures}`);
   
   if (Object.keys(stats.oldToNewTypeCounts).length > 0) {
@@ -427,6 +463,7 @@ async function run() {
       stats.rowsChanged > 0 ||
       stats.versionArtifactsChanged > 0 ||
       stats.blueprintArtifactsChanged > 0 ||
+      stats.unconvertedDefinitions > 0 ||
       Object.keys(stats.removedKeysCounts).length > 0
     ) {
       console.error('ERROR: Audit failed. Legacy types or keys still exist.');
