@@ -2953,7 +2953,7 @@ signature. The per-worktree database lives on tmpfs, so restarting the container
 
 ---
 
-## STB-20 — Extend backfill to versions and blueprints with checksum repair 🔄
+## STB-20 — Extend backfill to versions and blueprints with checksum repair ✅
 
 **Priority: P1** · Size: M · File: `scripts/canonicalizeStepTypes.ts`
 
@@ -3084,6 +3084,72 @@ field besides `graphJson` must be byte-identical after an apply.
    no conversion keeps a byte-identical `graphJson` **and** its original checksum.
 9. A stored graph carrying `type: 'signature'` converts to `signature_block`, at both the version and blueprint
    stores.
+
+### ✅ Verified 2026-09-02 (reviewer) — passed on the first round
+
+Delivered in one round with no send-back, and the turn-in was accurate: the reported file list matched
+`git status` exactly (two files, no pre-existing test touched), and every reported count reproduced.
+
+**Gates, all six, run by the reviewer in the worktree:**
+
+| Gate | Result | Arithmetic |
+|---|---|---|
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6-of-6 | |
+| `test:fast` | 330 files / **3,717** | unchanged — no unit tests added |
+| `test:unit` | 349 files / **3,902** | unchanged |
+| `test:integration` | 139 files / **1,282 passed + 3 skipped** | 138 / 1,279 + 1 file / 3 tests |
+
+**The amendment's trap was avoided.** `canonicalizeGraphJson` walks the real `pages[].steps[]` shape and carries
+a comment saying `WorkflowGraphSchema` describes an obsolete `pages[].blocks[]` shape and must not be used. The
+AC7 test asserts a non-zero conversion count, so a converter walking the wrong key fails rather than reporting a
+clean run.
+
+**AC4/AC5 are proven through unmocked hops, not asserted.** The third test restores a converted version through
+`PUT /api/workflows/:id` and instantiates a converted blueprint through `POST /api/blueprints/:id/instantiate` —
+both real strict-canonical ingest — then checks the resulting `steps` rows, re-applies for idempotency
+(`Rows changed: 0`, `Version artifacts changed: 0`, `Blueprint artifacts changed: 0`) and finishes with a clean
+`--audit`.
+
+Other verified behaviour: NULL checksums preserved and counted separately; an unchanged artifact keeps a
+byte-identical `graphJson` **and** its original checksum; all version and blueprint metadata compared field-by-
+field via `Omit<Row, 'graphJson' | 'checksum'>` rather than spot checks; `signature` → `signature_block` covered
+in both artifact stores; nested List fields converted inside stored graphs.
+
+#### A reviewer investigation that ended in the dev being right
+
+The converter writes `graphJson`, re-reads it inside the transaction, and computes the checksum from what
+Postgres stored. That is a different convention from `VersionService`, which hashes the JS object *before*
+insert — and Postgres normalizes `jsonb` key order (by length, then bytewise), which was verified directly:
+
+```
+input  {"title","pages","description","projectId"}
+jsonb  {"pages","title","projectId","description"}
+```
+
+Two hashes computed over the same logical graph in the two conventions do differ, and `verifyChecksum` has no
+production callers while `VersionService:396` is the only real consumer — so the reviewer changed the converter
+to hash the in-memory object instead. **That was wrong, and it was reverted.** Measured end to end on the actual
+flow, the two conventions produce an *identical* hash here, because the converter's input is itself a `jsonb`
+read-back and is therefore already in Postgres's canonical order. The dev's read-back additionally *guarantees*
+the stored checksum describes the stored bytes, which hashing the in-memory object does not. The implementation
+is the dev's, unchanged; only an explanatory comment was added at that call site recording why the read-back is
+deliberate.
+
+Recorded because the reasoning looked airtight right up to the point it was measured.
+
+#### Observation for the Phase 4 Gate — not a defect
+
+Any backfill that rewrites `graphJson` breaks the equality `VersionService.createDraftVersion` relies on for
+change detection. It compares `latestVersion.checksum` against a checksum computed from a **freshly serialized**
+JS graph, whose key order comes from the serializer; a backfilled checksum is necessarily computed from a
+`jsonb` read-back, whose key order comes from Postgres. The two cannot be made equal by the converter, because
+it has no way to reproduce the serializer's key order.
+
+Consequence: after the production backfill, the first save of each converted workflow will create one extra
+draft version instead of being skipped as "no changes". It is one spurious draft per converted workflow, once,
+with no data loss — and it is inherent to rewriting the artifact, not a flaw in this implementation. Filed as
+`STB-B11` so it is not rediscovered as a bug.
+
 
 
 ---
@@ -3366,3 +3432,22 @@ by anything currently in the suite. Still awaiting release: `file_upload.preview
 `phone_advanced`, `email_advanced`, `website_advanced`, `address_advanced` (STB-13/STB-14), `number_advanced`
 (retired type, STB-19), and `radio.displayLayout` — verify that one, since STB-7 has now landed.
 `display_advanced.allowHtml` stays excluded by Decision 10.
+
+
+
+### STB-B11 - Backfilled version checksums cause one spurious draft version
+
+Filed at the Phase 4 Gate (2026-09-02), from the STB-20 review. Not a defect in the canonicalizer.
+
+`VersionService.createDraftVersion` decides "nothing changed" by comparing `latestVersion.checksum` against
+`computeChecksum({ graphJson })` over a **freshly serialized** JS graph, whose key order comes from
+`serializeWorkflowInTx`. A backfilled checksum is necessarily computed from a `jsonb` read-back, whose key order
+Postgres normalizes (by length, then bytewise). The converter cannot reproduce the serializer's key order, so
+the two hashes cannot be made equal.
+
+Effect: after the production backfill, the first save of each converted workflow creates one extra draft version
+instead of being skipped. Once per workflow, no data loss.
+
+Options if it is ever worth addressing: have `computeChecksum` sort keys canonically before hashing (changes
+every existing checksum, so it needs its own migration), or accept the one-time drift and document it. Parked as
+`informational` unless draft-version noise becomes a real complaint.

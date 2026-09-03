@@ -1,8 +1,28 @@
 import { fileURLToPath } from "url";
+import { eq } from "drizzle-orm";
 import isEqual from "lodash/isEqual.js";
-import { steps } from "../shared/schema/workflow";
+import { steps, workflowBlueprints, workflowVersions } from "../shared/schema/workflow";
 import { adaptLegacyStep } from "../shared/types/stepConfigs";
 import { validateCanonicalStepConfig } from "../shared/validation/stepConfigSchemas";
+import { computeChecksum } from "../server/utils/checksum";
+
+interface GraphCanonicalizationResult {
+  graphJson: unknown;
+  definitionsProcessed: number;
+  definitionsChanged: number;
+  oldToNewTypeCounts: Record<string, number>;
+  removedKeysCounts: Record<string, number>;
+}
+
+function incrementCount(counts: Record<string, number>, key: string, amount = 1): void {
+  counts[key] = (counts[key] ?? 0) + amount;
+}
+
+function mergeCounts(target: Record<string, number>, source: Record<string, number>): void {
+  for (const [key, count] of Object.entries(source)) {
+    incrementCount(target, key, count);
+  }
+}
 
 export function canonicalizeStepDefinition(step: any) {
   const adapted = adaptLegacyStep({ type: step.type, config: step.config });
@@ -82,6 +102,72 @@ export function canonicalizeStepDefinition(step: any) {
     canonicalConfig: currentConfig,
     removedKeys
   };
+}
+
+/**
+ * Canonicalize the actual stored workflow graph shape emitted by
+ * VersionService.serializeWorkflowInTx: pages[].steps[]. The shared
+ * WorkflowGraphSchema describes an obsolete pages[].blocks[] shape and must
+ * not be used for persisted artifacts.
+ */
+export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalizationResult {
+  if (typeof graphJson !== 'object' || graphJson === null || Array.isArray(graphJson)) {
+    throw new Error('Artifact graphJson must be an object');
+  }
+
+  const clonedGraph = structuredClone(graphJson) as Record<string, unknown>;
+  const stats: GraphCanonicalizationResult = {
+    graphJson,
+    definitionsProcessed: 0,
+    definitionsChanged: 0,
+    oldToNewTypeCounts: {},
+    removedKeysCounts: {},
+  };
+
+  if (!Array.isArray(clonedGraph.pages)) {
+    return stats;
+  }
+
+  for (const page of clonedGraph.pages) {
+    if (typeof page !== 'object' || page === null || Array.isArray(page)) {
+      continue;
+    }
+
+    const pageRecord = page as Record<string, unknown>;
+    if (!Array.isArray(pageRecord.steps)) {
+      continue;
+    }
+
+    for (const step of pageRecord.steps) {
+      if (typeof step !== 'object' || step === null || Array.isArray(step)) {
+        throw new Error('Artifact graphJson pages[].steps[] entries must be objects');
+      }
+
+      const stepRecord = step as Record<string, unknown>;
+      stats.definitionsProcessed++;
+      const result = canonicalizeStepDefinition(stepRecord);
+      const typeChanged = stepRecord.type !== result.canonicalType;
+      const configChanged = !isEqual(stepRecord.config, result.canonicalConfig);
+
+      if (typeChanged) {
+        incrementCount(stats.oldToNewTypeCounts, `${String(stepRecord.type)} -> ${String(result.canonicalType)}`);
+      }
+      for (const key of result.removedKeys) {
+        incrementCount(stats.removedKeysCounts, key);
+      }
+
+      if (typeChanged || configChanged) {
+        stats.definitionsChanged++;
+        stepRecord.type = result.canonicalType;
+        stepRecord.config = result.canonicalConfig;
+      }
+    }
+  }
+
+  if (stats.definitionsChanged > 0) {
+    stats.graphJson = clonedGraph;
+  }
+  return stats;
 }
 
 function canonicalizeListConfig(config: any, removedKeys: string[], parentPath: string = ''): any {
@@ -182,14 +268,19 @@ async function run() {
     console.log(`Scoping to workflow ID: ${workflowIdScope}`);
   }
 
-  let allStepsQuery = db.select().from(steps);
-  if (workflowIdScope) {
-    const { eq } = await import('drizzle-orm');
-    allStepsQuery = allStepsQuery.where(eq(steps.workflowId, workflowIdScope)) as any;
-  }
-  const allSteps = await allStepsQuery;
+  const allSteps = workflowIdScope
+    ? await db.select().from(steps).where(eq(steps.workflowId, workflowIdScope))
+    : await db.select().from(steps);
+  const allVersions = workflowIdScope
+    ? await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, workflowIdScope))
+    : await db.select().from(workflowVersions);
+  const allBlueprints = workflowIdScope
+    ? await db.select().from(workflowBlueprints).where(eq(workflowBlueprints.sourceWorkflowId, workflowIdScope))
+    : await db.select().from(workflowBlueprints);
 
   console.log(`Found ${allSteps.length} total steps (live and soft-deleted).`);
+  console.log(`Found ${allVersions.length} workflow-version artifacts.`);
+  console.log(`Found ${allBlueprints.length} workflow-blueprint artifacts.`);
 
   const stats = {
     totalRows: allSteps.length,
@@ -198,9 +289,20 @@ async function run() {
     workflowsAffected: new Set<string>(),
     oldToNewTypeCounts: {} as Record<string, number>,
     removedKeysCounts: {} as Record<string, number>,
+    versionArtifactsChanged: 0,
+    versionDefinitionsProcessed: 0,
+    versionDefinitionsChanged: 0,
+    versionChecksumsRecomputed: 0,
+    versionNullChecksumsPreserved: 0,
+    versionChecksumsChanged: 0,
+    blueprintArtifactsChanged: 0,
+    blueprintDefinitionsProcessed: 0,
+    blueprintDefinitionsChanged: 0,
   };
 
   const updates: Array<{ id: string, type: any, config: any }> = [];
+  const versionUpdates: Array<{ id: string, graphJson: unknown, hadChecksum: boolean }> = [];
+  const blueprintUpdates: Array<{ id: string, graphJson: unknown }> = [];
 
   for (const step of allSteps) {
     try {
@@ -212,12 +314,12 @@ async function run() {
       if (typeChanged || configChanged || result.removedKeys.length > 0) {
         if (typeChanged) {
           const mappingKey = `${step.type} -> ${result.canonicalType}`;
-          stats.oldToNewTypeCounts[mappingKey] = (stats.oldToNewTypeCounts[mappingKey] || 0) + 1;
+          incrementCount(stats.oldToNewTypeCounts, mappingKey);
         }
         
         if (result.removedKeys.length > 0) {
           for (const key of result.removedKeys) {
-            stats.removedKeysCounts[key] = (stats.removedKeysCounts[key] || 0) + 1;
+            incrementCount(stats.removedKeysCounts, key);
           }
         }
         
@@ -237,10 +339,67 @@ async function run() {
     }
   }
 
+  for (const version of allVersions) {
+    try {
+      const result = canonicalizeGraphJson(version.graphJson);
+      stats.versionDefinitionsProcessed += result.definitionsProcessed;
+      stats.versionDefinitionsChanged += result.definitionsChanged;
+      mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
+      mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
+
+      if (result.definitionsChanged > 0) {
+        stats.versionArtifactsChanged++;
+        if (version.checksum === null) {
+          stats.versionNullChecksumsPreserved++;
+        } else {
+          stats.versionChecksumsRecomputed++;
+          stats.versionChecksumsChanged++;
+        }
+        versionUpdates.push({
+          id: version.id,
+          graphJson: result.graphJson,
+          hadChecksum: version.checksum !== null,
+        });
+      }
+    } catch (err) {
+      console.error(`Failed to canonicalize workflow version ${version.id}:`, err);
+      stats.failures++;
+    }
+  }
+
+  for (const blueprint of allBlueprints) {
+    try {
+      const result = canonicalizeGraphJson(blueprint.graphJson);
+      stats.blueprintDefinitionsProcessed += result.definitionsProcessed;
+      stats.blueprintDefinitionsChanged += result.definitionsChanged;
+      mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
+      mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
+
+      if (result.definitionsChanged > 0) {
+        stats.blueprintArtifactsChanged++;
+        blueprintUpdates.push({ id: blueprint.id, graphJson: result.graphJson });
+      }
+    } catch (err) {
+      console.error(`Failed to canonicalize workflow blueprint ${blueprint.id}:`, err);
+      stats.failures++;
+    }
+  }
+
   console.log('\n--- Canonicalization Report ---');
   console.log(`Total rows processed: ${stats.totalRows}`);
   console.log(`Rows changed:         ${stats.rowsChanged}`);
   console.log(`Workflows affected:   ${stats.workflowsAffected.size}`);
+  console.log(`Version artifacts processed:       ${allVersions.length}`);
+  console.log(`Version artifacts changed:         ${stats.versionArtifactsChanged}`);
+  console.log(`Version step definitions processed: ${stats.versionDefinitionsProcessed}`);
+  console.log(`Version step definitions converted: ${stats.versionDefinitionsChanged}`);
+  console.log(`Version checksums recomputed:       ${stats.versionChecksumsRecomputed}`);
+  console.log(`Version checksums changed:          ${stats.versionChecksumsChanged}`);
+  console.log(`Version NULL checksums preserved:   ${stats.versionNullChecksumsPreserved}`);
+  console.log(`Blueprint artifacts processed:       ${allBlueprints.length}`);
+  console.log(`Blueprint artifacts changed:         ${stats.blueprintArtifactsChanged}`);
+  console.log(`Blueprint step definitions processed: ${stats.blueprintDefinitionsProcessed}`);
+  console.log(`Blueprint step definitions converted: ${stats.blueprintDefinitionsChanged}`);
   console.log(`Failures:             ${stats.failures}`);
   
   if (Object.keys(stats.oldToNewTypeCounts).length > 0) {
@@ -264,7 +423,12 @@ async function run() {
   }
 
   if (isAudit) {
-    if (stats.rowsChanged > 0 || Object.keys(stats.removedKeysCounts).length > 0) {
+    if (
+      stats.rowsChanged > 0 ||
+      stats.versionArtifactsChanged > 0 ||
+      stats.blueprintArtifactsChanged > 0 ||
+      Object.keys(stats.removedKeysCounts).length > 0
+    ) {
       console.error('ERROR: Audit failed. Legacy types or keys still exist.');
       process.exit(1);
     }
@@ -272,15 +436,40 @@ async function run() {
     process.exit(0);
   }
 
-  if (isApply && updates.length > 0) {
-    console.log(`\nApplying ${updates.length} updates in a transaction...`);
-    const { db } = await import("../server/db");
+  const totalUpdates = updates.length + versionUpdates.length + blueprintUpdates.length;
+  if (isApply && totalUpdates > 0) {
+    console.log(`\nApplying ${totalUpdates} updates in a transaction...`);
     await db.transaction(async (tx: any) => {
       for (const update of updates) {
-        const { eq } = await import('drizzle-orm');
         await tx.update(steps)
           .set({ type: update.type, config: update.config })
           .where(eq(steps.id, update.id));
+      }
+      for (const update of versionUpdates) {
+        await tx.update(workflowVersions)
+          .set({ graphJson: update.graphJson })
+          .where(eq(workflowVersions.id, update.id));
+        if (update.hadChecksum) {
+          // Hash what Postgres actually stored, not the in-memory object.
+          // jsonb normalizes key order (length, then bytewise) and
+          // `computeChecksum` is a plain `JSON.stringify`, so reading back is
+          // what guarantees the checksum describes the stored bytes.
+          const [storedVersion] = await tx
+            .select({ graphJson: workflowVersions.graphJson })
+            .from(workflowVersions)
+            .where(eq(workflowVersions.id, update.id));
+          if (storedVersion === undefined) {
+            throw new Error(`Workflow version ${update.id} disappeared during canonicalization`);
+          }
+          await tx.update(workflowVersions)
+            .set({ checksum: computeChecksum({ graphJson: storedVersion.graphJson }) })
+            .where(eq(workflowVersions.id, update.id));
+        }
+      }
+      for (const update of blueprintUpdates) {
+        await tx.update(workflowBlueprints)
+          .set({ graphJson: update.graphJson })
+          .where(eq(workflowBlueprints.id, update.id));
       }
     });
     console.log('Transaction committed successfully.');
