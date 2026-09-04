@@ -90,6 +90,17 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
+| STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
+| STB-B8 | `needs-initiative` | Sandboxed JS/Python transforms, parked for rebuild. ⚠️ **`server/services/scripting/` is dormant, not dead — do not delete it** | `backlog/STEP_TOOLBOX.md` |
+| STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |
+| STB-B11 | `informational` | Backfilled version checksums cause one spurious draft version per converted workflow. Inherent to rewriting jsonb | `backlog/STEP_TOOLBOX.md` |
+| STB-B12 | `informational` | Pre-`pages` `blocks[]` version graphs are counted, not converted — all empty today; `--audit` fails if one is ever populated | `backlog/STEP_TOOLBOX.md` |
+| STB-B1 | `needs-initiative` | International phone/address — `AddressConfigSchema` is hard-wired to `country: 'US'` | `backlog/STEP_TOOLBOX.md` |
+| STB-B3 | `needs-initiative` | Respondent email verification — shape validation only today | `backlog/STEP_TOOLBOX.md` |
+| STB-B4 | `enhancement` | DNS-backed website validation — needs SSRF protection and an egress budget | `backlog/STEP_TOOLBOX.md` |
+| STB-B7 | `informational` | Nothing notices when an AI config-key exclusion becomes unnecessary | `backlog/STEP_TOOLBOX.md` |
+| STB-B9 | `informational` | File upload on version-pinned runs is unproven | `backlog/STEP_TOOLBOX.md` |
 | ZR-B1 | `needs-initiative` | **Client ask: ephemeral runs** — workflow saved, run data and generated documents never retained. 14 tables + blob store + 4 third-party egress paths, none with an off switch | `backlog/ZERO_RETENTION.md` |
 | ZR-B2 | `product-decision` | What "nothing stored" must cover — analytics, audit logs, PDF converter / AI / ESP / DocuSign copies, Neon PITR. **`ZR-B1` is blocked on this ruling** | `backlog/ZERO_RETENTION.md` |
 | ZR-B3 | `enhancement` | **There is no way to delete a run.** No `deleteRun` anywhere; runs die only via the workflow FK cascade, and no cron ages them out | `backlog/ZERO_RETENTION.md` |
@@ -210,6 +221,29 @@ them, while end users must still be able to generate those documents in-session.
   workflow every other client also ran. Promotable on its own as a normal ticket.
 
 ---
+
+## Canonical Step Toolbox (STB) — [detail](backlog/STEP_TOOLBOX.md) — retired 2026-09-03
+
+**All 28 tickets shipped across six phase gates.** The platform stored several dialects
+for the same question family — `short_text`/`text`, `yes_no`/`true_false`/`boolean`,
+`radio`/`multiple_choice`/`choice`, plus a `*_advanced` twin for almost everything. It now
+stores **18 canonical types**, enforced by the `step_type` enum itself (migration `0042`
+cut it from 37).
+
+- **Retired names stay READABLE, not writable.** `LEGACY_STEP_ADAPTERS` maps all 19 so a
+  pre-backfill export bundle still imports; the enum and `validateCanonicalStepConfig`
+  refuse them on write. **`validateStepConfig` is the permissive read path and must never
+  be tightened** — that broke three times during the initiative.
+- ⚠️ **Production is NOT backfilled.** `dev` and `test` are, and audit clean. Migration
+  `0042`'s `ALTER … USING` cast **fails on any unconverted row**, and Railway migrates on
+  deploy — so production needs snapshot → `--apply --database-url` → `--audit` *before*
+  the promotion carrying `0042`. Restore points `br-silent-math-ahw5fz1u` (dev) and
+  `br-plain-fire-ahl47pjw` (test) are retained.
+- **Point the converter at the owner/migration role, never the app's restricted role.**
+  Under RLS the restricted role sees almost nothing and the script reports a clean run
+  having converted nothing — the same trap that briefly took the RLS gate from 3 files to 5.
+- The detail file carries **14 standing decisions (D-1..D-14)** that still bind anything
+  touching step types, presets, or stored answer shapes.
 
 ## Sections above Pages (SECT) — [detail](backlog/SECTIONS_AND_PAGES.md) — retired 2026-08-24
 
