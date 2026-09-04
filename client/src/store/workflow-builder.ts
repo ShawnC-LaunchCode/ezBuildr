@@ -25,8 +25,6 @@
 import { create } from "zustand";
 
 export type EntityType = "workflow" | "page" | "step" | "block";
-export type InspectorTab = "properties" | "blocks" | "logic" | "transform";
-
 interface Selection {
   type: EntityType;
   id: string;
@@ -38,10 +36,6 @@ interface WorkflowBuilderState {
   selectPage: (id: string) => void;
   selectStep: (id: string) => void;
   selectBlock: (id: string) => void;
-
-  // Inspector Tab
-  inspectorTab: InspectorTab;
-  setInspectorTab: (tab: InspectorTab) => void;
 }
 
 export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
@@ -50,8 +44,4 @@ export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
   selectPage: (id) => set({ selection: { type: "page", id } }),
   selectStep: (id) => set({ selection: { type: "step", id } }),
   selectBlock: (id) => set({ selection: { type: "block", id } }),
-
-  // Inspector Tab
-  inspectorTab: "properties",
-  setInspectorTab: (tab) => set({ inspectorTab: tab }),
 }));
