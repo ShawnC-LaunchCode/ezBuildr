@@ -1,0 +1,1139 @@
+# Code Blocks — Sandboxed JS/Python Transforms, Rebuilt (CB-1..11 + backlog)
+
+Source: design session with the repo owner + code audit of the scripting/transform surface, 2026-09-04.
+Scope: `server/services/scripting/`, `server/services/TransformBlockService.ts`,
+`server/utils/enhancedSandboxExecutor.ts`, the `js_question` step type, the transform-block
+builder UI, and the run engine's recompute call sites.
+Overall grade at audit time: **C+** — the execution engine is genuinely good
+(`isolated-vm`, AST validation on every execute, alias-keyed run data, virtual steps that
+already reach logic and documents). The authoring model on top of it is the problem: the
+same idea is implemented three times, every surface is single-output, and there is no
+readiness or change gate anywhere, so a block runs with missing inputs and emits garbage.
+
+**This initiative discharges `STB-B8`** (`tickets/BACKLOG.md`, tag `needs-initiative`:
+"Sandboxed JS/Python transforms, rebuilt after the initiative closes"). STB-B8's warning
+still governs: **`server/services/scripting/` is dormant, not dead — do not delete it.**
+This initiative builds *on* it.
+
+Every finding below was verified against the working tree at audit time. **Line numbers are
+advisory** — they were accurate when written and drift as fixes land. The locator is the
+quoted code and the named symbol; grep for those. A stale line number is not a broken ticket
+and does not need re-issuing.
+
+---
+
+## How to work this document
+
+- **Tickets are grouped into 4 phases**, ordered by dependency. Do not start a phase until
+  the previous phase's **Phase Gate** has been verified and committed by the reviewer.
+- Each ticket has **Finding**, **Preferred fix**, **Ties**, **Acceptance criteria**, plus
+  **Vertical proof** on any ticket spanning more than one layer.
+- **Load the project skills named in your ticket's Ties before touching code.** At minimum
+  `run-tests` — running `npm test` naively gives wrong results in this repo.
+- **`npm run type-check` is not the commit gate** — `check:strict-zones` pulls files in
+  transitively. Run the pre-commit script before believing the tree is green.
+- Devs do not commit; the reviewer commits per passed ticket.
+- Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
+
+---
+
+## Decisions — the design, in one place
+
+Read this before working any ticket. Every ticket assumes it.
+
+A **Code Block** is a step (`type: 'js_question'`, relabelled "Code Block" in the palette)
+that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
+
+1. **Append-only.** A block creates *new* variables; it never overwrites an existing one.
+   Each variable therefore has exactly one writer, which makes the dependency graph static
+   and knowable at author time.
+2. **Two gates decide every execution.**
+   - **Readiness gate** — are all *required* inputs resolved? Optional inputs pass through
+     as `null` and do not gate. A step that logic has made unreachable counts as
+     *resolved-absent*, not pending.
+   - **Change gate** — has the canonicalized input tuple changed since the last run
+     (compared by hash)? If not, skip.
+3. **Firing = trigger × repeat policy**, two independent choices:
+   - *Trigger*: `everySubmit` (default) · `atPage` (a floor — "not before this page") ·
+     `runStart` · `runComplete`
+   - *Repeat*: `onChange` (default) · `once` (fire once, then freeze) · `always` (ignore the hash)
+4. **The readiness gate always wins.** `atPage` sets the earliest moment a block may fire;
+   it never forces it to fire unready.
+5. **Errors null the block's entire output set** and mark it errored. A wrong number in a
+   legal document is worse than a blank one.
+6. **Recompute is idempotent** (the change gate makes it a no-op when clean), so it is safe
+   to call from every navigation point.
+7. **The AST pass is the workhorse.** `ASTValidator` already walks every saved script. Input
+   derivation, output derivation, dynamic-access warnings, impure-helper detection and cycle
+   detection all ride on that one existing traversal, and all report in the editor — never at
+   runtime.
+
+### Phase overview
+
+| Phase | Theme | Tickets | Dispatch |
+|---|---|---|---|
+| 1 | Engine — the recompute model | CB-1..4 | **Sequential** (same files) |
+| 2 | Authoring guarantees — the AST pass | CB-5..7 | CB-5 → CB-6 sequential; CB-7 parallel |
+| 3 | Surfaces — editor + inspector | CB-8, CB-9 | **Parallel** (disjoint) |
+| 4 | Cleanup — retire old surfaces, Python | CB-10, CB-11 | **Parallel** (disjoint) |
+| Backlog | Not phase-gated | CB-B1..B4 | |
+
+---
+
+# Phase 1 — Engine: the recompute model
+
+Builds the execution model server-side, on the existing `ScriptEngine`. Out of scope for
+this phase: editor UI beyond the minimum needed to save the new config shape, Python, and
+deleting `transform_blocks` (Phase 4).
+
+**These four tickets touch the same files and must be dispatched in order.** Shared
+footprint: `shared/types/steps.ts`, `server/services/codeBlocks/*`,
+`server/services/runs/RunExecutionCoordinator.ts`.
+
+## CB-1 — Code Block config: multi-output and one virtual step per output 🔲
+
+**Priority: P1** · Size: M · File: `shared/types/steps.ts`
+
+### Finding
+
+`JsQuestionConfig` in `shared/types/steps.ts` allows exactly one output:
+
+```ts
+export type JsQuestionConfig = {
+  display: "visible" | "hidden";
+  code: string;
+  inputKeys: string[];
+  /** Output variable key where result will be stored */
+  outputKey: string;
+  timeoutMs?: number;
+  helpText?: string;
+};
+```
+
+`transform_blocks.outputKey` (`shared/schema/workflow.ts`) has the same single-output limit,
+and `TransformBlockService.executeAllForPhase` writes it as
+`resultData[block.outputKey] = result.output;`.
+
+The multi-output pattern **already exists** — on lifecycle hooks. `LifecycleHookService`
+merges an emitted object against a whitelist:
+
+```ts
+// Validate output against outputKeys whitelist
+// Only merge keys that are whitelisted in outputKeys
+for (const key of hook.outputKeys) {
+```
+
+and `lifecycle_hooks` carries `outputKeys: text("output_keys").array()` plus
+`virtualStepIds: uuid("virtual_step_ids").array()`. The capability is proven; it is simply
+not on the surface authors need.
+
+Also: `display: "visible"` is a lie. Nothing in `client/src/components/runner/` handles
+`js_question` or `computed` — grep returns no renderer. A block set to `visible` renders nothing.
+
+### Preferred fix
+
+Extend `JsQuestionConfig` into the Code Block config. **Do not add a new value to
+`stepTypeEnum`** — STB-21 (migration `0042`) just cut it from 37 to 18, and the config is
+JSONB, so no enum change is needed. The palette label becomes "Code Block"; the stored type
+stays `js_question`.
+
+```ts
+export type CodeBlockOutput = {
+  key: string;
+  type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'list';
+  description?: string;
+};
+
+export type CodeBlockInput = {
+  key: string;
+  required: boolean;   // default true; optional inputs pass as null and do not gate
+};
+```
+
+Replace `outputKey: string` with `outputs: CodeBlockOutput[]`, and `inputKeys: string[]`
+with `inputs: CodeBlockInput[]`. Drop `display` entirely — it never worked; the block is
+always compute-only.
+
+Declared output `type` is for **authoring-time** use only: correct operators in the
+visibility editor, the right icon in the variable picker, correct filter behavior in
+documents. Do **not** coerce values at runtime; validate and warn.
+
+Create **one virtual step per output**, mirroring `TransformBlockService.createBlock`, which
+is the donor pattern:
+
+```ts
+const virtualStep = await this.stepRepo.create({
+  workflowId, pageId: targetPageId,
+  type: 'computed',
+  alias: data.outputKey,   // ← one of these per declared output now
+  required: false, order: -1, isVirtual: true,
+});
+```
+
+Port the whitelist merge from `LifecycleHookService` verbatim: `emit({ a, b, c })`, only
+declared keys merged, undeclared keys rejected with a named error.
+
+Provide a `LEGACY_JS_QUESTION_ADAPTER` that reads an old single-`outputKey` config as a
+one-element `outputs` array, in the spirit of `LEGACY_STEP_ADAPTERS` in
+`shared/types/stepConfigs.ts`. Old configs stay readable; new writes use the new shape.
+
+### Ties
+
+- **Blocks CB-2, CB-3, CB-4** — they build on this config. Dispatch strictly in order.
+- Load the **`add-step-type`** skill (step config touches ~10 places) and **`run-tests`**.
+- Donor patterns: `LifecycleHookService.executeHooksForPhase` (whitelist merge),
+  `TransformBlockService.createBlock` (virtual step creation),
+  `shared/types/stepConfigs.ts` (`LEGACY_STEP_ADAPTERS` shape).
+- File footprint: `shared/types/steps.ts`, `shared/types/stepConfigs.ts`,
+  `server/services/codeBlocks/CodeBlockService.ts` (new),
+  `client/src/lib/blockRegistry.tsx` (label + default config),
+  `client/src/components/builder/questions/js-question/*`.
+- Collides with: CB-2, CB-3, CB-4 (same service), CB-5 (config shape), CB-8 (editor).
+
+### Vertical proof
+
+- **Path:** save a Code Block with 3 declared outputs via the step API → 3 `steps` rows with
+  `isVirtual: true` carrying the declared aliases → run the workflow → `emit({a,b,c})` →
+  3 `step_values` rows → `RunDataService.buildForRun` returns all 3 under `byAlias`.
+- **Real, not mocked:** the DB hop (virtual step creation and `step_values` upsert) and
+  `RunDataService`. Mocking either voids this proof.
+- **Cross-tenant denial:** saving a Code Block against tenant B's workflow id → 404, no
+  `steps` rows written.
+- **Suite:** `tests/integration/codeBlocks.multiOutput.test.ts` (integration project, needs DB).
+
+### Acceptance criteria
+
+1. `JsQuestionConfig` carries `outputs: CodeBlockOutput[]` and `inputs: CodeBlockInput[]`;
+   `outputKey`, `inputKeys` and `display` are gone from the type.
+2. Saving a block with N declared outputs creates exactly N virtual steps, one per output
+   alias, `type: 'computed'`, `isVirtual: true`.
+3. `emit({a, b, c})` with all three declared writes three `step_values` rows, and all three
+   appear in `RunDataService`'s `byAlias` projection.
+4. `emit()` returning a key **not** in `outputs` fails the block with an error naming the
+   undeclared key — it is not silently merged and not silently dropped.
+5. A stored pre-existing single-`outputKey` config still loads and runs, via the legacy adapter.
+6. Deleting a Code Block soft-deletes its virtual steps, so `steps_workflow_alias_unique`
+   frees the aliases (see that index's `deleted_at IS NULL` scope).
+7. New test `tests/integration/codeBlocks.multiOutput.test.ts` asserts 2–6 and walks the
+   Vertical proof path end to end with the DB hop real.
+8. `npm run type-check` 0 errors · `npm run lint` clean on every touched file ·
+   `npm run test:integration` green.
+
+---
+
+## CB-2 — Readiness gate, change gate, and per-run block state 🔲
+
+**Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockService.ts`
+
+### Finding
+
+There is no readiness check and no change detection anywhere in the scripting surface.
+`ScriptEngine.execute()` copies whitelisted keys **only if present**, with no gate:
+
+```ts
+for (const key of inputKeys) {
+  const dataKey = aliasMap?.[key] ?? key;
+  if (dataKey in data) {
+    input[key] = data[dataKey];
+  }
+}
+```
+
+So a block needing `income_a`, `income_b`, `num_children` that runs before `num_children`
+is collected executes with it `undefined`, computes `NaN`, and writes `NaN` into a variable
+documents will render. `TransformBlockService.executeAllForPhase` compounds this by running
+**every** enabled block for a phase unconditionally, every time that phase fires.
+
+### Preferred fix
+
+Add both gates in a new `CodeBlockService.evaluate(runId, definition, data)`.
+
+**Readiness gate.** A required input is *resolved* if it has a `step_values` row (a row
+holding JSON `null` counts as resolved — the user answered and cleared it), **or** its step
+is not in the visible set. Reuse the visibility computation that already exists —
+`getVisibleStepIds` in `RunExecutionCoordinator` calls
+`evaluateWorkflowVisibility({sections, pages, steps})`. Extract it so both callers share one
+implementation; **do not write a second visibility path.** Optional inputs (`required: false`)
+never gate and arrive as `null`.
+
+**Change gate.** Hash the canonicalized resolved-input tuple (stable key order —
+`JSON.stringify` over a sorted-key object). Compare against the stored hash for that
+(run, block). Equal → skip.
+
+**Per-run state** needs a new table. Load the **`db-schema-change`** skill first — author via
+`db:generate`, never hand-edit the journal. Next migration number is `0043`.
+
+```
+code_block_runs
+  id, run_id (FK workflow_runs, cascade), step_id (FK steps, cascade),
+  input_hash text, status ('fired'|'skipped_unready'|'skipped_unchanged'|'error'),
+  pending_inputs text[],           -- what it is waiting on, for CB-9's inspector
+  error_message text, fired_at, updated_at
+  unique (run_id, step_id)
+```
+
+`pending_inputs` exists so CB-9's inspector can say *waiting on `num_children`* without
+recomputing anything.
+
+⚠️ **`db:migrate` against the local `.env` hits a shared Neon branch** (see `LU-B1` in
+`tickets/BACKLOG.md`). Confirm which branch `DATABASE_URL` points at before running it.
+
+### Ties
+
+- **Depends on CB-1** (needs `inputs[]` with the `required` flag). Do not start before CB-1 is ✅.
+- **Blocks CB-3, CB-4.**
+- Load **`db-schema-change`** (new table + migration `0043`) and **`run-tests`**.
+- File footprint: `server/services/codeBlocks/CodeBlockService.ts`, `shared/schema/run.ts`,
+  `migrations/0043_*.sql`, `server/repositories/CodeBlockRunRepository.ts` (new — follow the
+  `BaseRepository` pattern), `server/services/runs/RunExecutionCoordinator.ts` (extract
+  `getVisibleStepIds`).
+- Collides with: CB-1, CB-3, CB-4.
+
+### Vertical proof
+
+- **Path:** the repo owner's own scenario. Block needs `income_a`, `income_b` (page 1) and
+  `num_children` (page 2). Submit page 1 → `code_block_runs.status = 'skipped_unready'`,
+  `pending_inputs = ['num_children']`, no output `step_values` row. Submit page 2 → status
+  `fired`, output row written, hash stored. Submit page 3 (unrelated answers) → status
+  `skipped_unchanged`, hash unchanged, **no second script execution**. Change `income_a` and
+  resubmit page 1 → status `fired`, new hash, output updated.
+- **Real, not mocked:** the DB hops (`step_values`, `code_block_runs`) and the real
+  `ScriptEngine`/`isolated-vm` execution — counting executions requires the real engine.
+- **Cross-tenant denial:** evaluating against a run belonging to tenant B → refused, no
+  `code_block_runs` row written.
+- **Suite:** `tests/integration/codeBlocks.gates.test.ts` (integration project, needs DB).
+
+### Acceptance criteria
+
+1. A block with an unresolved **required** input does not execute; a `code_block_runs` row
+   records `skipped_unready` and lists the missing keys in `pending_inputs`.
+2. An **optional** input that is absent does not gate; the block runs and receives `null`
+   for that key.
+3. A required input whose step is **not in the visible set** counts as resolved-absent — the
+   block fires rather than waiting forever. The test must construct a real logic rule that
+   hides the step, not merely omit the value.
+4. With inputs unchanged, a second evaluation records `skipped_unchanged` and the sandbox is
+   **not** invoked — assert the execution count, not just the stored value.
+5. Changing any required input changes the hash and re-fires the block.
+6. A `step_values` row holding JSON `null` counts as **resolved**, not missing.
+7. The visibility computation is shared with `RunExecutionCoordinator`, not duplicated — one
+   function, two callers.
+8. Migration `0043` creates `code_block_runs` with the unique `(run_id, step_id)` constraint
+   and applies cleanly via `npm run db:migrate`.
+9. New test `tests/integration/codeBlocks.gates.test.ts` asserts 1–6 and walks the full
+   Vertical proof path with the DB and sandbox hops real.
+10. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:integration` green.
+
+---
+
+## CB-3 — Firing model: trigger × repeat policy 🔲
+
+**Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockService.ts`
+
+### Finding
+
+Today *when* a block runs is a single `phase` column on `transform_blocks`
+(`blockPhaseEnum`, default `onPageSubmit`), and it is unconditional — the block fires
+whenever its phase fires, ready or not, changed or not. There is no way to express "compute
+this once and freeze it", which every generated id, timestamp, or captured rate needs: under
+re-running semantics those values drift every time an unrelated input moves.
+
+### Preferred fix
+
+Two independent config fields, not one enum:
+
+```ts
+trigger: 'everySubmit' | 'atPage' | 'runStart' | 'runComplete';   // default 'everySubmit'
+triggerPageId?: string;                                            // required iff trigger === 'atPage'
+repeat: 'onChange' | 'once' | 'always';                            // default 'onChange'
+```
+
+Semantics — this table is the contract, implement it literally:
+
+| Field | Value | Means |
+|---|---|---|
+| trigger | `everySubmit` | eligible at every page submit / navigation |
+| trigger | `atPage` | **a floor, not a fixed point** — not eligible before `triggerPageId` submits; eligible at every evaluation after |
+| trigger | `runStart` | eligible only at run creation (inbound/prefill variables) |
+| trigger | `runComplete` | eligible only in the completion pass, before documents |
+| repeat | `onChange` | fire when ready and the hash moved |
+| repeat | `once` | fire the first time ready, then never again — hash ignored thereafter |
+| repeat | `always` | fire at every eligible evaluation, hash ignored |
+
+**The readiness gate always wins over the trigger.** An `atPage` block whose inputs are not
+ready when that page submits does not fire and does not error — it waits, and fires at the
+next evaluation where it is ready. This is the most important rule in the ticket: the
+alternative (firing unready because the author said "here") is what puts `NaN` in documents.
+
+Wire the eligible evaluation points. Because the gates make recompute idempotent, call it
+from **all** of these — each is a no-op when clean:
+
+- `RunExecutionCoordinator.submitPage` (after values persist, before validation returns)
+- `RunExecutionCoordinator.next` (before `logicSvc.evaluateNavigation`, so computed values
+  can gate navigation on the same submit)
+- page enter
+- resume-link landing (`RunResumeService`)
+- `RunLifecycleService`, before document generation
+
+### Ties
+
+- **Depends on CB-2** (the gates must exist). **Blocks CB-4.**
+- Load **`run-tests`**.
+- File footprint: `server/services/codeBlocks/CodeBlockService.ts`, `shared/types/steps.ts`,
+  `server/services/runs/RunExecutionCoordinator.ts`, `server/services/runs/RunResumeService.ts`,
+  `server/services/workflow-runs/RunLifecycleService.ts`.
+- Collides with: CB-1, CB-2, CB-4.
+
+### Vertical proof
+
+- **Path:** a block with `trigger: 'atPage'` on page 3 whose inputs only complete on page 4.
+  Submit page 3 → does not fire (`skipped_unready`). Submit page 4 → fires. Separately, a
+  `repeat: 'once'` block emitting `helpers.now()`: fires on first readiness, and a later
+  input change leaves the stored value byte-identical.
+- **Real, not mocked:** the DB hops and the real sandbox. The `once` case is only meaningful
+  against the real `now()` helper.
+- **Cross-tenant denial:** covered by CB-2's service-level check; assert it is not bypassed
+  by the `runStart` path, which runs at run creation before a page context exists.
+- **Suite:** `tests/integration/codeBlocks.firing.test.ts` (integration project, needs DB).
+
+### Acceptance criteria
+
+1. Each of the four `trigger` values gates eligibility exactly as tabulated above.
+2. `atPage` behaves as a **floor**: a block unready at its named page fires at the next
+   evaluation where it becomes ready, and never fires before that page.
+3. `repeat: 'once'` fires exactly once per run; a subsequent required-input change does
+   **not** re-fire it and does not alter the stored output.
+4. `repeat: 'always'` fires at every eligible evaluation even when the hash is unchanged.
+5. `trigger: 'runStart'` fires against inbound/prefill data at run creation with no page context.
+6. Recompute is invoked from all five call sites listed in the Preferred fix, and a clean
+   (unchanged) run through all of them performs **zero** sandbox executions — assert the count.
+7. A computed value produced during `submitPage` is visible to `evaluateNavigation` on that
+   same submit, so it can gate the next page's visibility.
+8. `triggerPageId` is required when `trigger === 'atPage'` and rejected otherwise, with a
+   validation error naming the field.
+9. New test `tests/integration/codeBlocks.firing.test.ts` asserts 1–7.
+10. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:integration` green.
+
+---
+
+## CB-4 — Dependency ordering: topological execution and cycle detection 🔲
+
+**Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockGraph.ts`
+
+### Finding
+
+Execution order is a hand-set integer. `transform_blocks.order` is
+`integer("order").notNull().default(0)` and `executeAllForPhase` runs blocks in that order,
+so if block B consumes block A's output the author must get the integers right by hand. When
+they don't, B reads A's **previous** output and lags one page submit behind — silent, and
+very hard to debug.
+
+With CB-1's append-only rule this is fully solvable statically: every variable has exactly
+one writer, so the block graph is a fixed DAG known at author time.
+
+### Preferred fix
+
+Build the graph from declared inputs/outputs (not by parsing code — CB-5 handles derivation)
+and topologically sort it. Within one evaluation pass, run blocks in topological order and
+**re-check the gates after each block writes**, so A firing makes B's hash change and B
+fires in the *same* pass rather than a page later.
+
+Detect cycles at **save time**, in the editor, not at runtime. Reject the save with an error
+naming the cycle (`support_total → net_income → support_total`). There is no runtime
+fixpoint iteration and no cycle-breaking heuristic — a saved workflow is acyclic by
+construction.
+
+The DB already helps: `steps_workflow_alias_unique` in `shared/schema/workflow.ts`
+
+```ts
+uniqueIndex("steps_workflow_alias_unique")
+    .on(table.workflowId, sql`lower(${table.alias})`)
+    .where(sql`${table.alias} IS NOT NULL AND ${table.alias} <> '' AND ${table.deletedAt} IS NULL`),
+```
+
+already makes two blocks declaring the same output alias impossible, which is what
+guarantees the one-writer-per-variable property the graph depends on. Rely on it; CB-7 turns
+its raw `23505` into a good message.
+
+### Ties
+
+- **Depends on CB-1, CB-2, CB-3.** Last ticket of Phase 1.
+- Load **`run-tests`**.
+- File footprint: `server/services/codeBlocks/CodeBlockGraph.ts` (new),
+  `server/services/codeBlocks/CodeBlockService.ts`, `server/services/StepService.ts`
+  (save-time validation).
+- Collides with: CB-1, CB-2, CB-3.
+
+### Vertical proof
+
+- **Path:** block A outputs `gross_total`; block B declares `gross_total` as input and
+  outputs `net_total`. One page submit that completes A's inputs must leave **both**
+  `gross_total` and `net_total` written, in one pass. Then a save attempt where B's output is
+  fed back as A's input → rejected with a cycle error, nothing persisted.
+- **Real, not mocked:** the DB hop and the real sandbox for both blocks.
+- **Cross-tenant denial:** graph construction is scoped to one workflow; assert a block in
+  tenant B's workflow never enters tenant A's graph.
+- **Suite:** `tests/integration/codeBlocks.graph.test.ts` (integration project, needs DB).
+
+### Acceptance criteria
+
+1. Chained blocks resolve in **one** evaluation pass — A's output is visible to B on the same
+   submit that completed A's inputs, not the next one.
+2. Execution order is derived topologically from declared inputs/outputs; the manual `order`
+   integer no longer decides it.
+3. A save creating a cycle is rejected with an error naming the variables in the cycle;
+   nothing is persisted.
+4. A three-deep chain (A→B→C) resolves in one pass.
+5. Two blocks declaring the same output alias are rejected — the test must prove the
+   rejection, not merely that one save succeeded.
+6. Independent blocks with no shared variables execute in a stable, deterministic order.
+7. New test `tests/integration/codeBlocks.graph.test.ts` asserts 1–6, and the cycle test
+   proves the save fails **without** the fix in place.
+8. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:integration` green.
+
+---
+
+## Phase 1 Gate
+
+- [ ] CB-1..4 all ✅ with dated verification notes
+- [ ] `npm run type-check` → 0 errors
+- [ ] `npm run lint` → clean
+- [ ] `npm run test:integration` → green (baseline count recorded, not lower)
+- [ ] `npm run test:fast` → green
+- [ ] **Live proof (batched):** drive the page-1/2/3 + review scenario against the running
+      app via the `verify` skill, and paste the `code_block_runs` rows showing the
+      `skipped_unready → fired → skipped_unchanged → fired` sequence.
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Phase 2 — Authoring guarantees: the AST pass
+
+Everything here reports **in the editor at save time**, never at runtime. All three tickets
+extend a traversal that already runs on every save, so none of them adds a runtime cost.
+
+## CB-5 — Derive inputs and outputs from the code 🔲
+
+**Priority: P1** · Size: M · File: `server/services/scripting/ASTValidator.ts`
+
+### Finding
+
+The variable picker inserts a reference into the code but does not register it as an input.
+`handleInsertVariable` in
+`client/src/components/builder/questions/js-question/JSCodeEditorSection.tsx`:
+
+```ts
+// Insert the variable path with "input." prefix
+const insertText = `input.${path}`;
+const newCode = currentCode.substring(0, start) + insertText + currentCode.substring(end);
+onChange({ code: newCode });
+```
+
+Nothing calls `onChange({ inputKeys: ... })`. Input keys are declared separately, in a
+comma-separated text field parsed with `value.split(',')`. Because `ScriptEngine` copies
+**only whitelisted keys**, picking a variable from the picker and forgetting to also type it
+into the inputs box yields a silent `undefined` at runtime — with CB-2 in place it instead
+yields a block that waits forever on an input it was never told about.
+
+### Preferred fix
+
+`ASTValidator` already walks the syntax tree on every save. Add two collectors to that
+existing traversal:
+
+- **Inputs** — every `input.X` member expression. This becomes the declared input list.
+- **Outputs** — the keys of the object literal passed to `emit({ ... })`.
+
+Present the derived lists in the editor as **populated but editable**: the author watches
+them fill in, can flip an input to optional, can set an output's declared type, and can
+hand-add a key the parser could not see. Auto-derive, do not auto-decide.
+
+**Name the boundary honestly.** Dynamic access — `input[someKey]`, or `emit(obj)` where
+`obj` is not an object literal — cannot be derived statically. Detect that case and surface
+a warning telling the author to declare those keys manually, then get out of the way. Do
+**not** guess, and do **not** block the save.
+
+### Ties
+
+- **Depends on Phase 1** (the config shape must exist). **Blocks CB-6** (same traversal).
+- Load **`run-tests`**.
+- File footprint: `server/services/scripting/ASTValidator.ts`,
+  `server/services/scripting/ScriptEngine.ts` (expose derivation results on `validate()`),
+  `client/src/components/builder/questions/js-question/JSCodeEditorSection.tsx`.
+- Collides with: CB-6 (same file), CB-8 (same editor component).
+
+### Vertical proof
+
+- **Path:** author saves a block whose code reads `input.income_a` and calls
+  `emit({ support_total })` → `ScriptEngine.validate()` returns the derived lists → the step
+  API persists `inputs: [{key:'income_a',...}]` and `outputs: [{key:'support_total',...}]` →
+  reopening the editor shows both, populated and editable.
+- **Real, not mocked:** the AST traversal itself and the persistence hop. A test that stubs
+  `ASTValidator` proves the stub works — this ticket *is* the validator change.
+- **Cross-tenant denial:** validation is pure and tenant-free, but the save it feeds is not —
+  assert saving the derived config against tenant B's workflow is refused.
+- **Suite:** `tests/unit/services/scripting/astDerivation.test.ts` (derivation) plus
+  `tests/integration/codeBlocks.derivation.test.ts` (persist + reload round trip, needs DB).
+
+### Acceptance criteria
+
+1. Saving code containing `input.a` and `input.b` derives exactly `['a','b']` as inputs.
+2. `emit({ x: 1, y: 2 })` derives exactly `['x','y']` as outputs.
+3. Derived lists are returned from `ScriptEngine.validate()` and rendered in the editor as
+   editable fields, not read-only text.
+4. An author-added input the parser did not find survives a re-save and is not overwritten
+   by derivation.
+5. `input[someKey]` produces a named dynamic-access warning, does **not** block the save, and
+   does not silently produce an empty input list.
+6. `emit(someVariable)` (non-literal) produces the same warning for outputs.
+7. Nested member access (`input.a.b.c`) derives the top-level key `a` only.
+8. New test `tests/unit/services/scripting/astDerivation.test.ts` asserts 1–7.
+9. New test `tests/integration/codeBlocks.derivation.test.ts` proves the Vertical proof
+   round trip: derived lists persist and reload unchanged, with the DB hop real.
+10. `npm run type-check` 0 errors · `npm run lint` clean · `test:fast` + `test:integration` green.
+
+---
+
+## CB-6 — Impure helper detection forces `once` or `always` 🔲
+
+**Priority: P1** · Size: S · File: `server/services/scripting/ASTValidator.ts`
+
+### Finding
+
+The change gate assumes a block is a **pure function of its declared inputs**. Three helpers
+in `server/services/scripting/HelperLibrary.ts` break that assumption:
+
+```ts
+now: (): string => {
+  return new Date().toISOString();
+},
+random: (min: number = 0, max: number = 1): number => {
+  return Math.random() * (max - min) + min;
+},
+randomInt: (min: number, max: number): number => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+},
+```
+
+A block calling any of these under `repeat: 'onChange'` is skipped whenever its declared
+inputs are unchanged, even though its result would differ — so the value silently goes
+stale. The same applies to any block reading external state (DataVault via helpers): the
+underlying data moves, the declared inputs don't, the hash doesn't change, the block never
+re-runs.
+
+### Preferred fix
+
+Add one more visitor case to CB-5's traversal: flag calls to the known-impure helper set
+(`now`, `random`, `randomInt`, plus any helper that reads external state — enumerate them in
+one exported constant next to the helper library so the list cannot drift silently).
+
+When a block is impure, **refuse to save it on `repeat: 'onChange'`** with an error
+explaining the choice: `once` (compute and freeze — right for ids and timestamps) or
+`always` (recompute every evaluation — right for external reads). This is deliberately a
+hard save-time error rather than a warning: the failure it prevents is silent and shows up
+in a generated document, not on screen.
+
+### Ties
+
+- **Depends on CB-5** (same traversal) and CB-3 (the `repeat` field must exist).
+- Load **`run-tests`**.
+- File footprint: `server/services/scripting/ASTValidator.ts`,
+  `server/services/scripting/HelperLibrary.ts` (export the impure-helper constant),
+  `server/services/StepService.ts` (save-time rejection).
+- Collides with: CB-5 (same file).
+
+### Acceptance criteria
+
+1. A block calling `now()`, `random()` or `randomInt()` is detected as impure.
+2. Saving an impure block with `repeat: 'onChange'` is rejected with an error naming the
+   offending helper and the two valid choices.
+3. The same block saves successfully with `repeat: 'once'` or `repeat: 'always'`.
+4. A pure block is unaffected and saves on any `repeat` value.
+5. The impure-helper list is a single exported constant colocated with `HelperLibrary`, and a
+   test asserts every name in it resolves to a real helper (so the list cannot rot).
+6. Detection survives aliasing through the helpers object (e.g. `helpers.now()` and a
+   destructured `const { now } = helpers`).
+7. New test `tests/unit/services/scripting/impureHelpers.test.ts` asserts 1–6.
+8. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:fast` green.
+
+---
+
+## CB-7 — Append-only enforcement: good collision errors, retire `mutationMode` 🔲
+
+**Priority: P1** · Size: M · File: `server/services/StepService.ts`
+
+### Finding
+
+Two halves of the append-only rule are unenforced at the surface.
+
+**(a) Collisions surface as a raw Postgres error.** The invariant itself is already
+guaranteed — `steps_workflow_alias_unique` in `shared/schema/workflow.ts` is case-insensitive
+and scoped to non-deleted steps — but a violation arrives as a Drizzle-wrapped `23505`. Note
+the repo's own gotcha: a constraint violation arrives as `DrizzleQueryError` with `.code`
+undefined; the code is on `err.cause.code`.
+
+**(b) `mutationMode` contradicts the rule outright.** `lifecycle_hooks` carries:
+
+```ts
+mutationMode: boolean("mutation_mode").default(false),
+```
+
+which lets a hook overwrite existing values — precisely the thing append-only outlaws. Left
+in place it is a second writer for variables that are supposed to have exactly one, which
+silently invalidates the static dependency graph CB-4 depends on.
+
+### Preferred fix
+
+**(a)** Catch the unique violation at the service layer and convert it to a named error:
+which alias collided, and what already owns it (another block's output, or a question). Read
+`err.cause.code === '23505'` (the unique-violation code), not `err.code` — Drizzle wraps it. Also validate before the write so
+the common case is a clean message rather than a caught exception: a block's declared outputs
+may not collide with any existing step alias in the workflow, including another block's.
+
+**(b)** Retire `mutationMode`: remove the column (migration, load **`db-schema-change`**),
+remove the branch in `LifecycleHookService`, and confirm no stored hook depends on it. The
+repo's DBs hold only test data (confirmed with the repo owner 2026-09-04), so this is a
+removal, not a migration of live rows — but verify against the dev branch before dropping.
+
+### Ties
+
+- **Depends on Phase 1.** Independent of CB-5/CB-6 — **dispatch in parallel with them.**
+- Load **`db-schema-change`** (column drop) and **`run-tests`**.
+- File footprint: `server/services/StepService.ts`,
+  `server/services/scripting/LifecycleHookService.ts`, `shared/schema/workflow.ts`,
+  `migrations/0044_*.sql`.
+- Collides with: nothing in Phase 2 (different files from CB-5/CB-6).
+
+### Vertical proof
+
+- **Path:** save block A with output `total` → succeeds. Save block B also declaring `total`
+  → rejected with a message naming `total` and identifying block A as the owner; no `steps`
+  row written for B's output. Then a question aliased `total` → same rejection.
+- **Real, not mocked:** the DB hop. The unique index is the thing under test; mocking the
+  repository voids this proof.
+- **Cross-tenant denial:** an alias used in tenant B's workflow does **not** collide in
+  tenant A's — the index is scoped by `workflowId`; assert both workflows can use `total`.
+- **Suite:** `tests/integration/codeBlocks.aliasCollision.test.ts` (integration, needs DB).
+
+### Acceptance criteria
+
+1. Two blocks declaring the same output alias: the second is rejected with an error naming
+   the alias and its current owner — not a raw `23505` and not a 500.
+2. A block output colliding with an existing question's alias is rejected the same way.
+3. Collision detection is case-insensitive, matching the index's `lower(alias)`.
+4. A soft-deleted step's alias is reusable immediately (the index's `deleted_at IS NULL` scope).
+5. The same alias in two *different* workflows does not collide.
+6. `mutationMode` is gone: column dropped by migration, no references remain in
+   `server/` or `shared/` (grep clean), and `LifecycleHookService` no longer branches on it.
+7. New test `tests/integration/codeBlocks.aliasCollision.test.ts` asserts 1–5, and proves the
+   rejection path fails **without** the fix (raw error) to show the test is not vacuous.
+8. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:integration` green.
+
+---
+
+## Phase 2 Gate
+
+- [ ] CB-5, CB-6, CB-7 all ✅ with dated verification notes
+- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
+- [ ] `npm run test:fast` and `npm run test:integration` → green
+- [ ] `grep -rn "mutationMode" server/ shared/` → no results
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Phase 3 — Surfaces: editor and inspector
+
+**CB-8 and CB-9 have disjoint footprints — dispatch them in parallel**, each in its own
+worktree (`pwsh scripts/new-worktree.ps1 -Name cb-8`). Both are UI tickets: **load the
+`design` skill** before touching anything visual, per the repo owner's global instruction.
+Only one may run DB-backed suites at a time.
+
+## CB-8 — Monaco code editor modal 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/blocks/js-editor/JSCodeEditor.tsx`
+
+### Finding
+
+The code editor is a plain textarea. `JSCodeEditor` renders:
+
+```tsx
+<Textarea
+    ref={textareaRef}
+    value={code}
+    onChange={(e) => onChange(e.target.value)}
+    placeholder="// Example:\n// return { fullName: input.firstName + ' ' + input.lastName };..."
+    className="font-mono text-sm h-64 resize-none"
+/>
+```
+
+No syntax highlighting, no bracket matching, no error gutter, no autocomplete. Meanwhile
+**`monaco-editor` and `@monaco-editor/react` are both already in `package.json`**, and
+`grep -rn "@monaco-editor/react" client/src` returns **zero** results. The dependency is paid
+for and entirely unused. Note also the placeholder is wrong — it shows `return {...}` while
+the runtime requires `emit(...)`.
+
+### Preferred fix
+
+Replace the textarea with Monaco in a proper editing modal. Load the **`design`** skill first.
+
+The modal is the authoring surface the whole initiative points at, so it carries:
+
+- Monaco, JS mode, dark/light following the app theme.
+- The **inputs** panel — CB-5's derived list, editable, each row with a required/optional toggle.
+- The **outputs** panel — CB-5's derived list, editable, each row with a declared type dropdown.
+- The **firing** controls — CB-3's two dropdowns (trigger, repeat), with `triggerPageId` shown
+  only for `atPage`.
+- A **test** panel backed by a **new** `POST /api/steps/:stepId/code-block/test` endpoint,
+  seeded with last-run data where available. Use `POST /api/transform-blocks/:blockId/test`
+  in `server/routes/transformBlocks.routes.ts` as the donor pattern — same `hybridAuth` +
+  `testLimiter` (10/min) shape — but write a new route: CB-10 deletes the transform one.
+  Load the **`add-api-endpoint`** skill for the route/service/repository split and the
+  error-string contract.
+- Save-time errors from CB-5/CB-6/CB-7 rendered inline against the offending field, not as a
+  toast: the cycle error, the impure-helper rejection, the alias collision, the dynamic-access
+  warning.
+
+Fix the placeholder to use `emit()`. Delete `JSCodeEditor`'s textarea path rather than leaving
+it behind a flag.
+
+### Ties
+
+- **Depends on Phase 1 + Phase 2** (it renders their config and their errors).
+- **Parallel with CB-9** — disjoint files.
+- Load the **`design`** skill (mandatory for UI work), **`add-api-endpoint`** (new test
+  route), and **`run-tests`**.
+- File footprint: `server/routes/codeBlocks.routes.ts` (new),
+  `client/src/components/blocks/js-editor/*`,
+  `client/src/components/builder/questions/js-question/*`,
+  `client/src/components/builder/questions/JSQuestionEditor.tsx`.
+- Collides with: CB-5 (touches `JSCodeEditorSection.tsx` — CB-5 lands first).
+
+### Vertical proof
+
+- **Path:** open the modal on a saved Code Block → type code → the test panel POSTs to
+  `POST /api/steps/:stepId/code-block/test` → the real `ScriptEngine` executes it → the
+  emitted object renders in the panel. Then save a block whose code creates a cycle → the
+  CB-4 error renders inline against the outputs field, and nothing persists.
+- **Real, not mocked:** the new route and the sandbox execution behind it. Stubbing the
+  endpoint proves only that the panel renders a fixture.
+- **Cross-tenant denial:** the test endpoint called with a step id in tenant B's workflow →
+  404, no execution performed.
+- **Suite:** `tests/integration/codeBlocks.testEndpoint.test.ts` (route + sandbox + denial)
+  and `tests/unit/client/codeBlockEditor.test.tsx` (render).
+
+### Acceptance criteria
+
+1. Monaco replaces the textarea; `@monaco-editor/react` is imported and the old textarea path
+   is deleted, not disabled.
+2. The editor follows the app's light/dark theme.
+3. Inputs panel lists CB-5's derived keys, each with a working required/optional toggle that
+   persists.
+4. Outputs panel lists CB-5's derived keys, each with a working type dropdown that persists.
+5. Trigger and repeat dropdowns persist; `triggerPageId` appears only for `atPage` and is
+   required there.
+6. The test panel executes the block against sample data via the new
+   `POST /api/steps/:stepId/code-block/test` endpoint and shows the emitted object or the
+   error; the endpoint is rate-limited and refuses a step in another tenant.
+7. Save-time errors from CB-5, CB-6 and CB-7 render inline against the relevant field.
+8. The placeholder/example code uses `emit(...)`, not `return {...}`.
+9. New tests: `tests/unit/client/codeBlockEditor.test.tsx` asserts 3–5 and 7;
+   `tests/integration/codeBlocks.testEndpoint.test.ts` asserts 6 including the cross-tenant
+   denial, with the sandbox hop real.
+10. **Live proof required:** screenshots of the modal in light and dark, showing a derived
+    input list and one inline save error. "It should work" is not evidence.
+11. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:fast` green.
+
+---
+
+## CB-9 — Preview variable inspector 🔲
+
+**Priority: P1** · Size: M · File: `client/src/components/preview/DevToolbar.tsx`
+
+### Finding
+
+There is no way to see the current key/value state while testing a workflow. `DevToolbar`'s
+only data hook is snapshots:
+
+```tsx
+const { data: snapshots } = useSnapshots(workflowId);
+```
+
+No variable panel exists anywhere in `client/src/components/preview/`. This is the piece that
+makes "leave the power to the dev" viable — without it, a block that silently skipped is
+indistinguishable from one that ran and produced nothing.
+
+The data is already in memory. `PreviewRunner` holds a `PreviewEnvironment` with values keyed
+by step id plus an `aliasResolver`, and server-side `RunDataService.fromStepIdData` already
+returns `byStepId`, `byAlias` and per-step metadata (`id`, `alias`, `type`, `pageId`,
+`isVirtual`). This is a render job, not plumbing.
+
+### Preferred fix
+
+Add a variables panel to the preview dev tools. Load the **`design`** skill first.
+
+Each row shows: **alias · current value · declared type · source**, where source is
+`question` / `code block` / `inbound`. Reuse the existing icon/type conventions in
+`client/src/components/builder/variables/utils.tsx` rather than inventing new ones, and the
+existing filter/search shape in `VariablesInspector` and `useFilteredVariables`.
+
+For rows produced by a Code Block, additionally show the block's state from CB-2's
+`code_block_runs` row: **fired** · **waiting on `<pending_inputs>`** · **skipped, unchanged**
+· **errored: `<message>`**. That readout is the entire debugging payoff of the change gate —
+it turns "why didn't my block run" into a line of text.
+
+Values update live as the preview run progresses.
+
+### Ties
+
+- **Depends on CB-2** (reads `code_block_runs.status` and `pending_inputs`).
+- **Parallel with CB-8** — disjoint files.
+- Load the **`design`** skill (mandatory for UI work) and **`run-tests`**.
+- Donor patterns: `client/src/components/builder/VariablesInspector.tsx`,
+  `client/src/components/builder/variables/useFilteredVariables.ts`,
+  `client/src/components/builder/variables/utils.tsx`.
+- File footprint: `client/src/components/preview/DevToolbar.tsx`,
+  `client/src/components/preview/PreviewRunner.tsx`,
+  `client/src/components/preview/variables/*` (new).
+- Collides with: nothing in Phase 3.
+
+### Vertical proof
+
+- **Path:** run the owner's page-1/2/3 scenario in preview. After page 1, the panel shows the
+  computed variable as *waiting on `num_children`*. After page 2, it shows the fired value.
+  After page 3, it shows *skipped, unchanged*. The states come from real `code_block_runs`
+  rows, not client-side inference.
+- **Real, not mocked:** the API hop that surfaces `code_block_runs`. Inferring state on the
+  client voids this proof — the point is to show what the server actually did.
+- **Cross-tenant denial:** the endpoint serving block state refuses a run in another tenant.
+- **Suite:** `tests/integration/codeBlocks.inspector.test.ts` for the endpoint;
+  `tests/unit/client/previewVariables.test.tsx` for the render.
+
+### Acceptance criteria
+
+1. The preview dev tools show a variables panel listing every variable with alias, current
+   value, declared type, and source.
+2. Code Block outputs additionally show block state: fired / waiting on named inputs /
+   skipped-unchanged / errored with message.
+3. Block state is read from `code_block_runs` via an API, not inferred client-side.
+4. Values and states update live as the preview run advances.
+5. Search/filter works, following the existing `useFilteredVariables` shape.
+6. Virtual (computed) steps are visually distinguished from answered questions.
+7. New tests: `tests/integration/codeBlocks.inspector.test.ts` (endpoint + cross-tenant denial)
+   and `tests/unit/client/previewVariables.test.tsx` (render of 1, 2, 6).
+8. **Live proof required:** screenshot of the panel mid-run showing a *waiting on* state and,
+   after the next submit, the same variable *fired*.
+9. `npm run type-check` 0 errors · `npm run lint` clean · `test:fast` + `test:integration` green.
+
+---
+
+## Phase 3 Gate
+
+- [ ] CB-8, CB-9 both ✅ with dated verification notes
+- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
+- [ ] `test:fast` + `test:integration` → green
+- [ ] **Live proof (batched):** one drive-through of the running app authoring a 2-block
+      chained workflow in the new modal and watching both resolve in the inspector.
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Phase 4 — Cleanup: retire old surfaces, Python parity
+
+**CB-10 and CB-11 have disjoint footprints — dispatch in parallel.**
+
+## CB-10 — Retire `transform_blocks` and the dead transform UI 🔲
+
+**Priority: P2** · Size: M · File: `server/services/TransformBlockService.ts`
+
+### Finding
+
+`transform_blocks` is the middle child of three implementations of one idea, and once
+Phases 1–3 land it duplicates the Code Step entirely while offering strictly less (single
+output, manual ordering, no gates). Alongside it sits a set of UI components that are
+already unreferenced — `grep` for each returns no importer outside its own file:
+
+- `client/src/components/builder/TransformBlocksPanel.tsx`
+- `client/src/components/builder/transforms/TransformBlockEditorDialog.tsx`
+- `client/src/components/builder/transforms/TransformBlockForm.tsx`
+- `client/src/components/builder/TransformSummary.tsx`
+
+(The *live* transform path is `PageCanvas` → `BlockEditorDialog` →
+`client/src/components/builder/forms/TransformBlockForm.tsx` — a different file from the dead
+`transforms/TransformBlockForm.tsx`. Do not confuse them.)
+
+The repo owner confirmed on 2026-09-04 that all databases hold only test data, so this is a
+deletion, not a data migration.
+
+⚠️ **`STB-B8` explicitly warns against deleting `server/services/scripting/`** — commit
+`fbe212fa` over-removed feature routes on exactly this kind of inference and admin plus
+marketplace had to be restored. `scripting/` is the engine this initiative is built on and
+**stays**. Only `transform_blocks` and the dead transform UI go.
+
+### Preferred fix
+
+Remove, in one ticket: the `transform_blocks` and `transform_block_runs` tables (migration —
+load **`db-schema-change`**), `TransformBlockService`, `TransformBlockRepository`,
+`transformBlocks.routes.ts` and its registration in `server/routes/index.ts`, the transform
+branch of `BlockRunner`, the four dead UI files above, the live
+`forms/TransformBlockForm.tsx` + its `BlockTypeSelector` "Code Transform" mode, and
+`useTransformBlocks`.
+
+Keep `AdvancedTransformUI` — it is used by `ListToolsTransform`, which is unrelated.
+
+**Verify before deleting, do not infer.** For each file, `grep` for its importers and paste
+the result in the turn-in. Anything with a live importer stays and is reported as a blocker.
+
+### Ties
+
+- **Depends on Phases 1–3** being ✅ — the replacement must exist first.
+- **Parallel with CB-11** — disjoint files.
+- Load **`db-schema-change`** and **`run-tests`**.
+- File footprint: `server/services/TransformBlockService.ts`,
+  `server/repositories/TransformBlockRepository.ts`, `server/routes/transformBlocks.routes.ts`,
+  `server/routes/index.ts`, `server/services/BlockRunner.ts`, `shared/schema/workflow.ts`,
+  `shared/schema/run.ts`, `shared/schema/relations.ts`, `migrations/0045_*.sql`,
+  the five client files above.
+- Collides with: nothing in Phase 4.
+
+### Vertical proof
+
+- **Path:** after the removal, a workflow that uses Code Blocks still runs end to end —
+  create run → submit pages → blocks fire → outputs reach `RunDataService.byAlias` →
+  a document renders with a computed value in it. Nothing in that path may reference
+  `transform_blocks`.
+- **Real, not mocked:** the DB (the dropped tables must genuinely be gone and the run must
+  still work), the sandbox, and the document renderer. This is a deletion ticket, so the
+  proof is that the *replacement* path is intact — not that the deletion compiled.
+- **Cross-tenant denial:** unchanged from CB-2; assert it still holds after the route removal.
+- **Suite:** `tests/integration/codeBlocks.afterTransformRemoval.test.ts` (integration, needs DB).
+
+### Acceptance criteria
+
+1. `transform_blocks` and `transform_block_runs` are dropped by migration; `npm run db:migrate`
+   applies cleanly.
+2. `grep -rn "transformBlock" server/ shared/ client/src/` returns no results except
+   `AdvancedTransformUI`'s unrelated list-tools usage.
+3. `server/services/scripting/` is **untouched** — `git diff --stat` shows no changes under it.
+4. `AdvancedTransformUI` and `ListToolsTransform` still work; their tests still pass.
+5. The builder no longer offers a "Code Transform" block category; the Code Block step is the
+   only code surface.
+6. Every deletion is justified by a pasted `grep` showing no live importer.
+7. New test `tests/integration/codeBlocks.afterTransformRemoval.test.ts` walks the Vertical
+   proof path — run → Code Block fires → computed value reaches a rendered document — with
+   the DB, sandbox and renderer hops real.
+8. Existing suites green with no test count decrease — state the arithmetic. Tests that
+   existed **only** to cover deleted transform-block code may be removed; name each one and
+   why, and prove no Code Block behavior lost coverage.
+9. `npm run type-check` 0 errors · `npm run lint` clean · `test:fast` + `test:integration` green.
+
+---
+
+## CB-11 — Python: fix runtime availability, then expose the language switch 🔲
+
+**Priority: P1** · Size: S · File: `Dockerfile`
+
+### Finding
+
+**Python transform code cannot run in production today.** The `Dockerfile` installs `python3`
+in the *builder* stage only, for native module compilation:
+
+```dockerfile
+# Install python/make/g++ for potential native module builds (bcrypt, isolated-vm).
+RUN apt-get update && apt-get install -y python3 make g++ unzip
+```
+
+The runtime stage starts fresh from `node:24-bookworm-slim` and installs only `qpdf`:
+
+```dockerfile
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends qpdf \
+```
+
+`enhancedSandboxExecutor` executes Python via `spawn(PYTHON_EXECUTABLE, ["-c", pythonWrapper])`
+where `PYTHON_EXECUTABLE` resolves to `python3` on Linux — so it `ENOENT`s in the deployed
+image. **No test in this repo can catch this**; it is a Dockerfile gap, and the repo's own
+`runtime-cwd-files-vs-docker-stage` lesson is exactly this class of bug.
+
+### Preferred fix
+
+Add `python3` to the **runtime** stage's `apt-get install` line. Then, and only then, expose
+the JS/Python switch on the Code Block editor, reusing the existing
+`transformBlockLanguageEnum` values (`javascript` | `python`) that the executor already
+handles on both paths.
+
+Add a startup readiness probe alongside the existing `isolated-vm` build-time check —
+`/health` already reports `db` and `pdfConverter`; add `pythonSandbox` so a missing
+interpreter is visible in production rather than discovered by a failing run.
+
+### Ties
+
+- **Depends on Phase 1** (the config must carry `language`). **Parallel with CB-10.**
+- Load **`run-tests`**. Deployment context: see the repo owner's Railway notes — the image is
+  what ships, and `npm run build` locally proves nothing about it.
+- File footprint: `Dockerfile`, `server/routes/health.ts` (note: `health.ts`, not `health.routes.ts`),
+  `shared/types/steps.ts` (language field),
+  `client/src/components/blocks/js-editor/*` (the switch).
+- Collides with: CB-8 if both edit the editor — CB-8 lands first; add the switch to CB-8's modal.
+
+### Vertical proof
+
+- **Path:** build the production image, run it, and execute a Python Code Block end to end →
+  emitted value lands in `step_values`. `/health` reports `pythonSandbox: ok`.
+- **Real, not mocked:** the built Docker image. Running Python on the dev machine proves
+  nothing — the whole finding is that the *image* lacks the interpreter.
+- **Cross-tenant denial:** inherited from CB-2; no new surface.
+- **Suite:** manual/live against a locally built production image; capture the command and output.
+
+### Acceptance criteria
+
+1. `python3` is present in the runtime stage of the built image — proven by
+   `docker run --rm <image> python3 --version`, output pasted.
+2. A Python Code Block executes successfully inside the built production image and writes its
+   output to `step_values`.
+3. `/health` reports a `pythonSandbox` readiness field.
+4. The editor exposes a JS/Python switch that persists `language` on the config.
+5. An existing JavaScript block is unaffected by the switch's introduction.
+6. New test asserting the health endpoint reports the python field
+   (`tests/integration/health.test.ts` or the existing health test file).
+7. **Live proof required** for 1 and 2 — this touches an external runtime no test can prove.
+8. `npm run type-check` 0 errors · `npm run lint` clean · `test:fast` green.
+
+---
+
+## Phase 4 Gate
+
+- [ ] CB-10, CB-11 both ✅ with dated verification notes
+- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
+- [ ] `test:fast` + `test:integration` → green, count not lower than the Phase 3 baseline
+- [ ] `server/services/scripting/` untouched across the whole initiative
+- [ ] **Live proof:** a Python Code Block running in a locally built production image
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
+# Backlog / observations
+
+Not phase-gated. Promote to a ticket only if it earns dispatch in this initiative.
+
+### CB-B1 — `js_question` `display: "visible"` never had a renderer
+**Tag:** `informational`. Resolved by CB-1 deleting the field. Recorded here because the
+config advertised a visible mode for the life of the feature and nothing in
+`client/src/components/runner/` ever handled `js_question` or `computed`. If a *visible*
+computed display is ever wanted, it is a new feature with a new renderer, not a revival.
+
+### CB-B2 — Timeout ceiling is 100–3000ms
+**Tag:** `product-decision`. `TransformBlockService.createBlock` enforces
+`"Timeout must be between 100ms and 3000ms"`. Child-support-scale arithmetic is far inside
+this, so nothing is blocked today. Revisit only if a real block hits the ceiling — raising it
+holds a request open longer, and the repo owner should make that call against a real case.
+
+### CB-B3 — External-state reads have no declared dependency
+**Tag:** `needs-initiative`. CB-6 forces `always` for impure blocks, which is correct but
+blunt: a block reading DataVault re-runs at every evaluation rather than when the underlying
+row changes. A finer model would let a block declare an external dependency that participates
+in the hash. Only worth building if `always` proves too expensive in practice.
+
+### CB-B4 — `emit()` may still only be called once
+**Tag:** `informational`. Both engines enforce single-emit — the Python wrapper raises
+`"emit() can only be called once"` and the JS path keeps a single `emittedValue`. With CB-1's
+object-shaped multi-output this is the right constraint (one object, many keys) and needs no
+change. Noted so nobody "fixes" it into multi-emit and reintroduces ordering ambiguity.

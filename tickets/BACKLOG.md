@@ -92,7 +92,7 @@ IDs are stable, heading anchors are not.
 |---|---|---|---|
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
-| STB-B8 | `needs-initiative` | Sandboxed JS/Python transforms, parked for rebuild. ⚠️ **`server/services/scripting/` is dormant, not dead — do not delete it** | `backlog/STEP_TOOLBOX.md` |
+| ~~STB-B8~~ | 🔄 **promoted 2026-09-04** | Sandboxed JS/Python transforms — now the **Code Blocks (CB)** initiative, `tickets/CODE_BLOCKS_TICKETS.md`. ⚠️ **`server/services/scripting/` is dormant, not dead — do not delete it**; CB builds on it and CB-10 asserts it is untouched | `backlog/STEP_TOOLBOX.md` |
 | STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |
 | STB-B11 | `informational` | Backfilled version checksums cause one spurious draft version per converted workflow. Inherent to rewriting jsonb | `backlog/STEP_TOOLBOX.md` |
 | STB-B12 | `informational` | Pre-`pages` `blocks[]` version graphs are counted, not converted — all empty today; `--audit` fails if one is ever populated | `backlog/STEP_TOOLBOX.md` |
