@@ -35,11 +35,12 @@ class AnalyticsService {
         try {
             // Basic validation
             const data = eventSchema.parse(input);
-            // Skip storing preview events (non-UUID versions other than 'draft') in database
-            // We allow 'draft' for runs initiated from a workflow without a published version
+            // Events for runs with no published version (versionId 'draft', or any other
+            // non-UUID sentinel) cannot be stored: version_id is a non-null uuid FK to
+            // workflow_versions.id, so there is no row for them to reference.
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.versionId);
-            if (data.isPreview || (!isUuid && data.versionId !== 'draft')) {
-                logger.debug({ event: data }, "Skipping preview/invalid analytics event");
+            if (data.isPreview || !isUuid) {
+                logger.debug({ event: data }, "Skipping preview/unversioned analytics event");
                 return;
             }
             // Redaction logic can be added here

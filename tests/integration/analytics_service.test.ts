@@ -1,9 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 
 import { workflowRunEvents, workflowRunMetrics, projects, workflows, workflowVersions, users, tenants } from "@shared/schema";
 
+import logger from "../../server/logger";
+import { analyticsService } from "../../server/services/analytics/AnalyticsService";
 import { runService } from "../../server/services/RunService";
 import { createGraphWorkflow } from "../factories/graphFactory";
 // RLS-5: fixture setup and verification reads are the OBSERVER, not the
@@ -119,5 +121,70 @@ describe("Analytics Service Integration", () => {
         const metrics = await getOwnerDb().select().from(workflowRunMetrics).where(eq(workflowRunMetrics.runId, runId));
         expect(metrics.length).toBe(1);
         expect(metrics[0].completed).toBe(true);
+    });
+
+    // AN-1: `versionId: 'draft'` (the explicit "no pinned version" sentinel
+    // used by BlockRunner/RunCompletionService/RunLifecycleService) used to be
+    // the one non-UUID value recordEvent's guard let through -- straight into
+    // a NOT NULL uuid FK insert that always throws and is silently swallowed.
+    it("AN-1: does not attempt a database insert for a non-UUID versionId such as 'draft'", async () => {
+        enterTenantContextForTests(tenantId);
+        const errorSpy = vi.spyOn(logger, "error");
+        try {
+            await analyticsService.recordEvent({
+                runId: `run-${nanoid()}`,
+                workflowId: workflow.id,
+                versionId: "draft",
+                type: `test.an1-draft-${nanoid()}`,
+                isPreview: false,
+            });
+            // A row-count check of 0 here would pass both before and after the
+            // fix (pre-fix the insert is attempted and throws on the uuid
+            // cast). What actually distinguishes "no insert attempted" from
+            // "insert attempted and failed" is that a failed attempt is
+            // caught by recordEvent's own try/catch and logged as
+            // "Failed to record analytics event" -- assert that did NOT fire.
+            expect(errorSpy).not.toHaveBeenCalled();
+        } finally {
+            errorSpy.mockRestore();
+        }
+    });
+
+    it("AN-1: still inserts exactly one row when versionId is a real UUID (unchanged behavior)", async () => {
+        enterTenantContextForTests(tenantId);
+        const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
+        const marker = `test.an1-real-uuid-${nanoid()}`;
+
+        await analyticsService.recordEvent({
+            runId: run.id,
+            workflowId: workflow.id,
+            versionId: workflow.currentVersionId,
+            type: marker,
+            isPreview: false,
+        });
+
+        const rows = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.type, marker));
+        expect(rows).toHaveLength(1);
+    });
+
+    it("AN-1: still skips silently when isPreview is true (unchanged behavior)", async () => {
+        enterTenantContextForTests(tenantId);
+        const marker = `test.an1-preview-${nanoid()}`;
+        const errorSpy = vi.spyOn(logger, "error");
+        try {
+            await analyticsService.recordEvent({
+                runId: `run-${nanoid()}`,
+                workflowId: workflow.id,
+                versionId: workflow.currentVersionId,
+                type: marker,
+                isPreview: true,
+            });
+            expect(errorSpy).not.toHaveBeenCalled();
+        } finally {
+            errorSpy.mockRestore();
+        }
+
+        const rows = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.type, marker));
+        expect(rows).toHaveLength(0);
     });
 });
