@@ -422,12 +422,30 @@ export const LegacyDateTimeConfigSchema = z.object({
 // ============================================================================
 
 export const JsQuestionConfigSchema = z.object({
-  display: z.enum(['visible', 'hidden']),
   code: z.string(),
-  inputKeys: z.array(z.string()),
-  outputKey: z.string(),
+  inputs: z.array(z.object({
+    key: z.string().min(1),
+    required: z.boolean(),
+  })),
+  outputs: z.array(z.object({
+    key: z.string().min(1),
+    type: z.enum(['string', 'number', 'boolean', 'date', 'object', 'list']),
+    description: z.string().optional(),
+  })).min(1).superRefine((outputs, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, output] of outputs.entries()) {
+      const normalized = output.key.toLowerCase();
+      if (seen.has(normalized)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index, 'key'],
+          message: `Duplicate output key "${output.key}"`,
+        });
+      }
+      seen.add(normalized);
+    }
+  }),
   timeoutMs: z.number().int().min(100).max(30000).optional(),
-  helpText: z.string().optional(),
 });
 
 export const ComputedStepConfigSchema = z.object({

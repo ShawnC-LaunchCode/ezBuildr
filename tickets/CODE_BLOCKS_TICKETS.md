@@ -90,7 +90,26 @@ deleting `transform_blocks` (Phase 4).
 footprint: `shared/types/steps.ts`, `server/services/codeBlocks/*`,
 `server/services/runs/RunExecutionCoordinator.ts`.
 
-## CB-1 — Code Block config: multi-output and one virtual step per output 🔄
+## CB-1 — Code Block config: multi-output and one virtual step per output ✅
+
+> **Verified 2026-09-04 (reviewer).** All 8 criteria checked against the tree, not the
+> turn-in report. Gates re-run by the reviewer in the worktree after a reviewer edit:
+> `type-check` 0 errors (with `node_modules/typescript/tsbuildinfo` cleared first) ·
+> `lint` clean (`--max-warnings 0`, repo-wide) · `check:strict-zones` 6 zones / 11 files
+> PASSED · `test:fast` **3718 / 330 files** (baseline, 0 added) · `test:integration`
+> **140 files, 1289 passed | 3 skipped** (baseline 1284 + 5 new).
+>
+> The AC-3 seam holds for real: `step_values` row count asserted directly (3), each value
+> asserted per virtual step id, and `byAlias` asserted by **value** plus explicit
+> `not.toBeNull()` — so the TPL-10 null seed cannot fake it. The error case asserts the
+> complementary shape (`{alpha: null, count: null, enabled: null}` with **zero** rows),
+> which is Decisions §5 proven at the database rather than at the type level.
+>
+> **Reviewer edit:** the cross-tenant assertion was tightened from
+> `expect([403, 404]).toContain(...)` to `expect(denied.status).toBe(403)` — a status set
+> would let a future change to the denial path pass silently. See the corrected Vertical
+> proof clause below for why 403, not 404, is right; the dev correctly refused to widen
+> scope into shared route authorization to satisfy the original wording.
 
 **Priority: P1** · Size: M · File: `shared/types/steps.ts`
 
@@ -197,8 +216,16 @@ one-element `outputs` array, in the spirit of `LEGACY_STEP_ADAPTERS` in
   3 `step_values` rows → `RunDataService.buildForRun` returns all 3 under `byAlias`.
 - **Real, not mocked:** the DB hop (virtual step creation and `step_values` upsert) and
   `RunDataService`. Mocking either voids this proof.
-- **Cross-tenant denial:** saving a Code Block against tenant B's workflow id → 404, no
-  `steps` rows written.
+- **Cross-tenant denial:** saving a Code Block against tenant B's workflow id → **403**, no
+  `steps` rows written. (Corrected 2026-09-04, mid-ticket: this clause originally demanded 404,
+  which contradicts the repo's own error contract. `classifyRouteError`
+  (`server/utils/routeErrors.ts`) maps only a `"not found"` message to 404; an authorization
+  failure — `"Access denied"`, or the RLS no-tenant-in-context throw — maps to 403, per
+  CLAUDE.md convention 2. A cross-tenant save is an authorization failure, so 403 is correct
+  and the ticket was wrong. Satisfying the original wording would have meant changing shared
+  step-route authorization for every consumer, which is out of scope for this ticket and is a
+  repo-wide decision. The property this clause exists to prove is isolation — denial plus zero
+  writes — not a particular status code.)
 - **Suite:** `tests/integration/codeBlocks.multiOutput.test.ts` (integration project, needs DB).
 
 ### Acceptance criteria

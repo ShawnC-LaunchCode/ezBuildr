@@ -107,7 +107,7 @@ describe('Step Config Schemas', () => {
             ['display', { markdown: '# Heading' }],
             ['file_upload', { maxFiles: 1 }],
             ['list', { fields: [] }],
-            ['js_question', { display: 'visible', code: 'emit(1)', inputKeys: [], outputKey: 'result' }],
+            ['js_question', { code: 'emit({ result: 1 })', inputs: [], outputs: [{ key: 'result', type: 'number' }] }],
             ['computed', {}],
             ['final_documents', { markdownHeader: 'Done', documents: [] }],
             ['signature_block', {

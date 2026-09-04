@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
-import { JsQuestionConfig } from '@shared/types/steps';
 import type { Step, Page, LogicRule } from '@shared/schema';
 
 import { logger } from '../../../server/logger';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 import { stepRepository, pageRepository, sectionRepository, workflowRepository, logicRuleRepository, workflowRunRepository } from '../../../server/repositories';
 import { blockRunner } from '../../../server/services/BlockRunner';
+import { codeBlockService } from '../../../server/services/codeBlocks/CodeBlockService';
 import { logicService, type NavigationResult } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
-import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
 import type { RunDefinition, RunStep } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 
 // RLS-5: the run/document path now opens tenant-scoped transactions via
@@ -32,10 +31,10 @@ vi.mock("../../../server/db", () => {
 });
 
 // Mock dependencies
-vi.mock('../../../server/services/scripting/ScriptEngine', () => ({
-    scriptEngine: {
-        execute: vi.fn()
-    }
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+    codeBlockService: {
+        execute: vi.fn(),
+    },
 }));
 // Mock PersistenceWriter
 vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
@@ -138,7 +137,7 @@ function makeDefinition(
     };
 }
 
-describe('RunExecutionCoordinator - JS Execution', () => {
+describe('RunExecutionCoordinator - Code Block Execution', () => {
     let coordinator: RunExecutionCoordinator;
     let mockStepRepo: Mocked<typeof stepRepository>;
     let mockPageRepo: Mocked<typeof pageRepository>;
@@ -181,21 +180,15 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         type: 'js_question',
         title: 'Calculate Total',
         config: {
-            code: 'return input.a + input.b;',
-            inputKeys: ['a', 'b'],
-            outputKey: 'result',
-            display: 'visible',
+            code: 'emit({ result: input.a + input.b });',
+            inputs: [{ key: 'a', required: true }, { key: 'b', required: true }],
+            outputs: [{ key: 'result', type: 'number' }],
             timeoutMs: 1000
-        } as JsQuestionConfig,
+        },
         alias: 'total'
     };
-    it('should execute JS questions using ScriptEngine', async () => {
-        // Mock ScriptEngine success
-        vi.mocked(scriptEngine.execute).mockResolvedValue({
-            ok: true,
-            output: 30,
-            durationMs: 5
-        });
+    it('delegates Code Block execution to CodeBlockService', async () => {
+        vi.mocked(codeBlockService.execute).mockResolvedValue({ success: true });
 
         // Test via private method execution
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
@@ -210,32 +203,19 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         );
 
         expect(result.success).toBe(true);
-        const executionRequest = vi.mocked(scriptEngine.execute).mock.calls[0]?.[0];
+        const executionRequest = vi.mocked(codeBlockService.execute).mock.calls[0]?.[0];
         expect(executionRequest).toMatchObject({
-            code: mockJsStep.config.code,
-            inputKeys: mockJsStep.config.inputKeys,
+            step: mockJsStep,
+            runId: 'run-1',
+            workflowId: 'wf-1',
+            userId: 'user-1',
             data: { 'step-a': 10, 'step-b': 20 },
-            context: {
-                runId: 'run-1',
-                phase: 'question_execution',
-                metadata: {
-                    stepId: mockJsStep.id
-                }
-            }
         });
-
-        const { runPersistenceWriter } = await import('../../../server/services/runs/RunPersistenceWriter');
-        expect(runPersistenceWriter.saveStepValue).toHaveBeenCalledWith(
-            'run-1',
-            mockJsStep.id,
-            30,
-            'wf-1'
-        );
     });
-    it('should handle ScriptEngine errors gracefully', async () => {
-        vi.mocked(scriptEngine.execute).mockResolvedValue({
-            ok: false,
-            error: 'SyntaxError: Unexpected token'
+    it('returns Code Block execution errors', async () => {
+        vi.mocked(codeBlockService.execute).mockResolvedValue({
+            success: false,
+            error: 'Code Block "Calculate Total" failed: SyntaxError: Unexpected token'
         });
 
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };

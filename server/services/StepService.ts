@@ -1,6 +1,8 @@
 import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
 import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+import { isJsQuestionConfig } from "@shared/types/steps";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
@@ -9,6 +11,7 @@ import { stepRepository, pageRepository, stepValueRepository, logicRuleRepositor
 import { withCurrentTenant } from "../utils/rlsContext";
 
 import { aliasRenameService } from "./AliasRenameService";
+import { codeBlockService } from "./codeBlocks/CodeBlockService";
 import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
@@ -72,6 +75,7 @@ export class StepService {
   private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
   private stepValueRepo: typeof stepValueRepository;
+  private codeBlockSvc = codeBlockService;
 
   constructor(
     stepRepo?: typeof stepRepository,
@@ -229,6 +233,9 @@ export class StepService {
         );
         throw new Error(`Validation error: ${message}`);
       }
+      if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.codeBlockSvc.validateForSave(finalConfig);
+      }
 
       // Validate alias if provided; otherwise auto-generate one from the
       // question label so the step's answer is available to documents
@@ -252,7 +259,7 @@ export class StepService {
       // transform-block machinery (which creates virtual steps via the repo
       // directly, never through this public create path).
       const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
-      return this.stepRepo.create({
+      const created = await this.stepRepo.create({
         ...safeData,
         config: finalConfig,
         alias,
@@ -263,6 +270,10 @@ export class StepService {
         // freshly created step as already soft-deleted (ICW2-B1).
         deletedAt: null,
       }, scopedTx);
+      if (created.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.codeBlockSvc.syncVirtualSteps(created, undefined, finalConfig, scopedTx);
+      }
+      return created;
     });
   }
 
@@ -453,12 +464,26 @@ export class StepService {
       await this.validateAliasChange(step, workflowId, data, tx);
       const { updates, aliasChanges } = this.buildValidatedStepUpdates(step, workflowId, data);
 
+      const nextType = updates.type ?? step.type;
+      const adaptedNext = adaptLegacyStep({ type: nextType, config: updates.config ?? step.config });
+      const nextCodeBlockConfig = adaptedNext.type === 'js_question' && isJsQuestionConfig(adaptedNext.config)
+        ? adaptedNext.config
+        : undefined;
+      if (nextCodeBlockConfig) {
+        await this.codeBlockSvc.validateForSave(nextCodeBlockConfig);
+      }
+
       const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
       if (regenerated !== null) {
         updates.alias = regenerated;
       }
 
       const updated = await this.stepRepo.update(stepId, updates, tx);
+      const shouldSyncCodeBlock = (step.type === 'js_question' && isJsQuestionConfig(step.config)) ||
+        (nextType === 'js_question' && data.config !== undefined);
+      if (shouldSyncCodeBlock) {
+        await this.codeBlockSvc.syncVirtualSteps(updated, step.config, nextCodeBlockConfig, tx);
+      }
 
       // Propagate choice option alias changes
       let warnings: string[] = [];
@@ -493,6 +518,9 @@ export class StepService {
         throw new Error("Step not found in this workflow");
       }
 
+      if (step.type === 'js_question' && isJsQuestionConfig(step.config)) {
+        await this.codeBlockSvc.syncVirtualSteps(step, step.config, undefined, scopedTx);
+      }
       await this.stepRepo.softDelete(stepId, scopedTx);
     });
   }
@@ -602,7 +630,8 @@ export class StepService {
         throw new Error(PAGE_NOT_FOUND);
       }
 
-      return this.stepRepo.findByPageId(pageId, scopedTx);
+      const steps = await this.stepRepo.findByPageId(pageId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
     });
   }
 
@@ -613,7 +642,10 @@ export class StepService {
   }
 
   async getWorkflowSteps(workflowId: string, tx?: DbTransaction): Promise<Step[]> {
-    return this.withTx(tx, (scopedTx) => this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx));
+    return this.withTx(tx, async (scopedTx) => {
+      const steps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
+    });
   }
 
   // ===================================================================
@@ -654,7 +686,8 @@ export class StepService {
         throw new Error("Page does not belong to the specified workflow");
       }
 
-      return this.stepRepo.findByPageId(pageId, scopedTx);
+      const steps = await this.stepRepo.findByPageId(pageId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
     });
   }
 
@@ -816,7 +849,7 @@ export class StepService {
       // Verify ownership
       await this.workflowSvc.verifyAccess(page.workflowId, userId, 'view', scopedTx);
 
-      return step;
+      return adaptLegacyStep(step);
     });
   }
 }

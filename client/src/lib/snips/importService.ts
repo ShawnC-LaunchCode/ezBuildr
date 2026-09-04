@@ -5,6 +5,8 @@
 
 import { getSnipById } from "./registry";
 
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+
 import type { SnipImportRequest, SnipImportResult } from "./types";
 /**
  * Detect all variable collisions (aliases from questions, JS outputs, list variables)
@@ -27,9 +29,15 @@ async function detectAliasCollisions(
             existingAliases.add(s.alias as string);
         }
         // JS question output aliases
-        const config = s.config as Record<string, unknown> | undefined;
-        if (s.type === 'js_question' && config?.outputKey != null) {
-            existingAliases.add(config.outputKey as string);
+        const adapted = adaptLegacyStep({ type: String(s.type ?? ''), config: s.config });
+        const config = adapted.config as Record<string, unknown> | undefined;
+        if (adapted.type === 'js_question' && Array.isArray(config?.outputs)) {
+            for (const rawOutput of config.outputs as unknown[]) {
+                const output = rawOutput as { key?: unknown };
+                if (typeof output.key === 'string') {
+                    existingAliases.add(output.key);
+                }
+            }
         }
     });
     // TODO: Add blocks API call to check for:

@@ -829,7 +829,7 @@ export function resolveDateTimeConfig(stepType: string, rawConfig: unknown): Dat
 // ============================================================================
 
 // JsQuestionConfig is imported from ./steps
-import { JsQuestionConfig } from "./steps";
+import { JsQuestionConfig, LEGACY_JS_QUESTION_ADAPTER } from "./steps";
 
 /**
  * Computed Step Config
@@ -1360,6 +1360,12 @@ export const LEGACY_STEP_ADAPTERS: Record<string, { canonicalType: string; resol
 
 /** Adapt a pre-STB-19 row once at the read boundary, returning a canonical step. */
 export function adaptLegacyStep<T extends { type: string; config?: unknown }>(step: T): T {
+  if (step.type === 'js_question') {
+    return {
+      ...step,
+      config: LEGACY_JS_QUESTION_ADAPTER.resolveConfig(step.config),
+    };
+  }
   const adapter = LEGACY_STEP_ADAPTERS[step.type];
   if (adapter === undefined) { return step; }
   return {

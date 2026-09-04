@@ -13,6 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+import { isJsQuestionConfig } from "@shared/types/steps";
 
 import { JSQuestionEditor, type JSQuestionConfig } from "../questions/JSQuestionEditor";
 
@@ -24,13 +26,16 @@ import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { VisibilityField } from "./common/VisibilityField";
 
 const DEFAULT_JS_CONFIG: JSQuestionConfig = {
-    display: "hidden",
-    code: "return input;",
-    inputKeys: [],
-    outputKey: "computed_value",
+    code: "emit({ computed_value: null });",
+    inputs: [],
+    outputs: [{ key: "computed_value", type: "string" }],
     timeoutMs: 1000,
-    helpText: "",
 };
+
+function resolveEditorConfig(config: unknown): JSQuestionConfig {
+    const adapted = adaptLegacyStep({ type: 'js_question', config }).config;
+    return isJsQuestionConfig(adapted) ? adapted : DEFAULT_JS_CONFIG;
+}
 
 export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
@@ -38,11 +43,11 @@ export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepE
     const mode = modeData?.mode ?? "easy";
 
     const [localConfig, setLocalConfig] = useState<JSQuestionConfig>(
-        step.config ? (step.config as JSQuestionConfig) : DEFAULT_JS_CONFIG
+        resolveEditorConfig(step.config)
     );
 
     useEffect(() => {
-        setLocalConfig(step.config ? (step.config as JSQuestionConfig) : DEFAULT_JS_CONFIG);
+        setLocalConfig(resolveEditorConfig(step.config));
     }, [step.config]);
 
     const handleConfigChange = (config: JSQuestionConfig) => {

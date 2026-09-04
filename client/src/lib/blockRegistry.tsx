@@ -357,19 +357,17 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   },
   {
     type: "js_question",
-    label: "JS Block",
+    label: "Code Block",
     icon: Code2,
     glyph: "{}",
     description: "JavaScript code execution",
     category: "advanced",
     modes: { easy: false, advanced: true },
     createDefaultConfig: () => ({
-      display: "hidden" as const,
-      code: "// Write your JavaScript code here\n// Use 'input' object to access step values\n// Call emit(value) to set the output\n\nconst result = {};\nemit(result);",
-      inputKeys: [],
-      outputKey: "computed_value",
+      code: "// Use 'input' to read declared inputs\n// Emit an object keyed by declared outputs\n\nemit({ computed_value: null });",
+      inputs: [],
+      outputs: [{ key: "computed_value", type: "string" as const }],
       timeoutMs: 3000,
-      helpText: "",
     }),
   },
 

@@ -84,8 +84,10 @@ function buildStepConfigs(templateId: string): Record<CanonicalStepType, Record<
     display: { markdown: "## Please review before continuing" },
     file_upload: { maxSize: 5242880, allowedTypes: [".pdf", ".docx"], maxFiles: 3, previewThumbnails: true },
     js_question: {
-      display: "visible", code: "emit(a + b);", inputKeys: ["a", "b"], outputKey: "sum",
-      timeoutMs: 2000, helpText: "Computes a+b",
+      code: "emit(a + b);",
+      inputs: [{ key: "a", required: true }, { key: "b", required: true }],
+      outputs: [{ key: "sum", type: "number", description: "Computes a+b" }],
+      timeoutMs: 2000,
     },
     computed: { formula: "a + b", inputKeys: ["a", "b"] },
     final_documents: {

@@ -4,28 +4,37 @@
  * Type definitions for different question/step types in workflows.
  */
 
-/**
- * JS Question Configuration
- * Allows JavaScript code execution as a question/compute step
- */
-export type JsQuestionConfig = {
-  /** Display mode - visible shows UI in runner, hidden runs as compute-only */
-  display: "visible" | "hidden";
+export type CodeBlockOutput = {
+  key: string;
+  type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'list';
+  description?: string;
+};
 
-  /** JavaScript code to execute (function body style, returns any value) */
+export type CodeBlockInput = {
+  key: string;
+  required: boolean;
+};
+
+/** Configuration for the compute-only Code Block stored as `js_question`. */
+export type JsQuestionConfig = {
+  /** JavaScript function body. Call emit({ outputKey: value }). */
   code: string;
 
-  /** Whitelisted input variable keys from the data map */
-  inputKeys: string[];
+  /** Whitelisted workflow variables exposed on the input object. */
+  inputs: CodeBlockInput[];
 
-  /** Output variable key where result will be stored */
-  outputKey: string;
+  /** Declared outputs. Each output owns one virtual computed step. */
+  outputs: CodeBlockOutput[];
 
   /** Execution timeout in milliseconds (default: 1000) */
   timeoutMs?: number;
+};
 
-  /** Optional help text shown in runner when display is "visible" */
-  helpText?: string;
+type LegacyJsQuestionConfig = {
+  code: string;
+  inputKeys: string[];
+  outputKey: string;
+  timeoutMs?: number;
 };
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -39,8 +48,42 @@ export function isJsQuestionConfig(options: unknown): options is JsQuestionConfi
   return (
     isObjectRecord(options) &&
     typeof options.code === 'string' &&
-    Array.isArray(options.inputKeys) &&
-    typeof options.outputKey === 'string' &&
-    (options.display === 'visible' || options.display === 'hidden')
+    Array.isArray(options.inputs) &&
+    options.inputs.every(input => (
+      isObjectRecord(input) &&
+      typeof input.key === 'string' &&
+      typeof input.required === 'boolean'
+    )) &&
+    Array.isArray(options.outputs) &&
+    options.outputs.every(output => (
+      isObjectRecord(output) &&
+      typeof output.key === 'string' &&
+      ['string', 'number', 'boolean', 'date', 'object', 'list'].includes(String(output.type))
+    ))
   );
 }
+
+function isLegacyJsQuestionConfig(options: unknown): options is LegacyJsQuestionConfig {
+  return (
+    isObjectRecord(options) &&
+    typeof options.code === 'string' &&
+    Array.isArray(options.inputKeys) &&
+    options.inputKeys.every(key => typeof key === 'string') &&
+    typeof options.outputKey === 'string'
+  );
+}
+
+/** Read adapter for pre-CB-1 single-output `js_question` rows. */
+export const LEGACY_JS_QUESTION_ADAPTER = {
+  resolveConfig(config: unknown): unknown {
+    if (isJsQuestionConfig(config) || !isLegacyJsQuestionConfig(config)) {
+      return config;
+    }
+    return {
+      code: config.code,
+      inputs: config.inputKeys.map(key => ({ key, required: true })),
+      outputs: [{ key: config.outputKey, type: 'object' as const }],
+      ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
+    } satisfies JsQuestionConfig;
+  },
+};

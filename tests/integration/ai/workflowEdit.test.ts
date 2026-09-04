@@ -275,7 +275,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
               type: 'js_question',
               title: 'Derived value',
               alias: 'advanced_value',
-              config: { display: 'hidden', code: 'return 1;', inputKeys: [], outputKey: 'result' },
+              config: { code: 'emit({ result: 1 });', inputs: [], outputs: [{ key: 'result', type: 'number' }] },
             },
           ],
           summary: ['Added an advanced JavaScript question'],
@@ -296,7 +296,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(modelParams.systemInstruction).toContain('- js_question:');
     const [stored] = await getOwnerDb().select().from(steps).where(eq(steps.alias, 'advanced_value'));
     expect(stored.type).toBe('js_question');
-    expect(stored.config).toMatchObject({ outputKey: 'result' });
+    expect(stored.config).toMatchObject({ outputs: [{ key: 'result', type: 'number' }] });
   });
 
   it.each([

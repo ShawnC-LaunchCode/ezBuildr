@@ -1,4 +1,3 @@
-import { isJsQuestionConfig } from "@shared/types/steps";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
 
 import { logger } from "../../logger";
@@ -6,8 +5,8 @@ import { workflowRepository, workflowRunRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
+import { codeBlockService } from "../codeBlocks/CodeBlockService";
 import { logicService, type NavigationResult } from "../LogicService";
-import { scriptEngine } from "../scripting/ScriptEngine";
 import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
 
 import { runPersistenceWriter } from "./RunPersistenceWriter";
@@ -18,6 +17,8 @@ export interface ExecutionContext {
     mode: 'live' | 'preview';
 }
 export class RunExecutionCoordinator {
+    private codeBlockSvc = codeBlockService;
+
     constructor(
         private persistence = runPersistenceWriter,
         private logicSvc = logicService,
@@ -187,9 +188,7 @@ export class RunExecutionCoordinator {
             errors: blockResult.errors,
         };
     }
-    /**
-     * Execute JS questions using ScriptEngine
-     */
+    /** Execute compute-only Code Blocks for this page. */
     private async executeJsQuestions(
         pageId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dataMap holds dynamic workflow step values
@@ -205,35 +204,15 @@ export class RunExecutionCoordinator {
             step => step.pageId === pageId && step.type === 'js_question'
         );
         for (const step of jsQuestions) {
-            if (step.config === null || step.config === undefined || !isJsQuestionConfig(step.config)) { continue; }
-            const config = step.config;
-            const result = await scriptEngine.execute({
-                language: 'javascript',
-                code: config.code,
-                inputKeys: config.inputKeys,
+            const result = await this.codeBlockSvc.execute({
+                step,
+                runId: context.runId,
+                workflowId: context.workflowId,
+                userId: context.userId,
                 data: dataMap,
-                context: {
-                    workflowId: context.workflowId,
-                    runId: context.runId,
-                    phase: 'question_execution',
-                    metadata: { stepId: step.id }
-                },
-                timeoutMs: config.timeoutMs ?? 1000,
                 aliasMap,
             });
-            if (!result.ok) {
-                errors.push(`JS Question "${step.title}" failed: ${result.error}`);
-                continue;
-            }
-            // Save output
-            await this.persistence.saveStepValue(
-                context.runId,
-                step.id,
-                result.output,
-                context.workflowId
-            );
-
-            dataMap[step.id] = result.output; // Update local map
+            if (!result.success && result.error) { errors.push(result.error); }
         }
         return {
             success: errors.length === 0,
