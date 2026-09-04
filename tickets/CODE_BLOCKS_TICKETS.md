@@ -90,7 +90,7 @@ deleting `transform_blocks` (Phase 4).
 footprint: `shared/types/steps.ts`, `server/services/codeBlocks/*`,
 `server/services/runs/RunExecutionCoordinator.ts`.
 
-## CB-1 — Code Block config: multi-output and one virtual step per output 🔲
+## CB-1 — Code Block config: multi-output and one virtual step per output 🔄
 
 **Priority: P1** · Size: M · File: `shared/types/steps.ts`
 
@@ -208,7 +208,15 @@ one-element `outputs` array, in the spirit of `LEGACY_STEP_ADAPTERS` in
 2. Saving a block with N declared outputs creates exactly N virtual steps, one per output
    alias, `type: 'computed'`, `isVirtual: true`.
 3. `emit({a, b, c})` with all three declared writes three `step_values` rows, and all three
-   appear in `RunDataService`'s `byAlias` projection.
+   carry their **emitted values** in `RunDataService`'s `byAlias` projection.
+   **Assert values, never key presence.** `RunDataService.buildForRun` seeds `byAlias` with
+   `null` for *every* aliased step (TPL-10), and `findByWorkflowIdWithAliases` defaults to
+   `includeVirtual = true` — so the moment AC 2's virtual steps exist, all three keys are
+   present in `byAlias` whether or not a single `step_values` row was ever written. A
+   `toHaveProperty` / `'a' in byAlias` / `Object.keys` assertion therefore passes with the
+   emit-and-persist path completely broken. The test must assert
+   `byAlias.a === <emitted value>` (and non-null), plus a direct count of the `step_values`
+   rows for those three virtual step ids.
 4. `emit()` returning a key **not** in `outputs` fails the block with an error naming the
    undeclared key — it is not silently merged and not silently dropped.
 5. A stored pre-existing single-`outputKey` config still loads and runs, via the legacy adapter.
