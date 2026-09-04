@@ -256,7 +256,7 @@ one-element `outputs` array, in the spirit of `LEGACY_STEP_ADAPTERS` in
 
 ---
 
-## CB-2 — Readiness gate, change gate, and per-run block state 🔲
+## CB-2 — Readiness gate, change gate, and per-run block state 🔄
 
 **Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockService.ts`
 
@@ -354,7 +354,18 @@ recomputing anything.
 7. The visibility computation is shared with `RunExecutionCoordinator`, not duplicated — one
    function, two callers.
 8. Migration `0043` creates `code_block_runs` with the unique `(run_id, step_id)` constraint
-   and applies cleanly via `npm run db:migrate`.
+   and applies cleanly **from scratch, as proven by a green `test:integration`**.
+   ⛔ **Do NOT run `npm run db:migrate`** to satisfy this — corrected 2026-09-04. The
+   worktree `.env`'s `DATABASE_URL` points at a **shared Neon branch**, so `db:migrate`
+   would migrate a database other people are using; the ⚠️ above says so and the original
+   wording of this criterion contradicted it.
+   Running it is also unnecessary: `tests/setup.ts` decides schema reuse by
+   `SchemaManager.migrationsFingerprint()` (`tests/helpers/SchemaManager.ts:194`), a SHA-256
+   over every `migrations/*.sql` **filename and body**. Adding `0043_*.sql` changes that
+   fingerprint, so every cached worker schema is dropped and rebuilt from the full chain —
+   which means a green integration run *is* the from-scratch proof this criterion wants.
+   There is **no `_vN` cache token to bump**; that mechanism was replaced on 2026-08-21, so
+   do not go looking for one.
 9. New test `tests/integration/codeBlocks.gates.test.ts` asserts 1–6 and walks the full
    Vertical proof path with the DB and sandbox hops real.
 10. `npm run type-check` 0 errors · `npm run lint` clean · `npm run test:integration` green.
