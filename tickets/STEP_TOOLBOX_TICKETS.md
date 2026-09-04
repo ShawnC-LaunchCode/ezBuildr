@@ -3556,18 +3556,128 @@ on deploy, so `0042` will fail there exactly as it would have failed on dev. Eac
 
 ## Phase 5 Gate — Initiative Complete
 
-- [ ] STB-21 and STB-22 are ✅ with dated verification notes.
-- [ ] Fresh-database migration proof and exact canonical enum values are attached.
-- [ ] Repo-wide retired-type/key search is clean except deliberate migration/history fixtures.
-- [ ] Full local cross-seam drive-through and desktop/mobile screenshots are attached; console is clean.
-- [ ] `npm run type-check` reports 0 errors.
-- [ ] `npm run lint` reports 0 problems.
-- [ ] `npm run test:fast` is green with no baseline count regression.
-- [ ] `npm run test:unit:db` and `npm run test:integration` are green with Postgres/Gotenberg healthy.
-- [ ] `npm test`/CI-equivalent full suite is green.
-- [ ] Reviewer has committed each passed ticket and this gate.
+- [x] STB-21 and STB-22 are ✅ with dated verification notes.
+- [x] Fresh-database migration proof and exact canonical enum values are attached.
+- [x] Repo-wide retired-type/key search is clean except deliberate migration/history fixtures.
+- [x] Full local cross-seam drive-through and desktop/mobile screenshots are attached; console is clean.
+- [x] `npm run type-check` reports 0 errors.
+- [x] `npm run lint` reports 0 problems.
+- [x] `npm run test:fast` is green with no baseline count regression.
+- [x] `npm run test:unit:db` and `npm run test:integration` are green with Postgres/Gotenberg healthy.
+- [ ] `npm test`/CI-equivalent full suite is green.  ⛔ **NOT MET — see below**
+- [x] Reviewer has committed each passed ticket and this gate.
 - [ ] Remaining observations are triaged into `tickets/backlog/STEP_TOOLBOX.md` + `tickets/BACKLOG.md`, this active
-      file is retired, and all cross-references are fixed according to the ticket-flow skill.
+      file is retired, and all cross-references are fixed according to the ticket-flow skill.  ⏳ **next commit**
+
+**GATE CLOSED 2026-09-03 (reviewer), with one item explicitly NOT met — see below.** Verified against `d875c1bf`.
+
+### Live cross-seam drive-through
+
+Driven against a server started from **this worktree** on port 5199 (`NODE_ENV=test`), not `preview_start` and
+not port 5000. Confirmed it was serving this tree before trusting anything: `selectBlock` present in
+`/src/store/workflow-builder.ts`, `setInspectorTab` absent from it, and the deleted
+`StepPropertiesPanel.tsx` path falling through to Vite's HTML fallback rather than a module.
+
+Builder → publish/version → live run → storage, every hop over real HTTP:
+
+```
+create step text / boolean / choice / date_time / number   201 each
+API rejects a retired type ('short_text')                  400
+all stored step types canonical                            text,boolean,choice,date_time,number
+publish -> version graph stores canonical types            text,boolean,choice,date_time,number
+POST /runs, page submit accepted                            201 / 200
+answers persisted for every step                            5 of 5
+text round-trips                                            'Ada Lovelace'
+boolean round-trips                                         true
+choice single-select stores a STRING, not an array          "a"
+number stores a number                                      42
+```
+
+The last two are the discriminating ones. `snapshotHelpers` used to flag any non-array `multiple_choice` value
+as `invalid_format`; canonical `choice` stores a string when single-select, so that bug would have marked this
+exact answer malformed. Proving the stored *shape*, not merely that a value arrived, is what makes this
+evidence rather than a smoke test.
+
+The published version's `graphJson` carried `pages[].steps[]` — the shape STB-20's converter walks — confirming
+that newly written artifacts use the current shape and only pre-`pages` artifacts sit in the `blocks[]` form
+that STB-B12 covers.
+
+### Browser proof
+
+Runner at desktop (1600px) and mobile (390×844), screenshots at
+`.playwright-mcp/stb5-runner-desktop.png` and `stb5-runner-mobile.png` (they land in the MAIN checkout's
+`.playwright-mcp/`, not the worktree's — a known quirk of driving a worktree server).
+
+All five families render correctly, and the accessibility tree shows real semantics rather than divs:
+
+```
+textbox "Your name"                          <- text
+group "Do you agree?" > button Yes / No      <- boolean, displayStyle: buttons
+radiogroup > radio "Option A" / "Option B"   <- choice, display: radio
+textbox "Preferred date"                     <- date_time, kind: date
+textbox "How many?" (placeholder "0")        <- number
+```
+
+The `radio` role is worth stating explicitly: a dev once bulk-renamed it to a non-existent `choice` role across
+20 test files, so this is the assertion that catches that class of change.
+
+**Console: 4 errors, 0 feature errors.** One `401` on `/api/auth/refresh-token` — expected, the runner is an
+anonymous respondent with no refresh cookie — and three Vite HMR websocket messages aimed at port 5000, which
+the `verify` skill documents as noise. Nothing from the application.
+
+**Fixtures cleaned.** Teardown ran in `finally` with `throw` rather than `process.exit`, and cleanup was proven
+by counting rather than assumed: `leftover tenants: 0  leftover users: 0`.
+
+### Gates
+
+| Gate | Result |
+|---|---|
+| `type-check` / `lint` / `check:strict-zones` | 0 / 0 / 6-of-6 |
+| `test:fast` | 330 files / **3,718** |
+| `test:unit` (includes `unit:db`) | 349 files / **3,902** |
+| `test:integration` | 139 files / **1,283 passed + 3 skipped** |
+| Fresh-database migration chain | applies clean; enum equals `CANONICAL_STEP_TYPES` exactly, including order |
+
+### Repo-wide retired-type sweep
+
+Clean in step-type positions across `client/`, `server/`, `shared/`, `scripts/` after this phase deleted the
+dead `Inspector` chain (`Inspector.tsx`, `StepPropertiesPanel.tsx`, `step-properties/`) that STB-B5 had assigned
+to STB-15 and STB-21 and both had missed.
+
+What deliberately remains, and why none of it is drift:
+
+- `LEGACY_STEP_ADAPTERS`, `PERSISTED_ROW_COMPATIBILITY_MAP`, `LEGACY_TYPE_PRESENTATIONS`,
+  `LEGACY_LIST_FIELD_QUESTION_TYPES` — the read path. Retired names stay readable so a pre-backfill export
+  bundle still imports.
+- `scripts/canonicalizeStepTypes.ts` and its suites — the converter and the fixtures that prove it.
+- `server/services/migrations/migrators/v1_block_refactor.ts` — historical migrator.
+- **DataVault column types are a different vocabulary that happens to share words.** `vault-api.ts`,
+  `ColumnTypeIcon.tsx` and `FilterPanel.tsx` use `radio`, `multiple_choice` and `currency` as *column* types
+  and must not be swept. Noted because a blanket grep makes them look like 60+ live violations.
+
+### ❌ Not met: `npm test` / CI-equivalent full suite is green
+
+The **RLS Enforcement Gate is red on `dev`**, with 3 failing files. They are **pre-existing** — verified failing
+on `3bbf61d6`, which predates this initiative — and they are respondent (run-token) write paths, not step-type
+work. STB briefly took the count to 5 by inheriting the restricted role into the canonicalizer CLI's child
+process; that was fixed in `ebb67610` and the gate is back to its original 3.
+
+Diagnosed and filed as **STB-B13** rather than allowlisted: `.rls-allowlist.json` is for deliberate, understood
+exceptions, and three unexplained entries added to green a build is exactly how that gate rots. It belongs to
+RLS Phase 2.
+
+**This gate is therefore closed with a known-red CI check that is out of scope and documented.** Anyone
+promoting past `dev` should know that, rather than discover it.
+
+### Carried out of the initiative
+
+- Production has **not** been backfilled. `dev` and `test` are done and audited clean; production needs the same
+  snapshot → `--apply --database-url` → `--audit` sequence before migration `0042` reaches it, or the enum
+  recreation's `USING` cast will fail on deploy.
+- Neon restore points retained: `backup-dev-pre-canonicalize-2026-09-03` (`br-silent-math-ahw5fz1u`) and
+  `backup-test-pre-canonicalize-2026-09-03` (`br-plain-fire-ahl47pjw`). Delete them once production is done and
+  both environments have been exercised.
+
 
 ---
 
@@ -3748,3 +3858,56 @@ Promote this to a ticket only if a `--audit` against `test` or production report
 "Definitions left unconverted by shape" - at which point the `blocks[]` walker becomes real, testable work
 against known content. Note a third shape exists on paper: `WorkflowGraphSchema` in `shared/zod-schemas.ts`
 declares `pages[].blocks[]`, is never parsed, and matches nothing that is stored.
+
+### STB-B13 - The RLS gate's 3 failures are all respondent (run-token) writes
+
+**Tag:** `needs-initiative`; belongs to **RLS Phase 2**, not to STB. Diagnosed at the Phase 5 Gate (2026-09-03)
+because that gate asks for a green CI-equivalent suite and cannot honestly be ticked while these are red.
+
+The `RLS Enforcement Gate` workflow runs the integration project as a genuine non-owner (`rls5_app_role`,
+`RLS_RESTRICTED=true`) and has been failing on `dev` since **before** this initiative — verified against
+`3bbf61d6`, which predates the Phase 4 work. It failed with **3 files** then and 3 files now:
+
+```
+tests/integration/api.runs.file-upload.test.ts
+tests/integration/runFileUpload.test.ts
+tests/integration/text-canonicalization.test.ts
+```
+
+STB briefly took it to 5 — the two canonicalizer suites shelled out to the CLI with `env: process.env`, so the
+child inherited the restricted URL. Fixed in `ebb67610`; the gate is back to its original 3.
+
+**What the three have in common: every one is a respondent path authenticated by a run token**, not a creator
+path authenticated by a JWT. Reproduced locally on a healthy database:
+
+```
+text-canonicalization > validates and stores both string answers through page submission
+  AssertionError: expected [] to have a length of 1
+```
+
+The read is through `getOwnerDb()` — the owner handle that bypasses RLS — so the row is genuinely **not there**.
+The submission did not write, it did not error loudly, and the request still returned its expected status. That
+is the exact shape the gate exists to catch: *"RLS failures do not throw."*
+
+Facts gathered, so the next person does not start from zero:
+
+- `runTokenAuth` **does** call `setCurrentTenantId(runTenantId)` (lines 113 and 241), so the obvious
+  "respondent has no tenant context" explanation is **wrong** — that was checked and ruled out.
+- In the test schema, `step_values` and `workflow_runs` have **no RLS enabled and zero policies**
+  (`relrowsecurity = false`). Only `steps` is enabled and forced, with one policy.
+- That policy, `tenant_isolation`, admits a row when the workflow's owner tenant equals
+  `app_current_tenant()`, **or** when the workflow is `is_public = true AND status = 'active'`. A respondent on
+  a non-public draft workflow therefore depends entirely on the tenant GUC arriving on the same connection that
+  does the write.
+
+So the likely area is the GUC not reaching the pooled connection the write runs on, rather than a missing
+policy — which lines up with the standing warning never to set the tenant GUC session-level, and with
+`enterWith` not propagating from `beforeAll`/`beforeEach` into test bodies.
+
+**Why this matters beyond CI:** `RLS_ENFORCED=true` is already set on the **test** environment. If this is a
+real application gap rather than a harness artefact, respondents submitting answers and uploading files are
+affected wherever enforcement is on. That is worth confirming before production enforcement, and it is the RLS
+initiative's call, not this one's.
+
+**Do not allowlist these.** `.rls-allowlist.json` is for deliberate, understood exceptions; three unexplained
+entries added to make a build green is precisely how the script's own comment says the gate rots.
