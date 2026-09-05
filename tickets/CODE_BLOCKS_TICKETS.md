@@ -726,17 +726,50 @@ its raw `23505` into a good message.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate ✅ PASSED 2026-09-05
 
-- [ ] CB-1..4 all ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors
-- [ ] `npm run lint` → clean
-- [ ] `npm run test:integration` → green (baseline count recorded, not lower)
-- [ ] `npm run test:fast` → green
-- [ ] **Live proof (batched):** drive the page-1/2/3 + review scenario against the running
-      app via the `verify` skill, and paste the `code_block_runs` rows showing the
-      `skipped_unready → fired → skipped_unchanged → fired` sequence.
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] CB-1..4 all ✅ with dated verification notes — `1b9db7fc`, `345976b9`, `95cefd81`, `ca1ae9fe`
+- [x] `npm run type-check` → 0 errors
+- [x] `npm run lint` → clean (`--max-warnings 0`, repo-wide) · `check:strict-zones` 6 zones / 11 files
+- [x] `npm run test:integration` → **143 files, 1315 passed | 3 skipped**, run on `dev` at
+      `ca1ae9fe` (Phase 1 start was 1284; +5 CB-1, +11 CB-2, +7 CB-3, +5 CB-4, +3 AN-1 = 1315)
+- [x] `npm run test:fast` → **330 files, 3744 passed** (Phase 1 start 3718)
+- [x] **Live proof (batched)** — driven over real HTTP against `npm run dev:test` on :5174,
+      real sandbox, real database, fixtures torn down and the teardown proven (0 leftover):
+
+      submit page 1 (2 of 3 inputs)   status=skipped_unready    pending=["num_children"]  hash=-         support_total=null
+      submit page 2 (last input)      status=fired              pending=[]                hash=09084a7b  support_total=100
+      submit page 3 (unrelated)       status=skipped_unchanged  pending=[]                hash=09084a7b  support_total=100
+      resubmit page 1 (changed)       status=fired              pending=[]                hash=38fda175  support_total=200
+
+      The arithmetic is discriminating, not incidental: (100+200)/3 = 100, then
+      (400+200)/3 = 200, and the input hash moves **only** on the real change — the
+      unrelated page-3 submit leaves it byte-identical, which is the change gate doing
+      its job rather than a coincidence of equal values.
+- [x] Reviewer has committed each passed ticket + this gate
+
+### What Phase 1 cost, and what it bought
+
+**Every defect that mattered lived at a seam, and none was caught by a targeted run.**
+Three for three: the analytics `'draft'` insert (AN-1) swallowed by a `catch` so no test
+ever failed; CB-3's resume deadlock, which surfaced only in the FULL suite as four 30-second
+timeouts after every targeted run was green; and CB-4's discovery that
+`RunDefinitionProvider` omits virtual steps, which made block-to-block chaining impossible
+regardless of execution order — the feature's own premise, broken before the ticket started.
+
+**Four ticket defects were found by devs, not by the reviewer who wrote them.** AC 3's
+null-seed trap (CB-1), the 404-vs-403 error-contract error (CB-1), the CB-2/CB-3 boundary,
+and CB-2's AC 8 instructing a `db:migrate` against a shared Neon branch. Each was raised as
+a blocker rather than improvised around. **CB-3 and CB-4 were reviewer-implemented and had
+no such independent check** — mutation testing substituted, and earned its place: four
+mutations run, all caught, and one exposed a test (CB-3 AC 7) that passed for the wrong
+reason. Phase 2 should return to dispatched devs.
+
+**Anti-trap notes belong in the ticket, not the review.** Three separate criteria were
+satisfiable by assertions that pass against completely broken code — key-presence against a
+null-seeded map, a row count that is zero both before and after, and a stored value that is
+identical whether a block re-ran or was skipped. Writing the trap into the acceptance
+criterion cost minutes; catching it at review cost a round trip every time it was missed.
 
 ---
 
