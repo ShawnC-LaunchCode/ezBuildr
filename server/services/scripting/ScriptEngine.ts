@@ -181,6 +181,8 @@ export class ScriptEngine {
 
         return {
           valid: true,
+          derivedInputs: validationResult.derivedInputs,
+          derivedOutputs: validationResult.derivedOutputs,
           warnings: validationResult.warnings,
         };
       } else if (language === "python") {

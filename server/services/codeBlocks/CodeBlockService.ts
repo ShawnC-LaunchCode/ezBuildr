@@ -313,13 +313,24 @@ export class CodeBlockService {
 
   async validateForSave(config: JsQuestionConfig): Promise<void> {
     validateFiringPolicy(config);
-    for (const output of config.outputs) {
-      validateAliasFormat(output.key);
-    }
     const validation = await this.engine.validate({ language: 'javascript', code: config.code });
     if (!validation.valid) {
       throw new Error(`Script validation failed: ${validation.error ?? 'unknown reason'}`);
     }
+    // Author declarations win, including keys that static analysis cannot discover.
+    const inputs = [...config.inputs];
+    const outputs = [...config.outputs];
+    for (const key of validation.derivedInputs ?? []) {
+      if (!inputs.some(input => input.key === key)) { inputs.push({ key, required: true }); }
+    }
+    for (const key of validation.derivedOutputs ?? []) {
+      if (!outputs.some(output => output.key === key)) { outputs.push({ key, type: 'object' }); }
+    }
+    for (const output of outputs) {
+      validateAliasFormat(output.key);
+    }
+    config.inputs = inputs;
+    config.outputs = outputs;
   }
 
   async syncVirtualSteps(

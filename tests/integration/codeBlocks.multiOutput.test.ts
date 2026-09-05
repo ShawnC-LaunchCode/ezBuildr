@@ -156,7 +156,8 @@ describe.sequential('CB-1 Code Block multi-output vertical path', () => {
       .put(`/api/steps/${codeBlockId}`)
       .send({
         config: {
-          code: "emit({ alpha: 'bad', count: 9, enabled: false, surprise: 'not declared' });",
+          // Keep the extra key dynamic so CB-5 cannot declare it during save.
+          code: "const unexpectedKey = 'surprise'; emit({ alpha: 'bad', count: 9, enabled: false, [unexpectedKey]: 'not declared' });",
           inputs: [],
           outputs: OUTPUTS,
           timeoutMs: 1000,

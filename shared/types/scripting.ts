@@ -345,6 +345,8 @@ export interface ValidateScriptParams {
 }
 
 export interface ValidateScriptResult {
+  derivedInputs?: string[];
+  derivedOutputs?: string[];
   valid: boolean;
   error?: string;
   warnings?: string[];

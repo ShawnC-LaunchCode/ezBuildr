@@ -778,7 +778,52 @@ criterion cost minutes; catching it at review cost a round trip every time it wa
 Everything here reports **in the editor at save time**, never at runtime. All three tickets
 extend a traversal that already runs on every save, so none of them adds a runtime cost.
 
-## CB-5 — Derive inputs and outputs from the code 🔲
+## CB-5 — Derive inputs and outputs from the code ✅
+
+> **Verified 2026-09-05 (reviewer).** Dispatched dev; all 10 criteria checked against the
+> tree, not the turn-in report. Gates re-run by the reviewer: `type-check` 0 errors ·
+> `lint` 0 (`--max-warnings 0`, repo-wide) · `check:strict-zones` 6 zones / 11 files ·
+> `test:fast` **333 files, 3754 passed** (3744 + 10) · `test:integration` **144 files,
+> 1319 passed | 3 skipped** (1315 + 4). Fail-then-pass proof supplied for AC 1, 2, 5 and 7.
+>
+> **AC 4's anti-trap was properly met.** The preserved input is `manual_only`, which appears
+> nowhere in the code, and the test asserts `derivedInputs` equals `['a']` *before* the
+> re-save — so the parser demonstrably cannot see it and the assertion fails if the
+> preserve-author-edits logic is removed. It also pins `a` at `required: false` where
+> derivation defaults to `required: true`, which catches author-wins on a key the parser
+> *does* derive.
+>
+> **A cross-ticket semantic collision, found by the dev.** Derivation declares every
+> literally-emitted key at save time, so CB-1's AC-4 fixture — which emitted an undeclared
+> `surprise` — could no longer create its own precondition and the submit began succeeding.
+> The behaviour CB-1 asserts (undeclared emitted key fails the block, names it, nulls the
+> whole output set) **still holds**; only the fixture had to change, to a computed
+> `[unexpectedKey]` emit the parser cannot derive. One code line plus a comment; every
+> assertion in that test preserved.
+>
+> **Two consequences of derivation, recorded so they are not rediscovered as bugs:**
+> 1. **The code is the source of truth for which output keys exist.** Deleting a derived
+>    output re-adds it on the next save while its literal key remains in the code (returning
+>    as `type: 'object'`, since the prior declaration is gone). Removing an output for good
+>    means removing it from the code as well. Authors own output **types** and input
+>    **required** flags; the parser owns the **key set**.
+> 2. **CB-1's undeclared-output runtime guard is now reachable only for keys the parser
+>    cannot derive** — dynamic emits. For literal emits it is unreachable by construction,
+>    and a typo'd literal key (`emit({ totl: x })`) is now silently declared rather than
+>    erroring. The protection moved from a runtime error to the author seeing the derived
+>    list, which is exactly why AC 3 requires those fields rendered **editable** rather than
+>    read-only. A deliberate trade, not a regression.
+>
+> **Deferred by reviewer ruling:** dynamic-access warnings are produced and returned from
+> `ScriptEngine.validate()` but are not yet surfaced to the author. Delivery was declined for
+> this ticket and belongs to **CB-8**, which rebuilds this editor as a Monaco modal — building
+> the plumbing into the outgoing component would mean building it twice. **CB-8 must pick this
+> up**, or the warnings become the produced-but-unconsumed dead-code pattern that cost this
+> repo months once already (see CLAUDE.md convention 8, O-10). A new validation endpoint was
+> also declined: the Vertical proof is derive-at-save then reload, so no route is needed.
+>
+> The dev raised **five** blockers across this ticket — footprint expansions and the CB-1
+> collision — and was correct every time.
 
 **Priority: P1** · Size: M · File: `server/services/scripting/ASTValidator.ts`
 

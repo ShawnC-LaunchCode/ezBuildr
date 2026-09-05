@@ -17,6 +17,8 @@ export interface ValidationResult {
   violations?: SecurityViolation[];
   complexity?: ComplexityMetrics;
   warnings?: string[];
+  derivedInputs?: string[];
+  derivedOutputs?: string[];
 }
 
 export interface SecurityViolation {
@@ -159,7 +161,11 @@ export class ASTValidator {
       }
 
       // Detect forbidden patterns
-      const patternViolations = this.detectForbiddenPatterns(ast);
+      const inputs = new Set<string>();
+      const outputs = new Set<string>();
+      const patternViolations = this.detectForbiddenPatterns(ast, node => {
+        this.collectDerivation(node, inputs, outputs, warnings);
+      });
       violations.push(...patternViolations);
 
       // Check for emit() call (required for output)
@@ -194,6 +200,8 @@ export class ASTValidator {
 
       return {
         valid: true,
+        derivedInputs: [...inputs],
+        derivedOutputs: [...outputs],
         violations: violations.length > 0 ? violations : undefined,
         complexity,
         warnings: warnings.length > 0 ? warnings : undefined,
@@ -392,12 +400,13 @@ export class ASTValidator {
   /**
    * Detect forbidden patterns in AST
    */
-  detectForbiddenPatterns(ast: acorn.Node): SecurityViolation[] {
+  detectForbiddenPatterns(ast: acorn.Node, visit?: (node: ASTNodeRecord) => void): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
 
 
     const traverse = (node: ASTNodeRecord): void => {
       try {
+        visit?.(node);
         this.checkForbiddenIdentifier(node, violations);
         this.checkForbiddenCall(node, violations);
         this.checkForbiddenMemberAccess(node, violations);
@@ -416,6 +425,50 @@ export class ASTValidator {
       traverse(ast as unknown as ASTNodeRecord);
     }
     return violations;
+  }
+
+  /** Collect only direct input members and literal emit keys during the security walk. */
+  private collectDerivation(
+    node: ASTNodeRecord,
+    inputs: Set<string>,
+    outputs: Set<string>,
+    warnings: string[]
+  ): void {
+    const warn = (kind: 'input' | 'output'): void => {
+      const message = `Dynamic ${kind} access: declare ${kind} keys manually; they cannot all be derived from code.`;
+      if (!warnings.includes(message)) { warnings.push(message); }
+    };
+    if (node.type === 'MemberExpression' && isASTNode(node.object) &&
+        node.object.type === 'Identifier' && node.object.name === 'input') {
+      const key = this.getPropertyName(node);
+      if (key === null) { warn('input'); }
+      else { inputs.add(key); }
+    }
+    this.collectOutputs(node, outputs, () => warn('output'));
+  }
+
+  private collectOutputs(node: ASTNodeRecord, outputs: Set<string>, warn: () => void): void {
+    if (node.type !== 'CallExpression' || node.callee?.type !== 'Identifier' || node.callee.name !== 'emit') { return; }
+    const argument: unknown = Array.isArray(node.arguments) ? node.arguments[0] : undefined;
+    if (!isASTNode(argument) || argument.type !== 'ObjectExpression') {
+      warn();
+      return;
+    }
+    if (!Array.isArray(argument.properties)) { return; }
+    for (const property of argument.properties) {
+      if (!isASTNode(property) || property.type !== 'Property' || !isASTNode(property.key)) {
+        warn();
+        continue;
+      }
+      const key = property.key;
+      if (property.computed !== true && key.type === 'Identifier' && typeof key.name === 'string') {
+        outputs.add(key.name);
+      } else if (key.type === 'Literal' && (typeof key.value === 'string' || typeof key.value === 'number')) {
+        outputs.add(String(key.value));
+      } else {
+        warn();
+      }
+    }
   }
 
   private checkForbiddenIdentifier(node: ASTNodeRecord, violations: SecurityViolation[]): void {

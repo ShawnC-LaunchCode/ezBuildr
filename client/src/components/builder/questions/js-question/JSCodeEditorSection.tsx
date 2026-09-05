@@ -124,10 +124,15 @@ export function JSCodeEditorSection({ config, onChange, elementId, workflowId }:
 
     return (
         <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+                Saving adds input and output keys found in your code. Reopen to review them,
+                mark inputs optional, or narrow output types. Your declarations are kept.
+                For dynamic input access or non-literal emit values, declare the keys manually.
+            </p>
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Declared Outputs</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onChange({ outputs: [...config.outputs, { key: '', type: 'string' }] })}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onChange({ outputs: [...config.outputs, { key: '', type: 'object' }] })}>
                         <Plus className="mr-1 h-3 w-3" /> Add output
                     </Button>
                 </div>
