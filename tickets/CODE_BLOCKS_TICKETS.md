@@ -602,7 +602,54 @@ keep their current behavior.
 
 ---
 
-## CB-4 — Dependency ordering: topological execution and cycle detection 🔲
+## CB-4 — Dependency ordering: topological execution and cycle detection ✅
+
+> **Verified 2026-09-05 (reviewer).** ⚠️ **Reviewer-implemented, like CB-3** — same caveat:
+> design calls were made and approved by one party. Mutation testing was again the
+> compensating control, and both new behaviours were confirmed to fail without their fix
+> (topological ordering → definition order breaks AC 1 and AC 4; removing save-time cycle
+> detection breaks AC 3).
+>
+> **This ticket uncovered a pre-existing defect that made its own premise impossible.**
+> `RunDefinitionProvider` builds a run's step list with `findByPageIds(pageIds, tx)`, and
+> `includeVirtual` **defaults to `false`** — so the run definition omits virtual steps, and a
+> Code Block's output lives on exactly such a step. A consumer resolving its inputs against
+> the run definition could therefore never see its producer's output and sat at
+> `skipped_unready` forever, **whatever order the blocks ran in**. Ordering alone would not
+> have satisfied AC 1. First observed directly: producer `fired`, consumer `skipped_unready`
+> with `pendingInputs: ['gross_total']`.
+>
+> Fixed **inside `CodeBlockService`** by resolving inputs against
+> `findByWorkflowIdWithAliases` (which includes virtual steps), *not* by widening the run
+> definition — that definition also feeds navigation, page validation, visibility and progress
+> counts, so virtual steps would have leaked into `visibleSteps` and required-field validation.
+> That fix required a second rule: **"not visible" counts as resolved-absent only for a real
+> question logic has hidden.** A virtual step is never in the visible set by construction, so
+> without an `isVirtual` guard every consumer would fire immediately with `null` where its
+> producer's value belongs — the exact NaN-in-a-document failure these gates exist to prevent.
+>
+> **Cycles are rejected at save time against the whole workflow**, since a cycle is a property
+> of the graph and never of one block alone; the block being saved is merged into its siblings
+> before the check. At runtime a cycle can only mean a workflow saved *before* this check
+> existed, so `resolveExecutionOrder` logs and falls back to definition order rather than
+> throwing — failing closed there would take a live run down for an authoring mistake that was
+> legal when it was made.
+>
+> **AC 5 needed no new code:** `steps_workflow_alias_unique` already refuses a second writer
+> for one variable, which is what makes the one-writer-per-variable property (and therefore the
+> static DAG) hold. The test asserts the **rejection** and that exactly one live step keeps the
+> alias — not merely that the first save succeeded, which would pass with no constraint at all.
+>
+> Ordering rules (AC 2, 6) are proven **without a database** in
+> `tests/unit/services/codeBlocks/CodeBlockGraph.test.ts`, including that a producer runs
+> before its consumer even when the hand-set `order` integer says the opposite — the defect
+> this ticket exists to remove — and that independent blocks come back in the same order
+> regardless of input array order.
+>
+> Gates (reviewer-run): `type-check` 0 errors · `lint` 0 errors/warnings (`--max-warnings 0`,
+> repo-wide) · `check:strict-zones` 6 zones / 11 files PASSED · `test:fast` **3744 passed**
+> (3733 + 11 graph unit tests) · `test:integration` **143 files, 1315 passed | 3 skipped**
+> (baseline 1310 + 5 new).
 
 **Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockGraph.ts`
 

@@ -2,7 +2,7 @@ import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
 import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
 import { adaptLegacyStep } from "@shared/types/stepConfigs";
-import { isJsQuestionConfig } from "@shared/types/steps";
+import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
@@ -134,6 +134,34 @@ export class StepService {
    * label's auto-generated name, regenerate it when the label changes.
    * A customized alias is never touched. Returns the new alias or null.
    */
+  /**
+   * CB-4 AC 3: reject a save that would make the Code Block graph cyclic.
+   *
+   * Checked at SAVE time, in the editor, against the whole workflow -- a cycle
+   * is a property of the graph, never of one block in isolation, so the block
+   * being saved is merged into its siblings before the check. The runtime has
+   * no fixpoint iteration and no cycle-breaking heuristic and does not need
+   * one, because this is what keeps a saved workflow acyclic by construction.
+   */
+  private async assertNoCodeBlockCycle(
+    workflowId: string,
+    config: JsQuestionConfig,
+    stepId: string | undefined,
+    order: number,
+    tx?: DbTransaction
+  ): Promise<void> {
+    const siblings = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx);
+    const blocks: Array<{ id: string; order: number | null; config: JsQuestionConfig }> = [];
+    for (const sibling of siblings) {
+      if (sibling.id === stepId) { continue; }
+      const adapted = adaptLegacyStep({ type: sibling.type, config: sibling.config });
+      if (adapted.type !== 'js_question' || !isJsQuestionConfig(adapted.config)) { continue; }
+      blocks.push({ id: sibling.id, order: sibling.order, config: adapted.config });
+    }
+    blocks.push({ id: stepId ?? '__pending__', order, config });
+    this.codeBlockSvc.assertNoCycle(blocks);
+  }
+
   private async maybeRegenerateAlias(
     workflowId: string,
     step: Step,
@@ -235,6 +263,7 @@ export class StepService {
       }
       if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
         await this.codeBlockSvc.validateForSave(finalConfig);
+        await this.assertNoCodeBlockCycle(workflowId, finalConfig, undefined, data.order ?? 0, scopedTx);
       }
 
       // Validate alias if provided; otherwise auto-generate one from the
@@ -471,6 +500,7 @@ export class StepService {
         : undefined;
       if (nextCodeBlockConfig) {
         await this.codeBlockSvc.validateForSave(nextCodeBlockConfig);
+        await this.assertNoCodeBlockCycle(workflowId, nextCodeBlockConfig, step.id, step.order ?? 0, tx);
       }
 
       const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
