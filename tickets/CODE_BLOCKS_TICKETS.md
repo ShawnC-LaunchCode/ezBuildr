@@ -326,6 +326,17 @@ recomputing anything.
 
 ### Vertical proof
 
+**How to drive it — corrected 2026-09-04.** Persist each page's answers through the **real
+page-submit API**, then drive the gate with an **explicit `codeBlockService.evaluate(...)`
+call** after each submit. Do **not** widen `RunExecutionCoordinator.executeJsQuestions` to
+consider blocks outside the submitted page: it filters `step.pageId === pageId`, and
+changing that is CB-3's `everySubmit` trigger, listed in CB-3's own Preferred fix ("wire the
+eligible evaluation points") and file footprint. CB-2 owns the **gates**; CB-3 owns **when
+they are consulted**. The DB and sandbox hops stay real either way — only the caller
+changes — so this costs the proof nothing. (Original wording implied automatic cross-page
+firing and could not be satisfied inside CB-2's footprint; the dev correctly stopped rather
+than reach into CB-3.)
+
 - **Path:** the repo owner's own scenario. Block needs `income_a`, `income_b` (page 1) and
   `num_children` (page 2). Submit page 1 → `code_block_runs.status = 'skipped_unready'`,
   `pending_inputs = ['num_children']`, no output `step_values` row. Submit page 2 → status
@@ -427,7 +438,28 @@ from **all** of these — each is a no-op when clean:
 - Load **`run-tests`**.
 - File footprint: `server/services/codeBlocks/CodeBlockService.ts`, `shared/types/steps.ts`,
   `server/services/runs/RunExecutionCoordinator.ts`, `server/services/runs/RunResumeService.ts`,
-  `server/services/workflow-runs/RunLifecycleService.ts`.
+  `server/services/workflow-runs/RunLifecycleService.ts`,
+  **`tests/integration/codeBlocks.multiOutput.test.ts`** (see the ruling below).
+
+**This ticket owns the widening that CB-2 was told not to do** (added 2026-09-04).
+`executeJsQuestions` filters `step.pageId === pageId`, so today a block is only ever
+considered on its own page's submit. Implementing `everySubmit` means removing that filter —
+and doing so **will break CB-1's legacy-adapter test**
+(`tests/integration/codeBlocks.multiOutput.test.ts`), which submits a newly created page
+while an intentionally-erroring block sits on an earlier page. That test file is therefore
+inside this ticket's footprint; updating it is expected, not a violation of the
+"never weaken an existing test" rule.
+
+**Ruling on what that test should assert afterwards — decide it this way, do not improvise.**
+A block that errors on a page *other than the one being submitted* must **not** fail the
+submission. Decisions §5 says an error nulls that block's output set and marks it errored; it
+says nothing about failing the user's navigation, and the alternative is that one broken
+block anywhere in a workflow makes every subsequent page un-submittable. So: record
+`status = 'error'`, null that block's outputs, and let the submit succeed. The CB-1 test's
+existing expectation (a later page submits fine despite an earlier invalid block) is
+**correct and must be preserved** — what changes is that the earlier block now also gets a
+`code_block_runs` row recording the error. Errors in blocks belonging to the submitted page
+keep their current behavior.
 - Collides with: CB-1, CB-2, CB-4.
 
 ### Vertical proof
