@@ -103,14 +103,16 @@ describe.sequential('CB-2 Code Block readiness and change gates', () => {
   it('walks real page submits: unready, fired, unchanged without sandbox execution, then changed and fired', async () => {
     const f = await fixture();
     const executions = vi.spyOn(sandbox, 'executeCodeWithHelpers'); // call-through, real ScriptEngine + sandbox
+    // CB-3: a page submit now sweeps every eligible block itself, so the
+    // explicit evaluate() that used to drive this sequence is redundant --
+    // the submit above already performed it. Every assertion below is
+    // unchanged; only the trigger moved from the test into the product.
     await f.submit(1, { income_a: 100, income_b: 200 });
-    await f.evaluate();
     expect(await f.state()).toMatchObject({ status: 'skipped_unready', pendingInputs: ['num_children'], inputHash: null });
     expect(await f.outputRows()).toHaveLength(0);
     expect(executions).toHaveBeenCalledTimes(0);
 
     await f.submit(2, { num_children: 3 });
-    await f.evaluate();
     const fired = await f.state();
     expect(fired).toMatchObject({ status: 'fired', pendingInputs: [], errorMessage: null });
     expect(fired.inputHash).toMatch(/^[a-f0-9]{64}$/);
@@ -119,14 +121,12 @@ describe.sequential('CB-2 Code Block readiness and change gates', () => {
     expect(executions).toHaveBeenCalledTimes(1);
 
     await f.submit(3, { unrelated: 'different answer' });
-    await f.evaluate();
     expect(await f.state()).toMatchObject({ status: 'skipped_unchanged', inputHash: fired.inputHash, firedAt: fired.firedAt });
     expect(executions).toHaveBeenCalledTimes(1);
     await f.evaluate();
     expect(executions).toHaveBeenCalledTimes(1);
 
     await f.submit(1, { income_a: 400 });
-    await f.evaluate();
     expect((await f.state()).status).toBe('fired');
     expect((await f.state()).inputHash).not.toBe(fired.inputHash);
     expect((await f.outputRows())[0].value).toBe(200);
@@ -155,21 +155,22 @@ describe.sequential('CB-2 Code Block readiness and change gates', () => {
       inputs: [{ key: 'num_children', required: true }], outputs: DEFAULT_CONFIG.outputs,
     }, true);
     const executions = vi.spyOn(sandbox, 'executeCodeWithHelpers');
+    // CB-3: a page submit now sweeps every eligible block itself, so the
+    // explicit evaluate() that used to drive this sequence is redundant --
+    // the submit above already performed it. Every assertion below is
+    // unchanged; only the trigger moved from the test into the product.
     await f.submit(1, { income_a: 1 });
-    await f.evaluate();
     expect((await f.state()).status).toBe('skipped_unready');
     expect(executions).toHaveBeenCalledTimes(0);
     await f.submit(1, { income_a: 0 });
     const [run] = await getOwnerDb().select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, f.runId));
     const runtime = await runWithTenantContext(ctx.tenantId, () => runDefinitionProvider.getDefinition(run));
     expect(getVisibleStepIds(runtime, { [f.inputs[0].id]: 0 })).not.toContain(f.inputs[2].id);
-    await f.evaluate();
     expect(await f.state()).toMatchObject({ status: 'fired', pendingInputs: [] });
     expect((await f.outputRows())[0].value).toBe(23);
     expect(executions).toHaveBeenCalledTimes(1);
     expect(executions.mock.calls[0][0].input).toEqual({ num_children: null });
     await f.submit(1, { income_a: 1 });
-    await f.evaluate();
     expect((await f.state()).status).toBe('skipped_unready');
     expect(executions).toHaveBeenCalledTimes(1);
   });
@@ -260,17 +261,20 @@ describe.sequential('CB-2 Code Block readiness and change gates', () => {
       inputs: [{ key: 'num_children', required: true }], outputs: DEFAULT_CONFIG.outputs,
     });
     const executions = vi.spyOn(sandbox, 'executeCodeWithHelpers');
+    // CB-3: a page submit now sweeps every eligible block itself, so the
+    // explicit evaluate() that used to drive this sequence is redundant --
+    // the submit above already performed it. Every assertion below is
+    // unchanged; only the trigger moved from the test into the product.
     await f.submit(2, { num_children: 2 });
-    await f.evaluate();
     expect((await f.outputRows())[0].value).toBe(5);
     await f.submit(2, { num_children: 0 });
-    expect((await f.evaluate()).success).toBe(false);
     expect(await f.state()).toMatchObject({ status: 'error', inputHash: null, errorMessage: expect.stringContaining('zero children') });
     expect(await f.outputRows()).toHaveLength(0);
-    await f.evaluate();
+    // An errored block is retried rather than treated as a clean hash: this
+    // explicit evaluation must execute again and fail again, not skip.
+    expect((await f.evaluate()).success).toBe(false);
     expect(executions).toHaveBeenCalledTimes(3);
     await f.submit(2, { num_children: 2 });
-    await f.evaluate();
     expect(await f.state()).toMatchObject({ status: 'fired', errorMessage: null });
     expect((await f.outputRows())[0].value).toBe(5);
   });

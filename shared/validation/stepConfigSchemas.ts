@@ -446,6 +446,31 @@ export const JsQuestionConfigSchema = z.object({
     }
   }),
   timeoutMs: z.number().int().min(100).max(30000).optional(),
+  // CB-3: firing is trigger x repeat, two independent choices (Decisions 3).
+  // Both are optional so every Code Block stored before CB-3 stays valid and
+  // reads as the documented defaults ('everySubmit' x 'onChange').
+  trigger: z.enum(['everySubmit', 'atPage', 'runStart', 'runComplete']).optional(),
+  triggerPageId: z.string().optional(),
+  repeat: z.enum(['onChange', 'once', 'always']).optional(),
+}).superRefine((config, ctx) => {
+  // AC 8. Enforced here as well as in `validateFiringPolicy` because this is
+  // the write boundary the API actually goes through -- a config that never
+  // reaches the service must still be rejected, naming the field.
+  const isAtPage = config.trigger === 'atPage';
+  if (isAtPage && (config.triggerPageId === undefined || config.triggerPageId === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['triggerPageId'],
+      message: 'triggerPageId is required when trigger is "atPage"',
+    });
+  }
+  if (!isAtPage && config.triggerPageId !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['triggerPageId'],
+      message: 'triggerPageId is only allowed when trigger is "atPage"',
+    });
+  }
 });
 
 export const ComputedStepConfigSchema = z.object({

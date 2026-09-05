@@ -423,7 +423,75 @@ than reach into CB-3.)
 
 ---
 
-## CB-3 — Firing model: trigger × repeat policy 🔲
+## CB-3 — Firing model: trigger × repeat policy ✅
+
+> **Verified 2026-09-05 (reviewer).** ⚠️ **Implemented by the reviewer, not an independent
+> dev** — the repo owner chose that path knowingly. Every design call below was therefore
+> made and approved by the same party, which is weaker than this initiative's usual gate.
+> The compensating control was **mutation testing**: each load-bearing behaviour was broken
+> on purpose to confirm a test actually caught it. Two of those mutations survived on the
+> first attempt and forced a real test to be added.
+>
+> **The five call sites in the Preferred fix above were wrong, and are corrected here.**
+> "Page enter" **does not exist** in this codebase: there is no page-enter endpoint and no
+> page-enter block-execution point (only four `blockRunner.runPhase` callers exist server-wide;
+> the runner navigates via `POST /runs/:id/next` and renders from `GET /runs/:id/runtime`).
+> The list also omitted `runStart` while defining a `runStart` trigger that is meaningless
+> without one. `GET /runtime` was deliberately **not** wired as the substitute: it is a polled
+> GET, and a `repeat: 'always'` block hung off it would execute sandboxed code on every render
+> — a side-effecting GET and a cheap DoS vector. The five real points are:
+> `RunLifecycleService.executeOnRunStart` (runStart) · `RunExecutionCoordinator.submitPage` ·
+> `RunExecutionCoordinator.next` · `RunResumeService.redeemResumeLink` ·
+> `RunLifecycleService` before `buildForRun` (runComplete, placed *before* run data is built
+> so a firing block reaches the documents rendered on the next line).
+>
+> **Mutation results — what the tests actually pin:**
+> | Mutation | Caught by |
+> |---|---|
+> | Remove `evaluateAll` from `next()` | AC 4 ✅ |
+> | Move the sweep **after** `evaluateNavigation` | **nothing** — all 7 passed ❌ |
+>
+> The second result means AC 7's ordering claim was unproven behind a green suite. A test was
+> added driving the **autosave** path (`POST /runs/:id/values`), which persists inputs without
+> running the submit sweep — the only shape where the ordering inside `next()` is observable.
+> Re-running the inversion now fails that test and nothing else.
+>
+> **AC 7's first failure was a bad test, not a product gap.** It looked like logic rules could
+> not read computed/virtual outputs; an isolated probe comparing a virtual condition step
+> against a real one showed both hide correctly. The real cause: the rule was inserted *after*
+> the run was created, and a run resolves its definition once at creation, so that rule was
+> never in it. Fixtures must insert logic rules **before** creating the run.
+>
+> **Correction to this ticket's own prediction:** it recorded that widening execution would
+> break CB-1's legacy-adapter test. It did not — that block sits on a page whose submit is not
+> involved. **CB-2's gates test broke instead** (3 tests): it drove `evaluate()` manually
+> because CB-3 did not exist, so the explicit call now correctly reports `skipped_unchanged`
+> and the error test counted 4 executions rather than 3. Every assertion still held, so only
+> the redundant post-submit `evaluate()` calls were removed, one at a time with a stated
+> reason — no assertion deleted, count still 11. The erroring-block-on-another-page ruling is
+> now pinned by a coordinator unit test instead.
+>
+> Three unit suites (`pinnedDefinition`, `lifecycleHooks`, `RunResumeService`) had **no**
+> `CodeBlockService` mock and began reaching the real service without a database once the five
+> call sites were wired; the sweep is stubbed in each. `makeDefinition` and two type imports
+> became orphans when the coordinator tests were rewritten and were deleted, not suppressed.
+>
+> **A real bug was caught only by the FULL suite, after every targeted run was green.** The
+> first full integration run came back 1306 rather than the predicted 1310: four **30-second
+> timeouts** (not assertion failures) across `api.runs.resume-handoff` and
+> `api.runs.visited-pages`. Cause: the resume call site wrapped `evaluateAll` in `withTenant`,
+> which opens a transaction, while `evaluateAll` opens its own via `withCurrentTenant` —
+> nested pool queries against the size-1 test pool, the deadlock shape already documented for
+> `SystemStatsRepository`. Fixed with `runWithTenantContext`, which sets the ambient tenant id
+> without opening a transaction; that call never needed one. It produced no wrong data, so
+> nothing but running those suites could have surfaced it, and in production it would have
+> hung resume-link redemption. **Chasing the unexplained count delta rather than re-running is
+> what found it** — four timeouts on Windows read exactly like flakiness.
+>
+> Gates (reviewer-run): `type-check` 0 errors · `lint` 0 errors/warnings (`--max-warnings 0`,
+> repo-wide) · `check:strict-zones` 6 zones / 11 files PASSED · `test:fast` **3733 passed**
+> (3718 + 14 firingPolicy + 1 net coordinator) · `test:integration` **142 files, 1310 passed |
+> 3 skipped** (baseline 1303 + 7 new).
 
 **Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockService.ts`
 

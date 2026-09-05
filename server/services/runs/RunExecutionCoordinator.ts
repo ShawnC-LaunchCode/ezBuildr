@@ -56,10 +56,11 @@ export class RunExecutionCoordinator {
         const definition = await this.getDefinition(context);
         // Get current data
         const dataMap = await this.persistence.getRunValues(runId);
-        // 1. Execute JS Questions for current page (if any)
-        if (currentPageId) {
-            await this.executeJsQuestions(currentPageId, dataMap, context, definition);
-        }
+        // 1. Evaluate Code Blocks before navigation is computed (CB-3, AC 7),
+        // so a value produced on this submit can gate the next page's
+        // visibility on the same request rather than one navigation late.
+        // `dataMap` is mutated in place with the new outputs.
+        await this.codeBlockSvc.evaluateAll(runId, workflowId, 'submit', dataMap);
         // 2. Execute onNext blocks
         // Note: BlockRunner still needs refactoring to accept Mode, but for now we pass context
         // Ideally BlockRunner should be stateless or accept context
@@ -167,10 +168,23 @@ export class RunExecutionCoordinator {
             logger.warn({ runId, pageId, errors: errorMessages }, "Page validation failed");
             return { success: false, errors: errorMessages };
         }
-        // 4. Execute JS Questions
-        const jsResult = await this.executeJsQuestions(pageId, dataMap, context, definition, aliasMap);
-        if (!jsResult.success) {
-            return { success: false, errors: jsResult.errors };
+        // 4. Evaluate Code Blocks.
+        // CB-3: every eligible block in the run is considered, not just this
+        // page's -- that is what `everySubmit` means, and it is what lets a
+        // block on page 1 fire once page 2 supplies its last input. CB-2's
+        // readiness and change gates make the sweep a no-op when nothing moved.
+        const codeBlockResults = await this.codeBlockSvc.evaluateAll(runId, workflowId, 'submit', dataMap);
+        // Only a failure in a block belonging to THIS page fails the submit.
+        // A block erroring elsewhere nulls its own outputs and records
+        // `status: 'error'` (Decisions 5) without blocking navigation --
+        // otherwise one broken block anywhere makes every later page
+        // un-submittable, which is strictly worse than a blank value.
+        const pageErrors = codeBlockResults
+            .filter(result => !result.success && pageStepIds.has(result.state.stepId))
+            .map(result => result.error)
+            .filter((error): error is string => error !== undefined);
+        if (pageErrors.length > 0) {
+            return { success: false, errors: pageErrors };
         }
         // 5. Execute onPageSubmit blocks
         const blockResult = await blockRunner.runPhase({
@@ -185,37 +199,6 @@ export class RunExecutionCoordinator {
         return {
             success: blockResult.success,
             errors: blockResult.errors,
-        };
-    }
-    /** Execute compute-only Code Blocks for this page. */
-    private async executeJsQuestions(
-        pageId: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dataMap holds dynamic workflow step values
-        dataMap: Record<string, any>,
-        context: ExecutionContext,
-        definition: RunDefinition,
-        aliasMap?: Record<string, string>
-    ): Promise<{ success: boolean; errors?: string[] }> {
-        const errors: string[] = [];
-        // Find JS questions in this page, sourced from the run's
-        // definition (RVP-3) rather than a fresh `stepRepo.findByPageId`.
-        const jsQuestions = definition.steps.filter(
-            step => step.pageId === pageId && step.type === 'js_question'
-        );
-        for (const step of jsQuestions) {
-            const result = await this.codeBlockSvc.execute({
-                step,
-                runId: context.runId,
-                workflowId: context.workflowId,
-                userId: context.userId,
-                data: dataMap,
-                aliasMap,
-            });
-            if (!result.success && result.error) { errors.push(result.error); }
-        }
-        return {
-            success: errors.length === 0,
-            errors: errors.length > 0 ? errors : undefined
         };
     }
     /**

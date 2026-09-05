@@ -8,6 +8,17 @@ import { RunLifecycleService } from '../../../server/services/workflow-runs/RunL
 // through HTTP, so `db` must be mocked or the chain throws "Database not
 // initialized". The stub `tx` needs a working `execute` — that is what
 // `applyTenantToTransaction` uses to set the GUC.
+// CB-3: the run path now sweeps eligible Code Blocks from submitPage, next,
+// runStart, resume and the completion pass. This suite has no database, and
+// CodeBlockService is not the unit under test here -- stub the sweep so these
+// tests keep exercising what they were written for.
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+  codeBlockService: {
+    execute: vi.fn().mockResolvedValue({ success: true }),
+    evaluateAll: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 vi.mock("../../../server/db", () => {
   const tx = { execute: vi.fn().mockResolvedValue(undefined) };
   return {

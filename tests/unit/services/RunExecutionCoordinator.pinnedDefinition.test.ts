@@ -17,6 +17,17 @@ import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 import type { RunDefinition } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 
+// CB-3: the run path now sweeps eligible Code Blocks from submitPage, next,
+// runStart, resume and the completion pass. This suite has no database, and
+// CodeBlockService is not the unit under test here -- stub the sweep so these
+// tests keep exercising what they were written for.
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+  codeBlockService: {
+    execute: vi.fn().mockResolvedValue({ success: true }),
+    evaluateAll: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 vi.mock('../../../server/services/scripting/ScriptEngine', () => ({
     scriptEngine: { execute: vi.fn() }
 }));

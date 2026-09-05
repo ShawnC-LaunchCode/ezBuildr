@@ -12,6 +12,7 @@
 import { logger } from "../../logger";
 import { stepValueRepository, stepRepository, pageRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
+import { codeBlockService } from "../codeBlocks/CodeBlockService";
 import { finalBlockRenderer, createProjectTemplateResolver } from "../document/FinalBlockRenderer";
 import { lifecycleHookService } from "../scripting/LifecycleHookService";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
@@ -146,6 +147,11 @@ export class RunLifecycleService {
         logger.warn({ runId, errors: blockResult.errors }, `onRunStart block errors for run ${runId}`);
         return { success: false, errors: blockResult.errors };
       }
+
+      // CB-3: `trigger: 'runStart'` blocks are eligible here and nowhere else --
+      // this is the only point with inbound/prefill data and no page context.
+      // Failures are the block's own (Decisions 5) and never fail run creation.
+      await codeBlockService.evaluateAll(runId, workflowId, 'runStart', values);
 
       return { success: true };
     } catch (error) {
@@ -514,6 +520,12 @@ export class RunLifecycleService {
         await workflowRunRepository.updateGenerationStatus(runId, 'done');
         return { success: true, documentsGenerated: 0, documents: [] };
       }
+
+      // CB-3: the completion pass. `trigger: 'runComplete'` blocks are eligible
+      // only here, and this must happen BEFORE run data is built -- a block that
+      // fires now must have its outputs visible to the documents that render on
+      // the next line, not one run too late.
+      await codeBlockService.evaluateAll(runId, workflowId, 'runComplete', {});
 
       // 3. Get canonical run data and hand documents the alias-keyed view.
       const runData = options.runData ?? await this.runDataSvc.buildForRun(runId, workflowId);

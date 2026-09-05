@@ -10,7 +10,6 @@ import { codeBlockService } from '../../../server/services/codeBlocks/CodeBlockS
 import { logicService, type NavigationResult } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
-import type { RunDefinition, RunStep } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 
 // RLS-5: the run/document path now opens tenant-scoped transactions via
 // `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
@@ -34,6 +33,9 @@ vi.mock("../../../server/db", () => {
 vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
     codeBlockService: {
         execute: vi.fn(),
+        // CB-3: the coordinator now sweeps every eligible block through
+        // evaluateAll instead of executing only the submitted page's.
+        evaluateAll: vi.fn().mockResolvedValue([]),
     },
 }));
 // Mock PersistenceWriter
@@ -96,47 +98,6 @@ vi.mock('../../../server/repositories', () => ({
     }
 }));
 
-interface TestCoordinator {
-    executeJsQuestions(
-        pageId: string,
-        dataMap: Record<string, unknown>,
-        context: ExecutionContext,
-        definition: RunDefinition,
-        aliasMap?: Record<string, string>
-    ): Promise<{ success: boolean; errors?: string[] }>;
-}
-
-/** Builds a minimal `RunDefinition` for tests that only care about a handful
- * of steps -- fills in the fields `RunStep`/`RunDefinition` require but that
- * a given test doesn't exercise. Inputs are loosely typed (test fixtures use
- * plain string literals for `type` etc.) and cast at the boundary. */
-function makeDefinition(
-    steps: ReadonlyArray<Record<string, unknown> & { id: string; pageId: string }>,
-    pages: Page[] = [],
-    logicRules: LogicRule[] = []
-): RunDefinition {
-    return {
-        sections: [],
-        pages: pages as unknown as RunDefinition['pages'],
-        steps: steps.map((step) => ({
-            workflowId: 'wf-1',
-            type: 'short_text',
-            title: 'Step',
-            description: null,
-            required: false,
-            alias: null,
-            order: 0,
-            isVirtual: false,
-            config: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            ...step,
-        })) as unknown as RunStep[],
-        logicRules,
-        source: 'live',
-    };
-}
-
 describe('RunExecutionCoordinator - Code Block Execution', () => {
     let coordinator: RunExecutionCoordinator;
     let mockStepRepo: Mocked<typeof stepRepository>;
@@ -164,6 +125,9 @@ describe('RunExecutionCoordinator - Code Block Execution', () => {
         // this default survives even if a test overrides and doesn't reset.
         mockRunRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null } as never);
         mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+        // Same reason as above: clearAllMocks drops the factory's default, and
+        // every submitPage/next test now awaits this sweep (CB-3).
+        vi.mocked(codeBlockService.evaluateAll).mockResolvedValue([]);
 
         coordinator = new RunExecutionCoordinator(
             mockRunPersistence,
@@ -187,52 +151,61 @@ describe('RunExecutionCoordinator - Code Block Execution', () => {
         },
         alias: 'total'
     };
-    it('delegates Code Block execution to CodeBlockService', async () => {
-        vi.mocked(codeBlockService.execute).mockResolvedValue({ success: true });
+    describe('CB-3: evaluateAll wiring and error routing', () => {
+        beforeEach(() => {
+            mockPageRepo.findByWorkflowId.mockResolvedValue([{ id: 'page-1', workflowId: 'wf-1', order: 0 }] as never);
+            mockStepRepo.findByPageIds.mockResolvedValue([mockJsStep] as never);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            mockRunPersistence.getRunValues.mockResolvedValue({});
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true } as never);
+        });
+        it('sweeps every eligible Code Block through evaluateAll on submit, not only the submitted page', async () => {
+            // CB-3: `everySubmit` means the whole run is reconsidered, which is what
+            // lets a block on page 1 fire once page 2 supplies its last input. The
+            // old behavior filtered to `step.pageId === pageId` and could not.
+            vi.mocked(codeBlockService.evaluateAll).mockResolvedValue([]);
+            const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
-        // Test via private method execution
-        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
-        const definition = makeDefinition([mockJsStep]);
+            await coordinator.submitPage(context, 'page-1', []);
 
-        const testCoordinator = coordinator as unknown as TestCoordinator;
-        const result = await testCoordinator.executeJsQuestions(
-            'page-1',
-            { 'step-a': 10, 'step-b': 20 },
-            context,
-            definition
-        );
+            expect(codeBlockService.evaluateAll).toHaveBeenCalledWith(
+                'run-1',
+                'wf-1',
+                'submit',
+                expect.any(Object)
+            );
+        });
+        it('fails the submit when a Code Block ON THIS PAGE errors', async () => {
+            vi.mocked(codeBlockService.evaluateAll).mockResolvedValue([{
+                success: false,
+                error: 'Code Block "Calculate Total" failed: SyntaxError: Unexpected token',
+                state: { stepId: 'step-js-1' } as never,
+            }]);
+            const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
-        expect(result.success).toBe(true);
-        const executionRequest = vi.mocked(codeBlockService.execute).mock.calls[0]?.[0];
-        expect(executionRequest).toMatchObject({
-            step: mockJsStep,
-            runId: 'run-1',
-            workflowId: 'wf-1',
-            userId: 'user-1',
-            data: { 'step-a': 10, 'step-b': 20 },
+            const result = await coordinator.submitPage(context, 'page-1', []);
+
+            expect(result.success).toBe(false);
+            expect(result.errors).toContainEqual(expect.stringContaining('SyntaxError'));
+        });
+        it('does NOT fail the submit when the erroring Code Block belongs to another page', async () => {
+            // Decisions 5 + the CB-3 ruling: an error nulls that block's outputs and
+            // records `status: 'error'`; it does not block the respondent's
+            // navigation. Otherwise one broken block anywhere in a workflow makes
+            // every later page un-submittable, which is strictly worse than a blank.
+            vi.mocked(codeBlockService.evaluateAll).mockResolvedValue([{
+                success: false,
+                error: 'Code Block on page 9 failed: TypeError',
+                state: { stepId: 'step-on-another-page' } as never,
+            }]);
+            const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+
+            const result = await coordinator.submitPage(context, 'page-1', []);
+
+            expect(result.success).toBe(true);
+            expect(result.errors).toBeUndefined();
         });
     });
-    it('returns Code Block execution errors', async () => {
-        vi.mocked(codeBlockService.execute).mockResolvedValue({
-            success: false,
-            error: 'Code Block "Calculate Total" failed: SyntaxError: Unexpected token'
-        });
-
-        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
-        const definition = makeDefinition([mockJsStep]);
-
-        const testCoordinator = coordinator as unknown as TestCoordinator;
-        const result = await testCoordinator.executeJsQuestions(
-            'page-1',
-            { 'step-a': 10, 'step-b': 20 },
-            context,
-            definition
-        );
-
-        expect(result.success).toBe(false);
-        expect(result.errors).toContainEqual(expect.stringContaining('SyntaxError'));
-    });
-
     it('rejects page submits containing values from another page before writing', async () => {
         // The other-page step must exist SOMEWHERE on this workflow for this
         // to be the mass-assignment case rather than the edited-mid-run case

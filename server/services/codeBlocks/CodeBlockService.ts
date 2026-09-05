@@ -4,6 +4,7 @@ import type { CodeBlockRun, Step } from '@shared/schema';
 import {
   isJsQuestionConfig,
   LEGACY_JS_QUESTION_ADAPTER,
+  resolveFiringPolicy,
   type CodeBlockOutput,
   type JsQuestionConfig,
 } from '@shared/types/steps';
@@ -15,6 +16,7 @@ import { codeBlockRunRepository } from '../../repositories/CodeBlockRunRepositor
 import { getCurrentTenantId, withCurrentTenant } from '../../utils/rlsContext';
 import { getVisibleStepIds } from '../runs/RunVisibility';
 import { scriptEngine } from '../scripting/ScriptEngine';
+import { isEligible, validateFiringPolicy, type EvaluationPoint, type PageProgress } from './firingPolicy';
 import { validateAliasFormat } from '../stepAlias';
 
 type CodeBlockDependencies = {
@@ -130,9 +132,25 @@ export class CodeBlockService {
     }
     const inputs = Object.fromEntries(entries);
     const inputHash = createHash('sha256').update(JSON.stringify(canonicalize(inputs))).digest('hex');
-    if (previous?.inputHash === inputHash && previous.firedAt !== null && previous.status !== 'error') {
+    const { repeat } = resolveFiringPolicy(config);
+    // CB-3, repeat half of trigger x repeat. `once` freezes after the first
+    // successful fire regardless of the hash -- that is the whole point for a
+    // generated id, a captured rate or a timestamp, which must not drift when
+    // an unrelated input moves. `always` ignores the hash in the other
+    // direction. `onChange` is the default and compares hashes.
+    const frozen = repeat === 'once' && previous?.firedAt !== null && previous?.firedAt !== undefined;
+    const unchanged = repeat === 'onChange'
+      && previous?.inputHash === inputHash
+      && previous.firedAt !== null
+      && previous.status !== 'error';
+    if (frozen || unchanged) {
       const state = await withCurrentTenant(tx => this.stateRepo.upsert({
-        ...base, status: 'skipped_unchanged', pendingInputs: [], inputHash,
+        ...base,
+        status: 'skipped_unchanged',
+        pendingInputs: [],
+        // A frozen `once` block keeps the hash it fired with; overwriting it
+        // with the current tuple would make a later `onChange` edit look clean.
+        inputHash: frozen ? previous?.inputHash ?? null : inputHash,
       }, tx));
       return { success: true, state };
     }
@@ -153,7 +171,60 @@ export class CodeBlockService {
     return { ...result, state };
   }
 
+  /**
+   * CB-3: evaluate every Code Block in a run that is eligible at this point.
+   *
+   * This is the single entry point for all five call sites (submitPage, next,
+   * page enter, resume-link landing, and the completion pass). Because CB-2's
+   * gates make a clean evaluation a no-op, calling it from all of them is safe
+   * and idempotent (Decisions 6) — a run with nothing to do performs zero
+   * sandbox executions, which is exactly what CB-3's AC 6 asserts.
+   *
+   * Errors never propagate. A block that throws or fails nulls its own output
+   * set and records `status: 'error'` (Decisions 5); it does not fail the
+   * caller's page submit. One broken block must not make every later page
+   * un-submittable, and a block on a page the user is not even looking at
+   * certainly must not.
+   */
+  async evaluateAll(
+    runId: string,
+    workflowId: string,
+    point: EvaluationPoint,
+    data: Record<string, unknown> = {}
+  ): Promise<CodeBlockEvaluationResult[]> {
+    const ownership = await withCurrentTenant(tx => this.stateRepo.findRunOwnership(runId, tx));
+    if (!ownership) { throw new Error('Run not found'); }
+    const tenantId = getCurrentTenantId();
+    if (tenantId && ownership.tenantId !== tenantId) {
+      throw new Error('Access denied - run belongs to different tenant');
+    }
+    const { runDefinitionProvider } = await import('../workflow-runs/RunDefinitionProvider');
+    const runtime = await runDefinitionProvider.getDefinition(ownership.run);
+    const progress: PageProgress = {
+      currentPageId: ownership.run.currentPageId,
+      visitedPageIds: ownership.run.visitedPageIds ?? [],
+    };
+    const results: CodeBlockEvaluationResult[] = [];
+    for (const step of runtime.steps) {
+      if (step.type !== 'js_question') { continue; }
+      const config = resolveConfig(step.config);
+      if (!config) { continue; }
+      if (!isEligible(config, point, progress)) { continue; }
+      try {
+        results.push(await this.evaluate(runId, { id: step.id, workflowId }, data));
+      } catch (error) {
+        // Decisions 5: an error is this block's problem, not the run's.
+        logger.warn(
+          { runId, stepId: step.id, point, err: error },
+          'Code Block evaluation failed; outputs nulled, run continues'
+        );
+      }
+    }
+    return results;
+  }
+
   async validateForSave(config: JsQuestionConfig): Promise<void> {
+    validateFiringPolicy(config);
     for (const output of config.outputs) {
       validateAliasFormat(output.key);
     }

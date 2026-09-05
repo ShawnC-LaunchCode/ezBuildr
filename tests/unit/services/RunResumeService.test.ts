@@ -8,6 +8,17 @@ import { describe, expect, it, vi } from 'vitest';
 // tests/integration/api.runs.resume-handoff.test.ts; these tests are about the
 // authorization and link logic, so the wrappers become pass-throughs handing
 // the callback a fake tx the injected repositories simply ignore.
+// CB-3: the run path now sweeps eligible Code Blocks from submitPage, next,
+// runStart, resume and the completion pass. This suite has no database, and
+// CodeBlockService is not the unit under test here -- stub the sweep so these
+// tests keep exercising what they were written for.
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+  codeBlockService: {
+    execute: vi.fn().mockResolvedValue({ success: true }),
+    evaluateAll: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
   const tx = { execute: vi.fn().mockResolvedValue({ rows: [] }) };

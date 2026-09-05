@@ -10,9 +10,10 @@ import {
 } from '../../repositories';
 import { hashToken } from '../../utils/encryption';
 import { createError } from '../../utils/errors';
+import { codeBlockService } from '../codeBlocks/CodeBlockService';
 import { auditLogService } from '../AuditLogService';
 import { sendRunResumeEmail } from '../emailService';
-import { withTenant, withVerifiedIdentifier } from '../../utils/rlsContext';
+import { runWithTenantContext, withTenant, withVerifiedIdentifier } from '../../utils/rlsContext';
 import { workflowTenantResolver } from '../WorkflowTenantResolver';
 import { workflowService } from '../WorkflowService';
 import { RunAuthResolver, runAuthResolver } from './RunAuthResolver';
@@ -229,6 +230,20 @@ export class RunResumeService {
       }, tx);
       return updated;
     });
+
+    // CB-3: a resume landing is an evaluation point. The run may have been
+    // parked for weeks; re-evaluating here means the respondent sees current
+    // computed values rather than whatever was true when they left. CB-2's
+    // change gate makes this free when nothing moved, and evaluateAll never
+    // throws outward, so a bad block cannot break resuming a run.
+    // `runWithTenantContext`, NOT `withTenant`: the latter opens a transaction,
+    // and `evaluateAll` opens its own via `withCurrentTenant`. Nesting them
+    // deadlocks the size-1 test pool -- four resume/visited-page integration
+    // tests timed out at 30s apiece before this was corrected. This call only
+    // needs the ambient tenant id, not a transaction of its own.
+    await runWithTenantContext(redeemTenantId, () =>
+      codeBlockService.evaluateAll(restored.id, restored.workflowId, 'submit', {})
+    );
 
     return {
       runId: restored.id,
