@@ -1,4 +1,6 @@
-import type { Step } from '@shared/schema';
+import { createHash } from 'node:crypto';
+
+import type { CodeBlockRun, Step } from '@shared/schema';
 import {
   isJsQuestionConfig,
   LEGACY_JS_QUESTION_ADAPTER,
@@ -9,7 +11,9 @@ import {
 import { logger } from '../../logger';
 import { stepRepository, stepValueRepository } from '../../repositories';
 import type { DbTransaction } from '../../repositories/BaseRepository';
-import { withCurrentTenant } from '../../utils/rlsContext';
+import { codeBlockRunRepository } from '../../repositories/CodeBlockRunRepository';
+import { getCurrentTenantId, withCurrentTenant } from '../../utils/rlsContext';
+import { getVisibleStepIds } from '../runs/RunVisibility';
 import { scriptEngine } from '../scripting/ScriptEngine';
 import { validateAliasFormat } from '../stepAlias';
 
@@ -17,6 +21,7 @@ type CodeBlockDependencies = {
   stepRepo?: typeof stepRepository;
   valueRepo?: typeof stepValueRepository;
   engine?: typeof scriptEngine;
+  stateRepo?: typeof codeBlockRunRepository;
 };
 
 type CodeBlockStepIdentity = Pick<Step, 'id' | 'workflowId' | 'pageId' | 'title' | 'config' | 'alias'>;
@@ -35,6 +40,17 @@ export type CodeBlockExecutionResult = {
   success: boolean;
   error?: string;
 };
+
+export type CodeBlockEvaluationResult = CodeBlockExecutionResult & { state: CodeBlockRun };
+
+/** JSON object order is immaterial, including inside object/list inputs. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) { return value.map(canonicalize); }
+  if (isRecord(value)) {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]));
+  }
+  return value ?? null;
+}
 
 function resolveConfig(rawConfig: unknown): JsQuestionConfig | undefined {
   const adapted = LEGACY_JS_QUESTION_ADAPTER.resolveConfig(rawConfig);
@@ -62,11 +78,79 @@ export class CodeBlockService {
   private readonly stepRepo: typeof stepRepository;
   private readonly valueRepo: typeof stepValueRepository;
   private readonly engine: typeof scriptEngine;
+  private readonly stateRepo: typeof codeBlockRunRepository;
 
   constructor(dependencies: CodeBlockDependencies = {}) {
     this.stepRepo = dependencies.stepRepo ?? stepRepository;
     this.valueRepo = dependencies.valueRepo ?? stepValueRepository;
     this.engine = dependencies.engine ?? scriptEngine;
+    this.stateRepo = dependencies.stateRepo ?? codeBlockRunRepository;
+  }
+
+  /** Evaluate one block. Eligibility/trigger selection belongs to the caller. */
+  async evaluate(
+    runId: string,
+    definition: Pick<Step, 'id' | 'workflowId'>,
+    data: Record<string, unknown>
+  ): Promise<CodeBlockEvaluationResult> {
+    const ownership = await withCurrentTenant(tx => this.stateRepo.findRunOwnership(runId, tx));
+    if (!ownership) { throw new Error('Run not found'); }
+    const tenantId = getCurrentTenantId();
+    if (tenantId && ownership.tenantId !== tenantId) {
+      throw new Error('Access denied - run belongs to different tenant');
+    }
+    if (ownership.run.workflowId !== definition.workflowId) {
+      throw new Error('Access denied - Code Block belongs to different workflow');
+    }
+    const { runDefinitionProvider } = await import('../workflow-runs/RunDefinitionProvider');
+    const runtime = await runDefinitionProvider.getDefinition(ownership.run);
+    const step = runtime.steps.find(candidate => candidate.id === definition.id && candidate.type === 'js_question');
+    if (!step) { throw new Error('Code Block not found in run definition'); }
+    const config = resolveConfig(step.config);
+    if (!config) { throw new Error(`Code Block "${step.title}" has an invalid configuration`); }
+
+    const rows = await withCurrentTenant(tx => this.valueRepo.findByRunId(runId, tx));
+    const byStepId = new Map(rows.map(row => [row.stepId, row.value]));
+    const persistedData = Object.fromEntries(byStepId);
+    const visible = new Set(getVisibleStepIds(runtime, persistedData));
+    const pendingInputs: string[] = [];
+    const entries = config.inputs.map(input => {
+      const inputStep = runtime.steps.find(candidate => candidate.alias === input.key || candidate.id === input.key);
+      const resolved = inputStep !== undefined && (byStepId.has(inputStep.id) || !visible.has(inputStep.id));
+      if (input.required && !resolved) { pendingInputs.push(input.key); }
+      return [input.key, inputStep ? byStepId.get(inputStep.id) ?? null : null] as const;
+    });
+    const previous = await withCurrentTenant(tx => this.stateRepo.findByRunAndStep(runId, step.id, tx));
+    const base = { runId, stepId: step.id, firedAt: previous?.firedAt ?? null, errorMessage: null };
+    if (pendingInputs.length > 0) {
+      const state = await withCurrentTenant(tx => this.stateRepo.upsert({
+        ...base, status: 'skipped_unready', pendingInputs, inputHash: previous?.inputHash ?? null,
+      }, tx));
+      return { success: true, state };
+    }
+    const inputs = Object.fromEntries(entries);
+    const inputHash = createHash('sha256').update(JSON.stringify(canonicalize(inputs))).digest('hex');
+    if (previous?.inputHash === inputHash && previous.firedAt !== null && previous.status !== 'error') {
+      const state = await withCurrentTenant(tx => this.stateRepo.upsert({
+        ...base, status: 'skipped_unchanged', pendingInputs: [], inputHash,
+      }, tx));
+      return { success: true, state };
+    }
+    const executionData = { ...inputs };
+    const result = await this.execute({ step, runId, workflowId: ownership.run.workflowId, data: executionData });
+    // execute adds virtual output IDs to its data map; expose them to subsequent evaluations.
+    for (const [key, value] of Object.entries(executionData)) {
+      if (!Object.hasOwn(inputs, key)) { data[key] = value; }
+    }
+    const state = await withCurrentTenant(tx => this.stateRepo.upsert({
+      ...base,
+      status: result.success ? 'fired' : 'error',
+      inputHash: result.success ? inputHash : null,
+      pendingInputs: [],
+      errorMessage: result.error ?? null,
+      firedAt: result.success ? new Date() : base.firedAt,
+    }, tx));
+    return { ...result, state };
   }
 
   async validateForSave(config: JsQuestionConfig): Promise<void> {

@@ -256,7 +256,47 @@ one-element `outputs` array, in the spirit of `LEGACY_STEP_ADAPTERS` in
 
 ---
 
-## CB-2 — Readiness gate, change gate, and per-run block state 🔄
+## CB-2 — Readiness gate, change gate, and per-run block state ✅
+
+> **Verified 2026-09-05 (reviewer).** All 10 criteria checked against the tree, not the
+> turn-in report. Gates re-run by the reviewer: `type-check` 0 errors (`tsbuildinfo` cleared
+> first) · `lint` 0 errors/warnings (`--max-warnings 0`, repo-wide) · `check:strict-zones`
+> 6 zones / 11 files PASSED · `test:fast` **3718 / 330 files** (unchanged — this ticket adds
+> entries to tables existing tests read, not new fast tests) · `test:integration`
+> **141 files, 1303 passed | 3 skipped** (baseline 1292 + 11 new).
+>
+> **Both anti-traps met without correction.** AC 4 spies on
+> `sandbox.executeCodeWithHelpers` with **call-through** against the real ScriptEngine and
+> asserts the invocation count across the sequence (0 → 1 → still 1 after an unrelated
+> submit → still 1 after re-evaluation → 2 after a real change); the stored value is
+> identical whether a block re-ran or was skipped, so only the count can distinguish them.
+> AC 3 inserts a real `logic_rules` row with `action: 'hide'` rather than omitting a value,
+> which would have been indistinguishable from AC 1's unready case. The test also pins that
+> a **falsy** answer (`income_a: 0`) counts as resolved — a bug class the ticket never asked
+> about.
+>
+> AC 7 is real, not nominal: `evaluateWorkflowVisibility` now appears in exactly one place,
+> `server/services/runs/RunVisibility.ts`, with both `RunExecutionCoordinator` and
+> `CodeBlockService` importing `getVisibleStepIds` from it. The module imports nothing back
+> from either service, so the `import/no-cycle` error is broken rather than relocated.
+>
+> AC 8 verified directly against the test database: `code_block_runs` exists with both FKs,
+> the status check, and `code_block_runs_run_step_unique` on `(run_id, step_id)` — a unique
+> index, the same pattern as `steps_workflow_alias_unique`. The reviewer separately confirmed
+> the shared Neon branch was **not** migrated (no `code_block_runs`, no drizzle migrations
+> table), so `db:migrate` was correctly never run against it.
+>
+> **Approved footprint additions:** `server/services/runs/RunVisibility.ts` (required by
+> AC 7 — the cycle-free extraction), `server/services/portability/entityGraph.ts` and
+> `shared/types/portabilityDisclosure.ts` (both forced by coverage guards
+> `schemaCoverage.test.ts:62` and `exclusionCategories.test.ts:16`, which fail whenever a
+> table is added without classification and disclosure). `code_block_runs` is excluded from
+> portability as per-run instance data, alongside `workflow_runs`, `step_values` and
+> `transform_block_runs`.
+>
+> The dev raised three blockers and was right all three times — most importantly the
+> CB-2/CB-3 boundary, which was a defect in this ticket's Vertical proof (see the correction
+> in that section).
 
 **Priority: P1** · Size: M · File: `server/services/codeBlocks/CodeBlockService.ts`
 

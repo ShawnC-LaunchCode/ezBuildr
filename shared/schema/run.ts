@@ -12,6 +12,7 @@ import {
     boolean,
     integer,
     pgEnum,
+    pgPolicy,
     check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -84,6 +85,26 @@ export const workflowRuns = pgTable("workflow_runs", {
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
     index("workflow_runs_assigned_user_idx").on(table.assignedToUserId),
     index("workflow_runs_portal_access_key_idx").on(table.portalAccessKey),
+]);
+
+export const codeBlockRuns = pgTable("code_block_runs", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    stepId: uuid("step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
+    inputHash: text("input_hash"),
+    status: text("status").$type<'fired' | 'skipped_unready' | 'skipped_unchanged' | 'error'>().notNull(),
+    pendingInputs: text("pending_inputs").array().default(sql`'{}'::text[]`).notNull(),
+    errorMessage: text("error_message"),
+    firedAt: timestamp("fired_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex("code_block_runs_run_step_unique").on(table.runId, table.stepId),
+    check("code_block_runs_status_check", sql`${table.status} IN ('fired', 'skipped_unready', 'skipped_unchanged', 'error')`),
+    pgPolicy("tenant_isolation", {
+        for: 'all',
+        using: sql`EXISTS (SELECT 1 FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.id = ${table.runId} AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id) = app_current_tenant())`,
+        withCheck: sql`EXISTS (SELECT 1 FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.id = ${table.runId} AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id) = app_current_tenant())`,
+    }),
 ]);
 
 /**
@@ -461,6 +482,7 @@ export const sliWindows = pgTable("sli_windows", {
 // ===================================================================
 
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
+export const insertCodeBlockRunSchema = createInsertSchema(codeBlockRuns);
 export const insertRunResumeLinkSchema = createInsertSchema(runResumeLinks);
 export const insertRunCompletionJobSchema = createInsertSchema(runCompletionJobs);
 export const insertStepValueSchema = createInsertSchema(stepValues);
@@ -479,6 +501,8 @@ export const insertSliWindowSchema = createInsertSchema(sliWindows);
 
 // Types
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
+export type CodeBlockRun = InferSelectModel<typeof codeBlockRuns>;
+export type InsertCodeBlockRun = InferInsertModel<typeof codeBlockRuns>;
 export type InsertWorkflowRun = InferInsertModel<typeof workflowRuns>;
 export type RunResumeLink = InferSelectModel<typeof runResumeLinks>;
 export type InsertRunResumeLink = InferInsertModel<typeof runResumeLinks>;

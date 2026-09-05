@@ -1,5 +1,3 @@
-import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
-
 import { logger } from "../../logger";
 import { workflowRepository, workflowRunRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
@@ -10,6 +8,7 @@ import { logicService, type NavigationResult } from "../LogicService";
 import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
 
 import { runPersistenceWriter } from "./RunPersistenceWriter";
+import { getVisibleStepIds } from "./RunVisibility";
 export interface ExecutionContext {
     workflowId: string;
     runId: string;
@@ -148,7 +147,7 @@ export class RunExecutionCoordinator {
         const dataMap = await this.persistence.getRunValues(runId);
         const aliasMap = this.getAliasMap(definition);
         // 3. Validate required fields (respecting visibility)
-        const visibleStepIds = this.getVisibleStepIds(definition, dataMap);
+        const visibleStepIds = getVisibleStepIds(definition, dataMap);
         const validationResult = await validatePage(
             steps,
             dataMap,
@@ -218,33 +217,6 @@ export class RunExecutionCoordinator {
             success: errors.length === 0,
             errors: errors.length > 0 ? errors : undefined
         };
-    }
-    /**
-     * Determine which steps are currently visible for the workflow, using the
-     * same logic-rule + visibleIf engine (`evaluateWorkflowVisibility`) that
-     * navigation (`LogicService.evaluateNavigation`) and completion
-     * (`LogicService.validateCompletion`) already use. Page submit must
-     * not compute visibility any other way — a second engine here is what
-     * let hidden-required steps block submission (RUN2-1).
-     *
-     * RVP-3: sourced from the run's already-resolved definition (pinned
-     * version or live tables via `RunDefinitionProvider`) instead of
-     * re-reading `pageRepo`/`stepRepo`/`logicRuleRepo` directly, so this
-     * agrees with what navigation/completion decided for the same run.
-     */
-    private getVisibleStepIds(
-        definition: RunDefinition,
-        data: Record<string, unknown>
-    ): string[] {
-        const visibility = evaluateWorkflowVisibility({
-            sections: definition.sections,
-            pages: definition.pages,
-            steps: definition.steps,
-            rules: definition.logicRules,
-            data,
-            resolveAlias: (name) => definition.steps.find(step => step.alias === name)?.id,
-        });
-        return Array.from(visibility.visibleSteps);
     }
     /**
      * Split submitted values into what this page will persist (RUN2-15).

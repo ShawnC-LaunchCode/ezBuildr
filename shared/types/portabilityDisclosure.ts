@@ -29,7 +29,7 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
     summary:
       'Every submission, answer, generated document, signature and execution log stays here. A bundle carries the design of the workflow, never the data people entered into it.',
     tables: [
-      'workflow_runs', 'run_completion_jobs', 'step_values', 'review_tasks',
+      'workflow_runs', 'code_block_runs', 'run_completion_jobs', 'step_values', 'review_tasks',
       'signature_requests', 'signature_events', 'run_generated_documents',
       'run_document_deliveries', 'transform_block_runs', 'script_execution_log',
       'workflow_run_events', 'workflow_run_metrics', 'datavault_row_notes',
