@@ -2,7 +2,7 @@ import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
 import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
 import { adaptLegacyStep } from "@shared/types/stepConfigs";
-import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
+import { isJsQuestionConfig, resolveFiringPolicy, type JsQuestionConfig } from "@shared/types/steps";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
@@ -14,6 +14,7 @@ import { aliasRenameService } from "./AliasRenameService";
 import { codeBlockService } from "./codeBlocks/CodeBlockService";
 import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
+import { astValidator } from './scripting/ASTValidator';
 
 
 
@@ -162,6 +163,15 @@ export class StepService {
     this.codeBlockSvc.assertNoCycle(blocks);
   }
 
+  private assertImpureRepeatPolicy(config: JsQuestionConfig): void {
+    if (resolveFiringPolicy(config).repeat !== 'onChange') { return; }
+    const { impureHelpers = [] } = astValidator.validateJavaScript(config.code);
+    if (impureHelpers.length === 0) { return; }
+    throw Object.assign(new Error(
+      `Code Block calls impure helper(s): ${impureHelpers.join(', ')}. Choose repeat 'once' (compute and freeze) or 'always' (recompute every evaluation); 'onChange' cannot track these changes.`
+    ), { statusCode: 400 });
+  }
+
   private async maybeRegenerateAlias(
     workflowId: string,
     step: Step,
@@ -263,6 +273,7 @@ export class StepService {
       }
       if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
         await this.codeBlockSvc.validateForSave(finalConfig);
+        this.assertImpureRepeatPolicy(finalConfig);
         await this.assertNoCodeBlockCycle(workflowId, finalConfig, undefined, data.order ?? 0, scopedTx);
       }
 
@@ -500,6 +511,7 @@ export class StepService {
         : undefined;
       if (nextCodeBlockConfig) {
         await this.codeBlockSvc.validateForSave(nextCodeBlockConfig);
+        this.assertImpureRepeatPolicy(nextCodeBlockConfig);
         await this.assertNoCodeBlockCycle(workflowId, nextCodeBlockConfig, step.id, step.order ?? 0, tx);
       }
 

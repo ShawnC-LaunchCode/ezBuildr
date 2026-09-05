@@ -7,6 +7,8 @@ import * as acorn from "acorn";
 
 import { logger } from "../../logger";
 
+import { IMPURE_HELPERS } from './HelperLibrary';
+
 // ===================================================================
 // VALIDATION RESULT TYPES
 // ===================================================================
@@ -19,6 +21,7 @@ export interface ValidationResult {
   warnings?: string[];
   derivedInputs?: string[];
   derivedOutputs?: string[];
+  impureHelpers?: string[];
 }
 
 export interface SecurityViolation {
@@ -163,8 +166,11 @@ export class ASTValidator {
       // Detect forbidden patterns
       const inputs = new Set<string>();
       const outputs = new Set<string>();
+      const impureHelpers = new Set<string>();
+      const helperBindings = new Map<string, string>([['helpers', 'helpers']]);
       const patternViolations = this.detectForbiddenPatterns(ast, node => {
         this.collectDerivation(node, inputs, outputs, warnings);
+        this.collectImpureHelpers(node, helperBindings, impureHelpers);
       });
       violations.push(...patternViolations);
 
@@ -202,6 +208,7 @@ export class ASTValidator {
         valid: true,
         derivedInputs: [...inputs],
         derivedOutputs: [...outputs],
+        impureHelpers: [...impureHelpers],
         violations: violations.length > 0 ? violations : undefined,
         complexity,
         warnings: warnings.length > 0 ? warnings : undefined,
@@ -445,6 +452,49 @@ export class ASTValidator {
       else { inputs.add(key); }
     }
     this.collectOutputs(node, outputs, () => warn('output'));
+  }
+
+  private helperPath(node: unknown, bindings: Map<string, string>): string | undefined {
+    if (!isASTNode(node)) { return undefined; }
+    if (node.type === 'Identifier' && typeof node.name === 'string') {
+      if (bindings.has(node.name)) { return bindings.get(node.name); }
+      return Object.hasOwn(IMPURE_HELPERS, node.name) ? `helpers.${node.name}` : undefined;
+    }
+    if (node.type !== 'MemberExpression') { return undefined; }
+    const parent = this.helperPath(node.object, bindings);
+    const key = this.getPropertyName(node);
+    return parent !== undefined && key !== null ? `${parent}.${key}` : undefined;
+  }
+
+  private bindHelperPattern(pattern: unknown, path: string, bindings: Map<string, string>): void {
+    if (!isASTNode(pattern)) { return; }
+    if (pattern.type === 'Identifier' && typeof pattern.name === 'string') {
+      bindings.set(pattern.name, path);
+    } else if (pattern.type === 'ObjectPattern' && Array.isArray(pattern.properties)) {
+      for (const property of pattern.properties) {
+        if (!isASTNode(property) || property.type !== 'Property' || !isASTNode(property.key)) { continue; }
+        const key = property.computed !== true && property.key.type === 'Identifier'
+          ? property.key.name : property.key.value;
+        if (typeof key === 'string') {
+          this.bindHelperPattern(property.value, `${path}.${key}`, bindings);
+        }
+      }
+    }
+  }
+
+  /** Shares CB-5's security walk; bindings preserve helper provenance through aliases. */
+  private collectImpureHelpers(node: ASTNodeRecord, bindings: Map<string, string>, impure: Set<string>): void {
+    if (node.type === 'VariableDeclarator') {
+      const path = this.helperPath(node.init, bindings);
+      if (path !== undefined) { this.bindHelperPattern(node.id, path, bindings); }
+    }
+    if (node.type !== 'CallExpression') { return; }
+    const path = this.helperPath(node.callee, bindings);
+    for (const [name, libraryPath] of Object.entries(IMPURE_HELPERS)) {
+      if (path === `helpers.${name}` || path === `helpers.${libraryPath}`) {
+        impure.add(name);
+      }
+    }
   }
 
   private collectOutputs(node: ASTNodeRecord, outputs: Set<string>, warn: () => void): void {

@@ -904,7 +904,42 @@ a warning telling the author to declare those keys manually, then get out of the
 
 ---
 
-## CB-6 — Impure helper detection forces `once` or `always` 🔲
+## CB-6 — Impure helper detection forces `once` or `always` ✅
+
+> **Verified 2026-09-05 (reviewer).** Dispatched dev; the dev's session ran out of context
+> during the lint gate, so **every gate below was run by the reviewer** on the finished tree:
+> `type-check` 0 · `lint` 0 (`--max-warnings 0`, repo-wide) · `check:strict-zones` 6 zones /
+> 11 files · `test:fast` **334 files, 3795 passed** (3754 + 41 — the `describe.each` /
+> `it.each` matrices multiply out) · `test:integration` **144 files, 1319 passed | 3 skipped**,
+> unchanged from baseline because this ticket adds only unit tests. **No existing test file
+> was modified**, so nothing could have been weakened.
+>
+> **The default-`repeat` trap was handled at the source, not just in tests.** `repeat` is
+> optional and `resolveFiringPolicy` defaults it to `'onChange'`, so a check matching the
+> literal string would let every block that omits the field — the common case — save impure
+> and go silently stale. The guard reads `resolveFiringPolicy(config).repeat !== 'onChange'`,
+> and the tests prove it with `describe.each(['onChange', undefined])` plus an explicit
+> assertion that the omitted config genuinely lacks the property.
+>
+> **AC 5's vacuous-truth trap is closed:** the test asserts `IMPURE_HELPERS` is non-empty and
+> contains the three required names *before* asserting every entry resolves to a real helper.
+> `[].every(...)` is `true`, so the resolution check alone would pass with the catalog empty
+> and detection entirely dead.
+>
+> **AC 6 goes beyond the criterion:** aliasing is covered for plain destructuring, *renamed*
+> destructuring (`const { now: clock }`), *nested* destructuring, and `const { http: api }`.
+> There is also a false-positive guard proving a user object with its own `now` method, a
+> commented-out `random()`, and the string `"now()"` are all ignored.
+>
+> **The ticket's "DataVault via helpers" is not a gap — that surface does not exist.**
+> `createHelperLibrary` exposes exactly `date`, `string`, `number`, `array`, `object`, `math`
+> and `http`; there are no DataVault helpers to flag. `IMPURE_HELPERS` (`date.now`,
+> `math.random`, `math.randomInt`, `http.get`, `http.post`) is therefore complete for what a
+> block can actually call, and AC 5's resolution test would fail if a phantom entry were added.
+>
+> The rejection rides the existing error contract — `statusCode: 400`, which
+> `classifyRouteError` honours directly — and names both the offending helpers and the two
+> valid choices. It is wired into the create *and* update save paths.
 
 **Priority: P1** · Size: S · File: `server/services/scripting/ASTValidator.ts`
 

@@ -29,6 +29,18 @@ import {
 
 import type { HelperLibraryAPI } from "@shared/types/scripting";
 
+/** Helpers whose results depend on time, randomness, or external state.
+ * Keys are diagnostic names; values locate the real helper in the library.
+ * HTTP entry points remain impure when their sandbox proxy is installed.
+ */
+export const IMPURE_HELPERS = {
+  now: 'date.now',
+  random: 'math.random',
+  randomInt: 'math.randomInt',
+  'http.get': 'http.get',
+  'http.post': 'http.post',
+} as const;
+
 // ===================================================================
 // CONSOLE CAPTURE
 // ===================================================================
