@@ -92,7 +92,7 @@ export class StepService {
 
   /**
    * Run `fn` inside a tenant-scoped transaction opened at this service
-   * boundary (RLS-5). Reuses a caller-supplied `tx` if given (never nests);
+   * boundary (RLS-5). Uses a savepoint in a caller-supplied `tx` if given;
    * otherwise opens exactly one via `withCurrentTenant`.
    *
    * Same reason `PageService` needed this: `steps` is RLS-covered through
@@ -104,10 +104,62 @@ export class StepService {
     tx: DbTransaction | undefined,
     fn: (tx: DbTransaction) => Promise<T>
   ): Promise<T> {
-    if (tx) {
-      return fn(tx);
+    try {
+      return await (tx ? tx.transaction(fn) : withCurrentTenant(fn));
+    } catch (error: unknown) {
+      return this.rethrowAliasCollision(error, tx);
     }
-    return withCurrentTenant(fn);
+  }
+
+  /** The transaction/savepoint has rolled back, so owner lookup can safely query again. */
+  private async rethrowAliasCollision(error: unknown, tx?: DbTransaction): Promise<never> {
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (typeof cause !== 'object' || cause === null || !('code' in cause) ||
+        cause.code !== '23505' || !('constraint' in cause) ||
+        cause.constraint !== 'steps_workflow_alias_unique' || !('detail' in cause) ||
+        typeof cause.detail !== 'string') {
+      throw error;
+    }
+    const match = /=\(([^,]+), (.*)\) already exists\.$/.exec(cause.detail);
+    if (!match) { throw error; }
+    const [, workflowId, alias] = match;
+    const siblings = tx
+      ? await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx)
+      : await withCurrentTenant(scopedTx => this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx));
+    const owner = siblings.find(step => step.alias?.toLowerCase() === alias.toLowerCase());
+    throw this.aliasCollisionError(alias, owner);
+  }
+
+  private aliasCollisionError(alias: string, owner?: Step): Error & { statusCode: number } {
+    const description = owner
+      ? `${owner.isVirtual ? 'output' : 'step'} "${owner.title}" (${owner.id})`
+      : 'another step in this workflow';
+    return Object.assign(new Error(`Alias "${alias}" is already in use by ${description}. Please choose a unique alias.`),
+      { statusCode: 400 });
+  }
+
+  /** Own virtual outputs may be retained; every other active alias has a different writer. */
+  private async validateOutputAliases(
+    workflowId: string,
+    config: JsQuestionConfig,
+    alias: string | null | undefined,
+    previous: Step | undefined,
+    tx: DbTransaction
+  ): Promise<void> {
+    const siblings = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx);
+    const previousKeys = new Set(isJsQuestionConfig(previous?.config)
+      ? previous.config.outputs.map(output => output.key.toLowerCase()) : []);
+    for (const output of config.outputs) {
+      const key = output.key.toLowerCase();
+      const owner = siblings.find(candidate => candidate.id !== previous?.id && candidate.alias?.toLowerCase() === key &&
+        !(candidate.isVirtual && candidate.type === 'computed' &&
+          candidate.pageId === previous?.pageId && previousKeys.has(key)));
+      if (owner) { throw this.aliasCollisionError(output.key, owner); }
+      if (alias?.toLowerCase() === key) {
+        throw Object.assign(new Error(`Output alias "${output.key}" is already in use by this block's own step alias.`),
+          { statusCode: 400 });
+      }
+    }
   }
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
@@ -221,14 +273,7 @@ export class StepService {
     );
 
     if (conflictingStep) {
-      // Duplicate alias is a client input error (400), not a server fault:
-      // classifyRouteError honors statusCode and preserves this message.
-      throw Object.assign(
-        new Error(
-          `Alias "${alias}" is already in use by another step in this workflow. Please choose a unique alias.`
-        ),
-        { statusCode: 400 }
-      );
+      throw this.aliasCollisionError(alias, conflictingStep);
     }
   }
 
@@ -286,6 +331,9 @@ export class StepService {
         await this.validateAliasUniqueness(workflowId, alias, undefined, scopedTx);
       } else if (data.title) {
         alias = await this.generateUniqueAlias(workflowId, data.title, scopedTx);
+      }
+      if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.validateOutputAliases(workflowId, finalConfig, alias, undefined, scopedTx);
       }
 
       // Get current steps to determine next order
@@ -518,6 +566,9 @@ export class StepService {
       const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
       if (regenerated !== null) {
         updates.alias = regenerated;
+      }
+      if (nextCodeBlockConfig) {
+        await this.validateOutputAliases(workflowId, nextCodeBlockConfig, updates.alias ?? step.alias, step, tx);
       }
 
       const updated = await this.stepRepo.update(stepId, updates, tx);

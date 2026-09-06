@@ -783,7 +783,6 @@ export class WorkflowClonerService {
           enabled: hook.enabled,
           order: hook.order,
           timeoutMs: hook.timeoutMs,
-          mutationMode: hook.mutationMode,
         })
         .returning();
 

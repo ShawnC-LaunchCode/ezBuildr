@@ -181,7 +181,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'lifecycle_hooks',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","pageId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
+    fields: ["id","workflowId","pageId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs"],
     refs: ["workflowId", "pageId"],
     scanPaths: ["code"]
   },

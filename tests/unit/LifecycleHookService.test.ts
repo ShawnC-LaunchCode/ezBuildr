@@ -2,7 +2,7 @@
  * Unit Tests for LifecycleHookService
  *
  * Tests lifecycle hook execution, CRUD operations, error handling,
- * and mutation mode functionality.
+ * and append-only output handling.
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -61,6 +61,39 @@ describe('LifecycleHookService', () => {
   });
 
   describe('executeHooksForPhase()', () => {
+    function outputHook(outputKeys: string[]): Awaited<ReturnType<typeof lifecycleHookRepository.findEnabledByPhase>>[number] {
+      return {
+        id: 'append-hook', workflowId: 'workflow-1', pageId: null, name: 'Append hook',
+        phase: 'beforePage', language: 'javascript', code: 'emit({ total: 2 });',
+        inputKeys: [], outputKeys, virtualStepIds: null, enabled: true, order: 0, timeoutMs: 1000,
+        createdAt: new Date(), updatedAt: new Date(),
+      };
+    }
+
+    it.each([{ total: 0 }, { total: null }, { Total: 7 }])(
+      'rejects overwriting an existing value atomically: %j', async (data) => {
+        vi.mocked(lifecycleHookRepository.findEnabledByPhase).mockResolvedValue([outputHook(['fresh', 'total'])]);
+        vi.mocked(scriptEngine.execute).mockResolvedValue({ ok: true, output: { fresh: 1, total: 2 } });
+        const result = await lifecycleHookService.executeHooksForPhase({
+          workflowId: 'workflow-1', runId: 'run-1', phase: 'beforePage', data,
+        });
+        expect(result.success).toBe(false);
+        expect(result.errors?.[0].error).toContain('cannot overwrite existing variable "total"');
+        expect(result.data).toEqual(data);
+        expect(result.data).not.toHaveProperty('fresh');
+      }
+    );
+
+    it.each([false, 0, null])('appends the declared scalar output %j', async (output) => {
+      vi.mocked(lifecycleHookRepository.findEnabledByPhase).mockResolvedValue([outputHook(['fresh'])]);
+      vi.mocked(scriptEngine.execute).mockResolvedValue({ ok: true, output });
+      const result = await lifecycleHookService.executeHooksForPhase({
+        workflowId: 'workflow-1', runId: 'run-1', phase: 'beforePage', data: {},
+      });
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ fresh: output });
+    });
+
     it('should execute hooks in order', async () => {
       const mockHooks: LifecycleHook[] = [
         {
@@ -76,7 +109,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -93,7 +125,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 1,
           timeoutMs: 1000,
-          mutationMode: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -130,7 +161,7 @@ describe('LifecycleHookService', () => {
       expect(scriptEngine.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle hooks with no mutations', async () => {
+    it('should ignore outputs when no output keys are declared', async () => {
       const mockHooks: LifecycleHook[] = [
         {
           id: 'hook-1',
@@ -145,7 +176,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: false, // No mutation
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -188,7 +218,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -205,7 +234,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 1,
           timeoutMs: 1000,
-          mutationMode: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -257,7 +285,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -336,7 +363,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -397,7 +423,6 @@ describe('LifecycleHookService', () => {
         enabled: true,
         order: 0,
         timeoutMs: 1000,
-        mutationMode: false,
       });
 
       expect(result).toEqual(mockHook);
@@ -421,7 +446,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: false,
         })
       ).rejects.toThrow('Workflow not found');
     });
@@ -447,7 +471,6 @@ describe('LifecycleHookService', () => {
           enabled: true,
           order: 0,
           timeoutMs: 1000,
-          mutationMode: false,
         })
       ).rejects.toThrow(ACCESS_DENIED_MESSAGE);
       expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit', expect.anything());

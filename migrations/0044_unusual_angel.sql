@@ -1,0 +1,1 @@
+ALTER TABLE "lifecycle_hooks" DROP COLUMN "mutation_mode";

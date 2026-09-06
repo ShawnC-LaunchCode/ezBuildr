@@ -106,7 +106,6 @@ export interface WorkflowHookData {
   isEnabled?: boolean;
   enabled?: boolean;
   timeoutMs?: number | null;
-  mutationMode?: boolean | null;
 }
 
 export interface WorkflowBlockData {

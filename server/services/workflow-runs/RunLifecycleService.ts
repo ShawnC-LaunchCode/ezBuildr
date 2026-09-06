@@ -552,7 +552,7 @@ export class RunLifecycleService {
       // affect what the documents contain: after the alias-keyed run data is
       // built, before the first template renders.
       //
-      // Output merging, the mutationMode gate and the outputKeys whitelist all
+      // Append-only output merging and the outputKeys whitelist
       // live inside executeHooksForPhase; do not re-implement them here. Errors
       // are non-breaking, matching beforePage/afterPage in BlockRunner -- a
       // failing hook must not lose a completed run's documents.

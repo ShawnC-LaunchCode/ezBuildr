@@ -1003,7 +1003,47 @@ in a generated document, not on screen.
 
 ---
 
-## CB-7 — Append-only enforcement: good collision errors, retire `mutationMode` 🔲
+## CB-7 — Append-only enforcement: good collision errors, retire `mutationMode` ✅
+
+> **Verified 2026-09-06 (reviewer).** Dispatched dev; all 8 criteria checked against the
+> tree. Gates re-run by the reviewer: `type-check` 0 · `lint` 0 (`--max-warnings 0`,
+> repo-wide) · `check:strict-zones` 6 zones / 11 files · `test:fast` **334 files, 3801
+> passed** (3795 + 6) · `test:integration` **145 files, 1328 passed | 3 skipped** (1319 + 9).
+>
+> **This ticket's Ties were wrong and are corrected here.** They claimed "Collides with:
+> nothing in Phase 2 (different files from CB-5/CB-6)", but CB-7 and CB-6 both touch
+> `server/services/StepService.ts`. CB-7 was therefore dispatched *after* CB-6 landed rather
+> than in parallel, and builds on CB-6's `assertImpureRepeatPolicy` guard.
+>
+> **The `mutationMode` footprint was understated by seven files.** AC 6 demands a clean grep
+> across `server/` and `shared/`, and there are **nine** source files, not the two listed:
+> `lifecycleHooks.routes.ts`, `LifecycleHookService.ts`, `portability/entityGraph.ts`,
+> `VersionService.ts`, `RunLifecycleService.ts`, `WorkflowClonerService.ts`,
+> `WorkflowContentIngestService.ts`, `shared/schema/workflow.ts`, and
+> `shared/types/scripting.ts` — plus three test files. (The reviewer's first enumeration
+> capped the grep at `head -8` and reported eight as complete; the dev found the ninth. A
+> truncated list presented as exhaustive is the same false-completeness this initiative keeps
+> catching elsewhere.)
+>
+> **Historical migrations were correctly left alone.** `mutation_mode` also appears in
+> `0000_init_baseline.sql` and ~42 `meta/*_snapshot.json` files. Those are records of the
+> schema as it was and must never be edited — rewriting them is the drift that forced this
+> repo's migration chain to be regenerated once already. `git status` on `migrations/` shows
+> only `_journal.json` plus the two new `0044` files. The migration itself is one line:
+> `ALTER TABLE "lifecycle_hooks" DROP COLUMN "mutation_mode";`
+>
+> **The Drizzle-wrapping trap was handled, not sidestepped.** A unique violation arrives as
+> `DrizzleQueryError` with `.code` **undefined** and the real code on `err.cause.code`. The
+> fail-then-pass proof also had to work harder than usual: ordinary base saves already
+> returned a generic 400, so a naive "before" would have shown 400 both with and without the
+> fix and proved nothing. The dev built a restore-after-alias-reuse path that reaches the
+> database for real, producing `cause.code: "23505"`,
+> `constraint: "steps_workflow_alias_unique"` before the fix and a named 400 after.
+>
+> **Two unlisted test files were touched and are legitimate:** `StepService.test.ts` and
+> CB-6's `impureHelpers.test.ts` both needed their `db`/`tx` stubs taught to support nested
+> transactions, because the collision check opens a savepoint. **No assertion changed in
+> either file** — the diffs are the stub definitions only.
 
 **Priority: P1** · Size: M · File: `server/services/StepService.ts`
 

@@ -31,6 +31,35 @@ import type { DbTransaction } from "../../repositories";
 
 const WORKFLOW_NOT_FOUND_MSG = "Workflow not found";
 
+function appendHookOutputs(
+  hook: LifecycleHook,
+  output: unknown,
+  data: Record<string, unknown>,
+  aliasMap: Record<string, string>
+): void {
+  if (output === undefined) { return; }
+  const values = typeof output === 'object' && output !== null && !Array.isArray(output)
+    ? Object.entries(output as Record<string, unknown>)
+    : hook.outputKeys.slice(0, 1).map(key => [key, output] as const);
+  const unauthorizedKeys = values.map(([key]) => key).filter(key => !hook.outputKeys.includes(key));
+  if (unauthorizedKeys.length > 0) {
+    logger.warn({ hookId: hook.id, hookName: hook.name, unauthorizedKeys },
+      'Hook attempted to output non-whitelisted keys (ignored)');
+  }
+  const allowed = values.filter(([key]) => hook.outputKeys.includes(key));
+  const reserved = new Set([...Object.keys(data), ...Object.keys(aliasMap), ...Object.values(aliasMap)]
+    .map(key => key.toLowerCase()));
+  for (const [key] of allowed) {
+    if (reserved.has(key.toLowerCase())) {
+      throw new Error(`Hook "${hook.name}" cannot overwrite existing variable "${key}". Outputs must be append-only.`);
+    }
+    reserved.add(key.toLowerCase());
+  }
+  for (const [key, value] of allowed) {
+    Object.defineProperty(data, key, { value, enumerable: true, configurable: true, writable: true });
+  }
+}
+
 export class LifecycleHookService {
   /**
    * Run `fn` inside a tenant-scoped transaction opened at this service
@@ -92,7 +121,6 @@ export class LifecycleHookService {
    * Execute all hooks for a given phase
    * Non-breaking: continues on errors and collects them
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   async executeHooksForPhase(params: {
     workflowId: string;
     runId: string;
@@ -166,41 +194,7 @@ export class LifecycleHookService {
           const durationMs = Date.now() - hookStartTime;
 
           if (result.ok) {
-            // If mutation mode is enabled, merge outputs into data
-            if (hook.mutationMode && result.output) {
-              // Validate output against outputKeys whitelist
-              // eslint-disable-next-line max-depth
-              if (typeof result.output === "object" && result.output !== null && !Array.isArray(result.output)) {
-                // Only merge keys that are whitelisted in outputKeys
-                // eslint-disable-next-line max-depth
-                for (const key of hook.outputKeys) {
-                  // eslint-disable-next-line max-depth
-                  if (key in result.output) {
-                    resultData[key] = (result.output as Record<string, unknown>)[key];
-                  }
-                }
-
-                // Warn about non-whitelisted keys
-                const outputKeys = Object.keys(result.output);
-                const unauthorizedKeys = outputKeys.filter(k => !hook.outputKeys.includes(k));
-                // eslint-disable-next-line max-depth
-                if (unauthorizedKeys.length > 0) {
-                  logger.warn(
-                    {
-                      hookId: hook.id,
-                      hookName: hook.name,
-                      unauthorizedKeys,
-                    },
-                    "Hook attempted to output non-whitelisted keys (ignored)"
-                  );
-                }
-              } else if (hook.outputKeys.length > 0) {
-                // If output is a single value, use the first outputKey
-                const key = hook.outputKeys[0];
-                // eslint-disable-next-line max-depth
-                if (key) {resultData[key] = result.output;}
-              }
-            }
+            appendHookOutputs(hook, result.output, resultData, aliasMap);
 
             // Collect console logs
             if (result.consoleLogs && result.consoleLogs.length > 0) {
@@ -231,7 +225,6 @@ export class LifecycleHookService {
                 hookId: hook.id,
                 hookName: hook.name,
                 durationMs,
-                mutated: hook.mutationMode,
               },
               "LifecycleHookService: Hook executed successfully"
             );

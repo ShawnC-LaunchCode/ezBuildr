@@ -17,13 +17,14 @@ import { LIMITS } from "@shared/limits";
 
 import type { InsertStep, Step } from "@shared/schema";
 
-// duplicateStep wraps its writes in db.transaction; the fake just invokes
-// the callback with a stub tx (the mocked repo below ignores it).
-vi.mock("../../../server/db", () => ({
-  db: {
-    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
-  },
-}));
+// Service boundaries and nested savepoints both invoke their callback.
+// The repositories are mocked; real rollback behavior has integration coverage.
+vi.mock("../../../server/db", () => {
+  const tx = {
+    transaction: vi.fn(async (callback: (scopedTx: unknown) => Promise<unknown>) => callback(tx)),
+  };
+  return { db: { transaction: tx.transaction } };
+});
 // Mock the repositories and services
 vi.mock("../../../server/repositories", () => ({
   stepRepository: {

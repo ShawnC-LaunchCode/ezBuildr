@@ -3,7 +3,7 @@
  *
  * Tests all 4 lifecycle hook phases with comprehensive coverage:
  * - beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
- * - Context mutation mode
+ * - Append-only hook outputs
  * - JavaScript and Python execution
  * - Timeout enforcement
  * - Error handling (non-breaking)
@@ -115,7 +115,6 @@ describe('Lifecycle Hooks Execution', () => {
           inputKeys: [],
           outputKeys: ['executed'],
           enabled: true,
-          mutationMode: false,
         });
 
       expect(createRes.status).toBe(201);
@@ -162,10 +161,10 @@ describe('Lifecycle Hooks Execution', () => {
       expect(logs[0].status).toBe('success');
     });
 
-    it('should execute beforePage hook with mutation mode enabled', async () => {
+    it('should append declared beforePage hook outputs', async () => {
 
       enterTenantContextForTests(ctx.tenantId);
-      // Create beforePage hook with mutation mode
+      // Create beforePage hook with new output variables
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
         .set('Authorization', `Bearer ${ctx.authToken}`)
@@ -185,7 +184,6 @@ describe('Lifecycle Hooks Execution', () => {
           inputKeys: [],
           outputKeys: ['pageLoadTime', 'pageLoadDate', 'autoFilled'],
           enabled: true,
-          mutationMode: true, // Enable mutation
         });
 
       expect(createRes.status).toBe(201);
@@ -208,7 +206,7 @@ describe('Lifecycle Hooks Execution', () => {
       });
 
       expect(result.success).toBe(true);
-      // Verify mutation applied
+      // Verify new outputs were appended
       expect(result.data).toHaveProperty('pageLoadTime');
       expect(result.data).toHaveProperty('pageLoadDate');
       expect(result.data.autoFilled).toBe(true);
@@ -298,7 +296,6 @@ describe('Lifecycle Hooks Execution', () => {
           inputKeys: ['user_name'],
           outputKeys: ['validationPassed', 'normalizedName'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
@@ -358,7 +355,6 @@ emit(result)
           inputKeys: ['user_name'],
           outputKeys: ['wordCount', 'charCount', 'hasMultipleWords'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
@@ -413,7 +409,6 @@ emit(result)
           inputKeys: ['user_name'],
           outputKeys: ['documentTitle', 'documentDate', 'documentReady'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
@@ -467,7 +462,6 @@ emit(result)
           inputKeys: ['step1', 'step2'], // Allow access to test data
           outputKeys: ['documentsGenerated', 'completedAt', 'totalSteps'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
@@ -572,7 +566,6 @@ emit(result)
           outputKeys: ['step'],
           enabled: true,
           order: 0,
-          mutationMode: true,
         });
 
       const hook2Res = await request(ctx.baseURL)
@@ -584,13 +577,12 @@ emit(result)
           language: 'javascript',
           code: `
             helpers.console.log('Hook 2 executed, step was:', input.step);
-            emit({ step: 2 });
+            emit({ secondStep: input.step + 1 });
           `,
           inputKeys: ['step'],
-          outputKeys: ['step'],
+          outputKeys: ['secondStep'],
           enabled: true,
           order: 1,
-          mutationMode: true,
         });
 
       const hook3Res = await request(ctx.baseURL)
@@ -601,14 +593,13 @@ emit(result)
           phase: 'beforePage',
           language: 'javascript',
           code: `
-            helpers.console.log('Hook 3 executed, step was:', input.step);
-            emit({ step: 3, final: true });
+            helpers.console.log('Hook 3 executed, step was:', input.secondStep);
+            emit({ thirdStep: input.secondStep + 1, final: true });
           `,
-          inputKeys: ['step'],
-          outputKeys: ['step', 'final'],
+          inputKeys: ['secondStep'],
+          outputKeys: ['thirdStep', 'final'],
           enabled: true,
           order: 2,
-          mutationMode: true,
         });
 
       expect(hook1Res.status).toBe(201);
@@ -633,7 +624,9 @@ emit(result)
       });
 
       expect(result.success, `Hook execution failed: ${JSON.stringify(result.errors || (result as any).error || result)}`).toBe(true);
-      expect(result.data.step).toBe(3); // Final value from hook 3
+      expect(result.data.step).toBe(1);
+      expect(result.data.secondStep).toBe(2);
+      expect(result.data.thirdStep).toBe(3);
       expect(result.data.final).toBe(true);
 
       // Verify all hooks executed

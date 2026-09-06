@@ -155,7 +155,6 @@ describe("VersionService.serializeWorkflow", () => {
       enabled: false,
       order: 10,
       timeoutMs: 3250,
-      mutationMode: true,
     }]);
     findDocumentHooks.mockResolvedValue([{
       id: "document-1",
@@ -219,7 +218,6 @@ describe("VersionService.serializeWorkflow", () => {
       virtualStepIds: ["virtual-life-1", "virtual-life-2"],
       enabled: false,
       timeoutMs: 3250,
-      mutationMode: true,
     })]);
     expect(result.documentHooks).toEqual([expect.objectContaining({
       id: "document-1",

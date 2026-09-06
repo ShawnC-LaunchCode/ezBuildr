@@ -27,7 +27,6 @@ const createLifecycleHookSchema = z.object({
   enabled: z.boolean().default(true),
   order: z.number().int().min(0).default(0),
   timeoutMs: z.number().int().min(100).max(3000).default(1000),
-  mutationMode: z.boolean().default(false),
 });
 
 const updateLifecycleHookSchema = z.object({
@@ -40,7 +39,6 @@ const updateLifecycleHookSchema = z.object({
   enabled: z.boolean().optional(),
   order: z.number().int().min(0).optional(),
   timeoutMs: z.number().int().min(100).max(3000).optional(),
-  mutationMode: z.boolean().optional(),
 });
 
 const testHookSchema = z.object({

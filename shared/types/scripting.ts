@@ -58,7 +58,6 @@ export interface LifecycleHook {
   enabled: boolean;
   order: number;
   timeoutMs: number;
-  mutationMode: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,7 +74,6 @@ export interface CreateLifecycleHookInput {
   enabled?: boolean;
   order?: number;
   timeoutMs?: number;
-  mutationMode?: boolean;
 }
 
 export interface UpdateLifecycleHookInput {
@@ -88,7 +86,6 @@ export interface UpdateLifecycleHookInput {
   enabled?: boolean;
   order?: number;
   timeoutMs?: number;
-  mutationMode?: boolean;
 }
 
 export interface LifecycleHookExecutionResult {

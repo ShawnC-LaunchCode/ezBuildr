@@ -24,7 +24,9 @@ vi.mock('../../../../server/repositories', () => ({
 
 const validator = new ASTValidator();
 const service = new StepService();
-const tx = {} as DbTransaction;
+const tx = {
+  transaction: vi.fn(async (callback: (scopedTx: DbTransaction) => Promise<unknown>) => callback(tx)),
+} as unknown as DbTransaction;
 const page = createTestPage('workflow', { id: 'page' });
 const savedStep = createTestStep(page.id, {
   id: 'block', workflowId: 'workflow', type: 'js_question', alias: 'block',

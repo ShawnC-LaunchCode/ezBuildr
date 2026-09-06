@@ -283,7 +283,6 @@ export class VersionService {
         isEnabled: hook.enabled,
         enabled: hook.enabled,
         timeoutMs: hook.timeoutMs,
-        mutationMode: hook.mutationMode,
       })),
       documentHooks: documentHooks.map(hook => ({
         id: hook.id,

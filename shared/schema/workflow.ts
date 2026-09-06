@@ -396,7 +396,6 @@ export const lifecycleHooks = pgTable("lifecycle_hooks", {
     enabled: boolean("enabled").notNull().default(true),
     order: integer("order").notNull().default(0),
     timeoutMs: integer("timeout_ms").default(1000),
-    mutationMode: boolean("mutation_mode").default(false),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
