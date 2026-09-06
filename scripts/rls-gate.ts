@@ -101,7 +101,14 @@ function runSuite(): void {
     {
       stdio: 'inherit',
       shell: true,
-      env: { ...process.env, RLS_RESTRICTED: 'true', VITEST_SINGLE_FORK: 'true' },
+      // Deliberately NOT single-fork. The suite was pinned to one worker in
+      // Jan 2026 as a blanket flakiness fix, before per-worker schemas
+      // (`test_schema_w{id}`) made parallel runs isolated. Measured
+      // 2026-09-05 on the same commit, both modes give an identical verdict
+      // (144 files, 1319 passed, 3 skipped) — 312s parallel vs 1075s serial.
+      // To bisect a suspected parallelism flake, set VITEST_SINGLE_FORK=true
+      // in the environment; it is read straight through from process.env.
+      env: { ...process.env, RLS_RESTRICTED: 'true' },
     }
   );
 

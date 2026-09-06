@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** three open — **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-08-25
+**Status:** four open — **RLS-11** (P0, gate red 9 days), **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-06
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -582,6 +582,75 @@ makes this worth writing at all.
 
 ---
 
+## RLS-11 — The enforcement gate has been red for 9 days 🔲 open
+
+**Priority: P0** · Size: M · Files: `tests/integration/api.runs.file-upload.test.ts`,
+`tests/integration/runFileUpload.test.ts`, `tests/integration/text-canonicalization.test.ts`,
+`tests/integration/codeBlocks.aliasCollision.test.ts`,
+`tests/integration/codeBlocks.multiOutput.test.ts` — plus whatever server code the
+triage below lands on
+
+### Finding
+
+`.github/workflows/rls-gate.yml` has failed on **every push since 2026-08-28** —
+**35 consecutive runs**, 9 days. Last green: `1e359b31`. First red: `f7a07709`
+("feat(steps): canonicalize Short and Long Text as `text`"), which is also where
+`text-canonicalization.test.ts` was introduced. Each initiative since (STB, GH-146
+file uploads, Code Blocks) has added to the pile against an already-red gate, so
+nobody's per-ticket run reported anything new.
+
+Reproduced locally 2026-09-06 on `b168a1d5`, single-fork exactly as CI runs it:
+**5 failing files / 6 failing tests, allowlist empty.** Normal (owner-role) mode
+on the same commit is **145 files green** — so every one of these is
+RLS-enforcement-specific and invisible to `npm run test:integration`.
+
+```
+npx tsx scripts/rls-gate.ts     # ~18 min; writes rls-gate-results.json
+```
+
+Four distinct root causes, not five:
+
+| # | Files | Symptom | Reading |
+|---|---|---|---|
+| 1 | `api.runs.file-upload`, `runFileUpload` | 404 `"Workflow for run not found"` on a bare run token | The workflow self-identification bootstrap (migration `0030`, `app.current_workflow_id`) is not pinned on this path. **Likely a real defect.** |
+| 2 | `text-canonicalization` | prefill write silently produces **0** `step_values` rows, expected 1 | A write dropped with no error — the exact "RLS fails by returning empty" shape this gate exists to catch. **Likely a real defect.** |
+| 3 | `codeBlocks.aliasCollision` | raw `DrizzleQueryError` instead of the translated `400` | The unique-violation translation does not survive the restricted role. |
+| 4 | `codeBlocks.multiOutput` | cross-tenant step create answers `404`, test pins `403` | Arguably the *test* is wrong: under enforcement the foreign tenant cannot see the page, and 404 leaks less than 403. Needs a ruling, then either the test or `classifyRouteError` changes. |
+
+**Why this is P0 and not test debt: `dev` has been enforcing since `0041`
+(2026-08-25), three days before the gate went red.** Causes 1 and 2 are
+user-visible paths — run-token file upload, and answer prefill — so they are
+expected to be broken in the dev environment right now. That has **not** been
+verified against the live app; doing so is acceptance criterion 1.
+
+### Acceptance criteria
+
+1. Causes 1 and 2 are reproduced (or ruled out) against the **live dev
+   environment**, not just the suite — see the `verify` skill. Record which.
+2. Each of the four causes is fixed at the layer that is actually wrong, or —
+   for cause 4 only — the test's expectation is corrected with the ruling
+   written down. Do not "fix" a real scoping defect by relaxing an assertion.
+3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**.
+   Adding an entry to close this ticket is an automatic fail: the gate's own
+   header says an unexplained entry is how it rots.
+4. Something makes a red gate visible within a day rather than 35 runs. Cheapest
+   credible option: make `RLS Enforcement Gate` a required check on `dev` in the
+   `dev-protection` ruleset. If the "Registration failed" flake in
+   RLS_HANDOFF §4 still makes that unsafe, say so and propose the alternative.
+
+### Ties
+
+- Load the `run-tests` skill (the gate is the `integration` project under
+  `RLS_RESTRICTED=true`) and the `verify` skill for AC 1.
+- Causes 1/2 are independent of 3/4 and can run in parallel; 3 and 4 are both
+  Code Blocks and touch adjacent files, so sequence them or give them to one dev.
+- Related: **RLS-8** (32 unscoped call sites) may well contain cause 1's site —
+  check the audit output before hunting by hand.
+- The 9-day blindness is the same failure mode as the integration suite once
+  going months without running in CI. AC 4 is the part that stops a repeat.
+
+---
+
 ## Phase 2 Gate
 
 - [~] RLS-1 ✅, RLS-2a ✅, RLS-2b ✅, RLS-2c ✅, RLS-2d ✅, RLS-2e ✅, RLS-2f ✅, RLS-3 ✅,
@@ -600,8 +669,11 @@ makes this worth writing at all.
       suite (`api.admin-user-workflows` green under `RLS_RESTRICTED=true` with a real
       BYPASSRLS pool, and `rls7-adminDb-readonly` proves that pool cannot write).
       **Not yet exercised against the live dev environment**, which is the remaining half
-- [~] Full integration green as the restricted role in CI — **yes, 124/124, allowlist
-      empty**. NOT required by branch protection: deliberately advisory until the
+- [ ] Full integration green as the restricted role in CI — **NO LONGER TRUE.
+      🔴 Red since 2026-08-28, 35 consecutive runs; 5 files fail, allowlist still
+      empty. See RLS-11.** The 124/124 that used to be recorded here was measured
+      2026-08-22 and went stale silently, which is exactly what being advisory
+      buys you: NOT required by branch protection, deliberately, until the
       "Registration failed" flake in RLS_HANDOFF §4 is understood (see RLS-5)
 - [~] `docs/architecture/TENANT_ISOLATION_RLS.md` covers §2a–§2g and the admin
       `BYPASSRLS` path. **Needs a pass for what 2026-08-22 changed**: the multer
@@ -627,6 +699,9 @@ added 2026-08-25, after 0041 found the policies were defined but inert:
 RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
 RLS-9  ✅ surface audit into CI, two-way ratchet  ─┘ done 2026-08-25
 RLS-10    data-driven per-table isolation proof     (independent of both)
+
+added 2026-09-06, after the gate was found red for 9 days:
+RLS-11    repair the enforcement gate               (P0 — two causes look live in dev)
 ```
 
 RLS-2b, RLS-3 and RLS-6 are mutually disjoint — services, migrations and the admin path

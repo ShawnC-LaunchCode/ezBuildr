@@ -140,12 +140,13 @@ npm run dev              # Start development (port 5000)
 npm run kill-server      # Kill server on port 5000
 npm run build            # Build for production
 npm run type-check       # tsc --noEmit (build gate)
-npm run lint             # ESLint, zero-error policy
+npm run lint             # ESLint, zero-error policy (cached: ~4s warm, ~190s cold)
 
 npm run test:fast        # unit-fast (~13s, no DB) — default sanity check
 npm run test:unit        # unit-fast + unit-db (needs DB)
-npm run test:integration # integration project (needs DB, slow)
-npm test                 # everything, single-fork + coverage (what CI uses)
+npm run test:integration # integration project (needs DB, ~5 min)
+npm test                 # everything, parallel + coverage (what CI uses)
+npm run test:serial      # same, pinned to one worker — only to bisect a flake
 npm run test:e2e         # Playwright
 npm run test:docker:up   # Postgres 16 for tests on port 5434 (tmpfs)
 

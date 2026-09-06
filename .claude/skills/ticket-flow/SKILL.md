@@ -123,6 +123,14 @@ Also stamp each ticket with **Priority** (P0 bug / P1 / P2 / enhancement) and
 dependency, each ending in a **Phase Gate** — a checklist the Senior verifies
 and commits before the next phase starts. Phases must not overlap.
 
+**Every Phase Gate carries the repo-wide sweep**, because the per-ticket gates
+deliberately do not: devs lint only the files they touched, so the whole-tree
+run belongs here, once per phase, alongside the batched live drive-through.
+Where this repo has them, that is `npm run lint`, `npm run type-check` and
+`npm run check:strict-zones` over the tree, plus the suites the phase's work
+actually reaches. This placement is also what makes the scoped per-ticket lint
+safe — drop the sweep from the gate and nothing checks the tree at all.
+
 **Decompose by concern *and* by file-locality.** "One ticket, one concern" is
 the default — but if two concerns live in the *same* code (the same methods,
 the same handler), make them **one ticket**. Two tickets fighting over the same
@@ -177,10 +185,14 @@ required tests, then self-grade A–F and fix to an A before reporting done.
 HARD RULES (each is an automatic F if violated): (1) if any acceptance
 criterion names a test, the ticket is NOT done until that test exists and
 passes — no changed/new test file means do not report done; (2) run the gates
-YOURSELF (type-check, lint on every touched file, the relevant test suites)
-and paste their output — never report done with a failing gate, and never
-leave the shared tree failing type-check or lint, even mid-flight, because
-the reviewer's gates and other devs' turn-ins run on the whole tree;
+YOURSELF and paste their output — type-check, the relevant test suites, and
+lint SCOPED TO THE FILES YOU TOUCHED (`npx eslint <your files> --max-warnings 0
+--report-unused-disable-directives`), which is the same check the pre-commit
+hook runs on staged files; do not run the repo-wide `npm run lint` for a
+turn-in — it is a 3-minute whole-tree scan that mostly re-reports other
+people's files, and the phase gate covers the tree. Never report done with a
+failing gate, and never leave the tree failing type-check or your own files
+failing lint;
 (3) delete code you replace — never comment it out — and remove any
 param/prop/import your change orphans; (4) if your change trips a
 lint/complexity rule, refactor (e.g. extract a helper) until clean — do not
@@ -273,11 +285,12 @@ review passes); check them mechanically, not from memory:
 1. For each acceptance criterion that names a test: does a new or changed
    test file exist, and does it pass? A claimed A with a test criterion and
    no test diff is an F, not an A.
-2. Did you run type-check, lint (on every file you touched), and the relevant
-   suites *after your final edit*, and capture the output for your report?
-3. Is the shared tree gate-clean right now? Other devs and the reviewer run
-   gates on the same tree — leaving it red at turn-in (or for long stretches
-   mid-flight) corrupts their results.
+2. Did you run type-check, lint on every file you touched (scoped, not
+   repo-wide), and the relevant suites *after your final edit*, and capture the
+   output for your report?
+3. Is the tree gate-clean right now? The reviewer runs gates on it — leaving it
+   red at turn-in (or for long stretches mid-flight) corrupts their results,
+   and in a shared checkout it corrupts other devs' too.
 4. Zero commented-out code: replaced code is deleted, not disabled in place.
 5. Zero orphans: no param, prop, import, or variable your change made unused.
 6. Zero new lint/complexity violations: if your addition pushed a function
@@ -302,7 +315,9 @@ only when all of these hold:
 
 1. Every acceptance criterion is verifiably met — check each one yourself
    against the working tree; do not take the dev's word for it.
-2. All tests pass — the new ones and the existing suites/gates.
+2. All tests pass — the new ones and the existing suites/gates. Per ticket,
+   run what the ticket's change actually reaches; save the repo-wide lint and
+   type-check sweep for the phase gate rather than paying it per ticket.
 3. The work is best-standard for this repo and efficient, and no obviously
    better approach exists.
 4. **Behavior is verified live whenever feasible** — drive the running app

@@ -392,7 +392,7 @@ npm run db:push          # Push schema changes directly; avoid post-RLS, see db-
 # (.claude/skills/run-tests/) before running or writing any test; it documents
 # test:fast / test:unit / test:integration / test:e2e and the Docker Postgres
 # setup those last two need (`npm run test:docker:up`).
-npm test                     # Full suite, single-fork + coverage — what CI runs
+npm test                     # Full suite, parallel + coverage — what CI runs
 npm run test:fast            # unit-fast, no DB, ~13s — default sanity check
 npm run test:e2e             # End-to-end tests with Playwright
 

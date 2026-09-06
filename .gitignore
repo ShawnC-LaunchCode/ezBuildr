@@ -65,6 +65,11 @@ tools/skill-trigger-eval/results/
 # TypeScript incremental build cache (tree-local, per worktree)
 .tsbuildinfo
 
+# ESLint result cache. Content-hashed (--cache-strategy content), so it is safe
+# across checkouts and worktrees, but it is a local artifact — CI restores its
+# own copy via actions/cache rather than reading one from the repo.
+.eslintcache
+
 # Playwright MCP output (snapshots, console logs, screenshots) — see the verify skill
 .playwright-mcp/
 

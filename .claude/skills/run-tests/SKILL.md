@@ -11,14 +11,14 @@ description: Run, write, or debug tests in ezBuildr. Running npm test or vitest 
 |---|---|---|---|---|---|
 | `unit-fast` | ~85 files in `tests/unit/` | No (mocked) | `tests/setup-fast.ts` | ~13s | `npm run test:fast` |
 | `unit-db` | the files listed in `dbUnitTests` in vitest.config.ts — **17** as of 2026-08-12, not 4; read the array, don't trust a count here | Real PG | `tests/setup.ts` | ~75s | `npm run test:unit:db` |
-| `integration` | `tests/integration/` | Real PG | `tests/setup.ts` | minutes | `npm run test:integration` |
+| `integration` | `tests/integration/` | Real PG | `tests/setup.ts` | ~5 min | `npm run test:integration` |
 
 ## Which command to run
 
 - **Default sanity check after a change:** `npm run test:fast` — fast, no DB needed.
 - **Single file:** `npx vitest run --project unit-fast tests/unit/path/to.test.ts` (pick the project the file belongs to — a `tests/integration/` file needs `--project integration` and a DB).
 - **Full unit:** `npm run test:unit` (unit-fast + unit-db, needs DB).
-- **Everything:** `npm test` (runs with `VITEST_SINGLE_FORK=true` + coverage — slow but 100% reliable; this is what CI uses).
+- **Everything:** `npm test` (all 3 projects in parallel, + coverage; this is what CI uses).
 - Also run `npx tsc --noEmit` for type safety — tests passing does not imply the build compiles.
 
 ## ⚠️ `test:docker:up` starts more than Postgres — re-run it after every pull
@@ -133,7 +133,34 @@ Check these before debugging:
   asserted its own fixture and could not detect a feature that never worked. That is why
   this went unnoticed for months. Treat any test that mocks the thing it claims to verify
   with the same suspicion.
-- Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
+- Flaky parallel runs: re-run serially (`npm run test:serial`, or
+  `npm run test:integration:serial`) before concluding a test is broken. Both
+  set `VITEST_SINGLE_FORK=true`, which pins every project to one worker.
+
+## Parallel is the default, and that was measured
+
+Every suite ran pinned to a single worker until 2026-09-05, from a Jan 2026
+commit (`91a3a70d`) that set `VITEST_SINGLE_FORK=true` as a blanket fix for auth
+flakiness — before the 3-project split, before per-worker schemas
+(`test_schema_w{id}` in `tests/helpers/schemaManager.ts`), and before the
+migration-fingerprint validation. Those three are what actually provide the
+isolation now.
+
+Measured on one commit, integration project, same machine, both containers up:
+
+| Mode | Duration | Result |
+|---|---|---|
+| parallel (4 workers) | **311.6s** | 144 files, 1319 passed, 3 skipped |
+| single fork | **1074.9s** | 144 files, 1319 passed, 3 skipped |
+
+Identical verdicts, 3.45x apart. So a parallel-only failure is **news** — it
+means shared state leaked past the per-worker schema, which is a real defect and
+worth reporting, not a known cost of running fast. Confirm it serially, then say
+so; don't reach for the serial script as a habit.
+
+Still true: **never run two DB-backed suites at once**, in the same tree or
+across worktrees. Schemas are per *worker*, not per process, so two concurrent
+runs collide and fake dozens of failures.
 
 ## Gotchas
 
