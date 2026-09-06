@@ -10,7 +10,7 @@ import {
 } from '@shared/types/steps';
 
 import { logger } from '../../logger';
-import { stepRepository, stepValueRepository } from '../../repositories';
+import { pageRepository, stepRepository, stepValueRepository } from '../../repositories';
 import type { DbTransaction } from '../../repositories/BaseRepository';
 import { codeBlockRunRepository } from '../../repositories/CodeBlockRunRepository';
 import { getCurrentTenantId, withCurrentTenant } from '../../utils/rlsContext';
@@ -19,12 +19,15 @@ import { scriptEngine } from '../scripting/ScriptEngine';
 import { buildExecutionOrder } from './CodeBlockGraph';
 import { isEligible, validateFiringPolicy, type EvaluationPoint, type PageProgress } from './firingPolicy';
 import { validateAliasFormat } from '../stepAlias';
+import { workflowService } from '../WorkflowService';
 
 type CodeBlockDependencies = {
   stepRepo?: typeof stepRepository;
   valueRepo?: typeof stepValueRepository;
   engine?: typeof scriptEngine;
   stateRepo?: typeof codeBlockRunRepository;
+  pageRepo?: typeof pageRepository;
+  workflowSvc?: Pick<typeof workflowService, 'verifyAccess'>;
 };
 
 type CodeBlockStepIdentity = Pick<Step, 'id' | 'workflowId' | 'pageId' | 'title' | 'config' | 'alias'>;
@@ -45,6 +48,36 @@ export type CodeBlockExecutionResult = {
 };
 
 export type CodeBlockEvaluationResult = CodeBlockExecutionResult & { state: CodeBlockRun };
+
+/** Body of `POST /api/steps/:stepId/code-block/test`. */
+export type CodeBlockTestParams = {
+  /**
+   * The code currently in the editor. Falls back to the SAVED code when absent,
+   * so the panel can test an edit that has not been persisted yet -- which is
+   * the whole point of a test panel next to an editor.
+   */
+  code?: string;
+  /**
+   * Sample values, keyed by input key. When omitted the block is validated but
+   * NOT executed, which is how the editor collects CB-5's derived keys and
+   * dynamic-access warnings on save without paying for a sandbox run.
+   */
+  testData?: Record<string, unknown>;
+};
+
+export type CodeBlockTestResult = {
+  success: boolean;
+  /** True only when the sandbox actually ran. */
+  executed: boolean;
+  output?: unknown;
+  error?: string;
+  /** CB-5's dynamic-access warnings, surfaced to the author (CB-8 AC 7). */
+  warnings: string[];
+  derivedInputs: string[];
+  derivedOutputs: string[];
+  consoleLogs?: unknown[][];
+  durationMs?: number;
+};
 
 /** JSON object order is immaterial, including inside object/list inputs. */
 function canonicalize(value: unknown): unknown {
@@ -82,12 +115,16 @@ export class CodeBlockService {
   private readonly valueRepo: typeof stepValueRepository;
   private readonly engine: typeof scriptEngine;
   private readonly stateRepo: typeof codeBlockRunRepository;
+  private readonly pageRepo: typeof pageRepository;
+  private readonly workflowSvc: Pick<typeof workflowService, 'verifyAccess'>;
 
   constructor(dependencies: CodeBlockDependencies = {}) {
     this.stepRepo = dependencies.stepRepo ?? stepRepository;
     this.valueRepo = dependencies.valueRepo ?? stepValueRepository;
     this.engine = dependencies.engine ?? scriptEngine;
     this.stateRepo = dependencies.stateRepo ?? codeBlockRunRepository;
+    this.pageRepo = dependencies.pageRepo ?? pageRepository;
+    this.workflowSvc = dependencies.workflowSvc ?? workflowService;
   }
 
   /** Evaluate one block. Eligibility/trigger selection belongs to the caller. */
@@ -315,7 +352,14 @@ export class CodeBlockService {
     validateFiringPolicy(config);
     const validation = await this.engine.validate({ language: 'javascript', code: config.code });
     if (!validation.valid) {
-      throw new Error(`Script validation failed: ${validation.error ?? 'unknown reason'}`);
+      // CB-8: tagged 400 so the message reaches the editor and can render
+      // against the code field. Untagged it fell through classifyRouteError to
+      // a 500 with the generic "Failed to update step", which told an author
+      // with a syntax error precisely nothing.
+      throw Object.assign(
+        new Error(`Script validation failed: ${validation.error ?? 'unknown reason'}`),
+        { statusCode: 400 }
+      );
     }
     // Author declarations win, including keys that static analysis cannot discover.
     const inputs = [...config.inputs];
@@ -331,6 +375,95 @@ export class CodeBlockService {
     }
     config.inputs = inputs;
     config.outputs = outputs;
+  }
+
+  /**
+   * CB-8: authoring-time "run this code against sample data".
+   *
+   * Authorization mirrors every other step-scoped route: resolve the step, walk
+   * up to its page to learn the workflow, then let `verifyAccess` decide. The
+   * ORDER matters -- authorization runs to completion BEFORE any sandbox work,
+   * so a step in another tenant is refused without a single line of the
+   * caller's code being executed. A route that executes first and returns 404
+   * afterwards passes a status-only test and still runs a stranger's script.
+   */
+  async testBlock(
+    stepId: string,
+    userId: string,
+    params: CodeBlockTestParams
+  ): Promise<CodeBlockTestResult> {
+    const { workflowId, config } = await this.loadBlockForAuthoring(stepId, userId);
+    const code = params.code ?? config.code;
+
+    const validation = await this.engine.validate({ language: 'javascript', code });
+    const warnings = validation.warnings ?? [];
+    const derivedInputs = validation.derivedInputs ?? [];
+    const derivedOutputs = validation.derivedOutputs ?? [];
+    if (!validation.valid) {
+      return {
+        success: false, executed: false, warnings, derivedInputs, derivedOutputs,
+        error: validation.error ?? 'Script validation failed',
+      };
+    }
+    if (params.testData === undefined) {
+      return { success: true, executed: false, warnings, derivedInputs, derivedOutputs };
+    }
+
+    // The union, not the declared list: the code under test may be an unsaved
+    // edit that reads a key the saved config has never heard of, and dropping
+    // it would make the panel report `undefined` for an input the author can
+    // plainly see themselves passing.
+    const inputKeys = [...new Set([...config.inputs.map(input => input.key), ...derivedInputs])];
+    const result = await this.engine.execute({
+      language: 'javascript',
+      code,
+      inputKeys,
+      data: params.testData,
+      context: {
+        workflowId,
+        runId: `code-block-test-${stepId}`,
+        phase: 'code_block_test',
+        metadata: { stepId },
+        userId,
+      },
+      timeoutMs: config.timeoutMs ?? 1000,
+      consoleEnabled: true,
+    });
+
+    return {
+      success: result.ok,
+      executed: true,
+      output: result.output,
+      error: result.error,
+      consoleLogs: result.consoleLogs,
+      durationMs: result.durationMs,
+      warnings, derivedInputs, derivedOutputs,
+    };
+  }
+
+  /** Resolve + authorize one Code Block step for an authoring-time operation. */
+  private async loadBlockForAuthoring(
+    stepId: string,
+    userId: string
+  ): Promise<{ workflowId: string; config: JsQuestionConfig }> {
+    const resolved = await withCurrentTenant(async (tx) => {
+      const step = await this.stepRepo.findById(stepId, tx);
+      if (!step) { throw new Error('Code Block not found'); }
+      const page = await this.pageRepo.findById(step.pageId, tx);
+      if (!page) { throw new Error('Code Block not found'); }
+      await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
+      return { step, workflowId: page.workflowId };
+    });
+    if (resolved.step.type !== 'js_question') {
+      throw Object.assign(new Error(`Validation error: step "${resolved.step.title}" is not a Code Block`),
+        { statusCode: 400 });
+    }
+    const config = resolveConfig(resolved.step.config);
+    if (!config) {
+      throw Object.assign(new Error(`Validation error: Code Block "${resolved.step.title}" has an invalid configuration`),
+        { statusCode: 400 });
+    }
+    return { workflowId: resolved.workflowId, config };
   }
 
   async syncVirtualSteps(

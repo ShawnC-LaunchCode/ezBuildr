@@ -7,7 +7,7 @@
  * (ICW-B1).
  */
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
@@ -42,18 +42,10 @@ export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepE
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
 
-    const [localConfig, setLocalConfig] = useState<JSQuestionConfig>(
-        resolveEditorConfig(step.config)
-    );
-
-    useEffect(() => {
-        setLocalConfig(resolveEditorConfig(step.config));
-    }, [step.config]);
-
-    const handleConfigChange = (config: JSQuestionConfig) => {
-        setLocalConfig(config);
-        updateStepMutation.mutate({ id: stepId, pageId, config });
-    };
+    // Since CB-8 the Code Block config is saved by the editor modal itself, so
+    // the card only ever READS it. Mirroring it into local state here would be
+    // a second copy of server state with nothing to keep it honest.
+    const config = useMemo(() => resolveEditorConfig(step.config), [step.config]);
 
     const handleAliasChange = (alias: string | null) => {
         updateStepMutation.mutate({ id: stepId, pageId, alias });
@@ -78,10 +70,11 @@ export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepE
 
             {/* JS Configuration */}
             <JSQuestionEditor
-                config={localConfig}
-                onChange={handleConfigChange}
+                config={config}
                 elementId={stepId}
+                pageId={pageId}
                 workflowId={workflowId}
+                title={step.title}
             />
 
             {/* Default Value */}

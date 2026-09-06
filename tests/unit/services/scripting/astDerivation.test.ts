@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { JsQuestionConfig } from '@shared/types/steps';
 
-import { JSCodeEditorSection } from '../../../../client/src/components/builder/questions/js-question/JSCodeEditorSection';
+import { InputsPanel, OutputsPanel } from '../../../../client/src/components/builder/questions/js-question/CodeBlockPanels';
 import { CodeBlockService } from '../../../../server/services/codeBlocks/CodeBlockService';
 import { ASTValidator } from '../../../../server/services/scripting/ASTValidator';
 import { ScriptEngine } from '../../../../server/services/scripting/ScriptEngine';
@@ -28,13 +28,21 @@ describe('CB-5 AST derivation', () => {
     const result = await engine.validate({ language: 'javascript', code: saved.code });
     expect(result).toMatchObject({ valid: true, derivedInputs: ['a'], derivedOutputs: ['x', 'y'] });
     await service.validateForSave(saved);
-    const html = renderToStaticMarkup(createElement(JSCodeEditorSection, {
-      config: saved, elementId: 'proof', onChange: () => undefined,
-    }));
-    expect(html).toMatch(/aria-label="Input key"[^>]*value="a"/);
-    expect(html).toMatch(/aria-label="Output key"[^>]*value="y"/);
-    expect(html).toContain('role="checkbox"');
-    expect(html).toContain('aria-label="Output type"');
+    // CB-8 moved these controls out of the step card and into the editor
+    // modal's rail. The property CB-5 cares about is unchanged and still
+    // asserted here: a DERIVED key renders as an EDITABLE field, not a label.
+    const html = renderToStaticMarkup(createElement('div', null,
+      createElement(InputsPanel, {
+        inputs: saved.inputs, derivedKeys: ['a'], onChange: () => undefined,
+      }),
+      createElement(OutputsPanel, {
+        outputs: saved.outputs, derivedKeys: ['x', 'y'], onChange: () => undefined,
+      }),
+    ));
+    expect(html).toMatch(/aria-label="Input key 1"[^>]*value="a"/);
+    expect(html).toMatch(/aria-label="Output key 2"[^>]*value="y"/);
+    expect(html).toContain('aria-label="Required: a"');
+    expect(html).toContain('aria-label="Type: y"');
     expect(html).not.toContain('readOnly');
     expect(html).not.toContain('readonly');
   });

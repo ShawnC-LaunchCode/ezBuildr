@@ -71,6 +71,21 @@ PUT/DELETE  /api/transform-blocks/:blockId
 POST        /api/transform-blocks/:blockId/test   # Test with sample data (blocks have NO /test)
 ```
 
+## Code Blocks — `codeBlocks.routes.ts`
+
+```
+POST        /api/steps/:stepId/code-block/test    # hybridAuth + testLimiter (10/min)
+```
+
+Body `{ code?, testData? }`. `code` overrides the saved script so the editor can
+test an unsaved edit; **omitting `testData` validates without executing**, which is
+how the editor collects CB-5's derived input/output keys and dynamic-access
+warnings. With `testData` the real `ScriptEngine` runs the block in the same
+`isolated-vm` sandbox the run engine uses. Authorization (`verifyAccess`, edit) runs
+to completion *before* any sandbox work, so a step in another tenant is refused
+without executing a line. Returns `{ success, executed, output?, error?, warnings,
+derivedInputs, derivedOutputs, consoleLogs?, durationMs? }`.
+
 ## Lifecycle & Document Hooks — `lifecycleHooks`/`documentHooks` routers (mounted at `/api`)
 
 ```

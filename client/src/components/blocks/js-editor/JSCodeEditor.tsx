@@ -1,73 +1,104 @@
+/**
+ * The code field for every JavaScript authoring surface (CB-8).
+ *
+ * Replaces the plain `<Textarea>` this component used to be. Monaco itself is
+ * behind `React.lazy` so it costs nothing until an author opens an editor, and
+ * the theme follows the app's `dark` class rather than a prop, because the
+ * class can change under a mounted editor (the preference toggle, or the OS
+ * theme flipping while `system` is selected).
+ */
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 
-import { CheckCircle2, Play } from "lucide-react";
-import { RefObject } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
-import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import type { CodeEditorHandle, CodeEditorMarker } from "./codeEditorTypes";
+
+const MonacoCodeField = lazy(() => import("./MonacoCodeField"));
+
+/** The one example an author should copy: `emit(...)`, never `return {...}`. */
+export const CODE_BLOCK_PLACEHOLDER = [
+    "// Example:",
+    "// emit({ full_name: input.first_name + ' ' + input.last_name });",
+    "",
+    "// Or compute a value:",
+    "// emit({ total: input.price * input.quantity });",
+].join("\n");
+
+/** Tracks the `dark` class on <html>, which is where useUserPreferences puts it. */
+export function useIsDarkTheme(): boolean {
+    const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setIsDark(document.documentElement.classList.contains("dark"));
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        return () => { observer.disconnect(); };
+    }, []);
+    return isDark;
+}
 
 interface JSCodeEditorProps {
     code: string;
     onChange: (code: string) => void;
-    onValidate: () => void;
-    onRunTest: () => void;
-    error: string | null;
-    textareaRef: RefObject<HTMLTextAreaElement>;
+    /** Rendered over an empty editor; Monaco has no native placeholder. */
+    placeholder?: string;
+    ariaLabel?: string;
+    className?: string;
+    markers?: CodeEditorMarker[];
+    onReady?: (handle: CodeEditorHandle) => void;
 }
+
+const NO_MARKERS: CodeEditorMarker[] = [];
 
 export function JSCodeEditor({
     code,
     onChange,
-    onValidate,
-    onRunTest,
-    error,
-    textareaRef,
-}: JSCodeEditorProps) {
+    placeholder = CODE_BLOCK_PLACEHOLDER,
+    ariaLabel = "JavaScript code",
+    className,
+    markers = NO_MARKERS,
+    onReady,
+}: JSCodeEditorProps): JSX.Element {
+    const isDark = useIsDarkTheme();
+    const handleChange = useCallback((next: string) => { onChange(next); }, [onChange]);
+
     return (
-        <div className="space-y-4">
-            <div>
-                <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                    JavaScript Code
-                </label>
-                <Textarea
-                    ref={textareaRef}
-                    value={code}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder="// Example:\n// return { fullName: input.firstName + ' ' + input.lastName };\n\n// Or perform calculations:\n// return { total: input.price * input.quantity };"
-                    className="font-mono text-sm h-64 resize-none"
-                />
-            </div>
-
-            {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                    <p className="text-destructive text-sm font-mono">{error}</p>
-                </div>
+        <div
+            className={cn(
+                "relative h-full overflow-hidden rounded-md border bg-card",
+                "focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/30",
+                className
             )}
+        >
+            <Suspense fallback={<EditorSkeleton />}>
+                <MonacoCodeField
+                    code={code}
+                    onChange={handleChange}
+                    isDark={isDark}
+                    ariaLabel={ariaLabel}
+                    markers={markers}
+                    onReady={onReady}
+                />
+            </Suspense>
+            {code === "" && (
+                <pre
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-[62px] top-3 whitespace-pre font-mono text-[13px] leading-5 text-muted-foreground/70"
+                >
+                    {placeholder}
+                </pre>
+            )}
+        </div>
+    );
+}
 
-            <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={onValidate}>
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Validate Syntax
-                </Button>
-                <Button size="sm" variant="secondary" onClick={onRunTest}>
-                    <Play className="w-3 h-3 mr-1" />
-                    Run Test
-                </Button>
-            </div>
-
-            <div className="p-3 bg-muted/50 rounded-md">
-                <p className="text-xs text-muted-foreground">
-                    <strong>Tips:</strong>
-                </p>
-                <ul className="text-xs text-muted-foreground mt-1 space-y-1 list-disc list-inside">
-                    <li>Access variables via <code className="bg-background px-1 py-0.5 rounded">input.variableName</code></li>
-                    <li>Return an object with your transformed data</li>
-                    <li>Tests use realistic mock data based on variable types</li>
-                    <li>Use <code className="bg-background px-1 py-0.5 rounded">helpers</code> object for 40+ utility functions</li>
-                </ul>
-            </div>
-
-            <HelperLibraryDocs />
+function EditorSkeleton(): JSX.Element {
+    return (
+        <div className="space-y-2 p-3">
+            {[80, 55, 68, 40].map((width) => (
+                <Skeleton key={width} className="h-4" style={{ width: `${width}%` }} />
+            ))}
         </div>
     );
 }

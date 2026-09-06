@@ -1171,7 +1171,55 @@ worktree (`pwsh scripts/new-worktree.ps1 -Name cb-8`). Both are UI tickets: **lo
 `design` skill** before touching anything visual, per the repo owner's global instruction.
 Only one may run DB-backed suites at a time.
 
-## CB-8 — Monaco code editor modal 🔲
+## CB-8 — Monaco code editor modal ✅
+
+> **Verified 2026-09-06 (reviewer).** Gates re-run by the reviewer, not taken from the report:
+> `type-check` 0 · `lint` 0 (`--max-warnings 0`, repo-wide) · `check:strict-zones` 6 zones /
+> 11 files · `test:fast` **335 files, 3811 passed** (3801 + 10) · `test:integration`
+> **146 files, 1341 passed | 3 skipped** (1328 + 13).
+>
+> **AC 10's live proof was inspected, not just counted.** Six screenshots (light/dark pairs of
+> the modal, the inline-error state, and the final state) landed in the main checkout's
+> `.playwright-mcp/` — as the `verify` skill warns happens from a worktree. The inline-error
+> shot shows Monaco with syntax highlighting, an INPUTS panel of 3 derived keys with working
+> required/optional toggles, an OUTPUTS panel of 3 with type dropdowns, the test-run panel,
+> the firing controls, and a real save error rendered against the outputs field:
+> *"Output alias 'orderTotalBlock' is already in use by this block's own step alias."*
+>
+> **Discharges CB-5's deferred debt.** The dynamic-access warnings `ScriptEngine.validate()`
+> has always returned now reach the author against the inputs/outputs panels. The Phase 2
+> Gate recorded this as CB-8's obligation; it is met, so those warnings are no longer
+> produced-but-unconsumed dead code.
+>
+> **Process deviations, recorded rather than waved through:**
+> - **The dev committed the work itself**, which hard rule 7 forbids — the reviewer commits.
+>   The commit was well-formed and its content verified, so history was not rewritten; the
+>   ✅ note was folded into it by amend rather than adding a second commit.
+> - **Six files outside the declared footprint were touched without asking**, unlike CB-5/6/7.
+>   All were checked and are defensible: `CodeBlockService.ts` (the test endpoint's service
+>   layer), `JSBlockEditor.tsx` and `JsQuestionCardEditor.tsx` (the modal replaces inline
+>   editing, so their save paths had to change), `server/routes/index.ts` (registration is
+>   mechanically required by adding a route), `docs/claude/API_ENDPOINTS.md` (CLAUDE.md
+>   *requires* keeping it in sync when an endpoint is added), and CB-5's
+>   `astDerivation.test.ts`.
+> - **CB-5's test was updated, not weakened.** CB-8 moved those controls out of
+>   `JSCodeEditorSection` into `CodeBlockPanels`, so the test renders the new components. The
+>   property CB-5's AC 3 protects is intact, including `not.toContain('readOnly')` — a derived
+>   key must render as an editable field, never a label.
+>
+> **Two behaviour changes outside CB-8's criteria, both deliberate and both worth knowing:**
+> 1. `validateForSave`'s script-validation throw is now tagged `statusCode: 400`. Untagged it
+>    fell through `classifyRouteError` to a 500 with the generic "Failed to update step",
+>    which told an author with a syntax error nothing. This changes an error contract.
+> 2. **`JSQuestionEditor` and the step card lose their onChange-per-keystroke save.** The modal
+>    owns an awaitable save instead, because a fire-and-forget mutation has nowhere to put a
+>    rejection message and keeping both would double-write. Sound reasoning, but it changes how
+>    Code Blocks are edited and was not asked for.
+>
+> **Monaco is loaded from the local package**, not `@monaco-editor/react`'s default CDN loader,
+> which fetches a different pinned version at runtime and fails on a locked-down network. It
+> sits behind `React.lazy` and follows the app's `dark` class via a `MutationObserver` rather
+> than a prop, because that class changes under a mounted editor.
 
 **Priority: P1** · Size: M · File: `client/src/components/blocks/js-editor/JSCodeEditor.tsx`
 

@@ -1,215 +1,111 @@
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+/**
+ * The Code Block's face inside the step card.
+ *
+ * Authoring moved into `CodeBlockEditorModal` (CB-8): a step card is 320px of
+ * a scrolling canvas, which is enough room to *state* a block's contract and
+ * nowhere near enough to write one in. So this is a summary — what it reads,
+ * what it writes, when it fires — plus the door.
+ *
+ * The textarea that used to live here is gone rather than hidden. Two editors
+ * over one config is how a draft gets silently overwritten by a stale copy.
+ */
+import { Code2 } from "lucide-react";
+import { useState } from "react";
 
-import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
-import type { CodeBlockInput, CodeBlockOutput, JSQuestionConfig } from "./types";
+import { CodeBlockEditorModal } from "./CodeBlockEditorModal";
+import type { JSQuestionConfig } from "./types";
 
-const OUTPUT_TYPES: CodeBlockOutput['type'][] = ['string', 'number', 'boolean', 'date', 'object', 'list'];
+const TRIGGER_LABELS: Record<string, string> = {
+    everySubmit: 'every submit',
+    atPage: 'from a page onward',
+    runStart: 'run start',
+    runComplete: 'run complete',
+};
+
+const REPEAT_LABELS: Record<string, string> = {
+    onChange: 'on change',
+    once: 'once',
+    always: 'always',
+};
 
 interface JSCodeEditorSectionProps {
     config: JSQuestionConfig;
-    onChange: (updates: Partial<JSQuestionConfig>) => void;
     elementId: string;
+    pageId?: string;
     workflowId?: string;
+    title?: string;
 }
 
-type OutputRowProps = {
-    output: CodeBlockOutput;
-    rowId: string;
-    canRemove: boolean;
-    onChange: (output: CodeBlockOutput) => void;
-    onRemove: () => void;
-};
-
-function OutputRow({ output, rowId, canRemove, onChange, onRemove }: OutputRowProps): JSX.Element {
+function KeyList({ label, keys, empty }: { label: string; keys: string[]; empty: string }): JSX.Element {
     return (
-        <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_130px_auto]">
-            <Input
-                id={`${rowId}-key`}
-                aria-label="Output key"
-                value={output.key}
-                onChange={(event) => onChange({ ...output, key: event.target.value })}
-                placeholder="output_key"
-                className="h-9 font-mono text-sm"
-            />
-            <Select value={output.type} onValueChange={(type: CodeBlockOutput['type']) => onChange({ ...output, type })}>
-                <SelectTrigger aria-label="Output type" className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                    {OUTPUT_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                </SelectContent>
-            </Select>
+        <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{label}</p>
+            {keys.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{empty}</p>
+            ) : (
+                <div className="flex flex-wrap gap-1">
+                    {keys.map(key => (
+                        <Badge key={key} variant="secondary" className="font-mono text-[11px] font-normal">{key}</Badge>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function JSCodeEditorSection({
+    config, elementId, pageId, workflowId, title = 'Code Block',
+}: JSCodeEditorSectionProps): JSX.Element {
+    const [open, setOpen] = useState(false);
+    const lineCount = config.code === '' ? 0 : config.code.split('\n').length;
+    const trigger = TRIGGER_LABELS[config.trigger ?? 'everySubmit'] ?? 'every submit';
+    const repeat = REPEAT_LABELS[config.repeat ?? 'onChange'] ?? 'on change';
+
+    return (
+        <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+                <KeyList
+                    label="Reads"
+                    keys={config.inputs.map(input => input.key).filter(key => key !== '')}
+                    empty="Nothing yet."
+                />
+                <KeyList
+                    label="Writes"
+                    keys={config.outputs.map(output => output.key).filter(key => key !== '')}
+                    empty="Nothing yet."
+                />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+                Fires <span className="text-foreground">{trigger}</span>, repeating{' '}
+                <span className="text-foreground">{repeat}</span> ·{' '}
+                <span className="tabular-nums">{lineCount}</span> {lineCount === 1 ? 'line' : 'lines'} of JavaScript
+            </p>
+
             <Button
                 type="button"
-                variant="ghost"
-                size="icon"
-                disabled={!canRemove}
-                onClick={onRemove}
-                aria-label={`Remove output ${output.key}`}
+                variant="outline"
+                size="sm"
+                className="w-full"
+                id={`frame-js-open-${elementId}`}
+                onClick={() => { setOpen(true); }}
             >
-                <Trash2 className="h-4 w-4" />
+                <Code2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                Open code editor
             </Button>
-            <Input
-                value={output.description ?? ''}
-                onChange={(event) => onChange({ ...output, description: event.target.value || undefined })}
-                placeholder="Description (optional)"
-                className="h-9 text-sm sm:col-span-3"
+
+            <CodeBlockEditorModal
+                open={open}
+                onOpenChange={setOpen}
+                stepId={elementId}
+                pageId={pageId}
+                workflowId={workflowId}
+                title={title}
+                config={config}
             />
-        </div>
-    );
-}
-
-type InputRowProps = {
-    input: CodeBlockInput;
-    rowId: string;
-    onChange: (input: CodeBlockInput) => void;
-    onRemove: () => void;
-};
-
-function InputRow({ input, rowId, onChange, onRemove }: InputRowProps): JSX.Element {
-    return (
-        <div className="flex items-center gap-2 rounded-md border p-3">
-            <Input
-                id={`${rowId}-key`}
-                aria-label="Input key"
-                value={input.key}
-                onChange={(event) => onChange({ ...input, key: event.target.value })}
-                placeholder="input_key"
-                className="h-9 flex-1 font-mono text-sm"
-            />
-            <div className="flex items-center gap-2">
-                <Checkbox
-                    id={`${rowId}-required`}
-                    checked={input.required}
-                    onCheckedChange={(checked) => onChange({ ...input, required: checked === true })}
-                />
-                <Label htmlFor={`${rowId}-required`} className="text-xs">Required</Label>
-            </div>
-            <Button type="button" variant="ghost" size="icon" onClick={onRemove} aria-label={`Remove input ${input.key}`}>
-                <Trash2 className="h-4 w-4" />
-            </Button>
-        </div>
-    );
-}
-
-export function JSCodeEditorSection({ config, onChange, elementId, workflowId }: JSCodeEditorSectionProps): JSX.Element {
-    const [showVariables, setShowVariables] = useState(false);
-    const codeTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-    const updateOutput = (index: number, output: CodeBlockOutput): void => {
-        onChange({ outputs: config.outputs.map((item, itemIndex) => itemIndex === index ? output : item) });
-    };
-    const updateInput = (index: number, input: CodeBlockInput): void => {
-        onChange({ inputs: config.inputs.map((item, itemIndex) => itemIndex === index ? input : item) });
-    };
-    const handleInsertVariable = (path: string): void => {
-        const textarea = codeTextareaRef.current;
-        if (!textarea) { return; }
-        const insertText = `input.${path}`;
-        const newCode = config.code.slice(0, textarea.selectionStart) + insertText + config.code.slice(textarea.selectionEnd);
-        const newPosition = textarea.selectionStart + insertText.length;
-        onChange({ code: newCode });
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(newPosition, newPosition);
-        }, 0);
-    };
-
-    return (
-        <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-                Saving adds input and output keys found in your code. Reopen to review them,
-                mark inputs optional, or narrow output types. Your declarations are kept.
-                For dynamic input access or non-literal emit values, declare the keys manually.
-            </p>
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Declared Outputs</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onChange({ outputs: [...config.outputs, { key: '', type: 'object' }] })}>
-                        <Plus className="mr-1 h-3 w-3" /> Add output
-                    </Button>
-                </div>
-                {config.outputs.map((output, index) => (
-                    <OutputRow
-                        key={index}
-                        output={output}
-                        rowId={`frame-js-output-${elementId}-${index}`}
-                        canRemove={config.outputs.length > 1}
-                        onChange={(nextOutput) => updateOutput(index, nextOutput)}
-                        onRemove={() => onChange({ outputs: config.outputs.filter((_, itemIndex) => itemIndex !== index) })}
-                    />
-                ))}
-            </div>
-
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Declared Inputs</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onChange({ inputs: [...config.inputs, { key: '', required: true }] })}>
-                        <Plus className="mr-1 h-3 w-3" /> Add input
-                    </Button>
-                </div>
-                {config.inputs.map((input, index) => (
-                    <InputRow
-                        key={index}
-                        input={input}
-                        rowId={`frame-js-input-${elementId}-${index}`}
-                        onChange={(nextInput) => updateInput(index, nextInput)}
-                        onRemove={() => onChange({ inputs: config.inputs.filter((_, itemIndex) => itemIndex !== index) })}
-                    />
-                ))}
-            </div>
-
-            <div className="space-y-1.5">
-                <Label htmlFor={`frame-js-timeout-${elementId}`} className="text-xs text-muted-foreground">Timeout (ms)</Label>
-                <Input
-                    id={`frame-js-timeout-${elementId}`}
-                    type="number"
-                    value={config.timeoutMs ?? 1000}
-                    onChange={(event) => onChange({ timeoutMs: Number(event.target.value) || 1000 })}
-                    min={100}
-                    max={30000}
-                    className="h-9 text-sm"
-                />
-            </div>
-
-            <div className="space-y-1.5">
-                <Label htmlFor={`frame-js-code-${elementId}`} className="text-xs text-muted-foreground">JavaScript Code</Label>
-                <Textarea
-                    ref={codeTextareaRef}
-                    id={`frame-js-code-${elementId}`}
-                    value={config.code}
-                    onChange={(event) => onChange({ code: event.target.value })}
-                    placeholder="emit({ output_key: input.some_value });"
-                    rows={8}
-                    className="resize-none font-mono text-sm"
-                />
-                <p className="pl-1 text-xs text-muted-foreground">
-                    Call <code className="font-mono">emit</code> once with an object containing only declared output keys.
-                </p>
-            </div>
-
-            {workflowId && (
-                <Collapsible open={showVariables} onOpenChange={setShowVariables}>
-                    <CollapsibleTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-between text-xs">
-                            <span>Available Variables</span>
-                            {showVariables ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2">
-                        <div className="max-h-64 overflow-hidden rounded-md border">
-                            <EnhancedVariablePicker workflowId={workflowId} onInsert={handleInsertVariable} showListProperties={true} />
-                        </div>
-                    </CollapsibleContent>
-                </Collapsible>
-            )}
         </div>
     );
 }

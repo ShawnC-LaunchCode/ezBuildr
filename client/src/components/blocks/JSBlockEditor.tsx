@@ -1,9 +1,11 @@
 
-import { Code, ChevronLeft, ChevronRight } from "lucide-react";
+import { Code, ChevronLeft, ChevronRight, CheckCircle2, Play } from "lucide-react";
 
+import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
 import { VariablePalette } from "@/components/builder/pages/VariablePalette";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 import { InputVariablesPanel } from "./js-editor/InputVariablesPanel";
@@ -35,9 +37,9 @@ export const JSBlockEditor = ({ block, onChange, workflowId }: JSBlockEditorProp
       testData, setTestData,
       variables
     },
-    refs: { textareaRef },
     actions: {
       updateBlockConfig,
+      handleEditorReady,
       handleInsertVariable,
       handleAddInputKey,
       handleRemoveInputKey,
@@ -118,17 +120,38 @@ export const JSBlockEditor = ({ block, onChange, workflowId }: JSBlockEditorProp
             />
 
             {/* JS Code Editor */}
-            <JSCodeEditor
-              code={code}
-              onChange={(newCode) => {
-                setCode(newCode);
-                updateBlockConfig({ code: newCode });
-              }}
-              onValidate={validateCode}
-              onRunTest={runTest}
-              error={error}
-              textareaRef={textareaRef}
-            />
+            <div className="space-y-3">
+              <Label className="text-xs font-medium text-muted-foreground">JavaScript Code</Label>
+              <JSCodeEditor
+                code={code}
+                className="h-64"
+                ariaLabel="JavaScript transform code"
+                onReady={handleEditorReady}
+                onChange={(newCode) => {
+                  setCode(newCode);
+                  updateBlockConfig({ code: newCode });
+                }}
+              />
+
+              {error !== null && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 font-mono text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={validateCode}>
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  Validate Syntax
+                </Button>
+                <Button size="sm" variant="secondary" onClick={runTest}>
+                  <Play className="mr-1 h-3 w-3" />
+                  Run Test
+                </Button>
+              </div>
+
+              <HelperLibraryDocs />
+            </div>
           </div>
         </CardContent>
       </Card>

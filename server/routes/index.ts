@@ -17,6 +17,7 @@ import { registerBillingRoutes } from "./billing.routes";
 import { registerBlockRoutes } from "./blocks.routes";
 import { registerBlueprintRoutes } from "./blueprint.routes";
 import { registerBrandingRoutes } from "./branding.routes";
+import { registerCodeBlockRoutes } from "./codeBlocks.routes";
 import { registerCollectionsRoutes } from "./collections.routes";
 import { registerConnectionsV2Routes } from "./connections-v2.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
@@ -120,6 +121,7 @@ export function registerAllRoutes(app: Express): void {
   registerStepRoutes(app);
   registerBlockRoutes(app);
   registerTransformBlockRoutes(app);
+  registerCodeBlockRoutes(app);
 
   // Template Marketplace (browse / install / publish) — MUST be registered
   // before registerApiTemplateRoutes below. Both routers define a GET
