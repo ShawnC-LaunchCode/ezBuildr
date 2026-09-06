@@ -188,6 +188,13 @@ describe('PageSteps accessibility smoke', () => {
     expect(RUNNER_RENDERED_STEP_TYPES.every((type) => fixtureTypes.has(type))).toBe(true);
   });
 
+  // axe-core walks the whole rendered tree and is genuinely slow — it is the
+  // one thing in unit-fast that legitimately exceeds vitest's 5s default. That
+  // default was survivable only while every project ran on a single worker with
+  // the box to itself; under parallel workers on a shared CI runner this test
+  // timed out at 5000ms with nothing wrong. Timeout raised HERE rather than on
+  // the unit-fast project, so a genuine hang in an ordinary unit test still
+  // fails fast.
   it('has no serious or critical axe violations for representative runner blocks', async () => {
     const { container } = renderPage({
       short_text: ['Short text is required'],
@@ -207,7 +214,7 @@ describe('PageSteps accessibility smoke', () => {
     expect(severeViolations).toEqual([]);
     expect(screen.getByLabelText(/Short text/)).toHaveAttribute('aria-required', 'true');
     expect(screen.getByLabelText(/Short text/)).toHaveAttribute('aria-invalid', 'true');
-  });
+  }, 30_000);
 
   it('keeps primary runner controls operable from the keyboard', async () => {
     const user = userEvent.setup();
@@ -307,7 +314,7 @@ describe('PageSteps accessibility smoke', () => {
       (v) => v.impact === 'serious' || v.impact === 'critical'
     );
     expect(severeViolations).toEqual([]);
-  });
+  }, 30_000);   // second axe scan in this file — same reason as above
 
   it('gives list item controls explicit focus-visible indicators', async () => {
     renderPage();

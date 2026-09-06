@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { type InferSelectModel } from "drizzle-orm";
 
+import { PASSWORD_CONFIG } from "../../../server/config/auth";
 import { db } from "../../../server/db";
 import { AuthService } from "../../../server/services/AuthService";
 
@@ -1468,27 +1469,49 @@ describe("AuthService", () => {
   });
 
   describe("Performance & Scalability", () => {
-    describe("Bcrypt Performance", () => {
-      it("should hash password in reasonable time (< 500ms)", async () => {
-        const password = "TestPassword123";
+    // These assert bcrypt's COST FACTOR, not wall-clock time.
+    //
+    // They used to be `expect(duration).toBeLessThan(500)`, calibrated on an
+    // idle dev machine. That measures the spare CPU of whatever box is running
+    // the suite, not this codebase: on a shared 4-core CI runner under parallel
+    // load the same unchanged code takes 609ms and 675ms, and the suite went
+    // red for a reason nobody could act on. It was also load-bearing in the
+    // wrong direction — pinning EVERY vitest project to a single worker (the
+    // Jan 2026 `VITEST_SINGLE_FORK` commit, "auth test flakiness") to keep
+    // these two assertions quiet cost ~10 minutes on every CI run.
+    //
+    // The regression actually worth catching is a misconfigured cost factor —
+    // someone setting SALT_ROUNDS to 4 (trivially brute-forced) or to 20
+    // (login takes ~8s and the app looks hung). bcrypt encodes the cost in the
+    // hash itself, so that is checkable exactly, on any hardware, in any
+    // scheduling order.
+    describe("Bcrypt Cost Factor", () => {
+      /** `$2b$12$<22-char salt><31-char digest>` -> 12 */
+      const costFactorOf = (hash: string): number => {
+        const match = /^\$2[aby]\$(\d{2})\$/.exec(hash);
+        expect(match, `not a bcrypt hash: ${hash}`).not.toBeNull();
+        return Number(match![1]);
+      };
 
-        const start = Date.now();
-        await authService.hashPassword(password);
-        const duration = Date.now() - start;
+      it("hashes at the configured cost factor", async () => {
+        const hash = await authService.hashPassword("TestPassword123");
 
-        // 12 rounds should take less than 500ms on modern hardware
-        expect(duration).toBeLessThan(500);
+        expect(costFactorOf(hash)).toBe(PASSWORD_CONFIG.SALT_ROUNDS);
       });
 
-      it("should compare password in reasonable time (< 500ms)", async () => {
+      it("keeps the configured cost factor in the range that is neither weak nor unusable", () => {
+        // <10 is brute-forceable on commodity GPUs; >14 puts a login past a
+        // second even on fast hardware, which reads to users as a hang.
+        expect(PASSWORD_CONFIG.SALT_ROUNDS).toBeGreaterThanOrEqual(10);
+        expect(PASSWORD_CONFIG.SALT_ROUNDS).toBeLessThanOrEqual(14);
+      });
+
+      it("round-trips a password through hash and compare", async () => {
         const password = "TestPassword123";
         const hash = await authService.hashPassword(password);
 
-        const start = Date.now();
-        await authService.comparePassword(password, hash);
-        const duration = Date.now() - start;
-
-        expect(duration).toBeLessThan(500);
+        await expect(authService.comparePassword(password, hash)).resolves.toBe(true);
+        await expect(authService.comparePassword("wrong", hash)).resolves.toBe(false);
       });
     });
 

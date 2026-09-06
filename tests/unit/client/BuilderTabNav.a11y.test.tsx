@@ -104,6 +104,13 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
     expect(inactivePanel).not.toHaveClass('flex', 'flex-1');
   });
 
+  // axe-core walks the whole rendered tree and is genuinely slow — it is the
+  // one thing in unit-fast that legitimately exceeds vitest's 5s default. That
+  // default was survivable only while every project ran on a single worker with
+  // the box to itself; under parallel workers on a shared CI runner this test
+  // timed out at 5000ms with nothing wrong. Timeout raised HERE rather than on
+  // the unit-fast project, so a genuine hang in an ordinary unit test still
+  // fails fast.
   it('has no serious or critical axe violations with associated tabpanels', async () => {
     const { container } = render(
       <main>
@@ -132,5 +139,5 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
       (v) => v.impact === 'serious' || v.impact === 'critical'
     );
     expect(severeViolations).toEqual([]);
-  });
+  }, 30_000);
 });
