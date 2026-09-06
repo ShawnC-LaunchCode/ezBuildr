@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -38,6 +39,14 @@ const excludedIntegrationTests = [
 ];
 
 const singleWorker = process.env.VITEST_SINGLE_FORK === 'true';
+
+// Never oversubscribe the box. maxWorkers was a hardcoded 8, chosen on a
+// 16-core dev machine; a GitHub-hosted runner has 4, so CI ran 8 workers on 4
+// cores. That 2x oversubscription is what turned sub-second jsdom tests into
+// 5s+ timeouts once the suite stopped running single-fork. Locally, on >=8
+// cores, this still resolves to the same numbers as before.
+const cpuCount = os.availableParallelism?.() ?? os.cpus().length;
+const cap = (n: number) => (singleWorker ? 1 : Math.max(1, Math.min(n, cpuCount)));
 
 // Shared config inherited by all projects via `extends: true`
 export default defineConfig({
@@ -90,7 +99,19 @@ export default defineConfig({
           exclude: [...dbUnitTests, "node_modules/**/*"],
           setupFiles: ["./tests/setup-fast.ts"],
           hookTimeout: 10000,
-          maxWorkers: singleWorker ? 1 : 8,
+          // NOT vitest's 5s default. This project is mostly jsdom + React
+          // Testing Library + userEvent, whose interaction helpers yield to the
+          // event loop repeatedly; on a loaded CI runner a perfectly healthy
+          // component test takes well over 5s. The default only ever held
+          // because the whole suite ran single-fork with the box to itself, and
+          // when that changed it produced a DIFFERENT set of timeouts each run
+          // (IntegrationHub + ReviewStep one build, PageSteps.a11y the one
+          // before) -- the signature of a project-wide budget being wrong, not
+          // of individual slow tests. 20s still fails a genuinely hung test
+          // inside a ~90s project run. The axe-core scans, which are the
+          // measurably slowest thing here, carry their own explicit 30s.
+          testTimeout: 20000,
+          maxWorkers: cap(8),
           sequence: { groupOrder: 1 },
         },
       },
@@ -102,7 +123,7 @@ export default defineConfig({
           setupFiles: ["./tests/setup.ts"],
           testTimeout: 30000,
           hookTimeout: 120000,
-          maxWorkers: singleWorker ? 1 : 4,
+          maxWorkers: cap(4),
           sequence: { groupOrder: 2 },
         },
       },
@@ -115,7 +136,7 @@ export default defineConfig({
           setupFiles: ["./tests/setup.ts"],
           testTimeout: 30000,
           hookTimeout: 120000,
-          maxWorkers: singleWorker ? 1 : 4,
+          maxWorkers: cap(4),
           sequence: { groupOrder: 3 },
         },
       },
