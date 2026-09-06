@@ -74,7 +74,7 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 |---|---|---|---|
 | 1 | Engine — the recompute model | CB-1..4 | **Sequential** (same files) |
 | 2 | Authoring guarantees — the AST pass | CB-5..7 | CB-5 → CB-6 sequential; CB-7 parallel |
-| 3 | Surfaces — editor + inspector | CB-8, CB-9 | **Parallel** (disjoint) |
+| 3 | Surfaces — editor + inspector | CB-8, CB-9a, CB-9 | CB-9a → CB-9 sequential; coordinate shared route files with CB-8 |
 | 4 | Cleanup — retire old surfaces, Python | CB-10, CB-11 | **Parallel** (disjoint) |
 | Backlog | Not phase-gated | CB-B1..B4 | |
 
@@ -1166,10 +1166,12 @@ Getting genuine evidence required constructing a path that actually reaches the 
 
 # Phase 3 — Surfaces: editor and inspector
 
-**CB-8 and CB-9 have disjoint footprints — dispatch them in parallel**, each in its own
-worktree (`pwsh scripts/new-worktree.ps1 -Name cb-8`). Both are UI tickets: **load the
-`design` skill** before touching anything visual, per the repo owner's global instruction.
-Only one may run DB-backed suites at a time.
+**CB-9 is blocked on CB-9a.** Complete and review the preview execution prerequisite
+before resuming the inspector. CB-8 may continue in its own worktree, but coordinate
+`server/routes/codeBlocks.routes.ts` and `server/routes/index.ts`: these are shared
+registration surfaces, not disjoint files. Keep registration edits minimal; the reviewer
+resolves merge conflicts. Load `design` before browser-visible changes. Only one may
+run DB-backed suites at a time.
 
 ## CB-8 — Monaco code editor modal ✅
 
@@ -1316,7 +1318,272 @@ it behind a flag.
 
 ---
 
-## CB-9 — Preview variable inspector 🔲
+## CB-9a — Server-backed preview execution 🔲
+
+**Priority: P1 · Prerequisite for CB-9 · Size: L**
+
+> **Approved direction, 2026-09-06:** preview uses the ordinary server execution engine,
+> with explicit isolation for preview data and side effects. This is a prerequisite
+> implementation ticket, not approval to mark CB-9 complete with a read-only panel.
+> CB-9 remains paused; no runtime code was changed during prerequisite planning.
+
+### Finding
+
+Verified at base `12b2ff65`:
+
+- `useRunNavigationTransport` in `client/src/hooks/runner/useRunNavigation.ts` advances
+  preview locally. `saveBeforeLeavingPage` does nothing; it only bulk-saves answers when
+  entering a final-document page. Ordinary preview Next never calls server submit.
+- `client/src/hooks/runner/useRunValues.ts` disables autosave for preview.
+- `client/src/hooks/runner/useRunSession.ts` disables server runtime reads for preview.
+- `PreviewRunner.tsx` creates an ordinary run for documents, while answers and navigation
+  continue in `PreviewEnvironment`. Reset clears local state without replacing that run.
+- `RunExecutionCoordinator` already accepts `mode: 'live' | 'preview'` and passes it to
+  `BlockRunner`, but the current `RunService` submit/next call sites supply `live`.
+  An execution-mode argument alone is not evidence of end-to-end preview isolation.
+
+Consequently, CB-9's proposed read endpoint cannot observe changes that preview never
+executes. A second background submission process solely for the inspector would leave
+client navigation and server execution disagreeing.
+
+### Execution/isolation audit — 2026-09-06
+
+**Readiness verdict: do not enable server-backed preview yet.** Source inspection found
+missing durable identity, incomplete effect isolation, and duplicate execution boundaries.
+This is a static audit of base `12b2ff65`, not a claim of passing runtime tests. No
+application code, database rows, external services, or running processes were changed.
+
+| Boundary | Verified path and current behavior | Required implementation |
+|---|---|---|
+| Create/access | `RunService.createRun` chooses the published/pinned version when present; otherwise pins a draft. `RunAuthResolver.resolveRun` always returns `live`. `shared/schema/run.ts` has no dedicated preview mode/retirement fields. | Persist server-owned mode and lifecycle fields on the existing run model; author preview must pin the current draft rather than silently preview the published version. |
+| Untrusted metadata | `server/routes/runs.routes.ts` accepts `metadata` and forwards it to creation. | Do not trust `metadata.preview`; use dedicated fields omitted from ordinary request schemas. Reject promotion through every ordinary run access path. |
+| Submit/next | `RunExecutionCoordinator.submitPage` and `.next` both call `evaluateAll(..., 'submit', ...)`; client ordinary transport issues submit then next. | One logical submission owns evaluation and navigation. A second evaluation changes `fired` to `skipped_unchanged` or fires `always` twice. Preserve standalone next compatibility explicitly. |
+| Code Blocks | `CodeBlockService.evaluate` checks readiness and persists output/state; `execute` delegates to `ScriptEngine`. | Reuse these rules. Add submission serialization/replay handling outside the block hash gate; a hash is not request idempotency. |
+| Native writes | `WriteBlockRunner` forwards preview to `server/lib/writes/WriteRunner.ts`, whose preview branch validates and returns before writing. | Reuse and test this adapter; expose the simulated outcome in the response. Its fixed `preview-simulated-id` is not evidence that later reads can observe simulated writes. |
+| External sends | `ExternalSendBlockRunner` forwards mode to `server/lib/external/ExternalSendRunner.ts`; preview returns simulated data before fetch. | Reuse the branch and preserve its `simulated` marker through the block result (currently the wrapper drops that marker). |
+| Collection writes | `CollectionBlockRunner` routes create/update/delete to `RecordService` without testing mode. | Add a preview boundary before record mutations. Until a coherent simulation exists, report unsupported behavior explicitly; never fake successful downstream read-after-write parity. |
+| Queries/reads | `QueryBlockRunner` uses tenant-scoped query execution; separate read-table/find-record runners exist. | Preserve authorized reads. Define simulations that cannot be mistaken for real records; do not build a shadow database as an incidental inspector dependency. |
+| Hooks/scripts | `BlockRunner.runPhase` calls lifecycle hooks and legacy transforms without forwarding mode. `HelperLibrary` HTTP get/post currently throw unimplemented errors. `enhancedSandboxExecutor` builds the default helper library itself when console capture is enabled. | Propagate server-owned policy through script entry points. Do not claim HTTP currently sends traffic or enable new helpers. Do not rely on an injected helper override that the executor replaces; test the actual sandbox path. |
+| Start/completion | `RunLifecycleService.executeOnRunStart` and `RunCompletionService.complete` call `BlockRunner` without mode. Completion marks the run and enqueues durable document work. | Derive mode from persisted identity at both boundaries; keep validation/trigger rules shared. |
+| Queued documents | `RunCompletionJobWorker` calls `RunLifecycleService.generateDocuments(runId)`. That service evaluates `runComplete`, executes final/document hooks, persists artifacts, and calls `DocumentDeliveryService.enqueueDeliveriesForRun`. Neither delivery service nor lifecycle path has a preview branch. | Worker and explicit generate endpoint must resolve the same persisted policy; render isolated artifacts, suppress delivery enqueue, and recheck retirement before committing results. Rendering success must not become delivery permission. |
+| Signature action | Browser signature component simulates preview locally. `/api/esign/execute/:runId/:stepId` calls `SignatureBlockService` without its optional preview argument, which defaults false. | The service must derive preview policy from the run; a UI prop is insufficient protection against direct requests. Preserve the existing provider preview capability after validating its behavior. |
+| Resume/handoff/share | `RunResumeService` issues credentials and calls `sendRunResumeEmail`; ordinary run routes expose resume links, handoff, and share. | Reject these live distribution actions for preview sessions at the server boundary. Do not produce usable public preview credentials. |
+| Counts/metrics | `WorkflowRunRepository.findByWorkflowIds`, `countByWorkflowIds`, and completed-run finder include all runs. `RunMetricsService` supplies `isPreview: false`; `AnalyticsService.recordEvent` already skips correctly marked preview events. | Exclude previews in ordinary reads/counts and propagate mode to existing metrics filtering; enumerate other direct run aggregates during implementation. |
+| Cleanup | `RunStateService.deleteGeneratedDocuments` delegates to a repository row deletion. No preview-session expiry/retirement mechanism was found in the inspected run services/schema. | Add bounded expiry/retirement cleanup and storage-object ownership tracking; deleting document rows alone does not prove blob deletion. Coordinate retirement with worker leases and active submits. |
+
+**Selected direction:** extend the existing run model with explicit mode and lifecycle
+fields; reuse version pinning, the coordinator, query hooks, and existing simulation
+branches. Add a durable logical-submission identity/replay boundary. Do not add a second
+run-table family, mirror values in `PreviewEnvironment`, or turn on server preview behind
+only a browser flag. Exact migration and request schemas belong to implementation review.
+
+**Audit limits:** no live effects were exercised. The rows above identify concrete
+reachable dispatchers, not a proof that every possible provider is isolated. Implementation
+must finish the provider-boundary inventory (including storage and delivery workers),
+exercise it with spies, and search direct `workflow_runs` aggregates before enabling UI.
+Ordinary behavior must retain regression coverage throughout.
+
+### Post-CB-8 scope recheck — 2026-09-06
+
+The assigned `cb-9` worktree now points to `f5e0dc60` (CB-8), directly after
+`12b2ff65`. No merge is in progress and no unmerged paths exist. The only local change
+is this ticket document; Vitest still resolves. This is a dependency-resolution check,
+not a fresh test-suite baseline or verification of CB-8's implementation.
+
+- `server/routes/codeBlocks.routes.ts` now exists and exports `registerCodeBlockRoutes`.
+  It serves `POST /api/steps/:stepId/code-block/test` with authenticated authoring access,
+  rate limiting, validation, and the service's `testBlock` method.
+- `server/routes/index.ts` already imports and registers that function. CB-9 should add
+  its run-state read route inside the existing module, with **no additional registration**.
+- `CodeBlockService` now has `testBlock`, `loadBlockForAuthoring`, and injected page/access
+  dependencies. Preserve those changes when adding the later run-state read. The sample
+  execution endpoint is not a preview-session submission or a persisted block-state API.
+- `CodeBlockRunRepository` has no CB-8 changes; `findByRunId` is still needed for CB-9.
+- The CB-8 commit did not change preview hooks, run identity, the execution coordinator,
+  completion/delivery, or the other audited isolation boundaries. The audit verdict and
+  sequential CB-9a-1 → CB-9a-2 → CB-9a-3 scope therefore remain in effect.
+- Start implementation with CB-9a-1, not the inspector or CB-8's editor. Measure new
+  fast/integration baselines on `f5e0dc60` before code edits; do not use the original
+  3801/1328 counts as evidence of the updated tree's baseline.
+
+### Sequential implementation tickets (CB-9a umbrella)
+
+The audit found enough missing infrastructure to split implementation before coding.
+These are sequential review units, not parallel assignments. All inherit this ticket's
+skills, local-only proof, gates, and no-commit rules. CB-9a is complete only after all three
+units and the parent acceptance criteria pass. Do not enable the client after unit 1 or 2.
+
+**CB-9a-1 — Persist preview identity and isolate its lifecycle (open).**
+
+- Own existing run schema/repository, creation/auth, metrics/count filtering, retirement
+  cleanup, and the effect boundaries named in the audit. Mechanically required migrations,
+  journal/snapshot entries, shared types, and registrations are included.
+- Acceptance: server-owned immutable mode; authorized author-only creation from a pinned
+  draft; ordinary paths cannot promote/distribute preview sessions; simulation or explicit
+  unsupported outcomes for mutations; no provider calls or delivery jobs from preview;
+  queued work reloads mode; finite expiry and cleanup preserve live runs and active previews.
+- Add `tests/integration/preview.isolation.test.ts`: real HTTP/DB dispatch, cross-tenant
+  and same-tenant denial with no data, forged metadata/mode attempts, provider-spy ordinary
+  controls, retirement/worker race coverage, and artifact cleanup proof. Prove reset can
+  retire a run without changing ordinary run behavior. No preview UI activation.
+- Parent criteria covered: 1, 4, 6 and the server foundations of 5. Acceptance 4 requires
+  provider-boundary tests before claiming isolation; static searches are not sufficient.
+
+**CB-9a-2 — Make preview submissions authoritative and replay-safe (open; after 9a-1).**
+
+- Own `RunExecutionCoordinator`, existing run persistence/service/route contracts, and
+  definition resolution. Reuse the identity/policy from 9a-1; no new preview execution engine.
+- Acceptance: one logical submit returns committed answers, computed values, block states,
+  and authoritative navigation; serialized duplicate/retry requests cannot double-evaluate
+  `always` blocks or completion; a new intentional submit still obeys its repeat policy.
+  Explicitly handle lost responses and crash/retry behavior rather than promising exactly
+  once from a client-side pending flag. Separate navigation-only moves from execution.
+- Add `tests/integration/preview.execution.test.ts`: three-page row/value transitions,
+  paired pure ordinary/preview scenarios, invalid submit, concurrent duplicate requests,
+  lost-response replay, computed navigation, start/completion triggers, and frozen draft
+  behavior. Guard the existing standalone next contract; fix duplicate evaluation at the
+  shared logical-operation boundary rather than changing the meaning of `onChange`.
+- Parent criteria covered: server portions of 2, 3, 5. Report any parity discrepancy that
+  requires a separate ordinary-run behavior change before expanding that change.
+
+**CB-9a-3 — Connect the preview UI and prove the complete experience (open; after 9a-2).**
+
+- Own `PreviewRunner`, existing runner session/value/navigation hooks, preview adapters,
+  and mechanically required query/runtime types. Remove replaced local execution state;
+  retain presentation state and unsaved input drafts only.
+- Acceptance: use the server session throughout; apply results only to the active session;
+  preserve edits on failure; reset/snapshot load retire and replace sessions; ignore late
+  responses; restart on definition change; preserve every tool in parent criterion 7.
+- Add `tests/unit/client/previewExecution.test.tsx` for submit/retry, stale responses,
+  reset/snapshot replacement, restart, and tools. Extend the prerequisite integration
+  suite for UI-driven contracts if needed. Complete desktop/mobile browser proof and
+  fixture cleanup; prove simulated actions are visibly labeled.
+- Parent criteria covered: client portions of 2 and 5, plus 7–10. Re-run all parent
+  acceptance checks and gates after final integration. Then reviewer verifies/commits the
+  umbrella completion before CB-9 resumes with fresh baselines.
+
+### Preferred fix and boundaries
+
+Make preview a server-owned execution session using the existing coordinator, validation,
+readiness/change gates, visibility logic, and run-definition provider. The browser owns
+unsaved edits and presentation; persisted answers, computed outputs, block state, and
+navigation come from the server through query hooks. Do not mirror server state into a
+UI store or maintain a second execution engine.
+
+Use an explicit, server-established preview identity that survives subsequent requests
+and queued work. Authorize creation and access against the workflow and tenant. Ordinary
+run credentials or a caller-supplied mode flag must not switch a session's execution mode.
+Reuse existing persistence and preview adapters where they satisfy these requirements;
+do not introduce a parallel run-table family by default.
+
+Before implementation, trace start, submit, next, complete, background jobs, and all
+reachable side-effect dispatchers. Record a concrete execution/isolation map in this
+ticket's verification notes. Preview evaluates pure code and ordinary workflow rules,
+while outbound actions use existing preview adapters or explicit simulated results.
+Unsupported external actions must report that limitation visibly, never silently execute
+live. Document rendering may produce preview-only artifacts; delivery, external writes,
+email, and signature requests must remain simulated. The policy applies to script helpers
+and queued completion work as well as visible blocks.
+
+Use a stable definition for a preview session. A builder definition change requires an
+explicit restart; do not silently combine new steps with old execution hashes. Reset and
+snapshot loading create fresh execution state. Preserve existing preview tools, including
+page auto-fill, full-workflow auto-fill, document preview, and section navigation, through
+the shared submission path. Do not turn rail/back navigation into a submit.
+
+**Out of scope:** the variables inspector UI/read endpoint (CB-9), Monaco work (CB-8),
+new integration providers, production execution redesign, and a general analytics rewrite.
+If the side-effect audit requires a broader architectural change, stop with the exact
+missing boundary and split that work before enabling server-backed preview.
+
+### Ties and implementation footprint
+
+- Depends on the completed Phase 2 Gate; blocks CB-9 and the Phase 3 Gate.
+- Read `add-api-endpoint`, `run-tests`, `verify`, and `design`; read `db-schema-change`
+  before any persistence marker or lifecycle migration.
+- Client responsibility: `client/src/components/preview/PreviewRunner.tsx`,
+  `client/src/hooks/runner/useRunSession.ts`, `useRunNavigation.ts`, `useRunValues.ts`,
+  and the existing `client/src/lib/previewRunner/` adapters. Follow existing query hooks.
+- Server responsibility: existing preview/run routes, `RunService`,
+  `server/services/runs/RunExecutionCoordinator.ts`, run persistence/definition handling,
+  and the completion/side-effect boundaries identified by the audit. Schema metadata,
+  route registration, and shared types mechanically required by the implementation are
+  included. A new service or different architecture remains a decision to review.
+- Tests owned by this prerequisite: `tests/integration/preview.isolation.test.ts`,
+  `tests/integration/preview.execution.test.ts`, and `tests/unit/client/previewExecution.test.tsx`. Do not repurpose CB-9's named tests or
+  change CB-8's tests. If a regression requires another ticket's tests, identify it first.
+- Work sequentially with CB-9 in an isolated worktree and local test database. Establish
+  fresh suite baselines on the actual implementation base; CB-9's original baselines
+  cannot be reused after this prerequisite lands.
+
+### Acceptance criteria (umbrella gate; owned by the units above)
+
+1. **Identity and authorization:** an authenticated workflow author can create and use a
+   preview session. Missing authentication, malformed requests, cross-tenant access, and
+   unauthorized same-tenant access are denied. Denial bodies contain no run/answer/block
+   data. Ordinary run paths cannot bypass preview isolation or promote a preview to live.
+2. **One execution path:** preview Next persists the validated current-page answers,
+   executes the shared engine, and applies server-authoritative values and navigation.
+   A failed request leaves the user on the page with edits intact and a retryable error.
+   Prevent duplicate in-flight submits; prove a retry of the same submission cannot
+   double-fire `always` blocks or completion actions. Back/rail moves remain non-submits.
+3. **Execution parity:** a real three-page fixture yields `skipped_unready` with
+   `pending_inputs = ['num_children']` after page 1, `fired` with the expected output
+   after page 2, and `skipped_unchanged` after page 3. Assert persisted rows and returned
+   values at each boundary. Submit plus navigation must not reevaluate the same logical
+   submission and erase its fired result before the client can read it. Compare a preview
+   and an ordinary run for identical pure inputs: values, readiness, block errors,
+   visibility, and next-page decisions match. Include computed-output-driven navigation
+   and `runStart`/`runComplete` trigger coverage.
+4. **Side-effect isolation:** using real execution dispatch with provider-boundary spies,
+   prove zero live delivery/external-write calls during preview start, submit, navigation,
+   completion, and queued work. Cover each reachable effect family in the audit map,
+   including script helpers. Assert simulated/unsupported outcomes are visible. A paired
+   ordinary-run control reaches the provider spy, proving the guard did not disable live
+   behavior. Never use real external services for this proof.
+5. **Fresh state:** reset and snapshot load create a fresh execution session; old answers,
+   hashes, fired timestamps, errors, visited pages, and pending requests cannot contaminate
+   it. Snapshot answers hydrate ordinary inputs, while computed values are recomputed by
+   the engine. Late responses from the retired session are ignored. A definition change
+   prompts restart and cannot silently alter an active session's definition.
+6. **Lifecycle and isolation:** preview records/artifacts are distinguishable from real
+   submissions and excluded from ordinary submission lists and business counts. Exit
+   retires the session; abandoned sessions have a documented finite expiry and cleanup
+   mechanism. Test cleanup of only expired/retired preview fixtures, including dependent
+   values/block states/artifacts; preserve active previews and ordinary runs. Cleanup
+   cannot race a live request or pending job into recreating retired preview data.
+7. **Existing tools:** page fill, full-workflow fill, snapshot load, reset, section/back
+   navigation, and document preview still function. Full-workflow fill submits through
+   the shared engine rather than jumping directly to the end. Loading, failed creation,
+   submit failure, expiry, and unsupported-action states have useful visible feedback.
+8. **Named tests:** all three prerequisite test files named above exist and pass with discriminating
+   assertions covering 1–7. Server tests use the real local database/HTTP execution path;
+   client tests drive submit, failure/retry, reset, and stale-response behavior rather
+   than supplying final state to the component under test.
+9. **Live proof:** start the worktree's own server and verify it serves the edited source.
+   Drive the three-page fixture in a real browser and capture UI plus the corresponding
+   real response/row evidence at all three boundaries. Exercise reset, snapshot loading,
+   and one simulated external action. Save evidence under an explicit `.playwright-mcp/`
+   path; inspect desktop/mobile layout and console errors. CB-9 separately supplies the
+   final inspector screenshots; this ticket does not pretend that panel already exists.
+10. **Gates and handoff:** type-check, lint, strict-zone checks, `test:fast`, and
+    `test:integration` pass after the last edit, with no count decrease against the measured
+    base. Report exact files, output, count arithmetic, cleanup proof, evidence paths,
+    execution/isolation map, and deviations. Leave changes unstaged and uncommitted for
+    reviewer approval. The reviewer verifies and commits CB-9a before dispatching CB-9.
+
+### Vertical proof
+
+Create isolated tenant-owned preview and ordinary-run fixtures against the local test
+DB. Submit the same pure three-page scenario through their real HTTP routes and compare
+execution results after each logical submit. Drive the preview in the browser; reconcile
+its displayed values/navigation with persisted rows. Exercise a simulated external action
+through the real dispatcher, and cross-tenant denial through HTTP. Delete only the created
+fixtures in `finally` and prove no named fixtures remain. No production testing.
+
+---
+
+## CB-9 — Preview variable inspector 🔲 (blocked on CB-9a)
 
 **Priority: P1** · Size: M · File: `client/src/components/preview/DevToolbar.tsx`
 
@@ -1333,10 +1600,11 @@ No variable panel exists anywhere in `client/src/components/preview/`. This is t
 makes "leave the power to the dev" viable — without it, a block that silently skipped is
 indistinguishable from one that ran and produced nothing.
 
-The data is already in memory. `PreviewRunner` holds a `PreviewEnvironment` with values keyed
-by step id plus an `aliasResolver`, and server-side `RunDataService.fromStepIdData` already
-returns `byStepId`, `byAlias` and per-step metadata (`id`, `alias`, `type`, `pageId`,
-`isVirtual`). This is a render job, not plumbing.
+The original render-only assumption was disproved during dispatch: preview does not
+submit ordinary pages to the server. **CB-9a must land first.** Consume its server-owned
+preview session and authoritative values; do not infer execution state from local answers.
+`RunDataService.fromStepIdData` provides `byStepId`, `byAlias`, and per-step metadata
+(`id`, `alias`, `type`, `pageId`, `isVirtual`); verify the final runtime contract after CB-9a.
 
 ### Preferred fix
 
@@ -1356,8 +1624,8 @@ Values update live as the preview run progresses.
 
 ### Ties
 
-- **Depends on CB-2** (reads `code_block_runs.status` and `pending_inputs`).
-- **Parallel with CB-8** — disjoint files.
+- **Depends on CB-2 and completed CB-9a** (real preview execution plus persisted block state).
+- Coordinate shared route module and registration edits with CB-8; do not run with CB-9a.
 - Load the **`design`** skill (mandatory for UI work) and **`run-tests`**.
 - Donor patterns: `client/src/components/builder/VariablesInspector.tsx`,
   `client/src/components/builder/variables/useFilteredVariables.ts`,
@@ -1365,7 +1633,17 @@ Values update live as the preview run progresses.
 - File footprint: `client/src/components/preview/DevToolbar.tsx`,
   `client/src/components/preview/PreviewRunner.tsx`,
   `client/src/components/preview/variables/*` (new).
-- Collides with: nothing in Phase 3.
+- Approved API footprint: extend existing `server/routes/codeBlocks.routes.ts`; its
+  registration in `server/routes/index.ts` is already present after CB-8 and needs no
+  duplicate import/call. Also `server/repositories/CodeBlockRunRepository.ts`
+  (`findByRunId`), `server/services/codeBlocks/CodeBlockService.ts` (read + tenancy), and
+  `client/src/hooks/api/useCodeBlockRuns.ts`. Extend CB-8's route module if it exists.
+- Test footprint: the two files named in AC 7. Cross-tenant denial must assert no data.
+- Refresh values and block state after each successful submission using CB-9a's lifecycle;
+  test the panel changing across a submit and virtual markers absent on answered questions.
+- Collides with CB-8 at the route module/registration; keep edits minimal. Re-measure
+  baselines after CB-9a lands. Original dispatch baseline was 3801 fast / 1328 integration
+  passed (3 skipped), which is historical context, not the new acceptance floor.
 
 ### Vertical proof
 
@@ -1399,7 +1677,7 @@ Values update live as the preview run progresses.
 
 ## Phase 3 Gate
 
-- [ ] CB-8, CB-9 both ✅ with dated verification notes
+- [ ] CB-9a verified and committed before CB-9; CB-8, CB-9a, CB-9 all ✅ with dated notes
 - [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
 - [ ] `test:fast` + `test:integration` → green
 - [ ] **Live proof (batched):** one drive-through of the running app authoring a 2-block
