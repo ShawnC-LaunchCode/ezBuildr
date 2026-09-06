@@ -1116,13 +1116,51 @@ removal, not a migration of live rows — but verify against the dev branch befo
 
 ---
 
-## Phase 2 Gate
+## Phase 2 Gate ✅ PASSED 2026-09-06
 
-- [ ] CB-5, CB-6, CB-7 all ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
-- [ ] `npm run test:fast` and `npm run test:integration` → green
-- [ ] `grep -rn "mutationMode" server/ shared/` → no results
-- [ ] Reviewer has committed each passed ticket + this gate
+All items re-measured on `dev` at `33447a46` after the merge, not carried over from the
+worktrees — the gate's claim is about the merged branch.
+
+- [x] CB-5, CB-6, CB-7 all ✅ with dated verification notes — `e04228bb`, `b168a1d5`, `33447a46`
+- [x] `npm run type-check` → 0 errors · `npm run lint` → clean (`--max-warnings 0`, repo-wide)
+- [x] `npm run test:fast` → **334 files, 3801 passed** · `npm run test:integration` →
+      **145 files, 1328 passed | 3 skipped** (Phase 2 start: 3754 / 1319)
+- [x] `grep -rn "mutationMode" server/ shared/` → **0 results**
+- [x] Reviewer has committed each passed ticket + this gate
+
+### Carried into Phase 3 — do not lose these
+
+**CB-8 inherits CB-5's undelivered warnings.** CB-5 produces dynamic-access warnings and
+returns them from `ScriptEngine.validate()`, but nothing surfaces them to the author. The
+reviewer declined delivery inside CB-5 because CB-8 rebuilds this editor as a Monaco modal
+and the plumbing would have been built twice — so **CB-8 must render them**, or they become
+the produced-but-unconsumed dead-code pattern that CLAUDE.md convention 8 exists to prevent
+(a store setter nobody called sat unused for months). A new validation endpoint was also
+declined for CB-5: the proof path is derive-at-save then reload, so no route was needed —
+but CB-8 adds `POST /api/steps/:stepId/code-block/test` anyway, which is the natural home
+for live feedback.
+
+**Ties sections have been wrong twice, in the same way.** CB-7 claimed "collides with
+nothing in Phase 2" while sharing `StepService.ts` with CB-6, and its `mutationMode`
+footprint listed two files where nine existed. Before dispatching CB-8 and CB-9 as
+"parallel — disjoint files", verify that against the tree rather than the ticket.
+
+### What Phase 2 cost, and what it bought
+
+**Six blockers were raised by dispatched devs, and all six were correct** — three footprint
+expansions the tickets had understated, the CB-1/CB-5 semantic collision, the ninth
+`mutationMode` file the reviewer's truncated grep missed, and a generated-metadata question.
+Phase 1's lesson held: the ticket author is the worst judge of the ticket's completeness.
+
+**Anti-trap notes written into the dispatch worked.** Every one flagged in advance was met on
+the first attempt — CB-5's AC 4 (an input the parser genuinely cannot derive), CB-6's
+vacuous-truth catalog check (`[].every(...)` is `true`) and its default-`repeat` correctness
+bug, and CB-7's `err.cause.code` Drizzle wrapping. Phase 1 caught these at review, one round
+trip each; Phase 2 caught them before a line was written.
+
+**The fail-then-pass requirement earned its keep in CB-7.** Ordinary saves already returned a
+generic 400, so a naive "before" would have been 400 in both directions and proved nothing.
+Getting genuine evidence required constructing a path that actually reaches the database.
 
 ---
 
