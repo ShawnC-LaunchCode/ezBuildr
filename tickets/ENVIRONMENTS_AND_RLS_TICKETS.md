@@ -608,7 +608,7 @@ RLS-enforcement-specific and invisible to `npm run test:integration`.
 npx tsx scripts/rls-gate.ts     # ~18 min; writes rls-gate-results.json
 ```
 
-Four distinct root causes, not five:
+Five distinct root causes:
 
 | # | Files | Symptom | Reading |
 |---|---|---|---|
@@ -616,12 +616,32 @@ Four distinct root causes, not five:
 | 2 | `text-canonicalization` | prefill write silently produces **0** `step_values` rows, expected 1 | A write dropped with no error — the exact "RLS fails by returning empty" shape this gate exists to catch. **Likely a real defect.** |
 | 3 | `codeBlocks.aliasCollision` | raw `DrizzleQueryError` instead of the translated `400` | The unique-violation translation does not survive the restricted role. |
 | 4 | `codeBlocks.multiOutput` | cross-tenant step create answers `404`, test pins `403` | Arguably the *test* is wrong: under enforcement the foreign tenant cannot see the page, and 404 leaks less than 403. Needs a ruling, then either the test or `classifyRouteError` changes. |
+| 5 | rotating, 1–2 per run | a different extra file fails on every parallel run | The restricted-role harness is not worker-safe. See below. |
 
 **Why this is P0 and not test debt: `dev` has been enforcing since `0041`
 (2026-08-25), three days before the gate went red.** Causes 1 and 2 are
 user-visible paths — run-token file upload, and answer prefill — so they are
 expected to be broken in the dev environment right now. That has **not** been
 verified against the live app; doing so is acceptance criterion 1.
+
+### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
+
+Separate from the four above, and found by accident while making the suite
+parallel. Run with more than one worker under `RLS_RESTRICTED`, three
+consecutive CI runs reported the stable core of 5 **plus a rotating extra that
+differed every run**: `{datavault.routes, lifecycle-hooks-execution}`, then
+`{creation-limits-reorder}`, then `{api.workflows}`. Single-fork runs — in CI
+and locally — report the core and nothing else.
+
+Normal (owner-role) parallel runs are clean: 144 files, identical to serial. So
+this is specific to the restricted path, and the per-worker schemas that isolate
+ordinary runs are not enough here. Prime suspects: the shared non-owner role, and
+GUC pinning that assumes one connection per schema.
+
+`scripts/rls-gate.ts` therefore pins `VITEST_SINGLE_FORK=true` deliberately —
+the only place left that does — with the reasoning in a comment there. A gate
+with a rotating false member is worse than a slow gate: it pushes someone to
+"fix" a file that was never broken, or to allowlist it.
 
 ### Acceptance criteria
 
@@ -630,7 +650,10 @@ verified against the live app; doing so is acceptance criterion 1.
 2. Each of the four causes is fixed at the layer that is actually wrong, or —
    for cause 4 only — the test's expectation is corrected with the ruling
    written down. Do not "fix" a real scoping defect by relaxing an assertion.
-3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**.
+3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**,
+   and — cause 5 — green with the single-fork pin REMOVED from
+   `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
+   harness bug. Removing the pin without fixing worker-safety is not a pass.
    Adding an entry to close this ticket is an automatic fail: the gate's own
    header says an unexplained entry is how it rots.
 4. Something makes a red gate visible within a day rather than 35 runs. Cheapest
