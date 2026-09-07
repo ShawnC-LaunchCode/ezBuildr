@@ -209,7 +209,9 @@ beforeEach(() => {
   mocks.submitPage.mockResolvedValue({ success: true });
   mocks.next.mockReset();
   mocks.advance.mockReset();
-  mocks.advance.mockResolvedValue({ success: true, values: {}, blockStates: [], navigation: null, submissionKey: 'k' });
+  mocks.advance.mockImplementation(({ submissionKey }: { submissionKey: string }) => Promise.resolve({
+    success: true, values: {}, blockStates: [], navigation: null, submissionKey,
+  }));
   mocks.previewPageEntered.mockReset();
   mocks.previewSetCurrentPage.mockReset();
   mocks.mode = 'production';

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchAPI, type ApiPage, type ApiStep } from "@/lib/vault-api";
-import { useSubmitPage, useNext, useAdvance, useCompleteRun } from "@/lib/vault-hooks";
+import { fetchAPI, type ApiAdvanceResult, type ApiPage, type ApiStep } from "@/lib/vault-api";
+import { useAdvance, useCompleteRun } from "@/lib/vault-hooks";
 import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidateRule } from "@shared/types/blocks";
@@ -144,16 +144,16 @@ export function useRunNavigationTransport({
   saveNow,
 }: UseRunNavigationTransportProps): RunNavigationTransport {
   const { toast } = useToast();
-  const submitMutation = useSubmitPage();
-  const nextMutation = useNext();
   const advanceMutation = useAdvance();
-  // CB-9a-3a: the submission this transport is currently waiting on. A response
-  // whose key is not this one belongs to a submission that has since been
-  // superseded -- by a reset, a retirement, or a second click -- and applying
-  // it would move the user based on a session that no longer exists. Identity,
-  // not request ordering: ordering cannot tell a slow first answer from a fast
-  // second one.
-  const activeSubmissionRef = useRef<string | null>(null);
+  // No response means the server may already have committed: retry that key.
+  // Any response completes the attempt, including a validation rejection.
+  const pendingSubmissionRef = useRef<{
+    runId: string;
+    pageId: string;
+    key: string;
+    inFlight: boolean;
+  } | null>(null);
+  useEffect(() => () => { pendingSubmissionRef.current = null; }, []);
   const isProductionMode = mode === 'production';
 
   return useMemo<RunNavigationTransport>(() => {
@@ -250,24 +250,44 @@ export function useRunNavigationTransport({
           throw new Error("Run is not ready yet");
         }
 
-        // Flush any pending autosaves immediately so the request cannot race them.
-        await saveNow();
+        let attempt = pendingSubmissionRef.current;
+        if (attempt?.runId !== runId || attempt.pageId !== currentPage.id) {
+          attempt = { runId, pageId: currentPage.id, key: crypto.randomUUID(), inFlight: false };
+          pendingSubmissionRef.current = attempt;
+        }
+        // Acquire before the first await, including the autosave flush.
+        if (attempt.inFlight) {
+          return undefined;
+        }
+        attempt.inFlight = true;
+        let result: ApiAdvanceResult;
+        try {
+          await saveNow();
+          if (pendingSubmissionRef.current !== attempt) {
+            return undefined;
+          }
+          result = await advanceMutation.mutateAsync({
+            runId,
+            pageId: currentPage.id,
+            values: collectPageValues(visiblePageSteps, effectiveValues),
+            submissionKey: attempt.key,
+          });
+        } catch (error) {
+          if (pendingSubmissionRef.current !== attempt) {
+            return undefined;
+          }
+          // Leave the identity available for a user retry after a lost response.
+          throw error;
+        } finally {
+          attempt.inFlight = false;
+        }
 
-        // One logical submission: evaluate once, navigate, and report the
-        // server's authoritative state together (CB-9a-3). Replaces the
-        // submit-then-next pair, which evaluated twice per user action.
-        const submissionKey = crypto.randomUUID();
-        activeSubmissionRef.current = submissionKey;
-        const result = await advanceMutation.mutateAsync({
-          runId,
-          pageId: currentPage.id,
-          values: collectPageValues(visiblePageSteps, effectiveValues),
-          submissionKey,
-        });
-
-        if (activeSubmissionRef.current !== submissionKey) {
-          // Superseded while in flight. Drop it: the user's edits stay on
-          // screen and the session that replaced this one owns the next move.
+        if (pendingSubmissionRef.current !== attempt) {
+          return undefined;
+        }
+        pendingSubmissionRef.current = null;
+        // Defence-in-depth: HTTP pairing currently returns the requested key.
+        if (result.submissionKey !== attempt.key) {
           return undefined;
         }
 
@@ -324,8 +344,7 @@ export function useRunNavigationTransport({
     getVisiblePageSteps,
     onPreviewComplete,
     saveNow,
-    submitMutation,
-    nextMutation,
+    advanceMutation,
     toast,
   ]);
 }
