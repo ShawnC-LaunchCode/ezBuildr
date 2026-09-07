@@ -355,6 +355,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'code_block_runs': 'Per-run Code Block gate state (input hash, status, pending inputs); instance data, same as step_values — excluded by decision D-1.',
   'run_resume_links': 'Resume links are instance access credentials and must never be exported.',
   'run_completion_jobs': 'Completion jobs are background worker state.',
+  'run_submissions': 'Per-run request idempotency keys (CB-9a-2); instance data with no meaning outside its own run, and re-importing one would let a replayed key suppress a real submission — excluded by decision D-1.',
   'step_values': 'Step values belong to workflow runs.',
   'review_tasks': 'Review tasks are associated with workflow runs.',
   'signature_requests': 'Signature requests are runtime instance data.',

@@ -1471,7 +1471,46 @@ units and the parent acceptance criteria pass. Do not enable the client after un
 - Parent criteria covered: 1, 4, 6 and the server foundations of 5. Acceptance 4 requires
   provider-boundary tests before claiming isolation; static searches are not sufficient.
 
-**CB-9a-2 — Make preview submissions authoritative and replay-safe (open; after 9a-1).**
+**CB-9a-2 — Make preview submissions authoritative and replay-safe 🔄 (one criterion open).**
+
+> **Implemented and verified 2026-09-06 (reviewer, acting as dev).** Gates:
+> `tsc` 0 errors · `lint` clean · `check:strict-zones` 6/6 · `test:fast`
+> **335 files / 3812** (baseline) · `test:integration` **148 files / 1372 passed |
+> 3 skipped** (baseline 1360 + 12 new). Migration chain re-applied to a
+> from-scratch database (`db:migrate` on an empty DB) and the table plus its
+> guard trigger confirmed present — not merely on a reused test schema.
+>
+> **The defect is closed at the logical-operation boundary, as the ticket
+> required, not by changing what `onChange` means.** `run_submissions` (0047)
+> holds one row per logical submission, keyed `(run_id, submission_key)` behind a
+> unique index. Submit claims the key by racing that index — an INSERT, never a
+> check-then-write, because check-then-write leaves a window where two callers
+> both see "no row" and both execute. The paired `next` recognises the key and
+> navigates WITHOUT re-evaluating; a retry of either replays the stored
+> `response`/`navigation`. `submissionKey` is optional, so every existing caller
+> — including standalone `next` — behaves exactly as before.
+>
+> **Proven by mutation, not just by green.** Re-introducing the duplicate
+> evaluation (`if (evaluateCodeBlocks || true)`) fails two tests: the
+> double-fire test AND the three-page transition test, because the second pass
+> overwrote `fired` with `skipped_unchanged` — the exact erasure parent criterion
+> 3 warns about. Separately, making the replay path re-execute fails the
+> lost-response test. Both mutations were run and reverted.
+>
+> **Two repo-wide guards caught real omissions** and are worth knowing about:
+> `schemaCoverage.test.ts` refuses any table absent from the portability entity
+> graph, and `exclusionCategories.test.ts` then refuses an excluded table that no
+> user-facing export-disclosure category mentions. A new table must satisfy both.
+>
+> ⚠️ **Not met: "one logical submit RETURNS committed answers, computed values,
+> block states, and authoritative navigation."** Submit still returns
+> `{success, errors?, notices?}` and navigation still comes from `next`; the
+> state is readable via `GET /api/preview-runs/:runId` (9a-1) but is not packaged
+> into one response. Deliberately left open rather than guessed at: the consumer
+> of that combined shape is the client, which CB-9a-3 builds, and inventing the
+> payload now would ship speculative API surface for live runs too. **Reviewer
+> ruling wanted:** fold this into 9a-3, or take it as a follow-up here.
+
 
 - Own `RunExecutionCoordinator`, existing run persistence/service/route contracts, and
   definition resolution. Reuse the identity/policy from 9a-1; no new preview execution engine.

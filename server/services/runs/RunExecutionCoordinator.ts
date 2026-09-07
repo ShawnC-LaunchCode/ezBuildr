@@ -1,5 +1,6 @@
 import { logger } from "../../logger";
 import { workflowRepository, workflowRunRepository } from "../../repositories";
+import { runSubmissionRepository } from "../../repositories/RunSubmissionRepository";
 import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
@@ -14,9 +15,28 @@ export interface ExecutionContext {
     runId: string;
     userId?: string;
     mode: 'live' | 'preview';
+    /**
+     * CB-9a-2: the client-generated key identifying ONE logical submission.
+     *
+     * Optional on purpose. Absent, both `submitPage` and `next` behave exactly
+     * as they did before this ticket, which is what keeps the standalone `next`
+     * contract intact for every existing caller. Present, the two requests are
+     * recognised as halves of the same user action: the submit half executes
+     * and records its result, the next half navigates without re-evaluating,
+     * and a retry of either replays instead of executing.
+     */
+    submissionKey?: string;
 }
+
+export interface SubmitPageResult { success: boolean; errors?: string[]; notices?: string[] }
+
+/** A submit or next request that arrived while its own key was still running. */
+export const SUBMISSION_IN_FLIGHT = 'Validation error: this submission is already being processed';
 export class RunExecutionCoordinator {
     private codeBlockSvc = codeBlockService;
+    // A property rather than a sixth constructor parameter: `max-params` caps
+    // the constructor at 5, and three suites already construct it positionally.
+    private submissions = runSubmissionRepository;
 
     constructor(
         private persistence = runPersistenceWriter,
@@ -52,6 +72,48 @@ export class RunExecutionCoordinator {
      * Calculate next step/page
      */
     async next(context: ExecutionContext, currentPageId: string | null): Promise<NavigationResult> {
+        const { runId, submissionKey } = context;
+        if (submissionKey === undefined) {
+            // No key: the caller is using `next` standalone, exactly as every
+            // pre-CB-9a-2 caller does. Evaluate as before.
+            return this.runNext(context, currentPageId, true);
+        }
+        const existing = await this.submissions.find(runId, submissionKey);
+        if (!existing) {
+            // A key whose submit never landed. Treat it as a first execution
+            // and claim it, so this navigation is still replay-protected.
+            const claim = await this.submissions.claim(runId, submissionKey, currentPageId);
+            if (!claim) { throw createError.validation(SUBMISSION_IN_FLIGHT); }
+            const fresh = await this.runNext(context, currentPageId, true);
+            await this.submissions.recordResponse(claim.id, 'succeeded', { success: true });
+            await this.submissions.recordNavigation(claim.id, fresh);
+            return fresh;
+        }
+        if (existing.status === 'in_progress') { throw createError.validation(SUBMISSION_IN_FLIGHT); }
+        if (existing.navigation) {
+            // Retry of the paired next after a lost response.
+            return existing.navigation as NavigationResult;
+        }
+        // The normal path: this submission's submit half already ran
+        // `evaluateAll`. Navigating must NOT run it a second time -- that is
+        // what fired `always` blocks twice per user action and let the second
+        // pass overwrite a `fired` state with `skipped_unchanged` before the
+        // client could read it. The fix is here, at the logical-operation
+        // boundary, rather than in what `onChange` means.
+        const navigation = await this.runNext(context, currentPageId, false);
+        await this.submissions.recordNavigation(existing.id, navigation);
+        return navigation;
+    }
+
+    /**
+     * Navigation itself. `evaluateCodeBlocks` is false when this move belongs to
+     * a logical submission whose submit half already evaluated.
+     */
+    private async runNext(
+        context: ExecutionContext,
+        currentPageId: string | null,
+        evaluateCodeBlocks: boolean
+    ): Promise<NavigationResult> {
         const { runId, workflowId, mode } = context;
         const definition = await this.getDefinition(context);
         // Get current data
@@ -60,7 +122,9 @@ export class RunExecutionCoordinator {
         // so a value produced on this submit can gate the next page's
         // visibility on the same request rather than one navigation late.
         // `dataMap` is mutated in place with the new outputs.
-        await this.codeBlockSvc.evaluateAll(runId, workflowId, 'submit', dataMap);
+        if (evaluateCodeBlocks) {
+            await this.codeBlockSvc.evaluateAll(runId, workflowId, 'submit', dataMap);
+        }
         // 2. Execute onNext blocks
         // Note: BlockRunner still needs refactoring to accept Mode, but for now we pass context
         // Ideally BlockRunner should be stateless or accept context
@@ -129,7 +193,44 @@ export class RunExecutionCoordinator {
         pageId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>
-    ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
+    ): Promise<SubmitPageResult> {
+        const { runId, submissionKey } = context;
+        if (submissionKey === undefined) {
+            return this.runSubmitPage(context, pageId, values);
+        }
+        // Race the unique index rather than checking first: two concurrent
+        // requests with the same key both try, exactly one wins.
+        const claim = await this.submissions.claim(runId, submissionKey, pageId);
+        if (!claim) {
+            const existing = await this.submissions.find(runId, submissionKey);
+            if (!existing || existing.status === 'in_progress') {
+                throw createError.validation(SUBMISSION_IN_FLIGHT);
+            }
+            // A retry after a lost response. Replay what the winning attempt
+            // returned; do NOT execute again, or an `always` block fires twice
+            // for one user action.
+            return existing.response as SubmitPageResult;
+        }
+        let result: SubmitPageResult;
+        try {
+            result = await this.runSubmitPage(context, pageId, values);
+        } catch (error) {
+            // Nothing was recorded, so free the key: otherwise an unexpected
+            // failure wedges it `in_progress` and every retry is refused.
+            await this.submissions.releaseClaim(claim.id);
+            throw error;
+        }
+        await this.submissions.recordResponse(claim.id, result.success ? 'succeeded' : 'failed', result);
+        return result;
+    }
+
+    /** The actual page submission, unaware of idempotency. */
+    private async runSubmitPage(
+        context: ExecutionContext,
+        pageId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
+        values: Array<{ stepId: string, value: any }>
+    ): Promise<SubmitPageResult> {
         const { runId, workflowId } = context;
         const definition = await this.getDefinition(context);
         const steps = definition.steps.filter(step => step.pageId === pageId);

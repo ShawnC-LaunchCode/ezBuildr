@@ -54,9 +54,10 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 
 | Table | Purpose |
 |-------|---------|
-| `workflow_runs` | Execution instances: hashed run token, progress/cursor, insertion-ordered visited page IDs, completion, client email, and explicit assigned user |
+| `workflow_runs` | Execution instances: hashed run token, progress/cursor, insertion-ordered visited page IDs, completion, client email, and explicit assigned user. **`execution_mode` ('live'/'preview') plus the preview expiry/retirement/lease/artifact columns are server-owned (CB-9a-1)** — DB triggers make preview identity immutable and forbid the distribution columns on a preview row |
 | `run_resume_links` | Tenant-scoped, hashed one-time save/resume and handoff credentials with expiry, use, and revocation timestamps |
 | `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
+| `run_submissions` | CB-9a-2 idempotency: one row per logical submission (`run_id` + client `submission_key`, uniquely indexed). Submit and its paired `next` share a key so a user action evaluates Code Blocks once; a retry replays the stored `response`/`navigation` instead of executing. A block's input hash is a change gate, not request idempotency |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail (`voided` request status; completed/voided/expired events) |

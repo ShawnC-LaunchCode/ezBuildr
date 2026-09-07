@@ -162,8 +162,13 @@ export class SchemaManager {
     // enum with only the 18 canonical values. A stale _v41 schema still holds
     // the 37-value type, so inserts of retired names would keep succeeding
     // there and the tests that prove they are rejected would pass vacuously.
+    // Bumped to _v43 for CB-9a-1/9a-2 migrations 0045-0048: preview run identity
+    // columns and their guard triggers, plus the run_submissions idempotency
+    // table. A stale _v42 schema has none of them, so every preview test would
+    // fail on a missing column rather than on its own assertion — and the
+    // replay tests would have no table to be idempotent against.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v42`;
+        return `test_schema_w${this.workerId}_v43`;
     }
 
     /**

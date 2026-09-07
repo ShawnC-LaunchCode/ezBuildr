@@ -171,6 +171,47 @@ export const runCompletionJobs = pgTable("run_completion_jobs", {
     check("run_completion_jobs_status_check", sql`${table.status} IN ('pending', 'processing', 'retry', 'succeeded', 'dead_letter')`),
 ]);
 
+/**
+ * CB-9a-2: the durable identity of ONE logical submission.
+ *
+ * A single user action ("Next") is two HTTP requests — submit, then next — and
+ * both used to call `evaluateAll(..., 'submit', ...)`. That fired every
+ * `repeat: 'always'` block twice per action and let the second pass overwrite a
+ * `fired` state with `skipped_unchanged` before the client could read it.
+ *
+ * The fix is a shared logical-operation boundary rather than a change to what
+ * `onChange` means: both requests carry the same client-generated
+ * `submission_key`, the first one executes and records its result here, and the
+ * second navigates without re-evaluating. A retry after a lost response finds a
+ * finished row and replays the stored response instead of executing again —
+ * which is why this is persisted rather than held in memory or inferred from a
+ * client-side pending flag. A block's input hash is a CHANGE gate, never
+ * request idempotency: identical inputs are exactly when a replay is most
+ * dangerous for an `always` block.
+ */
+export const runSubmissions = pgTable("run_submissions", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    /** Client-generated idempotency key, unique per run. */
+    submissionKey: varchar("submission_key", { length: 200 }).notNull(),
+    pageId: uuid("page_id"),
+    status: varchar("status", { length: 20 }).default('in_progress').notNull(),
+    /** The submit response to replay verbatim on a retry of the same key. */
+    response: jsonb("response"),
+    /** The navigation result of the paired `next`, replayed the same way. */
+    navigation: jsonb("navigation"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => [
+    // The whole mechanism: a second attempt at the same key cannot insert.
+    uniqueIndex("run_submissions_run_key_unique").on(table.runId, table.submissionKey),
+    index("run_submissions_run_idx").on(table.runId),
+    check("run_submissions_status_check", sql`${table.status} IN ('in_progress', 'succeeded', 'failed')`),
+]);
+
+export type RunSubmission = InferSelectModel<typeof runSubmissions>;
+export type InsertRunSubmission = InferInsertModel<typeof runSubmissions>;
+
 // Step values (Answers)
 export const stepValues = pgTable("step_values", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

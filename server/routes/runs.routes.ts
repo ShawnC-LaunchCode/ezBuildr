@@ -124,6 +124,23 @@ function validateRunFileAuth(
   return { userId, runTokenAuthorized: runAuth !== undefined };
 }
 
+/**
+ * CB-9a-2: read the optional logical-submission key off a request body.
+ *
+ * Three-valued on purpose: `undefined` means the caller did not supply one and
+ * gets the pre-CB-9a-2 behaviour, a string is the key, and `null` means the
+ * caller supplied something unusable and deserves a 400 rather than having it
+ * silently ignored — a dropped idempotency key looks like it worked right up
+ * until a retry double-fires.
+ */
+function parseSubmissionKey(body: unknown): string | undefined | null {
+  if (typeof body !== 'object' || body === null || !('submissionKey' in body)) { return undefined; }
+  const value = (body as { submissionKey: unknown }).submissionKey;
+  if (value === undefined || value === null) { return undefined; }
+  if (typeof value !== 'string' || value.length === 0 || value.length > 200) { return null; }
+  return value;
+}
+
 function getPublicErrorDetails(error: unknown, status: number): unknown {
   if (status >= 500 || typeof error !== 'object' || error === null || !('details' in error)) {
     return undefined;
@@ -645,6 +662,12 @@ export function registerRunRoutes(app: Express): void {
       const { runId, pageId } = req.params;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { values } = req.body;
+      // CB-9a-2: optional idempotency key identifying one logical submission.
+      // Absent, behaviour is exactly as before; present, a retry replays.
+      const submissionKey = parseSubmissionKey(req.body);
+      if (submissionKey === null) {
+        return res.status(400).json({ success: false, errors: ["submissionKey must be a string of at most 200 characters"] });
+      }
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       logger.info({
@@ -678,7 +701,7 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        const result = await runService.submitPageNoAuth(runId, pageId, values);
+        const result = await runService.submitPageNoAuth(runId, pageId, values, submissionKey);
         // Return 200 for both success and validation errors
         // (400 would cause fetch to throw, losing the error details)
         return res.json(result);
@@ -689,7 +712,7 @@ export function registerRunRoutes(app: Express): void {
       }
       // Submit page with validation
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      const result = await runService.submitPage(runId, pageId, userId, values);
+      const result = await runService.submitPage(runId, pageId, userId, values, submissionKey);
       if (result.success) {
         logger.info({ runId, pageId }, "Page submitted successfully");
         res.json({ success: true, message: "Page values saved", ...(result.notices ? { notices: result.notices } : {}) });
@@ -720,6 +743,10 @@ export function registerRunRoutes(app: Express): void {
   app.post('/api/runs/:runId/next', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
+      const submissionKey = parseSubmissionKey(req.body);
+      if (submissionKey === null) {
+        return res.status(400).json({ success: false, errors: ["submissionKey must be a string of at most 200 characters"] });
+      }
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       // For run token auth
@@ -727,7 +754,7 @@ export function registerRunRoutes(app: Express): void {
         if (runAuth.runId !== runId) {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
-        const result = await runService.nextNoAuth(runId);
+        const result = await runService.nextNoAuth(runId, submissionKey);
         return res.json({ success: true, data: result });
       }
       // For session auth
@@ -735,7 +762,7 @@ export function registerRunRoutes(app: Express): void {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
       // Use the 'next' method from runService
-      const result = await runService.next(runId, userId);
+      const result = await runService.next(runId, userId, submissionKey);
       res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error }, "Error navigating to next page");

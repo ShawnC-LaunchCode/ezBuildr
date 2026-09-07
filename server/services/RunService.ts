@@ -414,7 +414,8 @@ export class RunService {
     runId: string,
     pageId: string,
     userId: string,
-    values: Array<{ stepId: string; value: unknown }>
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey?: string
   ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
@@ -423,7 +424,7 @@ export class RunService {
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.submitPage(
-      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live' },
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
       pageId,
       values
     ));
@@ -435,14 +436,15 @@ export class RunService {
   async submitPageNoAuth(
     runId: string,
     pageId: string,
-    values: Array<{ stepId: string; value: unknown }>
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey?: string
   ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     const run = await this.runRepo.findById(runId);
     if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitPage(
-      { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey }, // No userId
       pageId,
       values
     );
@@ -495,14 +497,14 @@ export class RunService {
    * @param userId - User ID (for authorization)
    * @returns Navigation result with next page info
    */
-  async next(runId: string, userId: string): Promise<NavigationResult> {
+  async next(runId: string, userId: string, submissionKey?: string): Promise<NavigationResult> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw createError.runCompleted(); }
     return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.next(
-      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live' },
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
       run.currentPageId
     ));
   }
@@ -510,12 +512,12 @@ export class RunService {
    * Calculate next page without ownership check
    * Used for preview/run token authentication
    */
-  async nextNoAuth(runId: string): Promise<NavigationResult> {
+  async nextNoAuth(runId: string, submissionKey?: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
     if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
-      { runId, workflowId: run.workflowId, mode: 'live' },
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey },
       run.currentPageId
     );
   }

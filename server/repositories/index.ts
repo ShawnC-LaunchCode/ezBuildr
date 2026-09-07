@@ -101,3 +101,4 @@ export {
 // Export type for Insert operations
 
 export * from "./ExternalDestinationsRepository";
+export { RunSubmissionRepository, runSubmissionRepository } from "./RunSubmissionRepository";
