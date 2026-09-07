@@ -1651,6 +1651,37 @@ one, and it does not belong in the same review unit as a PreviewRunner rewrite.
 
 **CB-9a-3b — Connect the preview UI and prove the experience (open; after 9a-3a).**
 
+> ⚠️ **Defects found in CB-9a-3a by the 9a-3b dev, 2026-09-07. Confirmed by the
+> reviewer against the code. Fix these FIRST, as part of 9a-3b.**
+>
+> `useRunNavigation.ts` mints `crypto.randomUUID()` on every invocation of
+> `advanceAfterValidation`. Consequences, all real:
+>
+> 1. **The client can never replay.** A user-initiated retry after a failed or
+>    lost request carries a NEW key, so the server sees a new submission and
+>    evaluates again. 9a-2 built persisted idempotency specifically for the
+>    lost-response case, and the only client that exists never asks for it.
+> 2. **Double-click double-fires.** Two concurrent submissions carry distinct
+>    keys, so `run_submissions`' unique index never collides. A preview run is
+>    saved by 9a-1's operation lease; a LIVE run has no lease, so an
+>    `always` block fires twice.
+> 3. **The response's identity is never checked.** The guard compares the ref
+>    against the key it SENT, not `result.submissionKey`. It does correctly
+>    catch supersession, and HTTP pairing means a mismatch is not currently
+>    reachable — so this one is defence-in-depth, not a live bug. Fix it anyway;
+>    the ticket asked for discard-by-identity.
+>
+> **The fix, and the subtlety that makes it easy to get wrong:** reuse a key
+> ONLY when no answer arrived. A validation failure is a COMPLETED submission —
+> the server records it `failed` and will replay that failure — so reusing its
+> key after the author fixes the input would replay the rejection forever. Clear
+> the pending key on any response; keep it only on a transport error.
+>
+> Scope: `client/src/hooks/runner/useRunNavigation.ts` and its tests. This is
+> shared live-respondent transport, so it needs its own commit and its own
+> regression tests, separate from the PreviewRunner work.
+
+
 - Own `PreviewRunner`, the preview adapters, and `DevToolsPanel`'s data source.
   Remove replaced local execution state; retain presentation state and unsaved
   input drafts only.
