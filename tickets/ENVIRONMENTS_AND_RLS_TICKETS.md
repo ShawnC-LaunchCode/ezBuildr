@@ -600,7 +600,9 @@ file uploads, Code Blocks) has added to the pile against an already-red gate, so
 nobody's per-ticket run reported anything new.
 
 Reproduced locally 2026-09-06 on `b168a1d5`, single-fork exactly as CI runs it:
-**5 failing files / 6 failing tests, allowlist empty.** Normal (owner-role) mode
+**5 failing files / 6 failing tests, allowlist empty.** As of `8db4be80` it is
+**6 files** — CB-8 added `codeBlocks.testEndpoint.test.ts`, which has never been
+green under enforcement. The set is otherwise stable run to run. Normal (owner-role) mode
 on the same commit is **145 files green** — so every one of these is
 RLS-enforcement-specific and invisible to `npm run test:integration`.
 
@@ -614,7 +616,7 @@ Five distinct root causes:
 |---|---|---|---|
 | 1 | `api.runs.file-upload`, `runFileUpload` | 404 `"Workflow for run not found"` on a bare run token | The workflow self-identification bootstrap (migration `0030`, `app.current_workflow_id`) is not pinned on this path. **Likely a real defect.** |
 | 2 | `text-canonicalization` | prefill write silently produces **0** `step_values` rows, expected 1 | A write dropped with no error — the exact "RLS fails by returning empty" shape this gate exists to catch. **Likely a real defect.** |
-| 3 | `codeBlocks.aliasCollision` | raw `DrizzleQueryError` instead of the translated `400` | The unique-violation translation does not survive the restricted role. |
+| 3 | `codeBlocks.aliasCollision`, `codeBlocks.testEndpoint` | raw `DrizzleQueryError` instead of the translated `400`; test-endpoint failures | The Code Blocks work is landing on top of a red gate and inheriting it. `testEndpoint` arrived with CB-8 on 2026-09-06 and was never green here. |
 | 4 | `codeBlocks.multiOutput` | cross-tenant step create answers `404`, test pins `403` | Arguably the *test* is wrong: under enforcement the foreign tenant cannot see the page, and 404 leaks less than 403. Needs a ruling, then either the test or `classifyRouteError` changes. |
 | 5 | rotating, 1–2 per run | a different extra file fails on every parallel run | The restricted-role harness is not worker-safe. See below. |
 
