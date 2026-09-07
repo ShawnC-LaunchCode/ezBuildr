@@ -10,6 +10,7 @@
  */
 
 import { logger } from "../../logger";
+import { runPreviewPolicyService } from './RunPreviewPolicyService';
 import { stepValueRepository, stepRepository, pageRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 import { codeBlockService } from "../codeBlocks/CodeBlockService";
@@ -130,8 +131,9 @@ export class RunLifecycleService {
   async executeOnRunStart(
     runId: string,
     workflowId: string,
-    versionId?: string
-  ): Promise<{ success: boolean; errors?: string[] }> {
+    versionId?: string,
+    mode: 'live' | 'preview' = 'live'
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     try {
       const values = await this.persistence.getRunValues(runId);
 
@@ -139,6 +141,7 @@ export class RunLifecycleService {
         workflowId,
         runId,
         phase: "onRunStart",
+        mode,
         data: values,
         versionId: versionId ?? 'draft',
       });
@@ -153,7 +156,7 @@ export class RunLifecycleService {
       // Failures are the block's own (Decisions 5) and never fail run creation.
       await codeBlockService.evaluateAll(runId, workflowId, 'runStart', values);
 
-      return { success: true };
+      return { success: true, ...(blockResult.notices ? { notices: blockResult.notices } : {}) };
     } catch (error) {
       logger.error({ runId, error }, `Failed to execute onRunStart blocks for run ${runId}`);
       return { success: false, errors: [(error as Error).message] };
@@ -411,7 +414,7 @@ export class RunLifecycleService {
   async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const inFlight = this.docGenInFlight.get(runId);
     if (inFlight) {return inFlight;}
-    const generation = this.generateDocumentsInner(runId, options)
+    const generation = runPreviewPolicyService.execute(runId, () => this.generateDocumentsInner(runId, options))
       .finally(() => this.docGenInFlight.delete(runId));
     this.docGenInFlight.set(runId, generation);
     return generation;
@@ -586,6 +589,9 @@ export class RunLifecycleService {
       for (const finalBlockConfig of finalBlockConfigs) {
         const generationResult = await finalBlockRenderer.render({
           finalBlockConfig,
+          outputDir: run.executionMode === 'preview' ? runPreviewPolicyService.artifactDirectory(runId) : undefined,
+          uploadArtifact: run.executionMode === 'preview'
+            ? (key, bytes, mimeType) => runPreviewPolicyService.upload(runId, key, bytes, mimeType) : undefined,
           stepValues: hookedStepValues,
           workflowId: run.workflowId,
           runId: run.id,
@@ -626,6 +632,7 @@ export class RunLifecycleService {
               pdfStrategy: doc.pdfStrategy,
             });
           } catch (persistError) {
+            if (run.executionMode === 'preview') { throw persistError; }
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
           }
         }
@@ -671,7 +678,7 @@ export class RunLifecycleService {
       }
 
       // Dispatch document deliveries if configured
-      if (totalGenerated > 0) {
+      if (totalGenerated > 0 && run.executionMode !== 'preview') {
         for (const finalBlockConfig of finalBlockConfigs) {
           if (finalBlockConfig.deliveryDestinations && finalBlockConfig.deliveryDestinations.length > 0) {
             try {

@@ -534,7 +534,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
     const runsConfig = await db.execute(sql`
         SELECT count(*) as total
         FROM workflow_runs
-        WHERE workflow_id = ${workflowId}
+        WHERE execution_mode = 'live' AND workflow_id = ${workflowId}
         AND created_at >= ${windowStart}
         ${versionIdFilter !== undefined ? sql`AND workflow_version_id = ${versionIdFilter}` : sql``}
       `);

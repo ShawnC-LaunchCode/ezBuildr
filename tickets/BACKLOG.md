@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| CB-B5 | `triage` | Live-run document uploads can outlive failed/missing rows; row deletion never removes blobs. Separate from preview cleanup | Inline below: `CB-B5` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
 | ~~STB-B8~~ | 🔄 **promoted 2026-09-04** | Sandboxed JS/Python transforms — now the **Code Blocks (CB)** initiative, `tickets/CODE_BLOCKS_TICKETS.md`. ⚠️ **`server/services/scripting/` is dormant, not dead — do not delete it**; CB builds on it and CB-10 asserts it is untouched | `backlog/STEP_TOOLBOX.md` |
@@ -186,6 +187,23 @@ IDs are stable, heading anchors are not.
 | GH-O5 | `enhancement` | `pingClamd` misreads a `PONG\0` split across TCP segments as an unhealthy scanner | `backlog/ROADMAP.md` |
 | GH-O15 | `informational` | `totalGenerated` counts output *files*, not documents — DOCX+PDF from one template reports 1 attempted, 2 generated | `backlog/ROADMAP.md` |
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
+
+---
+
+## Live-run document blob leaks (CB-B5) — filed 2026-09-06
+
+**Tag: triage · Recorded 2026-09-06 during CB-9a-1.** Live-run storage cleanup needs
+its own defect ticket; preview isolation does not authorize changing live retention.
+Verified at `76de5596`: `server/services/document/FinalBlockRenderer.ts:392` uploads
+documents before `server/services/workflow-runs/RunLifecycleService.ts:606-630`
+persists their rows; that persistence failure is caught and only logged, orphaning
+the upload. `FinalBlockRenderer.ts:456` uploads a ZIP, but lifecycle persistence
+iterates only `generationResult.documents`, so the archive never gets a row.
+`server/services/workflow-runs/RunStateService.ts:230-238` deletes document rows
+through `deleteByRunId` without deleting storage objects, leaking even successfully
+recorded files. Triage retention/download-link expectations, durable ownership,
+and retryable blob cleanup before dispatch; do not fix these live-run paths as
+part of CB-9a-1.
 
 ---
 

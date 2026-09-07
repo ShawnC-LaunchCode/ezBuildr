@@ -51,6 +51,12 @@ export const workflowRuns = pgTable("workflow_runs", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }),
     runToken: text("run_token").notNull().unique(),
+    executionMode: text("execution_mode").$type<'live' | 'preview'>().default('live').notNull(),
+    previewExpiresAt: timestamp("preview_expires_at", { withTimezone: true }),
+    previewRetiredAt: timestamp("preview_retired_at", { withTimezone: true }),
+    previewLeaseOwner: uuid("preview_lease_owner"),
+    previewLeaseExpiresAt: timestamp("preview_lease_expires_at", { withTimezone: true }),
+    previewArtifacts: text("preview_artifacts").array().default(sql`'{}'::text[]`).notNull(),
     // Absolute expiry for the run token (bearer credential). NULL = grandfathered
     // (never expires); set on new runs so leaked run links stop working eventually.
     tokenExpiresAt: timestamp("token_expires_at"),
@@ -76,6 +82,9 @@ export const workflowRuns = pgTable("workflow_runs", {
     ownerUuid: varchar("owner_uuid"),
 }, (table) => [
     index("workflow_runs_workflow_idx").on(table.workflowId),
+    index("workflow_runs_preview_expiry_idx").on(table.previewExpiresAt).where(sql`${table.executionMode} = 'preview'`),
+    check("workflow_runs_execution_mode_check", sql`${table.executionMode} IN ('live', 'preview')`),
+    check("workflow_runs_preview_identity_check", sql`${table.executionMode} = 'live' OR (${table.previewExpiresAt} IS NOT NULL AND ${table.workflowVersionId} IS NOT NULL AND ${table.createdBy} IS NOT NULL)`),
     index("workflow_runs_version_idx").on(table.workflowVersionId),
     index("workflow_runs_completed_idx").on(table.completed),
     index("workflow_runs_run_token_idx").on(table.runToken),

@@ -74,7 +74,7 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 |---|---|---|---|
 | 1 | Engine — the recompute model | CB-1..4 | **Sequential** (same files) |
 | 2 | Authoring guarantees — the AST pass | CB-5..7 | CB-5 → CB-6 sequential; CB-7 parallel |
-| 3 | Surfaces — editor + inspector | CB-8, CB-9a, CB-9 | CB-9a → CB-9 sequential; coordinate shared route files with CB-8 |
+| 3 | Surfaces — editor + inspector | CB-8 ✅, CB-9a (9a-1 ✅), CB-9 | CB-9a-1 done; 9a-2 → 9a-3 → CB-9 sequential |
 | 4 | Cleanup — retire old surfaces, Python | CB-10, CB-11 | **Parallel** (disjoint) |
 | Backlog | Not phase-gated | CB-B1..B4 | |
 
@@ -1413,7 +1413,49 @@ These are sequential review units, not parallel assignments. All inherit this ti
 skills, local-only proof, gates, and no-commit rules. CB-9a is complete only after all three
 units and the parent acceptance criteria pass. Do not enable the client after unit 1 or 2.
 
-**CB-9a-1 — Persist preview identity and isolate its lifecycle (open).**
+**CB-9a-1 — Persist preview identity and isolate its lifecycle ✅**
+
+> **Verified 2026-09-06 (reviewer).** Checked against the tree, not the turn-in report.
+> Gates re-run by the reviewer in the worktree after a reviewer edit: `tsc` 0 errors
+> (tsbuildinfo cleared first) · `lint` clean (`--max-warnings 0`, repo-wide) ·
+> `check:strict-zones` 6 zones / 11 files PASSED · `test:fast` **335 files / 3812**
+> (baseline, 0 added — correct for a server-only unit) · `test:integration`
+> **147 files / 1360 passed | 3 skipped** (baseline 1341 + 19 new).
+>
+> Isolation is enforced in depth rather than in one service: `0045` adds the columns
+> plus CHECK constraints, and `0046` adds database triggers that make preview identity
+> immutable, forbid distribution columns on a preview row, reject writes to a retired or
+> expired session, and drop preview rows out of every metrics table. A client flag cannot
+> reach past those.
+>
+> The strongest test is `expires preview data and retries swallowed blob deletion`: it
+> mocks `deleteFile` to *succeed without deleting*, asserts cleanup refuses to declare
+> success and leaves the data in place, then restores and proves the retry completes —
+> with a live run's answer asserted intact throughout. That is the audit's "deleting
+> document rows alone does not prove blob deletion" turned into a real check. Nearly
+> every isolation test carries a paired ordinary-run control that DOES reach the provider
+> spy, so a guard that disabled live behaviour would fail rather than pass.
+>
+> **Reviewer edit — one test asserted something impossible.** `keeps actual sandbox HTTP
+> helpers unsupported` ran hook code containing `await helpers.http.post(...)`. Both
+> sandbox paths wrap user code in a PLAIN function — `(function(input, context, helpers)
+> { … })(…)` in `enhancedSandboxExecutor`'s isolated-vm bootstrap and again in its `vm`
+> fallback — so a top-level `await` is a SyntaxError and the hook never compiled.
+> Measured directly: `ok=false … Syntax error: Unexpected token (1:38)`, which is why
+> `outputSample` was null. The hook proved nothing about isolation. Split into
+> `carries preview mode into the sandbox context and sends no outbound traffic` (no
+> `await`, asserts `status: 'success'` and `mode: 'preview'`, provider spy silent, with a
+> live control) and `leaves the sandbox HTTP helpers unimplemented` (asserted against
+> `helperLibrary` directly, where that fact actually lives — these reject, and a rejection
+> cannot be caught by sandbox code forbidden from using `await`).
+>
+> **Standing note for CB-9a-2 and CB-9a-3: hook and Code Block source cannot use
+> `await`.** Nothing in the sandbox is async from the author's side. Do not write a test
+> whose fixture code awaits.
+>
+> No live browser proof: 9a-1's own scope ends at "No preview UI activation", and parent
+> criterion 9 is owned by CB-9a-3.
+
 
 - Own existing run schema/repository, creation/auth, metrics/count filtering, retirement
   cleanup, and the effect boundaries named in the audit. Mechanically required migrations,

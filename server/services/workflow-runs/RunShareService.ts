@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { runPreviewPolicyService } from './RunPreviewPolicyService';
 
 import { eq } from "drizzle-orm";
 
@@ -39,6 +40,7 @@ export class RunShareService {
         authContext: any
     ): Promise<{ shareToken: string; expiresAt: Date | null }> {
         // Check auth
+        await runPreviewPolicyService.requireLive(runId);
         if (authType === 'creator') {
             if (!userId) { throw new Error("Unauthorized"); }
             const { run, access } = await this.authResolver.resolveRun(runId, userId);

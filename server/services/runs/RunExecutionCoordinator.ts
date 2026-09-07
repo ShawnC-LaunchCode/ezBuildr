@@ -129,7 +129,7 @@ export class RunExecutionCoordinator {
         pageId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>
-    ): Promise<{ success: boolean; errors?: string[] }> {
+    ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
         const { runId, workflowId } = context;
         const definition = await this.getDefinition(context);
         const steps = definition.steps.filter(step => step.pageId === pageId);
@@ -198,6 +198,7 @@ export class RunExecutionCoordinator {
         });
         return {
             success: blockResult.success,
+            ...(blockResult.notices ? { notices: blockResult.notices } : {}),
             errors: blockResult.errors,
         };
     }

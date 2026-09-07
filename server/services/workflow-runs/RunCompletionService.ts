@@ -34,7 +34,7 @@ export class RunCompletionService {
      */
     async completeRunNoAuth(runId: string): Promise<WorkflowRun> {
         const run = await this.runRepo.findById(runId);
-        if (!run) {
+        if (!run || run.executionMode === 'preview') {
             throw new Error("Run not found");
         }
         return this.complete(runId, run);
@@ -45,6 +45,7 @@ export class RunCompletionService {
      * durable document-generation work.
      */
     private async complete(runId: string, run: WorkflowRun): Promise<WorkflowRun> {
+        const metrics = run.executionMode === 'preview' ? undefined : this.metricsService;
         const startTime = Date.now();
         if (run.completed) {
             throw createError.runCompleted();
@@ -56,13 +57,14 @@ export class RunCompletionService {
                 workflowId: run.workflowId,
                 runId: run.id,
                 phase: "onRunComplete",
+                mode: run.executionMode ?? 'live',
                 data: runData.byStepId,
                 versionId: run.workflowVersionId ?? 'draft',
             });
             // If blocks produced validation errors, reject completion
             if (!blockResult.success && blockResult.errors) {
                 const errorMsg = `Validation failed: ${blockResult.errors.join(', ')}`;
-                await this.metricsService.captureRunFailed(
+                await metrics?.captureRunFailed(
                     run.workflowId,
                     run.id,
                     run.workflowVersionId ?? undefined,
@@ -77,7 +79,7 @@ export class RunCompletionService {
             if (!validation.valid) {
                 const stepTitles = validation.missingStepTitles?.join(', ') ?? validation.missingSteps.join(', ');
                 const errorMsg = `Missing required steps: ${stepTitles}`;
-                await this.metricsService.captureRunFailed(
+                await metrics?.captureRunFailed(
                     run.workflowId,
                     run.id,
                     run.workflowVersionId ?? undefined,
@@ -92,7 +94,7 @@ export class RunCompletionService {
             // process restart cannot lose document work.
             const completedRun = await this.stateService.markCompletedAndEnqueue(runId);
             // Capture success metrics
-            await this.metricsService.captureRunSucceeded(
+            await metrics?.captureRunSucceeded(
                 run.workflowId,
                 run.id,
                 run.workflowVersionId ?? undefined,
@@ -103,7 +105,7 @@ export class RunCompletionService {
         } catch (error) {
             // Capture failure if not already captured
             if (error instanceof Error && !error.message.includes('Validation failed') && !error.message.includes('Missing required steps')) {
-                await this.metricsService.captureRunFailed(
+                await metrics?.captureRunFailed(
                     run.workflowId,
                     run.id,
                     run.workflowVersionId ?? undefined,

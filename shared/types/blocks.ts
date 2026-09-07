@@ -519,6 +519,8 @@ export interface BlockContext {
  */
 export interface BlockResult {
   success: boolean;
+  simulated?: boolean;
+  notices?: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data values can be any type
   data?: Record<string, any>;         // Updated data (for prefill blocks)
   errors?: string[];                  // General validation errors

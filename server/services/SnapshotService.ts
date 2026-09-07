@@ -1,3 +1,4 @@
+import { runPreviewPolicyService } from './workflow-runs/RunPreviewPolicyService';
 import { eq, desc, and } from "drizzle-orm";
 
 import { workflowSnapshots, workflowRuns, stepValues, steps, pages } from "@shared/schema";
@@ -73,7 +74,7 @@ export class SnapshotService {
   /**
    * Save values from a run to a snapshot
    */
-  static async saveFromRun(snapshotId: string, runId: string): Promise<Snapshot> {
+  static async saveFromRun(snapshotId: string, runId: string, userId?: string): Promise<Snapshot> {
     // 1. Verify run exists
     const [run] = await db
       .select()
@@ -81,6 +82,8 @@ export class SnapshotService {
       .where(eq(workflowRuns.id, runId));
 
     if (run === undefined) { throw new Error(`Run not found: ${runId}`); }
+
+    await runPreviewPolicyService.authorize(run, userId);
 
     // 2. Fetch step values with step info
     const values = await db

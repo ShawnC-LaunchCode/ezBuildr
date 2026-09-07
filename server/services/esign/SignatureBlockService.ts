@@ -1,3 +1,4 @@
+import { runPreviewPolicyService } from '../workflow-runs/RunPreviewPolicyService';
 /** High-level orchestration for signature-block execution and callbacks. */
 
 import crypto from 'crypto';
@@ -110,6 +111,12 @@ export class SignatureBlockService {
         config: foundStep.config,
       };
     });
+
+    if (run.executionMode === 'preview') {
+      await runPreviewPolicyService.authorize(run, request.userId);
+      return { success: true, preview: true, signatureRequestId: 'preview-simulated',
+        envelopeId: 'preview-simulated', signingUrl: '', provider: config.provider ?? 'docusign' };
+    }
 
     // Values are rebuilt from server-owned run data. A run-token holder cannot
     // alter signer identities or tab values by changing this API request.

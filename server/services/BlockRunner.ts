@@ -127,6 +127,7 @@ export class BlockRunner {
   async runPhase(context: BlockContext, tx?: any): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
+    const notices: string[] = [];
     let nextPageId: string | undefined;
     let nextPageBlockId: string | undefined;
 
@@ -227,6 +228,7 @@ export class BlockRunner {
         data: currentData,
       });
 
+      notices.push(...(result.notices ?? []));
       if (!result.success && result.errors) {
         allErrors.push(...result.errors);
       }
@@ -245,6 +247,7 @@ export class BlockRunner {
 
     return {
       success: allErrors.length === 0,
+      ...(notices.length > 0 ? { notices, simulated: true } : {}),
       data: currentData,
       errors: allErrors.length > 0 ? allErrors : undefined,
       nextPageId,

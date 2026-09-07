@@ -4,6 +4,7 @@
  */
 
 import type { ScriptExecutionContext, ScriptContextAPI } from "@shared/types/scripting";
+import { runPreviewPolicyService } from '../workflow-runs/RunPreviewPolicyService';
 
 /**
  * Build script context from execution context
@@ -16,6 +17,7 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
     },
     run: {
       id: executionContext.runId,
+      ...(runPreviewPolicyService.executionMode(executionContext.runId) === 'preview' ? { mode: 'preview' as const } : {}),
     },
     phase: executionContext.phase,
     page: executionContext.pageId

@@ -4,6 +4,7 @@ import { workflowRepository, workflowRunRepository, projectRepository, type DbTr
 import { createError } from "../../utils/errors";
 import { workflowService } from "../WorkflowService";
 import { workflowTenantResolver } from "../WorkflowTenantResolver";
+import { runPreviewPolicyService } from '../workflow-runs/RunPreviewPolicyService';
 import { getCurrentTenantId, setCurrentTenantId, withCurrentTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 export interface RunAuthContext {
     run?: WorkflowRun;
@@ -30,6 +31,12 @@ export class RunAuthResolver {
             return { mode: 'live', access: 'none' };
         }
         // Determine access level
+        if (run.executionMode === 'preview') {
+            try {
+                await runPreviewPolicyService.authorize(run, userId);
+                return { run, mode: 'preview', access: 'creator', userId, tenantId: await this.getTenantId(run.workflowId) };
+            } catch { return { mode: 'preview', access: 'none' }; }
+        }
         let access: RunAuthContext['access'] = 'none';
         if (userId) {
             // 1. Check if user created the run

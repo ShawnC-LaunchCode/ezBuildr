@@ -226,7 +226,7 @@ const orgStatsQuery = sql`
           END AS org_id,
           wr.created_at,
           wr.completed
-        FROM workflow_runs wr
+        FROM (SELECT * FROM workflow_runs WHERE execution_mode = 'live') wr
         JOIN workflows w ON w.id = wr.workflow_id
         LEFT JOIN projects p ON p.id = w.project_id
         WHERE

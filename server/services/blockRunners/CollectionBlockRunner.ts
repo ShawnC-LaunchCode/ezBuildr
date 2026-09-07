@@ -35,6 +35,10 @@ export class CollectionBlockRunner extends BaseBlockRunner {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async execute(config: any, context: BlockContext, block: Block): Promise<BlockResult> {
     const blockType = block.type as string;
+    if (context.mode === 'preview' && blockType !== 'find_record') {
+      return { success: false, simulated: true,
+        errors: [`Preview does not support ${blockType}; no collection data was changed.`] };
+    }
 
     switch (blockType) {
       case "create_record":

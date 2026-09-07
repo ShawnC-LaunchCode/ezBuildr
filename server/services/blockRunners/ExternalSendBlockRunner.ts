@@ -39,6 +39,7 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
 
       return {
         success: result.success,
+        ...(result.simulated ? { simulated: true, notices: ['Preview: external send simulated; no request sent.'] } : {}),
         errors: result.error ? [result.error] : undefined,
 
         data: result.responseBody ? { [config.destinationId]: result.responseBody } : undefined

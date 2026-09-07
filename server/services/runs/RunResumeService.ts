@@ -206,7 +206,7 @@ export class RunResumeService {
         throw createError.unauthorized('Resume link is invalid or expired');
       }
       const run = await this.runRepo.findById(input.runId, tx);
-      if (!run) {
+      if (!run || run.executionMode === 'preview') {
         throw createError.notFound('Run');
       }
       this.assertIncomplete(run);
@@ -272,7 +272,7 @@ export class RunResumeService {
       throw createError.forbidden('Access denied - run mismatch');
     }
     const resolved = await this.authResolver.resolveRun(runId, auth.userId);
-    if (!resolved.run) {
+    if (!resolved.run || resolved.run.executionMode === 'preview') {
       throw createError.notFound('Run');
     }
     if (!resolved.tenantId) {

@@ -41,6 +41,10 @@ export class WriteBlockRunner extends BaseBlockRunner {
       const isPreview = context.mode === 'preview';
 
       const result = await writeRunner.executeWrite(config, context, tenantId, isPreview);
+      if (isPreview) {
+        return { success: false, simulated: true, errors: [result.error ??
+          'Preview write validated without changing data. Reading simulated writes is unsupported.'] };
+      }
 
       if (!result.success) {
         return {

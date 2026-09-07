@@ -303,6 +303,7 @@ export interface ScriptContextAPI {
   };
   run: {
     id: string;
+    mode?: 'live' | 'preview';
   };
   phase: string;
   page?: {

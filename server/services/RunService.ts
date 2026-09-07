@@ -38,6 +38,7 @@ import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
 import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
+import { runPreviewPolicyService } from './workflow-runs/RunPreviewPolicyService';
 import { versionService } from "./VersionService";
 import { workflowService } from "./WorkflowService";
 
@@ -217,6 +218,12 @@ export class RunService {
     // Create the run
     const run = await this.persistenceWriter.createRun({
       ...data,
+      executionMode: 'live',
+      previewExpiresAt: null,
+      previewRetiredAt: null,
+      previewLeaseOwner: null,
+      previewLeaseExpiresAt: null,
+      previewArtifacts: [],
       workflowId,
       workflowVersionId: targetVersionId ?? undefined,
       runToken: runTokenHash,
@@ -279,13 +286,31 @@ export class RunService {
     }
     return run;
   }
+
+  async createPreview(workflowId: string, userId: string): Promise<WorkflowRun> {
+    await workflowService.verifyAccess(workflowId, userId, 'edit');
+    const workflowVersionId = await this.pinDraftVersionForRun(workflowId, userId);
+    if (!workflowVersionId) { throw new Error('Draft version not found'); }
+    const run = await this.runRepo.create({ workflowId, workflowVersionId, createdBy: userId,
+      executionMode: 'preview', previewExpiresAt: runPreviewPolicyService.expiresAt(),
+      runToken: hashToken(randomUUID()), tokenExpiresAt: new Date(0), completed: false,
+    });
+    await runPreviewPolicyService.execute(run.id, async () => {
+      await this.lifecycleService.populateInitialValues(run.id, workflowId, {});
+      const currentPageId = await this.resolveInitialPageId(run.id, workflowId);
+      await this.stateService.updateProgress(run.id, currentPageId);
+      const initialization = await this.lifecycleService.executeOnRunStart(run.id, workflowId, workflowVersionId, 'preview');
+      await this.runRepo.update(run.id, { metadata: { previewNotices: [...(initialization.notices ?? []), ...(initialization.errors ?? [])] } });
+    });
+    return this.getRun(run.id, userId);
+  }
   /**
    * Get run by ID without ownership check
    * Used for run token authentication (the token itself proves access to this run)
    */
   async getRunNoAuth(runId: string): Promise<WorkflowRun> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     return run;
   }
   /**
@@ -302,7 +327,7 @@ export class RunService {
    */
   async getRunWithValuesNoAuth(runId: string): Promise<WorkflowRun & { values: StepValue[] }> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     const rawValues = await this.valueRepo.findByRunId(runId);
     return { ...run, values: rawValues };
   }
@@ -338,7 +363,7 @@ export class RunService {
     data: InsertStepValue
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
-    if (!run) {
+    if (!run || run.executionMode === 'preview') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     validateJsonbSize(data.value, FIELD_STEP_VALUE);
@@ -368,7 +393,7 @@ export class RunService {
     values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>
   ): Promise<BulkSaveResult> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
@@ -390,18 +415,18 @@ export class RunService {
     pageId: string,
     userId: string,
     values: Array<{ stepId: string; value: unknown }>
-  ): Promise<{ success: boolean; errors?: string[] }> {
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    return this.executionCoordinator.submitPage(
-      { runId, workflowId: run.workflowId, userId, mode: 'live' },
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.submitPage(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live' },
       pageId,
       values
-    );
+    ));
   }
   /**
    * Submit page values with validation without ownership check
@@ -411,9 +436,9 @@ export class RunService {
     runId: string,
     pageId: string,
     values: Array<{ stepId: string; value: unknown }>
-  ): Promise<{ success: boolean; errors?: string[] }> {
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitPage(
@@ -476,10 +501,10 @@ export class RunService {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw createError.runCompleted(); }
-    return this.executionCoordinator.next(
-      { runId, workflowId: run.workflowId, userId, mode: 'live' },
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.next(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live' },
       run.currentPageId
-    );
+    ));
   }
   /**
    * Calculate next page without ownership check
@@ -487,7 +512,7 @@ export class RunService {
    */
   async nextNoAuth(runId: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, mode: 'live' },
@@ -500,7 +525,7 @@ export class RunService {
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
-    return this.completionService.completeRun(runId, run);
+    return runPreviewPolicyService.executeForRun(run, () => this.completionService.completeRun(runId, run));
   }
   /**
    * Complete a workflow run without ownership check

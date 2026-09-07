@@ -13,6 +13,7 @@ import { strictLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from '../services/fileService';
 import { runFileUploadService } from '../services/RunFileUploadService';
 import { runService } from "../services/RunService";
+import { runPreviewPolicyService } from '../services/workflow-runs/RunPreviewPolicyService';
 import { runResumeService } from "../services/runs/RunResumeService";
 import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -137,6 +138,9 @@ function getPublicErrorCode(error: unknown, status: number): string | undefined 
   return typeof error.code === 'string' ? error.code : undefined;
 }
 
+const INVALID_INPUT_MESSAGE = 'Invalid input';
+const UNAUTHORIZED_MESSAGE = 'Unauthorized';
+
 function getRequestAuditContext(req: Request): { ipAddress: string | null; userAgent: string | null } {
   return {
     ipAddress: req.ip ?? null,
@@ -150,6 +154,50 @@ function getRequestAuditContext(req: Request): { ipAddress: string | null; userA
  */
 // eslint-disable-next-line max-lines-per-function -- Route registration requires many endpoints
 export function registerRunRoutes(app: Express): void {
+  app.get('/api/preview-runs/:runId', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const runId = z.string().uuid().parse(req.params.runId);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      const run = await runService.getRunWithValues(runId, userId);
+      if (run.executionMode !== 'preview') { res.status(404).json({ message: 'Run not found' }); return; }
+      res.json({ runId: run.id, workflowId: run.workflowId, workflowVersionId: run.workflowVersionId,
+        executionMode: run.executionMode, expiresAt: run.previewExpiresAt, currentPageId: run.currentPageId,
+        values: run.values, notices: (run.metadata as { previewNotices?: string[] } | null)?.previewNotices ?? [] });
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to read preview');
+      res.status(status).json({ message });
+    }
+  }));
+  app.post('/api/workflows/:workflowId/preview-runs', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const workflowId = z.string().uuid().parse(req.params.workflowId);
+      z.object({}).strict().parse(req.body);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      const run = await runService.createPreview(workflowId, userId);
+      res.status(201).json({ runId: run.id, workflowId: run.workflowId, workflowVersionId: run.workflowVersionId,
+        executionMode: run.executionMode, expiresAt: run.previewExpiresAt, currentPageId: run.currentPageId });
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to create preview');
+      res.status(status).json({ message });
+    }
+  }));
+  app.delete('/api/preview-runs/:runId', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const runId = z.string().uuid().parse(req.params.runId);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      await runPreviewPolicyService.retire(runId, userId);
+      res.status(204).end();
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to retire preview');
+      res.status(status).json({ message });
+    }
+  }));
   /**
    * POST /api/workflows/public/:publicLinkSlug/start
    * Start an anonymous workflow run from a public link slug
@@ -254,6 +302,10 @@ export function registerRunRoutes(app: Express): void {
       });
     } catch (error) {
       // Log error with full details
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ success: false, error: 'Invalid run creation input' });
+        return;
+      }
       if (error instanceof Error) {
         logger.error({
           message: error.message,
@@ -427,7 +479,7 @@ export function registerRunRoutes(app: Express): void {
         res.status(202).json({ success: true, data: result });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+          res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
           return;
         }
         logger.error({ error, runId: req.params.runId }, 'Error creating resume link');
@@ -450,7 +502,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
         return;
       }
       logger.warn({ error, runId: req.params.runId }, 'Resume link redemption rejected');
@@ -477,7 +529,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
         return;
       }
       logger.error({ error, runId: req.params.runId }, 'Error handing off run');
@@ -640,7 +692,7 @@ export function registerRunRoutes(app: Express): void {
       const result = await runService.submitPage(runId, pageId, userId, values);
       if (result.success) {
         logger.info({ runId, pageId }, "Page submitted successfully");
-        res.json({ success: true, message: "Page values saved" });
+        res.json({ success: true, message: "Page values saved", ...(result.notices ? { notices: result.notices } : {}) });
       } else {
         // Validation failed - return 200 with success: false and error messages
         // (400 would cause fetch to throw, losing the error details)
@@ -763,7 +815,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: runtime });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, error: "Invalid input", errors: error.errors });
+        return res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
       }
       logger.error({ error, runId: req.params.runId }, "Error fetching run runtime");
       const { status, message } = classifyRouteError(error, "Failed to fetch run runtime");

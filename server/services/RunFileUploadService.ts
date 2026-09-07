@@ -20,6 +20,7 @@ import { storageProvider } from './storage';
 import type { StorageProvider } from './storage/types';
 import { storageQuotaService, type StorageQuotaService } from './StorageQuotaService';
 import { workflowService } from './WorkflowService';
+import { runPreviewPolicyService } from './workflow-runs/RunPreviewPolicyService';
 import { workflowTenantResolver, type WorkflowTenantResolver } from './WorkflowTenantResolver';
 
 interface TemporaryRunUpload {
@@ -259,6 +260,10 @@ export class RunFileUploadService {
   ): Promise<RunUploadContext> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw createError.notFound('Run', runId); }
+    if (run.executionMode === 'preview') {
+      await runPreviewPolicyService.authorize(run, userId);
+      throw createError.validation('File uploads are unsupported in preview sessions');
+    }
     if (requireMutable && run.completed) { throw createError.runCompleted(); }
 
     if (!runTokenAuthorized) {

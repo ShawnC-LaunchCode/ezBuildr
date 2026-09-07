@@ -122,6 +122,7 @@ export class DocumentDeliveryService {
       throw new Error(`Workflow run ${runId} not found`);
     }
 
+    if (run.executionMode === 'preview') { return []; }
     const workflow = await this.workflowRepo.findById(run.workflowId, tx);
     const tenantId = await this.resolveTenantId(run, workflow, tx);
     if (tenantId === null) {
@@ -179,6 +180,7 @@ export class DocumentDeliveryService {
       throw new Error(`Workflow run ${runId} not found`);
     }
 
+    if (run.executionMode === 'preview') { throw new Error('Preview delivery is unsupported'); }
     const generatedDocs = await this.generatedDocumentRepo.findByRunId(runId, tx);
     const runData = await runDataService.buildForRun(runId, run.workflowId, tx);
 
