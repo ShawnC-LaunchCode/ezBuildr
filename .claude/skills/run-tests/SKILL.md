@@ -162,6 +162,14 @@ Still true: **never run two DB-backed suites at once**, in the same tree or
 across worktrees. Schemas are per *worker*, not per process, so two concurrent
 runs collide and fake dozens of failures.
 
+**The one deliberate exception: `scripts/rls-gate.ts` still pins single-fork.**
+Under `RLS_RESTRICTED=true` the harness is not worker-safe — parallel runs
+reported the real failing set *plus a rotating extra that differed every run*,
+while single-fork runs are stable. Normal owner-role parallel runs are clean, so
+this is specific to the restricted path (shared non-owner role and GUC pinning,
+not the per-worker schemas). Do not "optimise" that pin away; it is tracked as
+cause 5 of RLS-11.
+
 ## Gotchas
 
 - **Shared BaseRepository mock:** `vi.mock` of a repository module shares ONE `findById` mock across all repo singletons (they all extend `BaseRepository`). Dispatch inside the mock implementation by the `id` argument instead of creating per-repo mocks.

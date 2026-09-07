@@ -582,9 +582,11 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔲 open
+## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1 & 2 fixed; 3, 4 & 5 open
 
-**Priority: P0** · Size: M · Files: `tests/integration/api.runs.file-upload.test.ts`,
+**Priority: P0** · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
+`server/services/workflow-runs/RunLifecycleService.ts` — remaining:
+`tests/integration/api.runs.file-upload.test.ts`,
 `tests/integration/runFileUpload.test.ts`, `tests/integration/text-canonicalization.test.ts`,
 `tests/integration/codeBlocks.aliasCollision.test.ts`,
 `tests/integration/codeBlocks.multiOutput.test.ts` — plus whatever server code the
@@ -600,7 +602,9 @@ file uploads, Code Blocks) has added to the pile against an already-red gate, so
 nobody's per-ticket run reported anything new.
 
 Reproduced locally 2026-09-06 on `b168a1d5`, single-fork exactly as CI runs it:
-**5 failing files / 6 failing tests, allowlist empty.** Normal (owner-role) mode
+**5 failing files / 6 failing tests, allowlist empty.** As of `8db4be80` it is
+**6 files** — CB-8 added `codeBlocks.testEndpoint.test.ts`, which has never been
+green under enforcement. The set is otherwise stable run to run. Normal (owner-role) mode
 on the same commit is **145 files green** — so every one of these is
 RLS-enforcement-specific and invisible to `npm run test:integration`.
 
@@ -608,20 +612,95 @@ RLS-enforcement-specific and invisible to `npm run test:integration`.
 npx tsx scripts/rls-gate.ts     # ~18 min; writes rls-gate-results.json
 ```
 
-Four distinct root causes, not five:
+Five distinct root causes:
 
 | # | Files | Symptom | Reading |
 |---|---|---|---|
 | 1 | `api.runs.file-upload`, `runFileUpload` | 404 `"Workflow for run not found"` on a bare run token | The workflow self-identification bootstrap (migration `0030`, `app.current_workflow_id`) is not pinned on this path. **Likely a real defect.** |
 | 2 | `text-canonicalization` | prefill write silently produces **0** `step_values` rows, expected 1 | A write dropped with no error — the exact "RLS fails by returning empty" shape this gate exists to catch. **Likely a real defect.** |
-| 3 | `codeBlocks.aliasCollision` | raw `DrizzleQueryError` instead of the translated `400` | The unique-violation translation does not survive the restricted role. |
+| 3 | `codeBlocks.aliasCollision`, `codeBlocks.testEndpoint` | raw `DrizzleQueryError` instead of the translated `400`; test-endpoint failures | The Code Blocks work is landing on top of a red gate and inheriting it. `testEndpoint` arrived with CB-8 on 2026-09-06 and was never green here. |
 | 4 | `codeBlocks.multiOutput` | cross-tenant step create answers `404`, test pins `403` | Arguably the *test* is wrong: under enforcement the foreign tenant cannot see the page, and 404 leaks less than 403. Needs a ruling, then either the test or `classifyRouteError` changes. |
+| 5 | rotating, 1–2 per run | a different extra file fails on every parallel run | The restricted-role harness is not worker-safe. See below. |
 
 **Why this is P0 and not test debt: `dev` has been enforcing since `0041`
 (2026-08-25), three days before the gate went red.** Causes 1 and 2 are
 user-visible paths — run-token file upload, and answer prefill — so they are
 expected to be broken in the dev environment right now. That has **not** been
 verified against the live app; doing so is acceptance criterion 1.
+
+### Causes 1 & 2 — FIXED and confirmed live on dev, 2026-09-07
+
+**Both were live on dev, and the same one-line-shaped mistake twice: a tenant
+that was known was never applied to the connection, so an RLS-covered read came
+back EMPTY and the caller read that as missing data.**
+
+**Cause 1 — the run-token tenant was resolved and then dropped.**
+`runTokenAuth` resolves the tenant correctly and calls `setCurrentTenantId`,
+which writes into the AsyncLocalStorage store. Any route running multer loses
+that store (multer resumes the chain from its own stream callback), so those
+routes re-mount `rlsContext` — which re-seeds **only** from `req.tenantId`, a
+field `hybridAuth` sets and `runTokenAuth` did not. Every multipart run-token
+request therefore ran unscoped. Fixed by stamping `req.tenantId` at both
+resolution sites in `server/middleware/runTokenAuth.ts`; that repairs every such
+route at once and gives downstream reads the real tenant, rather than
+bootstrapping `app.current_workflow_id` layer by layer — which `pages`/`steps`
+do not even honour (their policies key on tenant-ownership or `is_public`,
+never on that GUC). Safe because nothing treats the presence of `req.tenantId`
+as proof of a user: `requireTenant`/`checkTenantAccess` are only ever mounted
+beside `hybridAuth`.
+
+**Cause 2 — the prefill reads never opened a tenant transaction.**
+`RunLifecycleService.populateInitialValues` called `pageRepo.findByWorkflowId`
+and `stepRepo.findByPageIds` with **no `tx`**, so they ran on the bare pool where
+`app_current_tenant()` is unset — even on the fully authenticated path, where a
+real tenant was in the async context the whole time. `allSteps` came back empty,
+the loop had nothing to iterate, and every step `defaultValue` and every
+prefilled `initialValues` silently failed to persist. Fixed by wrapping both
+reads in one `withCurrentTenant` transaction.
+
+**AC 1 — confirmed against live dev** (read-only, via the Neon MCP on branch
+`br-shy-rain-ahpucki7`; nothing created or modified):
+
+| fact | value |
+|---|---|
+| deployed dev `DATABASE_URL` role (Railway) | `ezbuildr_app`, with `RLS_ENFORCED=true` |
+| `ezbuildr_app` bypasses RLS? | **no** — `rolbypassrls = false` |
+| `workflows`/`pages`/`steps`/`sections` | RLS **enabled AND forced** |
+| `app_current_tenant()` with no GUC | **NULL** → policy's tenant branch is `false` |
+| only surviving disjunct | `is_public = true AND status = 'active'` |
+| dev workflows matching it | **46 of 88** |
+
+So both defects were live on dev for the **42 non-public workflows** — uploads
+404ing on a valid run token, and runs starting with no defaults. **The
+`is_public` escape is why nobody noticed:** public-link runs, the most-demoed
+path, kept working, and the breakage was confined to private workflows.
+
+Note the local trap this exposed: local `.env` connects as `neondb_owner`, which
+holds BYPASSRLS, so **running the app locally against the dev database cannot
+reproduce any of this**. Only `ezbuildr_app` sees the policies.
+
+Gate effect: **6 failing files → 3.** `api.runs.file-upload`, `runFileUpload` and
+`text-canonicalization` all pass under enforcement; the three Code Blocks files
+(causes 3 and 4) remain.
+
+### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
+
+Separate from the four above, and found by accident while making the suite
+parallel. Run with more than one worker under `RLS_RESTRICTED`, three
+consecutive CI runs reported the stable core of 5 **plus a rotating extra that
+differed every run**: `{datavault.routes, lifecycle-hooks-execution}`, then
+`{creation-limits-reorder}`, then `{api.workflows}`. Single-fork runs — in CI
+and locally — report the core and nothing else.
+
+Normal (owner-role) parallel runs are clean: 144 files, identical to serial. So
+this is specific to the restricted path, and the per-worker schemas that isolate
+ordinary runs are not enough here. Prime suspects: the shared non-owner role, and
+GUC pinning that assumes one connection per schema.
+
+`scripts/rls-gate.ts` therefore pins `VITEST_SINGLE_FORK=true` deliberately —
+the only place left that does — with the reasoning in a comment there. A gate
+with a rotating false member is worse than a slow gate: it pushes someone to
+"fix" a file that was never broken, or to allowlist it.
 
 ### Acceptance criteria
 
@@ -630,7 +709,10 @@ verified against the live app; doing so is acceptance criterion 1.
 2. Each of the four causes is fixed at the layer that is actually wrong, or —
    for cause 4 only — the test's expectation is corrected with the ruling
    written down. Do not "fix" a real scoping defect by relaxing an assertion.
-3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**.
+3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**,
+   and — cause 5 — green with the single-fork pin REMOVED from
+   `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
+   harness bug. Removing the pin without fixing worker-safety is not a pass.
    Adding an entry to close this ticket is an automatic fail: the gate's own
    header says an unexplained entry is how it rots.
 4. Something makes a red gate visible within a day rather than 35 runs. Cheapest

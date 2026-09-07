@@ -175,12 +175,29 @@ export class RunLifecycleService {
   ): Promise<void> {
     const { initialValues, snapshotValues, randomValues } = options;
 
-    // Get all pages for the workflow
-    const pages = await this.pageRepo.findByWorkflowId(workflowId);
-    const pageIds = pages.map(s => s.id);
-
-    // Get all steps for these pages
-    const allSteps = await this.stepRepo.findByPageIds(pageIds);
+    // RLS-11 cause 2: both reads must run inside a tenant transaction.
+    //
+    // `pages` and `steps` are RLS-covered through their workflow's
+    // ownership-derived policy, whose USING clause is `CASE WHEN
+    // app_current_tenant() IS NULL THEN false ...`. Called without a `tx` these
+    // ran on the bare pool, where that GUC is unset — so both returned ZERO
+    // rows even on the fully authenticated path, where a real tenant was
+    // sitting in the async context the whole time and simply was not being
+    // applied to the connection.
+    //
+    // Nothing failed. `allSteps` was empty, the loop below had nothing to
+    // iterate, `valuesToSave` stayed empty, and the guarded bulk save never
+    // ran. Every step `defaultValue` and every prefilled `initialValues`
+    // silently did not persist, and the run started blank — a missing WRITE
+    // caused by a filtered READ, with no error anywhere.
+    //
+    // One transaction for both reads, so pages and steps are also a consistent
+    // snapshot rather than two reads either side of a concurrent edit.
+    const allSteps = await withCurrentTenant(async (tx) => {
+      const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const pageIds = pages.map(page => page.id);
+      return this.stepRepo.findByPageIds(pageIds, tx);
+    });
 
     const valuesToSave: Array<{ stepId: string; value: unknown }> = [];
 

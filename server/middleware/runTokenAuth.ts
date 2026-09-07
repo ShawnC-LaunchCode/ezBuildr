@@ -111,6 +111,36 @@ export async function runTokenAuth(
       );
       if (runTenantId) {
         setCurrentTenantId(runTenantId);
+        // RLS-11 cause 1: stamp the REQUEST too, not just the async context.
+        //
+        // `setCurrentTenantId` writes into the AsyncLocalStorage store opened
+        // by the app-level `rlsContext`. Any route that runs multer loses that
+        // store — multer resumes the middleware chain from its own stream
+        // callback, outside the frame — so those routes re-mount `rlsContext`
+        // afterwards to reopen one. That re-mount re-seeds ONLY from
+        // `req.tenantId` (server/middleware/rlsContext.ts), which `hybridAuth`
+        // sets and this middleware did not. Net effect on every multipart
+        // run-token request: a tenant was resolved here, correctly, and then
+        // silently dropped, leaving every downstream read unscoped.
+        //
+        // Unscoped does not mean unfiltered — it means EMPTY. `workflows`
+        // returned no row, so uploading to a run whose token had just
+        // authenticated failed as `404 Workflow for run not found`; `pages`
+        // and `steps` returned nothing, so the definition came back with no
+        // questions at all. That is the RLS failure mode this initiative is
+        // about: a blocked read is indistinguishable from missing data.
+        //
+        // Fixing it here covers every such route at once and gives downstream
+        // reads the REAL tenant — strictly better than bootstrapping
+        // `app.current_workflow_id` at each layer, which `pages`/`steps` do
+        // not even honour (their policies key on tenant-ownership or
+        // `is_public`, never on that GUC).
+        //
+        // Safe for a run token specifically: nothing treats the presence of
+        // `req.tenantId` as proof of an authenticated user. `requireTenant`
+        // and `checkTenantAccess` are only ever mounted alongside `hybridAuth`;
+        // the remaining readers use it to key rate limits.
+        (req as Request & { tenantId?: string }).tenantId = runTenantId;
       } else {
         logger.warn({ runId: run.id, workflowId: run.workflowId },
           "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
@@ -239,6 +269,9 @@ async function creatorOrRunTokenAuthLogic(
       );
       if (runTenantId) {
         setCurrentTenantId(runTenantId);
+        // Same as `runTokenAuth` above, and this is the path the multipart
+        // upload routes actually take — see the full reasoning there.
+        (req as Request & { tenantId?: string }).tenantId = runTenantId;
       } else {
         logger.warn({ runId: run.id, workflowId: run.workflowId },
           "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
