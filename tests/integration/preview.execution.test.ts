@@ -257,6 +257,71 @@ describe.sequential('CB-9a-2 preview execution', () => {
     expect(evaluate.mock.calls.filter(call => call[1].id === blockId).length).toBeGreaterThan(0);
   });
 
+  it('returns answers, block states and navigation from ONE logical submission', async () => {
+    const { workflowId, pages, adults, children, blockId } = await threePageFixture();
+    const runId = await preview(workflowId);
+    await submitAndAdvance(runId, pages[0], [{ stepId: adults, value: 2 }]);
+
+    const key = randomUUID();
+    const response = await agent.post(`/api/runs/${runId}/pages/${pages[1]}/advance`)
+      .send({ values: [{ stepId: children, value: 3 }], submissionKey: key }).expect(200);
+
+    const data = response.body.data;
+    expect(data.success).toBe(true);
+    expect(data.submissionKey).toBe(key);
+    // Committed answers, from the server rather than the client's optimistic copy.
+    expect(data.values[children]).toBe(3);
+    expect(data.values[adults]).toBe(2);
+    // Computed output, in the same response that produced it.
+    const [output] = await getOwnerDb().select().from(schema.steps)
+      .where(and(eq(schema.steps.workflowId, workflowId), eq(schema.steps.alias, 'party_size')));
+    expect(data.values[output.id]).toBe(5);
+    // Block states, so the client never has to infer readiness.
+    const block = data.blockStates.find((state: { stepId: string }) => state.stepId === blockId);
+    expect(block).toMatchObject({ status: 'fired', pendingInputs: [] });
+    expect(block.firedAt).not.toBeNull();
+    // Authoritative navigation, in the same answer.
+    expect(data.navigation.nextPageId).toBe(pages[2]);
+  });
+
+  it('advance evaluates once and replays on retry, like the pair it replaces', async () => {
+    const { workflowId, pages, adults, blockId } = await threePageFixture('always');
+    const runId = await preview(workflowId);
+    const key = randomUUID();
+    const body = { values: [{ stepId: adults, value: 6 }], submissionKey: key };
+
+    const first = await agent.post(`/api/runs/${runId}/pages/${pages[0]}/advance`).send(body).expect(200);
+    const evaluate = vi.spyOn(codeBlockService, 'evaluate');
+    const replay = await agent.post(`/api/runs/${runId}/pages/${pages[0]}/advance`).send(body).expect(200);
+
+    expect(evaluate.mock.calls.filter(call => call[1].id === blockId)).toHaveLength(0);
+    expect(replay.body.data.navigation).toEqual(first.body.data.navigation);
+    expect(replay.body.data.values).toEqual(first.body.data.values);
+  });
+
+  it('advance reports a validation failure without navigating', async () => {
+    const { workflowId, pages, adults } = await threePageFixture();
+    await getOwnerDb().update(schema.steps).set({ required: true }).where(eq(schema.steps.id, adults));
+    const runId = await preview(workflowId);
+
+    const response = await agent.post(`/api/runs/${runId}/pages/${pages[0]}/advance`)
+      .send({ values: [], submissionKey: randomUUID() }).expect(200);
+    expect(response.body.data.success).toBe(false);
+    expect(response.body.data.errors.join(' ')).toContain('Adults');
+    // No authoritative move exists for a submission that did not commit.
+    expect(response.body.data.navigation).toBeNull();
+    const [run] = await getOwnerDb().select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
+    expect(run.currentPageId).toBe(pages[0]);
+  });
+
+  it('advance requires a submissionKey, because a submission with no identity cannot be replayed', async () => {
+    const { workflowId, pages } = await threePageFixture();
+    const runId = await preview(workflowId);
+    const response = await agent.post(`/api/runs/${runId}/pages/${pages[0]}/advance`).send({ values: [] });
+    expect(response.status).toBe(400);
+    expect(response.body.errors.join(' ')).toContain('submissionKey is required');
+  });
+
   it('rejects an unusable submissionKey instead of silently ignoring it', async () => {
     const { workflowId, pages } = await threePageFixture();
     const runId = await preview(workflowId);

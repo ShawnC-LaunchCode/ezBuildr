@@ -1,5 +1,6 @@
 import { logger } from "../../logger";
 import { workflowRepository, workflowRunRepository } from "../../repositories";
+import { codeBlockRunRepository } from "../../repositories/CodeBlockRunRepository";
 import { runSubmissionRepository } from "../../repositories/RunSubmissionRepository";
 import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
@@ -29,6 +30,34 @@ export interface ExecutionContext {
 }
 
 export interface SubmitPageResult { success: boolean; errors?: string[]; notices?: string[] }
+
+/** One Code Block's gate state, as the client should display it. */
+export interface AdvanceBlockState {
+    stepId: string;
+    status: string;
+    pendingInputs: string[];
+    firedAt: string | null;
+    errorMessage: string | null;
+}
+
+/**
+ * CB-9a-2's remaining criterion, delivered in CB-9a-3 where its consumer lives:
+ * ONE logical submission returning committed answers, computed values, block
+ * states and authoritative navigation together.
+ *
+ * The value is not only one fewer round trip. Submit, then next, then a state
+ * read is three windows in which a reset or a retirement can interleave; a
+ * single response stamped with its own `submissionKey` lets the client discard
+ * a late answer by identity instead of inferring staleness from request order.
+ */
+export interface AdvanceResult extends SubmitPageResult {
+    /** Committed answers keyed by stepId — the server's copy, not the client's optimistic one. */
+    values: Record<string, unknown>;
+    blockStates: AdvanceBlockState[];
+    /** Null when validation failed: there is no authoritative move to apply. */
+    navigation: NavigationResult | null;
+    submissionKey: string;
+}
 
 /** A submit or next request that arrived while its own key was still running. */
 export const SUBMISSION_IN_FLIGHT = 'Validation error: this submission is already being processed';
@@ -222,6 +251,50 @@ export class RunExecutionCoordinator {
         }
         await this.submissions.recordResponse(claim.id, result.success ? 'succeeded' : 'failed', result);
         return result;
+    }
+
+    /**
+     * One logical submission: persist, evaluate, navigate, and report the
+     * server's authoritative state in a single response.
+     *
+     * Deliberately built on `submitPage` and `runNext` rather than beside them.
+     * A second execution path for preview is exactly what CB-9a's audit refused,
+     * and it is how preview and live silently drift apart.
+     */
+    async advance(
+        context: ExecutionContext,
+        pageId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
+        values: Array<{ stepId: string, value: any }>
+    ): Promise<AdvanceResult> {
+        const { runId, submissionKey } = context;
+        if (submissionKey === undefined) {
+            throw createError.validation('Validation error: submissionKey is required to advance');
+        }
+        const submitted = await this.submitPage(context, pageId, values);
+        // A failed validation is still a completed submission: it is recorded,
+        // it replays, and it must NOT navigate.
+        const navigation = submitted.success
+            ? await this.next(context, pageId)
+            : null;
+        return {
+            ...submitted,
+            navigation,
+            submissionKey,
+            values: await this.persistence.getRunValues(runId),
+            blockStates: await this.readBlockStates(runId),
+        };
+    }
+
+    private async readBlockStates(runId: string): Promise<AdvanceBlockState[]> {
+        const rows = await codeBlockRunRepository.findByRunId(runId);
+        return rows.map(row => ({
+            stepId: row.stepId,
+            status: row.status,
+            pendingInputs: row.pendingInputs ?? [],
+            firedAt: row.firedAt ? row.firedAt.toISOString() : null,
+            errorMessage: row.errorMessage,
+        }));
     }
 
     /** The actual page submission, unaware of idempotency. */

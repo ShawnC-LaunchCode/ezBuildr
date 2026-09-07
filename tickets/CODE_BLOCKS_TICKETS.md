@@ -1502,14 +1502,15 @@ units and the parent acceptance criteria pass. Do not enable the client after un
 > graph, and `exclusionCategories.test.ts` then refuses an excluded table that no
 > user-facing export-disclosure category mentions. A new table must satisfy both.
 >
-> ⚠️ **Not met: "one logical submit RETURNS committed answers, computed values,
-> block states, and authoritative navigation."** Submit still returns
-> `{success, errors?, notices?}` and navigation still comes from `next`; the
-> state is readable via `GET /api/preview-runs/:runId` (9a-1) but is not packaged
-> into one response. Deliberately left open rather than guessed at: the consumer
-> of that combined shape is the client, which CB-9a-3 builds, and inventing the
-> payload now would ship speculative API surface for live runs too. **Reviewer
-> ruling wanted:** fold this into 9a-3, or take it as a follow-up here.
+> ✅ **CLOSED in CB-9a-3 (2026-09-07).** The criterion — *"one logical submit
+> returns committed answers, computed values, block states, and authoritative
+> navigation"* — is satisfied by `POST /api/runs/:runId/pages/:pageId/advance`,
+> built on `submitPage` + `runNext` rather than beside them so preview and live
+> cannot drift. It returns `{ success, errors?, notices?, values, blockStates,
+> navigation, submissionKey }`, requires a key (a submission with no identity
+> cannot be replayed or discarded as stale), replays on retry, and returns
+> `navigation: null` when validation failed. The two-request submit/next pair is
+> untouched for run-token respondents.
 
 
 - Own `RunExecutionCoordinator`, existing run persistence/service/route contracts, and
@@ -1528,6 +1529,25 @@ units and the parent acceptance criteria pass. Do not enable the client after un
   requires a separate ordinary-run behavior change before expanding that change.
 
 **CB-9a-3 — Connect the preview UI and prove the complete experience (open; after 9a-2).**
+
+> **Inherited obligation from CB-9a-2 — do not let this lapse.** 9a-2 left one
+> criterion open: *"one logical submit returns committed answers, computed
+> values, block states, and authoritative navigation."* It was deferred because
+> the consumer is this unit's client, not because it was judged unnecessary.
+>
+> **9a-3 must CLOSE it explicitly** — either satisfy it, or strike it with the
+> reasoning recorded here — and update 9a-2's status note either way. A client
+> can be built entirely against the existing submit / next /
+> `GET /api/preview-runs/:runId` endpoints, pass its tests, and leave this
+> criterion silently unmet forever; that is precisely how CB-5's dynamic-access
+> warnings survived unrendered until CB-8 was told to deliver them.
+>
+> There is a correctness argument, not only an ergonomic one: three round trips
+> give three windows for a reset or retirement to interleave, and this ticket
+> already has to *ignore late responses* and *retire and replace sessions on
+> reset*. One response carrying the submission identity makes staleness
+> **detectable** rather than inferred from request ordering.
+
 
 - Own `PreviewRunner`, existing runner session/value/navigation hooks, preview adapters,
   and mechanically required query/runtime types. Remove replaced local execution state;

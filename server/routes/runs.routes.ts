@@ -735,6 +735,48 @@ export function registerRunRoutes(app: Express): void {
     }
   }));
   /**
+   * POST /api/runs/:runId/pages/:pageId/advance
+   * One logical submission: submit, evaluate, navigate, and return the
+   * authoritative state together (CB-9a-3). Session auth only — the
+   * two-request submit/next pair remains for run-token respondents.
+   */
+  app.post('/api/runs/:runId/pages/:pageId/advance', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { runId, pageId } = req.params;
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
+      const { values } = req.body;
+      if (!Array.isArray(values)) {
+        return res.status(400).json({ success: false, errors: ["values must be an array"] });
+      }
+      for (const v of values) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+        if (v?.value !== undefined && exceedsValueSizeLimit(v.value)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+          return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds ${MAX_VALUE_BYTES}-byte limit.`] });
+        }
+      }
+      const submissionKey = parseSubmissionKey(req.body);
+      // Required here, unlike submit/next: an advance IS a logical submission,
+      // and one without an identity cannot be replayed or discarded as stale.
+      if (submissionKey === null || submissionKey === undefined) {
+        return res.status(400).json({ success: false, errors: ["submissionKey is required and must be a string of at most 200 characters"] });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
+      const result = await runService.advance(runId, pageId, userId, values, submissionKey);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      logger.error({ error }, "Error advancing run");
+      const { status, message } = classifyRouteError(error, "Failed to advance run");
+      const code = getPublicErrorCode(error, status);
+      return res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
+    }
+  }));
+
+  /**
    * POST /api/runs/:runId/next
    * Navigate to next page (executes branch blocks)
    * Accepts creator session OR Bearer runToken

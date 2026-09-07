@@ -31,7 +31,7 @@ import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 
 import { logicService, type NavigationResult } from "./LogicService";
 import { RunAuthResolver } from "./runs/RunAuthResolver";
-import { RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
+import { RunExecutionCoordinator, type AdvanceResult } from "./runs/RunExecutionCoordinator";
 import { RunPersistenceWriter } from "./runs/RunPersistenceWriter";
 import { RunCompletionService } from "./workflow-runs/RunCompletionService";
 import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
@@ -429,6 +429,31 @@ export class RunService {
       values
     ));
   }
+  /**
+   * CB-9a-3: one logical submission — persist, evaluate, navigate, and return
+   * the server's authoritative state together, stamped with its submissionKey
+   * so the client can discard a late answer by identity.
+   */
+  async advance(
+    runId: string,
+    pageId: string,
+    userId: string,
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey: string
+  ): Promise<AdvanceResult> {
+    const { run, access } = await this.authResolver.resolveRun(runId, userId);
+    if (!run || access === 'none') {
+      throw new Error(ERR_RUN_NOT_FOUND);
+    }
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.advance(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
+      pageId,
+      values
+    ));
+  }
+
   /**
    * Submit page values with validation without ownership check
    * Used for preview/run token authentication

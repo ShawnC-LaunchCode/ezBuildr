@@ -26,6 +26,11 @@ export class CodeBlockRunRepository extends BaseRepository<typeof codeBlockRuns,
     return record;
   }
 
+  /** Every block's gate state for one run, for the authoritative submit response. */
+  async findByRunId(runId: string, tx?: DbTransaction): Promise<CodeBlockRun[]> {
+    return this.getDb(tx).select().from(codeBlockRuns).where(eq(codeBlockRuns.runId, runId));
+  }
+
   async upsert(data: InsertCodeBlockRun, tx?: DbTransaction): Promise<CodeBlockRun> {
     const { runId, stepId, ...state } = data;
     const [record] = await this.getDb(tx).insert(codeBlockRuns).values({ ...state, runId, stepId })
