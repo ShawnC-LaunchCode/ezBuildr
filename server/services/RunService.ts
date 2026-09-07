@@ -455,6 +455,28 @@ export class RunService {
   }
 
   /**
+   * `advance` for a run-token respondent. Mirrors `submitPageNoAuth` /
+   * `nextNoAuth` exactly, including their refusal to touch a preview run: a
+   * preview session is author-only and has no run token by construction.
+   */
+  async advanceNoAuth(
+    runId: string,
+    pageId: string,
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey: string
+  ): Promise<AdvanceResult> {
+    const run = await this.runRepo.findById(runId);
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    return this.executionCoordinator.advance(
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey }, // No userId
+      pageId,
+      values
+    );
+  }
+
+  /**
    * Submit page values with validation without ownership check
    * Used for preview/run token authentication
    */

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { runAPI, type ApiRun, type ApiRunRuntime, type ApiStepValue } from "../../lib/vault-api";
+import { runAPI, type ApiAdvanceResult, type ApiRun, type ApiRunRuntime, type ApiStepValue } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -70,6 +70,25 @@ export function useSubmitPage(): UseMutationResult<{ success: boolean; errors?: 
             runAPI.submitPage(runId, pageId, values),
         // Don't invalidate queries here - causes race condition with navigation state updates
         // Values are already saved to backend; local formValues state is the source of truth for UI
+    });
+}
+
+/**
+ * CB-9a-3: one logical submission. Prefer this over `useSubmitPage` +
+ * `useNext`: it evaluates once, returns the server's authoritative state, and
+ * carries the `submissionKey` that makes a retry a replay and a late response
+ * detectable.
+ */
+export function useAdvance(): UseMutationResult<
+    ApiAdvanceResult,
+    unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { runId: string; pageId: string; values: Array<{ stepId: string; value: any }>; submissionKey: string }
+> {
+    return useMutation({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        mutationFn: ({ runId, pageId, values, submissionKey }: { runId: string; pageId: string; values: Array<{ stepId: string; value: any }>; submissionKey: string }) =>
+            runAPI.advance(runId, pageId, values, submissionKey),
     });
 }
 

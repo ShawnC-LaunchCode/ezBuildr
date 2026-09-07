@@ -18,6 +18,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { and, eq } from 'drizzle-orm';
+import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
@@ -320,6 +321,34 @@ describe.sequential('CB-9a-2 preview execution', () => {
     const response = await agent.post(`/api/runs/${runId}/pages/${pages[0]}/advance`).send({ values: [] });
     expect(response.status).toBe(400);
     expect(response.body.errors.join(' ')).toContain('submissionKey is required');
+  });
+
+  it('serves a run-token respondent too, and still refuses a preview run', async () => {
+    // The production transport uses `advance` for EVERY run, so an anonymous
+    // respondent authenticating with a run token must be able to use it. This
+    // is the regression that a session-auth-only route would have shipped: a
+    // 401 on Next for every anonymous respondent.
+    const { workflowId, pages, adults } = await threePageFixture();
+    const created = await agent.post(`/api/workflows/${workflowId}/runs`).send({}).expect(201);
+    const liveRun = created.body.data.runId as string;
+    const runToken = created.body.data.runToken as string;
+
+    const response = await request(ctx.baseURL)
+      .post(`/api/runs/${liveRun}/pages/${pages[0]}/advance`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({ values: [{ stepId: adults, value: 4 }], submissionKey: randomUUID() })
+      .expect(200);
+    expect(response.body.data.values[adults]).toBe(4);
+    expect(response.body.data.navigation.nextPageId).toBe(pages[1]);
+
+    // A preview session has no run token by construction, and the token path
+    // must refuse one even if a token were somehow presented.
+    const previewRun = await preview(workflowId);
+    const denied = await request(ctx.baseURL)
+      .post(`/api/runs/${previewRun}/pages/${pages[0]}/advance`)
+      .set('Authorization', `Bearer ${runToken}`)
+      .send({ values: [], submissionKey: randomUUID() });
+    expect(denied.status).toBe(403);
   });
 
   it('rejects an unusable submissionKey instead of silently ignoring it', async () => {

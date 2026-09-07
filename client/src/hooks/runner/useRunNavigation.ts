@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchAPI, type ApiPage, type ApiStep } from "@/lib/vault-api";
-import { useSubmitPage, useNext, useCompleteRun } from "@/lib/vault-hooks";
+import { useSubmitPage, useNext, useAdvance, useCompleteRun } from "@/lib/vault-hooks";
 import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidateRule } from "@shared/types/blocks";
@@ -146,6 +146,14 @@ export function useRunNavigationTransport({
   const { toast } = useToast();
   const submitMutation = useSubmitPage();
   const nextMutation = useNext();
+  const advanceMutation = useAdvance();
+  // CB-9a-3a: the submission this transport is currently waiting on. A response
+  // whose key is not this one belongs to a submission that has since been
+  // superseded -- by a reset, a retirement, or a second click -- and applying
+  // it would move the user based on a session that no longer exists. Identity,
+  // not request ordering: ordering cannot tell a slow first answer from a fast
+  // second one.
+  const activeSubmissionRef = useRef<string | null>(null);
   const isProductionMode = mode === 'production';
 
   return useMemo<RunNavigationTransport>(() => {
@@ -242,20 +250,36 @@ export function useRunNavigationTransport({
           throw new Error("Run is not ready yet");
         }
 
-        // Flush any pending autosaves immediately so the submitPage request cannot race them.
+        // Flush any pending autosaves immediately so the request cannot race them.
         await saveNow();
 
-        const result = await submitMutation.mutateAsync({
+        // One logical submission: evaluate once, navigate, and report the
+        // server's authoritative state together (CB-9a-3). Replaces the
+        // submit-then-next pair, which evaluated twice per user action.
+        const submissionKey = crypto.randomUUID();
+        activeSubmissionRef.current = submissionKey;
+        const result = await advanceMutation.mutateAsync({
           runId,
           pageId: currentPage.id,
           values: collectPageValues(visiblePageSteps, effectiveValues),
+          submissionKey,
         });
 
+        if (activeSubmissionRef.current !== submissionKey) {
+          // Superseded while in flight. Drop it: the user's edits stay on
+          // screen and the session that replaced this one owns the next move.
+          return undefined;
+        }
+
         if (!result.success) {
+          // No `fieldErrors` here, deliberately. The submit path never carried
+          // them either: `validatePage` produces per-field structure, the
+          // coordinator flattens it to strings, and `BlockRunner` has no
+          // `fieldErrors` at all — so `focusFirstFieldError` has never fired
+          // from this path. Filed as CB-B6 rather than invented here.
           return {
             kind: 'validation',
             errors: result.errors ?? ["Unable to continue"],
-            fieldErrors: result.fieldErrors,
           };
         }
 
@@ -271,10 +295,7 @@ export function useRunNavigationTransport({
           return undefined;
         }
 
-        const nextResult = await nextMutation.mutateAsync({
-          runId,
-          currentPageId: currentPage.id,
-        });
+        const nextResult = { nextPageId: result.navigation?.nextPageId ?? undefined };
 
         if (nextResult.nextPageId != null) {
           const nextIndex = visiblePages.findIndex((page) => page.id === nextResult.nextPageId);

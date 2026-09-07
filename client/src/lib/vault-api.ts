@@ -1113,6 +1113,26 @@ export interface ApiRunRuntime {
   branding: ResolvedBranding; // Tenant + workflow branding, merged server-side (GH-158).
 }
 // Note: This is for visual workflow runs (Stage 7+)
+export interface ApiAdvanceBlockState {
+  stepId: string;
+  status: string;
+  pendingInputs: string[];
+  firedAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface ApiAdvanceResult {
+  success: boolean;
+  errors?: string[];
+  notices?: string[];
+  /** Committed answers keyed by stepId, including computed outputs. */
+  values: Record<string, unknown>;
+  blockStates: ApiAdvanceBlockState[];
+  /** Null when validation failed: no authoritative move to apply. */
+  navigation: { nextPageId?: string | null } | null;
+  submissionKey: string;
+}
+
 export const runAPI = {
   create: (
     workflowId: string,
@@ -1152,6 +1172,18 @@ export const runAPI = {
       method: "POST",
       body: JSON.stringify({ values }),
     }),
+  /**
+   * CB-9a-3: one logical submission — submit, evaluate and navigate in a single
+   * request that reports the server's authoritative state. `submissionKey` is
+   * required: it is what lets a retry replay instead of re-executing, and what
+   * lets the client discard a late response by identity rather than by
+   * guessing from request order.
+   */
+  advance: (runId: string, pageId: string, values: Array<{ stepId: string; value: unknown }>, submissionKey: string) =>
+    fetchAPI<{ success: boolean; data: ApiAdvanceResult }>(`/api/runs/${runId}/pages/${pageId}/advance`, {
+      method: "POST",
+      body: JSON.stringify({ values, submissionKey }),
+    }).then(response => response.data),
   next: (runId: string, currentPageId: string) =>
     fetchAPI<{ success: boolean; data: { nextPageId?: string } }>(`/api/runs/${runId}/next`, {
       method: "POST",

@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   fetchAPI: vi.fn(),
   submitPage: vi.fn(),
   next: vi.fn(),
+  advance: vi.fn(),
   currentPageId: 'p-assets' as string | null,
   visitedPageIds: ['p-contact', 'p-assets'] as string[],
   mode: 'production' as 'production' | 'preview',
@@ -101,6 +102,8 @@ vi.mock('../../../client/src/lib/vault-hooks', async () => {
     useWorkflow: () => ({ data: undefined }),
     useSubmitPage: () => ({ mutateAsync: mocks.submitPage }),
     useNext: () => ({ mutateAsync: mocks.next }),
+    // CB-9a-3a: the production transport now advances in one request.
+    useAdvance: () => ({ mutateAsync: mocks.advance }),
     useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
   };
 });
@@ -205,6 +208,8 @@ beforeEach(() => {
   mocks.submitPage.mockReset();
   mocks.submitPage.mockResolvedValue({ success: true });
   mocks.next.mockReset();
+  mocks.advance.mockReset();
+  mocks.advance.mockResolvedValue({ success: true, values: {}, blockStates: [], navigation: null, submissionKey: 'k' });
   mocks.previewPageEntered.mockReset();
   mocks.previewSetCurrentPage.mockReset();
   mocks.mode = 'production';
@@ -243,6 +248,7 @@ describe('jumping from the rail (AC5)', () => {
     expect(bodies[0]).toContain('s-asset');
     // A jump is not a submit: neither the page submit nor the run's own
     // forward step may fire, or the server would re-resolve `skip_to`.
+    expect(mocks.advance).not.toHaveBeenCalled();
     expect(mocks.submitPage).not.toHaveBeenCalled();
     expect(mocks.next).not.toHaveBeenCalled();
   });
@@ -271,9 +277,9 @@ describe('the Review screen edit jump on top of jumpToPage (AC3)', () => {
       expect(questionField(NAME_FIELD)).not.toBeNull();
     });
     expect(screen.queryByText('Review your answers')).toBeNull();
-    // Still only the submit that carried the respondent to Review: the jump
-    // itself submitted nothing.
-    expect(mocks.submitPage).toHaveBeenCalledTimes(1);
+    // Still only the submission that carried the respondent to Review: the
+    // jump itself submitted nothing.
+    expect(mocks.advance).toHaveBeenCalledTimes(1);
     expect(mocks.next).not.toHaveBeenCalled();
 
     // `returnToReviewAfterNext`: the forward control now says Review, and
@@ -281,7 +287,7 @@ describe('the Review screen edit jump on top of jumpToPage (AC3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Review/i }));
 
     await screen.findByText('Review your answers');
-    expect(mocks.submitPage).toHaveBeenCalledTimes(2);
+    expect(mocks.advance).toHaveBeenCalledTimes(2);
     expect(mocks.next).not.toHaveBeenCalled();
   });
 });

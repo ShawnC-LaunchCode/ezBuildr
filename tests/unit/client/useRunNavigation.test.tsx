@@ -2,9 +2,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { nextMock, submitPageMock, validatePageMock, toastMock } = vi.hoisted(() => ({
+const { nextMock, submitPageMock, advanceMock, validatePageMock, toastMock } = vi.hoisted(() => ({
   nextMock: vi.fn(),
   submitPageMock: vi.fn(),
+  advanceMock: vi.fn(),
   validatePageMock: vi.fn(),
   toastMock: vi.fn(),
 }));
@@ -17,6 +18,8 @@ vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSubmitPage: () => ({ mutateAsync: submitPageMock }),
   useNext: () => ({ mutateAsync: nextMock }),
+  // CB-9a-3a: the production transport now advances in one request.
+  useAdvance: () => ({ mutateAsync: advanceMock }),
 }));
 
 vi.mock('../../../shared/validation/PageValidator', () => ({
@@ -64,6 +67,8 @@ describe('useRunNavigation validation state', () => {
     toastMock.mockReset();
     submitPageMock.mockReset();
     nextMock.mockReset();
+    advanceMock.mockReset();
+    advanceMock.mockResolvedValue({ success: true, values: {}, blockStates: [], navigation: null, submissionKey: 'k' });
     window.scrollTo = vi.fn();
   });
 
@@ -110,7 +115,7 @@ describe('useRunNavigation validation state', () => {
   });
 
   it('submits an edited page and returns directly to review without advancing', async () => {
-    submitPageMock.mockResolvedValue({ success: true });
+    advanceMock.mockResolvedValue({ success: true, values: {}, blockStates: [], navigation: null, submissionKey: 'k' });
     const setCurrentPageIndex = vi.fn();
     const setShowReview = vi.fn();
     const saveNow = vi.fn().mockResolvedValue(undefined);
@@ -137,11 +142,16 @@ describe('useRunNavigation validation state', () => {
     });
 
     expect(saveNow).toHaveBeenCalledTimes(1);
-    expect(submitPageMock).toHaveBeenCalledWith({
+    // CB-9a-3a: ONE request per user action, carrying the submission identity
+    // that makes a retry a replay rather than a second evaluation.
+    expect(advanceMock).toHaveBeenCalledTimes(1);
+    expect(advanceMock).toHaveBeenCalledWith(expect.objectContaining({
       runId: 'run-1',
       pageId: 'page-1',
       values: [{ stepId: 'phone-step', value: '312-555-1212' }],
-    });
+      submissionKey: expect.any(String),
+    }));
+    expect(submitPageMock).not.toHaveBeenCalled();
     expect(nextMock).not.toHaveBeenCalled();
     expect(setCurrentPageIndex).not.toHaveBeenCalled();
     expect(setShowReview).toHaveBeenCalledWith(true);

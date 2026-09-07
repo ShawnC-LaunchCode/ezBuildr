@@ -68,15 +68,44 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
    detection all ride on that one existing traversal, and all report in the editor — never at
    runtime.
 
-### Phase overview
+### Phase overview — status board
 
-| Phase | Theme | Tickets | Dispatch |
-|---|---|---|---|
-| 1 | Engine — the recompute model | CB-1..4 | **Sequential** (same files) |
-| 2 | Authoring guarantees — the AST pass | CB-5..7 | CB-5 → CB-6 sequential; CB-7 parallel |
-| 3 | Surfaces — editor + inspector | CB-8 ✅, CB-9a (9a-1 ✅), CB-9 | CB-9a-1 done; 9a-2 → 9a-3 → CB-9 sequential |
-| 4 | Cleanup — retire old surfaces, Python | CB-10, CB-11 | **Parallel** (disjoint) |
-| Backlog | Not phase-gated | CB-B1..B4 | |
+**Legend:** ✅ done & committed · 🔄 in progress / partially done · 🔲 not started
+
+| # | Ticket | Size | Status | Blocked by | Can run in parallel with |
+|---|---|---|---|---|---|
+| **Phase 1 — Engine: the recompute model** ||||||
+| CB-1 | Multi-output config, one virtual step per output | M | ✅ | — | — (same files as CB-2..4) |
+| CB-2 | Readiness gate, change gate, per-run block state | M | ✅ | CB-1 | — |
+| CB-3 | Firing model: trigger × repeat | M | ✅ | CB-2 | — |
+| CB-4 | Dependency ordering + cycle detection | M | ✅ | CB-3 | — |
+| **Phase 2 — Authoring guarantees: the AST pass** ||||||
+| CB-5 | Derive inputs and outputs from the code | M | ✅ | Phase 1 gate | CB-7 |
+| CB-6 | Impure helpers force `once` or `always` | S | ✅ | CB-5 | CB-7 |
+| CB-7 | Append-only enforcement, retire `mutationMode` | M | ✅ | Phase 1 gate | CB-5, CB-6 |
+| **Phase 3 — Surfaces: editor and inspector** ||||||
+| CB-8 | Monaco code editor modal | M | ✅ | Phase 2 gate | CB-9a (disjoint after the shared route landed) |
+| CB-9a-1 | Persist preview identity, isolate its lifecycle | L | ✅ | Phase 2 gate | CB-8 |
+| CB-9a-2 | Submissions authoritative and replay-safe | L | ✅ | CB-9a-1 | — |
+| CB-9a-3 pt 1 | `advance`: one submission returns the whole state | M | ✅ | CB-9a-2 | — |
+| CB-9a-3a | Server-backed preview session plumbing | M | ✅ | CB-9a-3 pt 1 | — |
+| **CB-9a-3b** | **Connect the preview UI, prove the experience** | **L** | **🔲 next** | CB-9a-3a | — |
+| CB-9 | Preview variable inspector | M | 🔲 | CB-9a umbrella | — |
+| **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
+| CB-10 | Retire `transform_blocks` and the dead transform UI | M | 🔲 | Phase 3 gate | CB-11 (disjoint) |
+| CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
+| **Backlog — not phase-gated** ||||||
+| CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
+| CB-B5, CB-B6 | Filed to `tickets/BACKLOG.md` during Phase 3 | — | 🔲 | — | — |
+
+**What is actually dispatchable right now:** nothing in parallel. Phase 3's
+remaining chain is strictly sequential — CB-9a-3a → CB-9a-3b → CB-9 — because
+each owns the same preview surface the previous one just changed. Phase 4's two
+tickets are genuinely disjoint and can go in parallel, but only after the
+Phase 3 gate.
+
+**Counts:** 12 of 16 units done. Remaining: CB-9a-3b (L), CB-9 (M), CB-10 (M),
+CB-11 (S). CB-9a-3b is the large one and is next.
 
 ---
 
@@ -1528,7 +1557,7 @@ units and the parent acceptance criteria pass. Do not enable the client after un
 - Parent criteria covered: server portions of 2, 3, 5. Report any parity discrepancy that
   requires a separate ordinary-run behavior change before expanding that change.
 
-**CB-9a-3 — Connect the preview UI and prove the complete experience (open; after 9a-2).**
+**CB-9a-3 — Connect the preview UI and prove the complete experience 🔄 (split; part 1 done).**
 
 > **Inherited obligation from CB-9a-2 — do not let this lapse.** 9a-2 left one
 > criterion open: *"one logical submit returns committed answers, computed
@@ -1549,18 +1578,92 @@ units and the parent acceptance criteria pass. Do not enable the client after un
 > **detectable** rather than inferred from request ordering.
 
 
-- Own `PreviewRunner`, existing runner session/value/navigation hooks, preview adapters,
-  and mechanically required query/runtime types. Remove replaced local execution state;
-  retain presentation state and unsaved input drafts only.
-- Acceptance: use the server session throughout; apply results only to the active session;
-  preserve edits on failure; reset/snapshot load retire and replace sessions; ignore late
-  responses; restart on definition change; preserve every tool in parent criterion 7.
-- Add `tests/unit/client/previewExecution.test.tsx` for submit/retry, stale responses,
-  reset/snapshot replacement, restart, and tools. Extend the prerequisite integration
-  suite for UI-driven contracts if needed. Complete desktop/mobile browser proof and
-  fixture cleanup; prove simulated actions are visibly labeled.
-- Parent criteria covered: client portions of 2 and 5, plus 7–10. Re-run all parent
-  acceptance checks and gates after final integration. Then reviewer verifies/commits the
+**Part 1 ✅ (commit `7ec4399c`) — the server side of one logical submission.**
+`POST /api/runs/:runId/pages/:pageId/advance` returns `{ success, errors?,
+notices?, values, blockStates, navigation, submissionKey }`, built on
+`submitPage` + `runNext` rather than beside them. Requires a key, replays on
+retry without evaluating, returns `navigation: null` on validation failure. The
+two-request submit/next pair is untouched for run-token respondents.
+
+### Split into 9a-3a and 9a-3b — 2026-09-07
+
+**Why, with the evidence.** The remaining work is not "wire the client to the
+new endpoint". Passing a preview `runId` into the runner's production path is
+unsafe today, verified at `7ec4399c`:
+
+`useRunSession.resolveUuidRunSession` (`client/src/hooks/runner/useRunSession.ts:124`)
+sees a UUID with no stored run token and falls through three branches to
+`startReplacementRunFromExistingRunId` (`:103`), which reads the run's
+`workflowId`, calls `startRunFromWorkflowId`, and returns
+`notifyNewSession: true`. **For a preview session that silently creates a brand
+new ORDINARY LIVE run and toasts "New session started."** Preview runs
+deliberately carry no run token — 9a-1's isolation test asserts
+`not.toHaveProperty('runToken')` — so that is exactly the path they take.
+
+That fallback is shared with every live respondent (it is the fork-an-abandoned
+-run recovery). Changing its semantics is a live-surface change, not a preview
+one, and it does not belong in the same review unit as a PreviewRunner rewrite.
+
+**CB-9a-3a — Server-backed preview session plumbing ✅**
+
+> **Done and verified 2026-09-07.** `tsc` 0 · `lint` clean · `strict-zones` 6/6 ·
+> `test:fast` **336 files / 3817** (3812 + 5) · `test:integration` **148 files /
+> 1377 passed | 3 skipped** (1372 + 4 from part 1 + 1).
+>
+> `useRunSession` gains `RunIdKind`: `'resolve'` is the default and unchanged, so
+> no existing caller moves; `'session'` uses the id verbatim. Mutation-tested —
+> forcing the `'session'` branch off fails the test that asserts no resolution
+> is attempted.
+>
+> The production transport now makes ONE request per user action via `advance`
+> instead of submit-then-next, and drops any response whose `submissionKey` is
+> not the one still in flight.
+>
+> **Hazard found and fixed inside this unit:** `advance` shipped as session-auth
+> only, but the production transport serves anonymous run-token respondents too
+> — every one of them would have taken a 401 on Next. Added `advanceNoAuth` and
+> `creatorOrRunTokenAuth`, with a test proving a run-token respondent advances
+> and that the token path still refuses a preview run (403).
+>
+> Three existing runner suites needed their `vault-hooks` mock extended and
+> their submit assertions moved to `advance`; each was edited deliberately and
+> now asserts the stronger property (one call, carrying a submission identity).
+>
+> **Deliberately NOT done here:** no `PreviewRunner` edits and no UI behaviour
+> change. `PreviewEnvironment` is still wired exactly as before — 9a-3b adopts
+> the server session.
+>
+> Filed `CB-B6` while threading the response: the client's field-error focusing
+> is fed by nothing, because the coordinator flattens `validatePage`'s per-field
+> structure and `BlockRunner` has no `fieldErrors` at all.
+
+- Own `client/src/hooks/runner/useRunSession.ts`, `useRunValues.ts`,
+  `useRunNavigation.ts`, and mechanically required query/runtime types.
+- Give `useRunSession` an explicit "this id **is** the session" mode so a
+  preview id is never resolved, forked, or replaced. Prove the live
+  fork-an-abandoned-run recovery still works — that is the regression risk.
+- Enable server values and runtime reads for a preview run; the preview
+  transport submits through `advance` and applies its authoritative result.
+- **No UI behaviour change and no PreviewRunner edits.** `PreviewEnvironment`
+  stays wired exactly as it is; this unit only makes the server path usable.
+- Add `tests/unit/client/previewExecution.test.tsx`: submit/retry, stale
+  responses discarded by `submissionKey`, and the preserved live recovery path.
+
+**CB-9a-3b — Connect the preview UI and prove the experience (open; after 9a-3a).**
+
+- Own `PreviewRunner`, the preview adapters, and `DevToolsPanel`'s data source.
+  Remove replaced local execution state; retain presentation state and unsaved
+  input drafts only.
+- Acceptance: use the server session throughout; apply results only to the
+  active session; preserve edits on failure; reset/snapshot load retire and
+  replace sessions; ignore late responses; restart on definition change;
+  preserve every tool in parent criterion 7. Page fill and full-workflow fill
+  submit through the shared engine rather than writing to `PreviewEnvironment`.
+- Extend `previewExecution.test.tsx` for reset/snapshot replacement, restart and
+  tools. Complete desktop/mobile browser proof and fixture cleanup; prove
+  simulated actions are visibly labeled.
+- Parent criteria covered: client portions of 2 and 5, plus 7–10. Re-run all
+  parent acceptance checks and gates. Then reviewer verifies/commits the
   umbrella completion before CB-9 resumes with fresh baselines.
 
 ### Preferred fix and boundaries

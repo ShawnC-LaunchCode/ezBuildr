@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
 | CB-B5 | `triage` | Live-run document uploads can outlive failed/missing rows; row deletion never removes blobs. Separate from preview cleanup | Inline below: `CB-B5` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
@@ -189,6 +190,19 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Client field errors are never populated (CB-B6) — filed 2026-09-07
+
+**Tag: informational.** Found during CB-9a-3a while threading the new `advance`
+response. `client/src/hooks/runner/useRunNavigation.ts` accepts `fieldErrors` and
+has `focusFirstFieldError` ready to move focus to the first failing field, but
+nothing supplies them from a page submit: `server/workflows/validation.ts:219`
+builds per-field structure, `RunExecutionCoordinator.runSubmitPage` maps it to
+flat strings, and `server/services/BlockRunner.ts` has no `fieldErrors` concept.
+`ValidateBlockRunner` does produce them, but its output is not threaded out
+either. Restoring this is a real UX improvement and a small contract change on
+the submit response — deliberately NOT done inside a preview ticket, where the
+shape would have been guessed rather than designed.
 
 ## Live-run document blob leaks (CB-B5) — filed 2026-09-06
 

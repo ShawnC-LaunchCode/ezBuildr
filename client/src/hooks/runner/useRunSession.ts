@@ -10,6 +10,24 @@ import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment
 const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
 
 type RunnerMode = 'preview' | 'production';
+
+/**
+ * CB-9a-3a: how `runId` should be interpreted.
+ *
+ * `'resolve'` is the historical behaviour and the default, so no existing
+ * caller changes: the id may be a workflow id, a public slug, a live run, or an
+ * abandoned run to fork a replacement from.
+ *
+ * `'session'` says the caller already created this session server-side and it
+ * must be used verbatim. That distinction is load-bearing rather than tidy. A
+ * preview run deliberately carries NO run token (9a-1), so under `'resolve'` it
+ * falls through every branch to `startReplacementRunFromExistingRunId`, which
+ * reads its `workflowId`, starts a brand new ORDINARY LIVE run, and reports
+ * "New session started" — silently abandoning the preview and executing against
+ * live. The fork path itself is untouched and still serves respondents
+ * returning to an abandoned run.
+ */
+export type RunIdKind = 'resolve' | 'session';
 type InitialValues = Record<string, StepValue> | undefined;
 type RunWithValues = ApiRunRuntime['run'] & { values: ApiStepValue[] };
 
@@ -150,7 +168,11 @@ async function resolveRunSession(runId: string, initialValues: InitialValues): P
   return toResolvedSession(await startRunFromSlug(runId, initialValues));
 }
 
-export function useRunSession(runId?: string, previewEnvironment?: PreviewEnvironment): UseRunSessionReturn {
+export function useRunSession(
+  runId?: string,
+  previewEnvironment?: PreviewEnvironment,
+  runIdKind: RunIdKind = 'resolve'
+): UseRunSessionReturn {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
@@ -171,6 +193,13 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
     async function initialize(): Promise<void> {
       if (!runId) {
         setInitError('No run ID provided');
+        setIsInitializing(false);
+        return;
+      }
+
+      if (runIdKind === 'session') {
+        // Already a session. Resolving it here is what would fork it.
+        setActualRunId(runId);
         setIsInitializing(false);
         return;
       }
@@ -208,7 +237,7 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
     }
 
     void initialize();
-  }, [runId, toast, previewEnvironment]);
+  }, [runId, toast, previewEnvironment, runIdKind]);
 
   const { data: runtime, error: runtimeError, isLoading: isRuntimeLoading } = useRunRuntime(actualRunId ?? '', {
     enabled: mode === 'production' && actualRunId !== null && !isInitializing,

@@ -740,11 +740,12 @@ export function registerRunRoutes(app: Express): void {
    * authoritative state together (CB-9a-3). Session auth only — the
    * two-request submit/next pair remains for run-token respondents.
    */
-  app.post('/api/runs/:runId/pages/:pageId/advance', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/pages/:pageId/advance', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId, pageId } = req.params;
       const userId = (req as AuthRequest).userId;
-      if (!userId) {
+      const runAuth = (req as RunAuthRequest).runAuth;
+      if (!userId && !runAuth) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
@@ -765,8 +766,16 @@ export function registerRunRoutes(app: Express): void {
       if (submissionKey === null || submissionKey === undefined) {
         return res.status(400).json({ success: false, errors: ["submissionKey is required and must be a string of at most 200 characters"] });
       }
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
+        const tokenResult = await runService.advanceNoAuth(runId, pageId, values, submissionKey);
+        return res.json({ success: true, data: tokenResult });
+      }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      const result = await runService.advance(runId, pageId, userId, values, submissionKey);
+      const result = await runService.advance(runId, pageId, userId as string, values, submissionKey);
       return res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error }, "Error advancing run");
