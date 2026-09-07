@@ -582,9 +582,11 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔲 open
+## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1 & 2 fixed; 3, 4 & 5 open
 
-**Priority: P0** · Size: M · Files: `tests/integration/api.runs.file-upload.test.ts`,
+**Priority: P0** · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
+`server/services/workflow-runs/RunLifecycleService.ts` — remaining:
+`tests/integration/api.runs.file-upload.test.ts`,
 `tests/integration/runFileUpload.test.ts`, `tests/integration/text-canonicalization.test.ts`,
 `tests/integration/codeBlocks.aliasCollision.test.ts`,
 `tests/integration/codeBlocks.multiOutput.test.ts` — plus whatever server code the
@@ -625,6 +627,61 @@ Five distinct root causes:
 user-visible paths — run-token file upload, and answer prefill — so they are
 expected to be broken in the dev environment right now. That has **not** been
 verified against the live app; doing so is acceptance criterion 1.
+
+### Causes 1 & 2 — FIXED and confirmed live on dev, 2026-09-07
+
+**Both were live on dev, and the same one-line-shaped mistake twice: a tenant
+that was known was never applied to the connection, so an RLS-covered read came
+back EMPTY and the caller read that as missing data.**
+
+**Cause 1 — the run-token tenant was resolved and then dropped.**
+`runTokenAuth` resolves the tenant correctly and calls `setCurrentTenantId`,
+which writes into the AsyncLocalStorage store. Any route running multer loses
+that store (multer resumes the chain from its own stream callback), so those
+routes re-mount `rlsContext` — which re-seeds **only** from `req.tenantId`, a
+field `hybridAuth` sets and `runTokenAuth` did not. Every multipart run-token
+request therefore ran unscoped. Fixed by stamping `req.tenantId` at both
+resolution sites in `server/middleware/runTokenAuth.ts`; that repairs every such
+route at once and gives downstream reads the real tenant, rather than
+bootstrapping `app.current_workflow_id` layer by layer — which `pages`/`steps`
+do not even honour (their policies key on tenant-ownership or `is_public`,
+never on that GUC). Safe because nothing treats the presence of `req.tenantId`
+as proof of a user: `requireTenant`/`checkTenantAccess` are only ever mounted
+beside `hybridAuth`.
+
+**Cause 2 — the prefill reads never opened a tenant transaction.**
+`RunLifecycleService.populateInitialValues` called `pageRepo.findByWorkflowId`
+and `stepRepo.findByPageIds` with **no `tx`**, so they ran on the bare pool where
+`app_current_tenant()` is unset — even on the fully authenticated path, where a
+real tenant was in the async context the whole time. `allSteps` came back empty,
+the loop had nothing to iterate, and every step `defaultValue` and every
+prefilled `initialValues` silently failed to persist. Fixed by wrapping both
+reads in one `withCurrentTenant` transaction.
+
+**AC 1 — confirmed against live dev** (read-only, via the Neon MCP on branch
+`br-shy-rain-ahpucki7`; nothing created or modified):
+
+| fact | value |
+|---|---|
+| deployed dev `DATABASE_URL` role (Railway) | `ezbuildr_app`, with `RLS_ENFORCED=true` |
+| `ezbuildr_app` bypasses RLS? | **no** — `rolbypassrls = false` |
+| `workflows`/`pages`/`steps`/`sections` | RLS **enabled AND forced** |
+| `app_current_tenant()` with no GUC | **NULL** → policy's tenant branch is `false` |
+| only surviving disjunct | `is_public = true AND status = 'active'` |
+| dev workflows matching it | **46 of 88** |
+
+So both defects were live on dev for the **42 non-public workflows** — uploads
+404ing on a valid run token, and runs starting with no defaults. **The
+`is_public` escape is why nobody noticed:** public-link runs, the most-demoed
+path, kept working, and the breakage was confined to private workflows.
+
+Note the local trap this exposed: local `.env` connects as `neondb_owner`, which
+holds BYPASSRLS, so **running the app locally against the dev database cannot
+reproduce any of this**. Only `ezbuildr_app` sees the policies.
+
+Gate effect: **6 failing files → 3.** `api.runs.file-upload`, `runFileUpload` and
+`text-canonicalization` all pass under enforcement; the three Code Blocks files
+(causes 3 and 4) remain.
 
 ### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
 

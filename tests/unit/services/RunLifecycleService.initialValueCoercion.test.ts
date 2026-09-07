@@ -41,6 +41,24 @@ vi.mock('../../../server/repositories', async (importOriginal) => {
   };
 });
 
+// RLS-11 cause 2 made `populateInitialValues` read pages and steps inside
+// `withCurrentTenant`, because on the bare pool those RLS-covered reads return
+// zero rows and every default silently fails to persist. This suite is about
+// value COERCION and deliberately runs without a database, so the real
+// implementation (which opens a transaction) cannot run here. Pass the callback
+// through with a stub tx: the repos it calls are already constructor-injected
+// mocks that ignore their `tx` argument, so behaviour under test is unchanged.
+// Everything else in the module is kept via importOriginal — RunLifecycleService
+// also imports `getCurrentTenantId`, `runWithTenantContext` and
+// `withVerifiedIdentifier` from here.
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  return {
+    ...actual,
+    withCurrentTenant: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})),
+  };
+});
+
 vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
   const mockPersistence = {
     bulkSaveValues: vi.fn().mockResolvedValue(undefined),
