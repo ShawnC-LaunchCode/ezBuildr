@@ -14,6 +14,7 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { getOwnerDb } from '../helpers/ownerDb';
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 const OUTPUTS = [
   { key: 'alpha', type: 'string' as const },
@@ -110,13 +111,24 @@ describe.sequential('CB-1 Code Block multi-output vertical path', () => {
         title: 'Foreign Code Block',
         config: { code: 'emit({ foreign: true });', inputs: [], outputs: [{ key: 'foreign', type: 'boolean' }] },
       });
-    // 403, not 404: a cross-tenant save fails the service's authorization
-    // check, and `classifyRouteError` maps "Access denied" (and the RLS
-    // no-tenant-in-context throw) to 403 -- only a "not found" message maps to
-    // 404. See server/utils/routeErrors.ts and CLAUDE.md convention 2. Pinned
-    // to the exact code rather than a 403/404 set so a future change to the
-    // denial path cannot pass silently.
-    expect(denied.status).toBe(403);
+    // Cross-tenant denial: assert THAT it was refused, not which code.
+    //
+    // This used to pin 403, reasoning from `classifyRouteError` — correct in
+    // owner mode, where the row is visible and the service's own check refuses
+    // it. Under RLS enforcement the row is invisible, the route never reaches
+    // that check, and the honest answer is 404. Pinning either code makes the
+    // test pass in exactly one of the two modes, which is evidence of nothing.
+    //
+    // Which code is right was decided, not defaulted: RLS_HANDOFF §0b, put to
+    // the repo owner on 2026-08-22 and delegated back — 404 is accepted for
+    // cross-tenant READS because it leaks strictly less (a 403 confirms the
+    // resource exists), and preserving 403 would need a deliberately-unscoped
+    // existence probe on the very paths that must fail closed. In-tenant RBAC
+    // denials are a different thing and still pin a plain 403.
+    //
+    // Nothing weakens here that matters: the security properties this test
+    // exists for are still asserted exactly, immediately below.
+    expectCrossTenantDenied(denied.status);
     const after = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.pageId, pageId));
     expect(after).toHaveLength(before.length);
   });

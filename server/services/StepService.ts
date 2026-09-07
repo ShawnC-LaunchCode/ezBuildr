@@ -116,12 +116,31 @@ export class StepService {
     const cause = error instanceof Error ? error.cause : undefined;
     if (typeof cause !== 'object' || cause === null || !('code' in cause) ||
         cause.code !== '23505' || !('constraint' in cause) ||
-        cause.constraint !== 'steps_workflow_alias_unique' || !('detail' in cause) ||
-        typeof cause.detail !== 'string') {
+        cause.constraint !== 'steps_workflow_alias_unique') {
       throw error;
     }
-    const match = /=\(([^,]+), (.*)\) already exists\.$/.exec(cause.detail);
-    if (!match) { throw error; }
+
+    // RLS-11 cause 3: `detail` is NOT guaranteed to be present, and requiring
+    // it made this whole translation dead under enforcement.
+    //
+    // Postgres omits a unique violation's DETAIL ("Key (workflow_id, alias)=
+    // (…, total) already exists.") when the role is subject to RLS on the
+    // table, because that string quotes column values the role may not be
+    // allowed to read. Measured as the restricted role: `code` is '23505' and
+    // `constraint` is `steps_workflow_alias_unique` exactly as expected, and
+    // `detail` is `undefined`. So on the branch that matters — production, once
+    // it connects as a non-owner — every alias collision that reached the index
+    // escaped as a raw `DrizzleQueryError` instead of the 400 this exists to
+    // produce. It passed in owner mode, where the detail IS present, which is
+    // why it read as correct for so long.
+    //
+    // The constraint name alone already proves what happened, so the identity
+    // of the alias is an enrichment, not a precondition. Parse the detail when
+    // it is there, and still answer 400 when it is not.
+    const detail = 'detail' in cause && typeof cause.detail === 'string' ? cause.detail : undefined;
+    const match = detail ? /=\(([^,]+), (.*)\) already exists\.$/.exec(detail) : null;
+    if (!match) { throw this.aliasCollisionError(undefined, undefined); }
+
     const [, workflowId, alias] = match;
     const siblings = tx
       ? await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx)
@@ -130,11 +149,14 @@ export class StepService {
     throw this.aliasCollisionError(alias, owner);
   }
 
-  private aliasCollisionError(alias: string, owner?: Step): Error & { statusCode: number } {
+  private aliasCollisionError(alias: string | undefined, owner?: Step): Error & { statusCode: number } {
     const description = owner
       ? `${owner.isVirtual ? 'output' : 'step'} "${owner.title}" (${owner.id})`
       : 'another step in this workflow';
-    return Object.assign(new Error(`Alias "${alias}" is already in use by ${description}. Please choose a unique alias.`),
+    // `alias` is unknown only when Postgres withheld the violation's DETAIL
+    // under RLS (see rethrowAliasCollision). Still a 400, still actionable.
+    const subject = alias === undefined ? 'That alias' : `Alias "${alias}"`;
+    return Object.assign(new Error(`${subject} is already in use by ${description}. Please choose a unique alias.`),
       { statusCode: 400 });
   }
 
@@ -631,6 +653,28 @@ export class StepService {
       }
 
       await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit', scopedTx);
+
+      // RLS-11 cause 3: check the alias BEFORE writing, like every other write
+      // path here does (see validateOutputAliases). Restoring is the one route
+      // that reached the unique index with no preflight, relying on
+      // `rethrowAliasCollision` to turn the failure into a useful message —
+      // which under RLS it cannot do richly, because Postgres withholds the
+      // violation's DETAIL from a role the policy applies to. Asking first
+      // needs no error forensics, behaves identically in both modes, names the
+      // conflicting owner, and never issues a statement that would poison the
+      // caller's transaction.
+      // `candidate.id !== stepId` is load-bearing: restore is idempotent, and a
+      // step that is ALREADY restored appears in this list holding its own
+      // alias. Without the exclusion it collides with itself and a no-op
+      // restore answers 400 instead of 200 — caught by
+      // soft-delete-steps-pages.test.ts (ICW2-B1 AC4), not by the CB-7 suite
+      // this preflight was written for.
+      if (step.alias) {
+        const siblings = await this.stepRepo.findByWorkflowIdWithAliases(step.workflowId, scopedTx);
+        const owner = siblings.find(candidate => candidate.id !== stepId &&
+          candidate.alias?.toLowerCase() === step.alias?.toLowerCase());
+        if (owner) { throw this.aliasCollisionError(step.alias, owner); }
+      }
 
       const restored = await this.stepRepo.restore(stepId, scopedTx);
       if (!restored) {
