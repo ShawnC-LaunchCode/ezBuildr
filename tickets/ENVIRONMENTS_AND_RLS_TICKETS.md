@@ -753,6 +753,29 @@ through 9a-3b, and `0c540217` already records three transport defects found
 there), so changing it underneath that work would collide. It is written up so
 the number is honest rather than quietly attributed to RLS-11's other causes.
 
+**Separately, that same merge turned `dev` CI red — not the gate, ordinary CI.**
+Deterministic, 3 runs out of 3, starting at `37a1d702` (2026-09-07 12:13) and
+still red; the last green was `0cf8c649`. One file, zero failing tests — it
+cannot even be collected:
+
+```
+FAIL unit-fast tests/unit/services/RunExecutionCoordinator.validationErrors.test.ts
+TypeError: this[writeSym] is not a function
+  ❯ Object.LOG [as info]  node_modules/pino/lib/tools.js:74:21
+  ❯ server/services/storage/index.ts:15:12   logger.info('Initializing Disk Storage Provider')
+  ❯ server/services/workflow-runs/RunPreviewPolicyService.ts:10:1
+```
+
+`server/services/storage/index.ts` calls `logger.info` at **module scope**, and
+CB-9a-1's new `RunPreviewPolicyService` pulled that module into
+`RunLifecycleService`'s import graph — so a unit-fast file that never touched
+storage now executes that log line at import time and dies on it. The landmine
+is the import-time side effect, which predates CB-9a; the new import chain is
+what stepped on it. Passes locally, fails every CI run.
+
+Left for whoever owns CB-9a rather than fixed here, for the same
+work-in-flight reason as above.
+
 **This is the third time in nine days that new work has landed on this gate
 while it was red** — CB-8 added `codeBlocks.testEndpoint`, CB-9a has now added
 two more. That is the cost the gate's own header predicted, and it is what
