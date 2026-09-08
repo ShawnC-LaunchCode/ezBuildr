@@ -92,7 +92,7 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9a-3b | Connect the preview UI, prove the experience | L | ✅ | CB-9a-3a | — |
 | **CB-9** | **Preview variable inspector** | **M** | **🔲 next** | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
-| CB-10 | Retire `transform_blocks` and the dead transform UI | M | 🔲 | Phase 3 gate | CB-11 (disjoint) |
+| CB-10 | Retire `transform_blocks` + the dead preview path | M→L | 🔲 | Phase 3 gate | CB-11 (disjoint) |
 | CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
@@ -1964,9 +1964,56 @@ Values update live as the preview run progresses.
 
 **CB-10 and CB-11 have disjoint footprints — dispatch in parallel.**
 
-## CB-10 — Retire `transform_blocks` and the dead transform UI 🔲
+## CB-10 — Retire `transform_blocks` and the dead preview/transform surfaces 🔲
 
-**Priority: P2** · Size: M · File: `server/services/TransformBlockService.ts`
+**Priority: P2** · Size: M→L · File: `server/services/TransformBlockService.ts`
+
+> **Scope widened 2026-09-08 (reviewer), after CB-9a-3b.** This ticket was
+> already "delete a superseded surface"; 9a-3b created a second one of exactly
+> the same kind, and they share a proof obligation, so they belong in one unit.
+> **Part B below is pure deletion — it must add no tests and change no
+> behaviour.** If removing something requires a test to prove it still works,
+> that thing was not dead and does not belong in this ticket.
+
+### Part B — the preview execution path 9a-3b superseded
+
+Preview now runs as an ordinary server-backed run (`runIdKind="session"`, no
+`previewEnvironment`). Nothing supplies `previewEnvironment` any more —
+`PreviewRunner` was its only caller — so the runner's entire `mode: 'preview'`
+branch is unreachable. Verified at `06e4bb74`; reference counts:
+
+| File | refs to the dead branch |
+|---|---|
+| `client/src/pages/WorkflowRunner.tsx` | 28 |
+| `client/src/hooks/runner/useRunNavigation.ts` | 14 (includes a whole preview transport) |
+| `client/src/hooks/runner/useRunValues.ts` | 10 |
+| `client/src/hooks/runner/useRunSession.ts` | 8 |
+
+Plus two files whose only reference is their own definition:
+
+- `client/src/lib/previewRunner/HotReloadManager.ts` (49 lines) — its job, live-reloading
+  preview on builder edits, is now 9a-3b's definition-hash restart.
+- `client/src/hooks/usePreviewSession.ts` (141 lines).
+
+**This is the convention-8 shape, and it is why it must be swept now rather than
+left.** Neither `tsc` nor ESLint can see it: an unused branch behind an optional
+prop is *used code that nothing calls*. CLAUDE.md's own cautionary tale is the
+builder `mode` that sat at its default for months with every Advanced branch
+unreachable. A reader who finds this branch will reasonably assume preview still
+uses it and may "fix" it back into service.
+
+⚠️ **Do NOT delete `client/src/lib/previewRunner/PreviewEnvironment.ts`.** It is
+still live for a different consumer: `DevPanel` is rendered from
+`PagesTab` in advanced mode, and `ExecutionTimeline` uses it. That is a builder
+surface, out of scope here. `DevToolsPanel` is already free of it — 9a-3b moved
+it to a plain `data` prop.
+
+**Acceptance for Part B:** the dead branch and the two orphan files are gone;
+`previewEnvironment` no longer appears in the runner hooks or `WorkflowRunner`;
+`test:fast` and `test:integration` still pass **with no test added and none
+weakened**; preview still works in a browser (reuse 9a-3b's walkthrough — it is
+the regression check that matters, since the deleted code is what a mistake
+would fall back to).
 
 ### Finding
 
