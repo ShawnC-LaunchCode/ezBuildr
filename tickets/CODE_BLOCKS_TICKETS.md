@@ -104,7 +104,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 14 of 16 units done. **Phase 3 is complete** — editor, preview
+**Counts:** 14 of 16 units done. **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. Remaining: CB-10 (M→L) and CB-11 (S), which
 are disjoint and can run in PARALLEL, after the Phase 3 gate is signed off.
 
@@ -1977,14 +1977,42 @@ Values update live as the preview run progresses.
 
 ---
 
-## Phase 3 Gate
+## Phase 3 Gate ✅ — verified 2026-09-08 (reviewer)
 
-- [ ] CB-9a verified and committed before CB-9; CB-8, CB-9a, CB-9 all ✅ with dated notes
-- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
-- [ ] `test:fast` + `test:integration` → green
-- [ ] **Live proof (batched):** one drive-through of the running app authoring a 2-block
-      chained workflow in the new modal and watching both resolve in the inspector.
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] CB-9a verified and committed before CB-9; CB-8, CB-9a, CB-9 all ✅ with dated notes
+- [x] `npm run type-check` → 0 errors · `npm run lint` → clean · `strict-zones` 6/6
+- [x] `test:fast` **337 files / 3852** · `test:integration` **149 files / 1383 | 3 skipped**
+- [x] **Live proof (batched):** a real 2-block CHAIN — `subtotal = price × qty`, then
+      `grand_total = subtotal × 1.0825` consuming the first block's output. Authored
+      through the CB-8 modal (Monaco showing the code, `subtotal` DERIVED as input,
+      `grand_total` DERIVED as output), then run in preview: `price 12`, `qty 4` →
+      **subtotal 48 Fired** → **grand_total 51.96 Fired**, both resolved in the CB-9
+      inspector on a single submit, in dependency order. `gate3-modal-chain.png`,
+      `gate3-chain-waiting.png`, `gate3-chain-resolved.png`.
+- [x] Reviewer has committed each passed ticket + this gate
+
+**Two things the gate caught that no unit test could.**
+
+**1. A stale Vite dep-optimizer cache presents as a product bug.** The first run threw
+`Invalid hook call` / `Cannot read properties of null (reading 'useState')` from inside
+`@monaco-editor/react`, and Monaco never mounted. The tell was three different optimizer
+hashes on one page — `@monaco-editor_react?v=9bce93d7`, React `?v=e5338107`, everything
+else `?v=dea80e2b` — i.e. two copies of React. `rm -rf node_modules/.vite` and a restart
+fixed it completely. **Adding a heavyweight dependency (Monaco, in CB-8) can leave the
+MAIN checkout's `.vite` cache half-stale**, and the symptom is indistinguishable from a
+broken component. This is the same hazard CLAUDE.md documents for junctioned worktrees,
+reaching the main checkout by a different route. Clear the cache before believing it.
+
+**2. Repointing workflow ownership needs `creatorId`, not just `ownerUuid`/`createdBy`.**
+The preview showed a red "Unauthorized: You do not own this workflow" banner while
+working perfectly. Cause was the gate's own fixture, not the product:
+`DocumentHookService` checks `workflow.creatorId !== userId`, and `PreviewRunner`'s
+definition read fetches `/document-hooks`. Worth knowing for any probe that hands a
+workflow to a browser-registered user — and worth noting that a failure in one of the
+five auxiliary definition fetches surfaces as a blocking banner over an otherwise
+healthy preview.
+
+Fixtures torn down and proved zero: `leftover tenants=0 users=0 workflows=0`.
 
 ---
 
