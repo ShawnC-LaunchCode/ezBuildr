@@ -92,7 +92,10 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9a-3b | Connect the preview UI, prove the experience | L | ✅ | CB-9a-3a | — |
 | CB-9 | Preview variable inspector | M | ✅ | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
-| **CB-10** | **Retire `transform_blocks` + the dead preview path** | **M→L** | **🔲 next** | Phase 3 gate | CB-11 (disjoint) |
+| **CB-10a** | **Dead preview execution path** | **S–M** | **🔲 next** | Phase 3 gate | CB-11, CB-10b |
+| CB-10b | Stop the builder offering transform blocks | M | 🔲 | Phase 3 gate | CB-11, CB-10a |
+| CB-10c | Retire the AI transform subsystem + optimizer | L | 🔲 | CB-10b | CB-11 |
+| CB-10d | Drop the tables + clear remaining consumers | M–L | 🔲 | CB-10b, CB-10c | ⏰ before client data |
 | CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
@@ -104,7 +107,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 14 of 16 units done. **Phase 3 is complete and its gate is signed off** — editor, preview
+**Counts:** 14 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. Remaining: CB-10 (M→L) and CB-11 (S), which
 are disjoint and can run in PARALLEL, after the Phase 3 gate is signed off.
 
@@ -2021,6 +2024,53 @@ Fixtures torn down and proved zero: `leftover tenants=0 users=0 workflows=0`.
 **CB-10 and CB-11 have disjoint footprints — dispatch in parallel.**
 
 ## CB-10 — Retire `transform_blocks` and the dead preview/transform surfaces 🔲
+
+> ### ⚠️ RE-SCOPED 2026-09-08 — split into CB-10a..d. Read this before the body below.
+>
+> The dev dispatched to CB-10 stopped at preflight and was right to. This ticket's
+> premise was stale: it described a tidy deletion, but **67 files outside its stated
+> footprint reference transform blocks**, including a live AI subsystem, a six-pass
+> optimizer, portability, cloning, versioning, alias renaming, lint rules, Prometheus
+> metrics, and the preview-retirement cleanup CB-9a-1 added. Its claim that the four
+> transform UI files "are already unreferenced" is also wrong —
+> `forms/TransformBlockForm.tsx` is live via `BlockEditorDialog → BlockCard → PageCanvas`,
+> and `LogicAddMenu` still offers the category.
+>
+> **The measurement that decided it (2026-09-08):**
+>
+> | | transform_blocks | transform_block_runs | workflows | workflow_runs |
+> |---|---|---|---|---|
+> | dev | 1 | **0** | 88 | 1 |
+> | **production** | 1 | **0** | 86 | 97 |
+>
+> One row, in each environment, that has never executed. And `grep -rn "ai/transform"
+> client/src` returns **nothing** — the five `/api/ai/transform` endpoints
+> (generate/revise/debug/auto-fix/schema-align) are mounted but no UI has ever called
+> them. AI **workflow generation** and **AI Assist** are separate features and are NOT
+> affected; workflow generation merely loses one optional output array
+> (`shared/types/ai.ts:128`, defaulted `[]`).
+>
+> **Owner ruling, 2026-09-08: retire it.** Rationale is the deadline, not the code.
+> Client data lands ~2026-10-21. Dropping a table is nearly free today and expensive
+> forever afterwards — migration against client records, a retention ruling, a rollback
+> plan, and a zero-retention client already asking for less retained data (`ZR` backlog).
+> Removing a feature is reversible at any time; dropping a table with live data is not.
+> So the irreversible work goes inside the window and the reversible work waits.
+> "AI generates **Code Blocks**" is filed as a separate future initiative — strictly
+> better than what is being removed (multi-output, gates, inspector, cycle detection),
+> and not built on a model being deleted.
+>
+> **Order matters: 10d cannot precede 10b and 10c.**
+>
+> | Unit | Scope | Size | Reversible? | Notes |
+> |---|---|---|---|---|
+> | **CB-10a** | The dead preview execution path (old Part B) | S–M | yes | Zero consumers. Independent of transform blocks — **dispatch now**. |
+> | **CB-10b** | Stop the builder OFFERING transform blocks: the 4 dead UI files, live `forms/TransformBlockForm.tsx`, `BlockTypeSelector` "Code Transform" mode, `useTransformBlocks` | M | yes | No schema change. Kills the user-visible duplication. |
+> | **CB-10c** | Retire `/api/ai/transform` + `lib/ai/transform*` + `lib/transforms/**` (optimizer, debugger, schemaAlign) + the `transformBlocks` array in the AI contract | L | yes | Delete, do not port. No UI calls it. |
+> | **CB-10d** | Drop `transform_blocks` + `transform_block_runs`, and clear the remaining consumers: AliasRenameService, WorkflowService, VersionService, WorkflowContentIngestService, WorkflowClonerService, portability, `WorkflowRunRepository` cleanup array, `prom.ts`, `workflowLintRules` | M–L | **NO** | **Deadline: before client data (~2026-10-21).** Re-verify prod counts immediately before. |
+>
+> Everything below this box is the ORIGINAL body. Its footprint list and its
+> "already unreferenced" claim are both superseded by the table above.
 
 **Priority: P2** · Size: M→L · File: `server/services/TransformBlockService.ts`
 
