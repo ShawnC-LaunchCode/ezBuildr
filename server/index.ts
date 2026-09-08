@@ -16,6 +16,7 @@ import { initTelemetry } from "./observability/telemetry";
 
 initTelemetry();
 import { registerRoutes } from "./routes";
+import { logStorageProvider } from "./services/storage";
 import { serveStatic } from "./static";
 import { log as _log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
@@ -193,6 +194,10 @@ void (async () => {
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
         }, () => {
             logger.warn(`serving on port ${port}`);
+            // Moved out of `server/services/storage`'s module scope: logging as
+            // an import side effect killed a unit-fast file in CI that merely
+            // pulled storage in transitively.
+            logStorageProvider();
             // Record which DOCX->PDF converter this instance will use. Without
             // this, a misconfigured converter degraded every generated PDF with
             // nothing in the boot log to show it.
