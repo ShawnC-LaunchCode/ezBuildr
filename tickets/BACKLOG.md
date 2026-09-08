@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
 | CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
 | CB-B5 | `triage` | Live-run document uploads can outlive failed/missing rows; row deletion never removes blobs. Separate from preview cleanup | Inline below: `CB-B5` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
@@ -190,6 +191,31 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## The pinned run definition omits virtual steps (CB-B7) — filed 2026-09-08
+
+**Tag: needs-initiative.** `WorkflowService.getWorkflowWithDetails`
+(`server/services/WorkflowService.ts:255`) calls
+`stepRepo.findByPageIds(pageIds, scopedTx)` with no `includeVirtual`, so virtual
+computed steps are excluded; `VersionService.serializeWorkflowInTx`
+(`server/services/VersionService.ts:171`) serializes that result into the pinned
+version graph, so `RunDefinitionProvider` — and therefore `runtime.steps` — never
+carries a Code Block's output step, its alias, or its `isVirtual` flag.
+
+**Deliberately deferred by CB-4**, whose reasoning still stands and is recorded at
+`server/services/codeBlocks/CodeBlockService.ts:156`: that same definition also
+feeds navigation, page validation, visibility and progress counts, so widening it
+is not a local change.
+
+**The established workaround is `findByWorkflowIdWithAliases`, whose
+`includeVirtual` defaults to true.** CB-4 uses it to resolve Code Block inputs;
+CB-9 uses it to give the inspector alias/`isVirtual` metadata.
+
+Filed because it has now been independently rediscovered twice, each time costing a
+dev a full investigation cycle. A comment inside `CodeBlockService` is not
+discoverable by someone working in the preview panel or the runner. Promoting this
+means deciding whether the run definition should carry virtual steps at all — and
+re-checking every navigation/validation/visibility/progress consumer if so.
 
 ## Client field errors are never populated (CB-B6) — filed 2026-09-07
 
