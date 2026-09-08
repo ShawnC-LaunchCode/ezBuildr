@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
 | CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
 | CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
 | CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
@@ -192,6 +193,25 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Switching language leaves the other language's code (CB-B9) — filed 2026-09-08
+
+**Tag:** `informational`. Found while implementing CB-11.
+
+The JS/Python switch changes `config.language`, the Monaco grammar, the placeholder
+and the labels — but deliberately does **not** touch `config.code`. So flipping a
+JavaScript block to Python leaves JavaScript in the editor, and the author finds out
+at save (`Script validation failed`) or, worse, at run.
+
+Not fixed in CB-11 on purpose: clearing the editor on a toggle destroys work the
+author may have wanted, and a mis-click would be unrecoverable. The honest fixes are
+larger than "expose the switch":
+
+- warn inline when the code is non-empty and the language changed, offering to clear;
+- or keep a per-language draft, so toggling back restores what was there.
+
+Neither is urgent — the failure is loud and self-inflicted, and an author switching
+language almost always intends to rewrite the body anyway.
 
 ## Inspector denial rests on RLS, not its own guards (CB-B8) — filed 2026-09-08
 

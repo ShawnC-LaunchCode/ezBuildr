@@ -93,7 +93,7 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9 | Preview variable inspector | M | ✅ | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
 | **CB-10** | **Retire `transform_blocks` + the dead preview path** | **M→L** | **🔲 next** | Phase 3 gate | CB-11 (disjoint) |
-| CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
+| CB-11 | Python: fix runtime availability, expose the switch | S | ✅ | Phase 3 gate | CB-10 (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
 | CB-B5, CB-B6 | Filed to `tickets/BACKLOG.md` during Phase 3 | — | 🔲 | — | — |
@@ -2154,7 +2154,7 @@ the result in the turn-in. Anything with a live importer stays and is reported a
 
 ---
 
-## CB-11 — Python: fix runtime availability, then expose the language switch 🔲
+## CB-11 — Python: fix runtime availability, then expose the language switch ✅
 
 **Priority: P1** · Size: S · File: `Dockerfile`
 
@@ -2223,6 +2223,100 @@ interpreter is visible in production rather than discovered by a failing run.
    (`tests/integration/health.test.ts` or the existing health test file).
 7. **Live proof required** for 1 and 2 — this touches an external runtime no test can prove.
 8. `npm run type-check` 0 errors · `npm run lint` clean · `test:fast` green.
+
+### Verification — 2026-09-08, reviewer (self-implemented), commit `01395b43`
+
+All 8 ACs met. Evidence, in the order it was produced:
+
+**AC 1 — proven by building both sides, not by reading the Dockerfile.**
+
+```
+docker run --rm node:24-bookworm-slim  ->  NO python3 in base image
+docker run --rm ezbuildr-cb11:before   ->  sh: 1: python3: not found   (exit 127)
+docker run --rm ezbuildr-cb11:live     ->  Python 3.11.2   (/usr/bin/python3)
+```
+
+`:before` is HEAD's Dockerfile built unchanged. The finding and the fix are each
+demonstrated; neither is asserted.
+
+**AC 2, 3, 7 — live, in the built production image** (`NODE_ENV=production`),
+against a throwaway `ezbuildr_cb11_live` database created for the purpose and
+dropped afterwards. Nothing touched the shared dev Neon branch: the probe used
+`pg` with an explicit connection string rather than importing `server/db`.
+
+```
+/health      -> "pythonSandbox": {"available": true}
+step_values  -> [{"value":6,"alias":"quantity"},
+                 {"value":42,"alias":"order_total", ...}]     # 6 * 7, from Python
+```
+
+The block's code is `emit({ 'order_total': input['quantity'] * 7 })` — a syntax
+error under the JavaScript sandbox, so a green result cannot be a JS run wearing
+a Python label.
+
+**The discriminating half.** Same image, `SANDBOX_PYTHON_EXECUTABLE` pointed at a
+name that does not exist:
+
+```
+/health  -> "available": false, "error": "Python interpreter is not available"
+            (status stays "healthy" — see below)
+block    -> ProcessError: spawn python3-does-not-exist ENOENT
+```
+
+That last line is the production bug, reproduced on demand. The proof is
+therefore known to depend on the interpreter rather than merely to coexist with
+one.
+
+**AC 4, 5 — driven through the real UI** (own port 5395, worktree source
+confirmed by grepping a token through Vite; never `preview_start`). A block
+created with **no** `language` key opened showing JavaScript selected (AC 5);
+clicking Python and Save persisted it:
+
+```
+select config->>'language' from steps ...  ->  python
+```
+
+Reopening showed Python selected, the modal read "Runs sandboxed Python", and the
+step card read "1 line of Python".
+
+**AC 6, 8** — `type-check` 0 · `lint` clean · `check:strict-zones` passed ·
+`test:fast` 339 files / 3867 passed (Phase 3 baseline 337 / 3852) ·
+`test:integration` 149 files / 1385 passed + 3 skipped (baseline 1383 + 3).
+Every added test was mutation-tested; each mutation below turned exactly the
+intended test red and nothing else:
+
+| Mutation | Caught by |
+|---|---|
+| remove the ENOENT `error` handler | 2 probe tests |
+| return the raw spawn error to the caller | 2 probe tests |
+| drop the probe cache | the caching test |
+| hardcode `available = true` in the route | the missing-interpreter test |
+| degrade the instance when Python is absent | the "does NOT degrade" test |
+| revert the engine call to `'javascript'` | the integration wiring test only |
+
+### Two things the tests could not have found
+
+1. **`JsQuestionConfigSchema` is the real write boundary** and rejects unknown
+   keys. Without `language` added there the switch saved *nothing* —
+   `400 Unknown config key "language"`. Every unit and integration test passed
+   at that moment; only driving the live app surfaced it. The ticket's footprint
+   did not mention `shared/validation/stepConfigSchemas.ts`; it should have.
+2. **Monaco's `ariaLabel` was set in `onMount` only**, so after switching to
+   Python a screen reader still announced "Code Block JavaScript". Moved into
+   `options`, which `@monaco-editor/react` re-applies on change.
+
+### Deliberate decisions worth contesting later
+
+- **`pythonSandbox` does not move the overall `/health` status.** The PDF
+  converter degrades the instance because every document path uses it; Python is
+  opt-in, so degrading every JavaScript-only deployment would drain the word of
+  meaning. Pinned by a test so it reads as a choice, not an oversight.
+- **The switch does not touch the author's code.** Flipping to Python leaves
+  JavaScript in the editor, which then fails on its own syntax. Warning about
+  that is a real gap but is beyond "expose the switch" — filed as **CB-B9**.
+- **The ticket's stated footprint was stale** (`blocks/js-editor/*`). The
+  authoring surface moved to `builder/questions/js-question/` in CB-8; the switch
+  went there, which also kept it clear of CB-10's deletions.
 
 ---
 
