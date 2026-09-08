@@ -165,6 +165,66 @@ describe.sequential('CB-8 Code Block test endpoint', () => {
     );
   });
 
+  it('CB-11: sends the language the EDITOR is on, not the one last saved', async () => {
+    // The saved block has no `language`, i.e. JavaScript. An author who flips the
+    // switch to Python and hits Run before saving must have their Python go to the
+    // Python sandbox -- otherwise the panel answers with a JavaScript syntax error
+    // about code that is not JavaScript, which is indistinguishable from a bug in
+    // their own script. Same unsaved-edit rule `code` already follows.
+    //
+    // The engine is stubbed rather than really run: this pins the WIRING, and a
+    // real run would additionally require a python3 on whatever machine is
+    // executing the suite -- which is the very assumption CB-11 exists to remove.
+    const executeSpy = vi.spyOn(scriptEngine, 'execute').mockResolvedValue({
+      ok: true, output: { order_total: 6 }, durationMs: 1,
+    } as unknown as Awaited<ReturnType<typeof scriptEngine.execute>>);
+    const validateSpy = vi.spyOn(scriptEngine, 'validate').mockResolvedValue({
+      valid: true, warnings: [], derivedInputs: [], derivedOutputs: [],
+    } as unknown as Awaited<ReturnType<typeof scriptEngine.validate>>);
+
+    try {
+      await agent
+        .post(`/api/steps/${stepId}/code-block/test`)
+        .send({
+          code: 'emit({ "order_total": input["price"] * input["quantity"] })',
+          testData: { price: 2, quantity: 3 },
+          language: 'python',
+        })
+        .expect(200);
+
+      expect(executeSpy).toHaveBeenCalledTimes(1);
+      expect(executeSpy.mock.calls[0][0]).toMatchObject({ language: 'python' });
+      // Validation has to agree with execution, or an author gets their Python
+      // rejected by the JavaScript parser before it ever reaches the sandbox.
+      expect(validateSpy.mock.calls[0][0]).toMatchObject({ language: 'python' });
+    } finally {
+      executeSpy.mockRestore();
+      validateSpy.mockRestore();
+    }
+  });
+
+  it('CB-11 AC 5: a block stored before the field existed still runs as JavaScript', async () => {
+    // The saved config genuinely has no `language` key -- asserted, not assumed,
+    // because the whole no-backfill argument rests on it.
+    const [stored] = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.id, stepId));
+    expect((stored.config as Record<string, unknown>).language).toBeUndefined();
+
+    const executeSpy = vi.spyOn(scriptEngine, 'execute');
+    try {
+      const response = await agent
+        .post(`/api/steps/${stepId}/code-block/test`)
+        .send({ testData: { price: 2, quantity: 3 } })
+        .expect(200);
+
+      expect(executeSpy.mock.calls[0][0]).toMatchObject({ language: 'javascript' });
+      // And it really ran, in the real sandbox: 2 * 3.
+      expect(response.body).toMatchObject({ success: true, executed: true });
+      expect(response.body.output).toEqual({ order_total: 6 });
+    } finally {
+      executeSpy.mockRestore();
+    }
+  });
+
   it('reports a sandbox failure as a failed run rather than a server error', async () => {
     const response = await agent
       .post(`/api/steps/${stepId}/code-block/test`)

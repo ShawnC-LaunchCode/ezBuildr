@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 
 import type { CodeBlockRun, Step } from '@shared/schema';
+import type { ScriptLanguage } from '@shared/types/scripting';
 import {
+  CODE_BLOCK_LANGUAGES,
   isJsQuestionConfig,
   LEGACY_JS_QUESTION_ADAPTER,
+  resolveCodeBlockLanguage,
   resolveFiringPolicy,
   type CodeBlockOutput,
   type JsQuestionConfig,
@@ -58,6 +61,11 @@ export type CodeBlockTestParams = {
    */
   code?: string;
   /**
+   * The language currently selected in the editor. Falls back to the SAVED
+   * language, for the same unsaved-edit reason as `code` (CB-11).
+   */
+  language?: ScriptLanguage;
+  /**
    * Sample values, keyed by input key. When omitted the block is validated but
    * NOT executed, which is how the editor collects CB-5's derived keys and
    * dynamic-access warnings on save without paying for a sandbox run.
@@ -86,6 +94,24 @@ function canonicalize(value: unknown): unknown {
     return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]));
   }
   return value ?? null;
+}
+
+/**
+ * `config` is jsonb the client supplies wholesale, and `isJsQuestionConfig` does not
+ * inspect `language` — so an unrecognised value would reach ScriptEngine and come back
+ * as a generic "Unsupported language" at *execution* time, on a run, rather than when
+ * the author saved it. Reject it at the save boundary instead.
+ */
+function validateLanguage(config: Pick<JsQuestionConfig, 'language'>): void {
+  if (config.language !== undefined && !CODE_BLOCK_LANGUAGES.includes(config.language)) {
+    throw Object.assign(
+      new Error(
+        `Validation error: language must be one of ${CODE_BLOCK_LANGUAGES.join(', ')}, ` +
+        `got "${String(config.language)}"`
+      ),
+      { statusCode: 400 }
+    );
+  }
 }
 
 function resolveConfig(rawConfig: unknown): JsQuestionConfig | undefined {
@@ -404,7 +430,11 @@ export class CodeBlockService {
 
   async validateForSave(config: JsQuestionConfig): Promise<void> {
     validateFiringPolicy(config);
-    const validation = await this.engine.validate({ language: 'javascript', code: config.code });
+    validateLanguage(config);
+    const validation = await this.engine.validate({
+      language: resolveCodeBlockLanguage(config),
+      code: config.code,
+    });
     if (!validation.valid) {
       // CB-8: tagged 400 so the message reaches the editor and can render
       // against the code field. Untagged it fell through classifyRouteError to
@@ -449,7 +479,8 @@ export class CodeBlockService {
     const { workflowId, config } = await this.loadBlockForAuthoring(stepId, userId);
     const code = params.code ?? config.code;
 
-    const validation = await this.engine.validate({ language: 'javascript', code });
+    const language = params.language ?? resolveCodeBlockLanguage(config);
+    const validation = await this.engine.validate({ language, code });
     const warnings = validation.warnings ?? [];
     const derivedInputs = validation.derivedInputs ?? [];
     const derivedOutputs = validation.derivedOutputs ?? [];
@@ -469,7 +500,7 @@ export class CodeBlockService {
     // plainly see themselves passing.
     const inputKeys = [...new Set([...config.inputs.map(input => input.key), ...derivedInputs])];
     const result = await this.engine.execute({
-      language: 'javascript',
+      language,
       code,
       inputKeys,
       data: params.testData,
@@ -613,7 +644,7 @@ export class CodeBlockService {
     }
 
     const result = await this.engine.execute({
-      language: 'javascript',
+      language: resolveCodeBlockLanguage(config),
       code: config.code,
       inputKeys: config.inputs.map(input => input.key),
       data: preparedData,

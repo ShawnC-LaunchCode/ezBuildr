@@ -9,6 +9,8 @@
  */
 import { fetchAPI } from "@/lib/vault-api";
 
+import type { ScriptLanguage } from "@shared/types/scripting";
+
 export interface CodeBlockTestResponse {
     success: boolean;
     executed: boolean;
@@ -23,7 +25,7 @@ export interface CodeBlockTestResponse {
 
 export function testCodeBlock(
     stepId: string,
-    body: { code?: string; testData?: Record<string, unknown> }
+    body: { code?: string; testData?: Record<string, unknown>; language?: ScriptLanguage }
 ): Promise<CodeBlockTestResponse> {
     return fetchAPI<CodeBlockTestResponse>(`/api/steps/${stepId}/code-block/test`, {
         method: "POST",

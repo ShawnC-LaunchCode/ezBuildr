@@ -67,8 +67,15 @@ WORKDIR /app
 # AcroForm filling (server/services/document/PdfService.ts unlockPdf). Without it,
 # locked/encrypted PDF forms silently fall back to the original (un-fillable) buffer.
 # Runtime-only; --no-install-recommends + apt cleanup keeps the image lean.
+#
+# python3 is used AT RUNTIME by server/utils/enhancedSandboxExecutor.ts, which runs
+# Python transform code via spawn(PYTHON_EXECUTABLE, ["-c", ...]) - PYTHON_EXECUTABLE
+# resolves to "python3" on Linux. The builder stage above also installs python3, but
+# only for node-gyp; this stage starts fresh from the base image, so without it here
+# every Python Code Block ENOENTs in the deployed image. No test can catch that: it
+# is a property of the image, not of the code.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends qpdf \
+    && apt-get install -y --no-install-recommends qpdf python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # dumb-init removed to prevent path mismatches on Debian

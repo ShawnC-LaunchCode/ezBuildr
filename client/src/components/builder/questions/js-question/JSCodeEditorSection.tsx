@@ -25,6 +25,11 @@ const TRIGGER_LABELS: Record<string, string> = {
     runComplete: 'run complete',
 };
 
+const LANGUAGE_LABELS: Record<string, string> = {
+    javascript: 'JavaScript',
+    python: 'Python',
+};
+
 const REPEAT_LABELS: Record<string, string> = {
     onChange: 'on change',
     once: 'once',
@@ -63,6 +68,7 @@ export function JSCodeEditorSection({
     const lineCount = config.code === '' ? 0 : config.code.split('\n').length;
     const trigger = TRIGGER_LABELS[config.trigger ?? 'everySubmit'] ?? 'every submit';
     const repeat = REPEAT_LABELS[config.repeat ?? 'onChange'] ?? 'on change';
+    const languageLabel = LANGUAGE_LABELS[config.language ?? 'javascript'] ?? 'JavaScript';
 
     return (
         <div className="space-y-3">
@@ -82,7 +88,7 @@ export function JSCodeEditorSection({
             <p className="text-xs text-muted-foreground">
                 Fires <span className="text-foreground">{trigger}</span>, repeating{' '}
                 <span className="text-foreground">{repeat}</span> ·{' '}
-                <span className="tabular-nums">{lineCount}</span> {lineCount === 1 ? 'line' : 'lines'} of JavaScript
+                <span className="tabular-nums">{lineCount}</span> {lineCount === 1 ? 'line' : 'lines'} of {languageLabel}
             </p>
 
             <Button

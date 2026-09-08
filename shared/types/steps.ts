@@ -4,6 +4,8 @@
  * Type definitions for different question/step types in workflows.
  */
 
+import type { ScriptLanguage } from './scripting';
+
 export type CodeBlockOutput = {
   key: string;
   type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'list';
@@ -68,10 +70,36 @@ export type JsQuestionConfig = {
 
   /** See `trigger` for why this is optional. */
   repeat?: CodeBlockRepeat;
+
+  /**
+   * Which sandbox runs `code`. Optional for the same reason as `trigger`:
+   * defaulted at read time by `resolveCodeBlockLanguage`, so every Code Block
+   * stored before CB-11 keeps running as JavaScript without a backfill.
+   */
+  language?: ScriptLanguage;
 };
 
 export const DEFAULT_CODE_BLOCK_TRIGGER: CodeBlockTrigger = 'everySubmit';
 export const DEFAULT_CODE_BLOCK_REPEAT: CodeBlockRepeat = 'onChange';
+
+export const DEFAULT_CODE_BLOCK_LANGUAGE: ScriptLanguage = 'javascript';
+
+/**
+ * The languages a Code Block may declare — the `transformBlockLanguageEnum` values.
+ * The tuple form is what `z.enum` needs; the readonly array is the ergonomic one.
+ */
+export const CODE_BLOCK_LANGUAGES_TUPLE = ['javascript', 'python'] as const;
+export const CODE_BLOCK_LANGUAGES: readonly ScriptLanguage[] = CODE_BLOCK_LANGUAGES_TUPLE;
+
+/**
+ * Reading a config's language, default applied. Same one-place rule as
+ * `resolveFiringPolicy`: a stored config with no `language` is JavaScript.
+ */
+export function resolveCodeBlockLanguage(
+  config: Pick<JsQuestionConfig, 'language'>
+): ScriptLanguage {
+  return config.language ?? DEFAULT_CODE_BLOCK_LANGUAGE;
+}
 
 /** Reading a config's firing policy, defaults applied. One place, so the defaults cannot drift. */
 export function resolveFiringPolicy(

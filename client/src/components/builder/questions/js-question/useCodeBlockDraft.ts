@@ -119,7 +119,7 @@ export function useCodeBlockDraft(params: {
         setIsChecking(true);
         try {
             // Warnings first, so they are on screen whether the save lands or not.
-            const checked = await testCodeBlock(stepId, { code: draft.code }).catch(() => null);
+            const checked = await testCodeBlock(stepId, { code: draft.code, language: draft.language }).catch(() => null);
             if (checked) {
                 setWarnings(checked.warnings);
                 setDerivedInputKeys(checked.derivedInputs);
@@ -142,10 +142,10 @@ export function useCodeBlockDraft(params: {
     }, [draft, pageId, stepId, updateStep]);
 
     const runTest = useCallback(async (testData: Record<string, unknown>) => {
-        const response = await testCodeBlock(stepId, { code: draft.code, testData });
+        const response = await testCodeBlock(stepId, { code: draft.code, testData, language: draft.language });
         absorb(response);
         return response;
-    }, [absorb, draft.code, stepId]);
+    }, [absorb, draft.code, draft.language, stepId]);
 
     return {
         draft, warnings, saveError, isChecking, isDirty,

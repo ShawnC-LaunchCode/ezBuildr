@@ -18,10 +18,11 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
-const { dbExecute, converterHealthCheck, loggerError } = vi.hoisted(() => ({
+const { dbExecute, converterHealthCheck, loggerError, pythonCheck } = vi.hoisted(() => ({
   dbExecute: vi.fn(),
   converterHealthCheck: vi.fn(),
   loggerError: vi.fn(),
+  pythonCheck: vi.fn(),
 }));
 
 // A mutable stand-in for the PdfConverter singleton: `primaryStrategy` is read
@@ -35,10 +36,19 @@ vi.mock('../../../server/db', () => ({ db: { execute: dbExecute } }));
 
 vi.mock('../../../server/logger', () => ({
   logger: { error: loggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+  // `pythonRuntime` builds a child logger at module scope (CB-11). Without this
+  // the route cannot even be imported, and every test here skips.
+  createLogger: () => ({ error: loggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }));
 
 vi.mock('../../../server/services/document/PdfConverter', () => ({
   get pdfConverter() { return converter; },
+}));
+
+// Stubbed rather than really spawned: whether THIS machine has python3 is exactly
+// the thing that must not decide what the endpoint reports (CB-11).
+vi.mock('../../../server/utils/pythonRuntime', () => ({
+  checkPythonSandbox: pythonCheck,
 }));
 
 /** A realistic leaky probe error — the exact shape that must not reach a caller. */
@@ -58,6 +68,7 @@ describe('GET /health — PDF converter', () => {
     dbExecute.mockResolvedValue(undefined);
     converter.primaryStrategy = 'puppeteer';
     converterHealthCheck.mockResolvedValue({ strategy: 'puppeteer', reachable: true });
+    pythonCheck.mockResolvedValue({ available: true });
     loggerError.mockClear();
   });
 
@@ -144,6 +155,69 @@ describe('GET /health — PDF converter', () => {
     expect(response.status).toBe(503);
     expect(response.body.status).toBe('unhealthy');
     expect(response.body.pdfConverter.reachable).toBe(true);
+  });
+});
+
+describe('GET /health — Python sandbox (CB-11)', () => {
+  let app: Express;
+
+  beforeAll(async () => {
+    const { default: healthRouter } = await import('../../../server/routes/health');
+    app = express();
+    app.use(healthRouter);
+  });
+
+  beforeEach(() => {
+    dbExecute.mockResolvedValue(undefined);
+    converter.primaryStrategy = 'puppeteer';
+    converterHealthCheck.mockResolvedValue({ strategy: 'puppeteer', reachable: true });
+    loggerError.mockClear();
+  });
+
+  it('reports the interpreter as available, with no error', async () => {
+    pythonCheck.mockResolvedValue({ available: true });
+
+    const response = await request(app).get('/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.pythonSandbox).toEqual({ available: true });
+  });
+
+  it('reports a missing interpreter instead of leaving it to be found by a failed run', async () => {
+    pythonCheck.mockResolvedValue({ available: false, error: 'Python interpreter is not available' });
+
+    const response = await request(app).get('/health');
+
+    expect(response.body.pythonSandbox).toEqual({
+      available: false,
+      error: 'Python interpreter is not available',
+    });
+  });
+
+  it('does NOT degrade the instance when Python is missing', async () => {
+    pythonCheck.mockResolvedValue({ available: false, error: 'Python interpreter is not available' });
+
+    const response = await request(app).get('/health');
+
+    // Unlike the PDF converter, Python is opt-in: a deployment whose blocks are
+    // all JavaScript is entirely healthy without it. Degrading every such
+    // instance would drain the word of meaning. Pinned because it is a
+    // deliberate asymmetry with the converter directly above, not an oversight.
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('healthy');
+  });
+
+  it('still reports the field when the database is down', async () => {
+    // The python probe must not be skipped by an early return on the db failure:
+    // "which capability is missing" is exactly what an operator needs during an
+    // incident, and 503 is when they are looking.
+    dbExecute.mockRejectedValue(new Error('connection refused'));
+    pythonCheck.mockResolvedValue({ available: true });
+
+    const response = await request(app).get('/health');
+
+    expect(response.status).toBe(503);
+    expect(response.body.pythonSandbox).toEqual({ available: true });
   });
 });
 

@@ -1,5 +1,12 @@
 /** Shared shapes for the code editor, importable without pulling in Monaco. */
 
+/**
+ * Which grammar the editor highlights. Structurally the `ScriptLanguage` values
+ * the sandbox accepts, restated here so this module stays importable without
+ * dragging shared/ (and Monaco) into a client bundle that only wants the types.
+ */
+export type CodeEditorLanguage = "javascript" | "python";
+
 export interface CodeEditorMarker {
     startLineNumber: number;
     startColumn: number;

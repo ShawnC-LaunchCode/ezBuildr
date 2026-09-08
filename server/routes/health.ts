@@ -5,6 +5,7 @@ import { db } from '../db';
 import { logger } from '../logger';
 import { pdfConverter } from '../services/document/PdfConverter';
 import { asyncHandler } from '../utils/asyncHandler';
+import { checkPythonSandbox } from '../utils/pythonRuntime';
 
 const router = Router();
 
@@ -54,6 +55,20 @@ interface HealthCheckResponse {
     responseTime?: number;
     error?: string;
   };
+  /**
+   * Whether this instance can run Python Code Blocks (CB-11).
+   *
+   * Deliberately does NOT move the overall `status`. Unlike the PDF converter,
+   * which every document path uses, Python is opt-in: a deployment whose blocks
+   * are all JavaScript is entirely healthy without an interpreter. Flagging every
+   * such instance `degraded` would drain the word of meaning. It is reported
+   * because the alternative — the state before CB-11 — was finding out from a
+   * failed run in production.
+   */
+  pythonSandbox: {
+    available: boolean;
+    error?: string;
+  };
   requestId?: string;
 }
 
@@ -69,6 +84,9 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     pdfConverter: {
       strategy: pdfConverter.primaryStrategy,
       reachable: false,
+    },
+    pythonSandbox: {
+      available: false,
     },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Express request augmented with id
     requestId: (req as any).id,
@@ -115,6 +133,14 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     if (healthCheck.status === 'healthy') {
       healthCheck.status = 'degraded';
     }
+  }
+
+  // Python interpreter presence. Cached after the first probe, and never allowed
+  // to fail the check for the reason given on the field above.
+  const python = await checkPythonSandbox();
+  healthCheck.pythonSandbox.available = python.available;
+  if (python.error !== undefined) {
+    healthCheck.pythonSandbox.error = python.error;
   }
 
   // Set appropriate HTTP status code

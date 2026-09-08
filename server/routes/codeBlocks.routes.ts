@@ -11,6 +11,8 @@
  */
 import { z } from "zod";
 
+import { CODE_BLOCK_LANGUAGES_TUPLE } from "@shared/types/steps";
+
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { testLimiter } from "../middleware/rateLimiting";
@@ -37,6 +39,10 @@ const MAX_TEST_PAYLOAD_BYTES = 64 * 1024;
 const testCodeBlockSchema = z.object({
   code: z.string().max(32 * 1024).optional(),
   testData: z.record(z.unknown()).optional(),
+  // Same reason as `code`: the panel tests what is in the editor, and an author
+  // who has flipped the switch to Python but not saved yet would otherwise have
+  // their Python run through the JavaScript sandbox and fail on syntax (CB-11).
+  language: z.enum(CODE_BLOCK_LANGUAGES_TUPLE).optional(),
 });
 
 export function registerCodeBlockRoutes(app: Express): void {

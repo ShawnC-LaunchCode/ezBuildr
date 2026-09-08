@@ -23,13 +23,22 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
     Dialog, DialogContent, DialogDescription, DialogTitle,
 } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePages } from "@/lib/vault-hooks";
+
+import { resolveCodeBlockLanguage } from "@shared/types/steps";
+import type { ScriptLanguage } from "@shared/types/scripting";
 
 import { FiringPanel, InputsPanel, OutputsPanel, PanelMessageSlot } from "./CodeBlockPanels";
 import { CodeBlockTestPanel } from "./CodeBlockTestPanel";
 import { classifyWarning, collectByField, type CodeBlockField } from "./saveErrors";
 import type { JSQuestionConfig } from "./types";
 import { useCodeBlockDraft } from "./useCodeBlockDraft";
+
+const LANGUAGES: ReadonlyArray<{ value: ScriptLanguage; label: string }> = [
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'python', label: 'Python' },
+];
 
 interface CodeBlockEditorModalProps {
     open: boolean;
@@ -53,6 +62,8 @@ export function CodeBlockEditorModal({
     const [showLeaveWarning, setShowLeaveWarning] = useState(false);
     const [showVariables, setShowVariables] = useState(false);
     const editorRef = useRef<CodeEditorHandle | null>(null);
+    const language = resolveCodeBlockLanguage(draft);
+    const languageLabel = LANGUAGES.find(item => item.value === language)?.label ?? 'JavaScript';
 
     const handleEditorReady = useCallback((handle: CodeEditorHandle) => {
         editorRef.current = handle;
@@ -93,7 +104,7 @@ export function CodeBlockEditorModal({
                         </p>
                         <DialogTitle className="truncate text-base font-semibold">{title}</DialogTitle>
                         <DialogDescription className="text-xs text-muted-foreground">
-                            Runs sandboxed JavaScript. Call <code className="font-mono">emit</code> once with your declared outputs.
+                            Runs sandboxed {languageLabel}. Call <code className="font-mono">emit</code> once with your declared outputs.
                         </DialogDescription>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 pr-8">
@@ -115,10 +126,37 @@ export function CodeBlockEditorModal({
 
                 <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_356px]">
                     <div className="flex min-h-0 flex-col gap-3 overflow-hidden bg-background p-5 lg:border-r">
-                        <div className="flex items-baseline justify-between gap-2">
-                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-                                JavaScript
-                            </h3>
+                        <div className="flex items-center justify-between gap-2">
+                            <ToggleGroup
+                                type="single"
+                                value={language}
+                                onValueChange={(value) => {
+                                    // Radix emits "" when the active item is re-clicked; a block
+                                    // always has a language, so ignore the deselect.
+                                    if (value === 'javascript' || value === 'python') {
+                                        update({ language: value });
+                                    }
+                                }}
+                                size="sm"
+                                // The segmented-control idiom this app already uses for Tabs:
+                                // a muted track with the selected item lifted out of it in the
+                                // page background. `variant="outline"` was tried first and read
+                                // as two equal buttons -- the on-state's `bg-accent` differs from
+                                // the panel by ~4% luminance with identical text colour, so which
+                                // language you were in was invisible at a glance.
+                                className="shrink-0 gap-0.5 rounded-md bg-muted p-0.5 text-muted-foreground"
+                                aria-label="Code Block language"
+                            >
+                                {LANGUAGES.map(item => (
+                                    <ToggleGroupItem
+                                        key={item.value}
+                                        value={item.value}
+                                        className="h-6 rounded-sm px-2.5 text-[11px] font-medium data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                                    >
+                                        {item.label}
+                                    </ToggleGroupItem>
+                                ))}
+                            </ToggleGroup>
                             <p className="truncate text-[11px] text-muted-foreground/80">
                                 <code className="font-mono">input</code> holds your declared inputs ·{' '}
                                 <code className="font-mono">helpers</code> is available
@@ -127,7 +165,8 @@ export function CodeBlockEditorModal({
                         <div className="min-h-0 flex-1">
                             <JSCodeEditor
                                 code={draft.code}
-                                ariaLabel="Code Block JavaScript"
+                                language={language}
+                                ariaLabel={`Code Block ${languageLabel}`}
                                 onReady={handleEditorReady}
                                 onChange={(code) => { update({ code }); }}
                             />

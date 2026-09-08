@@ -452,6 +452,10 @@ export const JsQuestionConfigSchema = z.object({
   trigger: z.enum(['everySubmit', 'atPage', 'runStart', 'runComplete']).optional(),
   triggerPageId: z.string().optional(),
   repeat: z.enum(['onChange', 'once', 'always']).optional(),
+  // CB-11: which sandbox runs `code`. Optional for the same reason as `trigger`
+  // and `repeat` -- every Code Block stored before CB-11 has no such key and
+  // reads as the documented default ('javascript'), so no backfill was needed.
+  language: z.enum(['javascript', 'python']).optional(),
 }).superRefine((config, ctx) => {
   // AC 8. Enforced here as well as in `validateFiringPolicy` because this is
   // the write boundary the API actually goes through -- a config that never

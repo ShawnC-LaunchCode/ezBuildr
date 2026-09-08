@@ -17,7 +17,7 @@ import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { useCallback } from "react";
 
-import type { CodeEditorHandle, CodeEditorMarker } from "./codeEditorTypes";
+import type { CodeEditorHandle, CodeEditorLanguage, CodeEditorMarker } from "./codeEditorTypes";
 
 // Without workers Monaco keeps highlighting but loses diagnostics and
 // completion — the two things that make it worth having over a textarea.
@@ -93,23 +93,26 @@ interface MonacoCodeFieldProps {
   isDark: boolean;
   ariaLabel: string;
   markers: CodeEditorMarker[];
+  language?: CodeEditorLanguage;
   onReady?: (handle: CodeEditorHandle) => void;
 }
 
 export default function MonacoCodeField({
-  code, onChange, isDark, ariaLabel, markers, onReady,
+  code, onChange, isDark, ariaLabel, markers, language = "javascript", onReady,
 }: MonacoCodeFieldProps): JSX.Element {
   const handleMount = useCallback<OnMount>((editor, instance) => {
     defineThemes(instance as unknown as typeof monaco);
     instance.editor.setTheme(isDark ? DARK_THEME : LIGHT_THEME);
     // The block body is a function body, not a module: `emit`, `input` and
     // `helpers` are injected by the sandbox and would otherwise be flagged as
-    // undefined on every single line.
-    instance.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: true,
-      noSyntaxValidation: false,
-    });
-    editor.updateOptions({ ariaLabel });
+    // undefined on every single line. Python has no TS worker behind it -- its
+    // grammar is highlight-only -- so this is scoped to the JavaScript editor.
+    if (language === "javascript") {
+      instance.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: true,
+        noSyntaxValidation: false,
+      });
+    }
     onReady?.({
       insertAtCursor(text: string) {
         const selection = editor.getSelection();
@@ -122,16 +125,20 @@ export default function MonacoCodeField({
     });
     const model = editor.getModel();
     if (model) { instance.editor.setModelMarkers(model, "code-block", markers); }
-  }, [ariaLabel, isDark, markers, onReady]);
+  }, [isDark, language, markers, onReady]);
 
   return (
     <Editor
-      language="javascript"
+      language={language}
       value={code}
       theme={isDark ? DARK_THEME : LIGHT_THEME}
       onChange={(next) => onChange(next ?? "")}
       onMount={handleMount}
       options={{
+        // Set HERE, not in `onMount`: onMount runs once, so a label that depends
+        // on a changeable prop (the CB-11 language switch) would keep announcing
+        // the language the editor opened with.
+        ariaLabel,
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 13,
