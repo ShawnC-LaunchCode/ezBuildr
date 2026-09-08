@@ -19,9 +19,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { nextMock, submitPageMock, advanceMock, toastMock } = vi.hoisted(() => ({
-  nextMock: vi.fn(),
-  submitPageMock: vi.fn(),
+const { advanceMock, toastMock } = vi.hoisted(() => ({
   advanceMock: vi.fn(),
   toastMock: vi.fn(),
 }));
@@ -32,8 +30,6 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitPage: () => ({ mutateAsync: submitPageMock }),
-  useNext: () => ({ mutateAsync: nextMock }),
   // CB-9a-3a: the production transport now advances in one request.
   useAdvance: () => ({ mutateAsync: advanceMock }),
 }));
@@ -95,8 +91,6 @@ function renderNavigation(transport: RunNavigationTransport, visitedPageIds = VI
 }
 
 beforeEach(() => {
-  submitPageMock.mockReset();
-  nextMock.mockReset();
   advanceMock.mockReset();
   toastMock.mockReset();
   window.scrollTo = vi.fn();
@@ -128,10 +122,8 @@ describe('jumpToPage — production (AC1, AC2)', () => {
     expect(await jumped).toBe(true);
     expect(result.current.currentPageIndex).toBe(1);
     expect(result.current.currentPage?.id).toBe('p-bank');
-    expect(submitPageMock).not.toHaveBeenCalled();
     // A rail jump is a navigation-only move: it must not become a submission.
     expect(advanceMock).not.toHaveBeenCalled();
-    expect(nextMock).not.toHaveBeenCalled();
   });
 
   it('refuses an unreached page called directly, with no navigation and no flush', async () => {
@@ -203,10 +195,8 @@ describe('jumpToPage — production (AC1, AC2)', () => {
     expect(result.current.showReview).toBe(false);
     expect(result.current.currentPage?.id).toBe('p-loans');
     expect(saveNow).toHaveBeenCalledTimes(1);
-    expect(submitPageMock).not.toHaveBeenCalled();
     // A rail jump is a navigation-only move: it must not become a submission.
     expect(advanceMock).not.toHaveBeenCalled();
-    expect(nextMock).not.toHaveBeenCalled();
   });
 });
 
@@ -227,10 +217,8 @@ describe('jumpToPage — preview parity (AC4)', () => {
     // toolbar's per-page tools, so a jump that left it stale would fill the
     // page the respondent just left.
     expect(setCurrentPage).toHaveBeenCalledWith(1);
-    expect(submitPageMock).not.toHaveBeenCalled();
     // A rail jump is a navigation-only move: it must not become a submission.
     expect(advanceMock).not.toHaveBeenCalled();
-    expect(nextMock).not.toHaveBeenCalled();
   });
 
   it('applies the same reached guard in preview', async () => {

@@ -4,30 +4,26 @@ import { ExecutionTimeline } from "@/components/devpanel/ExecutionTimeline";
 import { RuntimeVariableList } from "@/components/devpanel/RuntimeVariableList";
 import { UnifiedDevPanel } from "@/components/devpanel/UnifiedDevPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import { ApiWorkflowVariable } from "@/lib/vault-api";
+import type { TraceEntry } from "@/lib/previewRunner/PreviewEnvironment";
+import type { ApiPage, ApiStep, ApiWorkflowVariable } from "@/lib/vault-api";
 
 import { JsonViewer } from "./JsonViewer";
 
 
 interface DevToolsPanelProps {
-    env: PreviewEnvironment | null;
+    data: { workflowId: string; pages: ApiPage[]; steps: ApiStep[]; values: Record<string, unknown>; trace: TraceEntry[] };
     isOpen: boolean;
     onClose: () => void;
 }
 
-export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelProps) {
-    const state = usePreviewEnvironment(env);
+export function DevToolsPanel({ data: state, isOpen, onClose: _onClose }: DevToolsPanelProps) {
     const [localOpen, setLocalOpen] = useState(true);
 
     const variables = useMemo<ApiWorkflowVariable[]>(() => {
-        if (!state || !env) {return [];}
-
         // Map steps to variables
-        return env.getSteps()
+        return state.steps
             .map(step => {
-                const page = env.getPages().find(s => s.id === step.pageId);
+                const page = state.pages.find(s => s.id === step.pageId);
                 return {
                     key: step.id,
                     alias: step.alias ?? null,
@@ -39,7 +35,7 @@ export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelP
                 };
             })
             .filter(v => v.pageTitle !== "Final Documents");
-    }, [state, env]);
+    }, [state]);
 
     // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
     // Determine the effective toggle handler based on parent's onClose or local intent
@@ -50,9 +46,8 @@ export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelP
     // assuming 'isOpen' from props means "Dev Tools Enabled/Visible at all".
 
     const contextValues = useMemo(() => {
-        if (!state || !env) {return {};}
         const values = { ...state.values };
-        const steps = env.getSteps();
+        const steps = state.steps;
 
         const contextAwareValues: Record<string, unknown> = {};
 
@@ -127,18 +122,18 @@ export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelP
         // Re-sorting keys for display?
         // JS objects preserve insertion order mostly, but recursive structure is what matters.
         return contextAwareValues;
-    }, [state, env]);
+    }, [state]);
 
     // Conditional return AFTER all hooks have been called
-    if (!isOpen || !state) {return null;}
+    if (!isOpen) {return null;}
 
     return (
-        <div className="h-full flex flex-col pointer-events-auto">
+        <div className="absolute right-0 inset-y-0 z-20 sm:static h-full flex flex-col pointer-events-auto">
             <UnifiedDevPanel
                 workflowId={state.workflowId}
                 isOpen={localOpen}
                 onToggle={() => setLocalOpen(!localOpen)}
-                className="border-l shadow-xl h-full"
+                className="border-l shadow-xl h-full max-w-[calc(100vw-2rem)] sm:max-w-none"
             >
                 <Tabs defaultValue="variables" className="h-full flex flex-col">
                     <div className="px-3 py-2 border-b">

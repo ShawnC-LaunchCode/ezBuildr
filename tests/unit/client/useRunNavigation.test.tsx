@@ -2,9 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { nextMock, submitPageMock, advanceMock, validatePageMock, toastMock } = vi.hoisted(() => ({
-  nextMock: vi.fn(),
-  submitPageMock: vi.fn(),
+const { advanceMock, validatePageMock, toastMock } = vi.hoisted(() => ({
   advanceMock: vi.fn(),
   validatePageMock: vi.fn(),
   toastMock: vi.fn(),
@@ -16,8 +14,6 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitPage: () => ({ mutateAsync: submitPageMock }),
-  useNext: () => ({ mutateAsync: nextMock }),
   // CB-9a-3a: the production transport now advances in one request.
   useAdvance: () => ({ mutateAsync: advanceMock }),
 }));
@@ -65,8 +61,6 @@ describe('useRunNavigation validation state', () => {
   beforeEach(() => {
     validatePageMock.mockReset();
     toastMock.mockReset();
-    submitPageMock.mockReset();
-    nextMock.mockReset();
     advanceMock.mockReset();
     advanceMock.mockImplementation(({ submissionKey }: { submissionKey: string }) => Promise.resolve(advanceResponse(submissionKey)));
     window.scrollTo = vi.fn();
@@ -150,8 +144,6 @@ describe('useRunNavigation validation state', () => {
       values: [{ stepId: 'phone-step', value: '312-555-1212' }],
       submissionKey: expect.any(String),
     }));
-    expect(submitPageMock).not.toHaveBeenCalled();
-    expect(nextMock).not.toHaveBeenCalled();
     expect(setCurrentPageIndex).not.toHaveBeenCalled();
     expect(setShowReview).toHaveBeenCalledWith(true);
   });

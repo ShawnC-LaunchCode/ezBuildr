@@ -89,8 +89,8 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9a-2 | Submissions authoritative and replay-safe | L | ✅ | CB-9a-1 | — |
 | CB-9a-3 pt 1 | `advance`: one submission returns the whole state | M | ✅ | CB-9a-2 | — |
 | CB-9a-3a | Server-backed preview session plumbing | M | ✅ | CB-9a-3 pt 1 | — |
-| **CB-9a-3b** | **Connect the preview UI, prove the experience** | **L** | **🔲 next** | CB-9a-3a | — |
-| CB-9 | Preview variable inspector | M | 🔲 | CB-9a umbrella | — |
+| CB-9a-3b | Connect the preview UI, prove the experience | L | ✅ | CB-9a-3a | — |
+| **CB-9** | **Preview variable inspector** | **M** | **🔲 next** | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
 | CB-10 | Retire `transform_blocks` and the dead transform UI | M | 🔲 | Phase 3 gate | CB-11 (disjoint) |
 | CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
@@ -104,8 +104,9 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 12 of 16 units done. Remaining: CB-9a-3b (L), CB-9 (M), CB-10 (M),
-CB-11 (S). CB-9a-3b is the large one and is next.
+**Counts:** 13 of 16 units done. **The CB-9a umbrella is complete**, so CB-9 —
+the inspector this whole prerequisite existed for — is unblocked. Remaining:
+CB-9 (M, next), then CB-10 (M) and CB-11 (S) in parallel after the Phase 3 gate.
 
 ---
 
@@ -1649,7 +1650,45 @@ one, and it does not belong in the same review unit as a PreviewRunner rewrite.
 - Add `tests/unit/client/previewExecution.test.tsx`: submit/retry, stale
   responses discarded by `submissionKey`, and the preserved live recovery path.
 
-**CB-9a-3b — Connect the preview UI and prove the experience (open; after 9a-3a).**
+**CB-9a-3b — Connect the preview UI and prove the experience ✅**
+
+> **Verified 2026-09-08 (reviewer), against the tree rather than the report.**
+> `tsc` 0 · `lint` clean · `strict-zones` 6/6 · `test:fast` **336 files / 3840**
+> (3817 + 22 dev + 1 reviewer) · `test:integration` **148 files / 1377 passed |
+> 3 skipped** (baseline; no new integration tests were needed).
+>
+> Preview is now an ordinary server-backed run: `PreviewRunner` creates a
+> preview session, passes `runIdKind="session"` and no `previewEnvironment`, so
+> the runner takes its production path and the server owns answers, navigation
+> and block state. Reset and snapshot load RETIRE the old run and read the
+> replacement's state. Live proof captured desktop and mobile, and the
+> simulated-actions banner is visible in it.
+>
+> **The dev found three real defects in CB-9a-3a and stopped rather than
+> patching around them — all three confirmed.** Their fix acquires the in-flight
+> flag before the FIRST await (including the autosave flush, which is where the
+> real window was) and keeps a submission key only on a transport error, so a
+> validation rejection cannot be replayed forever. That was the subtlety most
+> likely to be got wrong.
+>
+> **Reviewer edits, disclosed:**
+> - `tests/unit/client/PreviewRunner.visitedPages.test.tsx` contained a raw
+>   cp1252 `0x97` em-dash, so the file was not valid UTF-8. Repaired. A U+FFFD
+>   scan does not find this class of damage — check for a decode failure.
+> - Added the missing guard test for `useAdvance`'s submissionKey identity
+>   check: deleting that guard left all 19 tests green. My first attempt at the
+>   test ALSO passed against the mutation, because a bare "did not appear"
+>   assertion straight after the act runs before the cache write it is meant to
+>   catch. Rewritten to follow the foreign response with a matching one and
+>   assert the whole set; it now fails with
+>   `['p-one','p-foreign','p-two']` when the guard is removed.
+>
+> **Mutation-tested by the reviewer:** removing the reached-set dedup fails the
+> duplicate test; removing the identity guard fails the new test. SECT-8B's
+> reached-set property moved rather than vanished — `WorkflowRunRepository`
+> accumulates `visited_page_ids` with `array_append` guarded by `= ANY`, so
+> preview now shares live's mechanism instead of maintaining a parallel
+> in-memory set, and the rail in the browser proof shows all three pages marked.
 
 > ⚠️ **Defects found in CB-9a-3a by the 9a-3b dev, 2026-09-07. Confirmed by the
 > reviewer against the code. Fix these FIRST, as part of 9a-3b.**

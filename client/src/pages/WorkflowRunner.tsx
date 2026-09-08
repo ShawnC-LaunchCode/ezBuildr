@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
@@ -14,7 +14,7 @@ import { PageSteps } from "@/components/runner/PageSteps";
 import type { RunnerNavData } from "@/components/runner/RunnerSectionNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRunSession } from "@/hooks/runner/useRunSession";
+import { useRunSession, type RunIdKind } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
 import { useSections } from "@/hooks/api/useSections";
@@ -22,14 +22,44 @@ import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useR
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { useWorkflow } from "@/lib/vault-hooks";
-import { fetchAPI, type ApiPage, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import { fetchAPI, type ApiAdvanceResult, type ApiPage, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
 import type { LogicRule } from "@shared/schema";
+import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
+
+export interface PreviewRunnerControls {
+  steps: ApiStep[];
+  fillPage: (values: Record<string, unknown>) => Promise<void>;
+  fillWorkflow: (values: Record<string, unknown>) => Promise<void>;
+}
+
+interface ServerPreviewOptions {
+  initialValues?: Record<string, unknown>;
+  onControls: (controls: PreviewRunnerControls | null) => void;
+  onResult: (result: ApiAdvanceResult) => void;
+}
+
+export function previewInputValues(steps: ApiStep[], values: Record<string, unknown>): Record<string, unknown> {
+  const inputs: Record<string, unknown> = {};
+  for (const step of steps) {
+    if (step.isVirtual === true || ['js_question', 'computed', 'display', 'final_documents', 'signature_block'].includes(step.type)) { continue; }
+    const key = Object.hasOwn(values, step.id) ? step.id : step.alias;
+    if (key && Object.hasOwn(values, key)) { inputs[step.id] = values[key]; }
+  }
+  return inputs;
+}
+
+function useSnapshotInputs(steps: ApiStep[] | undefined, preview: ServerPreviewOptions | undefined) {
+  const values = preview?.initialValues;
+  return useMemo(() => steps && values ? previewInputValues(steps, values) : undefined, [steps, values]);
+}
 
 interface WorkflowRunnerProps {
   runId?: string;
+  runIdKind?: RunIdKind;
+  serverPreview?: ServerPreviewOptions;
   previewEnvironment?: PreviewEnvironment;
   isPreview?: boolean;
   onPreviewComplete?: () => void;
@@ -110,6 +140,10 @@ function hasFinalBlock(page: ApiPage | undefined): boolean {
   return page != null && Boolean(getRunnerPageConfig(page).finalBlock);
 }
 
+function getFinalPageConfig(page: ApiPage | undefined): RunnerPageConfig | undefined {
+  return page ? getRunnerPageConfig(page) : undefined;
+}
+
 export function partitionRunnerPages(visiblePages: ApiPage[]): {
   respondentPages: ApiPage[];
   finalPage: ApiPage | undefined;
@@ -185,6 +219,8 @@ function resolveRunnerSectionState(input: {
 
 export function WorkflowRunner({
   runId,
+  runIdKind,
+  serverPreview,
   previewEnvironment,
   isPreview: _isPreview = false,
   onPreviewComplete,
@@ -192,7 +228,7 @@ export function WorkflowRunner({
   onPreviewPageEntered,
 }: WorkflowRunnerProps) {
   // 1. Session & Initialization
-  const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment);
+  const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment, runIdKind);
   const isProductionMode = mode === 'production';
 
   // 2. Fetch Core Data
@@ -230,12 +266,15 @@ export function WorkflowRunner({
   const effectiveLogicRules = (isProductionMode ? runtime?.logicRules : logicRules) as LogicRule[] | undefined ?? [];
 
   // 4. Form Values & Autosave
-  const { effectiveValues, handleUpdateValue, saveStatus, saveNow } = useRunValues({
+  const initialPreviewValues = useSnapshotInputs(effectiveAllSteps, serverPreview);
+  const { effectiveValues, handleUpdateValue, saveStatus, saveNow, applySubmittedValues } = useRunValues({
     mode,
     actualRunId,
     run,
     previewState,
-    previewEnvironment
+    previewEnvironment,
+    initialValues: initialPreviewValues,
+    serverPreview: serverPreview !== undefined,
   });
 
   // 5. Visibility Engine
@@ -250,14 +289,29 @@ export function WorkflowRunner({
     () => partitionRunnerPages(visiblePages),
     [visiblePages]
   );
-  const finalPageConfig = finalPage ? getRunnerPageConfig(finalPage) : undefined;
+  const finalPageConfig = getFinalPageConfig(finalPage);
+
+  const resolvePreviewPages = useCallback((values: Record<string, unknown>) => {
+    const visibility = evaluateWorkflowVisibility({
+      sections: sectionState.sections ?? [], pages: pages ?? [], steps: effectiveAllSteps ?? [],
+      rules: effectiveLogicRules, data: values,
+      resolveAlias: (alias) => effectiveAllSteps?.find((step) => step.alias === alias)?.id,
+    });
+    return partitionRunnerPages((pages ?? []).filter((page) => visibility.visiblePages.has(page.id))).respondentPages;
+  }, [sectionState.sections, pages, effectiveAllSteps, effectiveLogicRules]);
+  const applyPreviewResult = useCallback((result: ApiAdvanceResult, submittedValues: Record<string, unknown>) => {
+    if (result.success) { applySubmittedValues(result.values, submittedValues); }
+    serverPreview?.onResult(result);
+    return resolvePreviewPages(result.values);
+  }, [applySubmittedValues, serverPreview, resolvePreviewPages]);
 
   const navigationTransport = useRunNavigationTransport({
     mode,
     previewEnvironment,
     getVisiblePageSteps,
     onPreviewComplete,
-    saveNow
+    saveNow,
+    onAdvanceResult: serverPreview ? applyPreviewResult : undefined,
   });
 
   const [reviewEditStepId, setReviewEditStepId] = useState<string | null>(null);
@@ -299,6 +353,48 @@ export function WorkflowRunner({
   });
 
   const visiblePageSteps = currentPage != null ? getVisiblePageSteps(currentPage.id) : [];
+  const previewActive = useRef(true);
+  useEffect(() => {
+    previewActive.current = true;
+    return () => { previewActive.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!serverPreview || !currentPage || !effectiveAllSteps || !actualRunId) { return; }
+    const fill = async (inputs: Record<string, unknown>, entireWorkflow: boolean) => {
+      let data = effectiveValues;
+      let pageToFill: ApiPage | undefined = entireWorkflow ? resolvePreviewPages(data)[0] : currentPage;
+      const submitted = new Set<string>();
+      while (pageToFill && previewActive.current) {
+        if (submitted.has(pageToFill.id)) { throw new Error('Auto-fill stopped at a repeated page. Continue manually.'); }
+        submitted.add(pageToFill.id);
+        const steps = effectiveAllSteps.filter((step) => step.pageId === pageToFill?.id);
+        const pageInputs = previewInputValues(steps, inputs);
+        data = { ...data, ...pageInputs };
+        Object.entries(pageInputs).forEach(([id, value]) => handleUpdateValue(id, value));
+        const resolved = resolvePreviewPages(data);
+        const outcome = await navigationTransport.advanceAfterValidation({
+          runId: actualRunId, currentPage: pageToFill,
+          currentPageIndex: resolved.findIndex((page) => page.id === pageToFill?.id),
+          visiblePages: resolved, visiblePageSteps: steps.filter((step) => !step.isVirtual),
+          effectiveValues: data, isLastPage: resolved.at(-1)?.id === pageToFill.id,
+          setCurrentPageIndex, setShowReview, returnToReviewAfterValidation: false,
+        });
+        if (outcome?.kind === 'validation') { throw new Error(outcome.errors.join(' ')); }
+        if (outcome?.kind !== 'advanced' || !entireWorkflow) { return; }
+        data = outcome.result.values;
+        pageToFill = pages?.find((page) => page.id === outcome.result.navigation?.nextPageId);
+        if (pageToFill && hasFinalBlock(pageToFill)) { return; }
+      }
+    };
+    serverPreview.onControls({
+      steps: visiblePageSteps,
+      fillPage: (values) => fill(values, false),
+      fillWorkflow: (values) => fill(values, true),
+    });
+    return () => { serverPreview.onControls(null); };
+  }, [serverPreview, currentPage, effectiveAllSteps, actualRunId, effectiveValues, handleUpdateValue,
+    resolvePreviewPages, navigationTransport, setCurrentPageIndex, setShowReview, pages, visiblePageSteps]);
   const visibleReviewStepIds = useMemo(() => respondentPages.flatMap((page) =>
     getVisiblePageSteps(page.id).map((step) => step.id)
   ), [getVisiblePageSteps, respondentPages]);
@@ -374,7 +470,7 @@ export function WorkflowRunner({
       initError={sectionState.initError}
       pages={pages}
       workflowId={workflowId}
-      isProductionMode={isProductionMode}
+      isProductionMode={isProductionMode && !serverPreview}
       actualRunId={actualRunId}
       workflow={workflow}
       branding={branding}

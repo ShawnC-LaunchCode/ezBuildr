@@ -37,6 +37,7 @@ interface DevToolbarProps {
     onToggleDevTools: () => void;
     showDevTools: boolean;
     isAiLoading?: boolean;
+    disabled?: boolean;
 }
 export function DevToolbar({
     workflowId,
@@ -47,7 +48,8 @@ export function DevToolbar({
     onLoadSnapshot,
     onToggleDevTools,
     showDevTools,
-    isAiLoading
+    isAiLoading,
+    disabled,
 }: DevToolbarProps) {
     const { data: snapshots } = useSnapshots(workflowId);
     const [selectedSnapshot, setSelectedSnapshot] = useState<string>("");
@@ -56,13 +58,13 @@ export function DevToolbar({
         onLoadSnapshot(snapshotId);
     };
     return (
-        <div className="h-14 border-b bg-muted/40 flex items-center justify-between px-4 shrink-0">
-            <div className="flex items-center gap-4">
+        <div className="min-h-14 border-b bg-muted/40 flex flex-wrap gap-2 items-center justify-between px-4 py-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col">
                         <span className="text-sm font-semibold text-foreground">Client View Preview</span>
                         <span className="text-[10px] text-muted-foreground">
-                            This is exactly what your client will see.
+                            Test the workflow with isolated preview data.
                         </span>
                     </div>
                 </div>
@@ -70,8 +72,8 @@ export function DevToolbar({
                 {/* Snapshot Selector */}
                 <div className="flex items-center gap-2">
                     <Files className="w-4 h-4 text-muted-foreground" />
-                    <Select value={selectedSnapshot} onValueChange={handleSnapshotSelect}>
-                        <SelectTrigger className="w-[200px] h-8 text-xs" aria-label="Select snapshot to load">
+                    <Select value={selectedSnapshot} onValueChange={handleSnapshotSelect} disabled={disabled}>
+                        <SelectTrigger className="w-40 h-8 text-xs" aria-label="Select snapshot to load">
                             <SelectValue placeholder="Load Snapshot..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -90,11 +92,11 @@ export function DevToolbar({
                     </Select>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {/* Random Data Actions */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-2" disabled={isAiLoading}>
+                        <Button variant="outline" size="sm" className="h-8 gap-2" disabled={(isAiLoading ?? false) || (disabled ?? false)}>
                             <Wand2 className="w-3.5 h-3.5" />
                             {isAiLoading ? "Generating..." : "Auto-Fill"}
                             <ChevronDown className="w-3 h-3 opacity-50" />
@@ -114,7 +116,7 @@ export function DevToolbar({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    onClick={onReset}
+                    onClick={() => { setSelectedSnapshot(''); onReset(); }}
                     title="Reset Preview"
                     aria-label="Reset Preview"
                 >

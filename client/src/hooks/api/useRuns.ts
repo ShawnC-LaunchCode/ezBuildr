@@ -62,20 +62,8 @@ export function useUpsertValue(): UseMutationResult<unknown, unknown, { runId: s
     });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useSubmitPage(): UseMutationResult<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }, unknown, { runId: string; pageId: string; values: Array<{ stepId: string; value: any }> }> {
-    return useMutation({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mutationFn: ({ runId, pageId, values }: { runId: string; pageId: string; values: Array<{ stepId: string; value: any }> }) =>
-            runAPI.submitPage(runId, pageId, values),
-        // Don't invalidate queries here - causes race condition with navigation state updates
-        // Values are already saved to backend; local formValues state is the source of truth for UI
-    });
-}
-
 /**
- * CB-9a-3: one logical submission. Prefer this over `useSubmitPage` +
- * `useNext`: it evaluates once, returns the server's authoritative state, and
+ * CB-9a-3: one logical submission evaluates once, returns authoritative state, and
  * carries the `submissionKey` that makes a retry a replay and a late response
  * detectable.
  */
@@ -85,30 +73,16 @@ export function useAdvance(): UseMutationResult<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { runId: string; pageId: string; values: Array<{ stepId: string; value: any }>; submissionKey: string }
 > {
+    const queryClient = useQueryClient();
     return useMutation({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mutationFn: ({ runId, pageId, values, submissionKey }: { runId: string; pageId: string; values: Array<{ stepId: string; value: any }>; submissionKey: string }) =>
             runAPI.advance(runId, pageId, values, submissionKey),
-    });
-}
-
-export function useNext(): UseMutationResult<{ nextPageId?: string }, unknown, { runId: string; currentPageId: string }> {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ runId, currentPageId }: { runId: string; currentPageId: string }) =>
-            runAPI.next(runId, currentPageId),
-        // Still no invalidation here - navigation state is managed locally in
-        // WorkflowRunner, and refetching causes race conditions that interfere
-        // with setCurrentPageIndex updates.
-        //
-        // The runner's Section rail (SECT-8B) nevertheless has to see the run's
-        // reached set grow as the respondent advances, so patch in the one field
-        // the server just changed: `next` appended the destination *it* resolved
-        // to `visited_page_ids`, and that exact id comes back in the response.
-        // Mirroring it keeps reachedness server-owned — the client never decides
-        // which page was reached — without a refetch (SECT-8A).
+        // The server persisted this destination in the reached set. Keep the
+        // cached run in sync without a refetch racing navigation.
         onSuccess: (result, variables) => {
-            const reachedPageId = result.nextPageId;
+            if (result.submissionKey !== variables.submissionKey) { return; }
+            const reachedPageId = result.success ? result.navigation?.nextPageId : undefined;
             if (reachedPageId == null) {
                 return;
             }

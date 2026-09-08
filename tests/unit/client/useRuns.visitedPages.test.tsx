@@ -2,7 +2,7 @@
 /**
  * SECT-8B — keeping the rail's reached set current without a refetch.
  *
- * `next` deliberately does not invalidate the runtime query (refetching races
+ * `advance` deliberately does not invalidate the runtime query (refetching races
  * `setCurrentPageIndex`), but the rail still has to see the run's reached set
  * grow as the respondent advances. The server appended the destination *it*
  * resolved and returns that id, so the cached runtime is patched with exactly
@@ -14,14 +14,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted(() => ({
-  next: vi.fn(),
+  advance: vi.fn(),
 }));
 
 vi.mock('../../../client/src/lib/vault-api', () => ({
-  runAPI: { next: mocks.next },
+  runAPI: { advance: mocks.advance },
 }));
 
-import { useNext } from '../../../client/src/hooks/api/useRuns';
+import { useAdvance } from '../../../client/src/hooks/api/useRuns';
 import { queryKeys } from '../../../client/src/hooks/api/queryKeys';
 
 const RUN_ID = 'run-1';
@@ -40,26 +40,26 @@ function cachedVisited(client: QueryClient): string[] {
   return runtime?.run.visitedPageIds ?? [];
 }
 
-function renderNext(client: QueryClient) {
+function renderAdvance(client: QueryClient) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return renderHook(() => useNext(), { wrapper });
+  return renderHook(() => useAdvance(), { wrapper });
 }
 
 afterEach(() => {
-  mocks.next.mockReset();
+  mocks.advance.mockReset();
 });
 
-describe('useNext keeps the cached reached set in step with the server', () => {
+describe('useAdvance keeps the cached reached set in step with the server', () => {
   it('appends the server-resolved destination, not the page the client sent', async () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     seedRuntime(client, ['p-one']);
     // The server skipped over p-two and resolved to p-three.
-    mocks.next.mockResolvedValue({ nextPageId: 'p-three' });
+    mocks.advance.mockResolvedValue({ submissionKey: 'attempt-1', success: true, navigation: { nextPageId: 'p-three' } });
 
-    const { result } = renderNext(client);
-    await result.current.mutateAsync({ runId: RUN_ID, currentPageId: 'p-one' });
+    const { result } = renderAdvance(client);
+    await result.current.mutateAsync({ runId: RUN_ID, pageId: 'p-one', values: [], submissionKey: 'attempt-1' });
 
     await waitFor(() => {
       expect(cachedVisited(client)).toEqual(['p-one', 'p-three']);
@@ -69,10 +69,10 @@ describe('useNext keeps the cached reached set in step with the server', () => {
   it('never duplicates an id already in the array', async () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     seedRuntime(client, ['p-one', 'p-two']);
-    mocks.next.mockResolvedValue({ nextPageId: 'p-two' });
+    mocks.advance.mockResolvedValue({ submissionKey: 'attempt-1', success: true, navigation: { nextPageId: 'p-two' } });
 
-    const { result } = renderNext(client);
-    await result.current.mutateAsync({ runId: RUN_ID, currentPageId: 'p-one' });
+    const { result } = renderAdvance(client);
+    await result.current.mutateAsync({ runId: RUN_ID, pageId: 'p-one', values: [], submissionKey: 'attempt-1' });
 
     await waitFor(() => {
       expect(cachedVisited(client)).toEqual(['p-one', 'p-two']);
@@ -82,11 +82,24 @@ describe('useNext keeps the cached reached set in step with the server', () => {
   it('leaves the array alone when the server resolved no next page', async () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     seedRuntime(client, ['p-one']);
-    mocks.next.mockResolvedValue({});
+    mocks.advance.mockResolvedValue({ submissionKey: 'attempt-1', success: true, navigation: { nextPageId: null } });
 
-    const { result } = renderNext(client);
-    await result.current.mutateAsync({ runId: RUN_ID, currentPageId: 'p-one' });
+    const { result } = renderAdvance(client);
+    await result.current.mutateAsync({ runId: RUN_ID, pageId: 'p-one', values: [], submissionKey: 'attempt-1' });
 
     expect(cachedVisited(client)).toEqual(['p-one']);
   });
+
+  it.each([
+    { success: false, submissionKey: 'attempt-1' },
+    { success: true, submissionKey: 'another-attempt' },
+  ])('does not mark a page reached for rejected or mismatched responses: %j', async (response) => {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    seedRuntime(client, ['p-one']);
+    mocks.advance.mockResolvedValue({ ...response, navigation: { nextPageId: 'p-three' } });
+    const { result } = renderAdvance(client);
+    await result.current.mutateAsync({ runId: RUN_ID, pageId: 'p-one', values: [], submissionKey: 'attempt-1' });
+    expect(cachedVisited(client)).toEqual(['p-one']);
+  });
+
 });

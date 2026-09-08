@@ -21,8 +21,6 @@ vi.mock('../../../client/src/hooks/use-toast', () => ({
 
 vi.mock('../../../client/src/lib/vault-hooks', () => ({
   useCompleteRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSubmitPage: () => ({ mutateAsync: vi.fn() }),
-  useNext: () => ({ mutateAsync: vi.fn() }),
 }));
 
 import { useRunNavigation, type RunNavigationTransport } from '../../../client/src/hooks/runner/useRunNavigation';

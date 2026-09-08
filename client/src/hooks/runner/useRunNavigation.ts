@@ -29,6 +29,8 @@ type AdvanceValidationIssue = {
   fieldErrors?: Record<string, string[]>;
 };
 
+type AdvanceOutcome = AdvanceValidationIssue | { kind: 'advanced'; result: ApiAdvanceResult };
+
 interface AdvanceContext {
   runId: string | null;
   currentPage: ApiPage;
@@ -54,7 +56,7 @@ export interface RunNavigationTransport {
   recordViewMovedTo: (pageIndex: number) => void;
   recordValidationPassed: (stepsValidated: number) => void | Promise<void>;
   recordValidationException: (error: unknown) => void | Promise<void>;
-  advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceValidationIssue | undefined>;
+  advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceOutcome | undefined>;
 }
 
 interface UseRunNavigationTransportProps {
@@ -63,6 +65,7 @@ interface UseRunNavigationTransportProps {
   getVisiblePageSteps: (pageId: string, traceRecorder?: TraceRecorder) => ApiStep[];
   onPreviewComplete?: () => void;
   saveNow: () => Promise<void>;
+  onAdvanceResult?: (result: ApiAdvanceResult, submittedValues: RunnerValues) => ApiPage[];
 }
 
 interface UseRunNavigationProps {
@@ -136,12 +139,35 @@ function focusFirstValidationError(blockErrors: Record<string, string[]>): void 
   }, 100);
 }
 
+function applyAdvanceNavigation(result: ApiAdvanceResult, context: Pick<AdvanceContext,
+  'currentPageIndex' | 'visiblePages' | 'isLastPage' | 'setCurrentPageIndex' | 'setShowReview' | 'returnToReviewAfterValidation'
+>, authoritative: boolean): void {
+  const { currentPageIndex, visiblePages, isLastPage, setCurrentPageIndex, setShowReview, returnToReviewAfterValidation } = context;
+  const nextPageId = result.navigation?.nextPageId;
+  if (returnToReviewAfterValidation || (authoritative ? nextPageId == null : isLastPage)) {
+    setShowReview(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  if (nextPageId != null) {
+    const nextIndex = visiblePages.findIndex((page) => page.id === nextPageId);
+    if (nextIndex >= 0) { setCurrentPageIndex(nextIndex); return; }
+    if (authoritative) { throw new Error('The next page is unavailable. Restart preview to reload the workflow.'); }
+    console.warn('[WorkflowRunner] Server nextPageId not locally visible, advancing sequentially', nextPageId);
+    if (currentPageIndex + 1 < visiblePages.length) { setCurrentPageIndex(currentPageIndex + 1); }
+    else { setShowReview(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    return;
+  }
+  setCurrentPageIndex(Math.min(currentPageIndex + 1, visiblePages.length - 1));
+}
+
 export function useRunNavigationTransport({
   mode,
   previewEnvironment,
   getVisiblePageSteps,
   onPreviewComplete,
   saveNow,
+  onAdvanceResult,
 }: UseRunNavigationTransportProps): RunNavigationTransport {
   const { toast } = useToast();
   const advanceMutation = useAdvance();
@@ -291,6 +317,10 @@ export function useRunNavigationTransport({
           return undefined;
         }
 
+        const submittedValues = Object.fromEntries(collectPageValues(visiblePageSteps, effectiveValues)
+          .map(({ stepId, value }) => [stepId, value]));
+        const resolvedPages = onAdvanceResult?.(result, submittedValues) ?? visiblePages;
+
         if (!result.success) {
           // No `fieldErrors` here, deliberately. The submit path never carried
           // them either: `validatePage` produces per-field structure, the
@@ -303,39 +333,9 @@ export function useRunNavigationTransport({
           };
         }
 
-        if (returnToReviewAfterValidation) {
-          setShowReview(true);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return undefined;
-        }
-
-        if (isLastPage) {
-          setShowReview(true);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return undefined;
-        }
-
-        const nextResult = { nextPageId: result.navigation?.nextPageId ?? undefined };
-
-        if (nextResult.nextPageId != null) {
-          const nextIndex = visiblePages.findIndex((page) => page.id === nextResult.nextPageId);
-          if (nextIndex >= 0) {
-            setCurrentPageIndex(nextIndex);
-          } else {
-            console.warn('[WorkflowRunner] Server nextPageId not locally visible, advancing sequentially', nextResult.nextPageId);
-            if (currentPageIndex + 1 < visiblePages.length) {
-              setCurrentPageIndex(currentPageIndex + 1);
-            } else {
-              setShowReview(true);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }
-        } else {
-          const newIndex = Math.min(currentPageIndex + 1, visiblePages.length - 1);
-          setCurrentPageIndex(newIndex);
-        }
-
-        return undefined;
+        applyAdvanceNavigation(result, { currentPageIndex, visiblePages: resolvedPages, isLastPage,
+          setCurrentPageIndex, setShowReview, returnToReviewAfterValidation }, onAdvanceResult !== undefined);
+        return { kind: 'advanced', result };
       },
     };
   }, [
@@ -345,6 +345,7 @@ export function useRunNavigationTransport({
     onPreviewComplete,
     saveNow,
     advanceMutation,
+    onAdvanceResult,
     toast,
   ]);
 }
