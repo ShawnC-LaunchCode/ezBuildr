@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
 | CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
 | CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
 | CB-B5 | `triage` | Live-run document uploads can outlive failed/missing rows; row deletion never removes blobs. Separate from preview cleanup | Inline below: `CB-B5` |
@@ -191,6 +192,22 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Inspector denial rests on RLS, not its own guards (CB-B8) — filed 2026-09-08
+
+**Tag: informational.** Found by reviewer mutation testing during CB-9.
+`CodeBlockService.readInspector` checks `record.tenantId !== tenantId` and then
+`workflowService.verifyAccess(..., 'edit')` before reading anything. Neutering
+**both** still leaves `codeBlocks.inspector.test.ts` green, because RLS filters
+`findRunOwnership` first and the method throws "Run not found" before either read.
+
+The security outcome is genuinely proven — the test spies on both repositories and
+asserts neither is reached — so this is not a hole today. It is recorded because
+those service checks are **untested defence-in-depth**, and this repo's RLS is
+staged rather than fully enforced (`FORCE` is off until RLS-5 is green). If RLS
+were relaxed on `workflow_runs`, they become the only guard and nothing proves
+they work. The same shape likely applies to other services that check tenancy
+behind an RLS-scoped read.
 
 ## The pinned run definition omits virtual steps (CB-B7) — filed 2026-09-08
 

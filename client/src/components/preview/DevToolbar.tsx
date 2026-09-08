@@ -6,6 +6,7 @@ import {
     ChevronDown,
     X,
     Bug,
+    Braces,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -36,6 +37,8 @@ interface DevToolbarProps {
     onLoadSnapshot: (snapshotId: string) => void;
     onToggleDevTools: () => void;
     showDevTools: boolean;
+    onToggleVariables?: () => void;
+    showVariables?: boolean;
     isAiLoading?: boolean;
     disabled?: boolean;
 }
@@ -48,6 +51,8 @@ export function DevToolbar({
     onLoadSnapshot,
     onToggleDevTools,
     showDevTools,
+    onToggleVariables,
+    showVariables,
     isAiLoading,
     disabled,
 }: DevToolbarProps) {
@@ -123,6 +128,10 @@ export function DevToolbar({
                     <RotateCcw className="w-4 h-4" />
                 </Button>
                 <Separator orientation="vertical" className="h-6 mx-1" />
+                <Button variant={showVariables ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-2"
+                    onClick={onToggleVariables} aria-pressed={showVariables ?? false}>
+                    <Braces className="w-4 h-4" />Variables
+                </Button>
                 <Button
                     variant={showDevTools ? "secondary" : "ghost"}
                     size="sm"

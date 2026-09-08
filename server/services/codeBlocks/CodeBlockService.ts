@@ -127,6 +127,60 @@ export class CodeBlockService {
     this.workflowSvc = dependencies.workflowSvc ?? workflowService;
   }
 
+  /** Inspector bootstrap only. Subsequent values and states come from advance. */
+  async readInspector(runId: string, userId: string, tenantId: string): Promise<{
+    variables: Array<{ key: string; stepId: string; alias: string | null; label: string;
+      type: string; declaredType: string; pageId: string; pageTitle: string;
+      isVirtual: boolean; source: 'question' | 'code block' | 'inbound'; blockStepId?: string }>;
+    blockStates: Array<Pick<CodeBlockRun, 'stepId' | 'status' | 'pendingInputs' | 'firedAt' | 'errorMessage'>>;
+  }> {
+    const ownership = await withCurrentTenant(async (tx) => {
+      const record = await this.stateRepo.findRunOwnership(runId, tx);
+      if (!record) { throw new Error('Run not found'); }
+      if (record.tenantId !== tenantId) { throw new Error('Access denied - run belongs to different tenant'); }
+      await this.workflowSvc.verifyAccess(record.run.workflowId, userId, 'edit', tx);
+      return record;
+    });
+    const { runPreviewPolicyService } = await import('../workflow-runs/RunPreviewPolicyService');
+    await runPreviewPolicyService.authorize(ownership.run, userId);
+    const { runDefinitionProvider } = await import('../workflow-runs/RunDefinitionProvider');
+    const definition = await runDefinitionProvider.getDefinition(ownership.run);
+    return withCurrentTenant(async (tx) => {
+      // CB-4 / CB-B7: pinned runtime omits virtual steps intentionally. Read their
+      // real identities here; do not change navigation's shared definition.
+      // Both reads follow ALL authorization, including preview author/expiry checks.
+      const aliasSteps = await this.stepRepo.findByWorkflowIdWithAliases(ownership.run.workflowId, tx);
+      const rows = await this.stateRepo.findByRunId(runId, tx);
+      const outputs = new Map<string, { blockStepId: string; type: string }>();
+      for (const step of definition.steps) {
+        if (step.type !== 'js_question') { continue; }
+        for (const output of resolveConfig(step.config)?.outputs ?? []) {
+          outputs.set(output.key, { blockStepId: step.id, type: output.type });
+        }
+      }
+      const virtualSteps = aliasSteps.filter(step => step.isVirtual && step.alias && outputs.has(step.alias));
+      const steps = [...definition.steps.filter(step => !step.isVirtual), ...virtualSteps];
+      return {
+        // A modern Code Block's own alias labels executable code, not a value.
+        // Its declared output steps carry the variables; legacy single-output
+        // blocks still keep their value on the block step itself.
+        variables: steps.filter(step => (step.type !== 'js_question' || !isJsQuestionConfig(step.config)) &&
+            (Boolean(step.alias) || !['display', 'final_documents', 'js_question'].includes(step.type)))
+          .map(step => {
+            const output = step.isVirtual && step.alias ? outputs.get(step.alias) : undefined;
+            return { key: step.id, stepId: step.id, alias: step.alias, label: step.title,
+              type: step.type, declaredType: output?.type ?? step.type,
+              pageId: step.pageId, pageTitle: definition.pages.find(page => page.id === step.pageId)?.title ?? 'Other',
+              isVirtual: step.isVirtual,
+              source: output !== undefined || step.type === 'js_question' ? 'code block' as const : 'question' as const,
+              blockStepId: output?.blockStepId ?? (step.type === 'js_question' ? step.id : undefined) };
+          }),
+        blockStates: rows.map(({ stepId, status, pendingInputs, firedAt, errorMessage }) =>
+          ({ stepId, status, pendingInputs, firedAt, errorMessage })),
+      };
+    });
+  }
+
   /** Evaluate one block. Eligibility/trigger selection belongs to the caller. */
   async evaluate(
     runId: string,

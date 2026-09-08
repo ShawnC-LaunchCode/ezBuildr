@@ -14,6 +14,7 @@ import { z } from "zod";
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { testLimiter } from "../middleware/rateLimiting";
+import { requireTenant } from "../middleware/tenant";
 import { codeBlockService } from "../services/codeBlocks/CodeBlockService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -39,6 +40,21 @@ const testCodeBlockSchema = z.object({
 });
 
 export function registerCodeBlockRoutes(app: Express): void {
+  // Initial metadata and persisted state; advance owns live state updates.
+  app.get('/api/runs/:runId/code-blocks', hybridAuth, requireTenant,
+    asyncHandler(async (req: Request, res: Response) => {
+      try {
+        const { userId, tenantId } = req as AuthRequest;
+        if (!userId || !tenantId) { return res.status(401).json({ message: UNAUTHORIZED_MSG }); }
+        const runId = z.string().uuid().parse(req.params.runId);
+        return res.json(await codeBlockService.readInspector(runId, userId, tenantId));
+      } catch (error) {
+        if (error instanceof z.ZodError) { return res.status(400).json({ message: 'Invalid input', errors: error.errors }); }
+        const { status, message } = classifyRouteError(error, 'Failed to read Code Block inspector');
+        return res.status(status).json({ message });
+      }
+    }));
+
   /**
    * POST /api/steps/:stepId/code-block/test
    * Validate, and (when `testData` is given) execute, a Code Block's code.

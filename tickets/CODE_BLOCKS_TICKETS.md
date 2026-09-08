@@ -90,9 +90,9 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9a-3 pt 1 | `advance`: one submission returns the whole state | M | ✅ | CB-9a-2 | — |
 | CB-9a-3a | Server-backed preview session plumbing | M | ✅ | CB-9a-3 pt 1 | — |
 | CB-9a-3b | Connect the preview UI, prove the experience | L | ✅ | CB-9a-3a | — |
-| **CB-9** | **Preview variable inspector** | **M** | **🔲 next** | CB-9a umbrella ✅ | — |
+| CB-9 | Preview variable inspector | M | ✅ | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
-| CB-10 | Retire `transform_blocks` + the dead preview path | M→L | 🔲 | Phase 3 gate | CB-11 (disjoint) |
+| **CB-10** | **Retire `transform_blocks` + the dead preview path** | **M→L** | **🔲 next** | Phase 3 gate | CB-11 (disjoint) |
 | CB-11 | Python: fix runtime availability, expose the switch | S | 🔲 | Phase 3 gate | CB-10 (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
@@ -104,9 +104,9 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 13 of 16 units done. **The CB-9a umbrella is complete**, so CB-9 —
-the inspector this whole prerequisite existed for — is unblocked. Remaining:
-CB-9 (M, next), then CB-10 (M) and CB-11 (S) in parallel after the Phase 3 gate.
+**Counts:** 14 of 16 units done. **Phase 3 is complete** — editor, preview
+execution and inspector all landed. Remaining: CB-10 (M→L) and CB-11 (S), which
+are disjoint and can run in PARALLEL, after the Phase 3 gate is signed off.
 
 ---
 
@@ -1857,7 +1857,35 @@ fixtures in `finally` and prove no named fixtures remain. No production testing.
 
 ---
 
-## CB-9 — Preview variable inspector 🔲 (blocked on CB-9a)
+## CB-9 — Preview variable inspector ✅
+
+> **Verified 2026-09-08 (reviewer), against the tree rather than the report.**
+> `tsc` 0 · `lint` clean · `strict-zones` 6/6 · `test:fast` **337 files / 3852**
+> (3840 + 12) · `test:integration` **149 files / 1383 passed | 3 skipped**
+> (1377 + 6). Exactly the eight files claimed, all inside the approved footprint.
+>
+> AC 8 is proven by the screenshot pair: the same `party_size` row reads
+> `Not set` / **"Waiting on num_children"**, then `5` / **"Fired"** after the
+> next submit. That is CB-2's change gate turned into a line of text, which is
+> the entire point of the ticket.
+>
+> **Mutation-tested by the reviewer.** Collapsing the absent row into
+> `skipped_unchanged` — the lie that would have made this panel useless while
+> looking fine — fails two tests. The cross-tenant denial spies on BOTH
+> repositories and asserts neither is reached.
+>
+> **Finding, not a defect:** neutering *both* service-level guards in
+> `readInspector` (the tenant comparison and `verifyAccess`) still leaves the
+> denial test green, because RLS filters `findRunOwnership` first. The security
+> OUTCOME is genuinely proven — no read occurs — but the service's own checks are
+> not independently exercised. That matters here specifically because this repo's
+> RLS is staged rather than fully enforced (`FORCE` off until RLS-5): if RLS were
+> relaxed, those untested checks become load-bearing. Filed as `CB-B8`.
+>
+> Dev correctly diagnosed CB-B7 (pinned runtime omits virtual steps) as a blocker
+> and stopped; it was a known CB-4 deferral with an established escape route, and
+> they resumed without touching the shared definition. Their `readInspector`
+> comment records that reasoning where the next reader will stand.
 
 **Priority: P1** · Size: M · File: `client/src/components/preview/DevToolbar.tsx`
 

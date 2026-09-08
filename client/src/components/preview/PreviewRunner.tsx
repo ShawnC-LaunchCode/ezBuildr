@@ -12,6 +12,7 @@ import { useRunRuntime } from "@/lib/vault-hooks";
 import { WorkflowRunner, type PreviewRunnerControls } from "@/pages/WorkflowRunner";
 
 import { DevToolbar } from "./DevToolbar";
+import { PreviewVariablesPanel } from "./variables/PreviewVariablesPanel";
 
 interface PreviewRunnerProps {
     workflowId: string;
@@ -51,6 +52,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     });
     const [pinnedDefinition, setPinnedDefinition] = useState<{ runId: string; fingerprint: string } | null>(null);
     const [showDevTools, setShowDevTools] = useState(false);
+    const [showVariables, setShowVariables] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [toolError, setToolError] = useState<string | null>(null);
     const controls = useRef<PreviewRunnerControls | null>(null);
@@ -124,7 +126,8 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
             <DevToolbar workflowId={workflowId} onExit={() => { void exit(); }}
                 onReset={() => { void replace(); }} onRandomFill={() => { void fill(true); }}
                 onRandomFillPage={() => { void fill(false); }} onLoadSnapshot={(id) => { void replace(id); }}
-                onToggleDevTools={() => setShowDevTools((open) => !open)} showDevTools={showDevTools}
+                onToggleDevTools={() => { setShowVariables(false); setShowDevTools((open) => !open); }} showDevTools={showDevTools}
+                onToggleVariables={() => { setShowDevTools(false); setShowVariables((open) => !open); }} showVariables={showVariables}
                 isAiLoading={isAiLoading} disabled={preview.isReplacing || definitionChanged || !!failure || !runtime} />
             <div className="border-b px-4 py-2 text-xs bg-muted/30" role="status">
                 Preview: external actions are simulated or unavailable. No live delivery or external writes.
@@ -146,6 +149,8 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 </div>
                 {runtime && <DevToolsPanel data={{ workflowId, pages: runtime.pages, steps: runtime.steps, values: committedValues, trace }}
                     isOpen={showDevTools} onClose={() => setShowDevTools(false)} />}
+                {showVariables && <PreviewVariablesPanel key={preview.runId} runId={preview.runId} values={committedValues}
+                    result={preview.result} onClose={() => setShowVariables(false)} />}
             </div>}
         </div>
     );
