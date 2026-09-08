@@ -582,7 +582,7 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1 & 2 fixed; 3, 4 & 5 open
+## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 fixed; 5 & 6 open
 
 **Priority: P0** · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
 `server/services/workflow-runs/RunLifecycleService.ts` — remaining:
@@ -682,6 +682,104 @@ reproduce any of this**. Only `ezbuildr_app` sees the policies.
 Gate effect: **6 failing files → 3.** `api.runs.file-upload`, `runFileUpload` and
 `text-canonicalization` all pass under enforcement; the three Code Blocks files
 (causes 3 and 4) remain.
+
+### Causes 3 & 4 — FIXED 2026-09-07
+
+**Cause 3 was a real defect, and a nastier one than the triage guessed.**
+`StepService.rethrowAliasCollision` turns a `23505` on
+`steps_workflow_alias_unique` into a helpful `400` naming the conflicting
+step — but it *required* the violation's `DETAIL` string and parsed the alias
+out of it. **Postgres omits DETAIL when the role is subject to RLS on the
+table**, because that string quotes column values the role may not be allowed
+to read. Measured as the restricted role: `code` is `'23505'` and `constraint`
+is `steps_workflow_alias_unique` exactly as expected, and `detail` is
+`undefined`.
+
+So on the branch that matters — production, once it connects as a non-owner —
+**every alias collision reaching the index escaped as a raw
+`DrizzleQueryError`** instead of the 400 the code exists to produce. It passed
+in owner mode, where DETAIL *is* present, which is why it read as correct.
+
+Two fixes, both of which behave identically in either mode:
+
+1. `restoreStep` now does the **preflight alias check** every other write path
+   already does (`validateOutputAliases`). It was the one route that reached
+   the unique index with no preflight and leaned on error forensics. Asking
+   first needs no DETAIL, names the owner, and never issues a statement that
+   would poison the caller's transaction.
+2. `rethrowAliasCollision` no longer *requires* DETAIL. The constraint name
+   alone already proves what happened, so the alias identity is an enrichment,
+   not a precondition: parse DETAIL when present, and still answer `400` when
+   it is withheld.
+
+**Cause 4 was test drift, and the ruling already existed.** Both
+`codeBlocks.multiOutput` and `codeBlocks.testEndpoint` pinned `403` on a
+**cross-tenant** denial, each with a comment reasoning from
+`classifyRouteError`. That reasoning is right in owner mode and wrong under
+enforcement, where the row is invisible, the route never reaches its own check,
+and the honest answer is `404`.
+
+Which code is correct was **decided, not defaulted**: `RLS_HANDOFF.md` §0b, put
+to the repo owner on 2026-08-22 and delegated back — 404 accepted for
+cross-tenant reads because it leaks strictly less (a 403 confirms the resource
+exists), and preserving 403 would require a deliberately-unscoped existence
+probe on the very paths that must fail closed. The repo already ships
+`expectCrossTenantDenied` for exactly this, and says a test passing in only one
+mode is evidence of nothing. Both sites now use it.
+
+Nothing was weakened to go green: each test still pins the property it exists
+for — `multiOutput` asserts no step was written, `testEndpoint` asserts the
+executor was never called. **In-tenant RBAC denials still assert a plain 403**
+and were not touched.
+
+### Cause 6, found 2026-09-07 — the CB-9a preview work is landing red, NOT triaged here
+
+With causes 1–4 fixed the gate is down to **two** files, and both are new:
+`preview.isolation.test.ts` (CB-9a-1) and `preview.execution.test.ts`
+(CB-9a-3a). They arrived in the tree via the `cb-9` merge while causes 1–4 were
+being worked, and they are the same class as everything above:
+
+```
+normal (owner) mode : 2 files / 36 tests  PASS
+RLS_RESTRICTED=true : 2 files /  4 tests  FAIL
+```
+
+Symptoms: a signature-creation simulation answering `400` where the suite
+expects `200`, and `safeFetch` never called where a provider dispatch is
+expected — i.e. reads coming back empty again, in the delivery/provider paths.
+
+**Deliberately not fixed here.** CB-9a is actively in flight (a dev is mid-way
+through 9a-3b, and `0c540217` already records three transport defects found
+there), so changing it underneath that work would collide. It is written up so
+the number is honest rather than quietly attributed to RLS-11's other causes.
+
+**Separately, that same merge turned `dev` CI red — not the gate, ordinary CI.**
+Deterministic, 3 runs out of 3, starting at `37a1d702` (2026-09-07 12:13) and
+still red; the last green was `0cf8c649`. One file, zero failing tests — it
+cannot even be collected:
+
+```
+FAIL unit-fast tests/unit/services/RunExecutionCoordinator.validationErrors.test.ts
+TypeError: this[writeSym] is not a function
+  ❯ Object.LOG [as info]  node_modules/pino/lib/tools.js:74:21
+  ❯ server/services/storage/index.ts:15:12   logger.info('Initializing Disk Storage Provider')
+  ❯ server/services/workflow-runs/RunPreviewPolicyService.ts:10:1
+```
+
+`server/services/storage/index.ts` calls `logger.info` at **module scope**, and
+CB-9a-1's new `RunPreviewPolicyService` pulled that module into
+`RunLifecycleService`'s import graph — so a unit-fast file that never touched
+storage now executes that log line at import time and dies on it. The landmine
+is the import-time side effect, which predates CB-9a; the new import chain is
+what stepped on it. Passes locally, fails every CI run.
+
+Left for whoever owns CB-9a rather than fixed here, for the same
+work-in-flight reason as above.
+
+**This is the third time in nine days that new work has landed on this gate
+while it was red** — CB-8 added `codeBlocks.testEndpoint`, CB-9a has now added
+two more. That is the cost the gate's own header predicted, and it is what
+AC 4 (make a red gate visible within a day) exists to stop.
 
 ### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
 

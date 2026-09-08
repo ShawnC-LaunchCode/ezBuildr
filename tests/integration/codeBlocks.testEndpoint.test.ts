@@ -31,6 +31,7 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { getOwnerDb } from '../helpers/ownerDb';
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 const TEST_ROUTE = '/api/steps/:stepId/code-block/test';
 
@@ -191,11 +192,24 @@ describe.sequential('CB-8 Code Block test endpoint', () => {
       .set('Authorization', `Bearer ${foreignToken}`)
       .send({ testData: { price: 2, quantity: 3 } });
 
-    // 403, not 404: the step resolves, and it is `verifyAccess` that refuses.
-    // `classifyRouteError` maps "Access denied" (and the RLS no-tenant throw) to
-    // 403 — see server/utils/routeErrors.ts. Pinned to the exact code so a
-    // change to the denial path cannot pass silently.
-    expect(denied.status).toBe(403);
+    // Cross-tenant denial: assert THAT it was refused, not which code.
+    //
+    // This used to pin 403, reasoning from `classifyRouteError` — correct in
+    // owner mode, where the row is visible and the service's own check refuses
+    // it. Under RLS enforcement the row is invisible, the route never reaches
+    // that check, and the honest answer is 404. Pinning either code makes the
+    // test pass in exactly one of the two modes, which is evidence of nothing.
+    //
+    // Which code is right was decided, not defaulted: RLS_HANDOFF §0b, put to
+    // the repo owner on 2026-08-22 and delegated back — 404 is accepted for
+    // cross-tenant READS because it leaks strictly less (a 403 confirms the
+    // resource exists), and preserving 403 would need a deliberately-unscoped
+    // existence probe on the very paths that must fail closed. In-tenant RBAC
+    // denials are a different thing and still pin a plain 403.
+    //
+    // Nothing weakens here that matters: the security properties this test
+    // exists for are still asserted exactly, immediately below.
+    expectCrossTenantDenied(denied.status);
     expect(executeSpy).not.toHaveBeenCalled();
   });
 
