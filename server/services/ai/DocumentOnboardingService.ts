@@ -23,11 +23,11 @@
  * land as exactly one step carrying its approved type and alias, whatever
  * the model actually produced.
  *
- * Logic rules and transform blocks are deliberately dropped from the
+ * Logic rules are deliberately dropped from the
  * returned payload (forced to `[]`): the only caller that persists this
  * payload (`PUT /api/workflows/:id`, `WorkflowService.replaceWorkflowContent`)
  * validates the request body through `updateWorkflowSchema`, which does not
- * accept `logicRules`/`transformBlocks` at all — see workflows.routes.ts.
+ * accept `logicRules` at all — see workflows.routes.ts.
  * Generating rules the persistence path would silently discard would just
  * mislead the review screen, and widening that route's schema is outside
  * this ticket's file scope.
@@ -206,7 +206,7 @@ export class DocumentOnboardingService {
       }
     }
 
-    return { ...workflow, pages, logicRules: [], transformBlocks: [] };
+    return { ...workflow, pages, logicRules: [] };
   }
 
   private findMatch(

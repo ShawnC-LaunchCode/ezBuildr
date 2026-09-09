@@ -15,9 +15,6 @@ describe('ModelRegistry task token caps', () => {
       logic_generation: 4000,
       logic_debug: 4000,
       logic_visualization: 4000,
-      transform_generation: 4000,
-      transform_revision: 4000,
-      transform_schema_align: 4000,
       personalization: 1000,
       document_analysis: 4000,
       document_mapping: 4000,
@@ -64,9 +61,8 @@ describe('ModelRegistry registration', () => {
   it('keeps every model the codebase still selects registered', () => {
     // gemini-2.0-flash: DEFAULT_GEMINI_MODEL in providerConfig.ts, and the
     // `GEMINI_MODEL ?? ...` fallback in AIService, geminiService,
-    // personalization, DocumentAIAssistService, schemaAlign, AiController.
+    // personalization, DocumentAIAssistService, AiController.
     expect(ModelRegistry.isRegistered('gemini', 'gemini-2.0-flash')).toBe(true);
-    // gemini-1.5-pro: hardcoded in transformGenerator.ts / transformRevision.ts.
     expect(ModelRegistry.isRegistered('gemini', 'gemini-1.5-pro')).toBe(true);
     // 2M context and the real rate — not getDefaultConfig's 1M / $0.10 / $0.40.
     expect(ModelRegistry.getConfig('gemini', 'gemini-1.5-pro')).toMatchObject({

@@ -10,7 +10,6 @@ import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
 import { registerAiRoutes } from "./ai.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
-import aiTransformRouter from "./api.ai.transform.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerAuthRoutes } from "./auth.routes";
 import { registerBillingRoutes } from "./billing.routes";
@@ -109,7 +108,6 @@ export function registerAllRoutes(app: Express): void {
   app.use("/api/ai/workflows/optimize", aiOptimizationRouter);
 
   // AI Transforms
-  app.use("/api/ai/transform", aiTransformRouter);
 
   // AI Workflow Editing (Stage 22)
   registerAiWorkflowEditRoutes(app);

@@ -28,13 +28,11 @@ vi.mock('../../server/services/AIService', () => ({
         },
       ],
       logicRules: [],
-      transformBlocks: [],
       notes: `Generated from: ${  request.description}`,
     })),
     suggestWorkflowImprovements: vi.fn(async () => ({
       newPages: [],
       newLogicRules: [],
-      newTransformBlocks: [],
       modifications: [],
       notes: 'No improvements suggested',
     })),

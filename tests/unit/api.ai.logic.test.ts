@@ -51,7 +51,6 @@ const mockWorkflow = {
         }
     ],
     logicRules: [],
-    transformBlocks: []
 };
 
 describe('AI Logic Routes', () => {

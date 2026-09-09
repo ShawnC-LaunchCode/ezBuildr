@@ -34,9 +34,6 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   logic_generation: 4000,
   logic_debug: 4000,
   logic_visualization: 4000,
-  transform_generation: 4000,
-  transform_revision: 4000,
-  transform_schema_align: 4000,
   personalization: 1000,
   document_analysis: 4000,
   document_mapping: 4000,
@@ -182,9 +179,7 @@ const MODEL_CONFIGS: ModelConfig[] = [
   // swaps in `getDefaultConfig`'s guessed context window and pricing.
   //   - gemini-2.0-flash is DEFAULT_GEMINI_MODEL (providerConfig.ts) and the
   //     `GEMINI_MODEL ?? ...` fallback across AIService/geminiService/
-  //     personalization/DocumentAIAssistService/schemaAlign/AiController.
-  //   - gemini-1.5-pro is hardcoded in transformGenerator/transformRevision;
-  //     AISL-5 removes those, after which this row may be reconsidered.
+  //     personalization/DocumentAIAssistService/AiController.
   // Do not delete either while any code path can still select it — see the
   // AISL-1 review notes in tickets/backlog/AI_SERVICE_LAYER.md.
   {

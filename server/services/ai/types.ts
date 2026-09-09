@@ -2,7 +2,7 @@
  * Shared types for AI services
  */
 
-export type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedPage, AIGeneratedLogicRule, AIGeneratedTransformBlock } from '../../../shared/types/ai';
+export type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedPage, AIGeneratedLogicRule } from '../../../shared/types/ai';
 
 /**
  * Valid step types from database schema
@@ -59,9 +59,6 @@ export const TASK_TYPES = [
   'logic_generation',
   'logic_debug',
   'logic_visualization',
-  'transform_generation',
-  'transform_revision',
-  'transform_schema_align',
   'personalization',
   'document_analysis',
   'document_mapping',

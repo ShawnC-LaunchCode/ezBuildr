@@ -306,8 +306,7 @@ Return ONLY a valid JSON object with the improved workflow structure:
   "title": "...",
   "description": "...",
   "pages": [...],
-  "logicRules": [...],
-  "transformBlocks": [...]
+  "logicRules": [...]
 }
 
 Do NOT include any explanation or markdown - just the JSON object.`;
@@ -355,8 +354,6 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         pages: parsed.pages,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
-        transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
     } catch (error: unknown) {
       logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to parse improved workflow, using fallback');

@@ -76,7 +76,7 @@ const createMinimalDocx = (): Buffer => {
  * ("notes") has nothing to do with any approved variable (proves unrelated
  * AI content survives untouched), and "signing_date" is entirely absent
  * (proves an unmatched approved variable gets appended, never dropped).
- * logicRules/transformBlocks are non-empty here specifically to prove the
+ * logicRules are non-empty here specifically to prove the
  * service drops them (the persistence path can't carry them - see
  * DocumentOnboardingService's header comment).
  */
@@ -103,9 +103,6 @@ function mockGeneratedWorkflow() {
     ],
     logicRules: [
       { id: 'r1', when: { type: 'group', logic: 'and', conditions: [] }, targetType: 'step', targetAlias: 'notes', action: 'hide' },
-    ],
-    transformBlocks: [
-      { id: 'tb1', name: 'x', language: 'javascript', code: 'return 1;', inputKeys: [], outputKey: 'y' },
     ],
     notes: null,
   };
@@ -156,7 +153,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     generateWorkflowMock.mockClear();
   });
 
-  it('overlays approved type/alias onto the generated steps, drops logic/transform blocks, and never drops an approved variable', async () => {
+  it('overlays approved type/alias onto the generated steps, drops logic rules, and never drops an approved variable', async () => {
     generateWorkflowMock.mockResolvedValueOnce(mockGeneratedWorkflow());
 
     const response = await request(ctx.baseURL)
@@ -171,7 +168,6 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
 
     const generated = response.body.data;
     expect(generated.logicRules).toEqual([]);
-    expect(generated.transformBlocks).toEqual([]);
 
     const allSteps = generated.pages.flatMap((s: { steps: unknown[] }) => s.steps) as Array<{
       alias: string;

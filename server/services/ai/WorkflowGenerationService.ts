@@ -95,7 +95,6 @@ export class WorkflowGenerationService {
                 duration,
                 pagesCount: validated.pages.length,
                 rulesCount: validated.logicRules.length,
-                blocksCount: validated.transformBlocks.length,
                 qualityScore: qualityScore.overall,
                 qualityBreakdown: qualityScore.breakdown,
                 qualityPassed: qualityScore.passed,

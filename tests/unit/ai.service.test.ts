@@ -126,7 +126,6 @@ describe('AIService', () => {
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -163,7 +162,6 @@ describe('AIService', () => {
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -205,7 +203,6 @@ describe('AIService', () => {
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -248,7 +245,6 @@ describe('AIService', () => {
             action: 'show',
           },
         ],
-        transformBlocks: [],
       };
 
       const mockProvider = createMockProvider('openai', JSON.stringify(mockWorkflow));
@@ -343,7 +339,6 @@ describe('AIService', () => {
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -373,7 +368,6 @@ describe('AIService', () => {
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
       const markdown = `\`\`\`json\n${JSON.stringify(mockWorkflow)}\n\`\`\``;

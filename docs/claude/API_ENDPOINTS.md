@@ -138,7 +138,6 @@ POST        /api/ai/workflows/:id/suggest | generate-logic | visualize-logic
 POST        /api/ai/templates/:templateId/bindings
 POST        /api/ai/suggest-values
 POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22); supersedes a "revise" endpoint
-POST        /api/ai/transform/*                   # Transform code generation
 POST        /api/ai/doc/*                         # AI document features
 POST        /api/ai/personalize/*                 # Personalization
 POST        /api/ai/workflows/optimize/*          # Optimization wizard backend

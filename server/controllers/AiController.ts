@@ -177,7 +177,6 @@ export class AiController {
                 duration,
                 pagesCount: generatedWorkflow.pages.length,
                 rulesCount: generatedWorkflow.logicRules.length,
-                blocksCount: generatedWorkflow.transformBlocks.length,
             }, 'AI workflow generation succeeded');
 
             // Extract quality score (attached by AIService)
@@ -191,7 +190,6 @@ export class AiController {
                     duration,
                     pagesGenerated: generatedWorkflow.pages.length,
                     logicRulesGenerated: generatedWorkflow.logicRules.length,
-                    transformBlocksGenerated: generatedWorkflow.transformBlocks.length,
                 },
                 quality: qualityScore ? {
                     score: qualityScore.overall,
@@ -257,7 +255,6 @@ export class AiController {
                 {
                     pages: workflow.pages ?? [],
                     logicRules: workflow.logicRules ?? [],
-                    transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks ?? [],
                 }
             );
 
@@ -269,7 +266,6 @@ export class AiController {
                 duration,
                 newPagesCount: suggestions.newPages.length,
                 newRulesCount: suggestions.newLogicRules.length,
-                newBlocksCount: suggestions.newTransformBlocks.length,
                 modificationsCount: suggestions.modifications.length,
             }, 'AI workflow suggestion succeeded');
 
@@ -280,7 +276,6 @@ export class AiController {
                     duration,
                     newPagesCount: suggestions.newPages.length,
                     newLogicRulesCount: suggestions.newLogicRules.length,
-                    newTransformBlocksCount: suggestions.newTransformBlocks.length,
                     modificationsCount: suggestions.modifications.length,
                 },
             });

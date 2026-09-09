@@ -42,7 +42,6 @@ function buildGraph(projectId: string, steps: Array<Record<string, unknown>>): R
       steps,
     }],
     logicRules: [],
-    transformBlocks: [],
     lifecycleHooks: [],
     documentHooks: [],
   };

@@ -93,7 +93,6 @@ describe("validateWorkflowStructure - logic rule condition references", () => {
         },
       ],
       logicRules: [],
-      transformBlocks: [],
       ...overrides,
     };
   }

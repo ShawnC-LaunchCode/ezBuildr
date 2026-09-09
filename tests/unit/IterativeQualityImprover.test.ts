@@ -60,7 +60,6 @@ describe('IterativeQualityImprover', () => {
       },
     ],
     logicRules: [],
-    transformBlocks: [],
   });
 
   beforeEach(() => {

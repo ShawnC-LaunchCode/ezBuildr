@@ -33,8 +33,7 @@ export type {
     AIGeneratedWorkflow,
     AIGeneratedStep,
     AIGeneratedPage,
-    AIGeneratedLogicRule,
-    AIGeneratedTransformBlock
+    AIGeneratedLogicRule
 } from './types';
 export { ModelRegistry } from './ModelRegistry';
 export { AIError, createAIError, isRateLimitError, isTimeoutError, getRetryAfter } from './AIError';

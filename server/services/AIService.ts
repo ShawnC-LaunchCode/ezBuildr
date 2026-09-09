@@ -104,7 +104,6 @@ export class AIService {
     existingWorkflow: {
       pages: unknown[];
       logicRules?: unknown[];
-      transformBlocks?: unknown[];
     },
   ): Promise<AIWorkflowSuggestion> {
     return this.suggestionService.suggestWorkflowImprovements(request, existingWorkflow);

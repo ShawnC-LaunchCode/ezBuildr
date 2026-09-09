@@ -81,17 +81,3 @@ export interface WorkflowTrace {
         executionMode: 'live' | 'preview' | 'snapshot';
     };
 }
-
-export interface TransformIssue {
-    id: string;
-    type: string;
-    severity: 'error' | 'warning' | 'info';
-    message: string;
-    blockId: string;
-}
-
-export interface TransformFix {
-    id: string;
-    description?: string;
-    action?: string;
-}

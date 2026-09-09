@@ -31,7 +31,6 @@ export class WorkflowSuggestionService {
         existingWorkflow: {
             pages: unknown[];
             logicRules?: unknown[];
-            transformBlocks?: unknown[];
         },
     ): Promise<AIWorkflowSuggestion> {
         const startTime = Date.now();
@@ -53,7 +52,6 @@ export class WorkflowSuggestionService {
                     duration,
                     newPagesCount: validated.newPages.length,
                     newRulesCount: validated.newLogicRules.length,
-                    newBlocksCount: validated.newTransformBlocks.length,
                     modificationsCount: validated.modifications.length,
                 },
                 'AI workflow suggestion succeeded',

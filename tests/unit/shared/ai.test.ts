@@ -8,7 +8,9 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { AIGeneratedLogicRuleSchema, AIGeneratedWorkflowSchema } from "../../../shared/types/ai";
+import { AIGeneratedLogicRuleSchema, AIGeneratedWorkflowSchema, AIWorkflowSuggestionSchema } from "../../../shared/types/ai";
+
+import { AIPromptBuilder } from "../../../server/services/ai/AIPromptBuilder";
 
 describe("AIGeneratedLogicRuleSchema", () => {
   const validWhen = {
@@ -114,14 +116,34 @@ describe("AIGeneratedWorkflowSchema", () => {
           action: "show",
         },
       ],
-      transformBlocks: [],
     };
 
     const result = AIGeneratedWorkflowSchema.safeParse(payload);
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.pages).toHaveLength(1);
+      expect(result.data).not.toHaveProperty("transformBlocks");
+      expect(AIGeneratedWorkflowSchema.shape).not.toHaveProperty("transformBlocks");
+      const prompt = new AIPromptBuilder().buildWorkflowGenerationPrompt({ description: "Create a pet intake workflow", projectId: "00000000-0000-4000-8000-000000000001" }, "easy");
+      expect(prompt.systemMessage).not.toMatch(/transformBlocks|transform blocks/i);
+      expect(prompt.systemMessage).toContain('"logicRules"');
       expect(result.data.logicRules).toHaveLength(1);
       expect(result.data.logicRules[0].when).not.toBeNull();
     }
+  });
+});
+
+describe("AIWorkflowSuggestionSchema", () => {
+  it("preserves AI Assist additions and modifications without a transform contract", () => {
+    const payload = { newPages: [{ id: "page_2", title: "Details", order: 1, steps: [] }], newLogicRules: [], modifications: [{ type: "step", id: "step_1", changes: { title: "Your name" }, reason: "Clarify the question" }] };
+    const result = AIWorkflowSuggestionSchema.parse(payload);
+    expect(result).toEqual(payload);
+    expect(result).not.toHaveProperty("newTransformBlocks");
+    expect(AIWorkflowSuggestionSchema.shape).not.toHaveProperty("newTransformBlocks");
+    expect(AIWorkflowSuggestionSchema.safeParse({ modifications: [{ ...payload.modifications[0], type: "transform_block" }] }).success).toBe(false);
+    const prompt = new AIPromptBuilder().buildWorkflowSuggestionPrompt({ description: "Clarify the name question", workflowId: "00000000-0000-4000-8000-000000000001" }, { pages: [], logicRules: [] });
+    expect(prompt.systemMessage).not.toMatch(/newTransformBlocks|transform_block/);
+    expect(prompt.systemMessage).toContain('"newLogicRules"');
+    expect(prompt.systemMessage).toContain('"modifications"');
   });
 });

@@ -98,23 +98,6 @@ export const AIGeneratedLogicRuleSchema = z.object({
 export type AIGeneratedLogicRule = z.infer<typeof AIGeneratedLogicRuleSchema>;
 
 /**
- * AI-generated transform block (JavaScript/Python computation)
- */
-export const AIGeneratedTransformBlockSchema = z.object({
-  id: z.string().describe('Unique identifier for the transform block'),
-  name: z.string().min(1).describe('Name/title of the transform block'),
-  language: z.enum(['javascript', 'python']).describe('Programming language'),
-  code: z.string().min(1).describe('Code to execute'),
-  inputKeys: z.array(z.string()).describe('Step aliases to use as inputs'),
-  outputKey: z.string().describe('Variable name for the output'),
-  phase: z.enum(['onPageSubmit', 'onWorkflowComplete']).default('onWorkflowComplete').describe('When to execute this block'),
-  pageId: z.string().optional().describe('Page ID if phase is onPageSubmit'),
-  timeoutMs: z.number().int().min(100).max(3000).default(1000).describe('Execution timeout in milliseconds'),
-});
-
-export type AIGeneratedTransformBlock = z.infer<typeof AIGeneratedTransformBlockSchema>;
-
-/**
  * AI-generated workflow specification
  */
 export const AIGeneratedWorkflowSchema = z.object({
@@ -125,7 +108,6 @@ export const AIGeneratedWorkflowSchema = z.object({
   ),
   pages: z.array(AIGeneratedPageSchema).default([]).describe('Workflow pages (pages)'),
   logicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Conditional logic rules'),
-  transformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('JavaScript/Python computation blocks'),
   notes: z.string().nullable().optional().describe('Additional notes from the AI about this workflow'),
 });
 
@@ -173,9 +155,8 @@ export type AIWorkflowSuggestionRequest = z.infer<typeof AIWorkflowSuggestionReq
 export const AIWorkflowSuggestionSchema = z.object({
   newPages: z.array(AIGeneratedPageSchema).default([]).describe('Suggested new pages to add'),
   newLogicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Suggested new logic rules'),
-  newTransformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('Suggested new transform blocks'),
   modifications: z.array(z.object({
-    type: z.enum(['page', 'step', 'logic_rule', 'transform_block']),
+    type: z.enum(['page', 'step', 'logic_rule']),
     id: z.string(),
     changes: z.record(z.any()),
     reason: z.string(),

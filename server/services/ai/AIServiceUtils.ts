@@ -361,17 +361,6 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
 
   validateLogicRuleReferences(workflow.logicRules, stepIds, stepAliases);
 
-  // Validate transform blocks reference existing steps
-  for (const block of workflow.transformBlocks) {
-    for (const inputKey of block.inputKeys) {
-      if (!stepAliases.has(inputKey)) {
-        throw createAIError(
-          `Transform block references non-existent step alias: ${inputKey}`,
-          'VALIDATION_ERROR',
-        );
-      }
-    }
-  }
 }
 
 /**

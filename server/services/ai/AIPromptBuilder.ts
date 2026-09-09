@@ -108,18 +108,6 @@ Output a JSON object with this exact structure:
       "description": "What this rule does"
     }
   ],
-  "transformBlocks": [
-    {
-      "id": "unique_block_id",
-      "name": "Block Name",
-      "language": "javascript|python",
-      "code": "code to execute",
-      "inputKeys": ["alias1", "alias2"],
-      "outputKey": "outputAlias",
-      "phase": "onPageSubmit|onWorkflowComplete",
-      "timeoutMs": 1000
-    }
-  ],
   "notes": "Optional notes about design decisions"
 }
 
@@ -131,8 +119,6 @@ CRITICAL CONSTRAINTS:
 - All IDs must be unique and use lowercase_with_underscores format
 - Step titles must be clear questions or instructions (e.g., "What is your full name?" not "Name")
 - For choice, ALWAYS include config.options with at least 2 canonical option objects
-- Transform block code MUST call emit(value) exactly once
-- NO network calls or file system access in transform blocks
 - Every page "sectionId" must match a "sections[].id" or be null
 - Pages sharing a section MUST be consecutive in "order" — a section covers one
   unbroken run of pages and can never be empty. A workflow whose sections
@@ -159,7 +145,6 @@ BEST PRACTICES:
 4. Provide clear, actionable descriptions for complex questions
 5. Use logic rules to show/hide conditional questions based on previous answers
 6. Keep pages focused - don't mix unrelated topics
-7. Use transform blocks for calculated fields (full name from first+last, total from sum, etc.)
 
 LOGIC RULES GUIDANCE:
 - Use show/hide for optional pages based on answers
@@ -173,12 +158,6 @@ LOGIC RULES GUIDANCE:
 - "value" is the comparison value; "valueType" is almost always "constant". "between" and the
   date-diff operators use "value" AND "value2" instead of a combined range object
 - Every leaf condition's "variable" MUST be a step alias declared elsewhere in this same JSON
-
-TRANSFORM BLOCK PATTERNS:
-- Concatenation: \`emit(input.firstName + ' ' + input.lastName);\`
-- Calculations: \`emit(input.quantity * input.price);\`
-- Formatting: \`emit(input.rawValue.toUpperCase());\`
-- Date math: Use helpers.date methods for date calculations
 
 Output ONLY valid JSON, NO markdown code blocks, NO additional text.`;
 
@@ -204,10 +183,9 @@ Output a JSON object with this exact structure:
 {
   "newPages": [ /* array of new pages to add, same schema as workflow generation */ ],
   "newLogicRules": [ /* array of new logic rules, same schema as workflow generation */ ],
-  "newTransformBlocks": [ /* array of new transform blocks, same schema as workflow generation */ ],
   "modifications": [
     {
-      "type": "page|step|logic_rule|transform_block",
+      "type": "page|step|logic_rule",
       "id": "existing_item_id",
       "changes": { "field": "newValue" },
       "reason": "Why this change is suggested"
