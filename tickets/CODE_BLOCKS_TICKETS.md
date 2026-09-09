@@ -2373,12 +2373,39 @@ intended test red and nothing else:
 
 ## Phase 4 Gate
 
-- [ ] CB-10, CB-11 both ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors · `npm run lint` → clean
-- [ ] `test:fast` + `test:integration` → green, count not lower than the Phase 3 baseline
-- [ ] `server/services/scripting/` untouched across the whole initiative
-- [ ] **Live proof:** a Python Code Block running in a locally built production image
+**Cannot be signed off yet — CB-10a..d are all still open.** Half of it is already
+met by CB-11 and is recorded here so the eventual signer re-runs only what is
+actually outstanding. Restated against CB-10a..d, since the original single CB-10
+no longer exists.
+
+- [ ] **CB-10a, CB-10b, CB-10c, CB-10d** ✅ with dated verification notes
+- [x] **CB-11** ✅ with dated verification notes — 2026-09-08, `01395b43`
+- [x] `npm run type-check` → 0 errors · `npm run lint` → clean *(as of `af6c809a`)*
+- [x] `test:fast` + `test:integration` → green, count not lower than the Phase 3
+      baseline — `test:fast` 339 files / 3867 (baseline 337 / 3852),
+      `test:integration` 149 files / 1385 + 3 skipped (baseline 1383 + 3).
+      **Re-run after CB-10a..d**, which will legitimately REDUCE both counts by
+      deleting tests for deleted code; each reduction must be named, not padded.
+- [x] `server/services/scripting/` untouched across the whole initiative —
+      `git diff --stat b0b79c5a..HEAD -- server/services/scripting/` is empty.
+      **Re-check at sign-off**, since CB-10c touches the AI transform subsystem.
+- [x] **Live proof:** a Python Code Block running in a locally built production
+      image — `step_values order_total = 42`, and the same image with the
+      interpreter removed fails with `spawn ... ENOENT`. See CB-11's notes.
 - [ ] Reviewer has committed each passed ticket + this gate
+
+### Two CI gates are red for reasons OUTSIDE this initiative's control
+
+Neither is caused by Code Blocks work, and neither should be allowed to be
+attributed to it — but the gate above cannot honestly be called green while they
+stand, so they are named here:
+
+- **RLS Enforcement Gate** — `preview.isolation.test.ts` fails 2/19 under
+  enforcement. The other two files it reported were fixed in `af6c809a`. Filed as
+  **RLS-B1** in `tickets/BACKLOG.md`.
+- **Deployment Safety Check** — `npm audit` on newly-published `@xmldom/xmldom`
+  advisories. The lockfile is byte-identical across the commits that straddle the
+  red, so this is not a code regression. Filed as **DEP-B1**.
 
 ---
 
