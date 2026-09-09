@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
 | DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
 | CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
@@ -195,6 +196,38 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Nothing catches the client ignoring authoritative navigation (RUN-B1) — filed 2026-09-09
+
+**Tag:** `triage`. Found while grading CB-10a; **not caused by it.**
+
+`applyAdvanceNavigation` in `client/src/hooks/runner/useRunNavigation.ts` resolves
+the server's `result.navigation.nextPageId` to a local index. Replace that lookup
+with a blind `currentPageIndex + 1`:
+
+```diff
+-    const nextIndex = visiblePages.findIndex((page) => page.id === nextPageId);
++    const nextIndex = currentPageIndex + 1;
+```
+
+and the **entire** unit suite still passes — 338 files, 3860 tests, zero failures.
+The client would be quietly ignoring the server's authoritative navigation and
+walking pages in definition order, which is precisely the class of bug CB-9a-3
+introduced authoritative navigation to prevent, and every skip-logic workflow
+would route wrongly.
+
+**Confirmed pre-existing.** The same mutation was applied to the tree at
+`1d1e87a8` — before CB-10a deleted anything — and `tests/unit/client/` passed
+there too (127 files, 860 tests). So CB-10a removed no coverage here; the
+coverage was never written. Recorded because a deletion ticket is exactly when
+this kind of hole gets mistaken for collateral damage, and because the hole is
+real either way.
+
+Cheap to close: a `useRunNavigation` case that returns a `nextPageId` pointing at
+a page which is NOT `currentPageIndex + 1`, asserting `setCurrentPageIndex` gets
+that page's index. The integration side already proves the server sends it
+(`preview.execution.test.ts`, "Authoritative navigation, in the same answer") —
+it is only the client's application of it that is untested.
 
 ## npm audit fails on @xmldom/xmldom (DEP-B1) — filed 2026-09-09
 

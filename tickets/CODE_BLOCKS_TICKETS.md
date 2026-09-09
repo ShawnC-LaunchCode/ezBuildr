@@ -92,8 +92,8 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9a-3b | Connect the preview UI, prove the experience | L | ✅ | CB-9a-3a | — |
 | CB-9 | Preview variable inspector | M | ✅ | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
-| **CB-10a** | **Dead preview execution path** | **S–M** | **🔲 next** | Phase 3 gate | CB-11 ✅, CB-10b |
-| CB-10b | Stop the builder offering transform blocks | M | 🔲 | Phase 3 gate | CB-11 ✅, CB-10a |
+| CB-10a | Dead preview execution path | S–M | ✅ | Phase 3 gate | CB-11 ✅, CB-10b |
+| **CB-10b** | **Stop the builder offering transform blocks** | **M** | **🔲 next** | Phase 3 gate | CB-11 ✅, CB-10a ✅ |
 | CB-10c | Retire the AI transform subsystem + optimizer | L | 🔲 | CB-10b | CB-11 ✅ |
 | CB-10d | Drop the tables + clear remaining consumers | M–L | 🔲 | CB-10b, CB-10c | ⏰ before client data |
 | CB-11 | Python: fix runtime availability, expose the switch | S | ✅ | Phase 3 gate | CB-10a..d (disjoint) |
@@ -107,7 +107,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 15 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
+**Counts:** 16 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. **CB-11 landed 2026-09-08** (`01395b43`), proven
 against a locally built production image. Remaining: **CB-10a..d only**, which is now
 the whole of Phase 4; CB-10d carries the ~2026-10-21 client-data deadline.
@@ -2378,7 +2378,17 @@ met by CB-11 and is recorded here so the eventual signer re-runs only what is
 actually outstanding. Restated against CB-10a..d, since the original single CB-10
 no longer exists.
 
-- [ ] **CB-10a, CB-10b, CB-10c, CB-10d** ✅ with dated verification notes
+- [ ] **CB-10b, CB-10c, CB-10d** ✅ with dated verification notes
+- [x] **CB-10a** ✅ — 2026-09-09, `47ef2442`. Reviewer-verified on the merged tree
+      (rebased onto CB-11, not the stale base it was written against): diff is the
+      claimed 15 files / 49 insertions / 861 deletions; no surviving importer of
+      either deleted module; `PreviewEnvironment.ts` correctly retained with five
+      live consumers; the Monaco files, `transform_blocks` and
+      `server/services/scripting/` untouched. Each of the 7 deleted unit tests was
+      read and confirmed to cover removed behaviour — the sectionNav case asserted
+      `onPreviewPageEntered`, a preview-only callback. The production reached guard
+      is still covered: disabling it turns `useRunNavigation.jumpToPage.test.tsx`
+      red. Counts move by exactly the named amount, 339/3867 -> 338/3860.
 - [x] **CB-11** ✅ with dated verification notes — 2026-09-08, `01395b43`
 - [x] `npm run type-check` → 0 errors · `npm run lint` → clean *(as of `af6c809a`)*
 - [x] `test:fast` + `test:integration` → green, count not lower than the Phase 3
