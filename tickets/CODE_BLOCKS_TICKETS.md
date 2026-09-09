@@ -93,8 +93,8 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-9 | Preview variable inspector | M | ✅ | CB-9a umbrella ✅ | — |
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
 | CB-10a | Dead preview execution path | S–M | ✅ | Phase 3 gate | CB-11 ✅, CB-10b |
-| **CB-10b** | **Stop the builder offering transform blocks** | **M** | **🔲 next** | Phase 3 gate | CB-11 ✅, CB-10a ✅ |
-| CB-10c | Retire the AI transform subsystem + optimizer | L | 🔲 | CB-10b | CB-11 ✅ |
+| CB-10b | Stop the builder offering transform blocks | M | ✅ | Phase 3 gate | CB-11 ✅, CB-10a ✅ |
+| **CB-10c** | **Retire the AI transform subsystem + optimizer** | **L** | **🔲 next** | ~~CB-10b~~ none — measured disjoint | CB-10d |
 | CB-10d | Drop the tables + clear remaining consumers | M–L | 🔲 | CB-10b, CB-10c | ⏰ before client data |
 | CB-11 | Python: fix runtime availability, expose the switch | S | ✅ | Phase 3 gate | CB-10a..d (disjoint) |
 | **Backlog — not phase-gated** ||||||
@@ -107,7 +107,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 16 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
+**Counts:** 17 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. **CB-11 landed 2026-09-08** (`01395b43`), proven
 against a locally built production image. Remaining: **CB-10a..d only**, which is now
 the whole of Phase 4; CB-10d carries the ~2026-10-21 client-data deadline.
@@ -2378,7 +2378,16 @@ met by CB-11 and is recorded here so the eventual signer re-runs only what is
 actually outstanding. Restated against CB-10a..d, since the original single CB-10
 no longer exists.
 
-- [ ] **CB-10b, CB-10c, CB-10d** ✅ with dated verification notes
+- [ ] **CB-10c, CB-10d** ✅ with dated verification notes
+- [x] **CB-10b** ✅ — 2026-09-09, `b464b8a2`. Reviewer-verified: diff is the claimed
+      22 files / +54 / −1276; all four cascade deletions (BlockTypeSelector,
+      JSBlockEditor, PageCard.utils, UniversalBlock.source) independently confirmed
+      orphaned; the four List-tools UIs, their barrel and every `blocks/js-editor/*`
+      file untouched. Gates re-run by me: identical to base, 338/3860 and
+      149/1385+3. Live pass by me on a throwaway DB: the Action menu offers only
+      Read from Table / Send Data to Table / Send Data to API / List Tools — no JS
+      Transform — and a List Tools block creates, opens and renders all of Source,
+      Filters, Sort, Range, Transform, Output with no console error.
 - [x] **CB-10a** ✅ — 2026-09-09, `47ef2442`. Reviewer-verified on the merged tree
       (rebased onto CB-11, not the stale base it was written against): diff is the
       claimed 15 files / 49 insertions / 861 deletions; no surviving importer of

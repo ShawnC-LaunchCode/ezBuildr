@@ -90,6 +90,8 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| LIST-B1 | `triage` | List Tools' source picker has never worked: `ListToolsBlockEditor` passes a **workflowId** to `useSteps(pageId)`, which queries `/api/pages/<workflowId>/steps` and returns nothing, so no source variables are offered and no List block can be fully configured. Both are `string`, so tsc cannot see it. Pre-existing; blocks end-to-end List verification | Inline below: `LIST-B1` |
+| LIST-B2 | `informational` | In Easy mode the block dialog's Block Type select renders blank for a `list_tools` block, because `EASY_BLOCK_TYPES` omits `list_tools` so the matching SelectItem is never rendered. Cosmetic, and newly VISIBLE after CB-10b stopped mis-typing such blocks as `write` | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
 | DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
@@ -196,6 +198,50 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## List Tools' source picker queries the wrong id (LIST-B1) — filed 2026-09-09
+
+**Tag:** `triage`. Found by the CB-10b dev; **pre-existing, not caused by CB-10b** —
+both files are byte-unchanged by that commit.
+
+`ListToolsBlockEditor.tsx:31` calls `useSteps(workflowId)`. `useSteps` takes a
+**pageId** (`hooks/api/useSteps.ts:8`) and issues `stepAPI.list(pageId)`. Both
+parameters are `string`, so TypeScript cannot catch the swap. The query asks for the
+steps of a page whose id is actually a workflow id, gets nothing back, and the
+Source List Variable dropdown offers no variables — so `sourceListVar` can never be
+set and **no List Tools block can be fully configured through the UI**.
+
+`ListToolsSourceParams.tsx:30` compounds it by including only computed steps.
+
+Consequence for review: end-to-end List processing cannot be proven live. The CB-10b
+dev hit this, diagnosed it correctly, and explicitly refused to seed the config to
+work around it — which was the right call, and is why this is written down instead
+of being invisible.
+
+Cheap to confirm: the dropdown is empty on any workflow. Fix is likely one argument,
+but check what the picker is *supposed* to offer (all list-valued variables in the
+workflow, presumably) before assuming `pageId` is simply the right thing to pass.
+
+## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09
+
+**Tag:** `informational`. Cosmetic. Newly visible, not newly broken.
+
+`RegularBlockForm.tsx:105` only renders the `list_tools` SelectItem when
+`availableBlockTypes.includes('list_tools')`, and `EASY_BLOCK_TYPES`
+(`client/src/lib/mode.ts:12`) omits it — it exists only in `ALL_BLOCK_TYPES`. So in
+Easy mode a `list_tools` block shows an empty Block Type select: the value is set,
+but no option matches it.
+
+This was previously MASKED by a worse bug. Before CB-10b, `getInitialFormData` read
+`block?.source === 'regular' ? block.type : 'write'`, and the page-canvas path never
+set `source` — so such a block resolved to `'write'`, which made
+`RegularBlockForm` return `SendDataToTableBlockEditor` at its early return. A List
+Tools block opened from the canvas rendered the **Send Data to Table editor**.
+CB-10b removing the dead discriminator fixed that; the blank select is the leftover.
+
+Either surface `list_tools` in Easy mode, or suppress the Block Type select when the
+type is not user-changeable in the current mode. Also note `ALL_BLOCK_TYPES` still
+lists `'js'`, which is unreachable once CB-10c/10d land — clear it there.
 
 ## Nothing catches the client ignoring authoritative navigation (RUN-B1) — filed 2026-09-09
 
