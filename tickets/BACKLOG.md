@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
 | CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
 | CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
 | CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
@@ -193,6 +194,55 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## preview.isolation still fails the RLS gate (RLS-B1) — filed 2026-09-09
+
+**Tag:** `needs-initiative`. Owner: whoever holds RLS Phase 2. **This is what keeps
+the RLS Enforcement Gate red on `dev`.**
+
+Two of the 19 tests in `tests/integration/preview.isolation.test.ts` (CB-9a-1) fail
+under enforcement. The other two files the gate reported were fixed in `af6c809a`;
+these are a different cause and were deliberately not fixed there.
+
+```
+RLS_RESTRICTED=true VITEST_SINGLE_FORK=true npx vitest run --project integration   tests/integration/preview.isolation.test.ts        # 2 failed | 17 passed
+```
+
+1. *"simulates signature creation before the provider..."* —
+   `POST /api/esign/execute/:runId/:stepId` returns **400 "Workflow has no project"**.
+2. *"suppresses document delivery jobs and provider sends..."* —
+   `documentDeliveryService.processPendingDeliveries()` dispatches nothing;
+   `safeFetch` is called 0 times instead of 1.
+
+### What was ruled out — do not re-derive these
+
+- **Not a missing policy.** `code_block_runs` has one (migration `0043`), and the
+  tables the esign path reads are covered.
+- **Not `app_owner_tenant` being RLS-filtered from the inside.** It is `LANGUAGE sql
+  STABLE` and *not* `SECURITY DEFINER`, so its subselects on `users`, `projects` and
+  `organizations` do run as the caller — but none of those three tables ever gets
+  `ENABLE ROW LEVEL SECURITY` in the migration chain, so they are not filtered. This
+  looked like the answer and is not; it was checked rather than assumed.
+- **Not a missing tenant.** `withCurrentTenant` throws `"RLS: no tenant in context."`
+  when enforcement is on and the context is empty, which would surface as a 500. The
+  observed status is 400, reached from *inside* the `withCurrentTenant` block in
+  `SignatureBlockService.executeSignatureBlock` — so a tenant is present.
+
+### Where that leaves it
+
+The ambient tenant is **set but does not equal** the workflow's
+`app_owner_tenant(...)`, so `workflowRepository.findById` returns `undefined` inside
+the transaction and the code reports the workflow as having no project. The next step
+is to print `app_current_tenant()` alongside the workflow's resolved owner tenant at
+that point and see which of the five COALESCE branches is answering — this may well be
+a fixture issue in the CB-9a-1 setup rather than production code, exactly as the
+inspector failure turned out to be.
+
+Worth noting separately: `authorizeRun` in `esign.routes.ts` reads
+`workflowRunRepository.findById(runId)` on the pool with no tenant. That is the same
+shape as the bug fixed in `af6c809a` and is currently harmless only because
+`workflow_runs` never gets RLS enabled in the chain. It will stop being harmless the
+moment that table is enforced.
 
 ## Switching language leaves the other language's code (CB-B9) — filed 2026-09-08
 
