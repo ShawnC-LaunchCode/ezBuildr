@@ -245,6 +245,12 @@ these are a different cause and were deliberately not fixed there.
 RLS_RESTRICTED=true VITEST_SINGLE_FORK=true npx vitest run --project integration   tests/integration/preview.isolation.test.ts        # 2 failed | 17 passed
 ```
 
+**Confirmed in CI, not just locally.** The gate on `4c0de05c` reports
+`RLS gate: 1 failing file(s), 0 allowlisted` — down from 3 before `af6c809a` —
+with `148 passed (149)` files and `1386 passed (1388)` tests under enforcement.
+So the remaining surface really is these two tests in one file; everything else
+in the integration suite already holds as a non-owner role.
+
 1. *"simulates signature creation before the provider..."* —
    `POST /api/esign/execute/:runId/:stepId` returns **400 "Workflow has no project"**.
 2. *"suppresses document delivery jobs and provider sends..."* —
