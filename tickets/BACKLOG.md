@@ -90,6 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
 | CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
 | CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
@@ -194,6 +195,42 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## npm audit fails on @xmldom/xmldom (DEP-B1) — filed 2026-09-09
+
+**Tag:** `triage`. **This is what turns the Deployment Safety Check red on `dev`**,
+separately from the RLS gate (`RLS-B1`).
+
+Not a regression from anything committed. The Security Scan job runs `npm audit`,
+which is time-sensitive: `b0b79c5a` passed it at 20:16 on 2026-09-08 and `3fe96a60`
+failed it at 21:56 the same evening, with **no change to `package.json` or
+`package-lock.json` between them** (`git diff b0b79c5a..9106f628 -- package.json
+package-lock.json` is empty). The advisories were published in the gap.
+
+### The awkward part
+
+```
+docxtemplater@3.67.6 -> @xmldom/xmldom@0.9.10
+mammoth@1.11.0       -> @xmldom/xmldom@0.8.13
+vulnerable: <=0.8.14 || 0.9.0-beta.1 - 0.9.11
+```
+
+`0.9.12` clears the docxtemplater copy. **The 0.8.x line has no fixed release at
+all** — every `0.8.x` is in range — so `mammoth`'s copy cannot be patched in place.
+The options, none free:
+
+1. **`overrides` to `^0.9.12` for both.** Clears the scan, but forces `mammoth` onto
+   a parser a minor-major ahead of what it pins. `mammoth` is the DOCX→HTML path;
+   this needs the document suites run before anyone believes it.
+2. **Override the 0.9.x copy only, allowlist the `mammoth` one** with a justification
+   and an expiry, pending a `mammoth` release.
+3. **Allowlist both**, shortest expiry, and revisit.
+
+Most of the listed advisories are injection/bypass issues in `requireWellFormed`
+serialization and ReDoS on malformed input. Whether they are reachable here depends
+on whether any attacker-controlled XML reaches either parser — **that reachability
+question should be answered before choosing**, because it decides between (1) and (3).
+Per `.audit-allowlist.json`'s own header, an unexplained entry is how the gate rots.
 
 ## preview.isolation still fails the RLS gate (RLS-B1) — filed 2026-09-09
 
