@@ -62,10 +62,12 @@ vi.mock('../../../client/src/hooks/runner/useRunSession', () => ({
     actualRunId: 'preview-run',
     isInitializing: false,
     initError: null,
-    mode: 'preview',
-    previewState: null,
     run: undefined,
-    runtime: undefined,
+    runtime: {
+      workflow: { id: WORKFLOW_ID, title: 'Dissolution petition', settings: {} },
+      pages, steps: [], sections, logicRules: [],
+      run: { visitedPageIds: ['p-real-property'] },
+    },
     workflowId: WORKFLOW_ID,
   }),
 }));
@@ -129,11 +131,6 @@ vi.mock('../../../client/src/lib/runTokens', () => ({
 
 import { WorkflowRunner } from '../../../client/src/pages/WorkflowRunner';
 
-const previewEnvironment = {
-  getPages: () => pages,
-  getSteps: () => [],
-  addTraceEntry: vi.fn(),
-};
 
 function railRowFor(title: string): HTMLElement {
   const nav = screen.getByRole('navigation', { name: 'Interview contents' });
@@ -155,10 +152,7 @@ describe('what the rail may advertise (AC4 / D-6)', () => {
     mocks.values = { 'show-support': false };
 
     render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-real-property']}
-      />
+      <WorkflowRunner />
     );
 
     const nav = screen.getByRole('navigation', { name: 'Interview contents' });
@@ -172,10 +166,7 @@ describe('what the rail may advertise (AC4 / D-6)', () => {
     mocks.values = { 'show-support': true };
 
     render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-real-property']}
-      />
+      <WorkflowRunner />
     );
 
     const nav = screen.getByRole('navigation', { name: 'Interview contents' });
@@ -186,10 +177,7 @@ describe('what the rail may advertise (AC4 / D-6)', () => {
     mocks.values = { 'show-support': true };
 
     render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-real-property']}
-      />
+      <WorkflowRunner />
     );
 
     expect(railRowFor('Real Property').getAttribute('aria-current')).toBe('step');
@@ -202,44 +190,11 @@ describe('what the rail may advertise (AC4 / D-6)', () => {
     mocks.values = { 'show-support': false };
 
     render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-real-property']}
-      />
+      <WorkflowRunner />
     );
 
     // Assets holds two pages in the definition; logic removed one, so the
     // Section reads 1/1 rather than 1/2.
     expect(screen.getByText('1/1')).toBeTruthy();
-  });
-});
-
-describe('reporting reached pages in preview (AC9)', () => {
-  it('reports the page navigation resolved to, and never one it jumped over', () => {
-    mocks.values = { 'show-support': true };
-    const onPreviewPageEntered = vi.fn();
-
-    const { rerender } = render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={[]}
-        onPreviewPageEntered={onPreviewPageEntered}
-      />
-    );
-
-    expect(onPreviewPageEntered).toHaveBeenCalledWith('p-real-property');
-
-    // Jump forward over "Spousal Support" the way a random-fill jump does.
-    mocks.currentPageIndex = 2;
-    rerender(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-real-property']}
-        onPreviewPageEntered={onPreviewPageEntered}
-      />
-    );
-
-    expect(onPreviewPageEntered).toHaveBeenCalledWith('p-interlude');
-    expect(onPreviewPageEntered).not.toHaveBeenCalledWith('p-support');
   });
 });

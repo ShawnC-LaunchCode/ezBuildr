@@ -77,9 +77,6 @@ describe('useRunNavigation validation state', () => {
     const transport: RunNavigationTransport = {
       getVisiblePageSteps: () => [phoneStep],
       saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
-      recordViewMovedTo: vi.fn(),
-      recordValidationPassed: vi.fn().mockResolvedValue(undefined),
-      recordValidationException: vi.fn().mockResolvedValue(undefined),
       advanceAfterValidation: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -113,8 +110,6 @@ describe('useRunNavigation validation state', () => {
     const setShowReview = vi.fn();
     const saveNow = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useRunNavigationTransport({
-      mode: 'production',
-      previewEnvironment: null,
       getVisiblePageSteps: () => [phoneStep],
       saveNow,
     }));
@@ -164,7 +159,7 @@ type AdvanceContext = Parameters<RunNavigationTransport['advanceAfterValidation'
 
 function renderTransport(saveNow = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)) {
   const hook = renderHook(() => useRunNavigationTransport({
-    mode: 'production', previewEnvironment: null, getVisiblePageSteps: () => [phoneStep], saveNow,
+    getVisiblePageSteps: () => [phoneStep], saveNow,
   }));
   const context: AdvanceContext = {
     runId: 'live-run-1', currentPage: page, currentPageIndex: 0,

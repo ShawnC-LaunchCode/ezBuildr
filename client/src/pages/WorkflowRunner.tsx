@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
@@ -17,12 +16,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useRunSession, type RunIdKind } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
-import { useSections } from "@/hooks/api/useSections";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
-import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { useWorkflow } from "@/lib/vault-hooks";
-import { fetchAPI, type ApiAdvanceResult, type ApiPage, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import type { ApiAdvanceResult, ApiPage, ApiStep, ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
@@ -60,17 +56,7 @@ interface WorkflowRunnerProps {
   runId?: string;
   runIdKind?: RunIdKind;
   serverPreview?: ServerPreviewOptions;
-  previewEnvironment?: PreviewEnvironment;
   isPreview?: boolean;
-  onPreviewComplete?: () => void;
-  /**
-   * Preview's reached set (SECT-8B). A preview has no run row, so the preview
-   * shell owns an ephemeral in-memory set and hands it down here; production
-   * reads the persisted `visitedPageIds` off the runtime payload instead.
-   */
-  previewVisitedPageIds?: string[];
-  /** Called in preview when navigation enters a page, so the shell can append it. */
-  onPreviewPageEntered?: (pageId: string) => void;
 }
 
 const NO_VISITED_PAGE_IDS: string[] = [];
@@ -170,120 +156,37 @@ function allowsSaveAndResume(workflow: RunnerWorkflow | undefined): boolean {
     settings.allowSaveAndResume !== false;
 }
 
-interface RunnerSectionState {
-  sections: ApiSection[] | undefined;
-  visibilityPages: ApiPage[] | undefined;
-  isInitializing: boolean;
-  initError: string | null;
-}
-
-function resolveRunnerSectionState(input: {
-  isProductionMode: boolean;
-  workflowId: string | undefined;
-  pages: ApiPage[] | undefined;
-  productionSections: ApiSection[] | undefined;
-  previewSections: ApiSection[] | undefined;
-  previewSectionsError: unknown;
-  sessionIsInitializing: boolean;
-  sessionInitError: string | null;
-}): RunnerSectionState {
-  if (input.isProductionMode) {
-    return {
-      sections: input.productionSections,
-      visibilityPages: input.pages,
-      isInitializing: input.sessionIsInitializing,
-      initError: input.sessionInitError,
-    };
-  }
-
-  if (input.previewSectionsError != null) {
-    const detail = input.previewSectionsError instanceof Error
-      ? `: ${input.previewSectionsError.message}`
-      : '.';
-    return {
-      sections: undefined,
-      visibilityPages: undefined,
-      isInitializing: input.sessionIsInitializing,
-      initError: input.sessionInitError ?? `Failed to load workflow Sections${detail}`,
-    };
-  }
-
-  const sectionsAreInitializing = input.workflowId != null && input.previewSections === undefined;
-  return {
-    sections: input.previewSections,
-    visibilityPages: input.previewSections === undefined ? undefined : input.pages,
-    isInitializing: input.sessionIsInitializing || sectionsAreInitializing,
-    initError: input.sessionInitError,
-  };
-}
-
 export function WorkflowRunner({
   runId,
   runIdKind,
   serverPreview,
-  previewEnvironment,
   isPreview: _isPreview = false,
-  onPreviewComplete,
-  previewVisitedPageIds,
-  onPreviewPageEntered,
 }: WorkflowRunnerProps) {
   // 1. Session & Initialization
-  const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment, runIdKind);
-  const isProductionMode = mode === 'production';
-
-  // 2. Fetch Core Data
-  const { data: previewWorkflow } = useWorkflow(workflowId ?? "", { enabled: !isProductionMode && workflowId != null });
-  const workflow = isProductionMode ? runtime?.workflow : previewWorkflow;
-
-  // 3. Resolve Pages & Steps
-  const pages = useMemo(() => {
-    return isProductionMode ? runtime?.pages : previewEnvironment?.getPages();
-  }, [isProductionMode, previewEnvironment, runtime?.pages]);
-
+  const { actualRunId, isInitializing, initError, run, runtime, workflowId } = useRunSession(runId, runIdKind);
+  const workflow = runtime?.workflow;
+  const pages = runtime?.pages;
+  const sections = runtime?.sections;
   const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
-  const effectiveAllSteps = isProductionMode ? runtime?.steps : previewEnvironment?.getSteps();
-  const previewSectionsQuery = useSections(workflowId, { enabled: !isProductionMode && workflowId != null });
-  const sectionState = resolveRunnerSectionState({
-    isProductionMode,
-    workflowId,
-    pages,
-    productionSections: runtime?.sections,
-    previewSections: previewSectionsQuery.data,
-    previewSectionsError: previewSectionsQuery.error,
-    sessionIsInitializing: isInitializing,
-    sessionInitError: initError,
-  });
-  // A preview definition is incomplete until its Sections query settles.
-  // Keep pages out of the evaluator during that window (and on failure), so
-  // conditional members can never flash as if the workflow had no Sections.
-
-  const { data: logicRules } = useQuery({
-    queryKey: ['/api/workflows', workflowId, 'logic-rules', actualRunId],
-    queryFn: () => fetchAPI<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
-    enabled: workflowId != null && workflowId !== "" && !isProductionMode,
-  });
-
-  const effectiveLogicRules = (isProductionMode ? runtime?.logicRules : logicRules) as LogicRule[] | undefined ?? [];
+  const effectiveAllSteps = runtime?.steps;
+  const effectiveLogicRules = runtime?.logicRules as LogicRule[] | undefined ?? [];
 
   // 4. Form Values & Autosave
   const initialPreviewValues = useSnapshotInputs(effectiveAllSteps, serverPreview);
   const { effectiveValues, handleUpdateValue, saveStatus, saveNow, applySubmittedValues } = useRunValues({
-    mode,
     actualRunId,
     run,
-    previewState,
-    previewEnvironment,
     initialValues: initialPreviewValues,
     serverPreview: serverPreview !== undefined,
   });
 
   // 5. Visibility Engine
   const { visiblePages, getVisiblePageSteps } = usePageVisibility(
-    sectionState.visibilityPages,
+    pages,
     effectiveAllSteps,
     effectiveValues,
     effectiveLogicRules,
-    sectionState.sections
+    sections
   );
   const { respondentPages, finalPage } = useMemo(
     () => partitionRunnerPages(visiblePages),
@@ -293,12 +196,12 @@ export function WorkflowRunner({
 
   const resolvePreviewPages = useCallback((values: Record<string, unknown>) => {
     const visibility = evaluateWorkflowVisibility({
-      sections: sectionState.sections ?? [], pages: pages ?? [], steps: effectiveAllSteps ?? [],
+      sections: sections ?? [], pages: pages ?? [], steps: effectiveAllSteps ?? [],
       rules: effectiveLogicRules, data: values,
       resolveAlias: (alias) => effectiveAllSteps?.find((step) => step.alias === alias)?.id,
     });
     return partitionRunnerPages((pages ?? []).filter((page) => visibility.visiblePages.has(page.id))).respondentPages;
-  }, [sectionState.sections, pages, effectiveAllSteps, effectiveLogicRules]);
+  }, [sections, pages, effectiveAllSteps, effectiveLogicRules]);
   const applyPreviewResult = useCallback((result: ApiAdvanceResult, submittedValues: Record<string, unknown>) => {
     if (result.success) { applySubmittedValues(result.values, submittedValues); }
     serverPreview?.onResult(result);
@@ -306,10 +209,7 @@ export function WorkflowRunner({
   }, [applySubmittedValues, serverPreview, resolvePreviewPages]);
 
   const navigationTransport = useRunNavigationTransport({
-    mode,
-    previewEnvironment,
     getVisiblePageSteps,
-    onPreviewComplete,
     saveNow,
     onAdvanceResult: serverPreview ? applyPreviewResult : undefined,
   });
@@ -319,9 +219,7 @@ export function WorkflowRunner({
   // Reachedness is server state in production (SECT-8A) — never recomputed
   // here, and never mirrored into a zustand store (convention 8). It gates the
   // rail's affordance and, independently, the jump itself.
-  const visitedPageIds = isProductionMode
-    ? runtime?.run.visitedPageIds ?? NO_VISITED_PAGE_IDS
-    : previewVisitedPageIds ?? NO_VISITED_PAGE_IDS;
+  const visitedPageIds = runtime?.run.visitedPageIds ?? NO_VISITED_PAGE_IDS;
 
   // 6. Navigation & Validation
   const {
@@ -438,39 +336,25 @@ export function WorkflowRunner({
     }
   }, [showReview]);
 
-  // Preview's analogue of SECT-8A's server-side append: the preview shell owns
-  // the set, this only reports the page navigation actually resolved to. A page
-  // navigation jumped over is never reported, so it stays greyed.
-  useEffect(() => {
-    if (isProductionMode || currentPage == null) {
-      return;
-    }
-    onPreviewPageEntered?.(currentPage.id);
-  }, [isProductionMode, currentPage, onPreviewPageEntered]);
-
   const nav = useMemo<RunnerNavData>(() => ({
-    sections: sectionState.sections ?? [],
+    sections: sections ?? [],
     visiblePages: respondentPages,
     visitedPageIds,
     currentPageId: currentPage?.id ?? null,
-  }), [sectionState.sections, respondentPages, visitedPageIds, currentPage?.id]);
+  }), [sections, respondentPages, visitedPageIds, currentPage?.id]);
 
-  // Branding is resolved server-side on both paths so preview and production
-  // agree: production reads it off the runtime payload, preview off the
-  // workflow GET (GH-158 / O-9). The hook still falls back to resolving the
-  // workflow's own settings client-side if neither carries a value.
   const branding = useResolvedRunnerBranding(
-    isProductionMode ? runtime?.branding : previewWorkflow?.branding,
+    runtime?.branding,
     workflow?.settings
   );
 
   return (
     <WorkflowRunnerScreen
-      isInitializing={sectionState.isInitializing}
-      initError={sectionState.initError}
+      isInitializing={isInitializing}
+      initError={initError}
       pages={pages}
       workflowId={workflowId}
-      isProductionMode={isProductionMode && !serverPreview}
+      isProductionMode={!serverPreview}
       actualRunId={actualRunId}
       workflow={workflow}
       branding={branding}

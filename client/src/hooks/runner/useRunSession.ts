@@ -4,12 +4,8 @@ import { getRunToken, setRunToken } from "@/lib/runTokens";
 import { fetchAPI, type ApiRunRuntime, type ApiStepValue } from "@/lib/vault-api";
 import { useRunRuntime } from "@/lib/vault-hooks";
 import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue } from "@/pages/workflow-runner/runner.utils";
-import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
 
 const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
-
-type RunnerMode = 'preview' | 'production';
 
 /**
  * CB-9a-3a: how `runId` should be interpreted.
@@ -41,8 +37,6 @@ interface UseRunSessionReturn {
   actualRunId: string | null;
   isInitializing: boolean;
   initError: string | null;
-  mode: RunnerMode;
-  previewState: PreviewRunState | null;
   run: RunWithValues | undefined;
   runtime: ApiRunRuntime | undefined;
   workflowId: string | undefined;
@@ -170,7 +164,6 @@ async function resolveRunSession(runId: string, initialValues: InitialValues): P
 
 export function useRunSession(
   runId?: string,
-  previewEnvironment?: PreviewEnvironment,
   runIdKind: RunIdKind = 'resolve'
 ): UseRunSessionReturn {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
@@ -178,18 +171,7 @@ export function useRunSession(
   const [initError, setInitError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const previewState = usePreviewEnvironment(previewEnvironment ?? null);
-  const mode: RunnerMode = previewEnvironment ? 'preview' : 'production';
-
   useEffect(() => {
-    if (previewEnvironment) {
-      if (runId) {
-        setActualRunId(runId);
-      }
-      setIsInitializing(false);
-      return;
-    }
-
     async function initialize(): Promise<void> {
       if (!runId) {
         setInitError('No run ID provided');
@@ -237,10 +219,10 @@ export function useRunSession(
     }
 
     void initialize();
-  }, [runId, toast, previewEnvironment, runIdKind]);
+  }, [runId, toast, runIdKind]);
 
   const { data: runtime, error: runtimeError, isLoading: isRuntimeLoading } = useRunRuntime(actualRunId ?? '', {
-    enabled: mode === 'production' && actualRunId !== null && !isInitializing,
+    enabled: actualRunId !== null && !isInitializing,
   });
   // Memoized on `runtime` (react-query keeps that reference stable across
   // re-renders via structural sharing, only changing on a real refetch) so
@@ -255,15 +237,13 @@ export function useRunSession(
     [runtime]
   );
 
-  const workflowId = mode === 'preview' ? previewState?.workflowId : run?.workflowId;
+  const workflowId = run?.workflowId;
   const effectiveInitError = initError ?? (runtimeError instanceof Error ? runtimeError.message : null);
 
   return {
     actualRunId,
-    isInitializing: isInitializing || (mode === 'production' && actualRunId !== null && isRuntimeLoading),
+    isInitializing: isInitializing || (actualRunId !== null && isRuntimeLoading),
     initError: effectiveInitError,
-    mode,
-    previewState,
     run,
     runtime,
     workflowId,

@@ -8,14 +8,10 @@ import {
 } from "@/lib/runner/offlineBuffer";
 
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
-import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 
 interface UseRunValuesProps {
-  mode: 'preview' | 'production';
   actualRunId: string | null;
   run: { values?: { stepId: string; value: StepValue; updatedAt?: string | Date }[] } | null | undefined;
-  previewState: PreviewRunState | null;
-  previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
   initialValues?: Record<string, StepValue>;
   serverPreview?: boolean;
 }
@@ -30,13 +26,6 @@ export interface UseRunValuesReturn {
   saveNow: () => Promise<void>;
   isOnline: boolean;
   applySubmittedValues: (values: Record<string, StepValue>, submittedValues: Record<string, StepValue>) => void;
-}
-
-interface RunValueAdapter {
-  values: Record<string, StepValue>;
-  updateValue: (stepId: string, value: StepValue) => void;
-  hydrateFromSavedRun: boolean;
-  autosaveEnabled: boolean;
 }
 
 // A `keepalive: true` fetch is rejected outright once its body exceeds 64 KiB
@@ -62,16 +51,12 @@ function reconcileDrafts(drafts: Record<string, StepValue>, submitted: Record<st
 }
 
 export function useRunValues({
-  mode,
   actualRunId,
   run,
-  previewState,
-  previewEnvironment,
   initialValues,
   serverPreview = false,
 }: UseRunValuesProps): UseRunValuesReturn {
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
-  const isProductionMode = mode === 'production';
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -91,41 +76,14 @@ export function useRunValues({
     setFormValues(prev => ({ ...prev, [stepId]: value }));
   }, []);
 
-  const updatePreviewValue = useCallback((stepId: string, value: StepValue) => {
-    previewEnvironment?.setValue(stepId, value);
-  }, [previewEnvironment]);
+  const effectiveValues = useMemo(() => serverPreview
+    ? { ...Object.fromEntries((run?.values ?? []).map((entry) => [entry.stepId, entry.value])), ...formValues }
+    : formValues, [formValues, serverPreview, run?.values]);
 
-  const valueAdapter = useMemo<RunValueAdapter>(() => {
-    if (isProductionMode) {
-      return {
-        values: serverPreview
-          ? { ...Object.fromEntries((run?.values ?? []).map((entry) => [entry.stepId, entry.value])), ...formValues }
-          : formValues,
-        updateValue: updateProductionValue,
-        hydrateFromSavedRun: true,
-        autosaveEnabled: Boolean(actualRunId),
-      };
-    }
-
-    return {
-      values: previewState?.values ?? {},
-      updateValue: updatePreviewValue,
-      hydrateFromSavedRun: false,
-      autosaveEnabled: false,
-    };
-  }, [isProductionMode, formValues, updateProductionValue, actualRunId, previewState?.values, updatePreviewValue, serverPreview, run?.values]);
-
-  const {
-    values: effectiveValues,
-    updateValue,
-    hydrateFromSavedRun,
-    autosaveEnabled,
-  } = valueAdapter;
-
-  // Initialize form values from run.values and merge any pending offline buffer (production mode only).
+  // Initialize form values from run.values and merge any pending offline buffer.
   const hydratedRunIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!hydrateFromSavedRun || !run?.values || !actualRunId) {
+    if (!run?.values || !actualRunId) {
       return;
     }
     if (hydratedRunIdRef.current === actualRunId) {
@@ -194,15 +152,15 @@ export function useRunValues({
     return () => {
       cancelled = true;
     };
-  }, [run, hydrateFromSavedRun, actualRunId, initialValues, serverPreview]);
+  }, [run, actualRunId, initialValues, serverPreview]);
 
   const applySubmittedValues = useCallback((values: Record<string, StepValue>, submittedValues: Record<string, StepValue>) => {
     setFormValues((drafts) => reconcileDrafts(drafts, submittedValues, serverPreview ? {} : values));
   }, [serverPreview]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
-    updateValue(stepId, value);
-  }, [updateValue]);
+    updateProductionValue(stepId, value);
+  }, [updateProductionValue]);
 
   // Safely reconcile server conflicts: verify if the local field was edited after the in-flight submission
   const applyConflictReconciliation = useCallback((conflicts: Array<{ stepId: string; serverValue: unknown; serverUpdatedAt: string }>) => {
@@ -349,7 +307,7 @@ export function useRunValues({
     onOfflineSave: performOfflineSave,
     onReconnect: handleReconnect,
     delay: 1500, // 1.5s debounce
-    enabled: autosaveEnabled,
+    enabled: Boolean(actualRunId),
   });
 
   return {

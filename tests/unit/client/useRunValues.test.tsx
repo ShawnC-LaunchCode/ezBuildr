@@ -18,11 +18,8 @@ function renderRunValues(initial: HookProps) {
   return renderHook(
     ({ run, actualRunId }: HookProps) =>
       useRunValues({
-        mode: 'production',
         actualRunId,
         run,
-        previewState: null,
-        previewEnvironment: null,
       }),
     { initialProps: initial }
   );

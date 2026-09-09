@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchAPI, type ApiAdvanceResult, type ApiPage, type ApiStep } from "@/lib/vault-api";
+import type { ApiAdvanceResult, ApiPage, ApiStep } from "@/lib/vault-api";
 import { useAdvance, useCompleteRun } from "@/lib/vault-hooks";
 import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
@@ -11,7 +11,6 @@ import { describeListErrorsForSummary, normalizeListValue } from "@/components/r
 import { clearRunToken } from "@/lib/runTokens";
 import { usePreviewStore } from "@/store/preview";
 import { analytics } from "@/lib/analytics";
-import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 
 type RunnerValues = Record<string, StepValue>;
@@ -20,8 +19,6 @@ type PageValueWrite = {
   stepId: string;
   value: StepValue;
 };
-
-type TraceRecorder = Pick<PreviewEnvironment, 'addTraceEntry'>;
 
 type AdvanceValidationIssue = {
   kind: 'validation';
@@ -47,23 +44,11 @@ interface AdvanceContext {
 export interface RunNavigationTransport {
   getVisiblePageSteps: (pageId: string) => ApiStep[];
   saveBeforeLeavingPage: () => Promise<void>;
-  /**
-   * Report that the view moved to a page without the run advancing (SECT-9).
-   * Preview keeps its in-memory cursor in step, because the dev toolbar's
-   * per-page tools read it; production does nothing, since the run's cursor is
-   * server-owned and a jump must never move it.
-   */
-  recordViewMovedTo: (pageIndex: number) => void;
-  recordValidationPassed: (stepsValidated: number) => void | Promise<void>;
-  recordValidationException: (error: unknown) => void | Promise<void>;
   advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceOutcome | undefined>;
 }
 
 interface UseRunNavigationTransportProps {
-  mode: 'preview' | 'production';
-  previewEnvironment: PreviewEnvironment | null | undefined;
-  getVisiblePageSteps: (pageId: string, traceRecorder?: TraceRecorder) => ApiStep[];
-  onPreviewComplete?: () => void;
+  getVisiblePageSteps: (pageId: string) => ApiStep[];
   saveNow: () => Promise<void>;
   onAdvanceResult?: (result: ApiAdvanceResult, submittedValues: RunnerValues) => ApiPage[];
 }
@@ -80,17 +65,12 @@ interface UseRunNavigationProps {
   returnToReviewAfterNext?: boolean;
   /**
    * The reached set that gates `jumpToPage` (SECT-9): the run row's persisted
-   * `visitedPageIds` in production, the preview shell's in-memory set in
-   * preview. Never re-derived here — reachedness is owned by the run.
+   * `visitedPageIds`. Never re-derived here — reachedness is owned by the run.
    */
   visitedPageIds?: string[];
 }
 
 const NO_VISITED_PAGE_IDS: string[] = [];
-
-function hasFinalBlock(page: ApiPage): boolean {
-  return Boolean((page.config as { finalBlock?: unknown } | null | undefined)?.finalBlock);
-}
 
 function collectPageValues(steps: ApiStep[], values: RunnerValues): PageValueWrite[] {
   const currentPageStepIds = new Set(steps.map((step) => step.id));
@@ -162,14 +142,10 @@ function applyAdvanceNavigation(result: ApiAdvanceResult, context: Pick<AdvanceC
 }
 
 export function useRunNavigationTransport({
-  mode,
-  previewEnvironment,
   getVisiblePageSteps,
-  onPreviewComplete,
   saveNow,
   onAdvanceResult,
 }: UseRunNavigationTransportProps): RunNavigationTransport {
-  const { toast } = useToast();
   const advanceMutation = useAdvance();
   // No response means the server may already have committed: retry that key.
   // Any response completes the attempt, including a validation rejection.
@@ -180,86 +156,11 @@ export function useRunNavigationTransport({
     inFlight: boolean;
   } | null>(null);
   useEffect(() => () => { pendingSubmissionRef.current = null; }, []);
-  const isProductionMode = mode === 'production';
 
   return useMemo<RunNavigationTransport>(() => {
-    if (!isProductionMode && previewEnvironment) {
-      return {
-        getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId, previewEnvironment),
-        saveBeforeLeavingPage: async () => undefined,
-        recordViewMovedTo: (pageIndex) => { previewEnvironment.setCurrentPage(pageIndex); },
-        recordValidationPassed: (stepsValidated) => {
-          void previewEnvironment.addTraceEntry({
-            type: 'logic',
-            status: 'executed',
-            message: 'Page Validation Passed',
-            details: { stepsValidated },
-          });
-        },
-        recordValidationException: (error) => {
-          void previewEnvironment.addTraceEntry({
-            type: 'error',
-            status: 'failed',
-            message: 'Validation Exception',
-            details: { error },
-          });
-        },
-        advanceAfterValidation: async ({
-          runId,
-          currentPageIndex,
-          visiblePages,
-          isLastPage,
-          setCurrentPageIndex,
-          setShowReview,
-          returnToReviewAfterValidation,
-        }) => {
-          if (returnToReviewAfterValidation) {
-            setShowReview(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return undefined;
-          }
-
-          if (isLastPage) {
-            previewEnvironment.completeRun();
-            void previewEnvironment.addTraceEntry({
-              type: 'step',
-              status: 'executed',
-              message: 'Workflow Completed',
-            });
-            toast({ title: "Preview Complete!", description: "Preview workflow completed successfully" });
-            onPreviewComplete?.();
-            return undefined;
-          }
-
-          const nextIndex = Math.min(currentPageIndex + 1, visiblePages.length - 1);
-          const nextPage = visiblePages[nextIndex];
-
-          if (runId != null && nextPage != null && hasFinalBlock(nextPage)) {
-            try {
-              const valuesToSave = Object.entries(previewEnvironment.getValues()).map(([stepId, value]) => ({ stepId, value }));
-              await fetchAPI(`/api/runs/${runId}/values/bulk`, {
-                method: 'POST',
-                body: JSON.stringify({ values: valuesToSave }),
-              });
-            } catch (error) {
-              console.error('[WorkflowRunner] Failed to save preview values:', error);
-              toast({ title: "Warning", description: "Failed to save form values.", variant: "destructive" });
-            }
-          }
-
-          setCurrentPageIndex(nextIndex);
-          previewEnvironment.setCurrentPage(nextIndex);
-          return undefined;
-        },
-      };
-    }
-
     return {
       getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId),
       saveBeforeLeavingPage: saveNow,
-      recordViewMovedTo: () => undefined,
-      recordValidationPassed: () => undefined,
-      recordValidationException: () => undefined,
       advanceAfterValidation: async ({
         runId,
         currentPage,
@@ -339,14 +240,10 @@ export function useRunNavigationTransport({
       },
     };
   }, [
-    isProductionMode,
-    previewEnvironment,
     getVisiblePageSteps,
-    onPreviewComplete,
     saveNow,
     advanceMutation,
     onAdvanceResult,
-    toast,
   ]);
 }
 
@@ -461,7 +358,6 @@ export function useRunNavigation({
     setErrors([]);
     setFieldErrors({});
     setCurrentPageIndex(targetIndex);
-    transport.recordViewMovedTo(targetIndex);
     setShowReview(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return true;
@@ -560,13 +456,11 @@ export function useRunNavigation({
       }
     } catch (e) {
       console.error("Validation error", e);
-      await transport.recordValidationException(e);
       toast({ title: "Unable to continue", description: "Something went wrong. Please try again.", variant: "destructive" });
       return;
     }
 
     try {
-      await transport.recordValidationPassed(visiblePageSteps.length);
       const result = await transport.advanceAfterValidation({
         runId: actualRunId,
         currentPage,

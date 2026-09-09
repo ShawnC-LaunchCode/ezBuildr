@@ -12,9 +12,6 @@
  *    attribute: `jumpToPage` is called directly here with an unreached id,
  *    the way a rail one render behind the run would call it.
  *
- * Both transport branches are driven. A jump implemented in only one of them
- * is the seam defect this repo keeps paying for, so every production case
- * below has a preview counterpart built from the real `useRunNavigationTransport`.
  */
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +36,6 @@ import {
   useRunNavigationTransport,
   type RunNavigationTransport,
 } from '../../../client/src/hooks/runner/useRunNavigation';
-import type { PreviewEnvironment } from '../../../client/src/lib/previewRunner/PreviewEnvironment';
 import type { ApiPage } from '../../../client/src/lib/vault-api';
 
 function page(id: string, title: string, order: number): ApiPage {
@@ -64,21 +60,11 @@ const VISITED = ['p-real-property', 'p-bank'];
 /** A production transport with an observable, controllable autosave flush. */
 function productionTransport(saveNow: () => Promise<void>) {
   return renderHook(() => useRunNavigationTransport({
-    mode: 'production',
-    previewEnvironment: null,
     getVisiblePageSteps: () => [],
     saveNow,
   })).result.current;
 }
 
-function previewTransport(previewEnvironment: Pick<PreviewEnvironment, 'setCurrentPage'>) {
-  return renderHook(() => useRunNavigationTransport({
-    mode: 'preview',
-    previewEnvironment: previewEnvironment as PreviewEnvironment,
-    getVisiblePageSteps: () => [],
-    saveNow: async () => undefined,
-  })).result.current;
-}
 
 function renderNavigation(transport: RunNavigationTransport, visitedPageIds = VISITED) {
   return renderHook(() => useRunNavigation({
@@ -197,41 +183,5 @@ describe('jumpToPage — production (AC1, AC2)', () => {
     expect(saveNow).toHaveBeenCalledTimes(1);
     // A rail jump is a navigation-only move: it must not become a submission.
     expect(advanceMock).not.toHaveBeenCalled();
-  });
-});
-
-describe('jumpToPage — preview parity (AC4)', () => {
-  it('moves the view and keeps the preview cursor in step, without touching production save/submit', async () => {
-    const setCurrentPage = vi.fn();
-    const { result } = renderNavigation(previewTransport({ setCurrentPage }));
-
-    let moved: boolean | undefined;
-    await act(async () => {
-      moved = await result.current.jumpToPage('p-bank');
-    });
-
-    expect(moved).toBe(true);
-    expect(result.current.currentPage?.id).toBe('p-bank');
-    // Only the preview branch does this — proof the preview transport, not the
-    // production one, carried the jump. The preview cursor feeds the dev
-    // toolbar's per-page tools, so a jump that left it stale would fill the
-    // page the respondent just left.
-    expect(setCurrentPage).toHaveBeenCalledWith(1);
-    // A rail jump is a navigation-only move: it must not become a submission.
-    expect(advanceMock).not.toHaveBeenCalled();
-  });
-
-  it('applies the same reached guard in preview', async () => {
-    const setCurrentPage = vi.fn();
-    const { result } = renderNavigation(previewTransport({ setCurrentPage }));
-
-    let moved: boolean | undefined;
-    await act(async () => {
-      moved = await result.current.jumpToPage('p-loans');
-    });
-
-    expect(moved).toBe(false);
-    expect(result.current.currentPage?.id).toBe('p-real-property');
-    expect(setCurrentPage).not.toHaveBeenCalled();
   });
 });

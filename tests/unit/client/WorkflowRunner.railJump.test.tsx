@@ -6,9 +6,7 @@
  * `useRunValues`, real `useAutoSave`, real `useRunNavigationTransport`, real
  * `useRunNavigation`, real blocks. Only the network boundary (`fetchAPI`, the
  * run mutations) and the run session are stubbed, so what this file proves is
- * the seam the ticket cares about rather than a hand-wired approximation. The
- * last block re-runs the same interaction against the preview branch, which
- * has its own transport and its own in-memory reached set.
+ * the seam the ticket cares about rather than a hand-wired approximation.
  *
  * AC5's trap: the answer must survive a jump made **without blurring the
  * field**. The autosave debounce is 1.5s and this test never advances a timer,
@@ -26,9 +24,6 @@ const mocks = vi.hoisted(() => ({
   advance: vi.fn(),
   currentPageId: 'p-assets' as string | null,
   visitedPageIds: ['p-contact', 'p-assets'] as string[],
-  mode: 'production' as 'production' | 'preview',
-  previewPageEntered: vi.fn(),
-  previewSetCurrentPage: vi.fn(),
 }));
 
 function page(id: string, title: string, order: number, sectionId: string | null) {
@@ -121,21 +116,10 @@ vi.mock('../../../client/src/lib/runTokens', () => ({
 }));
 
 vi.mock('../../../client/src/hooks/runner/useRunSession', () => ({
-  useRunSession: () => (mocks.mode === 'preview' ? {
-    actualRunId: 'preview-run',
-    isInitializing: false,
-    initError: null,
-    mode: 'preview',
-    previewState: { values: {} },
-    run: undefined,
-    runtime: undefined,
-    workflowId: WORKFLOW_ID,
-  } : {
+  useRunSession: () => ({
     actualRunId: RUN_ID,
     isInitializing: false,
     initError: null,
-    mode: 'production',
-    previewState: null,
     run: {
       id: RUN_ID,
       workflowId: WORKFLOW_ID,
@@ -205,9 +189,6 @@ beforeEach(() => {
   mocks.advance.mockImplementation(({ submissionKey }: { submissionKey: string }) => Promise.resolve({
     success: true, values: {}, blockStates: [], navigation: null, submissionKey,
   }));
-  mocks.previewPageEntered.mockReset();
-  mocks.previewSetCurrentPage.mockReset();
-  mocks.mode = 'production';
   mocks.currentPageId = 'p-assets';
   mocks.visitedPageIds = ['p-contact', 'p-assets'];
   window.scrollTo = vi.fn();
@@ -280,62 +261,5 @@ describe('the Review screen edit jump on top of jumpToPage (AC3)', () => {
 
     await screen.findByText('Review your answers');
     expect(mocks.advance).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe('the same jump in preview (AC4)', () => {
-  const previewEnvironment = {
-    getPages: () => PAGES,
-    getSteps: () => STEPS,
-    getValues: () => ({}),
-    setValue: vi.fn(),
-    setCurrentPage: mocks.previewSetCurrentPage,
-    addTraceEntry: vi.fn(),
-    completeRun: vi.fn(),
-  };
-
-  function renderPreview() {
-    mocks.mode = 'preview';
-    return render(
-      <WorkflowRunner
-        previewEnvironment={previewEnvironment as never}
-        previewVisitedPageIds={['p-contact', 'p-assets']}
-        onPreviewPageEntered={mocks.previewPageEntered}
-      />
-    );
-  }
-
-  it('jumps on the preview transport, keeping its cursor and reached set in step', async () => {
-    renderPreview();
-
-    // A preview starts at the first page; the shell's in-memory set says the
-    // second one has been reached, so it is offered and the third is not.
-    expect(questionField(NAME_FIELD)).not.toBeNull();
-    expect(railButton('Asset schedule').disabled).toBe(false);
-    expect(railButton('Closing notes').disabled).toBe(true);
-
-    fireEvent.click(railButton('Asset schedule'));
-
-    await waitFor(() => {
-      expect(questionField(ASSET_FIELD)).not.toBeNull();
-    });
-    // Only the preview transport does this. The dev toolbar's per-page tools
-    // read that cursor, so a jump that left it stale would fill the page the
-    // respondent just left.
-    expect(mocks.previewSetCurrentPage).toHaveBeenCalledWith(1);
-    expect(mocks.previewPageEntered).toHaveBeenCalledWith('p-assets');
-    expect(mocks.fetchAPI).not.toHaveBeenCalled();
-    expect(mocks.advance).not.toHaveBeenCalled();
-  });
-
-  it('refuses an unreached page in preview exactly as production does', () => {
-    renderPreview();
-
-    const unreached = railButton('Closing notes');
-    expect(unreached.disabled).toBe(true);
-    fireEvent.click(unreached);
-
-    expect(questionField(NAME_FIELD)).not.toBeNull();
-    expect(mocks.previewSetCurrentPage).not.toHaveBeenCalled();
   });
 });

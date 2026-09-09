@@ -92,7 +92,7 @@ describe('CB-9a-3a preview session plumbing', () => {
 
   it("uses a 'session' id verbatim and never attempts to resolve it", async () => {
     const { useRunSession } = await import('../../../client/src/hooks/runner/useRunSession');
-    const { result } = renderHook(() => useRunSession(PREVIEW_RUN_ID, undefined, 'session'));
+    const { result } = renderHook(() => useRunSession(PREVIEW_RUN_ID, 'session'));
 
     await waitFor(() => { expect(result.current.isInitializing).toBe(false); });
     expect(result.current.actualRunId).toBe(PREVIEW_RUN_ID);
@@ -107,7 +107,7 @@ describe('CB-9a-3a preview session plumbing', () => {
 
   it("still resolves under 'resolve', so live recovery is untouched", async () => {
     const { useRunSession } = await import('../../../client/src/hooks/runner/useRunSession');
-    const { result } = renderHook(() => useRunSession(PREVIEW_RUN_ID, undefined, 'resolve'));
+    const { result } = renderHook(() => useRunSession(PREVIEW_RUN_ID, 'resolve'));
 
     await waitFor(() => { expect(result.current.isInitializing).toBe(false); });
     // Resolution was attempted and its result adopted — the historical path.
@@ -137,7 +137,7 @@ describe('CB-9a-3a preview session plumbing', () => {
 
   it('reports a missing id rather than silently idling', async () => {
     const { useRunSession } = await import('../../../client/src/hooks/runner/useRunSession');
-    const { result } = renderHook(() => useRunSession(undefined, undefined, 'session'));
+    const { result } = renderHook(() => useRunSession(undefined, 'session'));
 
     await waitFor(() => { expect(result.current.isInitializing).toBe(false); });
     expect(result.current.initError).toBe('No run ID provided');
