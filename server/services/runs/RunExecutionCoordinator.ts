@@ -3,6 +3,7 @@ import { workflowRepository, workflowRunRepository } from "../../repositories";
 import { codeBlockRunRepository } from "../../repositories/CodeBlockRunRepository";
 import { runSubmissionRepository } from "../../repositories/RunSubmissionRepository";
 import { createError } from "../../utils/errors";
+import { withCurrentTenant } from "../../utils/rlsContext";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
 import { codeBlockService } from "../codeBlocks/CodeBlockService";
@@ -287,7 +288,14 @@ export class RunExecutionCoordinator {
     }
 
     private async readBlockStates(runId: string): Promise<AdvanceBlockState[]> {
-        const rows = await codeBlockRunRepository.findByRunId(runId);
+        // `code_block_runs` carries a FORCE-enabled tenant policy (migration 0043)
+        // that resolves the run's workflow owner against `app_current_tenant()`.
+        // Read it on the pool instead of inside `withCurrentTenant` and the GUC is
+        // unset, the policy matches nothing, and this returns ZERO ROWS RATHER THAN
+        // AN ERROR -- so every Code Block silently disappears from the advance
+        // response under enforcement. Every other access to this repo already goes
+        // through `withCurrentTenant`; this one was the exception.
+        const rows = await withCurrentTenant(tx => codeBlockRunRepository.findByRunId(runId, tx));
         return rows.map(row => ({
             stepId: row.stepId,
             status: row.status,

@@ -96,7 +96,13 @@ describe.sequential('CB-9 inspector API', () => {
     expect(three.body.data.blockStates).toEqual(expect.arrayContaining([expect.objectContaining({ stepId: blockId, status: 'skipped_unchanged' })]));
     const read = await agent.get(`/api/runs/${runId}/code-blocks`).expect(200);
     expect(read.body.blockStates).toEqual(three.body.data.blockStates);
-    const row = await codeBlockRunRepository.findByRunAndStep(runId, blockId);
+    // Read the row through the OWNER connection, not the app repository. The repo
+    // takes its tenant from the ambient RLS context, which a test body does not
+    // have -- under enforcement that returns `undefined` and this reads as "the
+    // state was never persisted" when it plainly was. The owner db also makes the
+    // assertion stronger: it is the stored row, not a policy-filtered view of it.
+    const [row] = await getOwnerDb().select().from(schema.codeBlockRuns)
+      .where(and(eq(schema.codeBlockRuns.runId, runId), eq(schema.codeBlockRuns.stepId, blockId)));
     expect(row?.status).toBe('skipped_unchanged');
   });
 
