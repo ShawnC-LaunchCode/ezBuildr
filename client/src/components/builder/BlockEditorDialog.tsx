@@ -5,9 +5,7 @@ import { type Mode } from "@/lib/mode";
 
 import { useBlockEditorState, useBlockSave, getTitleForBlock, type UniversalBlock } from "./BlockEditorDialog.hooks";
 export type { UniversalBlock };
-import { BlockTypeSelector } from "./BlockTypeSelector";
 import { RegularBlockForm } from "./forms/RegularBlockForm";
-import { TransformBlockForm } from "./forms/TransformBlockForm";
 
 export function BlockEditorDialog({
     workflowId,
@@ -22,7 +20,7 @@ export function BlockEditorDialog({
     isOpen: boolean;
     onClose: () => void;
 }) {
-    const { creationMode, setCreationMode, formData, setFormData } = useBlockEditorState(block, isOpen);
+    const { formData, setFormData } = useBlockEditorState(block, isOpen);
     const { handleSave } = useBlockSave(workflowId, block, onClose);
 
     return (
@@ -33,41 +31,23 @@ export function BlockEditorDialog({
                         {getTitleForBlock(block)}
                     </DialogTitle>
                     <DialogDescription>
-                        {creationMode === 'regular' ? "Configure a standard workflow block." : "Configure a custom code transformation."}
+                        Configure a standard workflow block.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="py-4 space-y-6">
-                    {/* Top Controls: Type Selection (Only if creating new) */}
-                    {!block && (
-                        <BlockTypeSelector
-                            creationMode={creationMode}
-                            setCreationMode={setCreationMode}
-                            mode={mode}
-                        />
-                    )}
-
-                    {/* Configuration Form */}
-                    {creationMode === 'regular' ? (
-                        <RegularBlockForm
-                            formData={formData}
-                            setFormData={setFormData}
-                            mode={mode}
-                            block={block}
-                            workflowId={workflowId}
-                        />
-                    ) : (
-                        <TransformBlockForm
-                            formData={formData}
-                            setFormData={setFormData}
-                            workflowId={workflowId}
-                        />
-                    )}
+                    <RegularBlockForm
+                        formData={formData}
+                        setFormData={setFormData}
+                        mode={mode}
+                        block={block}
+                        workflowId={workflowId}
+                    />
                 </div>
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => { onClose(); }}>Cancel</Button>
-                    <Button onClick={() => { void handleSave(creationMode, formData); }}>Save Block</Button>
+                    <Button onClick={() => { void handleSave(formData); }}>Save Block</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

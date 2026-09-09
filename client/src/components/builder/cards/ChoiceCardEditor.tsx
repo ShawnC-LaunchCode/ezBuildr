@@ -258,7 +258,6 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
         enabled: result.block.enabled ?? true,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
         raw: result.block as unknown as any,
-        source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
       };
@@ -409,7 +408,6 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
         enabled: result.block.enabled ?? true,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
         raw: result.block as unknown as any,
-        source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
       };
@@ -455,7 +453,6 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
       order: linkedBlock.order ?? 0,
       enabled: linkedBlock.enabled ?? true,
       raw: linkedBlock as unknown as Record<string, unknown>,
-      source: 'regular',
       title: (blockCfg['outputListVar'] as string | undefined) ?? (blockCfg['outputKey'] as string | undefined) ?? 'List Tools',
       displayType: 'list_tools'
     };

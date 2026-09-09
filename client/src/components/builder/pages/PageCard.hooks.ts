@@ -10,14 +10,12 @@ import { ApiBlock, ApiPage, ApiStep, pageAPI, type ApiDeleteImpact } from "@/lib
 import {
     useDeletePage,
     useDuplicatePage,
-    useTransformBlocks,
     useUpdatePage,
     useWorkflowMode,
 } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 import { useAutoFocus } from "./PageCard.focus.hooks";
-import { mapTransformToBlock } from "./PageCard.utils";
 
 interface UsePageCardLogicReturn {
     mode: string;
@@ -67,7 +65,6 @@ export function usePageCardLogic(
     blocks: ApiBlock[],
     steps: ApiStep[]
 ): UsePageCardLogicReturn {
-    const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
     const updatePageMutation = useUpdatePage();
@@ -95,13 +92,7 @@ export function usePageCardLogic(
     // Combine steps and blocks into sortable items
     const pageBlocks = blocks.filter((b) => b.pageId === page.id);
 
-    const pageTransformBlocks: ApiBlock[] = mapTransformToBlock(
-        transformBlocks,
-        page.id
-    );
-
-    const allPageBlocks = [...pageBlocks, ...pageTransformBlocks];
-    const items = combinePageItems(filteredSteps, allPageBlocks);
+    const items = combinePageItems(filteredSteps, pageBlocks);
 
     // Auto-expand/focus logic
     const {

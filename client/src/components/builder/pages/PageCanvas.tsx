@@ -33,7 +33,6 @@ import {
   useCreatePageAtEnd,
   usePages,
   useSections,
-  useTransformBlocks,
   useWorkflowMode,
 } from "@/lib/vault-hooks";
 
@@ -96,7 +95,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
   const { data: pages = [] } = usePages(workflowId);
   const { data: sections = [] } = useSections(workflowId);
   const { data: allBlocks = [] } = useBlocks(workflowId);
-  const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
   const { data: modeData } = useWorkflowMode(workflowId);
   const mode = modeData?.mode ?? "easy";
   const { createPageAtEnd } = useCreatePageAtEnd(workflowId);
@@ -106,7 +104,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
 
   const handleEditBlock = (blockId: string): void => {
     const regularBlock = allBlocks.find((block) => block.id === blockId);
-    const transformBlock = transformBlocks.find((block) => block.id === blockId);
     if (regularBlock) {
       setEditingBlock({
         id: regularBlock.id,
@@ -115,22 +112,8 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         order: regularBlock.order,
         enabled: regularBlock.enabled,
         raw: regularBlock as unknown as Record<string, unknown>,
-        source: "regular",
         title: undefined,
         displayType: regularBlock.type,
-      });
-      setIsBlockEditorOpen(true);
-    } else if (transformBlock) {
-      setEditingBlock({
-        id: transformBlock.id,
-        type: "js",
-        phase: transformBlock.phase,
-        order: transformBlock.order,
-        enabled: transformBlock.enabled,
-        raw: transformBlock as unknown as Record<string, unknown>,
-        source: "transform",
-        title: transformBlock.name,
-        displayType: "js",
       });
       setIsBlockEditorOpen(true);
     }

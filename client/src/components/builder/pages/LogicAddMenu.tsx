@@ -1,6 +1,6 @@
 /**
  * Logic Add Menu Component
- * Dropdown menu for adding logic blocks (new data blocks + advanced)
+ * Dropdown menu for adding data and list logic blocks
  */
 import { Code2, Database, Save, Send, Sparkles } from "lucide-react";
 
@@ -9,14 +9,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { UI_LABELS } from "@/lib/labels";
-import { isFeatureAllowed } from "@/lib/mode";
 import { BlockPhase, BlockType } from "@/lib/vault-api";
-import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
+import { useCreateBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface LogicAddMenuProps {
@@ -52,48 +50,15 @@ const LOGIC_TYPES = {
       description: "Filter, sort and transform lists",
     },
   ],
-  advanced: [
-    {
-      type: "js" as const,
-      label: "JS Transform",
-      icon: Code2,
-      description: "Custom JavaScript logic",
-    },
-  ],
 };
 
 export function LogicAddMenu({ workflowId, pageId, nextOrder }: LogicAddMenuProps) {
   const createBlockMutation = useCreateBlock();
-  const createTransformBlockMutation = useCreateTransformBlock();
-  const { data: workflowMode } = useWorkflowMode(workflowId);
   const { toast } = useToast();
   const { selectBlock } = useWorkflowBuilder();
 
-  const mode = workflowMode?.mode ?? "easy";
-  const showAdvanced = isFeatureAllowed(mode, "js");
-
   const handleAddLogic = async (type: string) => {
     try {
-      // Handle JS blocks differently
-      if (type === "js") {
-        const block = await createTransformBlockMutation.mutateAsync({
-          workflowId,
-          pageId,
-          name: "JS Transform",
-          language: "javascript",
-          phase: "onPageSubmit",
-          code: "// Write your custom JavaScript here\n// Access variables via input.variableName\n// Return an object with your transformed data\n\nreturn {\n  // your computed values\n};",
-          inputKeys: [],
-          outputKey: "computed_value",
-          timeoutMs: 1000,
-          enabled: true,
-          order: nextOrder,
-        });
-        selectBlock(block.id);
-        toast({ title: "Logic block added", description: "JS Transform created" });
-        return;
-      }
-
       // Handle regular blocks
       let config: Record<string, unknown> = {};
       let phase: BlockPhase = "onPageSubmit";
@@ -143,7 +108,7 @@ export function LogicAddMenu({ workflowId, pageId, nextOrder }: LogicAddMenuProp
 
       selectBlock(block.id);
 
-      const label = [...LOGIC_TYPES.easy, ...LOGIC_TYPES.advanced].find((t) => t.type === type)?.label;
+      const label = LOGIC_TYPES.easy.find((t) => t.type === type)?.label;
       toast({
         title: "Logic block added",
         description: `${label ?? type} created`,
@@ -185,34 +150,6 @@ export function LogicAddMenu({ workflowId, pageId, nextOrder }: LogicAddMenuProp
             </DropdownMenuItem>
           );
         })}
-
-        {showAdvanced && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-              Advanced
-            </div>
-            {LOGIC_TYPES.advanced.map((logic) => {
-              const Icon = logic.icon;
-              return (
-                <DropdownMenuItem
-                  key={logic.type}
-                  onClick={() => { void handleAddLogic(logic.type); }}
-                >
-                  <div className="flex items-start gap-2">
-                    <Icon className="w-4 h-4 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{logic.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {logic.description}
-                      </div>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

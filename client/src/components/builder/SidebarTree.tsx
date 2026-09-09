@@ -161,7 +161,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
   const { data: pages, isLoading: pagesLoading, isError: pagesError } = usePages(workflowId);
   const { data: sections = [], isLoading: sectionsLoading, isError: sectionsError } = useSections(workflowId);
-  // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
   const mode: Mode = (workflow?.modeOverride as Mode) ?? 'easy';
   const { data: blocks } = useBlocks(workflowId);
   const { createPageAtEnd } = useCreatePageAtEnd(workflowId);
@@ -254,7 +253,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           order: rawBlock.order,
           enabled: rawBlock.enabled,
           raw: rawBlock as unknown as Record<string, unknown>,
-          source: 'regular',
           title: undefined,
           displayType: rawBlock.type,
         };

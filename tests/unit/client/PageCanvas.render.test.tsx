@@ -29,7 +29,6 @@ vi.mock("@/lib/vault-hooks", () => ({
   usePages: () => ({ data: mocks.pages }),
   useSections: () => ({ data: mocks.sections }),
   useBlocks: () => ({ data: [] }),
-  useTransformBlocks: () => ({ data: [] }),
   useWorkflowMode: () => ({ data: { mode: "easy" } }),
   useCreatePageAtEnd: () => ({ createPageAtEnd: vi.fn() }),
   useAllSteps: () => ({}),
