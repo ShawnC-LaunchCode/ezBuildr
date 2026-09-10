@@ -18,11 +18,12 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
-const { dbExecute, converterHealthCheck, loggerError, pythonCheck } = vi.hoisted(() => ({
+const { dbExecute, converterHealthCheck, loggerError, pythonCheck, aiCheck } = vi.hoisted(() => ({
   dbExecute: vi.fn(),
   converterHealthCheck: vi.fn(),
   loggerError: vi.fn(),
   pythonCheck: vi.fn(),
+  aiCheck: vi.fn(),
 }));
 
 // A mutable stand-in for the PdfConverter singleton: `primaryStrategy` is read
@@ -51,6 +52,14 @@ vi.mock('../../../server/utils/pythonRuntime', () => ({
   checkPythonSandbox: pythonCheck,
 }));
 
+// Stubbed so this suite never reaches a vendor. Without it the route's probe would
+// make a REAL outbound request whenever an API key happens to resolve in the
+// environment — the kind of accident that makes a unit suite slow, flaky and
+// dependent on somebody else's uptime.
+vi.mock('../../../server/utils/aiRuntime', () => ({
+  checkAiProvider: aiCheck,
+}));
+
 /** A realistic leaky probe error — the exact shape that must not reach a caller. */
 const INTERNAL_HOST = 'gotenberg.railway.internal';
 const RAW_PROBE_ERROR = `fetch failed: connect ECONNREFUSED ${INTERNAL_HOST}:3000`;
@@ -69,6 +78,7 @@ describe('GET /health — PDF converter', () => {
     converter.primaryStrategy = 'puppeteer';
     converterHealthCheck.mockResolvedValue({ strategy: 'puppeteer', reachable: true });
     pythonCheck.mockResolvedValue({ available: true });
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'provider' });
     loggerError.mockClear();
   });
 
@@ -176,6 +186,7 @@ describe('GET /health — Python sandbox (CB-11)', () => {
 
   it('reports the interpreter as available, with no error', async () => {
     pythonCheck.mockResolvedValue({ available: true });
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'provider' });
 
     const response = await request(app).get('/health');
 
@@ -213,11 +224,104 @@ describe('GET /health — Python sandbox (CB-11)', () => {
     // incident, and 503 is when they are looking.
     dbExecute.mockRejectedValue(new Error('connection refused'));
     pythonCheck.mockResolvedValue({ available: true });
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'provider' });
 
     const response = await request(app).get('/health');
 
     expect(response.status).toBe(503);
     expect(response.body.pythonSandbox).toEqual({ available: true });
+  });
+});
+
+describe('GET /health — AI provider (AI-P1)', () => {
+  let app: Express;
+
+  beforeAll(async () => {
+    const { default: healthRouter } = await import('../../../server/routes/health');
+    app = express();
+    app.use(healthRouter);
+  });
+
+  beforeEach(() => {
+    dbExecute.mockResolvedValue(undefined);
+    converter.primaryStrategy = 'puppeteer';
+    converterHealthCheck.mockResolvedValue({ strategy: 'puppeteer', reachable: true });
+    pythonCheck.mockResolvedValue({ available: true });
+    loggerError.mockClear();
+  });
+
+  it('reports a reachable provider, saying the vendor was actually asked', async () => {
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'provider' });
+
+    const response = await request(app).get('/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.aiProvider).toEqual({
+      configured: true, available: true, probe: 'provider',
+    });
+  });
+
+  it('surfaces a withdrawn model instead of leaving it to a 500 on a user request', async () => {
+    // The AI-P1 posture exactly: configured, but the vendor no longer serves it.
+    aiCheck.mockResolvedValue({
+      configured: true, available: false, probe: 'provider',
+      error: 'AI provider is not reachable with the configured model',
+    });
+
+    const response = await request(app).get('/health');
+
+    expect(response.body.aiProvider).toMatchObject({ configured: true, available: false });
+    expect(response.body.aiProvider.error).toBe('AI provider is not reachable with the configured model');
+  });
+
+  it('does NOT degrade the instance when the provider is unreachable', async () => {
+    aiCheck.mockResolvedValue({
+      configured: true, available: false, probe: 'provider', error: 'x',
+    });
+
+    const response = await request(app).get('/health');
+
+    // Same asymmetry as pythonSandbox, and equally deliberate: AI is opt-in, so a
+    // deployment that never generates a workflow is not unhealthy for lacking it.
+    // Pinned so it reads as a choice rather than an oversight.
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('healthy');
+  });
+
+  it('distinguishes "not set up" from "broken"', async () => {
+    aiCheck.mockResolvedValue({ configured: false, available: false, probe: 'none' });
+
+    const response = await request(app).get('/health');
+
+    // configured:false is a deployment with AI switched off. An operator must be
+    // able to tell that apart from a configured provider that is failing.
+    expect(response.body.aiProvider).toEqual({
+      configured: false, available: false, probe: 'none',
+    });
+    expect(response.body.aiProvider.error).toBeUndefined();
+  });
+
+  it('never lets the field claim more than was checked', async () => {
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'registry' });
+
+    const response = await request(app).get('/health');
+
+    // `registry` means only that the model is one this codebase knows — NOT that
+    // any vendor confirmed it. The distinction is the whole reason the field is
+    // reported, so it must survive the route rather than being flattened to a
+    // bare boolean.
+    expect(response.body.aiProvider.probe).toBe('registry');
+    expect(response.body.aiProvider.available).toBe(true);
+  });
+
+  it('still reports the field when the database is down', async () => {
+    dbExecute.mockRejectedValue(new Error('connection refused'));
+    aiCheck.mockResolvedValue({ configured: true, available: true, probe: 'provider' });
+
+    const response = await request(app).get('/health');
+
+    expect(response.status).toBe(503);
+    expect(response.body.aiProvider.available).toBe(true);
   });
 });
 
