@@ -31,7 +31,7 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
     tables: [
       'workflow_runs', 'code_block_runs', 'run_completion_jobs', 'run_submissions', 'step_values', 'review_tasks',
       'signature_requests', 'signature_events', 'run_generated_documents',
-      'run_document_deliveries', 'transform_block_runs', 'script_execution_log',
+      'run_document_deliveries', 'script_execution_log',
       'workflow_run_events', 'workflow_run_metrics', 'datavault_row_notes',
     ],
   },
@@ -92,7 +92,6 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
       'collab_docs', 'collab_updates', 'collab_snapshots',
       'workflow_snapshots', 'workflow_blueprints',
       'collections', 'collection_fields', 'records',
-      'transform_blocks',
       'datavault_unique_keys',
     ],
   },

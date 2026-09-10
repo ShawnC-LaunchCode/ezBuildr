@@ -18,7 +18,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 import { users, tenants } from './auth';
-import { projects, workflows, workflowVersions, pages, steps, templates, workflowTemplates, transformBlocks } from './workflow';
+import { projects, workflows, workflowVersions, pages, steps, templates, workflowTemplates } from './workflow';
 
 // ===================================================================
 // ENUMS
@@ -30,7 +30,6 @@ export const signatureRequestStatusEnum = pgEnum('signature_request_status', ['p
 export const signatureProviderEnum = pgEnum('signature_provider', ['native', 'docusign', 'hellosign']);
 export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined', 'completed', 'voided', 'expired']);
 
-export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', ['success', 'timeout', 'error']);
 export const scriptExecutionStatusEnum = pgEnum('script_execution_status', ['success', 'error', 'timeout']);
 
 export const portalAccessModeEnum = pgEnum('portal_access_mode', ['anonymous', 'token', 'portal']);
@@ -305,21 +304,6 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     index("run_generated_documents_run_idx").on(table.runId),
 ]);
 
-// Transform Block Runs
-export const transformBlockRuns = pgTable("transform_block_runs", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
-    blockId: uuid("block_id").references(() => transformBlocks.id, { onDelete: 'cascade' }).notNull(),
-    startedAt: timestamp("started_at").defaultNow().notNull(),
-    finishedAt: timestamp("finished_at"),
-    status: transformBlockRunStatusEnum("status").notNull(),
-    errorMessage: text("error_message"),
-    outputSample: jsonb("output_sample"),
-}, (table) => [
-    index("transform_block_runs_run_idx").on(table.runId),
-    index("transform_block_runs_block_idx").on(table.blockId),
-]);
-
 // Script Execution Log
 export const scriptExecutionLog = pgTable("script_execution_log", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -540,7 +524,6 @@ export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
 export const insertSignatureRequestSchema = createInsertSchema(signatureRequests);
 export const insertSignatureEventSchema = createInsertSchema(signatureEvents);
 export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments);
-export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns);
 export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog);
 
 // Analytics Inserts
@@ -570,8 +553,6 @@ export type SignatureEvent = InferSelectModel<typeof signatureEvents>;
 export type InsertSignatureEvent = InferInsertModel<typeof signatureEvents>;
 export type RunGeneratedDocument = InferSelectModel<typeof runGeneratedDocuments>;
 export type InsertRunGeneratedDocument = InferInsertModel<typeof runGeneratedDocuments>;
-export type TransformBlockRun = InferSelectModel<typeof transformBlockRuns>;
-export type InsertTransformBlockRun = InferInsertModel<typeof transformBlockRuns>;
 export type ScriptExecutionLog = InferSelectModel<typeof scriptExecutionLog>;
 export type InsertScriptExecutionLog = InferInsertModel<typeof scriptExecutionLog>;
 

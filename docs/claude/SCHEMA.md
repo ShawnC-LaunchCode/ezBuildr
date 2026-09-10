@@ -22,7 +22,6 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
-| `transform_blocks` | JS/Python code blocks: code, inputKeys, outputKey, virtualStepId |
 | `lifecycle_hooks` | Workflow phase hooks: phase, language, code, mutationMode |
 | `document_hooks` | Document transformation hooks (`finalBlockDocumentId`, not a FK) |
 | `project_access` / `workflow_access` | Per-project / per-workflow permissions |
@@ -62,7 +61,6 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail (`voided` request status; completed/voided/expired events) |
 | `run_generated_documents` | Generated PDF/DOCX artifacts |
-| `transform_block_runs` | Transform block execution audit |
 | `script_execution_log` | Hook/script execution audit (console output, duration) |
 | `workflow_run_events` / `workflow_run_metrics` | Run-level events + metrics |
 | `template_generation_metrics` | Document generation metrics (`run_id` is a plain nullable column) |

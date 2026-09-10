@@ -167,8 +167,14 @@ export class SchemaManager {
     // table. A stale _v42 schema has none of them, so every preview test would
     // fail on a missing column rather than on its own assertion — and the
     // replay tests would have no table to be idempotent against.
+    // Bumped to _v44 for CB-10d2 migration 0049, which DROPs the retired
+    // `transform_blocks` / `transform_block_runs` tables and their two
+    // orphaned enum types. A stale _v43 schema still has both tables, so the
+    // catalog assertions in pages-contract.test.ts that prove they are gone
+    // would fail against it — and any test that accidentally still wrote to
+    // them would keep succeeding there.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v43`;
+        return `test_schema_w${this.workerId}_v44`;
     }
 
     /**

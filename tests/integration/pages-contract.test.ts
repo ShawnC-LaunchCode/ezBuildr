@@ -174,7 +174,6 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
           OR (table_name = 'blocks' AND column_name = 'page_id')
           OR (table_name = 'lifecycle_hooks' AND column_name = 'page_id')
           OR (table_name = 'logic_rules' AND column_name = 'target_page_id')
-          OR (table_name = 'transform_blocks' AND column_name IN ('page_id', 'phase'))
           OR (table_name = 'workflow_runs' AND column_name = 'current_page_id')
           OR (table_name = 'ai_workflow_feedback' AND column_name = 'generated_pages')
         )
@@ -190,8 +189,6 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       { table_name: "sections", column_name: "id", column_default: "gen_random_uuid()" },
       { table_name: "sections", column_name: "workflow_id", column_default: null },
       { table_name: "steps", column_name: "page_id", column_default: null },
-      { table_name: "transform_blocks", column_name: "page_id", column_default: null },
-      { table_name: "transform_blocks", column_name: "phase", column_default: "'onPageSubmit'::block_phase" },
       { table_name: "workflow_runs", column_name: "current_page_id", column_default: null },
     ]);
 
@@ -235,7 +232,7 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
           conname IN (
             'pages_pkey', 'pages_workflow_id_workflows_id_fk', 'blocks_page_id_pages_id_fk',
             'lifecycle_hooks_page_id_pages_id_fk', 'logic_rules_target_page_id_pages_id_fk',
-            'steps_page_id_pages_id_fk', 'transform_blocks_page_id_pages_id_fk',
+            'steps_page_id_pages_id_fk',
             'workflow_runs_current_page_id_pages_id_fk'
           )
           OR conname LIKE '%section_id_sections_id_fk'
@@ -255,7 +252,6 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
       "sections_pkey",
       "sections_workflow_id_workflows_id_fk",
       "steps_page_id_pages_id_fk",
-      "transform_blocks_page_id_pages_id_fk",
       "workflow_runs_current_page_id_pages_id_fk",
     ]);
     const definitions = Object.fromEntries(
@@ -270,7 +266,6 @@ describe.sequential("SECT-1/SECT-2 pages API, physical schema, and published run
     expect(definitions.lifecycle_hooks_page_id_pages_id_fk).toContain("FOREIGN KEY (page_id) REFERENCES pages(id)");
     expect(definitions.logic_rules_target_page_id_pages_id_fk).toContain("FOREIGN KEY (target_page_id) REFERENCES pages(id)");
     expect(definitions.steps_page_id_pages_id_fk).toContain("FOREIGN KEY (page_id) REFERENCES pages(id)");
-    expect(definitions.transform_blocks_page_id_pages_id_fk).toContain("FOREIGN KEY (page_id) REFERENCES pages(id)");
     expect(definitions.workflow_runs_current_page_id_pages_id_fk).toContain("FOREIGN KEY (current_page_id) REFERENCES pages(id)");
 
     const policyResult = await getOwnerDb().execute(sql`

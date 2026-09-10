@@ -69,7 +69,11 @@ export const blockTypeEnum = pgEnum('block_type', [
 ]);
 export const blockPhaseEnum = pgEnum('block_phase', ['onRunStart', 'onPageEnter', 'onPageSubmit', 'onNext', 'onRunComplete']);
 
-export const transformBlockTypeEnum = pgEnum('transform_block_type', ['map', 'rename', 'compute', 'conditional', 'loop', 'script']);
+// CB-10d2: `transform_block_type` was an orphan pgEnum — no column in any
+// migration or table definition ever used it (`transform_blocks` had no `type`
+// column). Dropped with the feature.
+// `transformBlockLanguageEnum` KEPT: despite the name it backs the LIVE
+// `lifecycle_hooks.language` and `document_hooks.language` columns.
 export const transformBlockLanguageEnum = pgEnum('transform_block_language', ['javascript', 'python']);
 
 export const lifecycleHookPhaseEnum = pgEnum('lifecycle_hook_phase', ['beforePage', 'afterPage', 'beforeFinalBlock', 'afterDocumentsGenerated']);
@@ -360,27 +364,6 @@ export const blocks = pgTable("blocks", {
     index("blocks_workflow_phase_order_idx").on(table.workflowId, table.phase, table.order),
 ]);
 
-// Transform Blocks
-export const transformBlocks = pgTable("transform_blocks", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    pageId: uuid("page_id").references(() => pages.id, { onDelete: 'cascade' }),
-    name: varchar("name").notNull(),
-    language: transformBlockLanguageEnum("language").notNull(),
-    code: text("code").notNull(),
-    inputKeys: text("input_keys").array().notNull().default(sql`'{}'::text[]`),
-    outputKey: varchar("output_key").notNull(),
-    virtualStepId: uuid("virtual_step_id").references(() => steps.id, { onDelete: 'set null' }),
-    phase: blockPhaseEnum("phase").notNull().default('onPageSubmit'),
-    enabled: boolean("enabled").default(true).notNull(),
-    order: integer("order").notNull().default(0),
-    timeoutMs: integer("timeout_ms").default(1000),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-    check("transform_blocks_timeout_check", sql`${table.timeoutMs} > 0`),
-]);
-
 // Lifecycle Hooks
 export const lifecycleHooks = pgTable("lifecycle_hooks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -495,7 +478,6 @@ export const insertPageSchema = createInsertSchema(pages);
 export const insertStepSchema = createInsertSchema(steps);
 export const insertLogicRuleSchema = createInsertSchema(logicRules);
 export const insertBlockSchema = createInsertSchema(blocks);
-export const insertTransformBlockSchema = createInsertSchema(transformBlocks);
 export const insertLifecycleHookSchema = createInsertSchema(lifecycleHooks);
 export const insertDocumentHookSchema = createInsertSchema(documentHooks);
 export const insertProjectAccessSchema = createInsertSchema(projectAccess);
@@ -526,8 +508,6 @@ export type LogicRule = InferSelectModel<typeof logicRules>;
 export type InsertLogicRule = InferInsertModel<typeof logicRules>;
 export type Block = InferSelectModel<typeof blocks>;
 export type InsertBlock = InferInsertModel<typeof blocks>;
-export type TransformBlock = InferSelectModel<typeof transformBlocks>;
-export type InsertTransformBlock = InferInsertModel<typeof transformBlocks>;
 export type LifecycleHook = InferSelectModel<typeof lifecycleHooks>;
 export type InsertLifecycleHook = InferInsertModel<typeof lifecycleHooks>;
 export type DocumentHook = InferSelectModel<typeof documentHooks>;
