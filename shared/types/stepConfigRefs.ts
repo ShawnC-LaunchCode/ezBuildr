@@ -36,7 +36,6 @@ export type ConfigRefEntity =
   | 'datavault_tables'
   | 'datavault_columns'
   | 'templates'
-  | 'transform_blocks'
   | 'blocks';
 
 /**
@@ -58,8 +57,7 @@ const REF_KEY_TO_ENTITY: Readonly<Record<string, ConfigRefEntity>> = {
   // Document templates — final_documents and signature_block entries
   documentId: 'templates',
   templateId: 'templates',
-  // Computed steps and inline-created List Tools blocks
-  transformBlockId: 'transform_blocks',
+  // Inline-created List Tools blocks
   linkedListToolsBlockId: 'blocks',
 };
 

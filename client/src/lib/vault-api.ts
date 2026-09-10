@@ -1004,53 +1004,6 @@ export const blockAPI = {
     ).then(res => res.data),
 };
 // ============================================================================
-// Transform Blocks (JavaScript/Python code execution)
-// ============================================================================
-export type TransformBlockLanguage = "javascript" | "python";
-export interface ApiTransformBlock {
-  id: string;
-  workflowId: string;
-  pageId?: string | null;
-  name: string;
-  language: TransformBlockLanguage;
-  phase: "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
-  code: string;
-  inputKeys: string[];
-  outputKey: string;
-  enabled: boolean;
-  order: number;
-  timeoutMs?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-export const transformBlockAPI = {
-  list: (workflowId: string) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock[] }>(`/api/workflows/${workflowId}/transform-blocks`)
-      .then(res => res.data),
-  get: (id: string) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`)
-      .then(res => res.data),
-  create: (workflowId: string, data: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/workflows/${workflowId}/transform-blocks`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }).then(res => res.data),
-  update: (id: string, data: Partial<Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">>) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }).then(res => res.data),
-  delete: (id: string) =>
-    fetchAPI<{ success: boolean }>(`/api/transform-blocks/${id}`, {
-      method: "DELETE",
-    }),
-  test: (id: string, testData: Record<string, unknown>) =>
-    fetchAPI<{ success: boolean; output: unknown; error?: string }>(`/api/transform-blocks/${id}/test`, {
-      method: "POST",
-      body: JSON.stringify({ testData }),
-    }),
-};
-// ============================================================================
 // Runs
 // ============================================================================
 export interface ApiRun {

@@ -23,7 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
 import { useListToolsValidation } from "@/hooks/useListToolsValidation";
-import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
+import { blockAPI } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
 import type { ChoiceAdvancedConfig, ChoiceDisplay } from "@shared/types/stepConfigs";
@@ -595,7 +595,7 @@ export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEdito
           <DynamicOptionsEditor
             config={localConfig.dynamicOptions}
             listVariables={listVariables}
-            sourceBlock={(sourceBlock as ApiTransformBlock | null)}
+            sourceBlock={sourceBlock}
             sourceTableId={sourceTableId}
             columns={columns}
             loadingColumns={loadingColumns}

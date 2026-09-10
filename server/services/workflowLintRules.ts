@@ -50,8 +50,6 @@ export interface LintableWorkflowContent {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   logicRules?: Record<string, any>[];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
-  transformBlocks?: Record<string, any>[];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   lifecycleHooks?: Record<string, any>[];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   documentHooks?: Record<string, any>[];
@@ -667,7 +665,7 @@ function lintLogicRules(
 
 /** How one family of input-consuming blocks reports and links its findings. */
 interface BlockLintKind {
-  /** Human label used in the message, e.g. "Transform block". */
+  /** Human label used in the message, e.g. "Lifecycle hook". */
   typeName: string;
   category: WorkflowLintCategory;
   tab: WorkflowLintTarget["tab"];
@@ -741,8 +739,6 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
   lintWorkflowFlow(pages, logicRules, results);
 
   lintLogicRules(logicRules, stepRefs, pageRefs, results);
-// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintBlocksWithInputs(data.transformBlocks || [], { typeName: "Transform block", category: "logic", tab: "pages" }, stepAliases, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   lintBlocksWithInputs(data.lifecycleHooks || [], { typeName: "Lifecycle hook", category: "integrations", tab: "pages" }, stepAliases, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.

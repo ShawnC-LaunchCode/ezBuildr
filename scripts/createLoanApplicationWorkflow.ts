@@ -1,13 +1,13 @@
 /**
  * Create a comprehensive loan application workflow
- * Demonstrates: multiple pages, conditional logic, transform blocks, and document generation
+ * Demonstrates: multiple pages, conditional logic, Code Blocks, and document generation
  */
 
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, pages, steps, projects, users, transformBlocks } from '@shared/schema';
+import { workflows, pages, steps, projects, users } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -263,8 +263,8 @@ async function createLoanApplicationWorkflow() {
   await db.insert(steps).values(loanSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 3 loan detail steps');
 
-  // ==================== TRANSFORM BLOCK: Calculate Debt-to-Income Ratio ====================
-  console.log('\n=== Creating Transform Block for DTI Calculation ===');
+  // ==================== CODE BLOCK: Calculate Debt-to-Income Ratio ====================
+  console.log('\n=== Creating Code Block for DTI Calculation ===');
 
   // Create virtual step for DTI output
   const dtiVirtualStepId = randomUUID();
@@ -279,18 +279,22 @@ async function createLoanApplicationWorkflow() {
     order: 999,
   });
 
-  const _transformBlock = await db.insert(transformBlocks).values({
+  await db.insert(steps).values({
     id: randomUUID(),
     workflowId,
     pageId: page3[0].id,
-    name: 'Calculate Debt-to-Income Ratio',
+    title: 'Calculate Debt-to-Income Ratio',
+    type: 'js_question',
+    required: false,
+    order: 998,
+    config: {
     language: 'javascript',
     code: `// Calculate debt-to-income ratio
 const annualIncome = parseFloat(input.annualIncome) || 0;
 const monthlyDebt = parseFloat(input.monthlyDebt) || 0;
 
 if (annualIncome === 0) {
-  emit({ ratio: 0, status: 'N/A' });
+  emit({ debtToIncomeRatio: { ratio: 0, status: 'N/A' } });
   return;
 }
 
@@ -307,21 +311,19 @@ if (dtiRatio > 43) {
   status = 'Good';
 }
 
-emit({
+emit({ debtToIncomeRatio: {
   ratio: dtiRatio.toFixed(2),
   status: status,
   monthlyIncome: monthlyIncome.toFixed(2)
-});`,
-    inputKeys: ['annualIncome', 'monthlyDebt'],
-    outputKey: 'debtToIncomeRatio',
-    virtualStepId: dtiVirtualStepId,
-    phase: 'onPageSubmit',
-    enabled: true,
-    order: 1,
-    timeoutMs: 1000,
+} });`,
+      inputs: [{ key: 'annualIncome', required: true }, { key: 'monthlyDebt', required: false }],
+      outputs: [{ key: 'debtToIncomeRatio', type: 'object' }],
+      trigger: 'atPage', triggerPageId: page3[0].id, repeat: 'onChange',
+      timeoutMs: 1000,
+    },
   }).returning();
 
-  console.log('✓ Added transform block for DTI calculation');
+  console.log('✓ Added Code Block for DTI calculation');
 
   // ==================== PAGE 4: Final Documents ====================
   console.log('\n=== Creating Page 4: Final Documents ===');
@@ -358,7 +360,7 @@ Your application reference number will be included in your documents.`,
   console.log('\nFeatures included:');
   console.log('  ✓ 4 pages with 14 steps total');
   console.log('  ✓ Conditional visibility (employment fields)');
-  console.log('  ✓ Transform block for debt-to-income calculation');
+  console.log('  ✓ Code Block for debt-to-income calculation');
   console.log('  ✓ Multiple question types (text, radio, date)');
   console.log('  ✓ Final Documents page for auto-generation');
   console.log('\nNext: Create and link document template');

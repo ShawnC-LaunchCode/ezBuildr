@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { createHash } from 'crypto';
+import { runInNewContext } from 'node:vm';
 
 import { generateMarketplaceBundles } from '../../../scripts/generateMarketplaceBundles';
 import { parseCuratedWorkflow } from '../../../scripts/curatedWorkflowSchema';
@@ -125,6 +126,38 @@ afterEach(() => {
 });
 
 describe('generateMarketplaceBundles (TM-1)', () => {
+  it.each([
+    { label: 'standard ticket', input: { ticketType: 'Standard - $149' }, expected: 'Total: $149' },
+    { label: 'shuttle and hotel', input: { ticketType: 'Early Bird - $99', needsShuttle: 'yes', needsHotel: 'yes', hotelNights: '2' }, expected: 'Total: $549' },
+    { label: 'VIP workshops', input: { ticketType: 'VIP - $299', workshops: ['A', 'B'] }, expected: 'VIP Price: $299 (includes 2 workshops)' },
+  ])('event demo Code Block produces totalPrice for $label', ({ input, expected }) => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/createDemoWorkflow.ts'), 'utf8');
+    const code = source.match(/code: `([\s\S]*?)`,/)?.[1];
+    expect(code).toBeDefined();
+    expect(source).toContain("'js_question', 'Calculate Total Price'");
+    expect(source).toContain('outputs: [{ key: "totalPrice", type: "string" }]');
+    expect(source).toContain("'computed', 'Total Price', 'totalPrice'");
+    const outputs: unknown[] = [];
+    runInNewContext(`(function () { ${code ?? ''} })()`, { input, emit: (value: unknown) => outputs.push(value) }, { timeout: 1000 });
+    expect(outputs).toEqual([{ totalPrice: expected }]);
+  });
+
+  it.each([
+    { label: 'zero income', input: { annualIncome: '0', monthlyDebt: '100' }, expected: { ratio: 0, status: 'N/A' } },
+    { label: 'low debt', input: { annualIncome: '60000', monthlyDebt: '1000' }, expected: { ratio: '20.00', status: 'Excellent', monthlyIncome: '5000.00' } },
+    { label: 'high debt', input: { annualIncome: '60000', monthlyDebt: '2500' }, expected: { ratio: '50.00', status: 'High Risk', monthlyIncome: '5000.00' } },
+  ])('loan demo Code Block produces debtToIncomeRatio for $label', ({ input, expected }) => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/createLoanApplicationWorkflow.ts'), 'utf8');
+    const code = source.match(/code: `([\s\S]*?)`,/)?.[1];
+    expect(code).toBeDefined();
+    expect(source).toContain("type: 'js_question'");
+    expect(source).toContain("outputs: [{ key: 'debtToIncomeRatio', type: 'object' }]");
+    expect(source).toContain("alias: 'debtToIncomeRatio'");
+    const outputs: unknown[] = [];
+    runInNewContext(`(function () { ${code ?? ''} })()`, { input, emit: (value: unknown) => outputs.push(value) }, { timeout: 1000 });
+    expect(outputs).toEqual([{ debtToIncomeRatio: expected }]);
+  });
+
   it('keeps curated, demo, snip, and sample-workflow source canonical (STB-15A)', () => {
     const curatedSteps = REAL_CURATED_SLUGS.flatMap((slug) => {
       const workflowPath = path.join(REAL_CURATED_DIR, slug, 'workflow.json');

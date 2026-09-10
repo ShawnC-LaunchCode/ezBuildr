@@ -45,7 +45,6 @@ function graphWithVisibleIfCycle(): WorkflowGraph {
       ],
     }],
     logicRules: [],
-    transformBlocks: [],
     lifecycleHooks: [],
     documentHooks: [],
   };

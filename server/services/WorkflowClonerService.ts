@@ -25,7 +25,6 @@ import {
   steps,
   templateVersions,
   templates,
-  transformBlocks,
   users,
   workflowDataSources,
   workflowQueries,
@@ -567,7 +566,6 @@ export class WorkflowClonerService {
     await this.copyPagesAndSteps(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyLogicRules(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
-    await this.copyTransformBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyLifecycleHooks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyDocumentHooks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyWorkflowVersions(tx, sourceWorkflow, newWorkflow, userId, idMap, versionIdMap);
@@ -709,43 +707,6 @@ export class WorkflowClonerService {
           virtualStepId: block.virtualStepId ? idMap.get(block.virtualStepId) ?? null : null,
           enabled: block.enabled,
           order: block.order,
-        })
-        .returning();
-
-      if (newBlock !== undefined) {
-        idMap.set(block.id, newBlock.id);
-      }
-    }
-  }
-
-  private async copyTransformBlocks(
-    tx: DbTransaction,
-    sourceWorkflowId: string,
-    targetWorkflowId: string,
-    idMap: Map<string, string>
-  ): Promise<void> {
-    const sourceBlocks = await tx
-      .select()
-      .from(transformBlocks)
-      .where(eq(transformBlocks.workflowId, sourceWorkflowId))
-      .orderBy(asc(transformBlocks.order));
-
-    for (const block of sourceBlocks) {
-      const [newBlock] = await tx
-        .insert(transformBlocks)
-        .values({
-          workflowId: targetWorkflowId,
-          pageId: block.pageId ? idMap.get(block.pageId) ?? null : null,
-          name: block.name,
-          language: block.language,
-          code: block.code,
-          inputKeys: block.inputKeys,
-          outputKey: block.outputKey,
-          virtualStepId: block.virtualStepId ? idMap.get(block.virtualStepId) ?? null : null,
-          phase: block.phase,
-          enabled: block.enabled,
-          order: block.order,
-          timeoutMs: block.timeoutMs,
         })
         .returning();
 
@@ -1231,7 +1192,7 @@ export class WorkflowClonerService {
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
-    const [workflowRows, pageRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
+    const [workflowRows, pageRows, stepRows, blockRows, versionRows] = await Promise.all([
       tx.select().from(workflows).where(inArray(workflows.id, workflowIds)),
       tx.select().from(pages).where(inArray(pages.workflowId, workflowIds)),
       tx
@@ -1240,7 +1201,6 @@ export class WorkflowClonerService {
         .innerJoin(pages, eq(steps.pageId, pages.id))
         .where(inArray(pages.workflowId, workflowIds)),
       tx.select().from(blocks).where(inArray(blocks.workflowId, workflowIds)),
-      tx.select().from(transformBlocks).where(inArray(transformBlocks.workflowId, workflowIds)),
       tx.select().from(workflowVersions).where(inArray(workflowVersions.workflowId, workflowIds)),
     ]);
 
@@ -1252,9 +1212,6 @@ export class WorkflowClonerService {
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
     ];
 
-    for (const transform of transformRows) {
-      inspectValues.push(transform.inputKeys, transform.outputKey);
-    }
 
     for (const value of inspectValues) {
       this.collectKnownIds(value, knownDatabaseIds, databaseIds);

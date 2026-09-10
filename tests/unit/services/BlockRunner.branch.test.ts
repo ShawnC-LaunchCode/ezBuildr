@@ -5,7 +5,6 @@ import type { BranchConfig } from '@shared/types/blocks';
 
 import type { blockService } from '../../../server/services/BlockService';
 import { BlockRunner } from '../../../server/services/BlockRunner';
-import type { transformBlockService } from '../../../server/services/TransformBlockService';
 
 // RunExecutionCoordinator's diagnostics guard needs the id of whichever
 // branch block set nextPageId (RUN2-21). This exercises BlockRunner.runPhase
@@ -38,9 +37,8 @@ describe('BlockRunner.runPhase - nextPageBlockId (RUN2-21)', () => {
     const mockBlockSvc = {
       getBlocksForPhase: vi.fn().mockResolvedValue([branchBlock]),
     } as unknown as typeof blockService;
-    const mockTransformSvc = {} as unknown as typeof transformBlockService;
 
-    const runner = new BlockRunner(mockBlockSvc, mockTransformSvc);
+    const runner = new BlockRunner(mockBlockSvc);
 
     const result = await runner.runPhase({
       workflowId: 'wf-1',
@@ -56,9 +54,8 @@ describe('BlockRunner.runPhase - nextPageBlockId (RUN2-21)', () => {
     const mockBlockSvc = {
       getBlocksForPhase: vi.fn().mockResolvedValue([]),
     } as unknown as typeof blockService;
-    const mockTransformSvc = {} as unknown as typeof transformBlockService;
 
-    const runner = new BlockRunner(mockBlockSvc, mockTransformSvc);
+    const runner = new BlockRunner(mockBlockSvc);
 
     const result = await runner.runPhase({
       workflowId: 'wf-1',
@@ -76,9 +73,8 @@ describe('BlockRunner.runPhase - nextPageBlockId (RUN2-21)', () => {
     const mockBlockSvc = {
       getBlocksForPhase: vi.fn().mockResolvedValue([first, second]),
     } as unknown as typeof blockService;
-    const mockTransformSvc = {} as unknown as typeof transformBlockService;
 
-    const runner = new BlockRunner(mockBlockSvc, mockTransformSvc);
+    const runner = new BlockRunner(mockBlockSvc);
 
     const result = await runner.runPhase({
       workflowId: 'wf-1',

@@ -267,10 +267,10 @@ export async function createDemoWorkflow(
 
     console.log(`✅ Created 4 conditional logic rules\n`);
 
-    // 6. Create transform blocks for calculations
-    console.log("⚡ Creating transform blocks...");
+    // 6. Create Code Blocks for calculations
+    console.log("⚡ Creating Code Blocks...");
 
-    const transform1Id = randomUUID();
+    const codeBlockId = randomUUID();
     const virtualStep1Id = randomUUID();
 
     // Create virtual step for total price
@@ -279,21 +279,13 @@ export async function createDemoWorkflow(
       VALUES ($1, $2, $3, 'computed', 'Total Price', 'totalPrice', false, 999, true, '{}', NOW(), NOW())
     `, [virtualStep1Id, page4Id, workflowId]);
 
-    // Transform block to calculate total price
+    // Code Block writes the existing computed output by alias.
     await client.query(`
-      INSERT INTO transform_blocks (
-        id, workflow_id, page_id, name, language, code,
-        input_keys, output_key, virtual_step_id, phase, enabled, "order", timeout_ms,
-        created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
-    `, [
-      transform1Id,
-      workflowId,
-      page4Id,
-      "Calculate Total Price",
-      "javascript",
-      `// Calculate total registration cost
+      INSERT INTO steps (id, page_id, workflow_id, type, title, required, "order", is_virtual, config, created_at, updated_at)
+      VALUES ($1, $2, $3, 'js_question', 'Calculate Total Price', false, 998, false, $4, NOW(), NOW())
+    `, [codeBlockId, page4Id, workflowId, JSON.stringify({
+      language: "javascript",
+      code: `// Calculate total registration cost
 let total = 0;
 
 // Base ticket price
@@ -318,20 +310,19 @@ if (input.needsHotel === 'yes') {
 // Workshop premium for VIP
 if (input.ticketType === 'VIP - $299' && input.workshops && input.workshops.length > 0) {
   // VIP workshops are included
-  emit("VIP Price: $" + total + " (includes " + input.workshops.length + " workshops)");
+  emit({ totalPrice: "VIP Price: $" + total + " (includes " + input.workshops.length + " workshops)" });
 } else {
-  emit("Total: $" + total);
+  emit({ totalPrice: "Total: $" + total });
 }`,
-      ['ticketType', 'needsShuttle', 'needsHotel', 'hotelNights', 'workshops'],
-      'totalPrice',
-      virtualStep1Id,
-      'onRunComplete',
-      true,
-      0,
-      3000
-    ]);
+      inputs: [
+        { key: "ticketType", required: true },
+        ...["needsShuttle", "needsHotel", "hotelNights", "workshops"].map(key => ({ key, required: false })),
+      ],
+      outputs: [{ key: "totalPrice", type: "string" }],
+      trigger: "runComplete", repeat: "onChange", timeoutMs: 3000,
+    })]);
 
-    console.log(`✅ Created 1 transform block with pricing calculation\n`);
+    console.log(`✅ Created 1 Code Block with pricing calculation\n`);
 
     // Success!
     console.log("═".repeat(60));
@@ -341,9 +332,9 @@ if (input.ticketType === 'VIP - $299' && input.workshops && input.workshops.leng
     console.log(`   Project: Demo Project - Event Platform`);
     console.log(`   Workflow: Event Registration & Pricing Calculator`);
     console.log(`   Pages: 4`);
-    console.log(`   Steps: 15 (+ 1 virtual step for calculations)`);
+    console.log(`   Steps: 15 (+ 1 Code Block and 1 virtual output)`);
     console.log(`   Logic Rules: 4 conditional rules`);
-    console.log(`   Transform Blocks: 1 pricing calculator`);
+    console.log(`   Code Blocks: 1 pricing calculator`);
     console.log("\n🌐 Access URLs:");
     console.log(`   Builder: http://localhost:5000/workflows/${workflowId}`);
     console.log(`   Public Run: http://localhost:5000/run/${publicLink}`);
@@ -351,7 +342,7 @@ if (input.ticketType === 'VIP - $299' && input.workshops && input.workshops.leng
     console.log("\n🎯 Features Demonstrated:");
     console.log("   ✓ Multiple step types (text, choice, Boolean, date/time, file)");
     console.log("   ✓ Conditional logic (show/hide based on answers)");
-    console.log("   ✓ Transform blocks (JavaScript calculations)");
+    console.log("   ✓ Code Blocks (JavaScript calculations)");
     console.log("   ✓ Step aliases (variables)");
     console.log("   ✓ Page-based navigation");
     console.log("   ✓ File uploads");

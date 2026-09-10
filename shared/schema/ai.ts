@@ -14,7 +14,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 import { tenants, users } from './auth';
-import { workflows, type TransformBlock } from './workflow';
+import { workflows } from './workflow';
 
 
 export const aiSettings = pgTable("ai_settings", {
@@ -75,16 +75,4 @@ export const aiUsage = pgTable("ai_usage", {
 export const insertAiUsageSchema = createInsertSchema(aiUsage);
 export type AiUsage = InferSelectModel<typeof aiUsage>;
 export type InsertAiUsage = InferInsertModel<typeof aiUsage>;
-
-export interface TransformResult {
-    updatedTransforms: TransformBlock[];
-    diff: {
-        added: string[];
-        removed: string[];
-        modified: string[];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        details: Record<string, { before: any; after: any }>;
-    };
-    explanation: string[];
-}
 

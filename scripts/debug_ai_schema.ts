@@ -8,7 +8,6 @@ const mockResponse = {
         title: 'Revised Flow',
         pages: [{ id: 's1', title: 'Start', order: 0, steps: [] }],
         logicRules: [],
-        transformBlocks: []
     },
     diff: { changes: [{ type: 'add', target: 'pages', explanation: 'Added new page' }] },
     explanation: ['I did good.']

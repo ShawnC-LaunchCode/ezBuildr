@@ -30,7 +30,6 @@ const routeFiles = [
   'steps.routes.ts',
   'templates.routes.ts',
   'templateSharing.routes.ts',
-  'transformBlocks.routes.ts',
   'userPreferences.routes.ts',
   'versions.routes.ts',
   'workflowExports.routes.ts',

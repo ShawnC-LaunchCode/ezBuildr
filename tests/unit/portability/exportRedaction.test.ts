@@ -11,7 +11,6 @@ import {
   pages,
   steps,
   blocks,
-  transformBlocks,
   lifecycleHooks,
   documentHooks,
 } from '../../../shared/schema';
@@ -27,7 +26,6 @@ const HEADER_SENTINEL = 'sentinel_conn_header_value';
 const BLOCK_HEADER_SENTINEL = 'sentinel_block_header_value';
 const BLOCK_AUTH_SENTINEL = 'sk-sentinel12345678901234567890auth';
 const STEP_CONFIG_SENTINEL = 'ghp_sentinel12345678901234567890step';
-const TRANSFORM_SENTINEL = 'sk-sentinel12345678901234567890';
 const LIFECYCLE_SENTINEL = 'ghp_sentinel12345678901234567890';
 const DOCHOOK_SENTINEL = 'sentinel_dochook_1234567890123456789012345678';
 
@@ -36,7 +34,6 @@ const ALL_SENTINELS = [
   BLOCK_HEADER_SENTINEL,
   BLOCK_AUTH_SENTINEL,
   STEP_CONFIG_SENTINEL,
-  TRANSFORM_SENTINEL,
   LIFECYCLE_SENTINEL,
   DOCHOOK_SENTINEL,
 ];
@@ -132,17 +129,6 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
             }
           ]
         }
-      });
-
-      await insert(transformBlocks).values({
-        workflowId: testWorkflowId,
-        pageId: page.id,
-        name: 'Transform',
-        language: 'javascript',
-        outputKey: 'transform_out',
-        code: `const token = "${TRANSFORM_SENTINEL}";`,
-        phase: 'onPageSubmit',
-        order: 1,
       });
 
       await insert(lifecycleHooks).values({
@@ -260,15 +246,15 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
     const { reader, tmpPath } = await loadBundle(buffer);
 
     const warnings = reader.manifest.warnings ?? [];
-    for (const entity of ['transform_blocks', 'lifecycle_hooks', 'document_hooks']) {
+    for (const entity of ['lifecycle_hooks', 'document_hooks']) {
       const warning = warnings.find((w) => w.type === 'secret_scan' && w.entity === entity);
       expect(warning, `expected a secret_scan warning for ${entity}`).toBeDefined();
       expect(warning).toMatchObject({ type: 'secret_scan', entity, column: 'code', line: 1 });
     }
 
     // The code itself is deliberately not redacted — it is the workflow.
-    const { raw } = await collect(reader.readEntityStream('transform_blocks'));
-    expect(raw).toContain(TRANSFORM_SENTINEL);
+    const { raw } = await collect(reader.readEntityStream('lifecycle_hooks'));
+    expect(raw).toContain(LIFECYCLE_SENTINEL);
 
     await fs.promises.rm(tmpPath);
   });

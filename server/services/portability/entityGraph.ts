@@ -168,15 +168,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     entityRefColumns: ["config"]
   },
   {
-    table: schema.transformBlocks,
-    name: 'transform_blocks',
-    scopes: ["project","workflow"],
-    parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","pageId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
-    refs: ["workflowId", "pageId", "virtualStepId"],
-    scanPaths: ["code"]
-  },
-  {
     table: schema.lifecycleHooks,
     name: 'lifecycle_hooks',
     scopes: ["project","workflow"],
@@ -362,6 +353,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'signature_events': 'Signature events are runtime audit data.',
   'run_generated_documents': 'Generated documents belong to workflow runs.',
   'run_document_deliveries': 'Document deliveries belong to workflow runs and are instance data.',
+  'transform_blocks': 'Retired definitions are ignored on import and never exported.',
   'transform_block_runs': 'Transform runs are runtime execution logs.',
   'script_execution_log': 'Execution logs are historical runtime data.',
   'workflow_run_events': 'Run events are runtime telemetry.',

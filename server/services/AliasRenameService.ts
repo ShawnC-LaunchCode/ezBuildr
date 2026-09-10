@@ -3,9 +3,8 @@
  *
  * When a step's variable name (alias) changes, every workflow-scoped
  * reference that stores the alias as a string must follow, or documents,
- * transforms, and visibility logic silently break. This service rewrites:
+ * hooks, and visibility logic silently break. This service rewrites:
  *
- * - transform block inputKeys
  * - document hook inputKeys
  * - lifecycle hook inputKeys
  * - Final Block document mapping sources (step config.documents[].mapping)
@@ -37,7 +36,6 @@ import {
   pageRepository,
   sectionRepository,
   stepRepository,
-  transformBlockRepository,
 } from '../repositories';
 import type { Page, Section, Step } from '../../shared/schema';
 import type { DbTransaction } from '../repositories/BaseRepository';
@@ -45,7 +43,6 @@ import type { DbTransaction } from '../repositories/BaseRepository';
 import type { DocumentMapping } from './document/MappingInterpreter';
 
 export interface AliasRenameResult {
-  transformBlocksUpdated: number;
   documentHooksUpdated: number;
   lifecycleHooksUpdated: number;
   finalBlockStepsUpdated: number;
@@ -130,7 +127,6 @@ export class AliasRenameService {
     tx?: DbTransaction
   ): Promise<AliasRenameResult> {
     const result: AliasRenameResult = {
-      transformBlocksUpdated: 0,
       documentHooksUpdated: 0,
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
@@ -139,16 +135,6 @@ export class AliasRenameService {
       sectionVisibleIfUpdated: 0,
     };
     const log = logger.child({ workflowId, oldAlias, newAlias, service: 'AliasRenameService' });
-
-    // Transform block inputKeys
-    const transformBlocks = await transformBlockRepository.findByWorkflowId(workflowId, tx);
-    for (const block of transformBlocks) {
-      const replaced = replaceKey(block.inputKeys, oldAlias, newAlias);
-      if (replaced !== null) {
-        await transformBlockRepository.update(block.id, { inputKeys: replaced }, tx);
-        result.transformBlocksUpdated++;
-      }
-    }
 
     // Document hook inputKeys
     const documentHooks = await documentHookRepository.findByWorkflowId(workflowId, tx);
@@ -193,7 +179,6 @@ export class AliasRenameService {
     result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, tx);
 
     const total =
-      result.transformBlocksUpdated +
       result.documentHooksUpdated +
       result.lifecycleHooksUpdated +
       result.finalBlockStepsUpdated +

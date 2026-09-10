@@ -263,22 +263,13 @@ async function main(): Promise<void> {
     targetStepId: sourceStepIds[1],
     action: 'show'
   }).returning();
-
-  const [transformBlock] = await db.insert(schema.transformBlocks).values({
-    workflowId: workflow.id,
-    pageId: page.id,
-    name: 'test_transform',
-    language: 'javascript',
-    code: 'return {};',
-    outputKey: 'test_output'
-  }).returning();
-  log(`   seeded datavault, blocks with secrets, logic rules and transform blocks`);
+  log(`   seeded datavault, blocks with secrets and logic rules`);
 
   const sourceIds = new Set([
     project.id, workflow.id, page.id, ...sourceStepIds,
     version.id, template.id,
     dvDb.id, dvTable.id, dvCol.id, dvRow1.id, dvRow2.id, dvRow3.id,
-    extBlock.id, logicRule.id, transformBlock.id
+    extBlock.id, logicRule.id
   ]);
 
   const exp = await fetch(`${BASE}/api/portability/export/project/${project.id}`, { headers: H });
@@ -363,9 +354,6 @@ async function main(): Promise<void> {
   if (sourceIds.has(importedLogicRules[0].id)) {throw new Error('FAIL: imported logic rule reused a source id');}
   if (sourceIds.has(importedLogicRules[0].conditionStepId)) {throw new Error('FAIL: imported logic rule reused source conditionStepId');}
 
-  const importedTransformBlocks = await db.select().from(schema.transformBlocks).where(eq(schema.transformBlocks.workflowId, appliedRootId));
-  if (importedTransformBlocks.length !== 1) {throw new Error(`FAIL: expected 1 imported transform block, got ${importedTransformBlocks.length}`);}
-  if (sourceIds.has(importedTransformBlocks[0].id)) {throw new Error('FAIL: imported transform block reused a source id');}
 
 
   const importedVersions = await db.select().from(schema.workflowVersions).where(eq(schema.workflowVersions.workflowId, appliedRootId));

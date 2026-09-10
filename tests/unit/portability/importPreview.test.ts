@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { FORMAT_VERSION } from '../../../server/services/portability/bundleFormat';
 import { db } from '../../../server/db';
 import { eq } from 'drizzle-orm';
-import { projects, workflows, datavaultTables, steps, secrets, externalConnections, transformBlocks } from '@shared/schema';
+import { projects, workflows, datavaultTables, steps, secrets, externalConnections, lifecycleHooks } from '@shared/schema';
 
 import { recomputeChecksum, previewBundle } from '../../helpers/bundleTestHelper';
 
@@ -78,17 +78,15 @@ describeWithDb('ImportService - preview', () => {
       name: 'Test Table',
       slug: 'test_table_slug'
     });
-    
-    await db.insert(transformBlocks).values({
-      id: randomUUID(),
+
+    await db.insert(lifecycleHooks).values({
       workflowId: workflow.id,
       pageId: page.id,
       name: 'Test Hook',
       language: 'javascript',
       code: 'const x = "sk-1234567890123456789012345678901234567890";',
-      outputKey: 'test_output',
-      phase: 'onRunStart',
-      order: 0
+      phase: 'beforePage',
+      order: 0,
     });
 
     projectBundle = await exportService.export({ scope: 'project', id: project.id }, user.id);
@@ -207,7 +205,6 @@ describeWithDb('ImportService - preview', () => {
     // Workflow bundle
     expect(previewWorkflow.entityCounts['workflows']).toBeGreaterThan(0);
     expect(previewWorkflow.entityCounts['steps']).toBeGreaterThan(0);
-    expect(previewWorkflow.entityCounts['transform_blocks']).toBeGreaterThan(0);
   });
 
   it('reports row failing Zod schema in preview, not throwing', async () => {
@@ -372,7 +369,7 @@ describeWithDb('ImportService - preview', () => {
     expect(previewOther.collisions.find(c => c.entity === 'projects')).toBeUndefined();
   });
 
-  it('sets executable-code flag when hooks or transform blocks are present', async () => {
+  it('sets executable-code flag when hooks are present', async () => {
     const preview = await previewBundle(workflowBundle, user.id);
     expect(preview.hasExecutableCode).toBe(true);
   });
@@ -390,7 +387,7 @@ describeWithDb('ImportService - preview', () => {
     const previewProject = await previewBundle(projectBundle, user.id);
     const previewWorkflow = await previewBundle(newBuffer, user.id);
     
-    // Workflow bundle naturally has a secret_scan warning from our mock transform block
+    // Workflow bundle naturally has a secret_scan warning from our hook fixture
     expect(previewWorkflow.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'secret_scan' }),

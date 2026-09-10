@@ -76,7 +76,6 @@ describe("VersionService.diffVersions", () => {
       intakeConfig: {},
       pages: [],
       logicRules: [],
-      transformBlocks: [],
     });
   });
 

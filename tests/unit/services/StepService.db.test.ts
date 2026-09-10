@@ -5,7 +5,7 @@ import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { stepService } from '../../../server/services/StepService';
 import { logicRuleRepository } from '../../../server/repositories/LogicRuleRepository';
-import { stepRepository, transformBlockRepository } from '../../../server/repositories';
+import { stepRepository, documentHookRepository } from '../../../server/repositories';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 import type { ConditionExpression, Condition } from '../../../shared/types/conditions';
 
@@ -419,7 +419,7 @@ describeWithDb('StepService DB', () => {
     // must reject the whole call and leave the step's alias untouched — not
     // be caught, logged, and leave a step update that silently never committed.
     const findSpy = vi
-      .spyOn(transformBlockRepository, 'findByWorkflowId')
+      .spyOn(documentHookRepository, 'findByWorkflowId')
       .mockRejectedValueOnce(new Error('boom'));
 
     await expect(

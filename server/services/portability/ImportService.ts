@@ -532,7 +532,7 @@ export class ImportService {
         continue;
       }
 
-      if (['transform_blocks', 'lifecycle_hooks', 'document_hooks'].includes(desc.name)) {
+      if (['lifecycle_hooks', 'document_hooks'].includes(desc.name)) {
         result.hasExecutableCode = true;
       }
 

@@ -64,7 +64,6 @@ const ENTITY_LABELS: Record<string, string> = {
   steps: "Questions",
   logic_rules: "Logic rules",
   blocks: "Blocks",
-  transform_blocks: "Transform blocks",
   lifecycle_hooks: "Lifecycle hooks",
   document_hooks: "Document hooks",
   workflow_versions: "Versions",

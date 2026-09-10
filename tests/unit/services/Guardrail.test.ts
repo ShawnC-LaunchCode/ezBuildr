@@ -126,25 +126,6 @@ describe('DatavaultGuardrails', () => {
             await expect(service.deleteColumn(columnId, tenantId, mockTx)).rejects.toThrow(/referenced by a create_record block/);
         });
 
-        it('should throw if column is referenced in a transform', async () => {
-            const columnId = 'col-123';
-            const tenantId = 'tenant-1';
-
-            // Setup column
-            mockColumnsRepo.findById.mockResolvedValue({ id: columnId, tableId: 'table-1', isPrimaryKey: false } as unknown as DatavaultColumn);
-            mockTablesRepo.findById.mockResolvedValue({ id: 'table-1', tenantId: tenantId } as unknown as DatavaultTable);
-
-            // First query (blocks) returns empty
-            // First query (blocks) returns empty
-            mockQueryBuilder.limit.mockResolvedValueOnce([]);
-
-            // Second query (transforms) returns match
-            // Second query (transforms) returns match
-            mockQueryBuilder.limit.mockResolvedValueOnce([{ id: 'tf-1', name: 'My Transform', workflowId: 'wf-2' }]);
-
-            await expect(service.deleteColumn(columnId, tenantId, mockTx)).rejects.toThrow(/referenced by transform block/);
-        });
-
         it('should succeed if no references found', async () => {
             const columnId = 'col-123';
             const tenantId = 'tenant-1';

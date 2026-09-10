@@ -19,7 +19,6 @@ function content(overrides: Record<string, unknown> = {}) {
       },
     ],
     logicRules: [],
-    transformBlocks: [],
     lifecycleHooks: [],
     documentHooks: [],
     ...overrides,

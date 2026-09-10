@@ -833,11 +833,10 @@ import { JsQuestionConfig, LEGACY_JS_QUESTION_ADAPTER } from "./steps";
 
 /**
  * Computed Step Config
- * Virtual steps created by transform blocks
+ * Virtual computed output steps
  */
 export interface ComputedStepConfig {
-  transformBlockId?: string;  // Reference to transform block
-  formula?: string;           // Simple formula (alternative to transform block)
+  formula?: string;           // Simple formula
   inputKeys?: string[];       // Input variables
 }
 

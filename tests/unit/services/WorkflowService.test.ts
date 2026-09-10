@@ -42,9 +42,6 @@ vi.mock("../../../server/db", () => {
     workflowVersions: {
       findFirst: vi.fn(),
     },
-    transformBlocks: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
   };
   return {
     db: {
@@ -110,9 +107,6 @@ describe("WorkflowService", () => {
       const query = {
         workflowVersions: {
           findFirst: vi.fn(),
-        },
-        transformBlocks: {
-          findMany: vi.fn().mockResolvedValue([]),
         },
       };
       return {
@@ -322,7 +316,6 @@ describe("WorkflowService", () => {
       // needs the one drizzle accessor the nested path touches.
       const callerTx = {
         query: {
-          transformBlocks: { findMany: vi.fn().mockResolvedValue([]) },
           workflowVersions: { findFirst: vi.fn().mockResolvedValue(null) },
         },
       } as never;

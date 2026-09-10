@@ -3,7 +3,7 @@ import { eq, inArray, and, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { withCurrentTenant } from "../utils/rlsContext";
 import { createLogger } from "../logger";
-import { pages, sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
+import { pages, sections, steps, logicRules, lifecycleHooks, documentHooks } from "../../shared/schema";
 
 import { extractConditionReferences } from "../../shared/conditionGraph";
 import { LIMITS, LimitExceededError } from "../../shared/limits";
@@ -22,7 +22,6 @@ import type {
   InsertLifecycleHook,
   InsertLogicRule,
   InsertStep,
-  InsertTransformBlock,
 } from "../../shared/schema";
 import type { AIGeneratedWorkflow } from "./ai/types";
 
@@ -71,22 +70,6 @@ export interface WorkflowLogicRuleData {
   targetId?: string;
   action: string;
   order?: number;
-}
-
-export interface WorkflowTransformBlockData {
-  id?: string;
-  pageId?: string | null;
-  phase: string;
-  name: string;
-  code: string;
-  language: string;
-  inputKeys?: string[];
-  outputAlias?: string;
-  outputKey?: string;
-  virtualStepId?: string | null;
-  enabled?: boolean;
-  order?: number;
-  timeoutMs?: number | null;
 }
 
 export interface WorkflowHookData {
@@ -156,7 +139,6 @@ export interface WorkflowContentData {
   pages?: WorkflowPageData[];
   logicRules?: WorkflowLogicRuleData[];
   blocks?: WorkflowBlockData[];
-  transformBlocks?: WorkflowTransformBlockData[];
   lifecycleHooks?: WorkflowHookData[];
   documentHooks?: WorkflowHookData[];
 }
@@ -226,7 +208,6 @@ function normalizeContent(data: WorkflowContentData): WorkflowContentData {
   normalizedData.sections ??= [];
   normalizedData.pages ??= [];
   normalizedData.logicRules ??= [];
-  normalizedData.transformBlocks ??= [];
 
   validateWorkflowStructure(normalizedData as unknown as AIGeneratedWorkflow);
 
@@ -296,7 +277,6 @@ export class WorkflowContentIngestService {
       await this.deleteMissingSections(tx, workflowId, new Set(sectionIdMap.values()));
       await this.assertSectionLayout(tx, workflowId);
       await this.syncLogicRules(tx, workflowId, normalizedData.logicRules ?? [], aliasState.aliasMap);
-      await this.syncTransformBlocks(tx, workflowId, normalizedData.transformBlocks ?? []);
       await this.syncLifecycleHooks(tx, workflowId, normalizedData.lifecycleHooks);
       await this.syncDocumentHooks(tx, workflowId, normalizedData.documentHooks);
     };
@@ -706,29 +686,6 @@ export class WorkflowContentIngestService {
 
     if (mappedRules.length > 0) {
       await tx.insert(logicRules).values(mappedRules);
-    }
-  }
-
-  private async syncTransformBlocks(
-    tx: Transaction,
-    workflowId: string,
-    blocks: WorkflowTransformBlockData[]
-  ): Promise<void> {
-    await tx.delete(transformBlocks).where(eq(transformBlocks.workflowId, workflowId));
-
-    const mappedBlocks = blocks.map((block): InsertTransformBlock => ({
-      workflowId,
-      phase: block.phase,
-      name: block.name,
-      code: block.code,
-      language: block.language,
-      inputKeys: block.inputKeys,
-      outputKey: block.outputAlias ?? block.outputKey,
-      order: block.order,
-    } as InsertTransformBlock));
-
-    if (mappedBlocks.length > 0) {
-      await tx.insert(transformBlocks).values(mappedBlocks);
     }
   }
 

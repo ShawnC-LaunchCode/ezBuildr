@@ -76,8 +76,6 @@ export const DATAVAULT_CONFIG = {
   /** Default timeout for API requests */
   DEFAULT_TIMEOUT_MS: 5000,
 
-  /** Timeout for transform block execution */
-  TRANSFORM_BLOCK_TIMEOUT_MS: 3000,
 } as const;
 
 /**

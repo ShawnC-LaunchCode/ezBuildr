@@ -235,6 +235,23 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     return workflow.id;
   }
 
+  it('ignores legacy transform content while retaining the supported workflow definition', async () => {
+    const legacyId = await createWorkflow('Legacy transform payload');
+    const currentId = await createWorkflow('Current payload');
+    const legacy = {
+      ...parityFixture,
+      transformBlocks: [{ name: 'Retired', code: 'throw new Error("must not execute")' }],
+    };
+    await workflowContentIngestService.apply(legacyId, legacy, { source: 'manual' });
+    await workflowContentIngestService.apply(currentId, parityFixture, { source: 'manual' });
+    const legacyDetails = await workflowService.getWorkflowWithDetails(legacyId, ctx.userId);
+    const currentDetails = await workflowService.getWorkflowWithDetails(currentId, ctx.userId);
+    expect(legacyDetails).not.toHaveProperty('transformBlocks');
+    expect(legacyDetails.pages.map(page => page.steps.map(step => step.alias)))
+      .toEqual(currentDetails.pages.map(page => page.steps.map(step => step.alias)));
+    expect(legacyDetails.logicRules).toHaveLength(currentDetails.logicRules.length);
+  });
+
   it('persists identical pages, steps, config, aliases, and logic rules for AI and manual sources', async () => {
     const aiWorkflowId = await createWorkflow('AI source workflow');
     const manualWorkflowId = await createWorkflow('Manual source workflow');
@@ -423,7 +440,6 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
           action: 'show',
         },
       ],
-      transformBlocks: [],
     });
 
     await workflowContentIngestService.apply(workflowId, parsed as unknown as WorkflowContentData, { source: 'ai' });

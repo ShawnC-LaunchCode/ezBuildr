@@ -18,7 +18,6 @@ function baseContent(overrides: Partial<LintableWorkflowContent> = {}): Lintable
   return {
     pages: [],
     logicRules: [],
-    transformBlocks: [],
     lifecycleHooks: [],
     documentHooks: [],
     ...overrides,

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ApiTransformBlock } from '@/lib/vault-api';
+import type { ApiBlock } from '@/lib/vault-api';
 
 import type { DynamicOptionsConfig } from '../../../../../shared/types/stepConfigs';
 
@@ -18,7 +18,7 @@ interface Column {
 interface DynamicOptionsEditorProps {
     config: Extract<DynamicOptionsConfig, { type: 'list' }>;
     listVariables: Array<{ alias?: string | null; type: string }>;
-    sourceBlock: ApiTransformBlock | null | undefined;
+    sourceBlock: ApiBlock | null | undefined;
     sourceTableId: string | null;
     columns: Column[];
     loadingColumns: boolean;
@@ -27,7 +27,7 @@ interface DynamicOptionsEditorProps {
     valueColumnWarning: string | null;
     onUpdate: (updates: Partial<Extract<DynamicOptionsConfig, { type: 'list' }>>) => void;
     onCreateListTools: () => void;
-    onEditBlock: (block: ApiTransformBlock) => void;
+    onEditBlock: (block: ApiBlock) => void;
     onUnlinkBlock: () => void;
     onReplaceBlock: () => void;
 }

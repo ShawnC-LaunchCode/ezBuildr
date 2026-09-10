@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import { db } from '../../../server/db';
 import {
   projects, workflows, datavaultTables, datavaultDatabases, steps, projectAccess, workflowAccess,
-  pages, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
+  pages, logicRules, blocks, lifecycleHooks, documentHooks,
   workflowVersions, datavaultRows
 } from '@shared/schema';
 import { recomputeChecksum, previewBundle, applyBundle } from '../../helpers/bundleTestHelper';
@@ -69,17 +69,6 @@ describeWithDb('ImportService - apply', () => {
       type: 'prefill',
       phase: 'onPageEnter',
       config: {},
-      virtualStepId: stepId,
-      order: 0
-    });
-    await db.insert(transformBlocks).values({
-      id: randomUUID(),
-      workflowId: workflow.id,
-      pageId: page.id,
-      name: 'Test Transform',
-      language: 'javascript',
-      code: 'emit(1);',
-      outputKey: 'out',
       virtualStepId: stepId,
       order: 0
     });
@@ -160,6 +149,26 @@ describeWithDb('ImportService - apply', () => {
     expect(afterWorkflows.length).toBe(beforeWorkflows.length + 1);
   });
 
+  it('ignores retired transform streams in a valid legacy bundle and preserves its pages and steps', async () => {
+    const zip = new AdmZip(workflowBundle);
+    const manifest = JSON.parse(zip.readAsText('manifest.json')) as { checksum: string };
+    zip.addFile('entities/transform_blocks.jsonl', Buffer.from(`${JSON.stringify({
+      id: randomUUID(), workflowId: workflow.id, name: 'Retired block',
+      code: 'throw new Error("retired code must not run")', language: 'javascript',
+    })}\n`));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    const legacy = zip.toBuffer();
+    const preview = await previewBundle(legacy, user.id);
+    expect(preview.canProceed).toBe(true);
+    expect(preview.entityCounts).not.toHaveProperty('transform_blocks');
+    const imported = await applyBundle(legacy, user.id);
+    expect(await db.select().from(pages).where(eq(pages.workflowId, imported.rootId))).toHaveLength(1);
+    expect(await db.select().from(steps).where(eq(steps.workflowId, imported.rootId))).toHaveLength(1);
+    const exported = new AdmZip(await exportService.export({ scope: 'workflow', id: imported.rootId }, user.id));
+    expect(exported.getEntries().map(entry => entry.entryName)).not.toContain('entities/transform_blocks.jsonl');
+  });
+
   it('reads the caller-supplied file path directly with no second whole-bundle copy (IEX2-10 AC 1, AC 2)', async () => {
     // Stand in for the multer upload: our own file on disk, at a path we own.
     const filePath = path.join(os.tmpdir(), `ac-test-${randomUUID()}.ezb`);
@@ -192,7 +201,6 @@ describeWithDb('ImportService - apply', () => {
     const newSteps = await db.select().from(steps).where(eq(steps.workflowId, newRootId));
     const newRules = await db.select().from(logicRules).where(eq(logicRules.workflowId, newRootId));
     const newBlocks = await db.select().from(blocks).where(eq(blocks.workflowId, newRootId));
-    const newTransforms = await db.select().from(transformBlocks).where(eq(transformBlocks.workflowId, newRootId));
     const newLifecycle = await db.select().from(lifecycleHooks).where(eq(lifecycleHooks.workflowId, newRootId));
     const newDocHooks = await db.select().from(documentHooks).where(eq(documentHooks.workflowId, newRootId));
 
@@ -201,7 +209,6 @@ describeWithDb('ImportService - apply', () => {
     expect(newSteps).toHaveLength(1);
     expect(newRules).toHaveLength(1);
     expect(newBlocks).toHaveLength(1);
-    expect(newTransforms).toHaveLength(1);
     expect(newLifecycle).toHaveLength(1);
     expect(newDocHooks).toHaveLength(1);
 
@@ -212,10 +219,8 @@ describeWithDb('ImportService - apply', () => {
     // ...and every FK points at the imported copy, not the source row.
     expect(newSteps[0].pageId).toBe(newPage.id);
     expect(newBlocks[0].pageId).toBe(newPage.id);
-    expect(newTransforms[0].pageId).toBe(newPage.id);
     expect(newLifecycle[0].pageId).toBe(newPage.id);
     expect(newBlocks[0].virtualStepId).toBe(newSteps[0].id);
-    expect(newTransforms[0].virtualStepId).toBe(newSteps[0].id);
     expect(newRules[0].conditionStepId).toBe(newSteps[0].id);
     expect(newRules[0].targetStepId).toBe(newSteps[0].id);
 
@@ -237,7 +242,6 @@ describeWithDb('ImportService - apply', () => {
     const newSteps = await db.select().from(steps).where(eq(steps.workflowId, newWorkflow.id));
     const newRules = await db.select().from(logicRules).where(eq(logicRules.workflowId, newWorkflow.id));
     const newBlocks = await db.select().from(blocks).where(eq(blocks.workflowId, newWorkflow.id));
-    const newTransforms = await db.select().from(transformBlocks).where(eq(transformBlocks.workflowId, newWorkflow.id));
     const newLifecycle = await db.select().from(lifecycleHooks).where(eq(lifecycleHooks.workflowId, newWorkflow.id));
     const newDocHooks = await db.select().from(documentHooks).where(eq(documentHooks.workflowId, newWorkflow.id));
 
@@ -245,7 +249,6 @@ describeWithDb('ImportService - apply', () => {
     expect(newSteps).toHaveLength(1);
     expect(newRules).toHaveLength(1);
     expect(newBlocks).toHaveLength(1);
-    expect(newTransforms).toHaveLength(1);
     expect(newLifecycle).toHaveLength(1);
     expect(newDocHooks).toHaveLength(1);
 

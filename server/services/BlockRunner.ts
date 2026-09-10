@@ -22,7 +22,6 @@ import { ValidateBlockRunner } from "./blockRunners/ValidateBlockRunner";
 import { WriteBlockRunner } from "./blockRunners/WriteBlockRunner";
 import { blockService } from "./BlockService";
 import { lifecycleHookService } from "./scripting/LifecycleHookService";
-import { transformBlockService } from "./TransformBlockService";
 
 import type { IBlockRunner } from "./blockRunners/types";
 
@@ -30,21 +29,18 @@ import type { IBlockRunner } from "./blockRunners/types";
 /**
  * BlockRunner Service
  * Executes blocks at various workflow runtime phases
- * Handles both generic blocks (prefill, validate, branch) and transform blocks (JS/Python)
+ * Handles generic blocks (prefill, validate, branch) and lifecycle hooks
  *
  * REFACTORED: Now uses strategy pattern with specialized block runners
  */
 export class BlockRunner {
   private blockSvc: typeof blockService;
-  private transformSvc: typeof transformBlockService;
   private runnerRegistry: Map<string, IBlockRunner>;
 
   constructor(
-    blockSvc?: typeof blockService,
-    transformSvc?: typeof transformBlockService
+    blockSvc?: typeof blockService
   ) {
     this.blockSvc = blockSvc ?? blockService;
-    this.transformSvc = transformSvc ?? transformBlockService;
 
     // Initialize runner registry with specialized runners
     this.runnerRegistry = new Map();
@@ -81,7 +77,7 @@ export class BlockRunner {
 
   /**
    * Run all blocks for a given phase WITH TRANSACTION WRAPPER
-   * Execution order: lifecycle hooks → transform blocks → generic blocks
+   * Execution order: lifecycle hooks → generic blocks
    *
    * TRANSACTION FIX: All write operations within this phase are wrapped in a single database
    * transaction. If any block fails, all previous writes are rolled back atomically.
@@ -113,7 +109,7 @@ export class BlockRunner {
 
   /**
    * Run all blocks for a given phase
-   * Execution order: lifecycle hooks → transform blocks → generic blocks
+   * Execution order: lifecycle hooks → generic blocks
    * Returns combined result from all blocks
    *
    * NOTE: Individual write operations use transactions (see WriteRunner), but cross-block
@@ -123,7 +119,7 @@ export class BlockRunner {
    * @param context - Block execution context
    * @param tx - Optional database transaction (for atomic cross-block operations)
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- Drizzle tx for future use, lifecycle+transform+block nested execution
+  // eslint-disable-next-line sonarjs/cognitive-complexity, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- Drizzle tx for future use, lifecycle+block nested execution
   async runPhase(context: BlockContext, tx?: any): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
@@ -184,33 +180,7 @@ export class BlockRunner {
       }
     }
 
-    // 1. Execute transform blocks (if runId is provided)
-    if (context.runId) {
-      try {
-        const transformResult = await this.transformSvc.executeAllForPhase({
-          workflowId: context.workflowId,
-          runId: context.runId,
-          phase: context.phase,
-          pageId: context.pageId,
-          data: currentData,
-        });
-
-        // Merge transform block outputs into data
-        currentData = { ...currentData, ...transformResult.data };
-
-        // Collect any transform block errors
-        if (transformResult.errors) {
-          for (const error of transformResult.errors) {
-            allErrors.push(`Transform block "${error.blockName}": ${error.error}`);
-          }
-        }
-      } catch (error) {
-        logger.error({ error }, "Error executing transform blocks in phase");
-        allErrors.push(`Transform block execution failed: ${error instanceof Error ? error.message : 'unknown error'}`);
-      }
-    }
-
-    // 2. Execute generic blocks (prefill, validate, branch)
+    // Execute generic blocks (prefill, validate, branch)
     const blocks = await this.blockSvc.getBlocksForPhase(
       context.workflowId,
       context.phase,

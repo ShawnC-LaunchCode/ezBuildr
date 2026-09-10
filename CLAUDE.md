@@ -159,7 +159,6 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 | Issue | Fix |
 |-------|-----|
 | "column/relation does not exist" | Load the `db-schema-change` skill — do not guess; usually `npm run db:push` or a missing migration |
-| Transform block output fails | `tsx scripts/migrateTransformBlockVirtualSteps.ts` |
 | "Code did not call emit()" | Ensure code calls `emit(value)` exactly once |
 | Google OAuth fails | Check `GOOGLE_CLIENT_ID`, origins, CORS; local auth workaround is in the `verify` skill |
 | Test fails only locally | Check known-failure list in the `run-tests` skill (vm2/isolated-vm, excluded integration tests) |

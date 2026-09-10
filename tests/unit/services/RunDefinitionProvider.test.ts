@@ -151,6 +151,26 @@ function makeProvider(overrides: {
 }
 
 describe('RunDefinitionProvider', () => {
+  it('reads a legacy pinned version without exposing retired transform definitions', async () => {
+    const legacyGraph = {
+      title: 'Legacy pinned workflow',
+      pages: [{ id: pageId, title: 'Still runnable', steps: [
+        { id: targetId, type: 'text', title: 'Name', config: { variant: 'short' } },
+      ] }],
+      transformBlocks: [{ id: 'retired', code: 'throw new Error("must not execute")' }],
+    };
+    const { provider, pageRepo, stepRepo } = makeProvider({
+      version: { id: versionId, workflowId, graphJson: legacyGraph },
+    });
+    const definition = await provider.getDefinition(makeRun());
+    expect(definition.source).toBe('version');
+    expect(definition.steps.map(step => step.id)).toEqual([targetId]);
+    expect(definition.graph).not.toHaveProperty('transformBlocks');
+    expect(pageRepo.findByWorkflowId).not.toHaveBeenCalled();
+    expect(stepRepo.findByPageIds).not.toHaveBeenCalled();
+    expect(legacyGraph.transformBlocks).toHaveLength(1);
+  });
+
   describe('a run pinned to a version (AC1)', () => {
     it('returns Sections, page membership, steps and logic rules sourced from the pinned graph', async () => {
       const { provider } = makeProvider();

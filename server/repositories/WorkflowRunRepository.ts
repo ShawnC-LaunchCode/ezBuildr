@@ -1,7 +1,7 @@
 import { eq, and, or, desc, inArray, count, sql, isNull, lte, gt } from "drizzle-orm";
 
 import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
-import { stepValues, codeBlockRuns, scriptExecutionLog, transformBlockRuns, runGeneratedDocuments,
+import { stepValues, codeBlockRuns, scriptExecutionLog, runGeneratedDocuments,
   runCompletionJobs, runResumeLinks, workflowRunEvents, workflowRunMetrics } from '@shared/schema';
 
 import { db, type DrizzleDB } from "../db";
@@ -427,7 +427,7 @@ export class WorkflowRunRepository extends BaseRepository<
       if (!run?.previewRetiredAt || (run.previewLeaseExpiresAt && run.previewLeaseExpiresAt > new Date())) {
         return;
       }
-      for (const table of [stepValues, codeBlockRuns, scriptExecutionLog, transformBlockRuns,
+      for (const table of [stepValues, codeBlockRuns, scriptExecutionLog,
         runGeneratedDocuments, runCompletionJobs, runResumeLinks, workflowRunEvents, workflowRunMetrics]) {
         await tx.delete(table).where(eq(table.runId, runId));
       }

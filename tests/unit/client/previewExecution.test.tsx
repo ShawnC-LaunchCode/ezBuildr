@@ -215,7 +215,7 @@ describe('CB-9a-3b server-backed preview UI', () => {
       }
       if (url.endsWith('/values/bulk')) { return { success: true }; }
       if (url.endsWith('/snapshots/snapshot-1/values')) { return { answer_1: 'snapshot answer', computed: 'stale computed' }; }
-      if (url === `/api/workflows/${PREVIEW_WORKFLOW}`) { return { title: definitionTitle, pages: previewPages, logicRules: [], transformBlocks: [], settings: {} }; }
+      if (url === `/api/workflows/${PREVIEW_WORKFLOW}`) { return { title: definitionTitle, pages: previewPages, logicRules: [], settings: {} }; }
       if (['/sections', '/blocks', '/lifecycle-hooks', '/document-hooks'].some((suffix) => url.endsWith(suffix))) { return []; }
       throw new Error(`Unexpected API: ${url}`);
     });

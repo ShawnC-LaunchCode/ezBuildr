@@ -706,12 +706,12 @@ describe.sequential("Portability Export API Integration Tests", () => {
 
         // A pasted-looking credential in hook code is exactly what the user
         // needs told *before* they share the file.
-        await getOwnerDb().insert(schema.transformBlocks).values({
+        await getOwnerDb().insert(schema.lifecycleHooks).values({
           workflowId,
           name: "Leaky block",
           language: "javascript",
           code: 'const apiKey = "sk-livesecretvaluethatlookslikeakey123456";\nemit(apiKey);',
-          outputKey: "leaky",
+          phase: "beforePage",
           order: 0,
         });
 
@@ -724,7 +724,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
           (w: { type: string }) => w.type === "secret_scan"
         );
         expect(scans.length).toBeGreaterThan(0);
-        expect(scans[0].entity).toBe("transform_blocks");
+        expect(scans[0].entity).toBe("lifecycle_hooks");
         expect(typeof scans[0].line).toBe("number");
         // The manifest must never quote the match back at the user.
         expect(JSON.stringify(response.body)).not.toContain("sk-livesecretvalue");

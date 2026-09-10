@@ -29,7 +29,6 @@ import type {
   workflowRuns,
   stepValues,
   logicRules,
-  transformBlocks,
 } from '@shared/schema';
 
 // Derive types if not exported (common with Drizzle schema generic exports)
@@ -43,7 +42,6 @@ type Step = typeof steps.$inferSelect;
 type WorkflowRun = typeof workflowRuns.$inferSelect;
 type StepValue = typeof stepValues.$inferSelect;
 type LogicRule = typeof logicRules.$inferSelect;
-type TransformBlock = typeof transformBlocks.$inferSelect;
 
 // ===================================================================
 // Type Definitions
@@ -317,27 +315,6 @@ export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<Lo
     targetPageId: overrides?.targetPageId || null,
     action: overrides?.action || 'show',
     order: overrides?.order ?? 1,
-  };
-}
-
-/**
- * Creates a test transform block
- * @param overrides Partial transform block properties
- */
-export function createTestTransformBlock(overrides?: DeepPartial<TransformBlock>): Omit<TransformBlock, 'id' | 'createdAt' | 'updatedAt'> {
-  return {
-    workflowId: overrides?.workflowId || uuidv4(),
-    pageId: overrides?.pageId || null,
-    name: overrides?.name || `Transform ${nanoid(6)}`,
-    code: overrides?.code || 'emit({ result: input.value * 2 });',
-    language: overrides?.language || 'javascript',
-    inputKeys: (overrides?.inputKeys as string[]) || ['value'],
-    outputKey: overrides?.outputKey || 'doubled',
-    virtualStepId: overrides?.virtualStepId || null,
-    phase: overrides?.phase || 'onPageSubmit',
-    enabled: overrides?.enabled ?? true,
-    order: overrides?.order ?? 0,
-    timeoutMs: overrides?.timeoutMs || 1000,
   };
 }
 

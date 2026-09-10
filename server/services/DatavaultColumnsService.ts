@@ -1,6 +1,6 @@
-import {  or , sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
-import { blocks, transformBlocks } from "@shared/schema";
+import { blocks } from "@shared/schema";
 import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
 
 import { db } from "../db";
@@ -583,7 +583,7 @@ export class DatavaultColumnsService {
     });
   }
   /**
-   * Check if column is used in any workflows (blocks or transforms)
+   * Check if column is used in any workflows (blocks)
    * This is a guardrail to prevent breaking changes
    */
   private async checkColumnUsage(columnId: string, tx?: DbTransaction): Promise<void> {
@@ -599,24 +599,6 @@ export class DatavaultColumnsService {
     if (matchingBlocks.length > 0) {
       throw new Error(
         `Cannot delete column: It is referenced by a ${matchingBlocks[0].type} block in workflow ${matchingBlocks[0].workflowId}`
-      );
-    }
-    // Check transform blocks code or config
-    const matchingTransforms = await database
-      .select({ id: transformBlocks.id, name: transformBlocks.name, workflowId: transformBlocks.workflowId })
-      .from(transformBlocks)
-      .where(
-        or(
-          // eslint-disable-next-line sonarjs/no-nested-template-literals
-          sql`${transformBlocks.code} LIKE ${`%${columnId}%`}`,
-          // eslint-disable-next-line sonarjs/no-nested-template-literals
-          sql`${transformBlocks.inputKeys}::text LIKE ${`%${columnId}%`}`
-        )
-      )
-      .limit(1);
-    if (matchingTransforms.length > 0) {
-      throw new Error(
-        `Cannot delete column: It is referenced by transform block "${matchingTransforms[0].name}" in workflow ${matchingTransforms[0].workflowId}`
       );
     }
   }

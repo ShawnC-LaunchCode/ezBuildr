@@ -6,7 +6,6 @@ import {
   pageRepository,
   sectionRepository,
   stepRepository,
-  transformBlockRepository,
 } from "../../../server/repositories";
 import {
   AliasRenameService,
@@ -14,10 +13,6 @@ import {
 } from "../../../server/services/AliasRenameService";
 
 vi.mock("../../../server/repositories", () => ({
-  transformBlockRepository: {
-    findByWorkflowId: vi.fn(),
-    update: vi.fn(),
-  },
   documentHookRepository: {
     findByWorkflowId: vi.fn(),
     update: vi.fn(),
@@ -84,7 +79,6 @@ describe("rewriteFinalBlockMapping", () => {
 
 describe("AliasRenameService.propagateRename", () => {
   const service = new AliasRenameService();
-  let mockTransformRepo: Mocked<typeof transformBlockRepository>;
   let mockDocHookRepo: Mocked<typeof documentHookRepository>;
   let mockLifecycleRepo: Mocked<typeof lifecycleHookRepository>;
   let mockPageRepo: Mocked<typeof pageRepository>;
@@ -93,14 +87,12 @@ describe("AliasRenameService.propagateRename", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTransformRepo = transformBlockRepository as Mocked<typeof transformBlockRepository>;
     mockDocHookRepo = documentHookRepository as Mocked<typeof documentHookRepository>;
     mockLifecycleRepo = lifecycleHookRepository as Mocked<typeof lifecycleHookRepository>;
     mockPageRepo = pageRepository as Mocked<typeof pageRepository>;
     mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
 
-    mockTransformRepo.findByWorkflowId.mockResolvedValue([]);
     mockDocHookRepo.findByWorkflowId.mockResolvedValue([]);
     mockLifecycleRepo.findByWorkflowId.mockResolvedValue([]);
     mockPageRepo.findByWorkflowId.mockResolvedValue([]);
@@ -111,20 +103,6 @@ describe("AliasRenameService.propagateRename", () => {
     mockStepRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
     mockPageRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
     mockSectionRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
-  });
-
-  it("should rewrite transform block inputKeys", async () => {
-    mockTransformRepo.findByWorkflowId.mockResolvedValue([
-      { id: "tb-1", inputKeys: ["oldName", "other"] },
-      { id: "tb-2", inputKeys: ["other"] },
-    ] as never);
-
-    const result = await service.propagateRename("wf-1", "oldName", "newName");
-
-    expect(result.transformBlocksUpdated).toBe(1);
-    expect(mockTransformRepo.update).toHaveBeenCalledWith("tb-1", {
-      inputKeys: ["newName", "other"],
-    }, undefined);
   });
 
   it("should rewrite hook inputKeys", async () => {
@@ -357,7 +335,6 @@ describe("AliasRenameService.propagateRename", () => {
   it("should report zero updates when nothing references the alias", async () => {
     const result = await service.propagateRename("wf-1", "oldName", "newName");
     expect(result).toEqual({
-      transformBlocksUpdated: 0,
       documentHooksUpdated: 0,
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
@@ -373,13 +350,13 @@ describe("AliasRenameService.propagateRename", () => {
     // so a failing query must reject and stop, not be swallowed and continued —
     // catching it here would let the caller believe the rename succeeded while
     // Postgres silently rolled the whole transaction back underneath it.
-    mockTransformRepo.findByWorkflowId.mockRejectedValue(new Error("db down"));
-    mockDocHookRepo.findByWorkflowId.mockResolvedValue([
+    mockDocHookRepo.findByWorkflowId.mockRejectedValue(new Error("db down"));
+    mockLifecycleRepo.findByWorkflowId.mockResolvedValue([
       { id: "dh-1", inputKeys: ["oldName"] },
     ] as never);
 
     await expect(service.propagateRename("wf-1", "oldName", "newName")).rejects.toThrow("db down");
 
-    expect(mockDocHookRepo.findByWorkflowId).not.toHaveBeenCalled();
+    expect(mockLifecycleRepo.findByWorkflowId).not.toHaveBeenCalled();
   });
 });

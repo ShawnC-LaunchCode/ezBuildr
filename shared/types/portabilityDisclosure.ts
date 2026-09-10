@@ -92,6 +92,7 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
       'collab_docs', 'collab_updates', 'collab_snapshots',
       'workflow_snapshots', 'workflow_blueprints',
       'collections', 'collection_fields', 'records',
+      'transform_blocks',
       'datavault_unique_keys',
     ],
   },

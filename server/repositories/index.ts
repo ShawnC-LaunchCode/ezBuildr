@@ -49,7 +49,6 @@ export {
 } from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
-export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
 export { RunGeneratedDocumentsRepository, runGeneratedDocumentsRepository } from "./RunGeneratedDocumentsRepository";
 export { SnapshotRepository, snapshotRepository, type WorkflowSnapshot, type SnapshotValueMap } from "./SnapshotRepository";
 export { WorkflowQueriesRepository, workflowQueriesRepository } from "./WorkflowQueriesRepository";

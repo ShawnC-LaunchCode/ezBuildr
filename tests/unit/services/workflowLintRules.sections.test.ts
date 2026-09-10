@@ -26,7 +26,6 @@ function content(sectionVisibleIf: unknown, rules: Record<string, unknown>[] = [
       { id: "later", title: "Later", order: 2, sectionId: null, steps: [{ id: "later-id", title: "Later", alias: "later_q" }] },
     ],
     logicRules: rules,
-    transformBlocks: [],
     lifecycleHooks: [],
     documentHooks: [],
   };

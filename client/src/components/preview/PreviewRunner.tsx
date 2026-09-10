@@ -24,7 +24,6 @@ interface PreviewDefinition {
     description: string | null;
     pages: Array<ApiPage & { steps: ApiStep[] }>;
     logicRules: unknown;
-    transformBlocks: unknown;
     settings: unknown;
     branding: unknown;
 }
@@ -39,7 +38,7 @@ async function readDefinition(workflowId: string): Promise<string> {
     ]);
     // Exclude currentVersion: creating a preview itself pins a new draft version.
     return JSON.stringify({ title: workflow.title, description: workflow.description,
-        pages: workflow.pages, rules: workflow.logicRules, transforms: workflow.transformBlocks,
+        pages: workflow.pages, rules: workflow.logicRules,
         settings: workflow.settings, branding: workflow.branding, sections, blocks, lifecycleHooks, documentHooks });
 }
 

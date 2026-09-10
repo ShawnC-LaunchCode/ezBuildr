@@ -478,7 +478,6 @@ export const JsQuestionConfigSchema = z.object({
 });
 
 export const ComputedStepConfigSchema = z.object({
-  transformBlockId: z.string().optional(),
   formula: z.string().optional(),
   inputKeys: z.array(z.string()).optional(),
 }).optional();

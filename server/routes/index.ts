@@ -56,7 +56,6 @@ import { registerStorageRoutes } from "./storage.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTemplateAnalysisRoutes } from "./templateAnalysis.routes";
 import { registerTenantRoutes } from "./tenant.routes";
-import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerVersionRoutes } from "./versions.routes";
 import webhookRouter from "./webhooks.routes";
@@ -118,7 +117,6 @@ export function registerAllRoutes(app: Express): void {
   registerPageRoutes(app);
   registerStepRoutes(app);
   registerBlockRoutes(app);
-  registerTransformBlockRoutes(app);
   registerCodeBlockRoutes(app);
 
   // Template Marketplace (browse / install / publish) — MUST be registered

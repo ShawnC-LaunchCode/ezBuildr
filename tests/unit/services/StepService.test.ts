@@ -6,7 +6,6 @@ import {
   stepRepository,
   pageRepository,
   stepValueRepository,
-  transformBlockRepository,
   documentHookRepository,
   lifecycleHookRepository,
 } from "../../../server/repositories";
@@ -48,13 +47,6 @@ vi.mock("../../../server/repositories", () => ({
   stepValueRepository: {
     countImpactForSteps: vi.fn(),
   },
-  // Exercised for real (not stubbed at the AliasRenameService boundary) by
-  // the "follow-the-label" alias-regenerate test below, since propagateRename
-  // now runs atomically and un-mocked repos would reject instead of no-op.
-  transformBlockRepository: {
-    findByWorkflowId: vi.fn(),
-    update: vi.fn(),
-  },
   documentHookRepository: {
     findByWorkflowId: vi.fn(),
     update: vi.fn(),
@@ -80,7 +72,6 @@ describe("StepService", () => {
   let mockPageRepo: Mocked<typeof pageRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
   let mockStepValueRepo: Mocked<typeof stepValueRepository>;
-  let mockTransformRepo: Mocked<typeof transformBlockRepository>;
   let mockDocHookRepo: Mocked<typeof documentHookRepository>;
   let mockLifecycleRepo: Mocked<typeof lifecycleHookRepository>;
 
@@ -91,7 +82,6 @@ describe("StepService", () => {
     mockPageRepo = pageRepository as Mocked<typeof pageRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
     mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
-    mockTransformRepo = transformBlockRepository as Mocked<typeof transformBlockRepository>;
     mockDocHookRepo = documentHookRepository as Mocked<typeof documentHookRepository>;
     mockLifecycleRepo = lifecycleHookRepository as Mocked<typeof lifecycleHookRepository>;
 
@@ -110,7 +100,6 @@ describe("StepService", () => {
     // propagateRename (atomic since DEBT-16) runs for real whenever a test
     // triggers an alias change — these default to a no-op so it doesn't
     // reject on an un-mocked repository.
-    mockTransformRepo.findByWorkflowId.mockResolvedValue([]);
     mockDocHookRepo.findByWorkflowId.mockResolvedValue([]);
     mockLifecycleRepo.findByWorkflowId.mockResolvedValue([]);
 

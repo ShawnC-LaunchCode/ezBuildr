@@ -37,7 +37,7 @@ const CLEAN_PREVIEW = {
 
 const LOADED_PREVIEW = {
   canProceed: true,
-  entityCounts: { workflows: 1, pages: 2, steps: 9, transform_blocks: 2, lifecycle_hooks: 1 },
+  entityCounts: { workflows: 1, pages: 2, steps: 9, lifecycle_hooks: 1 },
   collisions: [
     { entity: 'workflows', name: 'Client Intake', type: 'workflow' },
     { entity: 'datavault_tables', name: 'states-ab12', type: 'table_slug' },
@@ -122,7 +122,7 @@ describe('ImportWorkflow', () => {
     const callout = await screen.findByRole('region', {
       name: 'This bundle contains code that will run in your workspace',
     });
-    expect(callout).toHaveTextContent('transform blocks');
+    expect(callout).not.toHaveTextContent('transform blocks');
     expect(callout).toHaveTextContent('lifecycle hooks');
     // document_hooks is absent from the fixture and must not be claimed.
     expect(callout).not.toHaveTextContent('document hooks');

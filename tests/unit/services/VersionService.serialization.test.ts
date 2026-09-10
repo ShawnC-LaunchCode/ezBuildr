@@ -113,21 +113,6 @@ describe("VersionService.serializeWorkflow", () => {
         action: "show",
         order: 7,
       }],
-      transformBlocks: [{
-        id: "transform-1",
-        workflowId: "workflow-1",
-        pageId: "page-1",
-        name: "Normalize",
-        language: "javascript",
-        code: "emit(input)",
-        inputKeys: ["approved"],
-        outputKey: "normalized",
-        virtualStepId: "virtual-transform-1",
-        phase: "onPageSubmit",
-        enabled: false,
-        order: 8,
-        timeoutMs: 2250,
-      }],
     });
 
     findBlocks.mockResolvedValue([{
@@ -202,14 +187,7 @@ describe("VersionService.serializeWorkflow", () => {
       enabled: false,
       order: 9,
     }]);
-    expect(result.transformBlocks).toEqual([expect.objectContaining({
-      id: "transform-1",
-      pageId: "page-1",
-      outputKey: "normalized",
-      virtualStepId: "virtual-transform-1",
-      enabled: false,
-      timeoutMs: 2250,
-    })]);
+    expect(result).not.toHaveProperty('transformBlocks');
     expect(result.lifecycleHooks).toEqual([expect.objectContaining({
       id: "lifecycle-1",
       pageId: "page-1",

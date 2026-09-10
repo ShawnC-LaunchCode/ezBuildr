@@ -244,12 +244,9 @@ export class WorkflowService {
     const result = await this.withTx(tx, async (scopedTx) => {
       const workflow = await this.verifyAccess(workflowId, userId, 'view', scopedTx);
       // OPTIMIZATION: Run independent queries in parallel
-      const [pages, logicRules, transformBlocks] = await Promise.all([
+      const [pages, logicRules] = await Promise.all([
         this.pageRepo.findByWorkflowId(workflowId, scopedTx),
         this.logicRuleRepo.findByWorkflowId(workflowId, scopedTx),
-        scopedTx.query.transformBlocks.findMany({
-          where: (tb, { eq: eqOp }) => eqOp(tb.workflowId, workflowId),
-        }),
       ]);
       const pageIds = pages.map((s) => s.id);
       const steps = pageIds.length > 0
@@ -291,7 +288,6 @@ export class WorkflowService {
         ...workflow,
         pages: pagesWithSteps,
         logicRules,
-        transformBlocks,
         currentVersion,
       };
     });
