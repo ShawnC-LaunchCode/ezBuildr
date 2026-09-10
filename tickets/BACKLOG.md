@@ -90,10 +90,11 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| RUN-P1 | ⚠️ `production` | **`onPageEnter` blocks NEVER EXECUTE.** No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
 | AI-P1 | ⚠️ `production` | **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
-| LIST-B15 | `triage` | A `list` question cannot be a List Tools source. Its stored value is `{ items: [...] }` and nothing projects it to a row array before blocks run, so `ListToolsBlockRunner` would reject it — the source picker therefore deliberately omits `list` steps. Filed by the LIST-B1 fix | Inline below: `LIST-B15` |
+| LIST-B15 | `ready` | A `list` question cannot be a List Tools source. **Investigated 2026-09-10 — the original framing was partly wrong**: the broken configuration is ALREADY reachable via the Choice editor's convert-to-List-Tools action, and the envelope→rows conversion already exists twice. Recommendation: adapt at the runner's input boundary, ~half a day | Inline below: `LIST-B15` |
 | ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
 | ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
@@ -202,6 +203,115 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## LIST-B15 investigated: the premise was partly wrong — updated 2026-09-10
+
+The mechanical claims all held: a `list` value really is stored `{ items: [...] }`
+(`shared/types/stepConfigs.ts:1013-1022`), nothing projects it on write,
+`RunDataService` hands the raw envelope to block runners, and
+`ListToolsBlockRunner.ts:56-66` rejects it with a clear error rather than
+mis-handling it silently. Two things were wrong:
+
+**1. "Offering it would ADD a broken option" is false — the broken option already
+exists.** `ChoiceCardEditor.tsx:141` already lists `list` steps as list sources,
+and its convert-to-a-List-Tools-block action posts that alias as `sourceListVar`
+(`ChoiceCardEditor.tsx:226` → `server/routes/blocks.routes.ts:285-386`). Omitting
+`list` from the List Tools picker hides the broken configuration from one screen
+while leaving another door wide open.
+
+**2. The conversion is already solved, twice, at the CONSUMER boundary.**
+`client/src/lib/choice-utils.ts:31-64` turns the envelope into a `ListVariable`
+and feeds it to **the same `transformList` pipeline the runner uses**;
+`shared/conditionEvaluator.ts:238-280` resolves it structurally for logic. The
+established pattern here is *consumers adapt the envelope; the read path stays
+raw*.
+
+### Why the read-path projection I first suggested would have been the wrong fix
+
+Projecting inside `RunDataService`/`getRunValues` breaks four things, and **every
+one of them fails silently**:
+
+- conditional logic stops seeing the envelope, so "item count > 2" compares an
+  array to a number and is quietly false — page visibility drifts;
+- documents call `projectListValue` on an already-projected array, which returns
+  `[]` — every list loop in every template renders empty, no error;
+- list-bound choice labels lose the `itemId` they resolve from;
+- code blocks reading `.items` break.
+
+### Recommendation
+
+Adapt at the runner's input boundary instead. Lift `choice-utils.ts:31-64` into a
+shared `listValueToListVariable` in `shared/listPipeline.ts` (keeping `itemId`,
+which `projectListValue` strips), have `choice-utils` call it so there is one
+definition, and add a branch in `ListToolsBlockRunner.ts:56` before the error.
+Then add `"list"` to `LIST_SOURCE_STEP_TYPES`. `RunDataService`,
+`conditionEvaluator`, `VariableNormalizer` and code blocks are untouched — the
+point of the narrow variant.
+
+**Size: ~half a day.** Known test churn:
+`tests/unit/client/ListToolsBlockEditor.sourcePicker.test.tsx:53-56` currently
+*asserts* `list` is excluded and must be inverted; the existing `choice-utils`
+tests passing unchanged is the regression proof for the lift.
+
+⚠️ **Check `RUN-P1` first.** If `onPageEnter` blocks never run, proving List
+processing end to end may be blocked by that rather than by this.
+
+### Also found, filed separately rather than folded in
+
+- `ValidateBlockRunner.ts:105-126` — a `forEach` rule pointed at a list question
+  silently validates nothing. This is the real silent-wrong-answer in the area.
+- `variableResolver.ts:80` → `ExternalSendRunner.ts:71` / `WriteRunner.ts:46` —
+  Send Data and Write-to-table serialize the raw `{items}` envelope into webhook
+  payloads and DataVault columns.
+- The List Tools picker has no ordering/timing validation, unlike the Choice
+  editor's `useListToolsValidation.ts:74-124`.
+
+## `onPageEnter` blocks never execute (RUN-P1) — filed 2026-09-10
+
+**Tag:** ⚠️ `production`. Found while investigating LIST-B15; unrelated to it.
+**Verified by the reviewer, not just reported** — but see "what is NOT yet known".
+
+`blockRunner.runPhase` has exactly four call sites, and between them they pass four
+phases:
+
+```
+RunExecutionCoordinator.ts:162   onNext
+RunExecutionCoordinator.ts:372   onPageSubmit
+RunCompletionService.ts:56       onRunComplete
+RunLifecycleService.ts:140       onRunStart
+```
+
+**`onPageEnter` is never passed.** A block sitting in that phase is never run.
+
+Two places put blocks there by default:
+
+- `client/src/components/builder/pages/newBlockDefaults.ts:34` — `onPageEnter` is
+  the seeded phase for **every new Read Table block** added from Add Action.
+- `server/routes/blocks.routes.ts:376` — hard-codes `phase: 'onPageEnter'` for the
+  Choice→"convert to a List Tools block" action.
+
+So a Read Table block created through the builder appears configured, saves, shows
+in the canvas, and does nothing at run time. (List Tools is NOT affected: it seeds
+`onPageSubmit`, `newBlockDefaults.ts:55`.)
+
+**It also kills a lifecycle-hook phase.** `BlockRunner.ts:137-143` maps
+`onPageEnter -> "beforePage"`, but that map is consulted *inside* `runPhase`, so
+`beforePage` hooks can only fire on a call that never happens. Anyone who authored
+a `beforePage` lifecycle hook has a hook that has never run.
+
+### What is NOT yet known — establish before fixing
+
+1. Whether page-enter behaviour is delivered by some *other* path that makes the
+   phase vestigial rather than broken. Read Table is a shipped feature and someone
+   would likely have noticed; find out how existing Read Table blocks are actually
+   getting their data before concluding the whole feature is dead.
+2. How many production blocks sit in `onPageEnter` today — a count against prod
+   decides whether this is "nobody uses it" or "a live feature is dead".
+3. Whether the fix is to add an onPageEnter execution point, or to stop seeding a
+   phase that was never wired, and migrate existing rows.
+
+Do not fix blind. The interesting possibility is that the phase was designed and
+never wired, in which case the seed is the bug and the phase should go.
 
 ## Production's configured Gemini model is retired (AI-P1) — filed 2026-09-09
 
