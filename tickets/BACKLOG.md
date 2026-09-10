@@ -90,7 +90,7 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
-| RUN-P1 | ⚠️ `production` | **`onPageEnter` blocks NEVER EXECUTE.** No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
+| RUN-P1 | `triage` | **`onPageEnter` blocks NEVER EXECUTE** — but MEASURED 2026-09-10: the `blocks` table is EMPTY in production and on dev, so nothing is broken *today*. No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
 | AI-P1 | ⚠️ `production` | **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
@@ -268,8 +268,15 @@ processing end to end may be blocked by that rather than by this.
 
 ## `onPageEnter` blocks never execute (RUN-P1) — filed 2026-09-10
 
-**Tag:** ⚠️ `production`. Found while investigating LIST-B15; unrelated to it.
-**Verified by the reviewer, not just reported** — but see "what is NOT yet known".
+**Tag:** `triage` — **downgraded from ⚠️ production on 2026-09-10 by measurement.**
+Found while investigating LIST-B15; unrelated to it.
+
+**The severity question is now answered.** Production has **0 rows** in `blocks`,
+against 86 workflows and 97 runs; dev has 0 too. Nobody has ever created a
+Logic/Action block anywhere. So this is a latent bug in an unused feature, not a
+live outage — it was filed as ⚠️ production before that count existed, and that
+was wrong. It still bites the first author who adds a Read Table block, which is
+why it stays open rather than being closed.
 
 `blockRunner.runPhase` has exactly four call sites, and between them they pass four
 phases:
@@ -299,16 +306,15 @@ in the canvas, and does nothing at run time. (List Tools is NOT affected: it see
 `beforePage` hooks can only fire on a call that never happens. Anyone who authored
 a `beforePage` lifecycle hook has a hook that has never run.
 
-### What is NOT yet known — establish before fixing
+### What is still not known
 
-1. Whether page-enter behaviour is delivered by some *other* path that makes the
-   phase vestigial rather than broken. Read Table is a shipped feature and someone
-   would likely have noticed; find out how existing Read Table blocks are actually
-   getting their data before concluding the whole feature is dead.
-2. How many production blocks sit in `onPageEnter` today — a count against prod
-   decides whether this is "nobody uses it" or "a live feature is dead".
-3. Whether the fix is to add an onPageEnter execution point, or to stop seeding a
-   phase that was never wired, and migrate existing rows.
+1. Whether page-enter behaviour was designed and never wired, or wired and later
+   lost. The empty tables mean no user has ever depended on it either way.
+2. Whether the fix is to add an `onPageEnter` execution point or to stop seeding a
+   phase that was never wired. **No data migration is needed** — there are no rows.
+
+That second question is now cheap to answer either way, which is the one upside of
+nobody having used the feature: this can be fixed properly rather than carefully.
 
 Do not fix blind. The interesting possibility is that the phase was designed and
 never wired, in which case the seed is the bug and the phase should go.

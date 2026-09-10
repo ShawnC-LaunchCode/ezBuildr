@@ -95,7 +95,8 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | CB-10a | Dead preview execution path | S–M | ✅ | Phase 3 gate | CB-11 ✅, CB-10b |
 | CB-10b | Stop the builder offering transform blocks | M | ✅ | Phase 3 gate | CB-11 ✅, CB-10a ✅ |
 | CB-10c | Retire the AI transform subsystem + optimizer | L | ✅ | ~~CB-10b~~ none — measured disjoint | CB-10d |
-| **CB-10d** | **Drop the tables + clear remaining consumers** | **M–L → likely L** | **🔲 next — LAST** | CB-10b ✅, CB-10c ✅ | ⏰ before client data |
+| CB-10d1 | Clear the remaining transform-block consumers | L (was folded into 10d) | ✅ | CB-10b ✅, CB-10c ✅ | — |
+| **CB-10d2** | **Drop `transform_blocks` + `transform_block_runs`** | **S–M** | **🔲 next — LAST, IRREVERSIBLE** | CB-10d1 ✅ | ⏰ before client data |
 | CB-11 | Python: fix runtime availability, expose the switch | S | ✅ | Phase 3 gate | CB-10a..d (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
@@ -107,7 +108,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 18 of 19 units done (CB-10 split into four on 2026-09-08). **Only CB-10d remains** — the irreversible one, carrying the ~2026-10-21 client-data deadline. **Phase 3 is complete and its gate is signed off** — editor, preview
+**Counts:** 19 of 20 units done (CB-10 split into four on 2026-09-08; 10d split again into 10d1/10d2 on 2026-09-10). **Only CB-10d2 remains** — dropping the two tables. It is the single irreversible commit in the whole initiative and carries the ~2026-10-21 client-data deadline. Production still holds 1 `transform_blocks` row and 0 `transform_block_runs`, re-verified 2026-09-10. **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. **CB-11 landed 2026-09-08** (`01395b43`), proven
 against a locally built production image. Remaining: **CB-10a..d only**, which is now
 the whole of Phase 4; CB-10d carries the ~2026-10-21 client-data deadline.
@@ -2378,7 +2379,19 @@ met by CB-11 and is recorded here so the eventual signer re-runs only what is
 actually outstanding. Restated against CB-10a..d, since the original single CB-10
 no longer exists.
 
-- [ ] **CB-10d** ✅ with dated verification notes
+- [ ] **CB-10d2** ✅ with dated verification notes
+- [x] **CB-10d1** ✅ — 2026-09-10, `2cebe259`. Reviewer-verified on the MERGED tree
+      (dev had moved five commits under it): 67 files; every boundary held — no
+      `migrations/`, table definitions still present, `scripting/`,
+      `scripts/archive/`, `codeBlocks/` and the List-tools UIs all untouched, and
+      `tests/e2e/transform-editor.e2e.ts` correctly left alone. Counts reconciled
+      340/3887 -> 338/3888 (-2 files, -4 tests with the deleted suites, +6 from
+      parameterised Code Block cases, -1 pruned) and integration 1382 -> 1383 + 3
+      skipped. The demo Code Block port is covered behaviourally — a retired type
+      OR a typo in the two inserts the guard's regex cannot see both turn the suite
+      red, mutation-verified. Legacy bundles carrying a `transform_blocks` stream
+      still import, stream ignored, pages and steps preserved, proven by a test
+      that builds a real re-checksummed legacy zip.
 - [x] **CB-10c** ✅ — 2026-09-09, `73fb28b7`. Reviewer-verified: 39 files, +38/−1081;
       all boundaries held (no client, schema, migration, scripting, repository, or
       `transformBlocks.routes.ts` file touched, and `tests/e2e/transform-editor.e2e.ts`
