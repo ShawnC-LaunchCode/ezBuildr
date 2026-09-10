@@ -92,12 +92,13 @@ IDs are stable, heading anchors are not.
 |---|---|---|---|
 | AI-P1 | ⚠️ `production` | **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
-| LIST-B1 | `triage` | List Tools' source picker has never worked: `ListToolsBlockEditor` passes a **workflowId** to `useSteps(pageId)`, which queries `/api/pages/<workflowId>/steps` and returns nothing, so no source variables are offered and no List block can be fully configured. Both are `string`, so tsc cannot see it. Pre-existing; blocks end-to-end List verification | Inline below: `LIST-B1` |
+| ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
+| LIST-B15 | `triage` | A `list` question cannot be a List Tools source. Its stored value is `{ items: [...] }` and nothing projects it to a row array before blocks run, so `ListToolsBlockRunner` would reject it — the source picker therefore deliberately omits `list` steps. Filed by the LIST-B1 fix | Inline below: `LIST-B15` |
 | LIST-B2 | `informational` | In Easy mode the block dialog's Block Type select renders blank for a `list_tools` block, because `EASY_BLOCK_TYPES` omits `list_tools` so the matching SelectItem is never rendered. Cosmetic, and newly VISIBLE after CB-10b stopped mis-typing such blocks as `write` | Inline below: `LIST-B2` |
-| RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
-| DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
-| RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
-| CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
+| RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
+| DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
+| RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
+| CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
 | CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
 | CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
 | CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
@@ -250,10 +251,24 @@ and page fields.
 Fix is probably to inline the canonical step-type list and required fields into the
 suggestion prompt the way the generation prompt does.
 
-## List Tools' source picker queries the wrong id (LIST-B1) — filed 2026-09-09
+## List Tools' source picker queries the wrong id (LIST-B1) — filed 2026-09-09, ✅ FIXED 2026-09-10
 
 **Tag:** `triage`. Found by the CB-10b dev; **pre-existing, not caused by CB-10b** —
 both files are byte-unchanged by that commit.
+
+**Fixed 2026-09-10.** `ListToolsBlockEditor` now calls `useWorkflowSteps`
+(`GET /api/workflows/:id/steps`, which includes virtual steps — where block list
+outputs live). The filter moved into `client/src/components/blocks/list-tools/
+listSourceVariables.ts` and also drops the block's own `outputListVar`, so a List
+Tools block can no longer be pointed at itself; a saved-but-missing source still
+renders rather than blanking the trigger. Guarded by
+`tests/unit/client/ListToolsBlockEditor.sourcePicker.test.tsx`, which fails on the
+pre-fix tree (verified by reverting). Live-verified on `dev:test`: the two endpoints
+answer as diagnosed (`/api/pages/<workflowId>/steps` → **404 Page not found**;
+`/api/workflows/<id>/steps` → both computed virtual steps), the dropdown offers
+`clients (Read Table: Clients)`, and selecting it persists
+`sourceListVar: "clients"` and survives a reopen. The picker was left offering
+`computed` only — see `LIST-B15` for why `list` questions are excluded.
 
 `ListToolsBlockEditor.tsx:31` calls `useSteps(workflowId)`. `useSteps` takes a
 **pageId** (`hooks/api/useSteps.ts:8`) and issues `stepAPI.list(pageId)`. Both
@@ -272,6 +287,35 @@ of being invisible.
 Cheap to confirm: the dropdown is empty on any workflow. Fix is likely one argument,
 but check what the picker is *supposed* to offer (all list-valued variables in the
 workflow, presumably) before assuming `pageId` is simply the right thing to pass.
+
+## A `list` question cannot be a List Tools source (LIST-B15) — filed 2026-09-10
+
+**Tag:** `triage`. Found while fixing `LIST-B1`; a real gap, not a regression.
+
+The List Tools source picker offers `computed` steps only, which covers every
+block-produced list (Read Table, Query, List Tools all persist their output as a
+`computed` virtual step). It does **not** offer `list` questions, and that is
+deliberate: a `list` step's stored value is `ListValue` — `{ items: [...] }` —
+and `RunDataService.buildForRun` hands raw step values to the block context with
+no projection. `projectListValue` (`shared/types/stepConfigs.ts:1033`) is called
+in exactly one place, `server/services/document/VariableNormalizer.ts:168`, the
+document pipeline. So `ListToolsBlockRunner` sees an object, fails
+`isListVariable`, fails `Array.isArray`, and returns
+`Input variable "..." is not a valid list or array`. Offering it would be a
+guaranteed-broken option.
+
+The user-visible consequence: you cannot filter, sort or de-duplicate the rows of
+a repeating question, only lists that came out of a data block — which is very
+likely something an author expects to work.
+
+Fix is a decision, not a one-liner: either project `ListValue` to a row array
+where block context is built (changes what every block and script sees for a list
+alias, so it needs a compatibility check on scripts reading `.items`), or teach
+`ListToolsBlockRunner` to normalize `ListValue` at its input boundary (narrower,
+but leaves every other block still seeing the raw shape). Then add `list` to
+`LIST_SOURCE_STEP_TYPES` in
+`client/src/components/blocks/list-tools/listSourceVariables.ts`, whose comment
+records this reasoning.
 
 ## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09
 

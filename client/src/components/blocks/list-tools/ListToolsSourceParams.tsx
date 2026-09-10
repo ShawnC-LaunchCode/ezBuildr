@@ -10,6 +10,8 @@ import type { ApiStep } from "@/lib/vault-api";
 
 import type { ListToolsConfig } from "@shared/types/blocks";
 
+import { selectListSourceVariables } from "./listSourceVariables";
+
 interface ListToolsSourceParamsProps {
     config: Partial<ListToolsConfig>;
     onChange: (updates: Partial<ListToolsConfig>) => void;
@@ -25,10 +27,14 @@ export function ListToolsSourceParams({
     onToggle,
     steps
 }: ListToolsSourceParamsProps) {
-    // Get list variables from workflow
-    const listVariables = (steps ?? []).filter(step =>
-        step.type === 'computed' && step.alias && step.alias.length > 0
-    );
+    // Get list variables from workflow (LIST-B1)
+    const listVariables = selectListSourceVariables(steps, config.outputListVar);
+    // A saved source that no longer appears in the list (its block was deleted,
+    // or it was seeded by hand) still has to render, or the trigger goes blank
+    // with a value set and the block looks unconfigured.
+    const orphanedSource = config.sourceListVar && !listVariables.some(v => v.alias === config.sourceListVar)
+        ? config.sourceListVar
+        : null;
 
     return (
         <Card className="border-green-200 bg-green-50/30">
@@ -58,10 +64,15 @@ export function ListToolsSourceParams({
                                 <SelectValue placeholder="Select source list..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {listVariables.length === 0 && (
+                                {listVariables.length === 0 && !orphanedSource && (
                                     <div className="p-2 text-xs text-muted-foreground">
-                                        No list variables found. Create a Read Table or Query block first.
+                                        No list variables yet. Add a Read Table, Query, or List Tools block to produce one.
                                     </div>
+                                )}
+                                {orphanedSource && (
+                                    <SelectItem value={orphanedSource}>
+                                        {orphanedSource} (not found in this workflow)
+                                    </SelectItem>
                                 )}
                                 {listVariables.map((variable) => (
                                     <SelectItem key={variable.id} value={variable.alias ?? ""}>
