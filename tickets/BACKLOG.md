@@ -90,6 +90,8 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| AI-P1 | ⚠️ `production` | **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
+| AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | LIST-B1 | `triage` | List Tools' source picker has never worked: `ListToolsBlockEditor` passes a **workflowId** to `useSteps(pageId)`, which queries `/api/pages/<workflowId>/steps` and returns nothing, so no source variables are offered and no List block can be fully configured. Both are `string`, so tsc cannot see it. Pre-existing; blocks end-to-end List verification | Inline below: `LIST-B1` |
 | LIST-B2 | `informational` | In Easy mode the block dialog's Block Type select renders blank for a `list_tools` block, because `EASY_BLOCK_TYPES` omits `list_tools` so the matching SelectItem is never rendered. Cosmetic, and newly VISIBLE after CB-10b stopped mis-typing such blocks as `write` | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
@@ -198,6 +200,55 @@ IDs are stable, heading anchors are not.
 | GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
 
 ---
+
+## Production's configured Gemini model is retired (AI-P1) — filed 2026-09-09
+
+**Tag:** ⚠️ `production`. **This is almost certainly a live outage of two features.**
+Found by CB-10c's live proof and entirely unrelated to CB-10c.
+
+Railway `production` has `GEMINI_MODEL=gemini-2.0-flash`. Against a working API key
+that model now returns a provider **404 "no longer available"**, and both AI
+endpoints surface **500**. The same key on `gemini-2.5-flash` works, so this is the
+model being retired by Google, not a quota or credential problem.
+
+Affected in production: **AI workflow generation** and **AI Assist**. Nothing else.
+
+`gemini-2.0-flash` is also the hardcoded fallback in five code paths, so unsetting
+the variable does not help:
+
+```
+server/services/ai/providerConfig.ts:20   DEFAULT_GEMINI_MODEL
+server/services/ai/ModelRegistry.ts:187
+server/services/AIService.ts:169, :186, :232
+server/controllers/AiController.ts:88
+.env.example:147,149
+```
+
+**Fastest mitigation** is a Railway variable change on `production` — set
+`GEMINI_MODEL` to a current model (`gemini-2.5-flash` is already in the registry and
+was proven working) and redeploy so the env change takes effect. That is an owner
+decision and a production change, so it was NOT made here. The durable fix is to
+move the hardcoded default off a retired model and decide who owns model currency,
+which wants its own ticket.
+
+Worth checking `dev` and `test` environments for the same value.
+
+## AI Assist's prompt under-specifies the schema (AI-B2) — filed 2026-09-09
+
+**Tag:** `triage`. Pre-existing; surfaced while proving CB-10c.
+
+The AI Assist prompt refers to the generation schema without including it, so the
+model is free to invent. Observed on a first live request: HTTP **422** for missing
+page `order` and step `title`, and for step types `text_input` / `email_input` —
+neither of which is canonical (`text` and `email` are). A retry that spelled the
+required fields out in the *user request* succeeded, with no code or prompt change.
+
+So the surviving path works, but unconstrained Assist suggestions are unreliable.
+This is not caused by removing the transform arrays — the rejected fields are step
+and page fields.
+
+Fix is probably to inline the canonical step-type list and required fields into the
+suggestion prompt the way the generation prompt does.
 
 ## List Tools' source picker queries the wrong id (LIST-B1) — filed 2026-09-09
 

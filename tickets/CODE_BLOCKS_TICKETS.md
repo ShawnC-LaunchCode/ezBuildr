@@ -94,8 +94,8 @@ that declares **inputs** and **outputs** and runs sandboxed JS (later Python).
 | **Phase 4 — Cleanup: retire old surfaces, Python** ||||||
 | CB-10a | Dead preview execution path | S–M | ✅ | Phase 3 gate | CB-11 ✅, CB-10b |
 | CB-10b | Stop the builder offering transform blocks | M | ✅ | Phase 3 gate | CB-11 ✅, CB-10a ✅ |
-| **CB-10c** | **Retire the AI transform subsystem + optimizer** | **L** | **🔲 next** | ~~CB-10b~~ none — measured disjoint | CB-10d |
-| CB-10d | Drop the tables + clear remaining consumers | M–L | 🔲 | CB-10b, CB-10c | ⏰ before client data |
+| CB-10c | Retire the AI transform subsystem + optimizer | L | ✅ | ~~CB-10b~~ none — measured disjoint | CB-10d |
+| **CB-10d** | **Drop the tables + clear remaining consumers** | **M–L → likely L** | **🔲 next — LAST** | CB-10b ✅, CB-10c ✅ | ⏰ before client data |
 | CB-11 | Python: fix runtime availability, expose the switch | S | ✅ | Phase 3 gate | CB-10a..d (disjoint) |
 | **Backlog — not phase-gated** ||||||
 | CB-B1..B4 | Parked observations, in this file | — | 🔲 | — | — |
@@ -107,7 +107,7 @@ each owns the same preview surface the previous one just changed. Phase 4's two
 tickets are genuinely disjoint and can go in parallel, but only after the
 Phase 3 gate.
 
-**Counts:** 17 of 19 units done (CB-10 split into four on 2026-09-08). **Phase 3 is complete and its gate is signed off** — editor, preview
+**Counts:** 18 of 19 units done (CB-10 split into four on 2026-09-08). **Only CB-10d remains** — the irreversible one, carrying the ~2026-10-21 client-data deadline. **Phase 3 is complete and its gate is signed off** — editor, preview
 execution and inspector all landed. **CB-11 landed 2026-09-08** (`01395b43`), proven
 against a locally built production image. Remaining: **CB-10a..d only**, which is now
 the whole of Phase 4; CB-10d carries the ~2026-10-21 client-data deadline.
@@ -2378,7 +2378,16 @@ met by CB-11 and is recorded here so the eventual signer re-runs only what is
 actually outstanding. Restated against CB-10a..d, since the original single CB-10
 no longer exists.
 
-- [ ] **CB-10c, CB-10d** ✅ with dated verification notes
+- [ ] **CB-10d** ✅ with dated verification notes
+- [x] **CB-10c** ✅ — 2026-09-09, `73fb28b7`. Reviewer-verified: 39 files, +38/−1081;
+      all boundaries held (no client, schema, migration, scripting, repository, or
+      `transformBlocks.routes.ts` file touched, and `tests/e2e/transform-editor.e2e.ts`
+      correctly left alone as a List-Tools test). Gates re-run by me: 336/3853 and
+      148/1382+3, moving by exactly the 8 removed and 1 added tests the dev named.
+      The one added test guards prompt/schema agreement and I mutation-tested it in
+      both directions — re-adding the field to the schema, or to the prompt alone,
+      each turns it red. Live: five endpoints 404; generation and AI Assist both
+      returned provider-backed 200 and parsed with no transform fields.
 - [x] **CB-10b** ✅ — 2026-09-09, `b464b8a2`. Reviewer-verified: diff is the claimed
       22 files / +54 / −1276; all four cascade deletions (BlockTypeSelector,
       JSBlockEditor, PageCard.utils, UniversalBlock.source) independently confirmed
