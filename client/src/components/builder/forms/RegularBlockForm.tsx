@@ -10,25 +10,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
+import { type Mode } from "@/lib/mode";
 
 import type { ExternalSendBlockConfig, QueryBlockConfig, ReadTableConfig, ValidateConfig, WriteBlockConfig } from "@shared/types/blocks";
 
-import type { UniversalBlock } from "../BlockEditorDialog";
 import type { BlockFormData } from "../BlockEditorDialog.hooks";
+
+import { blockTypeLabel } from "./blockTypeLabel";
 
 interface RegularBlockFormProps {
     formData: BlockFormData;
     setFormData: (data: BlockFormData) => void;
     mode: Mode;
-    block: UniversalBlock | null;
     workflowId: string;
 }
 
-// eslint-disable-next-line complexity
-export function RegularBlockForm({ formData, setFormData, mode, block, workflowId }: RegularBlockFormProps) {
-    const availableBlockTypes = getAvailableBlockTypes(mode);
-
+export function RegularBlockForm({ formData, setFormData, mode, workflowId }: RegularBlockFormProps) {
 
     if (formData.type === 'write' || formData.type === 'send_table') {
         return (
@@ -75,36 +72,28 @@ export function RegularBlockForm({ formData, setFormData, mode, block, workflowI
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Settings */}
             <div className="space-y-4">
-                {/* Hide Block Type dropdown for data blocks (write, send_table, read_table, external_send) */}
+                {/* Hide Block Type for data blocks (write, send_table, read_table, external_send) */}
                 {!['write', 'send_table', 'read_table', 'external_send'].includes(formData.type) && (
                     <div className="space-y-3">
                         <Label>Block Type</Label>
-                        <Select
-                            value={formData.type}
-                            onValueChange={(v) => {
-                                const isRead = v === 'read_table';
-                                const isWrite = v === 'write' || v === 'send_table';
-                                setFormData({
-                                    ...formData,
-                                    type: v,
-                                    config: {} as Record<string, unknown>,
-                                    phase: isRead ? 'onPageEnter' : isWrite ? 'onPageSubmit' : 'onRunStart'
-                                });
-                            }} // Reset config and set default phase on type change
-                            disabled={!!block} // If editing, likely shouldn't change type unless we want to allow it (risky for config)
+                        {/*
+                          LIST-B2: read-only, because a block's type is never
+                          changeable here. Every one of the dialog's five open
+                          sites sets a block before opening it, so the picker
+                          that used to sit here was permanently `disabled` — a
+                          label wearing a dropdown's clothes, whose options were
+                          still filtered by the workflow's mode. Easy mode does
+                          not list `list_tools`, so a List Tools block rendered
+                          the control blank; `js` and `transform` did the same in
+                          both modes. New blocks are created from the page
+                          canvas's Add Action menu, which picks the type up front.
+                        */}
+                        <div
+                            data-testid="block-type-value"
+                            className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
                         >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {/* Show legacy types only if editing a block of that type */}
-                                {(formData.type === 'prefill' || block?.type === 'prefill') && <SelectItem value="prefill">Prefill (Deprecated)</SelectItem>}
-                                {(formData.type === 'validate' || block?.type === 'validate') && <SelectItem value="validate">Validate (Deprecated)</SelectItem>}
-                                {(formData.type === 'branch' || block?.type === 'branch') && <SelectItem value="branch">Branch (Deprecated)</SelectItem>}
-
-                                {/* Supported Types */}
-                                {availableBlockTypes.includes('query') && <SelectItem value="query">Read Data (Legacy)</SelectItem>}
-                                {availableBlockTypes.includes('list_tools') && <SelectItem value="list_tools">List Tools</SelectItem>}
-                            </SelectContent>
-                        </Select>
+                            {blockTypeLabel(formData.type)}
+                        </div>
                     </div>
                 )}
 

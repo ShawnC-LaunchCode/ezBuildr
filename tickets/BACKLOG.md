@@ -94,7 +94,8 @@ IDs are stable, heading anchors are not.
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
 | LIST-B15 | `triage` | A `list` question cannot be a List Tools source. Its stored value is `{ items: [...] }` and nothing projects it to a row array before blocks run, so `ListToolsBlockRunner` would reject it — the source picker therefore deliberately omits `list` steps. Filed by the LIST-B1 fix | Inline below: `LIST-B15` |
-| LIST-B2 | `informational` | In Easy mode the block dialog's Block Type select renders blank for a `list_tools` block, because `EASY_BLOCK_TYPES` omits `list_tools` so the matching SelectItem is never rendered. Cosmetic, and newly VISIBLE after CB-10b stopped mis-typing such blocks as `write` | Inline below: `LIST-B2` |
+| LIST-B16 | `triage` | Adding a List Tools block from the Add Action menu seeds a config of `{inputKey, operation, outputKey}` — **not one of which is a `ListToolsConfig` field**, so the new block starts with no output name and carries three dead keys for life. Filed by the LIST-B2 fix | Inline below: `LIST-B16` |
+| ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
 | DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
@@ -317,9 +318,57 @@ but leaves every other block still seeing the raw shape). Then add `list` to
 `client/src/components/blocks/list-tools/listSourceVariables.ts`, whose comment
 records this reasoning.
 
-## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09
+## Add Action seeds a List Tools block with the wrong config keys (LIST-B16) — filed 2026-09-10
+
+**Tag:** `triage`. Found while fixing `LIST-B2`; pre-existing.
+
+`LogicAddMenu.tsx:89` seeds a new `list_tools` block with
+`{ inputKey: '', operation: 'filter', outputKey: 'processed_list' }`. `ListToolsConfig`
+(`shared/types/blocks.ts`) has none of those fields — it wants `sourceListVar` and
+`outputListVar`, plus the optional `filters`/`sort`/`limit`/`offset`/`select`/`dedupe`.
+So a block added from the page canvas's Add Action menu opens with an empty Output
+List Variable and the "Required Fields" warning showing, and once the author fills
+the real fields in, the three dead keys are saved alongside them forever. The runner
+ignores unknown keys, so nothing breaks — it is wrong defaults, not a crash.
+
+Compare `ListToolsBlockService.createBlock`, which is handed a config by the caller
+and stores it as given; the API path used by `ChoiceCardEditor`'s
+`create-list-tools` route seeds the right shape. Fix is to seed
+`{ sourceListVar: '', outputListVar: 'processed_list' }` here, and to decide whether
+the old keys should be stripped from existing rows or just left inert (per
+[[db-holds-only-test-data]] there is likely nothing to migrate — verify before
+writing a migration).
+
+Also in that file: `LOGIC_TYPES` has only an `easy` key and is read unconditionally,
+so the menu is mode-independent despite looking mode-keyed. Not a bug today; it is
+the same shape of trap as the `FEATURES` lists LIST-B2 deleted.
+
+## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09, ✅ FIXED 2026-09-10
 
 **Tag:** `informational`. Cosmetic. Newly visible, not newly broken.
+
+**Fixed 2026-09-10**, by taking the ticket's second option — the type is not
+user-changeable in *any* mode, so the control is no longer a picker. All five
+sites that open `BlockEditorDialog` set a block first (`PageCanvas:118`,
+`SidebarTree:260`, `ChoiceCardEditor:266/416/461`), and `getInitialFormData`
+defaults a null block to `'write'`, which early-returns to the Send Data to Table
+editor — so `disabled={!!block}` was true every single time the select rendered.
+It was a label wearing a dropdown's clothes, whose option list was nevertheless
+filtered by mode. It is now read-only text from
+`forms/blockTypeLabel.ts`, which falls back to the raw type name and so cannot
+render blank for any type, including the `js`/`transform` blocks that were blank
+in **both** modes.
+
+That left the `FEATURES` gate in `client/src/lib/mode.ts` with no callers at all —
+`EASY_BLOCK_TYPES`/`ALL_BLOCK_TYPES` had exactly this one read, and
+`EASY_OPERATORS`/`ALL_OPERATORS`/`isFeatureAllowed`/`getAvailableOperators` never
+had any — so it is deleted, `'js'` included (which is what the note below asked
+for). `mode.ts` now exports only `resolveMode`, the types, and `getModeLabel`. The
+comment left in its place records why, and that mode still shapes
+`ListToolsBlockEditor`'s own surface. Guarded by
+`tests/unit/client/RegularBlockForm.blockType.test.tsx` (4 of its 7 fail on the
+pre-fix tree). Live-verified on `dev:test` in Easy **and** Advanced mode, light
+and dark (contrast 5.12:1 / 4.71:1) and at 390px.
 
 `RegularBlockForm.tsx:105` only renders the `list_tools` SelectItem when
 `availableBlockTypes.includes('list_tools')`, and `EASY_BLOCK_TYPES`

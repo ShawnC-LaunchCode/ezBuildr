@@ -40,7 +40,6 @@ export function BlockEditorDialog({
                         formData={formData}
                         setFormData={setFormData}
                         mode={mode}
-                        block={block}
                         workflowId={workflowId}
                     />
                 </div>
