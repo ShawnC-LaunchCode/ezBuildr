@@ -17,7 +17,7 @@
 
 import type { AIProvider, AIProviderConfig } from '../../../shared/types/ai';
 
-const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
   gemini: DEFAULT_GEMINI_MODEL,

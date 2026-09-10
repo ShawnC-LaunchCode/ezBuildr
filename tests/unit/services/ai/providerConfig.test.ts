@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { resolveAiProviderConfig } from '../../../../server/services/ai/providerConfig';
+import { ModelRegistry } from '../../../../server/services/ai/ModelRegistry';
 
 /**
  * ICW-13: single source of truth for turning env vars into an AIProviderConfig.
@@ -24,7 +25,13 @@ describe('resolveAiProviderConfig', () => {
   it('prefers GEMINI_API_KEY with the registry-known default model', () => {
     process.env.GEMINI_API_KEY = 'g-key';
     const config = resolveAiProviderConfig();
-    expect(config).toMatchObject({ provider: 'gemini', apiKey: 'g-key', model: 'gemini-2.0-flash' });
+    // The default moved off gemini-2.0-flash on 2026-09-09 when the vendor
+    // withdrew it (AI-P1). Pin the CONTRACT — a registered, non-withdrawn model —
+    // rather than the name, so the next model move does not need a test edit and
+    // a move to a withdrawn model still fails.
+    expect(config).toMatchObject({ provider: 'gemini', apiKey: 'g-key' });
+    expect(ModelRegistry.isRegistered('gemini', config.model)).toBe(true);
+    expect(['gemini-2.0-flash', 'gemini-1.5-pro']).not.toContain(config.model);
   });
 
   it('honors GEMINI_MODEL override', () => {

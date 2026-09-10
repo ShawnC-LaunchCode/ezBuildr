@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { resolveAiProviderConfig } from '../../../../server/services/ai/providerConfig';
+
 import { validateAIConfig } from '../../../../server/services/AIService';
 import { ModelRegistry } from '../../../../server/services/ai/ModelRegistry';
 import { TASK_TYPES, type TaskType } from '../../../../server/services/ai/types';
@@ -58,13 +60,30 @@ describe('ModelRegistry registration', () => {
   // gemini-1.5-pro's real 2M, so large transform prompts began hard-throwing)
   // and its guessed pricing (12x under-reporting). A model stays registered for
   // as long as any code path can select it.
-  it('keeps every model the codebase still selects registered', () => {
-    // gemini-2.0-flash: DEFAULT_GEMINI_MODEL in providerConfig.ts, and the
-    // `GEMINI_MODEL ?? ...` fallback in AIService, geminiService,
-    // personalization, DocumentAIAssistService, AiController.
+  it('registers whatever model the app actually defaults to (AI-P1)', () => {
+    // DERIVED, never pinned. The previous version of this test hardcoded
+    // gemini-2.0-flash "because it is the default" — so when the default moved it
+    // asserted a fact about a retired model and told nobody. Ask the real
+    // resolution path what it would use, with no GEMINI_MODEL set, and require
+    // THAT to be registered.
+    const saved = { ...process.env };
+    try {
+      delete process.env.GEMINI_MODEL;
+      process.env.GEMINI_API_KEY = 'test-key';
+      const { model, provider } = resolveAiProviderConfig();
+      expect(provider).toBe('gemini');
+      expect(ModelRegistry.isRegistered('gemini', model)).toBe(true);
+      // And it must not be one of the models the vendor has withdrawn.
+      expect(['gemini-2.0-flash', 'gemini-1.5-pro']).not.toContain(model);
+    } finally {
+      process.env = { ...saved };
+    }
+  });
+
+  it('keeps the withdrawn models registered so historical usage rows still price', () => {
+    // Retained for `ai_usage` history only — nothing selects either any more.
+    // 2M context and the real rate, not getDefaultConfig's 1M / $0.10 / $0.40.
     expect(ModelRegistry.isRegistered('gemini', 'gemini-2.0-flash')).toBe(true);
-    expect(ModelRegistry.isRegistered('gemini', 'gemini-1.5-pro')).toBe(true);
-    // 2M context and the real rate — not getDefaultConfig's 1M / $0.10 / $0.40.
     expect(ModelRegistry.getConfig('gemini', 'gemini-1.5-pro')).toMatchObject({
       maxContextTokens: 2097152,
       pricing: { input: 1.25, output: 5.00 },

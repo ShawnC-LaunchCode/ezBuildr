@@ -172,16 +172,21 @@ const MODEL_CONFIGS: ModelConfig[] = [
     pricing: { input: 0.10, output: 0.40 },
   },
 
-  // Vendor-deprecated, but RETAINED because ezBuildr still selects them.
-  // The registry's contract is "models this deployment might call", not
-  // "models the vendor currently sells" — a model can be deprecated upstream
-  // and still be the configured default here, and dropping its row silently
-  // swaps in `getDefaultConfig`'s guessed context window and pricing.
-  //   - gemini-2.0-flash is DEFAULT_GEMINI_MODEL (providerConfig.ts) and the
-  //     `GEMINI_MODEL ?? ...` fallback across AIService/geminiService/
-  //     personalization/DocumentAIAssistService/AiController.
-  // Do not delete either while any code path can still select it — see the
-  // AISL-1 review notes in tickets/backlog/AI_SERVICE_LAYER.md.
+  // RETIRED UPSTREAM. Both now answer 404 "no longer available" — confirmed
+  // 2026-09-09 against the ListModels API, which returns neither. Retained only
+  // so historical `ai_usage` rows still resolve to real pricing and context
+  // windows rather than `getDefaultConfig`'s guesses; NOT because anything
+  // should select them.
+  //
+  //   - gemini-2.0-flash WAS `DEFAULT_GEMINI_MODEL` and the `GEMINI_MODEL ?? ...`
+  //     fallback everywhere. That is what took AI generation and AI Assist down
+  //     in production: the default pointed at a model the vendor had withdrawn,
+  //     so every call 500'd. The default is now gemini-2.5-flash (AI-P1).
+  //   - gemini-1.5-pro lost its last caller when CB-10c deleted
+  //     transformGenerator/transformRevision. Nothing selects it.
+  //
+  // The lesson worth keeping: a registry row is not evidence a model is callable.
+  // Only the provider is. See AISL-1 in tickets/backlog/AI_SERVICE_LAYER.md.
   {
     provider: 'gemini',
     model: 'gemini-2.0-flash',

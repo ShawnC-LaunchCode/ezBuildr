@@ -166,7 +166,7 @@ function getDefaultModel(provider: AIProvider): string {
     case 'anthropic':
       return 'claude-sonnet-5';
     case 'gemini':
-      return 'gemini-2.0-flash';
+      return 'gemini-2.5-flash';
     default:
       throw new Error(`Unknown provider: ${provider as string}`);
   }
@@ -183,7 +183,7 @@ export function createAIServiceFromEnv(tenantId?: string): AIService {
   // Check for GEMINI_API_KEY first
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
-    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
     logger.info({ provider: 'gemini', model }, 'AI Service initialized');
     const config: AIProviderConfig = {
       provider: 'gemini' as AIProvider,
@@ -229,7 +229,7 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
-      const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+      const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
       const error = getUnregisteredModelError('gemini', model);
       return { configured: true, provider: 'gemini', model, error };
     }

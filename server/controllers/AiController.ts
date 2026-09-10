@@ -85,7 +85,7 @@ export class AiController {
 
             res.json({
                 available: hasApiKey,
-                model: hasApiKey ? (process.env.GEMINI_MODEL ?? "gemini-2.0-flash") : null,
+                model: hasApiKey ? (process.env.GEMINI_MODEL ?? "gemini-2.5-flash") : null,
                 features: hasApiKey ? [
                     "workflow_generation",
                     "sentiment_analysis",
