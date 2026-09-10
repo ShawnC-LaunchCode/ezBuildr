@@ -94,7 +94,7 @@ IDs are stable, heading anchors are not.
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
 | LIST-B15 | `triage` | A `list` question cannot be a List Tools source. Its stored value is `{ items: [...] }` and nothing projects it to a row array before blocks run, so `ListToolsBlockRunner` would reject it — the source picker therefore deliberately omits `list` steps. Filed by the LIST-B1 fix | Inline below: `LIST-B15` |
-| LIST-B16 | `triage` | Adding a List Tools block from the Add Action menu seeds a config of `{inputKey, operation, outputKey}` — **not one of which is a `ListToolsConfig` field**, so the new block starts with no output name and carries three dead keys for life. Filed by the LIST-B2 fix | Inline below: `LIST-B16` |
+| ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
 | ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
 | DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
@@ -318,9 +318,34 @@ but leaves every other block still seeing the raw shape). Then add `list` to
 `client/src/components/blocks/list-tools/listSourceVariables.ts`, whose comment
 records this reasoning.
 
-## Add Action seeds a List Tools block with the wrong config keys (LIST-B16) — filed 2026-09-10
+## Add Action seeds a List Tools block with the wrong config keys (LIST-B16) — filed 2026-09-10, ✅ FIXED 2026-09-10
 
 **Tag:** `triage`. Found while fixing `LIST-B2`; pre-existing.
+
+**Fixed 2026-09-10.** It was worse than "wrong defaults":
+`ListToolsBlockService.createBlock` aliases its virtual step from
+`config.outputListVar`, so with the old seed the block's **output had no alias at
+all** and was not addressable as a variable anywhere. It healed only once the
+author saved a real output name, because `updateBlock` re-aliases the step when
+`outputListVar` changes — which is why this looked cosmetic. Demonstrated live
+side by side: the old seed's virtual step comes back `alias: null`, the new one
+`alias: "processed_list"`.
+
+The seeds now live in `client/src/components/builder/pages/newBlockDefaults.ts`,
+one `const` per type, each annotated with its own config type (`ReadTableConfig`,
+`WriteBlockConfig`, `ExternalSendBlockConfig`, `ListToolsConfig`) — the
+annotations are the fix, not the corrected values, since the old seeds were built
+inline into a `Record<string, unknown>` where nothing could see the drift. The
+table is `satisfies Record<LogicBlockType, ...>` and `LOGIC_TYPES.easy` is typed
+to the same union, so a menu entry with no seed is a compile error; proven by
+adding a fifth type and watching `tsc` fail in two places. The other three seeds
+were already correct against their types — only `list_tools` was wrong. The dead
+`branch` seed (never in the menu) went with it. Guarded by
+`tests/unit/client/newBlockDefaults.test.ts` (3 of 5 fail on the old seed).
+
+Also in that file: `LOGIC_TYPES` has only an `easy` key and is read
+unconditionally, so the menu is mode-independent despite looking mode-keyed. Left
+as-is — it is not a bug today, and List Tools *should* be offered in both modes.
 
 `LogicAddMenu.tsx:89` seeds a new `list_tools` block with
 `{ inputKey: '', operation: 'filter', outputKey: 'processed_list' }`. `ListToolsConfig`
@@ -338,10 +363,6 @@ and stores it as given; the API path used by `ChoiceCardEditor`'s
 the old keys should be stripped from existing rows or just left inert (per
 [[db-holds-only-test-data]] there is likely nothing to migrate — verify before
 writing a migration).
-
-Also in that file: `LOGIC_TYPES` has only an `easy` key and is read unconditionally,
-so the menu is mode-independent despite looking mode-keyed. Not a bug today; it is
-the same shape of trap as the `FEATURES` lists LIST-B2 deleted.
 
 ## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09, ✅ FIXED 2026-09-10
 

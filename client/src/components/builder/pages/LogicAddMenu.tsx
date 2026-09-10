@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { UI_LABELS } from "@/lib/labels";
-import { BlockPhase, BlockType } from "@/lib/vault-api";
 import { useCreateBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
+import { NEW_BLOCK_DEFAULTS, type LogicBlockType } from "./newBlockDefaults";
 
 interface LogicAddMenuProps {
   workflowId: string;
@@ -23,28 +24,39 @@ interface LogicAddMenuProps {
   nextOrder: number;
 }
 
-const LOGIC_TYPES = {
+/**
+ * The menu's entries. Typing `type` as `LogicBlockType` keeps this list and
+ * `NEW_BLOCK_DEFAULTS` from drifting apart (LIST-B16).
+ */
+const LOGIC_TYPES: {
+  easy: Array<{
+    type: LogicBlockType;
+    label: string;
+    icon: typeof Database;
+    description: string;
+  }>;
+} = {
   easy: [
     {
-      type: "read_table" as const,
+      type: "read_table",
       label: "Read from Table",
       icon: Database,
       description: "Query rows from DataVault",
     },
     {
-      type: "write" as const,
+      type: "write",
       label: "Send Data to Table",
       icon: Save,
       description: "Save data to a DataVault table",
     },
     {
-      type: "external_send" as const,
+      type: "external_send",
       label: "Send Data to API",
       icon: Send,
       description: "Send payload to external API",
     },
     {
-      type: "list_tools" as const,
+      type: "list_tools",
       label: "List Tools",
       icon: Sparkles,
       description: "Filter, sort and transform lists",
@@ -57,49 +69,14 @@ export function LogicAddMenu({ workflowId, pageId, nextOrder }: LogicAddMenuProp
   const { toast } = useToast();
   const { selectBlock } = useWorkflowBuilder();
 
-  const handleAddLogic = async (type: string) => {
+  const handleAddLogic = async (type: LogicBlockType) => {
     try {
-      // Handle regular blocks
-      let config: Record<string, unknown> = {};
-      let phase: BlockPhase = "onPageSubmit";
-      const blockType = type as BlockType;
-
-      // New Block Defaults
-      if (type === 'write') {
-        config = {
-          mode: 'upsert',
-          dataSourceId: '',
-          tableId: '',
-          columnMappings: [],
-          matchStrategy: undefined
-        };
-      } else if (type === 'read_table') {
-        config = {
-          dataSourceId: '',
-          tableId: '',
-          outputKey: 'list_data',
-          filters: []
-        };
-        phase = 'onPageEnter';
-      } else if (type === 'external_send') {
-        config = {
-          destinationId: '',
-          payloadMappings: []
-        };
-      } else if (type === 'list_tools') {
-        config = {
-          inputKey: '',
-          operation: 'filter',
-          outputKey: 'processed_list'
-        };
-      } else if (type === 'branch') {
-        config = { conditions: [], targetPageId: null };
-      }
+      const { config, phase } = NEW_BLOCK_DEFAULTS[type];
 
       const block = await createBlockMutation.mutateAsync({
         workflowId,
         pageId,
-        type: blockType,
+        type,
         phase,
         config,
         enabled: true,
