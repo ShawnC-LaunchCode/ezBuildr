@@ -4,7 +4,7 @@
  * The bug this exists for: production ran a Gemini model the vendor had withdrawn,
  * every generation call returned 500, and `/health` said `healthy` throughout
  * because it only checked the database and the PDF converter. No test could have
- * caught the retirement itself — only the vendor knows — but these pin the four
+ * caught the retirement itself — only the vendor knows — but these pin the five
  * things that decide whether the probe is worth having:
  *
  *   1. a withdrawn model is reported as unavailable rather than crashing;
@@ -12,20 +12,25 @@
  *      unauthenticated) and DO reach the log;
  *   3. `probe` never claims the vendor was asked when it was not;
  *   4. it is cached, because an unauthenticated endpoint must not fan out into
- *      unbounded upstream requests.
+ *      unbounded upstream requests;
+ *   5. it goes through `safeFetch`, never raw `fetch` — CI's SSRF grep fails the
+ *      build on a raw `fetch(` anywhere in `server/`, and did on this probe.
  *
- * `fetch` is stubbed rather than really called: the point is the probe's own
+ * `safeFetch` is stubbed rather than really called: the point is the probe's own
  * behaviour, and a suite that depended on Google's uptime would be worse than no
  * suite. The real vendor round-trip is proven live, not here.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const loggerError = vi.fn();
+const safeFetchMock = vi.fn();
 
 vi.mock('../../../server/logger', () => ({
   logger: { error: loggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
   createLogger: () => ({ error: loggerError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }));
+
+vi.mock('../../../server/utils/safeFetch', () => ({ safeFetch: safeFetchMock }));
 
 const SAVED = { ...process.env };
 
@@ -44,17 +49,17 @@ async function load() {
  * 404 to an actual generation. Verified live 2026-09-10.)
  */
 function stubListModels(names: string[], status = 200) {
-  const spy = vi.fn().mockResolvedValue({
+  safeFetchMock.mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     json: () => Promise.resolve({ models: names.map((n) => ({ name: `models/${n}` })) }),
   });
-  vi.stubGlobal('fetch', spy);
-  return spy;
+  return safeFetchMock;
 }
 
 beforeEach(() => {
   loggerError.mockClear();
+  safeFetchMock.mockReset();
   for (const key of ['GEMINI_API_KEY', 'GEMINI_MODEL', 'AI_API_KEY', 'AI_PROVIDER', 'AI_MODEL_WORKFLOW']) {
     delete process.env[key];
   }
@@ -90,6 +95,20 @@ describe('checkAiProvider', () => {
     // A ListModels GET, never a generation — a completion on every health poll
     // would burn tokens and rate limit.
     expect(fetchSpy.mock.calls[0][1]).toMatchObject({ method: 'GET' });
+  });
+
+  it('goes through safeFetch and never touches raw fetch', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    process.env.GEMINI_MODEL = 'gemini-2.5-flash';
+    const raw = vi.fn().mockRejectedValue(new Error('raw fetch must not be used'));
+    vi.stubGlobal('fetch', raw);
+    const guarded = stubListModels(['gemini-2.5-flash']);
+    const { checkAiProvider } = await load();
+
+    await expect(checkAiProvider()).resolves.toMatchObject({ available: true });
+    expect(guarded).toHaveBeenCalledTimes(1);
+    expect(String(guarded.mock.calls[0][0])).toMatch(/^https:\/\/generativelanguage\.googleapis\.com\//);
+    expect(raw).not.toHaveBeenCalled();
   });
 
   it('reports a WITHDRAWN model as unavailable — the AI-P1 posture', async () => {
@@ -129,7 +148,7 @@ describe('checkAiProvider', () => {
   it('survives a network error without throwing', async () => {
     process.env.GEMINI_API_KEY = 'k';
     process.env.GEMINI_MODEL = 'gemini-2.5-flash';
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
+    safeFetchMock.mockRejectedValue(new Error('ECONNRESET'));
     const { checkAiProvider } = await load();
 
     await expect(checkAiProvider()).resolves.toMatchObject({

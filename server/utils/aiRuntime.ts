@@ -18,6 +18,7 @@
 import { ModelRegistry } from '../services/ai/ModelRegistry';
 import { resolveAiProviderConfig } from '../services/ai/providerConfig';
 import { createLogger } from '../logger';
+import { safeFetch } from './safeFetch';
 
 const logger = createLogger({ module: 'ai-runtime' });
 
@@ -85,19 +86,14 @@ async function askGemini(
   const controller = new AbortController();
   const timer = setTimeout(() => { controller.abort(); }, PROBE_TIMEOUT_MS);
   try {
-    // RAW fetch, deliberately, and this is the one place in the file worth arguing
-    // about. `no-restricted-globals` points at `safeFetch` to stop SSRF on
-    // USER-SUPPLIED urls; this url is a compile-time constant vendor host, so that
-    // risk is absent. Two reasons the guarded path is actively wrong here:
-    //   1. `safeFetch` resolves DNS and pins the socket to `addrs[0]`. Against a
-    //      large anycast endpoint that adds failure modes unrelated to the thing
-    //      being measured, and a health probe that cries wolf is worse than none.
-    //   2. The REAL Gemini traffic goes through the `@google/generative-ai` SDK,
-    //      which uses plain HTTP and never touches `safeFetch`. A probe on a
-    //      different transport than the code it speaks for can disagree with
-    //      reality in both directions.
-    // eslint-disable-next-line no-restricted-globals -- fixed vendor host; must match the SDK's transport, not the SSRF-guarded one
-    const response = await fetch(
+    // Through `safeFetch`, not raw `fetch`. This was raw once, on the argument
+    // that the host is a compile-time constant and that DNS pinning adds failure
+    // modes a health probe should not have. The repo's rule is enforced by a CI
+    // grep with no per-line exception (Deployment Safety Check → Security Scan),
+    // and it went red on exactly this line. The rule wins: a fixed vendor host
+    // resolves to public addresses, so `safeFetch` passes it through unchanged
+    // apart from pinning the socket to the address it validated.
+    const response = await safeFetch(
       `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(apiKey)}`,
       { method: 'GET', signal: controller.signal },
     );
