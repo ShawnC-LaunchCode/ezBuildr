@@ -19,7 +19,6 @@ Welcome to the ezBuildr documentation! This index provides an organized overview
 - [API Reference](api/API.md) - Complete workflow API endpoints
 - [API Documentation](api/API_DOCUMENTATION.md) - Additional API details
 - [Block Framework](api/BLOCKS.md) - Block types and examples
-- [Transform Blocks](api/TRANSFORM_BLOCKS.md) - JS/Python code blocks
 
 ---
 

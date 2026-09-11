@@ -11,7 +11,7 @@ Feature status, security details, and recent architecture changes (verified Augu
 | **DataVault** | Data platform: databases, tables, rows, 14 column types, infinite scroll, role-based permissions, ACLs, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |
 | **Two-Tier Visibility Logic** | Workflow rules + step-level `visibleIf` expressions with real-time evaluation |
-| **Transform Blocks** | Sandboxed JS/Python execution, virtual steps, test playground |
+| **Code Blocks** | Sandboxed JS/Python steps with multiple outputs (one virtual step each), inputs derived from the code, readiness/change gates, dependency ordering with cycle detection, Monaco editor, live preview inspector. Replaced Transform Blocks, retired Sep 2026 |
 | **Step Aliases** | Human-friendly variable names for logic and transforms |
 | **Run Token Authentication** | Bearer token + JWT + session auth, anonymous runs, portal magic links |
 | **Conditional Logic** | Show/hide/require/skip_to actions, 28-operator `ComparisonOperator` union evaluated by `shared/conditionEvaluator.ts`, visual editor |

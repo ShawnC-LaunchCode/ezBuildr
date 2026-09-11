@@ -130,7 +130,7 @@ IDs are stable, heading anchors are not.
 | SECT-B6 | `enhancement` | Per-Section progress in the runner header ("Page 3 of 11 in Assets") | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B10 | `enhancement` | Six run routes still lack `optionalHybridAuth` before `creatorOrRunTokenAuth` | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B12 | `enhancement` | Dead `setCurrentPageIndex` prop on `LoadedRunnerScreenProps` + 3 test mocks | `backlog/SECTIONS_AND_PAGES.md` |
-| SECT-B15 | `enhancement` | ~26 documents still say "VaultLogic" — two are linked from CLAUDE.md's index | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B15 | `enhancement` | ~25 documents still say "VaultLogic" — one (`docs/api/API.md`) is linked from CLAUDE.md's index | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B13 | `operational` | Five stale probe rows in the shared `dev` Neon branch (from TM, 2026-08-18) | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B9 | `informational` | `updateProgress` is an RLS throw-point on the anonymous path — RLS-5 sweeps it | `backlog/SECTIONS_AND_PAGES.md` |
 | SECT-B7 | `wont-fix` | `PreviewRouter.isPageVisible` ignores visibility — dead code, nothing instantiates it | `backlog/SECTIONS_AND_PAGES.md` |

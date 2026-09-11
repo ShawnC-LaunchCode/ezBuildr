@@ -220,9 +220,8 @@ Routes → Services → Repositories → Database
 ### Custom Scripting & Automation
 - 🎯 **Custom Scripting System** — Lifecycle hooks (4 phases) + document hooks (2 phases) 🆕
 - 🛠️ **40+ Helper Functions** — Date, string, number, array, object, math, HTTP, console utilities 🆕
-- 🔧 **Transform Blocks** — Sandboxed JS/Python execution with virtual steps, test playground
+- 🔧 **Code Blocks** — Sandboxed JavaScript or Python steps: multiple outputs, inputs derived from the code, readiness and change gates, dependency ordering, Monaco editor and a live preview inspector
 - 📟 **Script Console** — View execution logs with console output and performance metrics 🆕
-- 🔁 **Mutation Mode** — Transform workflow data between execution phases 🆕
 
 ### Logic & Conditional Flow
 - 🎛️ **Conditional Logic** — Show/hide/require/skip pages with 8+ operators
@@ -244,7 +243,6 @@ Routes → Services → Repositories → Database
 ### AI-Powered Features
 - 🤖 **AI Workflow Generation** — Generate workflows from natural language (OpenAI, Anthropic, Gemini)
 - 💡 **AI Suggestions** — Workflow optimization and improvement recommendations
-- 🧠 **AI Transform Blocks** — Auto-generate JavaScript/Python code
 - 🎯 **Smart Variable Binding** — Semantic matching for template variables
 
 ### Templates & Marketplace
@@ -363,8 +361,8 @@ There is no `checkbox` or plain `signature` type, and no `repeater`/`loop_group`
 - **Logic Engine:** Located in `shared/conditionEvaluator.ts` and `shared/workflowLogic.ts`
 - **Service Layer:** 213 service classes in `server/services/`
 - **Repository Layer:** `BaseRepository` pattern, 48 classes in `server/repositories/`
-- **Transform Blocks:** Sandboxed JS/Python execution with vm2 and subprocess
-- **Virtual Steps:** Transform block outputs stored via virtual steps with proper UUIDs
+- **Code Blocks:** Sandboxed JS (`isolated-vm`, with a `vm` fallback) and Python (subprocess) via `server/utils/enhancedSandboxExecutor.ts`; orchestration in `server/services/codeBlocks/`
+- **Virtual Steps:** Each Code Block output is stored as its own virtual step, with its own alias
 - **Step Aliases:** Human-friendly variable names for referencing steps in logic and blocks
 - **Run Tokens:** UUID-based authentication for workflow runs (creator + anonymous modes)
 
@@ -409,7 +407,7 @@ npm run test-gemini      # Test Gemini API connection
 | Phase | Feature | Status |
 |-------|---------|--------|
 | ✅ Stage 1-8 | Workflow Builder + Conditional Logic | Complete |
-| ✅ Stage 8 | Transform Blocks (JavaScript/Python) | Complete (Nov 2025) |
+| ✅ Stage 8 | Transform Blocks (JavaScript/Python) | Complete (Nov 2025); superseded by Code Blocks and retired Sep 2026 |
 | ✅ Stage 8 | Step Aliases (Variables) | Complete (Nov 2025) |
 | ✅ Stage 8 | Run Token Authentication | Complete (Nov 2025) |
 | ✅ Stage 9 | HTTP/API Node + Secrets Management | Complete (Nov 2025) |
@@ -509,7 +507,6 @@ ezBuildr has comprehensive documentation organized by topic:
 - **[Documentation Index](./docs/INDEX.md)** - Complete documentation map
 - **[API Reference](./docs/api/API.md)** - Complete Workflow API documentation
 - **[Developer Reference](./docs/reference/DEVELOPER_REFERENCE.md)** - Comprehensive technical guide
-- **[Transform Blocks](./docs/api/TRANSFORM_BLOCKS.md)** - JavaScript/Python code execution guide
 - **[Step Aliases](./docs/guides/STEP_ALIASES.md)** - Variable system implementation guide
 - **[Authentication](./docs/guides/AUTHENTICATION.md)** - Run token authentication system
 - **[Testing Framework](./docs/testing/TESTING.md)** - Testing infrastructure and guidelines
@@ -552,9 +549,9 @@ project skill (`.claude/skills/db-schema-change/`) before touching migrations by
 - Ensure authorized JavaScript origins include your domain in Google Cloud Console
 - Check cookie settings and CORS configuration
 
-**Transform blocks not persisting:**
-- Ensure transform blocks have virtual steps assigned
-- Check that code calls `emit(value)` exactly once
+**Code Block outputs missing:**
+- A block fires only once every *required* input is answered, and skips when its inputs are unchanged — the preview inspector shows each block's status
+- Check that the code calls `emit(...)` exactly once, with one object keyed by the block's outputs
 
 For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting section.
 

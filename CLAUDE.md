@@ -70,7 +70,7 @@ ezBuildr/
 ### Workflow Hierarchy
 ```
 Projects → Workflows → Pages → Steps (Questions/Actions)
-                    → Logic Rules, Transform Blocks, Lifecycle Hooks
+                    → Logic Rules, Code Blocks, Lifecycle Hooks
                     → Workflow Runs → Step Values, Execution Trace
 ```
 
@@ -186,7 +186,6 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 |----------|----------|
 | [API Reference](./docs/api/API.md) | Complete workflow API endpoints |
 | [Block Framework](./docs/api/BLOCKS.md) | Block types and examples |
-| [Transform Blocks](./docs/api/TRANSFORM_BLOCKS.md) | JS/Python code blocks |
 
 ### Custom Scripting System
 | Document | Contents |

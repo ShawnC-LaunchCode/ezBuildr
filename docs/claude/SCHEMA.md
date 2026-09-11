@@ -49,7 +49,7 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `sessions` | Express session store |
 | `teams` / `team_members` | Teams and membership |
 
-## Runs & Metrics — `shared/schema/run.ts` (20 tables)
+## Runs & Metrics — `shared/schema/run.ts` (21 tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -57,6 +57,7 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `run_resume_links` | Tenant-scoped, hashed one-time save/resume and handoff credentials with expiry, use, and revocation timestamps |
 | `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
 | `run_submissions` | CB-9a-2 idempotency: one row per logical submission (`run_id` + client `submission_key`, uniquely indexed). Submit and its paired `next` share a key so a user action evaluates Code Blocks once; a retry replays the stored `response`/`navigation` instead of executing. A block's input hash is a change gate, not request idempotency |
+| `code_block_runs` | Per-run Code Block state, one row per (`run_id`, `step_id`): last `input_hash` (the change gate), `status` (`fired` / `skipped_unready` / `skipped_unchanged` / `error`), `pending_inputs` and `error_message`. Read by the preview inspector. RLS via the run's workflow owner (migration `0043`) |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail (`voided` request status; completed/voided/expired events) |

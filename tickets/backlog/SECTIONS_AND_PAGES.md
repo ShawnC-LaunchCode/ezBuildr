@@ -191,11 +191,12 @@ Three `tenants` rows named "TM Gate Probe Tenant"/"TM Install Probe Tenant"
 Surfaced during SECT-10 and correctly *not* fixed there: it is a repo-wide
   rebrand sweep, not vocabulary drift from this initiative, and chasing it would
   have been exactly the scope expansion that ticket warned against. Includes
-  `docs/api/API.md` and `docs/api/TRANSFORM_BLOCKS.md`, both linked from
-  CLAUDE.md's Documentation Index, so it is reader-facing. Mechanical and safe
-  — a good small ticket.
+  `docs/api/API.md`, linked from CLAUDE.md's Documentation Index, so it is
+  reader-facing. (`docs/api/TRANSFORM_BLOCKS.md` was the second such link; it
+  documented a retired feature and was deleted with the Code Blocks retirement,
+  2026-09-11.) Mechanical and safe — a good small ticket.
 
-**Next step:** Mechanical find-and-replace across ~26 documents, two of which are linked from CLAUDE.md's Documentation Index.
+**Next step:** Mechanical find-and-replace across the remaining ~25 documents, one of which is linked from CLAUDE.md's Documentation Index.
 
 ---
 

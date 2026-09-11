@@ -60,16 +60,16 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 >
 > **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active page. This is an intentional out-of-page write allowance, supporting scenarios like computed fields or external integrations writing ahead.
 
-## Blocks & Transform Blocks — `blocks.routes.ts`, `transformBlocks.routes.ts`
+## Blocks — `blocks.routes.ts`
 
 ```
 GET/POST    /api/workflows/:id/blocks             # Block CRUD (prefill/validate/branch/records/...)
 PUT/DELETE  /api/blocks/:blockId
 PUT         /api/workflows/:id/blocks/reorder
-GET/POST    /api/workflows/:id/transform-blocks
-PUT/DELETE  /api/transform-blocks/:blockId
-POST        /api/transform-blocks/:blockId/test   # Test with sample data (blocks have NO /test)
 ```
+
+Transform blocks and their `/api/transform-blocks` routes were retired in CB-10
+(tables dropped in migration `0049`); Code Blocks replace them.
 
 ## Code Blocks — `codeBlocks.routes.ts`
 

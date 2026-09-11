@@ -4,6 +4,15 @@
 **Workflow ID:** `81a73b18-012d-458b-af05-5098eb75c753`
 **Project:** Demo Project
 
+> **Historical (updated 2026-09-11).** This describes a workflow built by hand in a
+> database in November 2025. No script in this repo creates it. Its seven
+> calculations were **Transform Blocks**, which were retired in September 2026
+> (Code Blocks initiative, CB-10; tables dropped in migration `0049`). So the
+> "Calculations & Logic" section below describes blocks that no longer exist.
+> To rebuild the demo, re-author each calculation as a **Code Block**: its
+> inputs and outputs are derived from the code, and each output becomes its own
+> virtual step.
+
 ## Overview
 
 This is a comprehensive demonstration workflow that showcases VaultLogic's core features through a real-world use case: a court fee waiver application. The workflow demonstrates conditional logic, calculations, file uploads, and data transformations.
@@ -310,7 +319,6 @@ All workflow variables can be referenced in:
 ## 🎓 Learning Resources
 
 This workflow demonstrates patterns from:
-- **Transform Blocks Guide:** `/docs/api/TRANSFORM_BLOCKS.md`
 - **Step Aliases Guide:** `/docs/guides/STEP_ALIASES.md`
 - **Authentication Guide:** `/docs/guides/AUTHENTICATION.md`
 - **API Documentation:** `/docs/api/API.md`

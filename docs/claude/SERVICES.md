@@ -29,7 +29,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | RunDefinitionProvider / RunRuntimeService | Pinned (or legacy live-fallback) Sections, nullable page membership, Steps and logic; authorized sanitized runtime payload |
 | RunDataService | Canonical run data views: step-id keyed for runtime logic, alias-keyed for document generation |
 | BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |
-| TransformBlockService | JS/Python transform execution |
+| CodeBlockService + `codeBlocks/CodeBlockGraph`, `codeBlocks/firingPolicy` | Code Block execution: readiness and change gates, trigger × repeat firing, dependency ordering with cycle detection; per-run state in `code_block_runs` |
 | IntakeService / IntakeNavigationService / IntakeQuestionVisibilityService | Intake flow, navigation, real-time visibility |
 | IntakeReceiptService | Intake receipts |
 | RepeaterService | Repeating pages |
