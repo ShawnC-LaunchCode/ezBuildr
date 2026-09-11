@@ -14,8 +14,19 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-24 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
+> **As of 2026-09-11 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
 > (ENV-1/ENV-3 remainders + RLS-1..5).**
+>
+> **The Code Blocks board (CB-1..11, 20 units) closed and retired into
+> `backlog/CODE_BLOCKS.md` on 2026-09-11.** All four phase gates were signed, and
+> it discharged `STB-B8`. It parks nine entries, `CB-B1..B9`, and seven standing
+> decisions **D-1..D-7** that bind anything touching Code Blocks (append-only
+> outputs, the two gates, trigger × repeat firing).
+>
+> - ⚠️ **`CB-B7` is the one to read first.** The pinned run definition omits
+>   Code Block output steps, and that has been rediscovered twice.
+> - Migration `0049` (the transform tables drop) runs on each environment **when
+>   it deploys**, so production loses its one row at the `main` promotion.
 >
 > **The Sections-above-Pages board (SECT-1..10) closed and retired into
 > `backlog/SECTIONS_AND_PAGES.md` on 2026-08-24** — all 11 tickets shipped across five
@@ -101,14 +112,18 @@ IDs are stable, heading anchors are not.
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
 | RLS-B5 | `informational` | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
-| CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
-| CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
-| CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
-| CB-B6 | `informational` | Client field-error focusing is fed by nothing: `validatePage` builds per-field structure, `RunExecutionCoordinator` flattens it to strings, and `BlockRunner` has no `fieldErrors` at all, so `focusFirstFieldError` has never fired from a page submit | Inline below: `CB-B6` |
-| CB-B5 | `triage` | Live-run document uploads can outlive failed/missing rows; row deletion never removes blobs. Separate from preview cleanup | Inline below: `CB-B5` |
+| CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
+| CB-B5 | `needs-initiative` | Live-run document blobs leak: orphaned uploads, a ZIP with no row, and row deletion never removes blobs. Needs a retention ruling first; overlaps `ZR-B1`/`ZR-B3` | `backlog/CODE_BLOCKS.md` |
+| CB-B2 | `product-decision` | Sandbox timeout ceiling is 3000 ms, and **the Code Block schema accepts up to 30000, clamped silently**. Aligning the two is cheap; raising the ceiling needs a real case | `backlog/CODE_BLOCKS.md` |
+| CB-B3 | `needs-initiative` | Impure blocks are forced to `always`; there is no way to declare an external (DataVault) dependency in the change hash. Measure first | `backlog/CODE_BLOCKS.md` |
+| CB-B6 | `informational` | Client field-error focusing is fed by nothing: per-field validation is flattened to strings before it reaches the runner, so `focusFirstFieldError` has never fired | `backlog/CODE_BLOCKS.md` |
+| CB-B8 | `informational` | Inspector cross-tenant denial is enforced by RLS, not by `readInspector`'s own checks. Disabling both leaves the test green | `backlog/CODE_BLOCKS.md` |
+| CB-B9 | `informational` | Switching a Code Block's language leaves the other language's code in the editor; the failure is loud and self-inflicted | `backlog/CODE_BLOCKS.md` |
+| CB-B1 | `informational` | `js_question` `display: "visible"` never had a renderer; the field was deleted by CB-1. A visible computed display would be a new feature | `backlog/CODE_BLOCKS.md` |
+| CB-B4 | `informational` | `emit()` may be called only once, by design (one object, many keys). **Do not "fix" into multi-emit** | `backlog/CODE_BLOCKS.md` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
-| ~~STB-B8~~ | 🔄 **promoted 2026-09-04** | Sandboxed JS/Python transforms — now the **Code Blocks (CB)** initiative, `tickets/CODE_BLOCKS_TICKETS.md`. ⚠️ **`server/services/scripting/` is dormant, not dead — do not delete it**; CB builds on it and CB-10 asserts it is untouched | `backlog/STEP_TOOLBOX.md` |
+| ~~STB-B8~~ | ✅ **discharged 2026-09-11** | Sandboxed JS/Python transforms. Shipped as the **Code Blocks (CB)** initiative, now retired into `backlog/CODE_BLOCKS.md`. ⚠️ **`server/services/scripting/` is still dormant, not dead — do not delete it**; Code Blocks build on it | `backlog/STEP_TOOLBOX.md` |
 | STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |
 | STB-B11 | `informational` | Backfilled version checksums cause one spurious draft version per converted workflow. Inherent to rewriting jsonb | `backlog/STEP_TOOLBOX.md` |
 | STB-B12 | `informational` | Pre-`pages` `blocks[]` version graphs are counted, not converted — all empty today; `--audit` fails if one is ever populated | `backlog/STEP_TOOLBOX.md` |
@@ -673,94 +688,6 @@ the pool with no tenant. That is the same shape as the bugs above and as `af6c80
 It is harmless today only because `workflow_runs` is the one table in this path
 without RLS enabled, and it stops being harmless the moment that table is enforced.
 
-## Switching language leaves the other language's code (CB-B9) — filed 2026-09-08
-
-**Tag:** `informational`. Found while implementing CB-11.
-
-The JS/Python switch changes `config.language`, the Monaco grammar, the placeholder
-and the labels — but deliberately does **not** touch `config.code`. So flipping a
-JavaScript block to Python leaves JavaScript in the editor, and the author finds out
-at save (`Script validation failed`) or, worse, at run.
-
-Not fixed in CB-11 on purpose: clearing the editor on a toggle destroys work the
-author may have wanted, and a mis-click would be unrecoverable. The honest fixes are
-larger than "expose the switch":
-
-- warn inline when the code is non-empty and the language changed, offering to clear;
-- or keep a per-language draft, so toggling back restores what was there.
-
-Neither is urgent — the failure is loud and self-inflicted, and an author switching
-language almost always intends to rewrite the body anyway.
-
-## Inspector denial rests on RLS, not its own guards (CB-B8) — filed 2026-09-08
-
-**Tag: informational.** Found by reviewer mutation testing during CB-9.
-`CodeBlockService.readInspector` checks `record.tenantId !== tenantId` and then
-`workflowService.verifyAccess(..., 'edit')` before reading anything. Neutering
-**both** still leaves `codeBlocks.inspector.test.ts` green, because RLS filters
-`findRunOwnership` first and the method throws "Run not found" before either read.
-
-The security outcome is genuinely proven — the test spies on both repositories and
-asserts neither is reached — so this is not a hole today. It is recorded because
-those service checks are **untested defence-in-depth**, and this repo's RLS is
-staged rather than fully enforced (`FORCE` is off until RLS-5 is green). If RLS
-were relaxed on `workflow_runs`, they become the only guard and nothing proves
-they work. The same shape likely applies to other services that check tenancy
-behind an RLS-scoped read.
-
-## The pinned run definition omits virtual steps (CB-B7) — filed 2026-09-08
-
-**Tag: needs-initiative.** `WorkflowService.getWorkflowWithDetails`
-(`server/services/WorkflowService.ts:255`) calls
-`stepRepo.findByPageIds(pageIds, scopedTx)` with no `includeVirtual`, so virtual
-computed steps are excluded; `VersionService.serializeWorkflowInTx`
-(`server/services/VersionService.ts:171`) serializes that result into the pinned
-version graph, so `RunDefinitionProvider` — and therefore `runtime.steps` — never
-carries a Code Block's output step, its alias, or its `isVirtual` flag.
-
-**Deliberately deferred by CB-4**, whose reasoning still stands and is recorded at
-`server/services/codeBlocks/CodeBlockService.ts:156`: that same definition also
-feeds navigation, page validation, visibility and progress counts, so widening it
-is not a local change.
-
-**The established workaround is `findByWorkflowIdWithAliases`, whose
-`includeVirtual` defaults to true.** CB-4 uses it to resolve Code Block inputs;
-CB-9 uses it to give the inspector alias/`isVirtual` metadata.
-
-Filed because it has now been independently rediscovered twice, each time costing a
-dev a full investigation cycle. A comment inside `CodeBlockService` is not
-discoverable by someone working in the preview panel or the runner. Promoting this
-means deciding whether the run definition should carry virtual steps at all — and
-re-checking every navigation/validation/visibility/progress consumer if so.
-
-## Client field errors are never populated (CB-B6) — filed 2026-09-07
-
-**Tag: informational.** Found during CB-9a-3a while threading the new `advance`
-response. `client/src/hooks/runner/useRunNavigation.ts` accepts `fieldErrors` and
-has `focusFirstFieldError` ready to move focus to the first failing field, but
-nothing supplies them from a page submit: `server/workflows/validation.ts:219`
-builds per-field structure, `RunExecutionCoordinator.runSubmitPage` maps it to
-flat strings, and `server/services/BlockRunner.ts` has no `fieldErrors` concept.
-`ValidateBlockRunner` does produce them, but its output is not threaded out
-either. Restoring this is a real UX improvement and a small contract change on
-the submit response — deliberately NOT done inside a preview ticket, where the
-shape would have been guessed rather than designed.
-
-## Live-run document blob leaks (CB-B5) — filed 2026-09-06
-
-**Tag: triage · Recorded 2026-09-06 during CB-9a-1.** Live-run storage cleanup needs
-its own defect ticket; preview isolation does not authorize changing live retention.
-Verified at `76de5596`: `server/services/document/FinalBlockRenderer.ts:392` uploads
-documents before `server/services/workflow-runs/RunLifecycleService.ts:606-630`
-persists their rows; that persistence failure is caught and only logged, orphaning
-the upload. `FinalBlockRenderer.ts:456` uploads a ZIP, but lifecycle persistence
-iterates only `generationResult.documents`, so the archive never gets a row.
-`server/services/workflow-runs/RunStateService.ts:230-238` deletes document rows
-through `deleteByRunId` without deleting storage objects, leaking even successfully
-recorded files. Triage retention/download-link expectations, durable ownership,
-and retryable blob cleanup before dispatch; do not fix these live-run paths as
-part of CB-9a-1.
-
 ---
 
 ## Zero-retention / ephemeral runs (ZR) — [detail](backlog/ZERO_RETENTION.md) — filed 2026-09-01
@@ -774,8 +701,10 @@ them, while end users must still be able to generate those documents in-session.
 - **ZR-B1 — ephemeral run mode** · `needs-initiative`. There is no flag, mode, or
   branch anywhere that suppresses a run write today. The detail file inventories
   the fourteen tables that persist client data (`step_values` holds every answer
-  and is upserted on autosave; `transform_block_runs.outputSample` and
-  `script_execution_log.inputSample` hold derived answer data *by design*), plus
+  and is upserted on autosave; `script_execution_log.inputSample` holds derived
+  answer data *by design*; `transform_block_runs.outputSample` did too, until
+  CB-10d2 dropped that table on 2026-09-10, and its successor `code_block_runs`
+  stores only an input hash), plus
   the generated-document bytes in the storage provider. Two candidate models —
   never write, or write-then-shred — and choosing between them is most of the
   design work. Write-then-shred is materially weaker for the stated legal
