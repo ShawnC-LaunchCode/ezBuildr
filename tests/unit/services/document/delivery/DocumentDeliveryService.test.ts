@@ -22,6 +22,7 @@ import {
 } from '../../../../../server/services/document/delivery/DocumentDeliveryService';
 import { runDataService } from '../../../../../server/services/workflow-runs/RunDataService';
 import { decrypt } from '../../../../../server/utils/encryption';
+import { forEachTenant } from '../../../../../server/utils/forEachTenant';
 
 // RLS-5: the run/document path now opens tenant-scoped transactions via
 // `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
@@ -54,6 +55,13 @@ vi.mock('../../../../../server/utils/rlsContext', async (importOriginal) => {
     withVerifiedIdentifier: <T,>(_guc: string, _value: string, fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
   };
 });
+
+// The worker claims per tenant (RLS-B1). The real helper enumerates `tenants`
+// on the pool; here it hands one tenant the same sentinel transaction.
+vi.mock('../../../../../server/utils/forEachTenant', () => ({
+  forEachTenant: vi.fn(async <T,>(_job: string, fn: (tenantId: string, tx: unknown) => Promise<T>) =>
+    ({ results: [await fn('11111111-1111-1111-1111-111111111111', RLS_TX_SENTINEL)], failures: 0 })),
+}));
 
 vi.mock("../../../../../server/db", () => {
   const tx = { execute: vi.fn().mockResolvedValue(undefined) };
@@ -296,7 +304,9 @@ describe('DocumentDeliveryService', () => {
             tenantId: '22222222-2222-2222-2222-222222222222',
           }),
         ],
-        undefined
+        // RLS-B1: called without a transaction, the enqueue opens its own
+        // tenant-scoped one. On the bare pool it saw nothing under enforcement.
+        RLS_TX_SENTINEL
       );
     });
 
@@ -327,7 +337,7 @@ describe('DocumentDeliveryService', () => {
 
       expect(runDocumentDeliveryRepository.createDeliveries).toHaveBeenCalledWith(
         [expect.objectContaining({ tenantId: '22222222-2222-2222-2222-222222222222' })],
-        undefined
+        RLS_TX_SENTINEL
       );
     });
 
@@ -438,7 +448,9 @@ describe('DocumentDeliveryService', () => {
         expect.objectContaining({
           status: 'delivered',
           attempt: 1,
-        })
+        }),
+        // RLS-B1: the worker has no request tenant; it writes under the row's own.
+        RLS_TX_SENTINEL
       );
       expect(result.status).toBe('delivered');
     });
@@ -587,8 +599,34 @@ describe('DocumentDeliveryService', () => {
       const count = await service.processPendingDeliveries();
 
       expect(count).toBe(1);
-      expect(runDocumentDeliveryRepository.claimBatch).toHaveBeenCalled();
+      // RLS-B1: the claim runs inside a per-tenant transaction, never on the
+      // bare pool, where a non-owner role claims nothing.
+      expect(forEachTenant).toHaveBeenCalledTimes(1);
+      expect(runDocumentDeliveryRepository.claimBatch).toHaveBeenCalledWith({ limit: 10 }, RLS_TX_SENTINEL);
       expect(service.processDelivery).toHaveBeenCalledWith(mockBatch[0]);
+    });
+
+    it('claims tenant by tenant and stops once the batch limit is spent', async () => {
+      vi.mocked(forEachTenant).mockImplementationOnce(async (_job, fn) => {
+        const results = [];
+        for (const tenantId of ['tenant-a', 'tenant-b', 'tenant-c']) {
+          results.push(await fn(tenantId, RLS_TX_SENTINEL as never));
+        }
+        return { results, failures: 0 };
+      });
+      const row = (id: string) => ({ id }) as unknown as RunDocumentDelivery;
+      vi.mocked(runDocumentDeliveryRepository.claimBatch)
+        .mockResolvedValueOnce([row('a1'), row('a2')])
+        .mockResolvedValueOnce([row('b1')]);
+      vi.spyOn(service, 'processDelivery').mockImplementation(async (delivery) => delivery);
+
+      const count = await service.processPendingDeliveries(3);
+
+      expect(count).toBe(3);
+      // The second tenant is offered only what the first left over; the third,
+      // with the limit spent, is not asked at all.
+      expect(vi.mocked(runDocumentDeliveryRepository.claimBatch).mock.calls.map(([options]) => options))
+        .toEqual([{ limit: 3 }, { limit: 1 }]);
     });
   });
 

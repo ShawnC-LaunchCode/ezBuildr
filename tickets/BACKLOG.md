@@ -98,8 +98,9 @@ IDs are stable, heading anchors are not.
 | ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
 | ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
 | RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
-| DEP-B1 | `triage` | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
-| RLS-B1 | `needs-initiative` | `preview.isolation.test.ts` fails 2/19 under `RLS_RESTRICTED=true`, keeping the RLS Enforcement Gate red on `dev`. An esign execute returns 400 "Workflow has no project" and the document-delivery worker dispatches nothing. A tenant IS set — the failure is a mismatch, not an absence | Inline below: `RLS-B1` |
+| ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
+| ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
+| RLS-B5 | `informational` | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
 | CB-B9 | `informational` | Switching a Code Block's language leaves the previous language's code in the editor, which then fails on its own syntax at save or run. Deliberately out of CB-11's scope (destroying an author's code on a toggle is worse); wants a warning or a per-language draft | Inline below: `CB-B9` |
 | CB-B8 | `informational` | Cross-tenant denial on the inspector read is enforced by RLS, not by `readInspector`'s own tenant/`verifyAccess` checks — neutering both leaves the test green. Load-bearing only if RLS is relaxed; this repo's RLS is staged, not enforced | Inline below: `CB-B8` |
 | CB-B7 | `needs-initiative` | The pinned run definition OMITS virtual (computed) steps — `WorkflowService.getWorkflowWithDetails` calls `findByPageIds` without `includeVirtual`, and `VersionService` serializes that. Rediscovered twice now. Consumers must read `findByWorkflowIdWithAliases` instead | Inline below: `CB-B7` |
@@ -592,10 +593,13 @@ on whether any attacker-controlled XML reaches either parser — **that reachabi
 question should be answered before choosing**, because it decides between (1) and (3).
 Per `.audit-allowlist.json`'s own header, an unexplained entry is how the gate rots.
 
-## preview.isolation still fails the RLS gate (RLS-B1) — filed 2026-09-09
+## preview.isolation failed the RLS gate (RLS-B1) — filed 2026-09-09, ✅ fixed 2026-09-11
 
-**Tag:** `needs-initiative`. Owner: whoever holds RLS Phase 2. **This is what keeps
-the RLS Enforcement Gate red on `dev`.**
+**Tag:** ✅ fixed 2026-09-11. Kept because the diagnosis filed below was wrong on every
+count, and the wrong version was still being handed to new sessions as settled. Read
+the **Resolution** before trusting anything above it. *Not the same entry as the
+ENV/RLS initiative's `RLS-B1` (restricted-suite non-determinism, further down this
+file). This ID was reused when this entry was filed.*
 
 Two of the 19 tests in `tests/integration/preview.isolation.test.ts` (CB-9a-1) fail
 under enforcement. The other two files the gate reported were fixed in `af6c809a`;
@@ -617,35 +621,57 @@ in the integration suite already holds as a non-owner role.
    `documentDeliveryService.processPendingDeliveries()` dispatches nothing;
    `safeFetch` is called 0 times instead of 1.
 
-### What was ruled out — do not re-derive these
+### What was filed as ruled out (superseded; see Resolution)
 
-- **Not a missing policy.** `code_block_runs` has one (migration `0043`), and the
-  tables the esign path reads are covered.
-- **Not `app_owner_tenant` being RLS-filtered from the inside.** It is `LANGUAGE sql
-  STABLE` and *not* `SECURITY DEFINER`, so its subselects on `users`, `projects` and
-  `organizations` do run as the caller — but none of those three tables ever gets
-  `ENABLE ROW LEVEL SECURITY` in the migration chain, so they are not filtered. This
-  looked like the answer and is not; it was checked rather than assumed.
-- **Not a missing tenant.** `withCurrentTenant` throws `"RLS: no tenant in context."`
-  when enforcement is on and the context is empty, which would surface as a 500. The
-  observed status is 400, reached from *inside* the `withCurrentTenant` block in
-  `SignatureBlockService.executeSignatureBlock` — so a tenant is present.
+- *Not a missing policy.* This one was true.
+- *"`users`, `projects` and `organizations` never get `ENABLE ROW LEVEL SECURITY`."*
+  **False.** In the restricted test schema all three have `relrowsecurity` **and**
+  `relforcerowsecurity` true, read straight from `pg_class`. Of the tables in this
+  path, only `workflow_runs` is unprotected. The claim came from reading the
+  migration chain instead of the database.
+- *"The 400 is raised inside the `withCurrentTenant` block."* **False.** That block
+  succeeded.
 
-### Where that leaves it
+### Resolution — measured 2026-09-11
 
-The ambient tenant is **set but does not equal** the workflow's
-`app_owner_tenant(...)`, so `workflowRepository.findById` returns `undefined` inside
-the transaction and the code reports the workflow as having no project. The next step
-is to print `app_current_tenant()` alongside the workflow's resolved owner tenant at
-that point and see which of the five COALESCE branches is answering — this may well be
-a fixture issue in the CB-9a-1 setup rather than production code, exactly as the
-inspector failure turned out to be.
+Instrumented rather than reasoned about. The diagnosis above (the tenant is set but
+does not match; possibly a CB-9a-1 fixture problem) was wrong. **Both failures were
+production code.**
 
-Worth noting separately: `authorizeRun` in `esign.routes.ts` reads
-`workflowRunRepository.findById(runId)` on the pool with no tenant. That is the same
-shape as the bug fixed in `af6c809a` and is currently harmless only because
-`workflow_runs` never gets RLS enabled in the chain. It will stop being harmless the
-moment that table is enforced.
+**Esign (test 1).** The *preview* call always returned 200. The 400 came from the
+second call, on the live run. Inside `SignatureBlockService`'s transaction,
+`app_current_tenant()` **equalled** the workflow's owner tenant, and the workflow
+was found with its project. The throw came from `EnvelopeBuilder.resolveDocuments`,
+*after* that transaction closed. It re-read `workflows`, `run_generated_documents`
+and `templates` on the bare pool, where there is no GUC. So it got zero rows, and a
+real workflow read as "Workflow has no project".
+
+**Delivery (test 2).** Two production gaps stacked:
+
+1. `enqueueDeliveriesForRun`, called without a transaction from `generateDocuments`,
+   read the workflow and the resolver's `users`/`projects` on the pool. It resolved
+   no tenant and threw. Its caller logs and swallows that, so no row was ever written.
+2. Even given a row, the worker's `claimBatch` ran in a pool transaction with no
+   tenant. Under enforcement it claimed nothing and reported success. **Once FORCE is
+   on in production, document delivery would have stopped silently.**
+
+**Fixes:**
+- `EnvelopeBuilder` now reads inside `withCurrentTenant` and resolves storage paths
+  after the transaction closes.
+- The enqueue opens its own tenant transaction when it isn't handed one, and triggers
+  the worker only after commit.
+- The worker claims through `forEachTenant` (the `RLS-B4` pattern) and scopes each
+  delivery's reads and writes to that row's own `tenant_id`. The adapter's network
+  send runs between transactions, never inside one.
+
+Each fix was reverted individually, and the file went red each time.
+
+### Split out — `RLS-B5`, still open
+
+`authorizeRun` in `esign.routes.ts` reads `workflowRunRepository.findById(runId)` on
+the pool with no tenant. That is the same shape as the bugs above and as `af6c809a`.
+It is harmless today only because `workflow_runs` is the one table in this path
+without RLS enabled, and it stops being harmless the moment that table is enforced.
 
 ## Switching language leaves the other language's code (CB-B9) — filed 2026-09-08
 

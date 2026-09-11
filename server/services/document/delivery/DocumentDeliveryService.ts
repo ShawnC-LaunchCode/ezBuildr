@@ -15,7 +15,8 @@ import {
   redactDeliveryConfig,
 } from '../../../utils/documentDeliverySecrets';
 import { storageProvider } from '../../storage';
-import { withCurrentTenant } from '../../../utils/rlsContext';
+import { forEachTenant } from '../../../utils/forEachTenant';
+import { withCurrentTenant, withTenant } from '../../../utils/rlsContext';
 import { workflowTenantResolver } from '../../WorkflowTenantResolver';
 import { runDataService } from '../../workflow-runs/RunDataService';
 
@@ -117,6 +118,24 @@ export class DocumentDeliveryService {
       return [];
     }
 
+    if (!tx) {
+      // RLS-B1: every read below (`workflows`, and `users`/`projects` inside the
+      // tenant resolver) and the insert itself are RLS-covered. On the bare pool a
+      // non-owner role sees none of them, the tenant resolves to null, and the
+      // enqueue throws — silently, because the caller only logs it. The caller
+      // (`RunLifecycleService.generateDocuments`) always runs with a tenant in
+      // context, pinned from the workflow when no request supplied one.
+      const created = await withCurrentTenant((scoped) =>
+        this.enqueueDeliveriesForRun(runId, finalBlockConfig, scoped));
+      // Only after the enqueue transaction has committed, or the worker races it.
+      if (created.length > 0) {
+        setImmediate(() => {
+          void this.processPendingDeliveries();
+        });
+      }
+      return created;
+    }
+
     const run = await this.runRepo.findById(runId, tx);
     if (!run) {
       throw new Error(`Workflow run ${runId} not found`);
@@ -160,13 +179,6 @@ export class DocumentDeliveryService {
       { runId, count: created.length, destinations: enabledDestinations.map((d: DeliveryDestination) => d.type) },
       'Enqueued document deliveries for run'
     );
-
-    // Trigger processing asynchronously outside transaction
-    if (!tx) {
-      setImmediate(() => {
-        void this.processPendingDeliveries();
-      });
-    }
 
     return created;
   }
@@ -230,6 +242,22 @@ export class DocumentDeliveryService {
   /**
    * Process a single delivery job
    */
+  /**
+   * RLS-B1: the worker runs with no request and so no ambient tenant, but every
+   * delivery row carries its own `tenant_id` (enqueue refuses to write one
+   * without). Each DB step of a delivery runs in that tenant's transaction; the
+   * adapter's network send runs between them, never inside one.
+   *
+   * A null tenant can only be a legacy row. It is invisible under enforcement
+   * anyway, so it keeps the old unscoped behaviour rather than failing here.
+   */
+  private inDeliveryTenant<T>(
+    delivery: RunDocumentDelivery,
+    fn: (tx: DbTransaction | undefined) => Promise<T>
+  ): Promise<T> {
+    return delivery.tenantId ? withTenant(delivery.tenantId, fn) : fn(undefined);
+  }
+
   async processDelivery(delivery: RunDocumentDelivery): Promise<RunDocumentDelivery> {
     const adapter = this.getAdapter(delivery.destinationType);
     if (!adapter) {
@@ -240,19 +268,20 @@ export class DocumentDeliveryService {
         status: 'failed',
         error: errorMsg,
       };
-      return this.deliveryRepo.markRetryOrFailed(
+      return this.inDeliveryTenant(delivery, (tx) => this.deliveryRepo.markRetryOrFailed(
         delivery.id,
         {
           error: errorMsg,
           auditEntry,
           isFinalFailure: true,
-        }
-      );
+        },
+        tx
+      ));
     }
 
     let context: DeliveryContext;
     try {
-      context = await this.buildDeliveryContext(delivery.runId);
+      context = await this.inDeliveryTenant(delivery, (tx) => this.buildDeliveryContext(delivery.runId, tx));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : `Workflow run context failed: ${delivery.runId}`;
       const auditEntry: DeliveryAuditLogEntry = {
@@ -261,14 +290,15 @@ export class DocumentDeliveryService {
         status: 'failed',
         error: errorMsg,
       };
-      return this.deliveryRepo.markRetryOrFailed(
+      return this.inDeliveryTenant(delivery, (tx) => this.deliveryRepo.markRetryOrFailed(
         delivery.id,
         {
           error: errorMsg,
           auditEntry,
           isFinalFailure: true,
-        }
-      );
+        },
+        tx
+      ));
     }
 
     const result = await adapter.deliver({
@@ -290,7 +320,7 @@ export class DocumentDeliveryService {
         durationMs: result.durationMs,
         metadata: result.metadata,
       };
-      return this.deliveryRepo.markDelivered(delivery.id, auditEntry);
+      return this.inDeliveryTenant(delivery, (tx) => this.deliveryRepo.markDelivered(delivery.id, auditEntry, tx));
     } else {
       const isFinalFailure = currentAttempt >= delivery.maxAttempts;
       const delayMs = this.calculateBackoff(delivery.attempts);
@@ -306,16 +336,35 @@ export class DocumentDeliveryService {
         metadata: result.metadata,
       };
 
-      return this.deliveryRepo.markRetryOrFailed(
+      return this.inDeliveryTenant(delivery, (tx) => this.deliveryRepo.markRetryOrFailed(
         delivery.id,
         {
           error: result.error ?? 'Delivery failed',
           auditEntry,
           nextAttemptAt,
           isFinalFailure,
-        }
-      );
+        },
+        tx
+      ));
     }
+  }
+
+  /**
+   * RLS-B1: claim per tenant, via the background-job pattern (`forEachTenant`).
+   * `run_document_deliveries` is RLS-covered and this worker has no tenant, so a
+   * single pool-level claim returned zero rows under enforcement and every
+   * delivery sat `pending` forever while the worker reported success.
+   */
+  private async claimAcrossTenants(limit: number): Promise<RunDocumentDelivery[]> {
+    const claimed: RunDocumentDelivery[] = [];
+    await forEachTenant('documentDeliveryClaim', async (_tenantId, tx) => {
+      const remaining = limit - claimed.length;
+      if (remaining <= 0) {
+        return;
+      }
+      claimed.push(...await this.deliveryRepo.claimBatch({ limit: remaining }, tx));
+    });
+    return claimed;
   }
 
   /**
@@ -330,7 +379,7 @@ export class DocumentDeliveryService {
     let processedCount = 0;
 
     try {
-      const batch = await this.deliveryRepo.claimBatch({ limit });
+      const batch = await this.claimAcrossTenants(limit);
       for (const delivery of batch) {
         try {
           await this.processDelivery(delivery);
@@ -378,10 +427,9 @@ export class DocumentDeliveryService {
    * tenant is always populated here.
    *
    * The worker paths (`processPendingDeliveries`, `claimBatch`, the `mark*`
-   * calls) are deliberately NOT converted here: they run with no request and no
-   * tenant, and belong to the background-job class that `forEachTenant` covers.
-   * Converting them piecemeal would give them an ambient tenant that happens to
-   * be whoever triggered the worker.
+   * calls) do NOT use the ambient tenant: that would be whoever happened to
+   * trigger the worker. They claim through `forEachTenant` and scope each
+   * delivery to its own row's tenant instead (RLS-B1).
    */
   async listDeliveriesForRun(runId: string, tenantId: string): Promise<RunDocumentDelivery[]> {
     return withCurrentTenant(async (tx) => {
