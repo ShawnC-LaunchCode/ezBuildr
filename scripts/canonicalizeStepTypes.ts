@@ -16,6 +16,15 @@ interface GraphCanonicalizationResult {
   unrecognizedShape: boolean;
   /** Step-like definitions found in an unrecognized shape and therefore NOT converted. */
   unconvertedDefinitions: number;
+  /**
+   * Count of legacy `sections[]` entries moved into `pages[]` because the graph
+   * predates the pages/steps split entirely (no `pages` key at all, with
+   * `sections[]` entries carrying `steps[]` directly). Migration 0038 renamed
+   * the table this shape was serialized from to `pages`; today's `sections` is
+   * an unrelated, later-introduced metadata-only group layer. Zero for every
+   * modern graph, which already has a `pages` key.
+   */
+  legacySectionsMigrated: number;
 }
 
 function incrementCount(counts: Record<string, number>, key: string, amount = 1): void {
@@ -112,8 +121,19 @@ export function canonicalizeStepDefinition(step: any) {
  * Canonicalize the stored workflow graph shape emitted by
  * `VersionService.serializeWorkflowInTx`: `pages[].steps[]`.
  *
- * Three shapes exist and only one is written today:
+ * Four shapes exist:
  *  - `pages[].steps[]`  — what the serializer emits now; the one converted here.
+ *  - legacy `sections[].steps[]` with NO `pages` key — pre-migration-0038
+ *    snapshots, from when the table 0038 renamed to `pages` was called
+ *    `sections` and held steps directly. STB-B14: 57 of 58 `workflow_versions`
+ *    on production are in this shape and 56 still carry legacy type names, and
+ *    every reader that matters (`RunDefinitionProvider`'s `VersionRuntimeSchema`,
+ *    `WorkflowContentIngestService`, `TemplateService.instantiate`) either
+ *    rejects a `pages`-less graph outright or silently drops its steps — so
+ *    converting the type names in place without also renaming the container
+ *    would leave these versions exactly as unusable. Handled below by moving
+ *    the `sections[]` entries into `pages[]` (the key is renamed, not merged
+ *    with anything) before running the same per-step conversion.
  *  - top-level `blocks[]` — older artifacts predating the pages/steps split.
  *    Every such artifact on the dev branch carries an EMPTY `blocks` array, so
  *    there is nothing to convert; rather than guess at a shape that cannot be
@@ -121,6 +141,10 @@ export function canonicalizeStepDefinition(step: any) {
  *  - `pages[].blocks[]` — what the unused `WorkflowGraphSchema` in
  *    `shared/zod-schemas.ts` declares. Nothing parses it and nothing stores it;
  *    do not reach for it here.
+ *
+ * Today's `sections[]` — present alongside a `pages` key — is an unrelated,
+ * later-introduced metadata-only group layer (id/title/description/visibleIf,
+ * no steps of its own) and is never touched here.
  */
 export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalizationResult {
   if (typeof graphJson !== 'object' || graphJson === null || Array.isArray(graphJson)) {
@@ -136,27 +160,42 @@ export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalization
     removedKeysCounts: {},
     unrecognizedShape: false,
     unconvertedDefinitions: 0,
+    legacySectionsMigrated: 0,
   };
 
   if (!Array.isArray(clonedGraph.pages)) {
-    // Artifacts written before the pages/steps serializer store definitions
-    // under a top-level `blocks` array instead. This converter deliberately
-    // does NOT rewrite a shape it cannot test against real content -- but a
-    // shape it skipped must never be indistinguishable from a clean run, so
-    // count what was left behind and let the caller surface and fail on it.
-    // (Reviewer, 2026-09-02: every such artifact on the dev branch has an
-    // empty `blocks` array, so this counts 0 there; other environments are
-    // their own question, which is exactly why it is reported.)
-    stats.unrecognizedShape = true;
-    stats.unconvertedDefinitions = Array.isArray(clonedGraph.blocks)
-      ? clonedGraph.blocks.filter(
-        (block) => typeof block === 'object' && block !== null && 'type' in block,
-      ).length
-      : 0;
-    return stats;
+    const legacySections = Array.isArray(clonedGraph.sections) ? clonedGraph.sections : undefined;
+    const isLegacySectionsShape = legacySections?.some(
+      (section) => typeof section === 'object' && section !== null && Array.isArray((section as Record<string, unknown>).steps),
+    ) ?? false;
+
+    if (isLegacySectionsShape && legacySections !== undefined) {
+      // Rename, don't merge: today's graphs never carry both a legacy
+      // steps-bearing `sections[]` and a `pages[]` key at once (this branch
+      // only runs when `pages` is absent), so there is nothing to merge into.
+      clonedGraph.pages = legacySections;
+      delete clonedGraph.sections;
+      stats.legacySectionsMigrated = legacySections.length;
+    } else {
+      // Artifacts written before the pages/steps serializer store definitions
+      // under a top-level `blocks` array instead. This converter deliberately
+      // does NOT rewrite a shape it cannot test against real content -- but a
+      // shape it skipped must never be indistinguishable from a clean run, so
+      // count what was left behind and let the caller surface and fail on it.
+      // (Reviewer, 2026-09-02: every such artifact on the dev branch has an
+      // empty `blocks` array, so this counts 0 there; other environments are
+      // their own question, which is exactly why it is reported.)
+      stats.unrecognizedShape = true;
+      stats.unconvertedDefinitions = Array.isArray(clonedGraph.blocks)
+        ? clonedGraph.blocks.filter(
+          (block) => typeof block === 'object' && block !== null && 'type' in block,
+        ).length
+        : 0;
+      return stats;
+    }
   }
 
-  for (const page of clonedGraph.pages) {
+  for (const page of clonedGraph.pages as unknown[]) {
     if (typeof page !== 'object' || page === null || Array.isArray(page)) {
       continue;
     }
@@ -168,7 +207,7 @@ export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalization
 
     for (const step of pageRecord.steps) {
       if (typeof step !== 'object' || step === null || Array.isArray(step)) {
-        throw new Error('Artifact graphJson pages[].steps[] entries must be objects');
+        throw new Error('Artifact graphJson pages[].steps[] (or legacy sections[].steps[]) entries must be objects');
       }
 
       const stepRecord = step as Record<string, unknown>;
@@ -192,7 +231,7 @@ export function canonicalizeGraphJson(graphJson: unknown): GraphCanonicalization
     }
   }
 
-  if (stats.definitionsChanged > 0) {
+  if (stats.definitionsChanged > 0 || stats.legacySectionsMigrated > 0) {
     stats.graphJson = clonedGraph;
   }
   return stats;
@@ -336,6 +375,7 @@ async function run() {
     blueprintDefinitionsChanged: 0,
     unrecognizedShapeArtifacts: 0,
     unconvertedDefinitions: 0,
+    legacySectionsMigrated: 0,
   };
 
   const updates: Array<{ id: string, type: any, config: any }> = [];
@@ -384,10 +424,11 @@ async function run() {
       stats.versionDefinitionsChanged += result.definitionsChanged;
       stats.unrecognizedShapeArtifacts += result.unrecognizedShape ? 1 : 0;
       stats.unconvertedDefinitions += result.unconvertedDefinitions;
+      stats.legacySectionsMigrated += result.legacySectionsMigrated;
       mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
       mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
 
-      if (result.definitionsChanged > 0) {
+      if (result.definitionsChanged > 0 || result.legacySectionsMigrated > 0) {
         stats.versionArtifactsChanged++;
         if (version.checksum === null) {
           stats.versionNullChecksumsPreserved++;
@@ -414,10 +455,11 @@ async function run() {
       stats.blueprintDefinitionsChanged += result.definitionsChanged;
       stats.unrecognizedShapeArtifacts += result.unrecognizedShape ? 1 : 0;
       stats.unconvertedDefinitions += result.unconvertedDefinitions;
+      stats.legacySectionsMigrated += result.legacySectionsMigrated;
       mergeCounts(stats.oldToNewTypeCounts, result.oldToNewTypeCounts);
       mergeCounts(stats.removedKeysCounts, result.removedKeysCounts);
 
-      if (result.definitionsChanged > 0) {
+      if (result.definitionsChanged > 0 || result.legacySectionsMigrated > 0) {
         stats.blueprintArtifactsChanged++;
         blueprintUpdates.push({ id: blueprint.id, graphJson: result.graphJson });
       }
@@ -444,6 +486,7 @@ async function run() {
   console.log(`Blueprint step definitions converted: ${stats.blueprintDefinitionsChanged}`);
   console.log(`Artifacts in an unrecognized graph shape: ${stats.unrecognizedShapeArtifacts}`);
   console.log(`Definitions left unconverted by shape:    ${stats.unconvertedDefinitions}`);
+  console.log(`Legacy sections[] entries migrated to pages[]: ${stats.legacySectionsMigrated}`);
   console.log(`Failures:             ${stats.failures}`);
   
   if (Object.keys(stats.oldToNewTypeCounts).length > 0) {

@@ -35,7 +35,7 @@ named symbol. Line numbers are advisory.**
 | CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | ✅ 2026-09-12 |
 | CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔄 dispatched 2026-09-12 (`cln-2`) |
 | CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | ✅ 2026-09-12 |
-| CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | 🔄 dispatched 2026-09-12 (`cln-4`) |
+| CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | ✅ 2026-09-12 (code; the env runs are still owed) |
 | CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
 | CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | 🔲 |
 
@@ -324,7 +324,39 @@ list loops, choice labels and Code Blocks see.
 
 ---
 
-## CLN-4 — Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) 🔲
+## CLN-4 — Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete; the data fix is NOT applied yet.**
+>
+> **Re-scoped at review.** The Preferred fix's "preserve the `sections` key" rested on readers consuming
+> it. The dev's reader inventory shows none does:
+> - `RunDefinitionProvider` requires `pages` and rejects the graph ("This workflow cannot be started").
+> - `WorkflowContentIngestService` silently drops its steps.
+> - `TemplateService` rejects it.
+> - The diff sees nothing.
+> - Rollback, restore and export are opaque.
+>
+> Legacy `sections` is today's `pages`, renamed in 0038. So a graph with **no `pages` key** whose
+> `sections[]` entries carry `steps` now has `sections` renamed to `pages`, with its steps canonicalized
+> through the existing path and checksum recompute. Graphs that already have `pages` are untouched,
+> byte-identical in the tests. A step-like shape left unconverted still fails `--audit`.
+>
+> **Gates, re-run by the reviewer.** Type-check 0, scoped lint clean. New unit file 5/5. The existing
+> integration files, which the dev did not run, pass: `canonicalizeStepTypes` 11/11 and `…artifacts` 4/4.
+> `test:fast` 3895, which is 3890 + 5.
+>
+> **Reviewer red-run.** The pre-change script from git fails all 5 new tests. Restored clean.
+>
+> **Real-data proof.** Production's legacy version `e29518f3` (fetched read-only) was run through
+> `canonicalizeGraphJson`, and the result parsed with a verbatim copy of `VersionRuntimeSchema`.
+> - Before: **rejected** (`pages: Required`), with legacy names present.
+> - After: **accepted**, with 0 legacy names, including `short_text` nested three levels deep in a List
+>   config. Step ids are preserved, and `sections` is gone.
+>
+> **Still owed (operational, not code).** 57 of 58 `workflow_versions` on production carry this shape, and
+> dev and test have the same rows. They are fixed only when the script is run with `--apply` against each
+> environment, then `--audit`. Production writes need the owner at a terminal: the auto-mode classifier
+> blocks Claude from writing to production.
 
 **Priority: P2** · Size: S–M · Starting point: `scripts/canonicalizeStepTypes.ts`
 
