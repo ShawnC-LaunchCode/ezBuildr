@@ -1,22 +1,5 @@
 {
   "$comment": "Advisories accepted with justification for the CI dependency gate (SEC-046). Each entry MUST have a reason and an owner-reviewed expiry. Anything NOT listed here, at high/critical severity, fails the build. Review on or before each expiry.",
-  "allow": [
-    {
-      "ghsa": "GHSA-q7rr-3cgh-j5r3",
-      "package": "@opentelemetry/exporter-prometheus (via sdk-node, auto-instrumentations-node)",
-      "severity": "high",
-      "reason": "Advisory is a crash in the Prometheus exporter's own HTTP server. This app constructs PrometheusExporter with preventServerStart:true (server/observability/telemetry.ts), so that HTTP server is never started and the vulnerable code path is not reachable. Only patched by a breaking-major OTel upgrade.",
-      "followUp": "SEC-056 — upgrade OpenTelemetry to a patched line and drop this exception",
-      "expires": "2026-10-11"
-    },
-    {
-      "ghsa": "GHSA-45rx-2jwx-cxfr",
-      "package": "@opentelemetry/* JaegerPropagator (via sdk-node / auto-instrumentations-node)",
-      "severity": "high",
-      "reason": "DoS via an unhandled exception in JaegerPropagator on a malformed inbound header. This app does not use Jaeger propagation anywhere (no JaegerPropagator reference in the codebase), so the vulnerable path is unreachable. Same OpenTelemetry tree as GHSA-q7rr; only patched by a breaking-major OTel upgrade.",
-      "followUp": "SEC-056 — upgrade OpenTelemetry to a patched line and drop this exception",
-      "expires": "2026-10-11"
-    }
-  ],
-  "$resolved": "GHSA-mh99-v99m-4gvg (brace-expansion) was allowlisted here on the premise that the only npm-offered fix was a breaking-major eslint-plugin-import upgrade. That stopped being true once 1.1.18, 2.1.4 and 5.0.9 shipped: all three are patch releases inside the majors already installed, so every consumer range admits them and `npm update brace-expansion` fixes all nine install paths with no override and no package.json change. Exception removed 2026-08-06 rather than left to expire."
+  "allow": [],
+  "$resolved": "GHSA-mh99-v99m-4gvg (brace-expansion) was allowlisted here on the premise that the only npm-offered fix was a breaking-major eslint-plugin-import upgrade. That stopped being true once 1.1.18, 2.1.4 and 5.0.9 shipped: all three are patch releases inside the majors already installed, so every consumer range admits them and `npm update brace-expansion` fixes all nine install paths with no override and no package.json change. Exception removed 2026-08-06 rather than left to expire. | GHSA-q7rr-3cgh-j5r3 (Prometheus exporter HTTP-server crash) and GHSA-45rx-2jwx-cxfr (JaegerPropagator DoS) were allowlisted pending a breaking-major OTel upgrade (SEC-056). CLN-5 (2026-09-12) upgraded @opentelemetry/api to ^1.9.1, sdk-node and exporter-prometheus to 0.222.0, and auto-instrumentations-node to 0.80.0 — one mutually compatible patched set (`npm ls @opentelemetry/api` shows a single version). `npm audit --omit=dev --json` no longer reports either GHSA at any severity, so both exceptions are removed rather than left to expire on 2026-10-11."
 }

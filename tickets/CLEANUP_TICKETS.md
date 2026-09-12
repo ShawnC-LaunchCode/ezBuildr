@@ -32,11 +32,11 @@ named symbol. Line numbers are advisory.**
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | 🔲 |
-| CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔲 |
-| CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | 🔲 |
-| CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | 🔲 |
-| CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | 🔲 |
+| CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | 🔄 dispatched 2026-09-12 (`cln-1`) |
+| CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔄 dispatched 2026-09-12 (`cln-2`) |
+| CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | 🔄 dispatched 2026-09-12 (`cln-3`) |
+| CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | 🔄 dispatched 2026-09-12 (`cln-4`) |
+| CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
 | CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | 🔲 |
 
 **Sequencing.** CLN-1 to CLN-5 have disjoint footprints and can run in parallel. **CLN-6 runs after CLN-5**,
@@ -336,7 +336,36 @@ against each environment.
 
 ---
 
-## CLN-5 — OpenTelemetry major upgrade; drop the two allowlisted advisories 🔲
+## CLN-5 — OpenTelemetry major upgrade; drop the two allowlisted advisories ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete and live-verified by the dev.**
+>
+> **Versions.** `api` 1.9.1, `sdk-node` and `exporter-prometheus` 0.222.0, `auto-instrumentations-node`
+> 0.80.0. `npm ls @opentelemetry/api` shows one copy. `telemetry.ts` is unchanged (the APIs carried over),
+> and `preventServerStart: true` is kept.
+>
+> **Gates, re-run by the reviewer in the worktree.** `audit-check.mjs`: *passed, 0 allowlisted,
+> 0 blocking*. Type-check 0. `metrics.test.ts` 2/2. `test:fast` 338/3890, unchanged.
+>
+> **Mutation proof of the gate.** The pre-upgrade `package.json`/lockfile, paired with the new emptied
+> allowlist and run through the same `audit-check.mjs`, **exits 1 naming both GHSA-45rx-2jwx-cxfr and
+> GHSA-q7rr-3cgh-j5r3**. So the upgrade, not the allowlist edit, is what clears the audit.
+>
+> **Lockfile scope, audited package by package.** 96 OpenTelemetry entries changed. The 36 non-OTel
+> entries all trace to the OTel tree, or to npm de-duplication around it:
+> - `systeminformation` via `instrumentation-host-metrics`
+> - `yargs` 17.7.3 via `sdk-node` → gRPC → `proto-loader`
+> - `gaxios`/`gcp-metadata`/`node-fetch` hoisted from `google-auth-library` 10.5.0, whose version is
+>   unchanged
+>
+> `npm ls` flags nothing invalid.
+>
+> **Live (dev).** Booted with telemetry on. `/metrics` served Prometheus text with
+> `otel_scope_version="0.222.0"`. The server was killed and the port confirmed free.
+>
+> **Side finding, pre-existing and not CLN-5's.** `scripts/test-captcha.mjs` imports `node-fetch`, which is
+> not in `package.json`; it resolves only through `google-auth-library`. ESM default import works on v3.
+> Filed below the Gate as a note.
 
 **Priority: P1** · Size: M · **Deadline: the allowlist entries expire 2026-10-11**, after which the Security
 Scan, a required check on `main`, fails on every branch. Starting point: `server/observability/telemetry.ts`
@@ -435,3 +464,12 @@ backlog.
 - [ ] `test:fast`, `test:integration` and the RLS gate green, with counts reconciled against the baseline
 - [ ] CI green on `dev`
 - [ ] Reviewer has committed each passed ticket and updated `tickets/BACKLOG.md`
+
+## Notes found during review (not tickets)
+
+- **Phantom `node-fetch` dependency** (found reviewing CLN-5). `scripts/test-captcha.mjs` does
+  `import fetch from 'node-fetch'`, but `node-fetch` is not declared in `package.json`. It resolves only
+  because `google-auth-library` → `gaxios` pulls it in, now as v3.3.2 at the top level. The file is ESM, so
+  the default import works on v3. If `google-auth-library` ever stops depending on it, the script breaks.
+  Either declare it, or switch the script to the global `fetch` (Node ≥ 18). One line; fold into any
+  future scripts cleanup.
