@@ -50,7 +50,15 @@ describe('selectListSourceVariables', () => {
         expect(result.map((s) => s.alias)).toEqual(['clients', 'matched', 'score']);
     });
 
-    it('excludes non-list step types and aliasless steps', () => {
+    // LIST-B15: `list` used to be excluded here because nothing projected a
+    // `list` question's `ListValue` envelope into rows before blocks ran, so
+    // offering it put a guaranteed-broken option in the dropdown.
+    // `ListToolsBlockRunner` now normalizes `ListValue` at its own input
+    // boundary via `listValueToListVariable` (`shared/listPipeline.ts`), so
+    // `list` is a legitimate source and this assertion is inverted from
+    // excluding it to including it. Other non-list-shaped types and aliasless
+    // steps are still excluded, unchanged.
+    it('includes list steps alongside computed, and still excludes other non-list step types and aliasless steps', () => {
         const result = selectListSourceVariables([
             step({ id: 's1', type: 'text', alias: 'first_name', title: 'First name' }),
             step({ id: 's2', type: 'list', alias: 'children', title: 'Children' }),
@@ -59,7 +67,7 @@ describe('selectListSourceVariables', () => {
             step({ id: 's5', alias: 'clients' }),
         ]);
 
-        expect(result.map((s) => s.alias)).toEqual(['clients']);
+        expect(result.map((s) => s.alias)).toEqual(['children', 'clients']);
     });
 
     it("excludes the block's own output so it cannot read from itself", () => {

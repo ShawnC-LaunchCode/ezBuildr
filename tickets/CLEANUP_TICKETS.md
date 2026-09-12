@@ -34,7 +34,7 @@ named symbol. Line numbers are advisory.**
 |---|---|---|---|---|
 | CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | ✅ 2026-09-12 |
 | CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔄 dispatched 2026-09-12 (`cln-2`) |
-| CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | 🔄 dispatched 2026-09-12 (`cln-3`) |
+| CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | ✅ 2026-09-12 |
 | CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | 🔄 dispatched 2026-09-12 (`cln-4`) |
 | CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
 | CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | 🔲 |
@@ -235,7 +235,26 @@ because page entry was added.
 
 ---
 
-## CLN-3 — A `list` question as a List Tools source (LIST-B15) 🔲
+## CLN-3 — A `list` question as a List Tools source (LIST-B15) ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete. User-reachable** through the source picker,
+> which now offers `list` steps.
+>
+> **What changed.** `shared/listPipeline.ts` gains `isListValue` and `listValueToListVariable`, the single
+> envelope→rows implementation, keeping `itemId`. `choice-utils` delegates to it. `ListToolsBlockRunner`
+> converts only at its own input boundary: the diff builds a local `workingList`, and **`context.data` is
+> never touched**, so logic, documents and Code Blocks still get the raw `ListValue`. The integration test
+> asserts that by re-reading the source step's own value.
+>
+> **Gates, re-run by the reviewer.**
+> - Type-check 0, scoped lint clean on all 7 files.
+> - Unit 113/113: `listPipeline.semantics`, the inverted source-picker test, and `choice-utils` and
+>   `list-choice-options` unchanged.
+> - Integration: `listTools.listSource` 2/2, including cross-tenant denial; `list-lifecycle` 2/2.
+> - `test:fast` 3897, which is 3890 + 7 (dev run).
+>
+> **Reviewer red-run.** Restoring the original `ListToolsBlockRunner` fails the filter test. Restored
+> clean.
 
 **Priority: ENH** · Size: M · Starting point: `server/services/blockRunners/ListToolsBlockRunner.ts`
 

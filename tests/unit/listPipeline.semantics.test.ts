@@ -18,7 +18,9 @@ import {
   applyListSelect,
   applyListDedupe,
   transformList,
-  getFieldValue
+  getFieldValue,
+  isListValue,
+  listValueToListVariable
 } from '@shared/listPipeline';
 import type { ListVariable, ListToolsFilterGroup, ListToolsSortKey } from '@shared/types/blocks';
 
@@ -977,5 +979,78 @@ describe('List Pipeline - AND Combinator', () => {
     const result = applyListFilters(list, filterGroup);
 
     expect(result.rows.length).toBe(0); // No row satisfies both conditions
+  });
+});
+
+/**
+ * LIST-B15: the shared envelope→rows conversion lifted out of
+ * `client/src/lib/choice-utils.ts` so `ListToolsBlockRunner` (server) and
+ * Choice's list-bound dynamic options (client) share ONE implementation.
+ * `choice-utils.test.ts` / `list-choice-options.test.ts` prove
+ * `generateOptionsFromList`'s behavior is unchanged now that it delegates
+ * here; these tests prove the shared function itself.
+ */
+describe('listValueToListVariable (LIST-B15)', () => {
+  it('converts top-level items to rows, keeping itemId as both row.id and row.itemId', () => {
+    const listValue = {
+      items: [
+        { itemId: 'item-1', values: { first_name: 'Alice', age: 30 } },
+        { itemId: 'item-2', values: { first_name: 'Bob', age: 25 } },
+      ]
+    };
+
+    const result = listValueToListVariable(listValue);
+
+    expect(result.count).toBe(2);
+    expect(result.rows).toEqual([
+      { id: 'item-1', itemId: 'item-1', first_name: 'Alice', age: 30 },
+      { id: 'item-2', itemId: 'item-2', first_name: 'Bob', age: 25 },
+    ]);
+    expect(result.columns.map(c => c.id).sort()).toEqual(['age', 'first_name', 'itemId'].sort());
+  });
+
+  it('does not project a nested list field — it stays an opaque value on its parent row', () => {
+    const listValue = {
+      items: [
+        { itemId: 'parent-1', values: { name: 'Ava', addresses: { items: [{ itemId: 'nested-1', values: { street: '12 Oak St' } }] } } },
+      ]
+    };
+
+    const result = listValueToListVariable(listValue);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].addresses).toEqual({ items: [{ itemId: 'nested-1', values: { street: '12 Oak St' } }] });
+  });
+
+  it('falls back to a generated id when itemId is missing, and to {} when values is missing', () => {
+    const listValue = { items: [{}, { itemId: 'item-1' }] };
+
+    const result = listValueToListVariable(listValue);
+
+    expect(result.rows[0]).toEqual({ id: 'item-0', itemId: 'item-0' });
+    expect(result.rows[1]).toEqual({ id: 'item-1', itemId: 'item-1' });
+  });
+
+  it('empty items produces an empty ListVariable', () => {
+    const result = listValueToListVariable({ items: [] });
+    expect(result).toEqual({ metadata: { source: 'list_tools' }, rows: [], count: 0, columns: [{ id: 'itemId', name: 'itemId', type: 'text' }] });
+  });
+});
+
+describe('isListValue (LIST-B15)', () => {
+  it('recognizes a ListValue envelope', () => {
+    expect(isListValue({ items: [] })).toBe(true);
+  });
+
+  it('rejects a ListVariable (rows/columns/metadata), even though both are objects', () => {
+    const listVariable = { metadata: { source: 'list_tools' as const }, rows: [], count: 0, columns: [] };
+    expect(isListValue(listVariable)).toBe(false);
+  });
+
+  it('rejects a plain array and non-object values', () => {
+    expect(isListValue([])).toBe(false);
+    expect(isListValue(null)).toBe(false);
+    expect(isListValue('items')).toBe(false);
+    expect(isListValue(undefined)).toBe(false);
   });
 });

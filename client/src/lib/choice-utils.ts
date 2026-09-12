@@ -1,15 +1,8 @@
-import { transformList, getFieldValue, isListVariable, arrayToListVariable } from "@shared/listPipeline";
+import { transformList, getFieldValue, isListVariable, arrayToListVariable, isListValue, listValueToListVariable } from "@shared/listPipeline";
 import type { ListVariable } from "@shared/types/blocks";
 import type { DynamicOptionsConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
-export function isListValue(data: unknown): data is { items: Array<{ itemId?: string; values?: Record<string, unknown> }> } {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    !('metadata' in data && 'rows' in data) &&
-    Array.isArray((data as { items?: unknown }).items)
-  );
-}
+export { isListValue };
 
 /**
  * Generate choice options from a list variable with full transformation support
@@ -32,36 +25,9 @@ export function generateOptionsFromList(
     // List step value: { items: ListItem[] }. Only the top level is projected —
     // a nested list stays an opaque field value on its parent row, so nested
     // items can never become options. That is a product constraint, not a gap.
-    const allKeys = new Set<string>();
-    allKeys.add('itemId');
-    listData.items.forEach(item => {
-      if (item.values !== undefined && typeof item.values === 'object' && item.values !== null) {
-        Object.keys(item.values).forEach(key => allKeys.add(key));
-      }
-    });
-
-    const columns = Array.from(allKeys).map(key => ({
-      id: key,
-      name: key,
-      type: 'text'
-    }));
-
-    inputList = {
-      metadata: { source: 'list_tools' },
-      rows: listData.items.map((item, idx) => {
-        const values = item.values !== undefined && typeof item.values === 'object' && item.values !== null
-          ? item.values
-          : {};
-        const itemId = (typeof item.itemId === 'string' ? item.itemId : undefined) ?? `item-${idx}`;
-        return {
-          id: itemId,
-          itemId,
-          ...values
-        };
-      }),
-      count: listData.items.length,
-      columns
-    };
+    // Shared with ListToolsBlockRunner (LIST-B15) so there is one envelope→rows
+    // implementation.
+    inputList = listValueToListVariable(listData);
   } else if (Array.isArray(listData)) {
     inputList = arrayToListVariable(listData);
   } else {
