@@ -34,8 +34,9 @@ export function validateValueSync(options: ValidatorOptions): ValidationResult {
     const errors: string[] = [];
     // Check required/empty first
     const isEmpty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+    const isWrongRequiredValue = schema.requiredValue !== undefined && value !== schema.requiredValue;
     // Apply "Required" shorthand from schema
-    if (schema.required && isEmpty) {
+    if (schema.required && (isEmpty || isWrongRequiredValue)) {
         // If required and empty, fail immediately (other rules usually don't apply to empty values)
         errors.push(schema.requiredMessage ?? defaultValidationMessages.required);
         return { valid: false, errors };
@@ -135,6 +136,9 @@ function validateRule(
             break;
         case "maxDecimalPlaces":
             if (typeof value === "number" || typeof value === "string") {
+                if (rule.value === 0 && typeof value === "number" && !Number.isInteger(value)) {
+                    return formatMessage(msg, { value: rule.value });
+                }
                 const strVal = String(value);
                 if (strVal.includes(".")) {
                     const decimals = strVal.split(".")[1];

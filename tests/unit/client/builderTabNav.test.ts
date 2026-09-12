@@ -4,7 +4,7 @@ import { isBuilderTab } from "../../../client/src/components/builder/layout/Buil
 
 describe("isBuilderTab", () => {
   it("accepts every current builder tab", () => {
-    for (const tab of ["sections", "templates", "data-sources", "review", "snapshots", "settings"]) {
+    for (const tab of ["pages", "templates", "data-sources", "review", "snapshots", "settings"]) {
       expect(isBuilderTab(tab)).toBe(true);
     }
   });

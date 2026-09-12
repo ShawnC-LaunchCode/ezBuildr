@@ -28,7 +28,8 @@ export interface OwnershipInfo {
 export async function canAccessAsset(
   userId: string,
   ownerType: 'user' | 'org' | null,
-  ownerUuid: string | null
+  ownerUuid: string | null,
+  tx?: DbTransaction
 ): Promise<boolean> {
   // Fail closed on missing ownership fields (M1 Fix)
   if (!ownerType || !ownerUuid) {
@@ -40,7 +41,10 @@ export async function canAccessAsset(
   }
 
   if (ownerType === 'org') {
-    return isOrgMember(userId, ownerUuid);
+    // RLS-2b: thread tx through — see isOrgMember's own comment on why an
+    // untransacted pool query here would deadlock a caller's transaction on
+    // a size-1 pool (the SystemStats class of bug).
+    return isOrgMember(userId, ownerUuid, tx);
   }
 
   return false;
@@ -94,8 +98,16 @@ export async function canManageOrg(userId: string, orgId: string, tx?: DbTransac
  * @param userId - The user ID
  * @returns Array of organization IDs
  */
-export async function getUserOrgIds(userId: string): Promise<string[]> {
-  const memberships = await db
+export async function getUserOrgIds(userId: string, tx?: DbTransaction): Promise<string[]> {
+  // RLS-2b (reviewer fix): MUST accept the caller's transaction. In test mode
+  // the pool is size 1 (`server/db.ts`, so schema isolation is reliable), so a
+  // query issued on the POOL from inside an open transaction waits forever for
+  // the connection that transaction is already holding. It hangs rather than
+  // erroring, which is why it reads as a 300s hook timeout and not a failure.
+  // This is the `SystemStats` deadlock class, and it is reachable from every
+  // service RLS-2a/2b converted, because the repositories below call this from
+  // inside `withCurrentTenant`.
+  const memberships = await (tx ?? db)
     .select({ orgId: organizationMemberships.orgId })
     .from(organizationMemberships)
     .where(eq(organizationMemberships.userId, userId));
@@ -105,10 +117,14 @@ export async function getUserOrgIds(userId: string): Promise<string[]> {
  * Build a SQL condition for "user owns OR user's org owns" filtering
  * Use this in list queries to show both user-owned and org-owned assets
  *
- * Example usage:
+ * Example usage — **pass `tx` whenever the caller has one.** Omitting it inside
+ * an open transaction issues a POOL query, and the test pool is size 1, so it
+ * waits forever on the connection that transaction holds: it hangs rather than
+ * failing. That cost RLS-2b a full review cycle; this example is written with
+ * `tx` so the next reader copies the safe form.
  * ```
- * const accessible = await getAccessibleOwnershipFilter(userId);
- * const results = await db.select().from(workflows).where(
+ * const accessible = await getAccessibleOwnershipFilter(userId, tx);
+ * const results = await (tx ?? db).select().from(workflows).where(
  *   or(
  *     and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId)),
  *     and(eq(workflows.ownerType, 'org'), inArray(workflows.ownerUuid, accessible.orgIds))
@@ -116,11 +132,15 @@ export async function getUserOrgIds(userId: string): Promise<string[]> {
  * );
  * ```
  */
-export async function getAccessibleOwnershipFilter(userId: string): Promise<{
+export async function getAccessibleOwnershipFilter(userId: string, tx?: DbTransaction): Promise<{
   userId: string;
   orgIds: string[];
 }> {
-  const orgIds = await getUserOrgIds(userId);
+  // Pass `tx` whenever this is reached from inside a service transaction — see
+  // the deadlock note on `getUserOrgIds`. Repositories that call this from a
+  // `withTx`-wrapped service path (Datavault tables/databases, projects,
+  // workflows) must thread their own `tx` through.
+  const orgIds = await getUserOrgIds(userId, tx);
   return { userId, orgIds };
 }
 /**
@@ -138,13 +158,14 @@ export async function getAccessibleOwnershipFilter(userId: string): Promise<{
 export async function canCreateWithOwnership(
   userId: string,
   ownerType: string,
-  ownerUuid: string
+  ownerUuid: string,
+  tx?: DbTransaction
 ): Promise<boolean> {
   if (ownerType === 'user') {
     return ownerUuid === userId;
   }
   if (ownerType === 'org') {
-    return isOrgMember(userId, ownerUuid);
+    return isOrgMember(userId, ownerUuid, tx);
   }
   return false;
 }
@@ -158,9 +179,10 @@ export async function requireAssetAccess(
   userId: string,
   ownerType: 'user' | 'org' | null,
   ownerUuid: string | null,
-  resourceName: string = 'resource'
+  resourceName: string = 'resource',
+  tx?: DbTransaction
 ): Promise<void> {
-  const hasAccess = await canAccessAsset(userId, ownerType, ownerUuid);
+  const hasAccess = await canAccessAsset(userId, ownerType, ownerUuid, tx);
   if (!hasAccess) {
     throw new Error(`Access denied: You do not have permission to access this ${resourceName}`);
   }
@@ -172,9 +194,10 @@ export async function requireAssetAccess(
  */
 export async function requireOrgAdmin(
   userId: string,
-  orgId: string
+  orgId: string,
+  tx?: DbTransaction
 ): Promise<void> {
-  const isAdmin = await canManageOrg(userId, orgId);
+  const isAdmin = await canManageOrg(userId, orgId, tx);
   if (!isAdmin) {
     throw new Error('Access denied: Organization admin role required');
   }

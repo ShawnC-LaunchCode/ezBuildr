@@ -12,7 +12,6 @@ import type { ChoiceAdvancedConfig } from '../../../shared/types/stepConfigs';
  */
 const cfg = (partial: Partial<ChoiceAdvancedConfig>): ChoiceAdvancedConfig => ({
     display: 'radio',
-    allowMultiple: false,
     options: [],
     ...partial,
 });
@@ -59,28 +58,6 @@ describe('resolveChoiceDisplay', () => {
             expect(resolveChoiceDisplay(cfg({ display: 'multiple' }))).toBe('multiple');
         });
 
-        it('resolves allowMultiple even when display still says radio', () => {
-            expect(resolveChoiceDisplay(cfg({ display: 'radio', allowMultiple: true })))
-                .toBe('multiple');
-        });
-
-        it('beats a searchable dropdown rather than becoming a combobox', () => {
-            expect(
-                resolveChoiceDisplay(cfg({ display: 'dropdown', searchable: true, allowMultiple: true }))
-            ).toBe('multiple');
-        });
-
-        it('beats an explicit combobox display', () => {
-            // Guards the ordering inside the resolver: a config can carry a
-            // stale single-select display alongside allowMultiple (switching a
-            // question to multi-select leaves `display` behind), and checkboxes
-            // must still win. Without this case the combobox branch can be
-            // hoisted above the multi-select branch and every other test here
-            // still passes.
-            expect(resolveChoiceDisplay(cfg({ display: 'combobox', allowMultiple: true })))
-                .toBe('multiple');
-        });
-
         it('treats a multiple_choice step as multiple whatever the config claims', () => {
             expect(resolveChoiceDisplay(cfg({ display: 'combobox' }), 'multiple_choice'))
                 .toBe('multiple');
@@ -88,6 +65,37 @@ describe('resolveChoiceDisplay', () => {
     });
 
     describe('defaults', () => {
+        it('resolves a pre-STB-7 allowMultiple row even when display still says radio', () => {
+            // Restored by the reviewer. STB-7 deleted this case along with the
+            // field, but `allowMultiple` was *required* before this ticket, and
+            // AI/API/import callers could write it disagreeing with `display`.
+            // Such a row is a real multi-select holding a string[]; reading it
+            // as a radio would orphan the stored answer.
+            expect(resolveChoiceDisplay({ ...cfg({ display: 'radio' }), allowMultiple: true } as never))
+                .toBe('multiple');
+        });
+
+        it('beats a searchable dropdown rather than becoming a combobox', () => {
+            expect(resolveChoiceDisplay(
+                { ...cfg({ display: 'dropdown', searchable: true }), allowMultiple: true } as never,
+            )).toBe('multiple');
+        });
+
+        it('beats an explicit combobox display', () => {
+            expect(resolveChoiceDisplay(
+                { ...cfg({ display: 'combobox' }), allowMultiple: true } as never,
+            )).toBe('multiple');
+        });
+
+        it('ignores allowMultiple:false, so display alone decides for new rows', () => {
+            expect(resolveChoiceDisplay(
+                { ...cfg({ display: 'radio' }), allowMultiple: false } as never,
+            )).toBe('radio');
+            expect(resolveChoiceDisplay(
+                { ...cfg({ display: 'multiple' }), allowMultiple: false } as never,
+            )).toBe('multiple');
+        });
+
         it('falls back to radio for a missing config', () => {
             expect(resolveChoiceDisplay(undefined)).toBe('radio');
             expect(resolveChoiceDisplay(null)).toBe('radio');

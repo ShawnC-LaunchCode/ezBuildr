@@ -1,5 +1,5 @@
 export interface WorkflowSchema {
-    sections: unknown[];
+    pages: unknown[];
     steps: unknown[];
     // Add other top-level schema properties as needed
     version?: string; // Schema version, if we decide to track it inside the JSON too

@@ -84,10 +84,17 @@ export interface OnboardingVariablePayload {
   type: string;
   alias: string;
   label?: string;
+  config?: OnboardingVariable["config"];
 }
 
 function toPayload(variables: OnboardingVariable[]): OnboardingVariablePayload[] {
-  return variables.map((v) => ({ name: v.name, type: v.type, alias: v.alias, label: v.label }));
+  return variables.map((v) => ({
+    name: v.name,
+    type: v.type,
+    alias: v.alias,
+    label: v.label,
+    config: v.config,
+  }));
 }
 
 /**
@@ -130,7 +137,10 @@ async function applyGeneratedContent(workflowId: string, generated: AIGeneratedW
     body: JSON.stringify({
       title: generated.title,
       description: generated.description ?? undefined,
+      // Sections must travel with the pages that reference them: a page whose
+      // sectionId points at a section the payload never sent lands ungrouped.
       sections: generated.sections,
+      pages: generated.pages,
     }),
   });
 }

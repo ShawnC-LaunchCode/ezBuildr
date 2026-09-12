@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchAPI, type ApiSection, type ApiStep } from "@/lib/vault-api";
-import { useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
+import type { ApiAdvanceResult, ApiPage, ApiStep } from "@/lib/vault-api";
+import { useAdvance, useCompleteRun } from "@/lib/vault-hooks";
 import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidateRule } from "@shared/types/blocks";
@@ -11,17 +11,14 @@ import { describeListErrorsForSummary, normalizeListValue } from "@/components/r
 import { clearRunToken } from "@/lib/runTokens";
 import { usePreviewStore } from "@/store/preview";
 import { analytics } from "@/lib/analytics";
-import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 
 type RunnerValues = Record<string, StepValue>;
 
-type SectionValueWrite = {
+type PageValueWrite = {
   stepId: string;
   value: StepValue;
 };
-
-type TraceRecorder = Pick<PreviewEnvironment, 'addTraceEntry'>;
 
 type AdvanceValidationIssue = {
   kind: 'validation';
@@ -29,33 +26,31 @@ type AdvanceValidationIssue = {
   fieldErrors?: Record<string, string[]>;
 };
 
+type AdvanceOutcome = AdvanceValidationIssue | { kind: 'advanced'; result: ApiAdvanceResult };
+
 interface AdvanceContext {
   runId: string | null;
-  currentSection: ApiSection;
-  currentSectionIndex: number;
-  visibleSections: ApiSection[];
-  visibleSectionSteps: ApiStep[];
+  currentPage: ApiPage;
+  currentPageIndex: number;
+  visiblePages: ApiPage[];
+  visiblePageSteps: ApiStep[];
   effectiveValues: RunnerValues;
-  isLastSection: boolean;
-  setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
+  isLastPage: boolean;
+  setCurrentPageIndex: Dispatch<SetStateAction<number>>;
   setShowReview: Dispatch<SetStateAction<boolean>>;
   returnToReviewAfterValidation: boolean;
 }
 
 export interface RunNavigationTransport {
-  getVisibleSectionSteps: (sectionId: string) => ApiStep[];
-  saveBeforeLeavingSection: () => Promise<void>;
-  recordValidationPassed: (stepsValidated: number) => void | Promise<void>;
-  recordValidationException: (error: unknown) => void | Promise<void>;
-  advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceValidationIssue | undefined>;
+  getVisiblePageSteps: (pageId: string) => ApiStep[];
+  saveBeforeLeavingPage: () => Promise<void>;
+  advanceAfterValidation: (context: AdvanceContext) => Promise<AdvanceOutcome | undefined>;
 }
 
 interface UseRunNavigationTransportProps {
-  mode: 'preview' | 'production';
-  previewEnvironment: PreviewEnvironment | null | undefined;
-  getVisibleSectionSteps: (sectionId: string, traceRecorder?: TraceRecorder) => ApiStep[];
-  onPreviewComplete?: () => void;
+  getVisiblePageSteps: (pageId: string) => ApiStep[];
   saveNow: () => Promise<void>;
+  onAdvanceResult?: (result: ApiAdvanceResult, submittedValues: RunnerValues) => ApiPage[];
 }
 
 interface UseRunNavigationProps {
@@ -63,21 +58,24 @@ interface UseRunNavigationProps {
   workflowId?: string;
   runVersionId?: string;
   initialCompleted?: boolean;
-  initialSectionId?: string | null;
-  visibleSections: ApiSection[];
+  initialPageId?: string | null;
+  visiblePages: ApiPage[];
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
   returnToReviewAfterNext?: boolean;
+  /**
+   * The reached set that gates `jumpToPage` (SECT-9): the run row's persisted
+   * `visitedPageIds`. Never re-derived here — reachedness is owned by the run.
+   */
+  visitedPageIds?: string[];
 }
 
-function hasFinalBlock(section: ApiSection): boolean {
-  return Boolean((section.config as { finalBlock?: unknown } | null | undefined)?.finalBlock);
-}
+const NO_VISITED_PAGE_IDS: string[] = [];
 
-function collectSectionValues(steps: ApiStep[], values: RunnerValues): SectionValueWrite[] {
-  const currentSectionStepIds = new Set(steps.map((step) => step.id));
+function collectPageValues(steps: ApiStep[], values: RunnerValues): PageValueWrite[] {
+  const currentPageStepIds = new Set(steps.map((step) => step.id));
   return Object.keys(values)
-    .filter((stepId) => currentSectionStepIds.has(stepId))
+    .filter((stepId) => currentPageStepIds.has(stepId))
     .map((stepId) => ({ stepId, value: values[stepId] }));
 }
 
@@ -121,103 +119,57 @@ function focusFirstValidationError(blockErrors: Record<string, string[]>): void 
   }, 100);
 }
 
+function applyAdvanceNavigation(result: ApiAdvanceResult, context: Pick<AdvanceContext,
+  'currentPageIndex' | 'visiblePages' | 'isLastPage' | 'setCurrentPageIndex' | 'setShowReview' | 'returnToReviewAfterValidation'
+>, authoritative: boolean): void {
+  const { currentPageIndex, visiblePages, isLastPage, setCurrentPageIndex, setShowReview, returnToReviewAfterValidation } = context;
+  const nextPageId = result.navigation?.nextPageId;
+  if (returnToReviewAfterValidation || (authoritative ? nextPageId == null : isLastPage)) {
+    setShowReview(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  if (nextPageId != null) {
+    const nextIndex = visiblePages.findIndex((page) => page.id === nextPageId);
+    if (nextIndex >= 0) { setCurrentPageIndex(nextIndex); return; }
+    if (authoritative) { throw new Error('The next page is unavailable. Restart preview to reload the workflow.'); }
+    console.warn('[WorkflowRunner] Server nextPageId not locally visible, advancing sequentially', nextPageId);
+    if (currentPageIndex + 1 < visiblePages.length) { setCurrentPageIndex(currentPageIndex + 1); }
+    else { setShowReview(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    return;
+  }
+  setCurrentPageIndex(Math.min(currentPageIndex + 1, visiblePages.length - 1));
+}
+
 export function useRunNavigationTransport({
-  mode,
-  previewEnvironment,
-  getVisibleSectionSteps,
-  onPreviewComplete,
+  getVisiblePageSteps,
   saveNow,
+  onAdvanceResult,
 }: UseRunNavigationTransportProps): RunNavigationTransport {
-  const { toast } = useToast();
-  const submitMutation = useSubmitSection();
-  const nextMutation = useNext();
-  const isProductionMode = mode === 'production';
+  const advanceMutation = useAdvance();
+  // No response means the server may already have committed: retry that key.
+  // Any response completes the attempt, including a validation rejection.
+  const pendingSubmissionRef = useRef<{
+    runId: string;
+    pageId: string;
+    key: string;
+    inFlight: boolean;
+  } | null>(null);
+  useEffect(() => () => { pendingSubmissionRef.current = null; }, []);
 
   return useMemo<RunNavigationTransport>(() => {
-    if (!isProductionMode && previewEnvironment) {
-      return {
-        getVisibleSectionSteps: (sectionId) => getVisibleSectionSteps(sectionId, previewEnvironment),
-        saveBeforeLeavingSection: async () => undefined,
-        recordValidationPassed: (stepsValidated) => {
-          void previewEnvironment.addTraceEntry({
-            type: 'logic',
-            status: 'executed',
-            message: 'Page Validation Passed',
-            details: { stepsValidated },
-          });
-        },
-        recordValidationException: (error) => {
-          void previewEnvironment.addTraceEntry({
-            type: 'error',
-            status: 'failed',
-            message: 'Validation Exception',
-            details: { error },
-          });
-        },
-        advanceAfterValidation: async ({
-          runId,
-          currentSectionIndex,
-          visibleSections,
-          isLastSection,
-          setCurrentSectionIndex,
-          setShowReview,
-          returnToReviewAfterValidation,
-        }) => {
-          if (returnToReviewAfterValidation) {
-            setShowReview(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return undefined;
-          }
-
-          if (isLastSection) {
-            previewEnvironment.completeRun();
-            void previewEnvironment.addTraceEntry({
-              type: 'step',
-              status: 'executed',
-              message: 'Workflow Completed',
-            });
-            toast({ title: "Preview Complete!", description: "Preview workflow completed successfully" });
-            onPreviewComplete?.();
-            return undefined;
-          }
-
-          const nextIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-          const nextSection = visibleSections[nextIndex];
-
-          if (runId != null && nextSection != null && hasFinalBlock(nextSection)) {
-            try {
-              const valuesToSave = Object.entries(previewEnvironment.getValues()).map(([stepId, value]) => ({ stepId, value }));
-              await fetchAPI(`/api/runs/${runId}/values/bulk`, {
-                method: 'POST',
-                body: JSON.stringify({ values: valuesToSave }),
-              });
-            } catch (error) {
-              console.error('[WorkflowRunner] Failed to save preview values:', error);
-              toast({ title: "Warning", description: "Failed to save form values.", variant: "destructive" });
-            }
-          }
-
-          setCurrentSectionIndex(nextIndex);
-          previewEnvironment.setCurrentSection(nextIndex);
-          return undefined;
-        },
-      };
-    }
-
     return {
-      getVisibleSectionSteps: (sectionId) => getVisibleSectionSteps(sectionId),
-      saveBeforeLeavingSection: saveNow,
-      recordValidationPassed: () => undefined,
-      recordValidationException: () => undefined,
+      getVisiblePageSteps: (pageId) => getVisiblePageSteps(pageId),
+      saveBeforeLeavingPage: saveNow,
       advanceAfterValidation: async ({
         runId,
-        currentSection,
-        currentSectionIndex,
-        visibleSections,
-        visibleSectionSteps,
+        currentPage,
+        currentPageIndex,
+        visiblePages,
+        visiblePageSteps,
         effectiveValues,
-        isLastSection,
-        setCurrentSectionIndex,
+        isLastPage,
+        setCurrentPageIndex,
         setShowReview,
         returnToReviewAfterValidation,
       }) => {
@@ -225,78 +177,81 @@ export function useRunNavigationTransport({
           throw new Error("Run is not ready yet");
         }
 
-        // Flush any pending autosaves immediately so the submitSection request cannot race them.
-        await saveNow();
+        let attempt = pendingSubmissionRef.current;
+        if (attempt?.runId !== runId || attempt.pageId !== currentPage.id) {
+          attempt = { runId, pageId: currentPage.id, key: crypto.randomUUID(), inFlight: false };
+          pendingSubmissionRef.current = attempt;
+        }
+        // Acquire before the first await, including the autosave flush.
+        if (attempt.inFlight) {
+          return undefined;
+        }
+        attempt.inFlight = true;
+        let result: ApiAdvanceResult;
+        try {
+          await saveNow();
+          if (pendingSubmissionRef.current !== attempt) {
+            return undefined;
+          }
+          result = await advanceMutation.mutateAsync({
+            runId,
+            pageId: currentPage.id,
+            values: collectPageValues(visiblePageSteps, effectiveValues),
+            submissionKey: attempt.key,
+          });
+        } catch (error) {
+          if (pendingSubmissionRef.current !== attempt) {
+            return undefined;
+          }
+          // Leave the identity available for a user retry after a lost response.
+          throw error;
+        } finally {
+          attempt.inFlight = false;
+        }
 
-        const result = await submitMutation.mutateAsync({
-          runId,
-          sectionId: currentSection.id,
-          values: collectSectionValues(visibleSectionSteps, effectiveValues),
-        });
+        if (pendingSubmissionRef.current !== attempt) {
+          return undefined;
+        }
+        pendingSubmissionRef.current = null;
+        // Defence-in-depth: HTTP pairing currently returns the requested key.
+        if (result.submissionKey !== attempt.key) {
+          return undefined;
+        }
+
+        const submittedValues = Object.fromEntries(collectPageValues(visiblePageSteps, effectiveValues)
+          .map(({ stepId, value }) => [stepId, value]));
+        const resolvedPages = onAdvanceResult?.(result, submittedValues) ?? visiblePages;
 
         if (!result.success) {
+          // No `fieldErrors` here, deliberately. The submit path never carried
+          // them either: `validatePage` produces per-field structure, the
+          // coordinator flattens it to strings, and `BlockRunner` has no
+          // `fieldErrors` at all — so `focusFirstFieldError` has never fired
+          // from this path. Filed as CB-B6 rather than invented here.
           return {
             kind: 'validation',
             errors: result.errors ?? ["Unable to continue"],
-            fieldErrors: result.fieldErrors,
           };
         }
 
-        if (returnToReviewAfterValidation) {
-          setShowReview(true);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return undefined;
-        }
-
-        if (isLastSection) {
-          setShowReview(true);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return undefined;
-        }
-
-        const nextResult = await nextMutation.mutateAsync({
-          runId,
-          currentSectionId: currentSection.id,
-        });
-
-        if (nextResult.nextSectionId != null) {
-          const nextIndex = visibleSections.findIndex((section) => section.id === nextResult.nextSectionId);
-          if (nextIndex >= 0) {
-            setCurrentSectionIndex(nextIndex);
-          } else {
-            console.warn('[WorkflowRunner] Server nextSectionId not locally visible, advancing sequentially', nextResult.nextSectionId);
-            if (currentSectionIndex + 1 < visibleSections.length) {
-              setCurrentSectionIndex(currentSectionIndex + 1);
-            } else {
-              setShowReview(true);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }
-        } else {
-          const newIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-          setCurrentSectionIndex(newIndex);
-        }
-
-        return undefined;
+        applyAdvanceNavigation(result, { currentPageIndex, visiblePages: resolvedPages, isLastPage,
+          setCurrentPageIndex, setShowReview, returnToReviewAfterValidation }, onAdvanceResult !== undefined);
+        return { kind: 'advanced', result };
       },
     };
   }, [
-    isProductionMode,
-    previewEnvironment,
-    getVisibleSectionSteps,
-    onPreviewComplete,
+    getVisiblePageSteps,
     saveNow,
-    submitMutation,
-    nextMutation,
-    toast,
+    advanceMutation,
+    onAdvanceResult,
   ]);
 }
 
 export interface UseRunNavigationReturn {
-  currentSectionIndex: number;
-  setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
-  currentSection: ApiSection | undefined;
-  isLastSection: boolean;
+  currentPageIndex: number;
+  setCurrentPageIndex: Dispatch<SetStateAction<number>>;
+  currentPage: ApiPage | undefined;
+  isLastPage: boolean;
   showReview: boolean;
   isCompleted: boolean;
   setShowReview: Dispatch<SetStateAction<boolean>>;
@@ -304,6 +259,11 @@ export interface UseRunNavigationReturn {
   fieldErrors: Record<string, string[]>;
   handleNext: () => Promise<void>;
   handlePrev: () => Promise<void>;
+  /**
+   * Move the view to an already-reached page. Resolves `true` when the view
+   * moved (or was already there) and `false` when the target was refused.
+   */
+  jumpToPage: (pageId: string) => Promise<boolean>;
   handleFinalSubmit: () => Promise<void>;
   completeMutationIsPending: boolean;
 }
@@ -313,13 +273,14 @@ export function useRunNavigation({
   workflowId,
   runVersionId,
   initialCompleted = false,
-  initialSectionId,
-  visibleSections,
+  initialPageId,
+  visiblePages,
   effectiveValues,
   transport,
   returnToReviewAfterNext = false,
+  visitedPageIds = NO_VISITED_PAGE_IDS,
 }: UseRunNavigationProps): UseRunNavigationReturn {
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialCompleted);
   const [errors, setErrors] = useState<string[]>([]);
@@ -327,15 +288,15 @@ export function useRunNavigation({
   const initializedRunRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!actualRunId || visibleSections.length === 0 || initializedRunRef.current === actualRunId) {
+    if (!actualRunId || visiblePages.length === 0 || initializedRunRef.current === actualRunId) {
       return;
     }
-    const savedIndex = initialSectionId
-      ? visibleSections.findIndex((section) => section.id === initialSectionId)
+    const savedIndex = initialPageId
+      ? visiblePages.findIndex((page) => page.id === initialPageId)
       : 0;
-    setCurrentSectionIndex(savedIndex >= 0 ? savedIndex : 0);
+    setCurrentPageIndex(savedIndex >= 0 ? savedIndex : 0);
     initializedRunRef.current = actualRunId;
-  }, [actualRunId, initialSectionId, visibleSections]);
+  }, [actualRunId, initialPageId, visiblePages]);
 
   useEffect(() => {
     setIsCompleted(initialCompleted);
@@ -344,8 +305,8 @@ export function useRunNavigation({
   const { toast } = useToast();
   const completeMutation = useCompleteRun();
 
-  const currentSection = visibleSections[currentSectionIndex];
-  const isLastSection = currentSectionIndex === visibleSections.length - 1;
+  const currentPage = visiblePages[currentPageIndex];
+  const isLastPage = currentPageIndex === visiblePages.length - 1;
 
   const handlePrev = useCallback(async () => {
     if (showReview) {
@@ -353,9 +314,54 @@ export function useRunNavigation({
       return;
     }
 
-    await transport.saveBeforeLeavingSection();
-    setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
+    await transport.saveBeforeLeavingPage();
+    setCurrentPageIndex((prev) => Math.max(prev - 1, 0));
   }, [showReview, transport]);
+
+  const reachedPageIds = useMemo(() => new Set(visitedPageIds), [visitedPageIds]);
+
+  /**
+   * The guarded jump behind the rail and the Review screen's edit buttons
+   * (SECT-9). It is deliberately *not* a submit: `handleNext` validates the
+   * page, submits it and lets the server resolve `skip_to`, which moves the
+   * run. A jump moves only the view, so the server's forward position stays
+   * authoritative and a reload still resumes where the run really is.
+   *
+   * The reached guard lives here rather than only in the rail's `disabled`
+   * attribute, because the rail's props can be one render behind the run.
+   * The one exception is the Review screen: the respondent submitted the last
+   * page to get there, so every visible page is behind them — including one
+   * `skip_to` jumped over, whose answers must stay editable from Review.
+   */
+  const jumpToPage = useCallback(async (pageId: string): Promise<boolean> => {
+    const targetIndex = visiblePages.findIndex((page) => page.id === pageId);
+    if (targetIndex < 0) {
+      return false;
+    }
+
+    if (!showReview) {
+      if (targetIndex === currentPageIndex) {
+        // Clicking the row you are on is "back to the top of this page", not a
+        // navigation: nothing to flush, nothing to move.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return true;
+      }
+      if (!reachedPageIds.has(pageId)) {
+        return false;
+      }
+    }
+
+    // Exactly what `handlePrev` does: a jump that skips the flush drops the
+    // current page's un-debounced answers, which reads as data loss.
+    await transport.saveBeforeLeavingPage();
+
+    setErrors([]);
+    setFieldErrors({});
+    setCurrentPageIndex(targetIndex);
+    setShowReview(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
+  }, [visiblePages, showReview, currentPageIndex, reachedPageIds, transport]);
 
   const handleFinalSubmit = useCallback(async () => {
     if (!actualRunId || isCompleted || completeMutation.isPending) {return;}
@@ -379,9 +385,9 @@ export function useRunNavigation({
     setErrors([]);
     setFieldErrors({});
 
-    if (currentSection == null) {return;}
+    if (currentPage == null) {return;}
 
-    const visibleSectionSteps = transport.getVisibleSectionSteps(currentSection.id);
+    const visiblePageSteps = transport.getVisiblePageSteps(currentPage.id);
 
     try {
       const stepSchemas: Record<string, ValidationSchema> = {};
@@ -391,7 +397,7 @@ export function useRunNavigation({
       // additively, so blockErrors/fieldErrors keying for every other step
       // type is untouched (LIST-9 AC1).
       const listSteps: ApiStep[] = [];
-      visibleSectionSteps.forEach((step: ApiStep) => {
+      visiblePageSteps.forEach((step: ApiStep) => {
         if (step.type === 'list') {
           listSteps.push(step);
           return;
@@ -408,7 +414,7 @@ export function useRunNavigation({
         schemas: stepSchemas,
         values: effectiveValues,
         allValues: effectiveValues,
-        pageRules: (currentSection.config as { validationRules?: ValidateRule[] })?.validationRules ?? [],
+        pageRules: (currentPage.config as { validationRules?: ValidateRule[] })?.validationRules ?? [],
       });
 
       const listSummaryLines: string[] = [];
@@ -450,22 +456,20 @@ export function useRunNavigation({
       }
     } catch (e) {
       console.error("Validation error", e);
-      await transport.recordValidationException(e);
       toast({ title: "Unable to continue", description: "Something went wrong. Please try again.", variant: "destructive" });
       return;
     }
 
     try {
-      await transport.recordValidationPassed(visibleSectionSteps.length);
       const result = await transport.advanceAfterValidation({
         runId: actualRunId,
-        currentSection,
-        currentSectionIndex,
-        visibleSections,
-        visibleSectionSteps,
+        currentPage,
+        currentPageIndex,
+        visiblePages,
+        visiblePageSteps,
         effectiveValues,
-        isLastSection,
-        setCurrentSectionIndex,
+        isLastPage,
+        setCurrentPageIndex,
         setShowReview,
         returnToReviewAfterValidation: returnToReviewAfterNext,
       });
@@ -484,22 +488,22 @@ export function useRunNavigation({
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   }, [
-    currentSection,
+    currentPage,
     transport,
     effectiveValues,
     actualRunId,
-    currentSectionIndex,
-    visibleSections,
-    isLastSection,
+    currentPageIndex,
+    visiblePages,
+    isLastPage,
     returnToReviewAfterNext,
     toast,
   ]);
 
   return {
-    currentSectionIndex,
-    setCurrentSectionIndex,
-    currentSection,
-    isLastSection,
+    currentPageIndex,
+    setCurrentPageIndex,
+    currentPage,
+    isLastPage,
     showReview,
     isCompleted,
     setShowReview,
@@ -507,6 +511,7 @@ export function useRunNavigation({
     fieldErrors,
     handleNext,
     handlePrev,
+    jumpToPage,
     handleFinalSubmit,
     completeMutationIsPending: completeMutation.isPending,
   };

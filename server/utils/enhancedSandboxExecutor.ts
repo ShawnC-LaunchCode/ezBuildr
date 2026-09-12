@@ -11,6 +11,7 @@ import type { ScriptExecutionResult, ScriptContextAPI, HelperLibraryAPI } from "
 
 import { createLogger } from "../logger";
 import { createHelperLibrary } from "../services/scripting/HelperLibrary";
+import { PYTHON_EXECUTABLE } from "./pythonRuntime";
 
 const logger = createLogger({ module: "enhanced-sandbox" });
 
@@ -24,11 +25,6 @@ const MAX_TIMEOUT_MS = 3000;
 const MAX_SCRIPT_CACHE_SIZE = parseInt(process.env.SANDBOX_MAX_SCRIPT_CACHE ?? "200", 10);
 // Address-space cap for the Python subprocess (bytes). Enforced via RLIMIT_AS on Unix; no-op elsewhere.
 const PYTHON_MEM_LIMIT_BYTES = parseInt(process.env.SANDBOX_PYTHON_MEM_LIMIT_BYTES ?? String(256 * 1024 * 1024), 10);
-// Python installs expose different launcher names by platform. On Windows,
-// `python3.exe` is commonly a Microsoft Store shim even when a real
-// `python.exe` interpreter is installed; Linux CI exposes `python3`.
-const PYTHON_EXECUTABLE = process.env.SANDBOX_PYTHON_EXECUTABLE
-  ?? (process.platform === "win32" ? "python" : "python3");
 
 // Local interfaces for optional isolated-vm dependency
 interface IvmIsolate {
@@ -905,3 +901,4 @@ async function runJsWithVmFallback(
     return { ok: false, error: `SandboxError: ${msg}` };
   }
 }
+

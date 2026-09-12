@@ -13,6 +13,7 @@ import {
   resolveConnection,
 } from '../connections';
 import { getSecretValue } from '../secrets';
+import { runWithTenantContext } from '../../utils/rlsContext';
 import { safeFetch } from '../../utils/safeFetch';
 
 import { LegalIntegrationError, providerFailureMessage } from './errors';
@@ -229,7 +230,14 @@ export class StripePaymentService {
       );
     }
 
-    await this.dependencies.markUsed(connectionId);
+    // A webhook carries no session, so there is no ambient tenant to scope this
+    // write with — `getConnectionById` above ran on migration 0034's
+    // single-row self-identification clause precisely to learn one. Pin it now:
+    // `connections` is RLS-covered, and without this the UPDATE matches zero
+    // rows and `lastUsedAt` silently never advances (no error — an UPDATE whose
+    // USING clause filters everything out is not an error in Postgres).
+    await runWithTenantContext(connection.tenantId, () =>
+      this.dependencies.markUsed(connectionId));
     return {
       received: true,
       eventType: event.type,

@@ -21,6 +21,16 @@ interface ApiErrorResponse {
   errors?: string[];
 }
 
+export class FetchApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "FetchApiError";
+    this.status = status;
+  }
+}
+
 interface RefreshTokenResponse {
   token?: string;
 }
@@ -110,7 +120,7 @@ export async function fetchAPI<T>(
     runToken = getRunToken(runId);
   }
   // IMPORTANT: Only send run tokens for run-specific endpoints
-  // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
+  // Builder endpoints (workflows, pages, steps, etc.) should use session auth (cookies)
   // Preview/run endpoints use bearer tokens for anonymous access
   const isRunEndpoint = endpoint.startsWith('/api/runs/');
   const headers: Record<string, string> = {
@@ -154,7 +164,10 @@ export async function fetchAPI<T>(
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText })) as ApiErrorResponse;
-    throw new Error(error.message ?? error.error ?? `HTTP ${response.status}`);
+    throw new FetchApiError(
+      error.message ?? error.error ?? `HTTP ${response.status}`,
+      response.status,
+    );
   }
   // Check for auto-revert header and dispatch event
   if (response.headers.get('X-Workflow-Auto-Reverted') === 'true') {
@@ -236,6 +249,8 @@ export interface ApiProject {
   ownerType?: 'user' | 'org' | null;
   ownerUuid?: string | null;
   ownerName?: string | null;
+  /** Workflows contained in this project; returned by the list endpoints. */
+  workflowCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -278,13 +293,37 @@ export interface ApiAssetCopyResult {
 }
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
-    const query = activeOnly ? '?active=true' : '';
-    const response = await fetchAPI<ApiProject[] | { items: ApiProject[], nextCursor: string | null, hasMore: boolean }>(`/api/projects${query}`);
-    // Handle both paginated and non-paginated responses
-    if (Array.isArray(response)) {
-      return response;
+    // `/api/projects` is cursor-paginated and defaults to 20 per page. The
+    // dashboard searches and sorts client-side, so it needs the whole set —
+    // reading only the first page silently hid every project past the 20th.
+    // `limit` is capped at 100 server-side (`paginationQuerySchema`).
+    const pageSize = 100;
+    const maxPages = 50; // 5,000 projects; a guard against a cursor that never advances.
+    const all: ApiProject[] = [];
+    let cursor: string | null = null;
+
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (activeOnly === true) { params.set('active', 'true'); }
+      if (cursor !== null) { params.set('cursor', cursor); }
+
+      const response = await fetchAPI<ApiProject[] | { items: ApiProject[], nextCursor: string | null, hasMore: boolean }>(
+        `/api/projects?${params.toString()}`
+      );
+
+      // Older deployments answered with a bare array and no pagination envelope.
+      if (Array.isArray(response)) {
+        return [...all, ...response];
+      }
+
+      all.push(...(response.items ?? []));
+      if (response.hasMore !== true || response.nextCursor === null) {
+        break;
+      }
+      cursor = response.nextCursor;
     }
-    return response.items ?? [];
+
+    return all;
   },
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
   listForOrganization: (orgId: string, activeOnly = true) => {
@@ -304,14 +343,6 @@ export const projectAPI = {
     fetchAPI<ApiProject>(`/api/projects/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
-  archive: (id: string) =>
-    fetchAPI<ApiProject>(`/api/projects/${id}/archive`, {
-      method: "PUT",
-    }),
-  unarchive: (id: string) =>
-    fetchAPI<ApiProject>(`/api/projects/${id}/unarchive`, {
-      method: "PUT",
     }),
   delete: (id: string) =>
     fetchAPI<void>(`/api/projects/${id}`, {
@@ -473,14 +504,24 @@ export interface ApiWorkflowVersion {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration metadata has varying structure
   migrationInfo?: any; // Metadata including AI generation info
 }
+export interface ApiVersionDiffItem {
+  id: string;
+  title?: string;
+  type?: string;
+  changeType: 'added' | 'removed' | 'modified' | 'moved';
+  propertyChanges?: Record<string, { oldValue: unknown; newValue: unknown }>;
+}
 export interface ApiVersionDiff {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
-  sections: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
-  steps: any[];
+  sections: ApiVersionDiffItem[];
+  pages: ApiVersionDiffItem[];
+  steps: ApiVersionDiffItem[];
   summary: {
     sectionsAdded: number;
     sectionsRemoved: number;
+    sectionsModified: number;
+    pagesAdded: number;
+    pagesRemoved: number;
+    pagesModified: number;
     stepsAdded: number;
     stepsRemoved: number;
     stepsModified: number;
@@ -563,8 +604,8 @@ export interface ApiWorkflowVariable {
   alias?: string | null; // human-friendly variable name
   label: string;         // step title
   type: string;          // step type
-  sectionId: string;
-  sectionTitle: string;  // section title for grouping
+  pageId: string;
+  pageTitle: string;  // page title for grouping
   stepId: string;
   /**
    * O-2: selectable options for step types whose config carries them (legacy
@@ -627,9 +668,9 @@ export const authAPI = {
   }),
 };
 // ============================================================================
-// Delete impact (ICW2-13) — answers + distinct runs a step/section delete
+// Delete impact (ICW2-13) — answers + distinct runs a step/page delete
 // would permanently destroy via the step_values cascade. Shared shape
-// returned by both GET .../steps/:id/delete-impact and .../sections/:id/delete-impact.
+// returned by both GET .../steps/:id/delete-impact and .../pages/:id/delete-impact.
 // ============================================================================
 export interface ApiDeleteImpact {
   answerCount: number;
@@ -644,62 +685,111 @@ export interface ApiSection {
   workflowId: string;
   title: string;
   description: string | null;
+  visibleIf?: unknown;
+  createdAt: string;
+}
+
+export interface CreateSectionInput {
+  title: string;
+  description?: string | null;
+  visibleIf?: unknown;
+  pageIds: string[];
+}
+
+export interface UpdateSectionInput {
+  title?: string;
+  description?: string | null;
+  visibleIf?: unknown;
+}
+
+export const sectionAPI = {
+  list: (workflowId: string) =>
+    fetchAPI<ApiSection[]>(`/api/workflows/${workflowId}/sections`),
+  create: (workflowId: string, data: CreateSectionInput) =>
+    fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (sectionId: string, data: UpdateSectionInput) =>
+    fetchAPI<ApiSection>(`/api/sections/${sectionId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (sectionId: string) =>
+    fetchAPI<void>(`/api/sections/${sectionId}`, {
+      method: "DELETE",
+    }),
+};
+
+// ============================================================================
+// Pages
+// ============================================================================
+export interface ApiPage {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
   order: number;
+  sectionId?: string | null;
   visibleIf?: unknown; // Condition expression for visibility
   config?: unknown;
   createdAt: string;
 }
 /**
- * A `skip_to` rule a section reorder just turned backward, so it can no
- * longer fire (MAP-B4). Returned by `sectionAPI.reorder` so the builder can
+ * A `skip_to` rule a page reorder just turned backward, so it can no
+ * longer fire (MAP-B4). Returned by `pageAPI.reorder` so the builder can
  * warn immediately instead of only at publish.
  */
 export interface ApiReorderSkipRuleWarning {
   ruleId: string;
-  conditionSectionId: string;
-  conditionSectionTitle: string;
-  targetSectionId: string;
-  targetSectionTitle: string;
+  conditionPageId: string;
+  conditionPageTitle: string;
+  targetPageId: string;
+  targetPageTitle: string;
 }
-export const sectionAPI = {
+export const pageAPI = {
   list: (workflowId: string) =>
-    fetchAPI<ApiSection[]>(`/api/workflows/${workflowId}/sections`),
-  get: (workflowId: string, sectionId: string) =>
-    fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections/${sectionId}`),
+    fetchAPI<ApiPage[]>(`/api/workflows/${workflowId}/pages`),
+  get: (workflowId: string, pageId: string) =>
+    fetchAPI<ApiPage>(`/api/workflows/${workflowId}/pages/${pageId}`),
   create: (workflowId: string, data: { title: string; description?: string; order: number }) =>
-    fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections`, {
+    fetchAPI<ApiPage>(`/api/workflows/${workflowId}/pages`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  update: (id: string, data: Partial<ApiSection>) =>
-    fetchAPI<ApiSection>(`/api/sections/${id}`, {
+  update: (id: string, data: Partial<ApiPage>) =>
+    fetchAPI<ApiPage>(`/api/pages/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  reorder: (workflowId: string, sections: Array<{ id: string; order: number }>) =>
+  reorder: (
+    workflowId: string,
+    pages: Array<{ id: string; order: number; sectionId: string | null }>,
+    deleteEmptySectionIds: string[] = [],
+  ) =>
     fetchAPI<{ message: string; affectedSkipRules: ApiReorderSkipRuleWarning[] }>(
-      `/api/workflows/${workflowId}/sections/reorder`,
+      `/api/workflows/${workflowId}/pages/reorder`,
       {
         method: "PUT",
-        body: JSON.stringify({ sections }),
+        body: JSON.stringify({ pages, deleteEmptySectionIds }),
       }
     ),
   delete: (id: string) =>
-    fetchAPI<void>(`/api/sections/${id}`, {
+    fetchAPI<void>(`/api/pages/${id}`, {
       method: "DELETE",
       body: JSON.stringify({}), // Some servers require body for DELETE
     }),
   getDeleteImpact: (id: string) =>
-    fetchAPI<ApiDeleteImpact>(`/api/sections/${id}/delete-impact`),
+    fetchAPI<ApiDeleteImpact>(`/api/pages/${id}/delete-impact`),
   duplicate: (id: string) =>
-    fetchAPI<ApiSection>(`/api/sections/${id}/duplicate`, {
+    fetchAPI<ApiPage>(`/api/pages/${id}/duplicate`, {
       method: "POST",
     }),
 };
 // ============================================================================
 // Logic Rules
 // ============================================================================
-export type LogicRuleTargetType = 'section' | 'step';
+export type LogicRuleTargetType = 'page' | 'step';
 export type LogicRuleAction = 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
 
 /**
@@ -717,7 +807,7 @@ export interface ApiLogicRule {
   when: ConditionExpression;
   targetType: LogicRuleTargetType;
   targetStepId: string | null;
-  targetSectionId: string | null;
+  targetPageId: string | null;
   action: LogicRuleAction;
   order: number;
   createdAt?: string | null;
@@ -729,7 +819,7 @@ export interface LogicRuleInput {
   when: ConditionExpression;
   targetType: LogicRuleTargetType;
   targetStepId?: string | null;
-  targetSectionId?: string | null;
+  targetPageId?: string | null;
   action: LogicRuleAction;
   order?: number;
 }
@@ -806,7 +896,7 @@ export type StepType =
 export interface ApiStep {
   id: string;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   type: StepType;
   title: string;
   description: string | null;
@@ -822,14 +912,14 @@ export interface ApiStep {
   updatedAt?: string;
 }
 export const stepAPI = {
-  list: (sectionId: string) =>
-    fetchAPI<ApiStep[]>(`/api/sections/${sectionId}/steps`),
+  list: (pageId: string) =>
+    fetchAPI<ApiStep[]>(`/api/pages/${pageId}/steps`),
   listByWorkflow: (workflowId: string) =>
     fetchAPI<ApiStep[]>(`/api/workflows/${workflowId}/steps`),
   get: (id: string) =>
     fetchAPI<ApiStep>(`/api/steps/${id}`),
-  create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId" | "workflowId">) =>
-    fetchAPI<ApiStep>(`/api/sections/${sectionId}/steps`, {
+  create: (pageId: string, data: Omit<ApiStep, "id" | "createdAt" | "pageId" | "workflowId">) =>
+    fetchAPI<ApiStep>(`/api/pages/${pageId}/steps`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -838,8 +928,8 @@ export const stepAPI = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  reorder: (sectionId: string, steps: Array<{ id: string; order: number }>) =>
-    fetchAPI<void>(`/api/sections/${sectionId}/steps/reorder`, {
+  reorder: (pageId: string, steps: Array<{ id: string; order: number }>) =>
+    fetchAPI<void>(`/api/pages/${pageId}/steps/reorder`, {
       method: "PUT",
       body: JSON.stringify({ steps }),
     }),
@@ -858,11 +948,11 @@ export const stepAPI = {
 // Blocks
 // ============================================================================
 export type BlockType = "prefill" | "validate" | "branch" | "js" | "query" | "read_table" | "list_tools" | "write" | "external_send" | "create_record" | "update_record" | "find_record" | "delete_record";
-export type BlockPhase = "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
+export type BlockPhase = "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
 export interface ApiBlock {
   id: string;
   workflowId: string;
-  sectionId: string | null;
+  pageId: string | null;
   type: BlockType;
   phase: BlockPhase;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- block config varies by block type
@@ -903,7 +993,7 @@ export const blockAPI = {
   createListToolsFromChoice: (workflowId: string, stepId: string, data: {
     sourceListVar: string;
     transformConfig?: unknown;
-    sectionId: string;
+    pageId: string;
   }) =>
     fetchAPI<{ success: boolean; data: { block: ApiBlock; outputVar: string; message: string } }>(
       `/api/workflows/${workflowId}/steps/${stepId}/create-list-tools`,
@@ -914,60 +1004,14 @@ export const blockAPI = {
     ).then(res => res.data),
 };
 // ============================================================================
-// Transform Blocks (JavaScript/Python code execution)
-// ============================================================================
-export type TransformBlockLanguage = "javascript" | "python";
-export interface ApiTransformBlock {
-  id: string;
-  workflowId: string;
-  sectionId?: string | null;
-  name: string;
-  language: TransformBlockLanguage;
-  phase: "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
-  code: string;
-  inputKeys: string[];
-  outputKey: string;
-  enabled: boolean;
-  order: number;
-  timeoutMs?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-export const transformBlockAPI = {
-  list: (workflowId: string) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock[] }>(`/api/workflows/${workflowId}/transform-blocks`)
-      .then(res => res.data),
-  get: (id: string) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`)
-      .then(res => res.data),
-  create: (workflowId: string, data: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/workflows/${workflowId}/transform-blocks`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }).then(res => res.data),
-  update: (id: string, data: Partial<Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">>) =>
-    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }).then(res => res.data),
-  delete: (id: string) =>
-    fetchAPI<{ success: boolean }>(`/api/transform-blocks/${id}`, {
-      method: "DELETE",
-    }),
-  test: (id: string, testData: Record<string, unknown>) =>
-    fetchAPI<{ success: boolean; output: unknown; error?: string }>(`/api/transform-blocks/${id}/test`, {
-      method: "POST",
-      body: JSON.stringify({ testData }),
-    }),
-};
-// ============================================================================
 // Runs
 // ============================================================================
 export interface ApiRun {
   id: string;
   workflowId: string;
   workflowVersionId: string | null;
-  currentSectionId?: string | null;
+  currentPageId: string | null;
+  visitedPageIds: string[];
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;
@@ -989,21 +1033,30 @@ export interface ApiRunRuntime {
     id: string;
     workflowId: string;
     workflowVersionId: string;
-    currentSectionId: string | null;
+    currentPageId: string | null;
+    visitedPageIds: string[];
     completed: boolean;
     generationStatus: string | null;
   };
   workflow: Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
-  sections: ApiSection[];
+  sections: Array<{
+    id: string;
+    workflowId: string;
+    title: string;
+    description: string | null;
+    visibleIf?: unknown;
+    createdAt: string;
+  }>;
+  pages: ApiPage[];
   steps: ApiStep[];
   logicRules: Array<{
     id: string;
     workflowId: string;
     conditionStepId: string;
     when: unknown;
-    targetType: 'section' | 'step';
+    targetType: 'page' | 'step';
     targetStepId: string | null;
-    targetSectionId: string | null;
+    targetPageId: string | null;
     action: string;
     order: number;
     createdAt: string | null;
@@ -1013,6 +1066,26 @@ export interface ApiRunRuntime {
   branding: ResolvedBranding; // Tenant + workflow branding, merged server-side (GH-158).
 }
 // Note: This is for visual workflow runs (Stage 7+)
+export interface ApiAdvanceBlockState {
+  stepId: string;
+  status: string;
+  pendingInputs: string[];
+  firedAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface ApiAdvanceResult {
+  success: boolean;
+  errors?: string[];
+  notices?: string[];
+  /** Committed answers keyed by stepId, including computed outputs. */
+  values: Record<string, unknown>;
+  blockStates: ApiAdvanceBlockState[];
+  /** Null when validation failed: no authoritative move to apply. */
+  navigation: { nextPageId?: string | null } | null;
+  submissionKey: string;
+}
+
 export const runAPI = {
   create: (
     workflowId: string,
@@ -1027,7 +1100,7 @@ export const runAPI = {
   ) => {
     const qs = queryParams ? new URLSearchParams(queryParams).toString() : "";
     const params = qs ? `?${qs}` : "";
-    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentSectionId?: string } }>(`/api/workflows/${workflowId}/runs${params}`, {
+    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentPageId: string | null; visitedPageIds: string[] } }>(`/api/workflows/${workflowId}/runs${params}`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -1047,15 +1120,27 @@ export const runAPI = {
       method: "POST",
       body: JSON.stringify({ stepId, value }),
     }),
-  submitSection: (runId: string, sectionId: string, values: Array<{ stepId: string; value: unknown }>) =>
-    fetchAPI<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }>(`/api/runs/${runId}/sections/${sectionId}/submit`, {
+  submitPage: (runId: string, pageId: string, values: Array<{ stepId: string; value: unknown }>) =>
+    fetchAPI<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }>(`/api/runs/${runId}/pages/${pageId}/submit`, {
       method: "POST",
       body: JSON.stringify({ values }),
     }),
-  next: (runId: string, currentSectionId: string) =>
-    fetchAPI<{ success: boolean; data: { nextSectionId?: string } }>(`/api/runs/${runId}/next`, {
+  /**
+   * CB-9a-3: one logical submission — submit, evaluate and navigate in a single
+   * request that reports the server's authoritative state. `submissionKey` is
+   * required: it is what lets a retry replay instead of re-executing, and what
+   * lets the client discard a late response by identity rather than by
+   * guessing from request order.
+   */
+  advance: (runId: string, pageId: string, values: Array<{ stepId: string; value: unknown }>, submissionKey: string) =>
+    fetchAPI<{ success: boolean; data: ApiAdvanceResult }>(`/api/runs/${runId}/pages/${pageId}/advance`, {
       method: "POST",
-      body: JSON.stringify({ currentSectionId }),
+      body: JSON.stringify({ values, submissionKey }),
+    }).then(response => response.data),
+  next: (runId: string, currentPageId: string) =>
+    fetchAPI<{ success: boolean; data: { nextPageId?: string } }>(`/api/runs/${runId}/next`, {
+      method: "POST",
+      body: JSON.stringify({ currentPageId }),
     }).then(res => res.data),
   complete: (runId: string) =>
     fetchAPI<{ success: boolean; data: ApiRun }>(`/api/runs/${runId}/complete`, {

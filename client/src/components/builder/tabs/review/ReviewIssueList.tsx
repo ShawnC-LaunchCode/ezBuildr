@@ -41,7 +41,7 @@ export function defaultIssueCategory(issues: ReviewIssue[]): WorkflowLintCategor
 
 export function buildIssuePath(workflowId: string, target: WorkflowLintTarget): string {
     const params = new URLSearchParams({ tab: target.tab });
-    if (target.sectionId) { params.set("sectionId", target.sectionId); }
+    if (target.pageId) { params.set("pageId", target.pageId); }
     if (target.stepId) { params.set("stepId", target.stepId); }
     if (target.blockId) { params.set("blockId", target.blockId); }
     if (target.panel) { params.set("panel", target.panel); }

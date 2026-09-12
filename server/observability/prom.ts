@@ -96,7 +96,6 @@ export interface PrometheusMetrics {
 
   // Histograms
   workflowRunDuration: unknown; // Histogram
-  transformBlockDuration: unknown; // Histogram
   apiRequestDuration: unknown; // Histogram
 }
 

@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 
 import { useTableColumns } from '@/hooks/useTableColumns';
 import type { ApiBlock } from '@/lib/vault-api';
-import { useBlocks, useSections } from '@/lib/vault-hooks';
+import { useBlocks, usePages } from '@/lib/vault-hooks';
 
 import type { ChoiceCardState } from './useChoiceConfig';
 
@@ -20,7 +20,7 @@ interface ValidationWarnings {
 interface UseListToolsValidationParams {
     localConfig: ChoiceCardState | null;
     workflowId: string;
-    sectionId: string;
+    pageId: string;
 }
 
 /**
@@ -29,7 +29,7 @@ interface UseListToolsValidationParams {
 export function useListToolsValidation({
     localConfig,
     workflowId,
-    sectionId
+    pageId
 }: UseListToolsValidationParams): ValidationWarnings & {
     sourceBlock: ApiBlock | null;
     sourceTableId: string | null;
@@ -39,7 +39,7 @@ export function useListToolsValidation({
     blocks: ApiBlock[];
 } {
     const { data: blocks = [] } = useBlocks(workflowId);
-    const { data: sections = [] } = useSections(workflowId);
+    const { data: pages = [] } = usePages(workflowId);
 
     // Find the source block
     const sourceBlock = useMemo(() => {
@@ -73,18 +73,18 @@ export function useListToolsValidation({
     // Timing validation
     const timingWarning = useMemo(() => {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!sourceBlock || !sections || sections.length === 0) {
+        if (!sourceBlock || !pages || pages.length === 0) {
             return null;
         }
 
         const blockPhase = sourceBlock.phase;
-        const stepSection = sections.find((s) => s.id === sectionId);
-        const blockSectionId = sourceBlock.sectionId;
-        const blockSection = blockSectionId
-            ? sections.find((s) => s.id === blockSectionId)
+        const stepPage = pages.find((s) => s.id === pageId);
+        const blockPageId = sourceBlock.pageId;
+        const blockPage = blockPageId
+            ? pages.find((s) => s.id === blockPageId)
             : null;
 
-        if (!stepSection) {
+        if (!stepPage) {
             return null;
         }
 
@@ -93,24 +93,24 @@ export function useListToolsValidation({
             return null;
         }
 
-        // Section-based checks
-        if (blockPhase === 'onSectionEnter') {
-            if (!blockSection) {
+        // Page-based checks
+        if (blockPhase === 'onPageEnter') {
+            if (!blockPage) {
                 return null; // Assume safe if global
             }
 
-            if (blockSection.order > stepSection.order) {
-                return "Read block runs in a later section.";
+            if (blockPage.order > stepPage.order) {
+                return "Read block runs in a later page.";
             }
             return null;
         }
 
-        if (blockPhase === 'onSectionSubmit' || blockPhase === 'onNext') {
-            if (!blockSection) {
-                return "Block runs on submit but has no section?";
+        if (blockPhase === 'onPageSubmit' || blockPhase === 'onNext') {
+            if (!blockPage) {
+                return "Block runs on submit but has no page?";
             }
-            // Must be strictly previous section
-            if (blockSection.order < stepSection.order) {
+            // Must be strictly previous page
+            if (blockPage.order < stepPage.order) {
                 return null;
             }
             return "Read block runs after the page is displayed (on Next/Submit).";
@@ -121,7 +121,7 @@ export function useListToolsValidation({
         }
 
         return null;
-    }, [sourceBlock, sections, sectionId]);
+    }, [sourceBlock, pages, pageId]);
 
     // Label column validation
     const labelColumnWarning = useMemo(() => {

@@ -5,7 +5,7 @@
  * target"), which is why it lives here in the workflow-scoped Logic
  * Inspector rather than the selection-scoped `LogicPanel` (which edits an
  * element's own pull-model `visibleIf`). Ordering is author-visible, not
- * cosmetic: `evaluateRules` (shared/workflowLogic.ts) sorts section-targeted
+ * cosmetic: `evaluateRules` (shared/workflowLogic.ts) sorts page-targeted
  * rules by `order` and the first firing `skip_to` wins, so an author needs
  * explicit control over which rule fires first.
  */
@@ -33,7 +33,7 @@ import {
     useReorderLogicRules,
     useUpdateLogicRule,
 } from "@/hooks/api/useLogicRules";
-import { useSections, useWorkflowSteps } from "@/lib/vault-hooks";
+import { usePages, useWorkflowSteps } from "@/lib/vault-hooks";
 import type { ApiLogicRule, LogicRuleInput } from "@/lib/vault-api";
 
 import { describeConditionExpression } from "@shared/conditionEvaluator";
@@ -58,7 +58,7 @@ export function LogicRulesTab({ workflowId }: LogicRulesTabProps) {
     const { toast } = useToast();
     const { data: rules, isLoading: rulesLoading } = useLogicRules(workflowId);
     const { data: steps } = useWorkflowSteps(workflowId);
-    const { data: sections } = useSections(workflowId);
+    const { data: pages } = usePages(workflowId);
 
     const createRule = useCreateLogicRule();
     const updateRule = useUpdateLogicRule();
@@ -79,8 +79,8 @@ export function LogicRulesTab({ workflowId }: LogicRulesTabProps) {
     }, [steps]);
 
     const targetLabel = (rule: ApiLogicRule): string => {
-        if (rule.targetType === "section") {
-            return sections?.find((s) => s.id === rule.targetSectionId)?.title ?? "Unknown section";
+        if (rule.targetType === "page") {
+            return pages?.find((s) => s.id === rule.targetPageId)?.title ?? "Unknown page";
         }
         const step = steps?.find((s) => s.id === rule.targetStepId);
         return step ? (step.alias ?? step.title) : "Unknown question";
@@ -172,7 +172,7 @@ export function LogicRulesTab({ workflowId }: LogicRulesTabProps) {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                    Rules act on a section or question when their condition is met. The first
+                    Rules act on a page or question when their condition is met. The first
                     matching &quot;Skip to&quot; rule wins - use the order controls to prioritize.
                 </p>
             </div>
@@ -181,7 +181,7 @@ export function LogicRulesTab({ workflowId }: LogicRulesTabProps) {
                 <LogicRuleEditor
                     workflowId={workflowId}
                     steps={steps ?? []}
-                    sections={sections ?? []}
+                    pages={pages ?? []}
                     isSaving={isSaving}
                     onSave={handleCreate}
                     onCancel={() => setMode({ type: "idle" })}
@@ -205,7 +205,7 @@ export function LogicRulesTab({ workflowId }: LogicRulesTabProps) {
                                 key={rule.id}
                                 workflowId={workflowId}
                                 steps={steps ?? []}
-                                sections={sections ?? []}
+                                pages={pages ?? []}
                                 rule={rule}
                                 isSaving={isSaving}
                                 onSave={(input) => handleUpdate(rule.id, input)}

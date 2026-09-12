@@ -32,9 +32,8 @@ export type {
     TruncationCheck,
     AIGeneratedWorkflow,
     AIGeneratedStep,
-    AIGeneratedSection,
-    AIGeneratedLogicRule,
-    AIGeneratedTransformBlock
+    AIGeneratedPage,
+    AIGeneratedLogicRule
 } from './types';
 export { ModelRegistry } from './ModelRegistry';
 export { AIError, createAIError, isRateLimitError, isTimeoutError, getRetryAfter } from './AIError';

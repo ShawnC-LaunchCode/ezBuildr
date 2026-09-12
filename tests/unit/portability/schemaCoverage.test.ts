@@ -71,7 +71,7 @@ describe('Schema Portability Coverage', () => {
     ]);
 
     for (const tableName of allTableNames) {
-      const inGraph = ENTITY_GRAPH.some(e => e.name === tableName);
+      const inGraph = ENTITY_GRAPH.some(e => getTableName(e.table) === tableName);
       const inExcluded = tableName in EXCLUDED_TABLES;
 
       if (!inGraph && !inExcluded) {
@@ -99,7 +99,9 @@ describe('Schema Portability Coverage', () => {
       ...exportedTables.map(t => t.tableName),
       ...declaredTableNames(),
     ]);
-    const invalidGraph = ENTITY_GRAPH.filter(e => !validTableNames.has(e.name)).map(e => e.name);
+    const invalidGraph = ENTITY_GRAPH
+      .filter(e => !validTableNames.has(getTableName(e.table)))
+      .map(e => e.name);
     const invalidExcluded = Object.keys(EXCLUDED_TABLES).filter(t => !validTableNames.has(t));
 
     expect(

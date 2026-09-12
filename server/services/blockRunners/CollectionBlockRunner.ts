@@ -4,6 +4,7 @@
  */
 
 import { logger } from "../../logger";
+import { runWithTenantContext, withVerifiedIdentifier } from "../../utils/rlsContext";
 import { recordService } from "../RecordService";
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
@@ -34,6 +35,10 @@ export class CollectionBlockRunner extends BaseBlockRunner {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async execute(config: any, context: BlockContext, block: Block): Promise<BlockResult> {
     const blockType = block.type as string;
+    if (context.mode === 'preview' && blockType !== 'find_record') {
+      return { success: false, simulated: true,
+        errors: [`Preview does not support ${blockType}; no collection data was changed.`] };
+    }
 
     switch (blockType) {
       case "create_record":
@@ -88,11 +93,20 @@ export class CollectionBlockRunner extends BaseBlockRunner {
         "Creating record via block"
       );
 
-      const record = await this.recordSvc.createRecord({
-        tenantId,
-        collectionId: config.collectionId,
-        data: recordData,
-      });
+      // RLS-2c: this runner can execute from an HTTP-driven run submission
+      // (ambient tenant context already populated by rlsContext) or from
+      // RunCompletionJobWorker's background poll loop (no request, no
+      // ambient context at all). recordService now opens a tenant-scoped
+      // transaction and fails closed with no context, so this must supply
+      // one explicitly using the tenantId already resolved from the
+      // workflow — same fix ReadTableBlockRunner applied in RLS-2b.
+      const record = await runWithTenantContext(tenantId, () =>
+        this.recordSvc.createRecord({
+          tenantId,
+          collectionId: config.collectionId,
+          data: recordData,
+        })
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updates: Record<string, any> = {};
@@ -169,8 +183,10 @@ export class CollectionBlockRunner extends BaseBlockRunner {
         "Updating record via block"
       );
 
+      // RLS-2c: see the createRecord branch above — background job callers
+      // have no ambient tenant context, so it must be supplied explicitly.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      await this.recordSvc.updateRecord(recordId, tenantId, updateData);
+      await runWithTenantContext(tenantId, () => this.recordSvc.updateRecord(recordId, tenantId, updateData));
 
       return {
         success: true,
@@ -207,15 +223,17 @@ export class CollectionBlockRunner extends BaseBlockRunner {
         "Finding records via block"
       );
 
+      // RLS-2c: see the createRecord branch above — background job callers
+      // have no ambient tenant context, so it must be supplied explicitly.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const result = (await this.recordSvc.findByFilters(
+      const result = (await runWithTenantContext(tenantId, () => this.recordSvc.findByFilters(
         tenantId,
         config.collectionId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (config.filters ?? []) as any[],
         { page: 1, limit: config.limit ?? 1 }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      )) as any;
+      ))) as any;
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (!result?.records || !Array.isArray(result.records)) {
@@ -289,8 +307,12 @@ export class CollectionBlockRunner extends BaseBlockRunner {
         "Deleting record via block"
       );
 
+      // RLS-2c: see the createRecord branch above — background job callers
+      // have no ambient tenant context, so it must be supplied explicitly.
+      // Pre-existing argument-order bug in this call (deleteRecord expects
+      // (recordId, tenantId, tx)) is untouched — out of this ticket's scope.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      await this.recordSvc.deleteRecord(tenantId, config.collectionId, recordId);
+      await runWithTenantContext(tenantId, () => this.recordSvc.deleteRecord(tenantId, config.collectionId, recordId));
 
       return {
         success: true,
@@ -320,7 +342,18 @@ export class CollectionBlockRunner extends BaseBlockRunner {
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
       const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
-      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
+      // RLS-5: resolving a workflow's tenant means reading `workflows`,
+      // `projects` and `users` — all RLS-covered — with no tenant known yet,
+      // which is the whole point of the call. Pin the workflow id as
+      // `app.current_workflow_id` (migration 0030) for the lookup, exactly as
+      // `runTokenAuth` does. The id came from the block's run context, not
+      // from request input. Without this the resolver returns null under
+      // enforcement and the block fails with "Failed to resolve tenantId".
+      return await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+      );
     } catch (error: unknown) {
       logger.error({ error, workflowId }, "Error fetching tenantId from workflow");
       return null;

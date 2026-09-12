@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
-import { buildWorkflowVocabulary } from "@shared/aiVocabulary";
+import { buildWorkflowVocabulary, getOpNames } from "@shared/aiVocabulary";
+import type { Mode } from "@shared/mode";
 import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
 
 import { db } from "../db";
@@ -22,11 +23,37 @@ Guidelines:
 - Always set a step "config" when the type takes one (a choice step with no
   options is unusable)
 
-${buildWorkflowVocabulary()}
+{{workflowVocabulary}}
 
 Role: {{interviewerRole}}
 Reading level: {{readingLevel}}
 Tone: {{tone}}`;
+
+/** Render the mode-specific canonical catalog into a prompt template. */
+export function renderWorkflowVocabulary(template: string, mode: Mode): string {
+    const vocabulary = buildWorkflowVocabulary(mode);
+    return template.includes('{{workflowVocabulary}}')
+        ? template.replace(/{{workflowVocabulary}}/g, vocabulary)
+        : `${template}\n\n${vocabulary}`;
+}
+
+export function buildDefaultSystemPrompt(mode: Mode): string {
+    return renderWorkflowVocabulary(DEFAULT_SYSTEM_PROMPT, mode);
+}
+/**
+ * Operations the platform supports that a given prompt never names.
+ *
+ * `DEFAULT_SYSTEM_PROMPT` regenerates its catalogs from the schema on every
+ * boot, so it is never stale. A *saved override* is frozen text: it keeps
+ * working, but every op added after it was written is invisible to the model,
+ * which then cannot produce that capability at all and gives no hint why.
+ * Sections were exactly this shape of gap. Surfacing the difference is what
+ * turns a silent capability loss into something an admin can see and fix.
+ */
+export function findMissingOps(prompt: string): string[] {
+  return getOpNames().filter((op) => !prompt.includes(op));
+}
+
 export class AiSettingsService {
     /**
      * Get the effective system prompt: the global override if configured,
@@ -35,12 +62,9 @@ export class AiSettingsService {
      * NOTE: per-user / per-org overrides are not implemented. Re-add scoping
      * params here when that feature is scheduled (ICW-15).
      */
-    async getEffectivePrompt(): Promise<string> {
+    async getEffectivePrompt(mode: Mode): Promise<string> {
         const globalSettings = await this.getGlobalSettings();
-        if (globalSettings?.systemPrompt) {
-            return globalSettings.systemPrompt;
-        }
-        return DEFAULT_SYSTEM_PROMPT;
+        return renderWorkflowVocabulary(globalSettings?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT, mode);
     }
     /**
      * Get global AI settings

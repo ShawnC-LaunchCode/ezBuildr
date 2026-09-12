@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
-import type { DatavaultRowsRepository, DatavaultTablesRepository, DatavaultColumnsRepository } from '../../../server/repositories';
+import type { DatavaultRowsRepository, DatavaultTablesRepository, DatavaultColumnsRepository, DbTransaction } from '../../../server/repositories';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 import type { DatavaultTable, DatavaultColumn, DatavaultRow, InsertDatavaultRow, DatavaultValue } from '@shared/schema';
 
@@ -14,7 +14,20 @@ vi.mock('../../../server/db', () => ({
  * DataVault Phase 1 PR 9: DatavaultRowsService Tests
  *
  * Unit tests for DatavaultRowsService
+ *
+ * RLS-2b: every public method now opens a tenant-scoped transaction at the
+ * service boundary (via `withTx` -> `withCurrentTenant`) when no `tx` is
+ * supplied, which requires a tenant in the request's async context (RLS-1) —
+ * unavailable to a plain unit test. These tests pass an explicit fake `tx` to
+ * take the "caller already has a transaction" branch of `withTx`, matching
+ * the pattern established in tests/unit/services/CollectionService.test.ts
+ * (RLS-2a). This also replaces the file's earlier `db.transaction` mock
+ * returning the string `'mock-tx'` — that path is `withCurrentTenant`'s,
+ * which every call here now bypasses by supplying `mockTx` directly. The RLS
+ * transaction itself is proven against a real database in
+ * tests/integration/rls2b-datavault.test.ts.
  */
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 describe('DatavaultRowsService', () => {
   let service: DatavaultRowsService;
@@ -68,12 +81,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       const mockColumns: DatavaultColumn[] = [
@@ -94,8 +101,6 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
@@ -106,7 +111,6 @@ describe('DatavaultRowsService', () => {
             tableId: mockTableId,
             createdAt: new Date(),
             updatedAt: new Date(),
-
             createdBy: null,
           } as DatavaultRow,
           values: {
@@ -120,7 +124,7 @@ describe('DatavaultRowsService', () => {
       mockRowsRepo.getRowsWithValues.mockResolvedValue(mockRowsData);
       mockRowsRepo.countByTableId.mockResolvedValue(1);
 
-      const result = await service.listRows(mockTableId, mockTenantId, { limit: 25, offset: 0 });
+      const result = await service.listRows(mockTableId, mockTenantId, { limit: 25, offset: 0 }, mockTx);
 
       expect(result).toHaveLength(1);
       expect(result[0].values[mockColumnId]).toEqual({ data: 'John Doe' });
@@ -139,12 +143,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       const mockColumns: DatavaultColumn[] = [
@@ -165,8 +163,6 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
@@ -180,7 +176,6 @@ describe('DatavaultRowsService', () => {
           tableId: mockTableId,
           createdAt: new Date(),
           updatedAt: new Date(),
-
           createdBy: null,
         } as DatavaultRow,
         values: [
@@ -199,7 +194,7 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
       mockRowsRepo.createRowWithValues.mockResolvedValue(createdRow);
 
-      const result = await service.createRow(mockTableId, mockTenantId, values);
+      const result = await service.createRow(mockTableId, mockTenantId, values, undefined, mockTx);
 
       expect(result.row).toEqual(createdRow.row);
       expect(Object.keys(result.values)).toHaveLength(1);
@@ -217,12 +212,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       const mockColumns: DatavaultColumn[] = [
@@ -243,15 +232,13 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
 
-      await expect(service.createRow(mockTableId, mockTenantId, {}))
+      await expect(service.createRow(mockTableId, mockTenantId, {}, undefined, mockTx))
         .rejects
         .toThrow("Required column 'Name' is missing");
     });
@@ -282,13 +269,13 @@ describe('DatavaultRowsService', () => {
         values: [],
       });
 
-      await service.createRow(mockTableId, mockTenantId, values);
+      await service.createRow(mockTableId, mockTenantId, values, undefined, mockTx);
 
       expect(values).toEqual({});
       expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
         expect.any(Object),
         [{ columnId: mockColumnId, value: 1 }],
-        'mock-tx'
+        mockTx
       );
     });
   });
@@ -305,12 +292,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       // @ts-expect-error - mock omits non-essential fields
@@ -319,7 +300,6 @@ describe('DatavaultRowsService', () => {
         tableId: mockTableId,
         createdAt: new Date(),
         updatedAt: new Date(),
-
         createdBy: null,
       };
 
@@ -341,8 +321,6 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
@@ -355,7 +333,7 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
       mockRowsRepo.updateRowValues.mockResolvedValue(undefined);
 
-      await service.updateRow(mockRowId, mockTenantId, values);
+      await service.updateRow(mockRowId, mockTenantId, values, undefined, mockTx);
 
       expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
     });
@@ -393,13 +371,13 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.updateRow(mockRowId, mockTenantId, {
         [optionalColumnId]: 'Updated',
-      })).resolves.toBeUndefined();
+      }, undefined, mockTx)).resolves.toBeUndefined();
 
       expect(mockRowsRepo.updateRowValues).toHaveBeenCalledWith(
         mockRowId,
         [{ columnId: optionalColumnId, value: 'Updated' }],
         undefined,
-        'mock-tx'
+        mockTx
       );
     });
 
@@ -426,7 +404,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.updateRow(mockRowId, mockTenantId, {
         [mockColumnId]: null,
-      })).rejects.toThrow("Column 'Name' is required");
+      }, undefined, mockTx)).rejects.toThrow("Column 'Name' is required");
 
       expect(mockRowsRepo.updateRowValues).not.toHaveBeenCalled();
     });
@@ -484,7 +462,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: 'used@example.com',
-      })).rejects.toThrow("column 'Email'");
+      }, undefined, mockTx)).rejects.toThrow("column 'Email'");
 
       expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
     });
@@ -499,7 +477,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: 'KEY-100',
-      })).rejects.toThrow("column 'External ID'");
+      }, undefined, mockTx)).rejects.toThrow("column 'External ID'");
     });
 
     it('excludes the updated row so its own unique value succeeds', async () => {
@@ -510,13 +488,13 @@ describe('DatavaultRowsService', () => {
 
       await service.updateRow(mockRowId, mockTenantId, {
         [column.id]: 'same@example.com',
-      });
+      }, undefined, mockTx);
 
       expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledWith(
         mockTableId,
         [{ columnId: column.id, value: 'same@example.com' }],
         mockRowId,
-        'mock-tx'
+        mockTx
       );
       expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
     });
@@ -529,7 +507,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: 'duplicate allowed',
-      })).resolves.toBeDefined();
+      }, undefined, mockTx)).resolves.toBeDefined();
 
       expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
     });
@@ -542,7 +520,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: 'archived-only@example.com',
-      })).resolves.toBeDefined();
+      }, undefined, mockTx)).resolves.toBeDefined();
 
       expect(mockRowsRepo.createRowWithValues).toHaveBeenCalled();
     });
@@ -553,7 +531,7 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue([column]);
       mockSuccessfulCreate();
 
-      await service.createRow(mockTableId, mockTenantId, { [column.id]: null });
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: null }, undefined, mockTx);
 
       expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
     });
@@ -571,7 +549,7 @@ describe('DatavaultRowsService', () => {
       await service.createRow(mockTableId, mockTenantId, {
         [mockColumnId]: 'unique@example.com',
         [secondColumnId]: 'EMP-1',
-      });
+      }, undefined, mockTx);
 
       expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledTimes(1);
       expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledWith(
@@ -581,7 +559,7 @@ describe('DatavaultRowsService', () => {
           { columnId: secondColumnId, value: 'EMP-1' },
         ],
         undefined,
-        'mock-tx'
+        mockTx
       );
     });
   });
@@ -626,7 +604,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: '',
-      })).rejects.toThrow("Column 'Name' is required");
+      }, undefined, mockTx)).rejects.toThrow("Column 'Name' is required");
 
       expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
     });
@@ -644,7 +622,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: '   ',
-      })).rejects.toThrow("Column 'Name' is required");
+      }, undefined, mockTx)).rejects.toThrow("Column 'Name' is required");
 
       expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
     });
@@ -662,7 +640,7 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue([column]);
       mockSuccessfulCreate();
 
-      await service.createRow(mockTableId, mockTenantId, { [column.id]: '' });
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '' }, undefined, mockTx);
 
       expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
     });
@@ -679,12 +657,12 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue([column]);
       mockSuccessfulCreate();
 
-      await service.createRow(mockTableId, mockTenantId, { [column.id]: '   ' });
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '   ' }, undefined, mockTx);
 
       expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
         expect.any(Object),
         [{ columnId: column.id, value: null }],
-        'mock-tx'
+        mockTx
       );
     });
 
@@ -700,12 +678,12 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue([column]);
       mockSuccessfulCreate();
 
-      await service.createRow(mockTableId, mockTenantId, { [column.id]: '""' });
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '""' }, undefined, mockTx);
 
       expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
         expect.any(Object),
         [{ columnId: column.id, value: '' }],
-        'mock-tx'
+        mockTx
       );
     });
 
@@ -723,7 +701,7 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {
         [column.id]: '',
-      })).rejects.toThrow("Column 'Category' value must be one of");
+      }, undefined, mockTx)).rejects.toThrow("Column 'Category' value must be one of");
 
       expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
     });
@@ -741,12 +719,12 @@ describe('DatavaultRowsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue([column]);
       mockSuccessfulCreate();
 
-      await service.createRow(mockTableId, mockTenantId, { [column.id]: [] });
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: [] }, undefined, mockTx);
 
       expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
         expect.any(Object),
         [{ columnId: column.id, value: [] }],
-        'mock-tx'
+        mockTx
       );
     });
   });
@@ -763,12 +741,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       // @ts-expect-error - mock omits non-essential fields
@@ -777,7 +749,6 @@ describe('DatavaultRowsService', () => {
         tableId: mockTableId,
         createdAt: new Date(),
         updatedAt: new Date(),
-
         createdBy: null,
       };
 
@@ -785,9 +756,9 @@ describe('DatavaultRowsService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockRowsRepo.deleteRow.mockResolvedValue(undefined);
 
-      await service.deleteRow(mockRowId, mockTenantId);
+      await service.deleteRow(mockRowId, mockTenantId, mockTx);
 
-      expect(mockRowsRepo.deleteRow).toHaveBeenCalledWith(mockRowId, undefined);
+      expect(mockRowsRepo.deleteRow).toHaveBeenCalledWith(mockRowId, mockTx);
     });
   });
 
@@ -803,12 +774,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       const mockColumns: DatavaultColumn[] = [
@@ -829,8 +794,6 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
@@ -850,14 +813,13 @@ describe('DatavaultRowsService', () => {
             tableId: mockTableId,
             createdAt: new Date(),
             updatedAt: new Date(),
-
             createdBy: null,
           } as DatavaultRow,
           values: [],
         });
       });
 
-      await service.createRow(mockTableId, mockTenantId, values);
+      await service.createRow(mockTableId, mockTenantId, values, undefined, mockTx);
     });
 
     it('should coerce boolean values', async () => {
@@ -871,12 +833,6 @@ describe('DatavaultRowsService', () => {
         databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
-
-
-
-
-
-
       };
 
       const mockColumns: DatavaultColumn[] = [
@@ -897,8 +853,6 @@ describe('DatavaultRowsService', () => {
           referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-
-
         },
       ];
 
@@ -927,14 +881,13 @@ describe('DatavaultRowsService', () => {
               tableId: mockTableId,
               createdAt: new Date(),
               updatedAt: new Date(),
-
               createdBy: null,
             } as DatavaultRow,
             values: [],
           });
         });
 
-        await service.createRow(mockTableId, mockTenantId, values);
+        await service.createRow(mockTableId, mockTenantId, values, undefined, mockTx);
       }
     });
   });
@@ -966,17 +919,17 @@ describe('DatavaultRowsService', () => {
         columnIds: [mockColumnId],
       };
 
-      await service.getRowsWithOptions(mockTenantId, mockTableId, options);
+      await service.getRowsWithOptions(mockTenantId, mockTableId, options, mockTx);
 
       expect(mockRowsRepo.getRowsWithValues).toHaveBeenCalledWith(
         mockTableId,
         options,
-        undefined
+        mockTx
       );
       expect(mockRowsRepo.countByTableIdWithFilter).toHaveBeenCalledWith(
         mockTableId,
         { showArchived: false, filters: undefined },
-        undefined
+        mockTx
       );
     });
 
@@ -990,12 +943,12 @@ describe('DatavaultRowsService', () => {
         columnIds: [mockColumnId],
       };
 
-      await service.listRows(mockTableId, mockTenantId, options);
+      await service.listRows(mockTableId, mockTenantId, options, mockTx);
 
       expect(mockRowsRepo.getRowsWithValues).toHaveBeenCalledWith(
         mockTableId,
         options,
-        undefined
+        mockTx
       );
     });
   });

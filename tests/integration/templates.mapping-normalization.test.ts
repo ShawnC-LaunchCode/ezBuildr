@@ -8,6 +8,7 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 const OWNER_ITEM_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -44,8 +45,8 @@ describe.sequential('Template mapping normalization', () => {
 
     const ownWorkflow = await factory.createWorkflow(ctx.projectId, ctx.userId);
     workflowId = ownWorkflow.workflow.id;
-    const section = await factory.createSection(workflowId);
-    await factory.createStep(section.id, {
+    const page = await factory.createPage(workflowId);
+    await factory.createStep(page.id, {
       workflowId,
       type: 'list',
       alias: 'owners',
@@ -65,7 +66,7 @@ describe.sequential('Template mapping normalization', () => {
         labelTemplate: '{ownerName}',
       },
     });
-    await factory.createStep(section.id, {
+    await factory.createStep(page.id, {
       workflowId,
       type: 'choice',
       alias: 'favoriteOwner',
@@ -178,13 +179,13 @@ describe.sequential('Template mapping normalization', () => {
           mapping: { ownerRows: { type: 'variable', source: 'owners' } },
           testData: { owners },
         })
-        .expect(403);
+        .then((r) => { expectCrossTenantDenied(r.status); });
 
       await request(ctx.baseURL)
         .post(`/api/templates/${templateId}/preview`)
         .set('Authorization', `Bearer ${ctx.authToken}`)
         .send({ workflowId: otherWorkflowId, sampleData: { owners } })
-        .expect(403);
+        .then((r) => { expectCrossTenantDenied(r.status); });
 
       expect(getStepsSpy).not.toHaveBeenCalled();
     } finally {

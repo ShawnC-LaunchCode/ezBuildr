@@ -265,7 +265,7 @@ export const validateWorkflowId = () => validateId('workflowId');
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateUserId = () => validateId('userId');
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const validateSectionId = () => validateId('sectionId');
+export const validatePageId = () => validateId('pageId');
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateStepId = () => validateId('stepId');
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

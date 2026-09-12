@@ -1,12 +1,17 @@
 import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 
 import { workflowRunEvents, workflowRunMetrics, projects, workflows, workflowVersions, users, tenants } from "@shared/schema";
 
-import { db } from "../../server/db";
+import logger from "../../server/logger";
+import { analyticsService } from "../../server/services/analytics/AnalyticsService";
 import { runService } from "../../server/services/RunService";
 import { createGraphWorkflow } from "../factories/graphFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 
 describe("Analytics Service Integration", () => {
     let userId: string;
@@ -17,43 +22,50 @@ describe("Analytics Service Integration", () => {
 
     beforeAll(async () => {
         // MANUALLY FIX FK CONSTRAINT FOR TEST ENVIRONMENT (Migration collision workaround)
+        //
+        // RLS-5: this is DDL — TRUNCATE and ALTER TABLE — so it must run on the
+        // OWNER connection. The application pool connects as a non-owner role
+        // with only SELECT/INSERT/UPDATE/DELETE, so every statement here failed
+        // with "permission denied for table workflow_run_events". The whole
+        // block is wrapped in a catch that only logs, so the FK fix silently
+        // never applied and the events this suite asserts could not be written.
         try {
-            await db.execute(sql`TRUNCATE TABLE "workflow_run_events", "workflow_run_metrics" CASCADE`);
-            await db.execute(sql`ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_run_id_runs_id_fk"`);
-            await db.execute(sql`ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_run_id_workflow_runs_id_fk"`);
-            await db.execute(sql`ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE CASCADE`);
+            await getOwnerDb().execute(sql`TRUNCATE TABLE "workflow_run_events", "workflow_run_metrics" CASCADE`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_run_id_runs_id_fk"`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_run_id_workflow_runs_id_fk"`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE CASCADE`);
 
             // Fix metrics table too
-            await db.execute(sql`ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_run_id_runs_id_fk"`);
-            await db.execute(sql`ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_run_id_workflow_runs_id_fk"`);
-            await db.execute(sql`ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE CASCADE`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_run_id_runs_id_fk"`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_run_id_workflow_runs_id_fk"`);
+            await getOwnerDb().execute(sql`ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE CASCADE`);
 
             console.log("MANUAL PATCH: Applied FK fix for workflow_run_events AND workflow_run_metrics");
         } catch (e: unknown) {
             console.error("MANUAL PATCH FAILED", e);
         }
 
-        const [tenant] = await db.insert(tenants).values({ name: "Service Test Tenant", plan: "pro" } as any).returning();
+        const [tenant] = await getOwnerDb().insert(tenants).values({ name: "Service Test Tenant", plan: "pro" } as any).returning();
         tenantId = tenant.id;
         userId = `user-${nanoid()}`;
-        await db.insert(users).values({ id: userId, email: `${userId}@test.com`, passwordHash: "x", tenantId, tenantRole: "owner", role: "admin" } as any);
-        const [p] = await db.insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, createdBy: userId, ownerId: userId } as any).returning();
+        await getOwnerDb().insert(users).values({ id: userId, email: `${userId}@test.com`, passwordHash: "x", tenantId, tenantRole: "owner", role: "admin" } as any);
+        const [p] = await getOwnerDb().insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, createdBy: userId, ownerId: userId } as any).returning();
 
         const { workflow: w, version: v } = createGraphWorkflow({ projectId: p.id, creatorId: userId, status: "active", isPublic: true });
-        const [wfRes] = await db.insert(workflows).values({ ...w, status: 'active', isPublic: true } as any).returning();
+        const [wfRes] = await getOwnerDb().insert(workflows).values({ ...w, status: 'active', isPublic: true } as any).returning();
         workflow = wfRes;
 
-        const [vRes] = await db.insert(workflowVersions).values({
+        const [vRes] = await getOwnerDb().insert(workflowVersions).values({
             ...v,
             // RVP-2: the run created below now actually resolves navigation
             // from this pinned graph (via RunDefinitionProvider) instead of
             // only the live tables, so it must satisfy VersionRuntimeSchema.
             // The legacy node/edge graph `createGraphWorkflow` produces here
-            // predates the sections-based runtime schema (the visual graph
+            // predates the pages-based runtime schema (the visual graph
             // engine was removed -- see graphFactory.ts's header) and this
-            // test never exercises sections/steps, so an empty valid graph
+            // test never exercises pages/steps, so an empty valid graph
             // is sufficient.
-            graphJson: { title: w.title, sections: [] },
+            graphJson: { title: w.title, pages: [] },
             workflowId: wfRes.id,
             published: true,
             publishedAt: new Date(),
@@ -61,11 +73,17 @@ describe("Analytics Service Integration", () => {
         } as any).returning();
 
 
-        await db.update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
-        workflow = await db.query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
+        await getOwnerDb().update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
+        workflow = await getOwnerDb().query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
     });
 
     it("should generate events and metrics on run completion", { timeout: 30000 }, async () => {
+        // RLS-2b recipe step 3: this drives `runService` DIRECTLY, with no HTTP
+        // request, so nothing populates the ambient tenant. Without it the
+        // version lookup inside run execution finds nothing and the analytics
+        // writes below never happen — silently, because
+        // `AnalyticsService.recordEvent` swallows its own errors.
+        enterTenantContextForTests(tenantId);
         // 1. Create Run via Service
         // Note: RunService.createRun expects a context or request info usually, but simplified sig might work if adjusted
         // Actually RunService.createRun(workflowId, inputData, queryParams, ...)
@@ -81,7 +99,7 @@ describe("Analytics Service Integration", () => {
 
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
-            eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
+            eventsAfterStart = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
             if (eventsAfterStart.some(e => e.type === 'run.start')) { break; }
             await new Promise(r => setTimeout(r, 200));
         }
@@ -94,14 +112,79 @@ describe("Analytics Service Integration", () => {
         await runService.completeRunNoAuth(runId);
 
         // 4. Verify Events (workflow.complete)
-        const events = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
+        const events = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
         expect(events.some(e => e.type === 'workflow.complete')).toBe(true);
 
         // 5. Verify Metrics Aggregation
         await new Promise(r => setTimeout(r, 1000));
 
-        const metrics = await db.select().from(workflowRunMetrics).where(eq(workflowRunMetrics.runId, runId));
+        const metrics = await getOwnerDb().select().from(workflowRunMetrics).where(eq(workflowRunMetrics.runId, runId));
         expect(metrics.length).toBe(1);
         expect(metrics[0].completed).toBe(true);
+    });
+
+    // AN-1: `versionId: 'draft'` (the explicit "no pinned version" sentinel
+    // used by BlockRunner/RunCompletionService/RunLifecycleService) used to be
+    // the one non-UUID value recordEvent's guard let through -- straight into
+    // a NOT NULL uuid FK insert that always throws and is silently swallowed.
+    it("AN-1: does not attempt a database insert for a non-UUID versionId such as 'draft'", async () => {
+        enterTenantContextForTests(tenantId);
+        const errorSpy = vi.spyOn(logger, "error");
+        try {
+            await analyticsService.recordEvent({
+                runId: `run-${nanoid()}`,
+                workflowId: workflow.id,
+                versionId: "draft",
+                type: `test.an1-draft-${nanoid()}`,
+                isPreview: false,
+            });
+            // A row-count check of 0 here would pass both before and after the
+            // fix (pre-fix the insert is attempted and throws on the uuid
+            // cast). What actually distinguishes "no insert attempted" from
+            // "insert attempted and failed" is that a failed attempt is
+            // caught by recordEvent's own try/catch and logged as
+            // "Failed to record analytics event" -- assert that did NOT fire.
+            expect(errorSpy).not.toHaveBeenCalled();
+        } finally {
+            errorSpy.mockRestore();
+        }
+    });
+
+    it("AN-1: still inserts exactly one row when versionId is a real UUID (unchanged behavior)", async () => {
+        enterTenantContextForTests(tenantId);
+        const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
+        const marker = `test.an1-real-uuid-${nanoid()}`;
+
+        await analyticsService.recordEvent({
+            runId: run.id,
+            workflowId: workflow.id,
+            versionId: workflow.currentVersionId,
+            type: marker,
+            isPreview: false,
+        });
+
+        const rows = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.type, marker));
+        expect(rows).toHaveLength(1);
+    });
+
+    it("AN-1: still skips silently when isPreview is true (unchanged behavior)", async () => {
+        enterTenantContextForTests(tenantId);
+        const marker = `test.an1-preview-${nanoid()}`;
+        const errorSpy = vi.spyOn(logger, "error");
+        try {
+            await analyticsService.recordEvent({
+                runId: `run-${nanoid()}`,
+                workflowId: workflow.id,
+                versionId: workflow.currentVersionId,
+                type: marker,
+                isPreview: true,
+            });
+            expect(errorSpy).not.toHaveBeenCalled();
+        } finally {
+            errorSpy.mockRestore();
+        }
+
+        const rows = await getOwnerDb().select().from(workflowRunEvents).where(eq(workflowRunEvents.type, marker));
+        expect(rows).toHaveLength(0);
     });
 });

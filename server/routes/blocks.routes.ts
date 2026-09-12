@@ -12,6 +12,7 @@ import { listToolsBlockService } from "../services/ListToolsBlockService";
 import { queryBlockService } from "../services/QueryBlockService";
 import { readTableBlockService } from "../services/ReadTableBlockService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
@@ -22,7 +23,7 @@ interface BlockRequest {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure varies by block type
   config: any;
   name?: string;
-  sectionId?: string;
+  pageId?: string;
   enabled?: boolean;
 }
 
@@ -67,7 +68,7 @@ export function registerBlockRoutes(app: Express): void {
       if (blockData.type === 'query') {
         block = await queryBlockService.createBlock(workflowId, userId, {
           name: blockData.name ?? 'Query Block',
-          sectionId: blockData.sectionId,
+          pageId: blockData.pageId,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           config: blockData.config,
           phase: blockData.phase,
@@ -75,7 +76,7 @@ export function registerBlockRoutes(app: Express): void {
       } else if (blockData.type === 'read_table') {
         block = await readTableBlockService.createBlock(workflowId, userId, {
           name: blockData.name ?? 'Read Table Block',
-          sectionId: blockData.sectionId,
+          pageId: blockData.pageId,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           config: blockData.config,
           phase: blockData.phase,
@@ -83,7 +84,7 @@ export function registerBlockRoutes(app: Express): void {
       } else if (blockData.type === 'list_tools') {
         block = await listToolsBlockService.createBlock(workflowId, userId, {
           name: blockData.name ?? 'List Tools Block',
-          sectionId: blockData.sectionId,
+          pageId: blockData.pageId,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           config: blockData.config,
           phase: blockData.phase,
@@ -283,7 +284,7 @@ export function registerBlockRoutes(app: Express): void {
       }).optional().nullable();
       const createListToolsSchema = z.object({
         sourceListVar: z.string().min(1, "sourceListVar is required"),
-        sectionId: z.string().min(1, "sectionId is required"),
+        pageId: z.string().min(1, "pageId is required"),
         transformConfig: transformConfigSchema,
       });
 
@@ -292,7 +293,7 @@ export function registerBlockRoutes(app: Express): void {
         return res.status(400).json({ success: false, errors: parsedBody.error.issues.map(e => e.message) });
       }
 
-      const { sourceListVar, sectionId, transformConfig } = parsedBody.data;
+      const { sourceListVar, pageId, transformConfig } = parsedBody.data;
 
       // Validation
 
@@ -304,15 +305,17 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
 
-      if (!sectionId) {
+      if (!pageId) {
         res.status(400).json({
           success: false,
-          errors: ["sectionId is required"],
+          errors: ["pageId is required"],
         });
         return;
       }
       // Generate unique output variable name
-      const allSteps = await stepRepository.findByWorkflowId(workflowId);
+      // RLS-5: `steps` is covered via its workflow's ownership-derived policy.
+      const allSteps = await withCurrentTenant((tx) =>
+        stepRepository.findByWorkflowId(workflowId, tx));
       const existingAliases = new Set(allSteps.map((s) => s.alias).filter(Boolean));
       let outputVar = `${sourceListVar}_filtered`;
       let counter = 2;
@@ -367,10 +370,10 @@ export function registerBlockRoutes(app: Express): void {
       const block = await listToolsBlockService.createBlock(workflowId, userId, {
         name: `Options for ${stepId.substring(0, 8)}`,
 
-        sectionId: sectionId,
+        pageId: pageId,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         config: listToolsConfig,
-        phase: 'onSectionEnter',
+        phase: 'onPageEnter',
       });
       logger.info({
         blockId: block.id,
@@ -379,7 +382,7 @@ export function registerBlockRoutes(app: Express): void {
         sourceListVar,
         outputVar,
 
-        sectionId
+        pageId
       }, "Created List Tools block inline from Choice question");
       res.status(201).json({
         success: true,

@@ -226,7 +226,7 @@ export class StepValueRepository extends BaseRepository<
    * Count answers (step_values rows) and distinct runs that would be
    * permanently destroyed if the given steps were deleted — step_values
    * cascades on `steps.id` deletion (shared/schema/run.ts). Read-only;
-   * used to gate the destructive-confirm dialog before a step/section
+   * used to gate the destructive-confirm dialog before a step/page
    * delete (ICW2-13). Reusable by ICW2-B1 (soft-delete) impact preview.
    */
   async countImpactForSteps(stepIds: string[], tx?: DbTransaction): Promise<DeleteImpact> {

@@ -3,6 +3,7 @@ import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Express, Request, Response } from "express";
 
@@ -33,7 +34,11 @@ export function registerDashboardRoutes(app: Express): void {
       }
 
       // Get user's workflows
-      const workflows = await workflowRepository.findByCreatorId(userId);
+      // RLS-5: `workflows` is covered by an ownership-derived policy, so this
+      // read has to happen inside the tenant-scoped transaction — hybridAuth
+      // has already put the tenant in the async context by this point.
+      const workflows = await withCurrentTenant((tx) =>
+        workflowRepository.findByCreatorId(userId, undefined, tx));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const workflowIds = workflows.map((w: any) => w.id);
 
@@ -95,7 +100,11 @@ export function registerDashboardRoutes(app: Express): void {
       const limit = req.query.limit ? limitSchema.parse(req.query.limit) : 10;
       const status = req.query.status as string | undefined;
 
-      const workflows = await workflowRepository.findByCreatorId(userId);
+      // RLS-5: `workflows` is covered by an ownership-derived policy, so this
+      // read has to happen inside the tenant-scoped transaction — hybridAuth
+      // has already put the tenant in the async context by this point.
+      const workflows = await withCurrentTenant((tx) =>
+        workflowRepository.findByCreatorId(userId, undefined, tx));
 
       // Filter by status if provided
       let filteredWorkflows = workflows;
@@ -145,7 +154,11 @@ export function registerDashboardRoutes(app: Express): void {
       const limit = req.query.limit ? limitSchema.parse(req.query.limit) : 10;
 
       // Get user's workflows
-      const workflows = await workflowRepository.findByCreatorId(userId);
+      // RLS-5: `workflows` is covered by an ownership-derived policy, so this
+      // read has to happen inside the tenant-scoped transaction — hybridAuth
+      // has already put the tenant in the async context by this point.
+      const workflows = await withCurrentTenant((tx) =>
+        workflowRepository.findByCreatorId(userId, undefined, tx));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const workflowIds = workflows.map((w: any) => w.id);
 

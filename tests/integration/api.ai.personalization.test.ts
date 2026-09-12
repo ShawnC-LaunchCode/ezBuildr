@@ -1,13 +1,17 @@
 process.env.GEMINI_API_KEY = 'test-key';
 import { eq } from "drizzle-orm";
-import express, { type Express } from "express";
+import { type Express } from "express";
 import { nanoid } from 'nanoid';
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, vi, afterEach, beforeEach } from "vitest";
 
-import { db } from "../../server/db";
 import { registerAllRoutes } from "../../server/routes/index";
 import { aiUsage, tenants, userPersonalizationSettings, users, workflows, workflowPersonalizationSettings } from "../../shared/schema";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { setCurrentTenantId } from "../../server/utils/rlsContext";
+import { createBareTestApp } from "../helpers/testApp";
 
 // Mock Google Generative AI
 const { mockGenerateContent, mockTenantId } = vi.hoisted(() => ({
@@ -37,6 +41,8 @@ vi.mock('../../server/middleware/auth', () => ({
         req.userId = 'test-user-id-integration';
         req.tenantId = mockTenantId;
         req.user = { id: 'test-user-id-integration', email: 'test@example.com', tenantId: mockTenantId };
+        // What the real hybridAuth does — see tests/helpers/testApp.ts.
+        setCurrentTenantId(mockTenantId);
         next();
     },
 
@@ -46,6 +52,8 @@ vi.mock('../../server/middleware/auth', () => ({
         req.userId = 'test-user-id-integration';
         req.tenantId = mockTenantId;
         req.user = { id: 'test-user-id-integration', email: 'test@example.com', tenantId: mockTenantId };
+        // What the real hybridAuth does — see tests/helpers/testApp.ts.
+        setCurrentTenantId(mockTenantId);
         next();
     },
 
@@ -64,25 +72,24 @@ describe("Personalization API Integration Tests", () => {
             process.stdout.write(`[CAPTURED ERROR] ${args.map(a => JSON.stringify(a)).join(' ')}\n`);
         });
 
-        app = express();
-        app.use(express.json());
+        app = createBareTestApp();
         registerAllRoutes(app);
 
         const port = 0;
         server = app.listen(port);
 
         // Clean up first
-        await db.delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
-        await db.delete(users).where(eq(users.id, TEST_USER_ID));
+        await getOwnerDb().delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+        await getOwnerDb().delete(users).where(eq(users.id, TEST_USER_ID));
 
-        await db.insert(tenants).values({
+        await getOwnerDb().insert(tenants).values({
             id: mockTenantId,
             name: 'Personalization Test Tenant',
             plan: 'pro'
         });
 
         // Insert User
-        await db.insert(users).values({
+        await getOwnerDb().insert(users).values({
             id: TEST_USER_ID,
             email: `test-${nanoid()}@example.com`,
             authProvider: 'local',
@@ -90,7 +97,7 @@ describe("Personalization API Integration Tests", () => {
         });
 
         // Insert Settings
-        await db.insert(userPersonalizationSettings).values({
+        await getOwnerDb().insert(userPersonalizationSettings).values({
             userId: TEST_USER_ID,
             tone: 'friendly',
             readingLevel: 'simple',
@@ -98,7 +105,7 @@ describe("Personalization API Integration Tests", () => {
         });
 
         // Insert Workflow
-        await db.insert(workflows).values({
+        await getOwnerDb().insert(workflows).values({
             id: '550e8400-e29b-41d4-a716-446655440000',
             title: 'Test Workflow',
             status: 'draft',
@@ -107,7 +114,7 @@ describe("Personalization API Integration Tests", () => {
         });
 
         // Insert Workflow Settings
-        await db.insert(workflowPersonalizationSettings).values({
+        await getOwnerDb().insert(workflowPersonalizationSettings).values({
             workflowId: '550e8400-e29b-41d4-a716-446655440000',
             allowDynamicPrompts: true,
             allowDynamicHelp: true,
@@ -116,8 +123,8 @@ describe("Personalization API Integration Tests", () => {
     });
 
     beforeEach(async () => {
-        await db.delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
-        await db.update(userPersonalizationSettings).set({
+        await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+        await getOwnerDb().update(userPersonalizationSettings).set({
             tone: 'friendly',
             readingLevel: 'simple',
             verbosity: 'standard',
@@ -126,7 +133,7 @@ describe("Personalization API Integration Tests", () => {
             allowAIClarification: true
         }).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
         
-        await db.update(workflowPersonalizationSettings).set({
+        await getOwnerDb().update(workflowPersonalizationSettings).set({
             allowDynamicPrompts: true,
             allowDynamicHelp: true,
             allowDynamicTone: true
@@ -134,10 +141,10 @@ describe("Personalization API Integration Tests", () => {
     });
 
     afterAll(async () => {
-        await db.delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
-        await db.delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
-        await db.delete(users).where(eq(users.id, TEST_USER_ID));
-        await db.delete(tenants).where(eq(tenants.id, mockTenantId));
+        await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+        await getOwnerDb().delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+        await getOwnerDb().delete(users).where(eq(users.id, TEST_USER_ID));
+        await getOwnerDb().delete(tenants).where(eq(tenants.id, mockTenantId));
         await new Promise<void>((resolve, reject) => {
             server?.close((error?: Error) => error ? reject(error) : resolve());
         });
@@ -230,7 +237,7 @@ describe("Personalization API Integration Tests", () => {
                 .send(body)
                 .expect(200);
 
-            const usageRows = await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+            const usageRows = await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
             expect(usageRows).toHaveLength(1);
             expect(usageRows[0]).toMatchObject({
                 tenantId: mockTenantId,
@@ -243,7 +250,7 @@ describe("Personalization API Integration Tests", () => {
 
     describe("existing early returns", () => {
         it("returns the original block text without usage when adaptive prompts are disabled", async () => {
-            await db.update(userPersonalizationSettings)
+            await getOwnerDb().update(userPersonalizationSettings)
                 .set({ allowAdaptivePrompts: false })
                 .where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
 
@@ -254,11 +261,11 @@ describe("Personalization API Integration Tests", () => {
 
             expect(response.body.text).toBe("Original Text");
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
 
         it("returns null without usage when AI clarification is disabled", async () => {
-            await db.update(userPersonalizationSettings)
+            await getOwnerDb().update(userPersonalizationSettings)
                 .set({ allowAIClarification: false })
                 .where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
 
@@ -269,7 +276,7 @@ describe("Personalization API Integration Tests", () => {
 
             expect(response.body.clarification).toBeNull();
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
 
         it("returns English text unchanged without usage", async () => {
@@ -280,13 +287,13 @@ describe("Personalization API Integration Tests", () => {
 
             expect(response.body.text).toBe("Already English");
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
     });
 
     describe("workflow settings", () => {
         it("returns original text without usage when workflow allowDynamicPrompts is false", async () => {
-            await db.update(workflowPersonalizationSettings)
+            await getOwnerDb().update(workflowPersonalizationSettings)
                 .set({ allowDynamicPrompts: false })
                 .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
 
@@ -297,11 +304,11 @@ describe("Personalization API Integration Tests", () => {
 
             expect(response.body.text).toBe("Original Text");
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
 
         it("returns empty help text without usage when workflow allowDynamicHelp is false", async () => {
-            await db.update(workflowPersonalizationSettings)
+            await getOwnerDb().update(workflowPersonalizationSettings)
                 .set({ allowDynamicHelp: false })
                 .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
 
@@ -316,11 +323,11 @@ describe("Personalization API Integration Tests", () => {
             // here would lock in showing users an error for a valid setting.
             expect(response.body.text).toBe("");
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
 
         it("uses neutral tone when workflow allowDynamicTone is false", async () => {
-            await db.update(workflowPersonalizationSettings)
+            await getOwnerDb().update(workflowPersonalizationSettings)
                 .set({ allowDynamicTone: false })
                 .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
             
@@ -343,11 +350,11 @@ describe("Personalization API Integration Tests", () => {
 
         it("keeps model disabled if user disabled it but workflow enabled it (restrictive merge)", async () => {
             // User disables, Workflow enables (default)
-            await db.update(userPersonalizationSettings)
+            await getOwnerDb().update(userPersonalizationSettings)
                 .set({ allowAdaptivePrompts: false })
                 .where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
             
-            await db.update(workflowPersonalizationSettings)
+            await getOwnerDb().update(workflowPersonalizationSettings)
                 .set({ allowDynamicPrompts: true })
                 .where(eq(workflowPersonalizationSettings.workflowId, '550e8400-e29b-41d4-a716-446655440000'));
 
@@ -358,7 +365,7 @@ describe("Personalization API Integration Tests", () => {
 
             expect(response.body.text).toBe("Original Text");
             expect(mockGenerateContent).not.toHaveBeenCalled();
-            expect(await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
+            expect(await getOwnerDb().select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId))).toHaveLength(0);
         });
 
         it("works identically to today when workflow settings are true defaults", async () => {
@@ -391,7 +398,7 @@ describe("Personalization API Integration Tests", () => {
             expect(response.status).toBe(200);
 
             // Verify in DB
-            const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+            const [settings] = await getOwnerDb().select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
             expect(settings.tone).toBe('formal');
         });
     });

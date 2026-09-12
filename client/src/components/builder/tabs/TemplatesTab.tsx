@@ -298,7 +298,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
               </p>
               <div className="flex flex-wrap gap-1">
                 {stepsWithoutAlias.slice(0, 6).map((s: ApiWorkflowVariable) => (
-                  <span key={s.stepId} className="bg-white px-1.5 py-0.5 rounded border border-amber-200" title={s.sectionTitle}>
+                  <span key={s.stepId} className="bg-white px-1.5 py-0.5 rounded border border-amber-200" title={s.pageTitle}>
                     {s.label}
                   </span>
                 ))}

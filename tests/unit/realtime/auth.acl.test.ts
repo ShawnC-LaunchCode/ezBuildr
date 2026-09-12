@@ -13,7 +13,7 @@ import type { Workflow, WorkflowAccess } from "../../../shared/schema";
 /**
  * MAP-B5 (deep proof) — `auth.test.ts` proves `authenticateConnection`
  * correctly delegates to and propagates `workflowService.verifyAccess`, with
- * that call mocked at the boundary (the same convention `SectionService.test.ts`
+ * that call mocked at the boundary (the same convention `PageService.test.ts`
  * and `WorkflowService.test.ts` use for their own dependencies). This file
  * goes one layer deeper: it does **not** mock `workflowService` or
  * `aclService` at all, only the repositories underneath them, so the actual
@@ -23,9 +23,16 @@ import type { Workflow, WorkflowAccess } from "../../../shared/schema";
  * propagates.
  */
 
+// RLS-2e: `WorkflowService.verifyAccess` now opens a tenant-scoped
+// transaction via `withCurrentTenant`/`withTenant`, which calls
+// `applyTenantToTransaction(tx, tenantId)` — a `tx.execute(...)` call that
+// sets the `app.current_tenant_id` GUC. The stub `tx` needs a no-op
+// `execute` for that call to succeed; its return value is never read.
 vi.mock("../../../server/db", () => ({
   db: {
-    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({ execute: vi.fn().mockResolvedValue(undefined) })
+    ),
   },
 }));
 
@@ -61,7 +68,7 @@ vi.mock("../../../server/repositories", () => ({
   // `verifyAccess` (the only method this file exercises) never calls them.
   // Vitest 4 throws if a named import has no matching mock export at all,
   // so every sibling on the real barrel needs a stub here.
-  sectionRepository: {},
+  pageRepository: {},
   stepRepository: {},
   logicRuleRepository: {},
   userRepository: {},

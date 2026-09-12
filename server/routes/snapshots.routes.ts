@@ -260,7 +260,7 @@ export function registerSnapshotRoutes(app: Express): void {
         return res.status(404).json({ message: "Run not found" });
       }
 
-      const snapshot = await snapshotService.saveFromRun(snapshotId, runId);
+      const snapshot = await snapshotService.saveFromRun(snapshotId, runId, userId);
       res.json(snapshot);
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error saving run to snapshot");

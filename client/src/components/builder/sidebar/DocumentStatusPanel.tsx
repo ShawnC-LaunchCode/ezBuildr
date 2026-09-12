@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useSections, useActiveTemplateVariables, useWorkflowVariables, useAllSteps } from "@/lib/vault-hooks";
+import { usePages, useActiveTemplateVariables, useWorkflowVariables, useAllSteps } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 import { MissingItemsList } from "./document-status/MissingItemsList";
@@ -17,26 +17,26 @@ interface DocumentStatusPanelProps {
 
 export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPanelProps) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const { selectSection } = useWorkflowBuilder();
-    // 1. Fetch sections
-    const { data: sections } = useSections(workflowId);
+    const { selectPage } = useWorkflowBuilder();
+    // 1. Fetch pages
+    const { data: pages } = usePages(workflowId);
     // 2. Fetch all steps (to find context)
-    const allSteps = useAllSteps(sections ?? []);
+    const allSteps = useAllSteps(pages ?? []);
 
-    // Find final docs section safely with explicit boolean check
-    const finalDocsSection = sections?.find((s) => {
+    // Find final docs page safely with explicit boolean check
+    const finalDocsPage = pages?.find((s) => {
         const config = s.config as Record<string, unknown> | undefined;
         return config?.finalBlock === true || s.title.toLowerCase().includes("document");
     });
 
-    // 3. Get active templates from that section's config
-    const sectionConfig = finalDocsSection?.config ?? {};
+    // 3. Get active templates from that page's config
+    const pageConfig = finalDocsPage?.config ?? {};
     // 4. Fetch required variables from those templates
-    const { requiredVariables, isLoading: isLoadingVars } = useActiveTemplateVariables(projectId, sectionConfig);
+    const { requiredVariables, isLoading: isLoadingVars } = useActiveTemplateVariables(projectId, pageConfig);
     // 5. Fetch collected variables (workflow variables/aliases)
     const { data: workflowVars } = useWorkflowVariables(workflowId);
 
-    if (!finalDocsSection) {
+    if (!finalDocsPage) {
         return null;
     }
 
@@ -57,11 +57,11 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
     const percentage = total > 0 ? Math.round((collected / total) * 100) : 100;
     const isComplete = missing.length === 0;
 
-    const handleGoToSection = (sectionId: string) => {
-        selectSection(sectionId);
-        // Dispatch event or use logic to scroll to section if needed, 
+    const handleGoToPage = (pageId: string) => {
+        selectPage(pageId);
+        // Dispatch event or use logic to scroll to page if needed,
         // but sidebar selection usually highlights it or scrolls into view.
-        const element = document.getElementById(`section-${sectionId}`); // Assuming IDs exist in canvas
+        const element = document.getElementById(`page-${pageId}`); // Assuming IDs exist in canvas
         if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -117,9 +117,9 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
                         {isExpanded && (
                             <MissingItemsList
                                 missing={missing}
-                                sections={sections}
+                                pages={pages}
                                 allSteps={allSteps}
-                                onGoToSection={handleGoToSection}
+                                onGoToPage={handleGoToPage}
                             />
                         )}
                     </div>

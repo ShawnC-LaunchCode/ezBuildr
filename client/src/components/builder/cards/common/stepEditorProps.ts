@@ -11,7 +11,7 @@ import type { ApiStep } from '@/lib/vault-api';
  */
 export interface StepEditorCommonProps {
     stepId: string;
-    sectionId: string;
+    pageId: string;
     workflowId: string;
     step: ApiStep;
 }

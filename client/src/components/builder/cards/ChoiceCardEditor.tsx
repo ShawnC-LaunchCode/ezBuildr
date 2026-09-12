@@ -17,11 +17,13 @@ import { useState, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
 import { useListToolsValidation } from "@/hooks/useListToolsValidation";
-import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
+import { blockAPI } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
 import type { ChoiceAdvancedConfig, ChoiceDisplay } from "@shared/types/stepConfigs";
@@ -48,7 +50,7 @@ const SINGLE_SELECT_DISPLAYS: Array<{ value: ChoiceDisplay; label: string; hint:
 ];
 
 // eslint-disable-next-line max-lines-per-function
-export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function ChoiceCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,7 +103,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       // read by resolveChoiceDisplay.
       const payload: ChoiceAdvancedConfig = {
         display: newConfig.display,
-        allowMultiple: newConfig.allowMultiple,
+        layout: newConfig.layout,
         options: saveSourceMode === 'static'
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           ? { type: 'static', options: newConfig.staticOptions || [] }
@@ -110,9 +112,9 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       };
       // Auto-upgrade type if needed
       if (step.type !== 'choice') {
-        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, type: 'choice', config: payload });
       } else {
-        updateStepMutation.mutate({ id: stepId, sectionId, config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, config: payload });
       }
     } else {
       // Legacy Save
@@ -124,7 +126,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           alias: opt.alias
         }))
       };
-      updateStepMutation.mutate({ id: stepId, sectionId, config: payload });
+      updateStepMutation.mutate({ id: stepId, pageId, config: payload });
     }
   };
 
@@ -149,7 +151,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     columns,
     loadingColumns,
     blocks
-  } = useListToolsValidation({ localConfig, workflowId, sectionId });
+  } = useListToolsValidation({ localConfig, workflowId, pageId });
 
 
   // Derived state for Dynamic Columns
@@ -183,10 +185,9 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
 
-  const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, sectionId, alias });
-  const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, sectionId, required });
+  const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, pageId, alias });
+  const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, pageId, required });
   const handleDisplayChange = (display: ChoiceDisplay) => {
-    const allowMultiple = display === "multiple";
     // Easy-mode `radio` / `multiple_choice` steps have nowhere to store a
     // display mode, so dropdown and combobox both require promoting the step
     // to the advanced `choice` type first.
@@ -196,16 +197,16 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       if (needsAdvancedType) {
         const payload: ChoiceAdvancedConfig = {
           display,
-          allowMultiple,
+          layout: localConfig?.layout ?? "vertical",
           options: { type: 'static', options: localConfig?.staticOptions ?? [] }
         };
-        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+        updateStepMutation.mutate({ id: stepId, pageId, type: 'choice', config: payload });
       } else {
-        const newType = allowMultiple ? "multiple_choice" : "radio";
-        updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+        const newType = display === "multiple" ? "multiple_choice" : "radio";
+        updateStepMutation.mutate({ id: stepId, pageId, type: newType });
       }
     } else {
-      handleUpdate({ display, allowMultiple });
+      handleUpdate({ display });
     }
   };
 
@@ -225,7 +226,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       const result = await blockAPI.createListToolsFromChoice(workflowId, stepId, {
         sourceListVar: localConfig.dynamicOptions.listVariable,
         transformConfig: localConfig.dynamicOptions.transform,
-        sectionId: sectionId
+        pageId: pageId
       });
 
       // Update the question config to link to the new block
@@ -257,7 +258,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         enabled: result.block.enabled ?? true,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
         raw: result.block as unknown as any,
-        source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
       };
@@ -374,7 +374,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       const result = await blockAPI.createListToolsFromChoice(workflowId, stepId, {
         sourceListVar: localConfig.dynamicOptions.baseListVar, // Use base list as source
         transformConfig: transformConfig,
-        sectionId: sectionId
+        pageId: pageId
       });
 
       // Update the question config to link to the new block
@@ -408,7 +408,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         enabled: result.block.enabled ?? true,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
         raw: result.block as unknown as any,
-        source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
       };
@@ -454,7 +453,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       order: linkedBlock.order ?? 0,
       enabled: linkedBlock.enabled ?? true,
       raw: linkedBlock as unknown as Record<string, unknown>,
-      source: 'regular',
       title: (blockCfg['outputListVar'] as string | undefined) ?? (blockCfg['outputKey'] as string | undefined) ?? 'List Tools',
       displayType: 'list_tools'
     };
@@ -507,6 +505,71 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         </>
       )}
 
+      {(localConfig.display === 'radio' || localConfig.display === 'multiple') && (
+        <>
+          <div className="space-y-3">
+            <SectionHeader title="Layout" description="Visual arrangement of options" />
+            <RadioGroup
+              value={localConfig.layout ?? 'vertical'}
+              onValueChange={(v) => handleUpdate({ layout: v as 'vertical' | 'horizontal' })}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="vertical" id="layout-vertical" />
+                <Label htmlFor="layout-vertical">Vertical</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="horizontal" id="layout-horizontal" />
+                <Label htmlFor="layout-horizontal">Horizontal</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <Separator />
+        </>
+      )}
+
+      <div className="space-y-4">
+        {localConfig.display !== 'combobox' && (
+          <div className="space-y-3">
+            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+              <div className="space-y-0.5">
+                <Label>Allow &quot;Other&quot; Option</Label>
+                <p className="text-xs text-muted-foreground">Add a text input for unlisted answers</p>
+              </div>
+              <Switch
+                checked={localConfig.allowOther ?? false}
+                onCheckedChange={(v) => handleUpdate({ allowOther: v })}
+              />
+            </div>
+            {localConfig.allowOther && (
+              <div className="ml-4 space-y-1">
+                <Label className="text-xs font-medium">&quot;Other&quot; Option Label</Label>
+                <Input
+                  className="h-8 max-w-sm"
+                  value={localConfig.otherLabel ?? ''}
+                  placeholder="Other"
+                  onChange={(e) => handleUpdate({ otherLabel: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+          <div className="space-y-0.5">
+            <Label>Randomize Order</Label>
+            <p className="text-xs text-muted-foreground">Shuffle options randomly for each respondent</p>
+          </div>
+          <Switch
+            checked={localConfig.randomizeOrder ?? false}
+            onCheckedChange={(v) => handleUpdate({ randomizeOrder: v })}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Options Source Toggle */}
       <Tabs value={sourceMode} onValueChange={handleSourceModeChange} className="w-full">
         <div className="flex items-center justify-between mb-4">
@@ -521,7 +584,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           <ChoiceOptionsSettings
             config={{
               display: localConfig.display,
-              allowMultiple: localConfig.allowMultiple,
+              layout: localConfig.layout,
               options: { type: "static", options: localConfig.staticOptions },
             }}
             onChange={handleStaticOptionsChange}
@@ -532,7 +595,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           <DynamicOptionsEditor
             config={localConfig.dynamicOptions}
             listVariables={listVariables}
-            sourceBlock={(sourceBlock as ApiTransformBlock | null)}
+            sourceBlock={sourceBlock}
             sourceTableId={sourceTableId}
             columns={columns}
             loadingColumns={loadingColumns}
@@ -584,7 +647,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       />
       <DefaultValueField
         stepId={stepId}
-        sectionId={sectionId}
+        pageId={pageId}
         defaultValue={step.defaultValue as DefaultValueType}
         type={step.type}
         mode={isAdvancedMode ? 'advanced' : 'easy'}

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 import type { DatavaultTable } from '@shared/schema';
-import type { DatavaultTablesRepository, DatavaultColumnsRepository, DatavaultRowsRepository, DatavaultTablePermissionsRepository } from '../../../server/repositories';
+import type { DatavaultTablesRepository, DatavaultColumnsRepository, DatavaultRowsRepository, DatavaultTablePermissionsRepository, DbTransaction } from '../../../server/repositories';
 import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
 import * as repositories from '../../../server/repositories';
 
@@ -8,7 +8,17 @@ import * as repositories from '../../../server/repositories';
  * DataVault Phase 1 PR 9: DatavaultTablesService Tests
  *
  * Unit tests for DatavaultTablesService
+ *
+ * RLS-2b: every public method now opens a tenant-scoped transaction at the
+ * service boundary (via `withTx` -> `withCurrentTenant`) when no `tx` is
+ * supplied, which requires a tenant in the request's async context (RLS-1) —
+ * unavailable to a plain unit test. These tests pass an explicit fake `tx` to
+ * take the "caller already has a transaction" branch of `withTx`, matching
+ * the pattern established in tests/unit/services/CollectionService.test.ts
+ * (RLS-2a). The RLS transaction itself is proven against a real database in
+ * tests/integration/rls2b-datavault.test.ts.
  */
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 describe('DatavaultTablesService', () => {
   let service: DatavaultTablesService;
@@ -86,10 +96,10 @@ describe('DatavaultTablesService', () => {
 
       mockTablesRepo.findByTenantAndUser.mockResolvedValue(mockTables);
 
-      const result = await service.listTables(mockTenantId, mockUserId);
+      const result = await service.listTables(mockTenantId, mockUserId, mockTx);
 
       expect(result).toEqual(mockTables);
-      expect(mockTablesRepo.findByTenantAndUser).toHaveBeenCalledWith(mockTenantId, mockUserId, undefined);
+      expect(mockTablesRepo.findByTenantAndUser).toHaveBeenCalledWith(mockTenantId, mockUserId, mockTx);
     });
   });
 
@@ -114,7 +124,7 @@ describe('DatavaultTablesService', () => {
       mockColumnsRepo.countByTableIds.mockResolvedValue(new Map([[mockTableId, 2]]));
       mockRowsRepo.countByTableIds.mockResolvedValue(new Map([[mockTableId, 42]]));
 
-      const result = await service.listTablesWithStats(mockTenantId, mockUserId);
+      const result = await service.listTablesWithStats(mockTenantId, mockUserId, mockTx);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty('columnCount', 2);
@@ -138,7 +148,7 @@ describe('DatavaultTablesService', () => {
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
 
-      const result = await service.getTable(mockTableId, mockTenantId);
+      const result = await service.getTable(mockTableId, mockTenantId, mockTx);
 
       expect(result).toEqual(mockTable);
     });
@@ -146,7 +156,7 @@ describe('DatavaultTablesService', () => {
     it('should throw 404 if table not found', async () => {
       mockTablesRepo.findById.mockResolvedValue(undefined);
 
-      await expect(service.getTable('non-existent', mockTenantId))
+      await expect(service.getTable('non-existent', mockTenantId, mockTx))
         .rejects
         .toThrow('Table not found');
     });
@@ -166,7 +176,7 @@ describe('DatavaultTablesService', () => {
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
 
-      await expect(service.getTable(mockTableId, mockTenantId))
+      await expect(service.getTable(mockTableId, mockTenantId, mockTx))
         .rejects
         .toThrow('Access denied - table belongs to different tenant');
     });
@@ -193,14 +203,14 @@ describe('DatavaultTablesService', () => {
       mockTablesRepo.slugExists.mockResolvedValue(false);
       mockTablesRepo.create.mockResolvedValue(createdTable);
 
-      const result = await service.createTable(insertData);
+      const result = await service.createTable(insertData, mockTx);
 
       expect(result).toEqual(createdTable);
       expect(mockTablesRepo.slugExists).toHaveBeenCalledWith(
         mockTenantId,
         'new-table',
         undefined,
-        undefined
+        mockTx
       );
     });
 
@@ -227,7 +237,7 @@ describe('DatavaultTablesService', () => {
 
       mockTablesRepo.create.mockResolvedValue(createdTable);
 
-      const result = await service.createTable(insertData);
+      const result = await service.createTable(insertData, mockTx);
 
       expect(result.slug).toBe('new-table-1');
       expect(mockTablesRepo.slugExists).toHaveBeenCalledTimes(2);
@@ -253,7 +263,7 @@ describe('DatavaultTablesService', () => {
       mockTablesRepo.slugExists.mockResolvedValue(false);
       mockTablesRepo.create.mockResolvedValue(createdTable);
 
-      const result = await service.createTable(insertData);
+      const result = await service.createTable(insertData, mockTx);
 
       expect(result.slug).toBe('custom-slug');
     });
@@ -286,7 +296,7 @@ describe('DatavaultTablesService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockTablesRepo.update.mockResolvedValue(updatedTable);
 
-      const result = await service.updateTable(mockTableId, mockTenantId, updateData);
+      const result = await service.updateTable(mockTableId, mockTenantId, updateData, mockTx);
 
       expect(result).toEqual(updatedTable);
     });
@@ -294,7 +304,7 @@ describe('DatavaultTablesService', () => {
     it('should throw 404 if table not found', async () => {
       mockTablesRepo.findById.mockResolvedValue(undefined);
 
-      await expect(service.updateTable('non-existent', mockTenantId, { name: 'New' }))
+      await expect(service.updateTable('non-existent', mockTenantId, { name: 'New' }, mockTx))
         .rejects
         .toThrow('Table not found');
     });
@@ -317,15 +327,15 @@ describe('DatavaultTablesService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockTablesRepo.delete.mockResolvedValue(undefined);
 
-      await service.deleteTable(mockTableId, mockTenantId);
+      await service.deleteTable(mockTableId, mockTenantId, mockTx);
 
-      expect(mockTablesRepo.delete).toHaveBeenCalledWith(mockTableId, undefined);
+      expect(mockTablesRepo.delete).toHaveBeenCalledWith(mockTableId, mockTx);
     });
 
     it('should throw 404 if table not found', async () => {
       mockTablesRepo.findById.mockResolvedValue(undefined);
 
-      await expect(service.deleteTable('non-existent', mockTenantId))
+      await expect(service.deleteTable('non-existent', mockTenantId, mockTx))
         .rejects
         .toThrow('Table not found');
     });

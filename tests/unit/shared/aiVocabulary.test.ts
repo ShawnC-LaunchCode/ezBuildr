@@ -1,11 +1,4 @@
-/**
- * ICW2-12 — the prompt vocabulary must be generated from the platform's own
- * enums and schemas, not hand-listed. The load-bearing property under test is
- * that adding a step type or an op teaches the model with no prompt edit, so
- * these assertions are written against the enums themselves rather than
- * against a snapshot of expected text.
- */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     buildActionCatalog,
@@ -13,92 +6,193 @@ import {
     buildOpCatalog,
     buildStepTypeCatalog,
     buildWorkflowVocabulary,
+    getAllowedStepTypes,
     getConfigKeys,
+    parseStepConfigForMode,
+    validateGeneratedWorkflowForMode,
+    validateWorkflowPatchOpsForMode,
 } from '../../../shared/aiVocabulary';
-import { conditionalActionEnum, stepTypeEnum } from '../../../shared/schema/workflow';
+import { conditionalActionEnum } from '../../../shared/schema/workflow';
 import { comparisonOperatorSchema } from '../../../shared/types/conditions';
-import { workflowPatchOpSchema } from '../../../shared/validation/aiWorkflowEdit.schema';
+import { CANONICAL_STEP_TYPES, LEGACY_STEP_ADAPTERS } from '../../../shared/types/stepConfigs';
+import { workflowPatchOpSchema, type WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.schema';
+import { buildDefaultSystemPrompt, DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsService';
 
-import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsService';
+function catalogLine(catalog: string, type: string): string | undefined {
+    return catalog.split('\n').find((line) => line.startsWith(`- ${type}`));
+}
 
-describe('AI vocabulary derivation', () => {
-    it('documents every step type in stepTypeEnum (AC1)', () => {
-        const catalog = buildStepTypeCatalog();
-        for (const type of stepTypeEnum.enumValues) {
-            expect(catalog, `missing step type: ${type}`).toContain(`- ${type}`);
-        }
-        // The audit's complaint: ~19 of 38 taught. All of them now.
-        expect(stepTypeEnum.enumValues.length).toBeGreaterThan(30);
-        expect(catalog.split('\n')).toHaveLength(stepTypeEnum.enumValues.length);
-    });
-
-    it('teaches the previously-omitted types the audit called out', () => {
-        const catalog = buildStepTypeCatalog();
-        for (const type of ['computed', 'js_question',
-            'final_documents', 'true_false', 'multi_field', 'choice',
-            'number_advanced', 'address_advanced']) {
-            expect(catalog, `missing: ${type}`).toContain(`- ${type}`);
+describe('mode-aware canonical AI vocabulary', () => {
+    it('lists every canonical type in Advanced exactly once (AC1)', () => {
+        const lines = buildStepTypeCatalog('advanced').split('\n');
+        expect(lines).toHaveLength(CANONICAL_STEP_TYPES.length);
+        for (const type of CANONICAL_STEP_TYPES) {
+            expect(lines.filter((line) => line.startsWith(`- ${type}:`))).toHaveLength(1);
         }
     });
 
-    it('derives config keys from the step config schemas, not a hand list', () => {
-        // radio's config schema carries options; the model needs that key name
-        // or it emits choice steps with no options (the ICW2-2 failure mode).
-        expect(getConfigKeys('radio')).toContain('options[]');
-        expect(getConfigKeys('number')).toEqual(expect.arrayContaining(['min', 'max']));
-        // A type with no registered schema is still listed, just without keys.
-        expect(getConfigKeys('short_text')).toBeNull();
-        expect(buildStepTypeCatalog()).toContain('- short_text');
-    });
-
-    it('documents every comparison operator the engine can evaluate', () => {
-        const catalog = buildOperatorCatalog();
-        for (const operator of comparisonOperatorSchema.options) {
-            expect(catalog, `missing operator: ${operator}`).toContain(operator);
-        }
-        // The 8 engine operators the audit flagged as unreachable are present.
-        for (const operator of ['starts_with', 'ends_with', 'includes_all', 'diff_days', 'on_or_after']) {
-            expect(catalog).toContain(operator);
+    it('never lists a retired stored type in either mode (AC1)', () => {
+        for (const mode of ['easy', 'advanced'] as const) {
+            const lines = buildStepTypeCatalog(mode).split('\n');
+            for (const retiredType of Object.keys(LEGACY_STEP_ADAPTERS)) {
+                expect(lines.some((line) => line.startsWith(`- ${retiredType}:`))).toBe(false);
+            }
         }
     });
 
-    it('documents every conditional action', () => {
-        const catalog = buildActionCatalog();
-        for (const action of conditionalActionEnum.enumValues) {
-            expect(catalog).toContain(action);
-        }
-    });
-
-    it('derives the op list from the patch union so it cannot drift', () => {
-        const catalog = buildOpCatalog();
-        const opNames = workflowPatchOpSchema.options.map(
-            (option) => (option.shape.op as { value: string }).value
+    it('lists the friendly Easy presets but maps them to canonical types (AC2)', () => {
+        const catalog = buildStepTypeCatalog('easy');
+        expect(catalogLine(catalog, 'text')).toContain('Short Text');
+        expect(catalogLine(catalog, 'text')).toContain('Long Text');
+        expect(catalogLine(catalog, 'boolean')).toContain('Yes/No');
+        expect(catalogLine(catalog, 'date_time')).toContain('Date/Time');
+        expect(catalogLine(catalog, 'choice')).toContain('Single Select');
+        expect(catalogLine(catalog, 'number')).toContain('Currency');
+        expect(catalogLine(catalog, 'file_upload')).toContain('File Upload');
+        expect(buildWorkflowVocabulary('easy')).toContain(
+            'presets are labels/configs, never type names',
         );
-        for (const op of opNames) {
-            expect(catalog, `missing op: ${op}`).toContain(`- ${op}`);
+    });
+
+    it('hides Advanced-only types and settings from Easy (AC2)', () => {
+        const catalog = buildStepTypeCatalog('easy');
+        for (const type of ['multi_field', 'js_question', 'computed', 'final_documents', 'signature_block']) {
+            expect(catalogLine(catalog, type)).toBeUndefined();
         }
-        expect(catalog.split('\n')).toHaveLength(opNames.length);
-        // Ops added in ICW2-12 are taught automatically.
-        expect(catalog).toContain('- section.setVisibleIf');
-        expect(catalog).toContain('- step.reorder');
+        expect(catalogLine(catalog, 'boolean')).not.toContain('trueAlias');
+        expect(catalogLine(catalog, 'choice')).not.toContain('randomizeOrder');
+        expect(catalogLine(catalog, 'number')).not.toContain('formatOnInput');
     });
 
-    it('tells the model that visibleIf is an object, not a string', () => {
-        const vocabulary = buildWorkflowVocabulary();
-        expect(vocabulary).toContain('Condition expressions are objects, not strings');
-        expect(vocabulary).toContain('"type":"condition"');
+    it('derives every Advanced config key exactly once from its canonical schema (AC3)', () => {
+        const catalog = buildStepTypeCatalog('advanced');
+        for (const type of CANONICAL_STEP_TYPES) {
+            const keys = getConfigKeys(type, 'advanced');
+            if (keys === null || keys.length === 0) { continue; }
+            expect(new Set(keys).size, `${type} has a duplicate derived key`).toBe(keys.length);
+            const line = catalogLine(catalog, type);
+            expect(line).toBe(`- ${type}: ${keys.join(', ')}`);
+        }
     });
 
-    it('splices the generated vocabulary into the default system prompt', () => {
-        expect(DEFAULT_SYSTEM_PROMPT).toContain(buildWorkflowVocabulary());
-        // Placeholders the route substitutes must survive.
-        expect(DEFAULT_SYSTEM_PROMPT).toContain('{{interviewerRole}}');
-        expect(DEFAULT_SYSTEM_PROMPT).toContain('{{readingLevel}}');
-        expect(DEFAULT_SYSTEM_PROMPT).toContain('{{tone}}');
+    it('keeps both mode vocabularies inside the prompt budget (AC3)', () => {
+        expect(buildWorkflowVocabulary('easy').length).toBeLessThan(8000);
+        expect(buildWorkflowVocabulary('advanced').length).toBeLessThan(8000);
     });
 
-    it('keeps the vocabulary within a sane prompt budget', () => {
-        // Names + one-line config summaries, never full JSON schemas.
-        expect(buildWorkflowVocabulary().length).toBeLessThan(8000);
+    it('rejects retired types in both modes instead of normalizing them (AC4)', () => {
+        expect(() => parseStepConfigForMode('short_text', { variant: 'short' }, 'easy'))
+            .toThrow('is not canonical');
+        expect(() => parseStepConfigForMode('number_advanced', { mode: 'number' }, 'advanced'))
+            .toThrow('is not canonical');
+    });
+
+    it('rejects an Advanced-only type and key in Easy server validation (AC2, AC5)', () => {
+        expect(() => parseStepConfigForMode('multi_field', undefined, 'easy'))
+            .toThrow('Easy mode forbids step type "multi_field"');
+        expect(() => parseStepConfigForMode('number', {
+            mode: 'number',
+            thousandsSeparator: true,
+            formatOnInput: true,
+        }, 'easy')).toThrow('Easy mode forbids config key(s) for "number"');
+    });
+
+    it('accepts the same implemented type and detailed key in Advanced (AC3, AC5)', () => {
+        expect(parseStepConfigForMode('number', {
+            mode: 'number',
+            thousandsSeparator: true,
+            formatOnInput: true,
+        }, 'advanced')).toEqual({
+            mode: 'number',
+            thousandsSeparator: true,
+            formatOnInput: true,
+        });
+    });
+
+    it('allows only static Choice sources in Easy and all implemented sources in Advanced', () => {
+        const dynamicChoice = {
+            display: 'dropdown',
+            options: { type: 'list', listVariable: 'contacts' },
+        };
+        expect(() => parseStepConfigForMode('choice', dynamicChoice, 'easy'))
+            .toThrow('Easy mode forbids choice dynamic option sources');
+        expect(() => parseStepConfigForMode('choice', dynamicChoice, 'advanced')).not.toThrow();
+    });
+
+    it('recursively rejects hidden and retired types inside List configs', () => {
+        const listConfig = {
+            fields: [{
+                kind: 'question', id: 'field-1', alias: 'hidden', type: 'multi_field',
+                title: 'Hidden', order: 0,
+                config: { layout: 'first_last', fields: [], storeAs: 'separate' },
+            }],
+        };
+        expect(() => parseStepConfigForMode('list', listConfig, 'easy'))
+            .toThrow('Easy mode forbids step type "multi_field"');
+    });
+
+    it('advertises and enforces the new signature_block config contract (STB-17)', () => {
+        expect(getConfigKeys('signature_block', 'advanced')).toEqual([
+            'signerRole', 'routingOrder', 'documents[]', 'conditions', 'markdownHeader',
+            'provider(docusign|hellosign|native)', 'allowDecline', 'expiresInDays',
+            'signerEmail', 'signerName', 'message', 'redirectUrl',
+        ]);
+        expect(catalogLine(buildStepTypeCatalog('advanced'), 'signature_block'))
+            .toBe('- signature_block: signerRole, routingOrder, documents[], conditions, markdownHeader, provider(docusign|hellosign|native), allowDecline, expiresInDays, signerEmail, signerName, message, redirectUrl');
+        expect(parseStepConfigForMode('signature_block', {
+            signerRole: 'Applicant',
+            routingOrder: 1,
+            documents: [{ id: 'signature-document', documentId: 'template-id' }],
+            provider: 'native',
+        }, 'advanced')).toMatchObject({ signerRole: 'Applicant', routingOrder: 1 });
+        expect(() => parseStepConfigForMode('signature_block', { penColor: 'blue' }, 'advanced'))
+            .toThrow('Advanced mode forbids config key(s) for "signature_block": penColor');
+    });
+
+    it('uses the same allowlist for generated workflows and patch ops (AC4, AC5)', () => {
+        const workflow = {
+            pages: [{ steps: [{ type: 'text', config: { variant: 'short' } }] }],
+        };
+        expect(() => validateGeneratedWorkflowForMode(workflow, 'easy')).not.toThrow();
+
+        const ops: WorkflowPatchOp[] = [{
+            op: 'step.create', pageId: 'page-1', type: 'text', title: 'Name',
+            config: { variant: 'short' },
+        }];
+        expect(() => validateWorkflowPatchOpsForMode(ops, 'easy')).not.toThrow();
+    });
+
+    it('rejects a forbidden model patch before application (AC5)', () => {
+        const ops: WorkflowPatchOp[] = [{
+            op: 'step.create', pageId: 'page-1', type: 'js_question', title: 'Hidden',
+            config: { display: 'hidden', code: 'emit(1)', inputKeys: [], outputKey: 'x' },
+        }];
+        expect(() => validateWorkflowPatchOpsForMode(ops, 'easy'))
+            .toThrow('Easy mode forbids step type "js_question"');
+    });
+
+    it('derives operator, action, and operation catalogs from their schemas', () => {
+        expect(buildOperatorCatalog().split(', ')).toEqual(comparisonOperatorSchema.options);
+        expect(buildActionCatalog().split(', ')).toEqual(conditionalActionEnum.enumValues);
+        const opNames = workflowPatchOpSchema.options.map(
+            (option) => (option.shape.op as { value: string }).value,
+        );
+        expect(buildOpCatalog().split('\n')).toEqual(opNames.map((op) => `- ${op}`));
+    });
+
+    it('renders the selected mode catalog into the default prompt', () => {
+        expect(DEFAULT_SYSTEM_PROMPT).toContain('{{workflowVocabulary}}');
+        const easy = buildDefaultSystemPrompt('easy');
+        const advanced = buildDefaultSystemPrompt('advanced');
+        expect(easy).toContain(buildWorkflowVocabulary('easy'));
+        expect(easy).not.toContain('- js_question:');
+        expect(advanced).toContain(buildWorkflowVocabulary('advanced'));
+        expect(advanced).toContain('- js_question:');
+    });
+
+    it('reports the exact mode-visible canonical type sets', () => {
+        expect(getAllowedStepTypes('advanced')).toEqual(CANONICAL_STEP_TYPES);
+        expect(getAllowedStepTypes('easy')).toContain('list');
+        expect(getAllowedStepTypes('easy')).not.toContain('computed');
     });
 });

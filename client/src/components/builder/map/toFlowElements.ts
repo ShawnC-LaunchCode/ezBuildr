@@ -24,12 +24,12 @@
  * a set when there's a real on/off-path distinction to draw (see that
  * function's `hasOffPathNodes`).
  *
- * MAP-8 review fix: a skip edge's `source`/`target` are the same section
+ * MAP-8 review fix: a skip edge's `source`/`target` are the same page
  * *column* the sequential spine already occupies (`mapLayout.ts` places
- * every section at the same x) — routing it through the default top/bottom
- * handles drew a straight vertical line directly through whatever section it
+ * every page at the same x) — routing it through the default top/bottom
+ * handles drew a straight vertical line directly through whatever page it
  * bypassed, with the "Skip" label rendered on top of that node's own title.
- * Skip edges now route through `SectionMapNode`'s dedicated left-side
+ * Skip edges now route through `PageMapNode`'s dedicated left-side
  * anchors (`skip-source`/`skip-target`) with a `smoothstep` `pathOptions.offset`
  * wide enough to clear the card, so the path (and its label) run down a
  * lane beside the spine instead of through it.
@@ -49,10 +49,10 @@ export const SKIP_EDGE_CLASS = "workflow-map-edge-skip";
 export const ONPATH_EDGE_CLASS = "workflow-map-edge-onpath";
 export const DIMMED_EDGE_CLASS = "workflow-map-edge-dimmed";
 
-/** The ids of `SectionMapNode`'s dedicated skip-routing anchors — see the module doc comment. */
+/** The ids of `PageMapNode`'s dedicated skip-routing anchors — see the module doc comment. */
 const SKIP_SOURCE_HANDLE = "skip-source";
 const SKIP_TARGET_HANDLE = "skip-target";
-/** How far the path jogs sideways off the spine before turning — wide enough to clear a `SectionMapNode` card (`min-w-[200px] max-w-[240px]`) with visible margin, not just its border. */
+/** How far the path jogs sideways off the spine before turning — wide enough to clear a `PageMapNode` card (`min-w-[200px] max-w-[240px]`) with visible margin, not just its border. */
 const SKIP_EDGE_OFFSET = 70;
 
 export function toFlowNodes(
@@ -60,7 +60,7 @@ export function toFlowNodes(
   edges: WorkflowMapEdge[],
   onActivateNode?: (node: WorkflowMapNode) => void,
   /** MAP-6: lint findings grouped by node id (`mapLintDecoration.ts`). Defaults to none so every existing caller keeps working. */
-  findingsBySection?: ReadonlyMap<string, WorkflowLintIssue[]>,
+  findingsByPage?: ReadonlyMap<string, WorkflowLintIssue[]>,
   /** MAP-8: node ids the current simulation actually visits. Undefined means "no simulation distinction to draw" — see the module doc comment. */
   onPathNodeIds?: ReadonlySet<string>
 ): MapFlowNode[] {
@@ -82,7 +82,7 @@ export function toFlowNodes(
         conditional: node.conditional,
         conditionalStepIds: node.conditionalStepIds,
         onActivate: isActivatable ? () => onActivateNode?.(node) : undefined,
-        findings: findingsBySection?.get(node.id) ?? [],
+        findings: findingsByPage?.get(node.id) ?? [],
         simulation: onPathNodeIds ? { onPath: onPathNodeIds.has(node.id) } : undefined,
       },
     };

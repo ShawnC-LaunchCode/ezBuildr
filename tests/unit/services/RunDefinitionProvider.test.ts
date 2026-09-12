@@ -9,10 +9,30 @@ import { logger } from '../../../server/logger';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { buildTestWhen } from '../../helpers/conditionFixtures';
 
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
 const runId = '11111111-1111-4111-8111-111111111111';
 const workflowId = '22222222-2222-4222-8222-222222222222';
 const versionId = '33333333-3333-4333-8333-333333333333';
-const sectionId = '44444444-4444-4444-8444-444444444444';
+const sectionId = '77777777-7777-4777-8777-777777777777';
+const pageId = '44444444-4444-4444-8444-444444444444';
 const controllerId = '55555555-5555-4555-8555-555555555555';
 const targetId = '66666666-6666-4666-8666-666666666666';
 
@@ -21,7 +41,7 @@ function makeRun(overrides: Partial<{ workflowVersionId: string | null }> = {}) 
     id: runId,
     workflowId,
     workflowVersionId: versionId,
-    currentSectionId: sectionId,
+    currentPageId: pageId,
     completed: false,
     generationStatus: null,
     ...overrides,
@@ -31,6 +51,7 @@ function makeRun(overrides: Partial<{ workflowVersionId: string | null }> = {}) 
 function makeProvider(overrides: {
   version?: unknown;
   liveSections?: unknown[];
+  livePages?: unknown[];
   liveSteps?: unknown[];
   liveLogicRules?: unknown[];
 } = {}) {
@@ -43,8 +64,10 @@ function makeProvider(overrides: {
         title: 'Pinned interview',
         description: 'Versioned definition',
         projectId: null,
-        sections: [{
-          id: sectionId,
+        sections: [{ id: sectionId, title: 'Pinned Section', description: null }],
+        pages: [{
+          id: pageId,
+          sectionId,
           title: 'Questions',
           order: 1,
           steps: [
@@ -63,11 +86,22 @@ function makeProvider(overrides: {
     }),
   };
   const sectionRepo = {
-    findByWorkflowId: vi.fn().mockResolvedValue(overrides.liveSections ?? [
+    findByWorkflowId: vi.fn().mockResolvedValue(overrides.liveSections ?? [{
+      id: sectionId,
+      workflowId,
+      title: 'Live Section',
+      description: null,
+      visibleIf: null,
+      createdAt: new Date('2026-07-20T00:00:00.000Z'),
+    }]),
+  };
+  const pageRepo = {
+    findByWorkflowId: vi.fn().mockResolvedValue(overrides.livePages ?? [
       {
-        id: sectionId,
+        id: pageId,
         workflowId,
-        title: 'Live section',
+        sectionId,
+        title: 'Live page',
         description: null,
         order: 0,
         visibleIf: null,
@@ -77,11 +111,11 @@ function makeProvider(overrides: {
     ]),
   };
   const stepRepo = {
-    findBySectionIds: vi.fn().mockResolvedValue(overrides.liveSteps ?? [
+    findByPageIds: vi.fn().mockResolvedValue(overrides.liveSteps ?? [
       {
         id: targetId,
         workflowId,
-        sectionId,
+        pageId,
         type: 'short_text',
         title: 'Live step',
         description: null,
@@ -103,27 +137,52 @@ function makeProvider(overrides: {
   return {
     provider: new RunDefinitionProvider(
       versionRepo as never,
-      sectionRepo as never,
+      pageRepo as never,
       stepRepo as never,
       logicRuleRepo as never,
+      sectionRepo as never,
     ),
     versionRepo,
-    sectionRepo,
+    pageRepo,
     stepRepo,
     logicRuleRepo,
+    sectionRepo,
   };
 }
 
 describe('RunDefinitionProvider', () => {
+  it('reads a legacy pinned version without exposing retired transform definitions', async () => {
+    const legacyGraph = {
+      title: 'Legacy pinned workflow',
+      pages: [{ id: pageId, title: 'Still runnable', steps: [
+        { id: targetId, type: 'text', title: 'Name', config: { variant: 'short' } },
+      ] }],
+      transformBlocks: [{ id: 'retired', code: 'throw new Error("must not execute")' }],
+    };
+    const { provider, pageRepo, stepRepo } = makeProvider({
+      version: { id: versionId, workflowId, graphJson: legacyGraph },
+    });
+    const definition = await provider.getDefinition(makeRun());
+    expect(definition.source).toBe('version');
+    expect(definition.steps.map(step => step.id)).toEqual([targetId]);
+    expect(definition.graph).not.toHaveProperty('transformBlocks');
+    expect(pageRepo.findByWorkflowId).not.toHaveBeenCalled();
+    expect(stepRepo.findByPageIds).not.toHaveBeenCalled();
+    expect(legacyGraph.transformBlocks).toHaveLength(1);
+  });
+
   describe('a run pinned to a version (AC1)', () => {
-    it('returns sections, steps and logic rules sourced from the pinned graph', async () => {
+    it('returns Sections, page membership, steps and logic rules sourced from the pinned graph', async () => {
       const { provider } = makeProvider();
 
       const definition = await provider.getDefinition(makeRun());
 
       expect(definition.source).toBe('version');
       expect(definition.sections).toEqual([
-        expect.objectContaining({ id: sectionId, title: 'Questions' }),
+        expect.objectContaining({ id: sectionId, title: 'Pinned Section' }),
+      ]);
+      expect(definition.pages).toEqual([
+        expect.objectContaining({ id: pageId, sectionId, title: 'Questions' }),
       ]);
       expect(definition.steps).toHaveLength(2);
       expect(definition.steps.map((s) => s.id)).toEqual([controllerId, targetId]);
@@ -138,24 +197,50 @@ describe('RunDefinitionProvider', () => {
 
   describe('a run with no workflowVersionId (AC3)', () => {
     it('returns the live-table definition with source: live', async () => {
-      const { provider, sectionRepo, stepRepo, logicRuleRepo, versionRepo } = makeProvider();
+      const { provider, sectionRepo, pageRepo, stepRepo, logicRuleRepo, versionRepo } = makeProvider();
 
       const definition = await provider.getDefinition(makeRun({ workflowVersionId: null }));
 
       expect(definition.source).toBe('live');
       expect(definition.graph).toBeUndefined();
       expect(definition.sections).toEqual([
-        expect.objectContaining({ id: sectionId, title: 'Live section' }),
+        expect.objectContaining({ id: sectionId, title: 'Live Section' }),
+      ]);
+      expect(definition.pages).toEqual([
+        expect.objectContaining({ id: pageId, title: 'Live page' }),
       ]);
       expect(definition.steps).toEqual([
         expect.objectContaining({ id: targetId, title: 'Live step' }),
       ]);
-      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId);
-      expect(stepRepo.findBySectionIds).toHaveBeenCalledWith([sectionId]);
-      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId);
+      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId, expect.anything());
+      expect(pageRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId, expect.anything());
+      expect(stepRepo.findByPageIds).toHaveBeenCalledWith([pageId], expect.anything());
+      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(workflowId, expect.anything());
       // The pinned-version path must not be touched for a versionless run.
       expect(versionRepo.findById).not.toHaveBeenCalled();
     });
+  });
+
+  it('defaults legacy pinned graphs to no Sections and null page membership', async () => {
+    const { provider } = makeProvider({
+      version: {
+        id: versionId,
+        workflowId,
+        createdAt: new Date('2026-07-18T00:00:00.000Z'),
+        graphJson: {
+          title: 'Legacy pinned interview',
+          pages: [{ id: pageId, title: 'Legacy page', order: 0, steps: [] }],
+          logicRules: [],
+        },
+      },
+    });
+
+    const definition = await provider.getDefinition(makeRun());
+
+    expect(definition.sections).toEqual([]);
+    expect(definition.pages).toEqual([
+      expect.objectContaining({ id: pageId, sectionId: null }),
+    ]);
   });
 
   describe('an incompatible version snapshot (RUN2-10, AC4)', () => {

@@ -3,23 +3,26 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { db } from '../../server/db';
 import { versionService } from '../../server/services/VersionService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe.sequential('POST /api/runs/:runId/values/bulk', () => {
   let ctx: IntegrationTestContext;
   let factory: TestFactory;
   let workflowId: string;
-  let sectionId: string;
+  let pageId: string;
   let stepId1: string;
   let stepId2: string;
   let radioStepId: string;
   let dateStepId: string;
   let emailStepId: string;
   let requiredRadioStepId: string;
-  let otherSectionStepId: string;
+  let otherPageStepId: string;
   let runId: string;
 
   beforeAll(async () => {
@@ -27,34 +30,38 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
       tenantName: 'Test Tenant',
       createProject: true,
     });
-    factory = new TestFactory();
+    // Fixture rows belong to the observer, not the application pool (RLS-5).
+    factory = new TestFactory(getOwnerDb());
+    // `versionService.createDraftVersion` below is a DIRECT service call — no
+    // middleware runs, so nothing opens a tenant context for it.
+    enterTenantContextForTests(ctx.tenantId);
 
     const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     workflowId = workflow.id;
 
-    const section = await factory.createSection(workflowId);
-    sectionId = section.id;
+    const page = await factory.createPage(workflowId);
+    pageId = page.id;
     
-    const step1 = await factory.createStep(section.id, {
+    const step1 = await factory.createStep(page.id, {
       title: 'First Name',
       alias: 'firstName',
-      type: 'short_text',
+      type: 'text',
       order: 0
     });
     stepId1 = step1.id;
 
-    const step2 = await factory.createStep(section.id, {
+    const step2 = await factory.createStep(page.id, {
       title: 'Last Name',
       alias: 'lastName',
-      type: 'short_text',
+      type: 'text',
       order: 1
     });
     stepId2 = step2.id;
 
-    const radioStep = await factory.createStep(section.id, {
+    const radioStep = await factory.createStep(page.id, {
       title: 'Plan',
       alias: 'plan',
-      type: 'radio',
+      type: 'choice',
       order: 2,
       config: {
         options: [
@@ -65,16 +72,16 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     });
     radioStepId = radioStep.id;
 
-    const dateStep = await factory.createStep(section.id, {
+    const dateStep = await factory.createStep(page.id, {
       title: 'Start Date',
       alias: 'startDate',
-      type: 'date',
+      type: 'date_time',
       order: 3,
       config: {},
     });
     dateStepId = dateStep.id;
 
-    const emailStep = await factory.createStep(section.id, {
+    const emailStep = await factory.createStep(page.id, {
       title: 'Email',
       alias: 'email',
       type: 'email',
@@ -83,10 +90,10 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     });
     emailStepId = emailStep.id;
 
-    const requiredRadioStep = await factory.createStep(section.id, {
+    const requiredRadioStep = await factory.createStep(page.id, {
       title: 'Required Plan',
       alias: 'requiredPlan',
-      type: 'radio',
+      type: 'choice',
       order: 5,
       required: true,
       config: {
@@ -97,28 +104,28 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     });
     requiredRadioStepId = requiredRadioStep.id;
 
-    const otherSection = await factory.createSection(workflowId, {
-      title: 'Other Section',
+    const otherPage = await factory.createPage(workflowId, {
+      title: 'Other Page',
       order: 1,
     });
-    const otherSectionStep = await factory.createStep(otherSection.id, {
-      title: 'Other Section Step',
-      alias: 'otherSectionStep',
-      type: 'short_text',
+    const otherPageStep = await factory.createStep(otherPage.id, {
+      title: 'Other Page Step',
+      alias: 'otherPageStep',
+      type: 'text',
       order: 0,
     });
-    otherSectionStepId = otherSectionStep.id;
+    otherPageStepId = otherPageStep.id;
 
-    // RVP-3: section submit now resolves this run's steps from its pinned
+    // RVP-3: page submit now resolves this run's steps from its pinned
     // version rather than the live tables, so the pinned graph has to contain
-    // the sections and steps created above. `factory.createWorkflow` produced
+    // the pages and steps created above. `factory.createWorkflow` produced
     // its version before any of them existed, and a run pinned to that empty
     // snapshot would have every submitted value treated as "not part of this
-    // interview" and dropped — including the cross-section one this suite
+    // interview" and dropped — including the cross-page one this suite
     // asserts is rejected. Regenerate the version now that the content exists.
     const pinnedVersion = (await versionService.createDraftVersion(workflowId, ctx.userId)) ?? version;
 
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: pinnedVersion.id,
       runToken: 'bulk-values-run-token',
@@ -144,7 +151,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -172,7 +179,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     expect(res.body.error).toContain('Invalid step values');
     expect(res.body.details.stepIds).toEqual([radioStepId, dateStepId]);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -192,7 +199,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -212,7 +219,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -231,7 +238,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
 
     expect(res.status).toBe(200);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
@@ -239,24 +246,24 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     expect(saved?.value).toBe('pro-plan');
   });
 
-  it('rejects section submit values that belong to a different section', async () => {
+  it('rejects page submit values that belong to a different page', async () => {
     const res = await request(ctx.app)
-      .post(`/api/runs/${runId}/sections/${sectionId}/submit`)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
       .send({
         values: [
           { stepId: stepId1, value: 'Alice' },
-          { stepId: otherSectionStepId, value: 'Cross-section write' },
+          { stepId: otherPageStepId, value: 'Cross-page write' },
         ],
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.errors[0]).toContain(otherSectionStepId);
+    expect(res.body.errors[0]).toContain(otherPageStepId);
 
-    const savedValues = await db.select()
+    const savedValues = await getOwnerDb().select()
       .from(schema.stepValues)
       .where(eq(schema.stepValues.runId, runId));
 
-    expect(savedValues.find(v => v.stepId === otherSectionStepId)).toBeUndefined();
+    expect(savedValues.find(v => v.stepId === otherPageStepId)).toBeUndefined();
   });
 });

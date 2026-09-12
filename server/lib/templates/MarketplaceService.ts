@@ -1,71 +1,43 @@
-import { eq } from "drizzle-orm";
-
-import {
-    workflows,
-} from "@shared/schema";
-
-import { db } from "../../db";
 import { logger } from "../../logger";
+import { importService } from "../../services/portability/ImportService";
 
+import { curatedCatalogProvider } from "./CuratedCatalogProvider";
+import type { CatalogTemplate, TemplateCatalog } from "./TemplateCatalog";
 import type { TemplateManifest } from "./types";
 export class MarketplaceService {
+    private readonly catalog: TemplateCatalog;
+
+    constructor(catalog?: TemplateCatalog) {
+        this.catalog = catalog ?? curatedCatalogProvider;
+    }
+
     /**
-     * List available templates with filtering
-     * TODO: Implement once marketplaceTemplates table is added to schema
+     * List available templates with filtering.
+     *
+     * Delegates to a `TemplateCatalog` (today, `CuratedCatalogProvider` —
+     * TM-1's build-time generated curated bundles). `isPublic`,
+     * `organizationId`, `limit` and `offset` are accepted for route-shape
+     * compatibility but not meaningful for a code-shipped, tenant-less
+     * catalog; a future database-backed provider (user publishing, out of
+     * scope here) can honour them without this signature changing.
      */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async listTemplates(_params: {
+    async listTemplates(params: {
         category?: string;
         search?: string;
         isPublic?: boolean;
         organizationId?: string;
         limit?: number;
         offset?: number;
-    }) {
-        logger.warn('MarketplaceService.listTemplates: marketplaceTemplates table not yet implemented');
-        return [];
+    }): Promise<CatalogTemplate[]> {
+        return this.catalog.listTemplates({ category: params.category, search: params.search });
     }
+
     /**
-     * Get a specific template by ID
-     * TODO: Implement once marketplaceTemplates table is added to schema
+     * Get a specific template by ID. Returns `null` when not found — the
+     * route maps that to a 404.
      */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async getTemplate(_templateId: string) {
-        logger.warn('MarketplaceService.getTemplate: marketplaceTemplates table not yet implemented');
-        return null;
-    }
-    /**
-     * Export a workflow as a template manifest
-     */
-    async exportTemplate(workflowId: string): Promise<TemplateManifest> {
-        // 1. Fetch workflow and its current version
-        const workflow = await db.query.workflows.findFirst({
-            where: eq(workflows.id, workflowId),
-            with: {
-                currentVersion: true
-            }
-        });
-        if (!workflow?.currentVersion) {
-            throw new Error("Workflow not found or has no versions");
-        }
-        // 2. Fetch the graph definition
-        // In a real implementation, we might need to sanitize this (remove secrets, sensitive data)
-        const graphJson = workflow.currentVersion.graphJson;
-        // 3. Construct manifest
-        const manifest: TemplateManifest = {
-            title: workflow.title ?? "Untitled Workflow",
-            description: workflow.description ?? "",
-            category: "general",
-            tags: [],
-            version: "1.0.0",
-            author: workflow.creatorId ?? '',
-            minCompatibleVersion: "1.0.0",
-            requiredBlocks: [], // Would analyze graph to find types
-            requiredFeatures: [],
-            workflow: graphJson,
-            createdAt: new Date().toISOString()
-        };
-        return manifest;
+    async getTemplate(templateId: string): Promise<CatalogTemplate | null> {
+        return this.catalog.getTemplate(templateId);
     }
     /**
      * Publish a workflow as a new template
@@ -81,16 +53,47 @@ export class MarketplaceService {
         throw new Error('Marketplace functionality not yet available');
     }
     /**
-     * Import a template to create a new workflow
-     * TODO: Implement once marketplaceTemplates table is added to schema
+     * Install a curated template into the caller's own tenant and the
+     * requested project (TM-3).
+     *
+     * Delegates entirely to `ImportService.apply` — no second importer. The
+     * generated bundle's `creatorId`/`ownerId`/`tenantId`/`projectId`
+     * columns hold only a well-formed placeholder UUID (see
+     * `generateMarketplaceBundles.ts`'s `PLACEHOLDER_ID`), never a real row:
+     * `ImportService.enforceOwnership` unconditionally overwrites every
+     * owner/tenant column with the caller's own identity, and passing
+     * `targetProjectId` makes `resolveProjectIdOverride` overwrite
+     * `workflows.projectId`/`templates.projectId` with the requested
+     * project regardless of what the bundle carried. So the installed
+     * workflow can never end up attributed to the placeholder.
+     *
+     * The tenant boundary is `ImportService`'s own explicit check —
+     * `resolveTargetOwnerForProject` proves the caller has `edit` access to
+     * `targetProjectId` (and, for an org-owned project, org-admin rights)
+     * before anything is written, and throws "Target project not found" /
+     * "Access denied - ..." otherwise. Tenancy is service-layer only here
+     * (RLS is not enforced), so this check — not a database backstop — is
+     * what makes the created workflow always land in the caller's own
+     * tenant and never in someone else's project.
+     *
+     * Two installs of the same template are entirely independent: each call
+     * re-runs `ImportService.apply`, which mints fresh ids for every row.
+     *
+     * @returns An object carrying `id` — the new workflow's id, which the
+     * client redirects to (`/workflows/${id}/builder`).
      */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async installTemplate(
-        _templateId: string,
-        _userContext: { userId: string, projectId: string }
-    ) {
-        logger.warn('MarketplaceService.installTemplate: marketplaceTemplates table not yet implemented');
-        throw new Error('Marketplace functionality not yet available');
+        templateId: string,
+        userContext: { userId: string, projectId: string }
+    ): Promise<{ id: string }> {
+        const bundlePath = await this.catalog.getBundlePath(templateId);
+        if (bundlePath === null) {
+            throw new Error('Template not found');
+        }
+        const result = await importService.apply(bundlePath, userContext.userId, {
+            targetProjectId: userContext.projectId,
+        });
+        return { id: result.rootId };
     }
 }
 export const marketplaceService = new MarketplaceService();

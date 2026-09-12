@@ -4,7 +4,7 @@ const STEPS = [
   {
     num: "01",
     title: "Start with your document",
-    body: "Paste a link or upload the form itself — blank or previously filled out. AI reads it and drafts about 90% of your workflow: sections, steps, and logic, in minutes.",
+    body: "Paste a link or upload the form itself — blank or previously filled out. AI reads it and drafts about 90% of your workflow: pages, steps, and logic, in minutes.",
   },
   {
     num: "02",

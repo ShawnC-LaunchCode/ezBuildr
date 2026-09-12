@@ -2,7 +2,7 @@
  * Shared types for AI services
  */
 
-export type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedSection, AIGeneratedLogicRule, AIGeneratedTransformBlock } from '../../../shared/types/ai';
+export type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedPage, AIGeneratedLogicRule } from '../../../shared/types/ai';
 
 /**
  * Valid step types from database schema
@@ -16,8 +16,8 @@ export const VALID_STEP_TYPES = [
   'true_false', 'phone', 'date', 'time', 'datetime', 'email',
   'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
   // Advanced mode types
-  'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice',
-  'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced',
+  'text', 'boolean', 'datetime_unified', 'choice',
+  'number_advanced', 'scale_advanced',
   'address_advanced', 'multi_field', 'display_advanced',
   // Structural types
   'list',
@@ -59,9 +59,6 @@ export const TASK_TYPES = [
   'logic_generation',
   'logic_debug',
   'logic_visualization',
-  'transform_generation',
-  'transform_revision',
-  'transform_schema_align',
   'personalization',
   'document_analysis',
   'document_mapping',

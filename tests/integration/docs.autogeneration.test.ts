@@ -4,13 +4,13 @@
  * Regression coverage for the consolidation breakage where
  * RunLifecycleService.generateDocuments filtered for a step type
  * ('final_block') that does not exist, so automatic generation never fired,
- * legacy Final Documents sections lost support, and no
+ * legacy Final Documents pages lost support, and no
  * run_generated_documents records were written.
  *
  * Exercises the real service against the real database and filesystem for
  * BOTH config shapes the product writes:
  *  - Final Block steps (step type 'final', config as FinalBlockConfig)
- *  - Legacy sections (section.config.finalBlock + config.templates)
+ *  - Legacy pages (page.config.finalBlock + config.templates)
  */
 import fs from 'fs/promises';
 import path from 'path';
@@ -21,11 +21,18 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import { versionService } from '../../server/services/VersionService';
 import { storageProvider } from '../../server/services/storage/index';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5: this suite calls services DIRECTLY rather than over HTTP, so no
+// middleware populates the tenant context. `enterWith` binds only the current
+// async execution — beforeAll and beforeEach both fail to propagate into a test
+// body (measured, not assumed) — so it must be called inside the test itself.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -75,7 +82,7 @@ async function getGeneratedFileBuffer(storageKey: string): Promise<Buffer> {
 }
 
 describe('Automatic document generation on run completion', () => {
-  const factory = new TestFactory(db);
+  const factory = new TestFactory();
   let tenantId: string;
   let userId: string;
   let projectId: string;
@@ -102,7 +109,7 @@ describe('Automatic document generation on run completion', () => {
     stepId: string,
     value: unknown
   ): Promise<string> {
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId,
@@ -111,7 +118,7 @@ describe('Automatic document generation on run completion', () => {
       })
       .returning();
 
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId,
       value,
@@ -133,10 +140,10 @@ describe('Automatic document generation on run completion', () => {
       if (projectId) {
         // Delete workflows first: workflow_versions.created_by references
         // users without cascade, so deleting the tenant directly violates FKs
-        await db.delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
+        await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
       }
       if (tenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
       for (const fileRef of templateFileRefs) {
         await fs.unlink(path.join(FILES_DIR, fileRef)).catch(() => { });
@@ -148,9 +155,9 @@ describe('Automatic document generation on run completion', () => {
 
   it('generates and persists documents for a Final Block step (type "final")', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -159,8 +166,8 @@ describe('Automatic document generation on run completion', () => {
       'Final Block Contract',
       'Contract for {{clientName}}'
     );
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -179,7 +186,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(1);
 
     // Record persisted with a working download URL
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -196,17 +203,17 @@ describe('Automatic document generation on run completion', () => {
 
   it('RVP-4 AC2: generates documents from the run\'s pinned version, not a live final-block edit made after the run started', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     const templateA = await createTemplateOnDisk('Pinned Contract', 'Contract A for {{clientName}}');
     const templateB = await createTemplateOnDisk('Edited Contract', 'Contract B for {{clientName}}');
-    const finalStep = await factory.createStep(section.id, {
-      type: 'final',
+    const finalStep = await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -219,13 +226,14 @@ describe('Automatic document generation on run completion', () => {
 
     // Publish a version -- this is what the respondent's run gets pinned to,
     // and what generateDocuments must resolve final-block configs from.
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(workflow.id, userId, 'initial publish');
 
     // Author edits the LIVE final block AFTER publish, repointing doc-1 at a
     // different template. If generateDocuments read the live tables, the
     // respondent's document would silently switch to template B's content --
     // a correctness/auditability bug, not just a UX one.
-    await db.update(schema.steps).set({
+    await getOwnerDb().update(schema.steps).set({
       config: {
         markdownHeader: '',
         documents: [
@@ -235,7 +243,7 @@ describe('Automatic document generation on run completion', () => {
     }).where(eq(schema.steps.id, finalStep.id));
 
     // Run is pinned to the version published BEFORE the live edit.
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -244,7 +252,7 @@ describe('Automatic document generation on run completion', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',
@@ -255,7 +263,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));
@@ -266,19 +274,19 @@ describe('Automatic document generation on run completion', () => {
     expect(text).not.toContain('Contract B');
   });
 
-  it('generates and persists documents for a legacy Final Documents section', async () => {
+  it('generates and persists documents for a legacy Final Documents page', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const template = await createTemplateOnDisk(
-      'Legacy Section Letter',
+      'Legacy Page Letter',
       'Dear {{clientName}}, welcome aboard.'
     );
-    // Legacy shape: section.config.finalBlock === true with template IDs;
+    // Legacy shape: page.config.finalBlock === true with template IDs;
     // WorkflowService still writes this shape for existing workflows
-    const section = await factory.createSection(workflow.id, {
+    const page = await factory.createPage(workflow.id, {
       config: { finalBlock: true, templates: [template.id] },
     });
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -291,7 +299,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -303,17 +311,17 @@ describe('Automatic document generation on run completion', () => {
 
   it('LU-5: generates a document whose condition is met and skips one whose condition is not, via the real evaluator', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const statusStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const statusStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Status',
       alias: 'status',
       order: 0,
     });
     const approvedTemplate = await createTemplateOnDisk('Approval Letter', 'Congratulations, you are approved.');
     const rejectionTemplate = await createTemplateOnDisk('Rejection Letter', 'We are sorry, you were not approved.');
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -359,7 +367,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.skipped).toEqual(['rejectionLetter']);
     expect(result.failed ?? []).toHaveLength(0);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -369,14 +377,14 @@ describe('Automatic document generation on run completion', () => {
     expect(text).toContain('Congratulations, you are approved.');
   });
 
-  it('LU-5: a legacy Final Documents section entry can carry a per-document condition via the widened { templateId, conditions } form', async () => {
+  it('LU-5: a legacy Final Documents page entry can carry a per-document condition via the widened { templateId, conditions } form', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
     const matchingTemplate = await createTemplateOnDisk('VIP Letter', 'Dear {{clientName}}, welcome to VIP status.');
     const nonMatchingTemplate = await createTemplateOnDisk('Standard Letter', 'Dear {{clientName}}, welcome aboard.');
     // Widened per-entry object form (LU-5): a bare-string sibling entry
     // proves the two forms coexist in one `templates` array, exercising the
     // same tolerant read AC3 covers for the all-bare-string case above.
-    const section = await factory.createSection(workflow.id, {
+    const page = await factory.createPage(workflow.id, {
       config: {
         finalBlock: true,
         templates: [
@@ -405,20 +413,20 @@ describe('Automatic document generation on run completion', () => {
         ],
       },
     });
-    const nameStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const nameStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
-    const tierStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const tierStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Tier',
       alias: 'tier',
       order: 1,
     });
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -426,7 +434,7 @@ describe('Automatic document generation on run completion', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values([
+    await getOwnerDb().insert(schema.stepValues).values([
       { runId: run.id, stepId: nameStep.id, value: 'Wile E. Coyote' },
       { runId: run.id, stepId: tierStep.id, value: 'vip' },
     ]);
@@ -437,7 +445,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documentsGenerated).toBe(1);
     expect(result.failed ?? []).toHaveLength(0);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));
@@ -449,9 +457,9 @@ describe('Automatic document generation on run completion', () => {
 
   it('reports success with zero documents when the workflow has no final config', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Anything',
       alias: 'anything',
     });
@@ -494,17 +502,17 @@ describe('Automatic document generation on run completion', () => {
   // companion is `EnhancedDocumentEngine.unresolvedVariables.test.ts`.
   it('records an aliased-but-unanswered variable as unresolved and still generates the document (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     // Aliased, so it is part of the data contract -- but left unanswered below,
     // so it arrives as null and must be reported rather than raising.
-    await factory.createStep(section.id, {
-      type: 'short_text',
+    await factory.createStep(page.id, {
+      type: 'text',
       title: 'Matter number',
       alias: 'matterNumber',
       order: 1,
@@ -513,8 +521,8 @@ describe('Automatic document generation on run completion', () => {
       'Missing Value Doc',
       'Hello {{clientName}}, matter {{matterNumber}}?'
     );
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 2,
       config: {
@@ -535,7 +543,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -553,9 +561,9 @@ describe('Automatic document generation on run completion', () => {
 
   it('reports an unknown top-level tag as a per-document generation failure (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -565,8 +573,8 @@ describe('Automatic document generation on run completion', () => {
       'Missing Tag Doc',
       'Hello {{clientName}}, where is the {{unknownTag}}?'
     );
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -598,7 +606,7 @@ describe('Automatic document generation on run completion', () => {
     ]);
 
     // A failed render must not persist a downloadable document record.
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -607,16 +615,16 @@ describe('Automatic document generation on run completion', () => {
 
   it('marks generation status as failed if template resolver throws (DOC-104)', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Anything',
       alias: 'anything',
     });
     
     // Provide a non-existent template ID so the resolver throws
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -637,7 +645,7 @@ describe('Automatic document generation on run completion', () => {
     expect(result.documents).toBeUndefined();
 
     // Let's check the run's generationStatus!
-    const [run] = await db.select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
+    const [run] = await getOwnerDb().select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
     expect(run.generationStatus).toMatch(/^failed:/);
   });
 });

@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import axios from 'axios';
-import { TemplateVersionSelector } from '../../../client/src/components/builder/final/FinalDocumentsSectionEditor';
+import { TemplateVersionSelector } from '../../../client/src/components/builder/final/FinalDocumentsPageEditor';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 

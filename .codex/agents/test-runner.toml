@@ -18,7 +18,7 @@ Read `.Codex/skills/run-tests/SKILL.md` first — it defines the 3 Vitest projec
 Return a short report:
 1. **Verdict:** pass / fail / pass-with-known-failures.
 2. For each genuine failure: test file, test name, the assertion or error (a few lines, not the full dump), and your best root-cause hypothesis tied to the change.
-3. Explicitly separate known environment failures (js_helpers vm2, excluded integration list, flaky-parallel — re-run those with `VITEST_SINGLE_FORK=true` before reporting) from regressions.
+3. Explicitly separate known environment failures (js_helpers vm2, excluded integration list, flaky-parallel — re-run those with `npm run test:serial` before reporting; note that parallel is now the default and a parallel-only failure is a real finding, not an expected cost) from regressions.
 4. Commands you ran, so the caller can reproduce.
 
 Do not fix code. Do not paste more than ~20 lines of raw output per failure."""

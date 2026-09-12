@@ -8,7 +8,7 @@ import * as path from 'path';
 
 import { eq } from 'drizzle-orm';
 
-import { templates, sections, workflows } from '@shared/schema';
+import { templates, pages, workflows } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -64,35 +64,35 @@ async function setupTestTemplate() {
 
   console.log('Template created:', template[0].id);
 
-  // Find the Final Documents section
-  const sectionList = await db
+  // Find the Final Documents page
+  const pageList = await db
     .select()
-    .from(sections)
-    .where(eq(sections.workflowId, workflow.id))
-    .orderBy(sections.order);
+    .from(pages)
+    .where(eq(pages.workflowId, workflow.id))
+    .orderBy(pages.order);
 
-  const finalSection = sectionList.find((s) => {
+  const finalPage = pageList.find((s) => {
     const config = s.config as any;
     return config?.finalBlock === true;
   });
 
-  if (!finalSection) {
-    console.log('Final Documents section not found');
+  if (!finalPage) {
+    console.log('Final Documents page not found');
     return;
   }
 
-  console.log('Found Final Documents section:', finalSection.id);
+  console.log('Found Final Documents page:', finalPage.id);
 
-  // Update the section config to include the template
-  const config = finalSection.config as any;
+  // Update the page config to include the template
+  const config = finalPage.config as any;
   config.templates = [template[0].id];
 
   await db
-    .update(sections)
+    .update(pages)
     .set({ config })
-    .where(eq(sections.id, finalSection.id));
+    .where(eq(pages.id, finalPage.id));
 
-  console.log('Updated section config with template ID');
+  console.log('Updated page config with template ID');
 
   console.log('\n=== Setup Complete ===');
   console.log('Workflow ID:', workflow.id);

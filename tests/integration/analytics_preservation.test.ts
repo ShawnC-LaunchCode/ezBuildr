@@ -3,9 +3,12 @@ import { describe, it, expect, beforeAll } from 'vitest';
 
 import { users } from '@shared/schema';
 
-import { db, initializeDatabase } from '../../server/db';
+import { initializeDatabase } from '../../server/db';
 import { systemStatsRepository } from '../../server/repositories/SystemStatsRepository';
 import { userRepository } from '../../server/repositories/UserRepository';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 describe('Analytics Preservation', () => {
     beforeAll(async () => {
         await initializeDatabase();
@@ -29,7 +32,7 @@ describe('Analytics Preservation', () => {
         // Determine how to delete. Using DB directly or repository if it has delete.
         // UserRepository doesn't seem to have delete (based on previous View).
         // Using DB delete.
-        await db.delete(users).where(eq(users.id, newUser.id));
+        await getOwnerDb().delete(users).where(eq(users.id, newUser.id));
         // 5. Verify user is gone from users table
         const deletedUser = await userRepository.findByEmail(testEmail);
         expect(deletedUser).toBeUndefined();

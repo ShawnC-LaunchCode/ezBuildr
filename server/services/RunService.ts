@@ -19,7 +19,7 @@ import {
   workflowRunRepository,
   stepValueRepository,
   workflowRepository,
-  sectionRepository,
+  pageRepository,
   stepRepository,
   logicRuleRepository,
   projectRepository,
@@ -31,13 +31,14 @@ import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 
 import { logicService, type NavigationResult } from "./LogicService";
 import { RunAuthResolver } from "./runs/RunAuthResolver";
-import { RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
+import { RunExecutionCoordinator, type AdvanceResult } from "./runs/RunExecutionCoordinator";
 import { RunPersistenceWriter } from "./runs/RunPersistenceWriter";
 import { RunCompletionService } from "./workflow-runs/RunCompletionService";
 import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
 import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
+import { runPreviewPolicyService } from './workflow-runs/RunPreviewPolicyService';
 import { versionService } from "./VersionService";
 import { workflowService } from "./WorkflowService";
 
@@ -55,7 +56,7 @@ export class RunService {
   private runRepo: typeof workflowRunRepository;
   private valueRepo: typeof stepValueRepository;
   private workflowRepo: typeof workflowRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private projectRepo: typeof projectRepository;
@@ -77,7 +78,7 @@ export class RunService {
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
     projectRepo?: typeof projectRepository,
@@ -97,7 +98,7 @@ export class RunService {
     this.runRepo = runRepo ?? workflowRunRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.stepRepo = stepRepo ?? stepRepository;
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.projectRepo = projectRepo ?? projectRepository;
@@ -124,7 +125,7 @@ export class RunService {
     this.lifecycleService = lifecycleService ?? new RunLifecycleService(
       this.valueRepo,
       this.stepRepo,
-      this.sectionRepo,
+      this.pageRepo,
       this.persistenceWriter,
       this.logicSvc
     );
@@ -166,6 +167,13 @@ export class RunService {
   ): Promise<WorkflowRun> {
     const workflow = await this.authResolver.verifyCreateAccess(idOrSlug, userId);
     const workflowId = workflow.id;
+
+    // Tenant context for anonymous/public runs is established earlier, in
+    // `RunAuthResolver.verifyCreateAccess` — the first point at which the
+    // workflow is known and still before any RLS-converted service is reached.
+    // Doing it again here was redundant AND wrong: it forced a DB round-trip
+    // into no-DB unit tests (`RunService.versioning.test.ts`).
+
     // Resolve the version to use for this run
     let targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
     if (!targetVersionId) {
@@ -210,6 +218,12 @@ export class RunService {
     // Create the run
     const run = await this.persistenceWriter.createRun({
       ...data,
+      executionMode: 'live',
+      previewExpiresAt: null,
+      previewRetiredAt: null,
+      previewLeaseOwner: null,
+      previewLeaseExpiresAt: null,
+      previewArtifacts: [],
       workflowId,
       workflowVersionId: targetVersionId ?? undefined,
       runToken: runTokenHash,
@@ -223,19 +237,20 @@ export class RunService {
     await this.lifecycleService.populateInitialValues(run.id, workflowId, {
       initialValues: mergedInitialValues
     });
-    // Determine start section with auto-advance logic
-    let startSectionId: string | null = run.currentSectionId;
+    // Determine start page with auto-advance logic
+    let startPageId: string | null = run.currentPageId;
+    let persistedRun = run;
     if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
-      startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
-      await this.stateService.updateProgress(run.id, startSectionId);
+      startPageId = await this.lifecycleService.determineStartPage(run.id, workflowId, snapshotValueMap);
+      persistedRun = await this.stateService.updateProgress(run.id, startPageId);
     } else {
-      // ICW2-B9: initialize currentSectionId to the first visible section so the
+      // ICW2-B9: initialize currentPageId to the first visible page so the
       // first POST /next advances from it instead of re-resolving to where the
-      // user already is (calculateNextSection treats a null current section as
-      // "return the first visible section").
-      startSectionId = await this.resolveInitialSectionId(run.id, workflowId);
-      if (startSectionId) {
-        await this.stateService.updateProgress(run.id, startSectionId);
+      // user already is (calculateNextPage treats a null current page as
+      // "return the first visible page").
+      startPageId = await this.resolveInitialPageId(run.id, workflowId);
+      if (startPageId) {
+        persistedRun = await this.stateService.updateProgress(run.id, startPageId);
       }
     }
     // Capture metrics
@@ -249,9 +264,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    // currentSectionId reflects the resolved starting section (see above), not
+    // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentSectionId: startSectionId };
+    return { ...persistedRun, runToken };
   }
   /**
    * Get run by ID
@@ -271,13 +286,31 @@ export class RunService {
     }
     return run;
   }
+
+  async createPreview(workflowId: string, userId: string): Promise<WorkflowRun> {
+    await workflowService.verifyAccess(workflowId, userId, 'edit');
+    const workflowVersionId = await this.pinDraftVersionForRun(workflowId, userId);
+    if (!workflowVersionId) { throw new Error('Draft version not found'); }
+    const run = await this.runRepo.create({ workflowId, workflowVersionId, createdBy: userId,
+      executionMode: 'preview', previewExpiresAt: runPreviewPolicyService.expiresAt(),
+      runToken: hashToken(randomUUID()), tokenExpiresAt: new Date(0), completed: false,
+    });
+    await runPreviewPolicyService.execute(run.id, async () => {
+      await this.lifecycleService.populateInitialValues(run.id, workflowId, {});
+      const currentPageId = await this.resolveInitialPageId(run.id, workflowId);
+      await this.stateService.updateProgress(run.id, currentPageId);
+      const initialization = await this.lifecycleService.executeOnRunStart(run.id, workflowId, workflowVersionId, 'preview');
+      await this.runRepo.update(run.id, { metadata: { previewNotices: [...(initialization.notices ?? []), ...(initialization.errors ?? [])] } });
+    });
+    return this.getRun(run.id, userId);
+  }
   /**
    * Get run by ID without ownership check
    * Used for run token authentication (the token itself proves access to this run)
    */
   async getRunNoAuth(runId: string): Promise<WorkflowRun> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     return run;
   }
   /**
@@ -294,7 +327,7 @@ export class RunService {
    */
   async getRunWithValuesNoAuth(runId: string): Promise<WorkflowRun & { values: StepValue[] }> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     const rawValues = await this.valueRepo.findByRunId(runId);
     return { ...run, values: rawValues };
   }
@@ -330,7 +363,7 @@ export class RunService {
     data: InsertStepValue
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
-    if (!run) {
+    if (!run || run.executionMode === 'preview') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     validateJsonbSize(data.value, FIELD_STEP_VALUE);
@@ -360,71 +393,120 @@ export class RunService {
     values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>
   ): Promise<BulkSaveResult> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
-   * Execute JS questions for a section
+   * Execute JS questions for a page
    * Finds all js_question steps, executes their code, and persists outputs
    *
    * @param runId - Run ID
-   * @param sectionId - Section ID to execute JS questions for
+   * @param pageId - Page ID to execute JS questions for
    * @param dataMap - Current data map (stepId -> value)
    * @returns Object with success flag and any errors
    */
   /**
-   * Submit section values with validation
-   * Executes onSectionSubmit blocks (transform + validate)
+   * Submit page values with validation
+   * Executes onPageSubmit blocks (transform + validate)
    */
-  async submitSection(
+  async submitPage(
     runId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
-    values: Array<{ stepId: string; value: unknown }>
-  ): Promise<{ success: boolean; errors?: string[] }> {
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey?: string
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    return this.executionCoordinator.submitSection(
-      { runId, workflowId: run.workflowId, userId, mode: 'live' },
-      sectionId,
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.submitPage(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
+      pageId,
       values
-    );
+    ));
   }
   /**
-   * Submit section values with validation without ownership check
-   * Used for preview/run token authentication
+   * CB-9a-3: one logical submission — persist, evaluate, navigate, and return
+   * the server's authoritative state together, stamped with its submissionKey
+   * so the client can discard a late answer by identity.
    */
-  async submitSectionNoAuth(
+  async advance(
     runId: string,
-    sectionId: string,
-    values: Array<{ stepId: string; value: unknown }>
-  ): Promise<{ success: boolean; errors?: string[] }> {
-    const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    pageId: string,
+    userId: string,
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey: string
+  ): Promise<AdvanceResult> {
+    const { run, access } = await this.authResolver.resolveRun(runId, userId);
+    if (!run || access === 'none') {
+      throw new Error(ERR_RUN_NOT_FOUND);
+    }
     if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    return this.executionCoordinator.submitSection(
-      { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
-      sectionId,
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.advance(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
+      pageId,
+      values
+    ));
+  }
+
+  /**
+   * `advance` for a run-token respondent. Mirrors `submitPageNoAuth` /
+   * `nextNoAuth` exactly, including their refusal to touch a preview run: a
+   * preview session is author-only and has no run token by construction.
+   */
+  async advanceNoAuth(
+    runId: string,
+    pageId: string,
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey: string
+  ): Promise<AdvanceResult> {
+    const run = await this.runRepo.findById(runId);
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    return this.executionCoordinator.advance(
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey }, // No userId
+      pageId,
+      values
+    );
+  }
+
+  /**
+   * Submit page values with validation without ownership check
+   * Used for preview/run token authentication
+   */
+  async submitPageNoAuth(
+    runId: string,
+    pageId: string,
+    values: Array<{ stepId: string; value: unknown }>,
+    submissionKey?: string
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
+    const run = await this.runRepo.findById(runId);
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    return this.executionCoordinator.submitPage(
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey }, // No userId
+      pageId,
       values
     );
   }
   /**
-   * Resolve the section a fresh run should start at: the first visible
-   * section by order (same rule `calculateNextSection` applies for a null
-   * current section). Used to initialize `run.currentSectionId` at creation
+   * Resolve the page a fresh run should start at: the first visible
+   * page by order (same rule `calculateNextPage` applies for a null
+   * current page). Used to initialize `run.currentPageId` at creation
    * time so the first `next()` call advances from a real position instead of
    * re-resolving to where the user already is (ICW2-B9). Returns null only
-   * when the workflow has no visible sections at all.
+   * when the workflow has no visible pages at all.
    */
-  private async resolveInitialSectionId(runId: string, workflowId: string): Promise<string | null> {
+  private async resolveInitialPageId(runId: string, workflowId: string): Promise<string | null> {
     const navigation = await this.logicSvc.evaluateNavigation(workflowId, runId, null);
-    return navigation.nextSectionId;
+    return navigation.nextPageId;
   }
   /**
    * RVP-6 (Option B): resolve the version an authenticated creator's run
@@ -455,35 +537,35 @@ export class RunService {
     return parsed.success ? parsed.data : {};
   }
   /**
-   * Calculate next section and update run state
+   * Calculate next page and update run state
    * Executes onNext blocks (transform + branch)
    *
    * @param runId - Run ID
    * @param userId - User ID (for authorization)
-   * @returns Navigation result with next section info
+   * @returns Navigation result with next page info
    */
-  async next(runId: string, userId: string): Promise<NavigationResult> {
+  async next(runId: string, userId: string, submissionKey?: string): Promise<NavigationResult> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw createError.runCompleted(); }
-    return this.executionCoordinator.next(
-      { runId, workflowId: run.workflowId, userId, mode: 'live' },
-      run.currentSectionId
-    );
+    return runPreviewPolicyService.executeForRun(run, () => this.executionCoordinator.next(
+      { runId, workflowId: run.workflowId, userId, mode: run.executionMode ?? 'live', submissionKey },
+      run.currentPageId
+    ));
   }
   /**
-   * Calculate next section without ownership check
+   * Calculate next page without ownership check
    * Used for preview/run token authentication
    */
-  async nextNoAuth(runId: string): Promise<NavigationResult> {
+  async nextNoAuth(runId: string, submissionKey?: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (!run || run.executionMode === 'preview') { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
-      { runId, workflowId: run.workflowId, mode: 'live' },
-      run.currentSectionId
+      { runId, workflowId: run.workflowId, mode: 'live', submissionKey },
+      run.currentPageId
     );
   }
   /**
@@ -492,7 +574,7 @@ export class RunService {
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
-    return this.completionService.completeRun(runId, run);
+    return runPreviewPolicyService.executeForRun(run, () => this.completionService.completeRun(runId, run));
   }
   /**
    * Complete a workflow run without ownership check
@@ -544,11 +626,12 @@ export class RunService {
     await this.lifecycleService.populateInitialValues(run.id, workflow.id, {
       initialValues: filterPrefillValues(anonIntakeConfig, initialValues)
     });
-    // ICW2-B9: initialize currentSectionId to the first visible section (see
+    // ICW2-B9: initialize currentPageId to the first visible page (see
     // createRun for the full rationale).
-    const initialSectionId = await this.resolveInitialSectionId(run.id, workflow.id);
-    if (initialSectionId) {
-      await this.stateService.updateProgress(run.id, initialSectionId);
+    const initialPageId = await this.resolveInitialPageId(run.id, workflow.id);
+    let persistedRun = run;
+    if (initialPageId) {
+      persistedRun = await this.stateService.updateProgress(run.id, initialPageId);
     }
     // Capture metrics
     await this.metricsService.captureRunStarted(
@@ -561,9 +644,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    // currentSectionId reflects the resolved starting section (see above), not
+    // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
-    return { ...run, runToken, currentSectionId: initialSectionId };
+    return { ...persistedRun, runToken };
   }
   /**
    * List runs for a workflow
@@ -592,7 +675,7 @@ export class RunService {
   /**
    * Generate documents for a run (can be called before completion)
    * Idempotent - checks if documents already exist before generating
-   * Used for Final Documents sections
+   * Used for Final Documents pages
    */
   async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const run = await this.runRepo.findById(runId);
@@ -613,20 +696,20 @@ export class RunService {
     return result;
   }
   /**
-   * Determine the appropriate start section for a run
+   * Determine the appropriate start page for a run
    * Used for auto-advance when creating runs from snapshots
    *
    * @param runId - The run ID
    * @param workflowId - The workflow ID
    * @param snapshotValues - Optional snapshot value map for version checking
-   * @returns The section ID to start from
+   * @returns The page ID to start from
    */
-  async determineStartSection(
+  async determineStartPage(
     runId: string,
     workflowId: string,
     snapshotValues?: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }>
   ): Promise<string> {
-    return this.lifecycleService.determineStartSection(runId, workflowId, snapshotValues);
+    return this.lifecycleService.determineStartPage(runId, workflowId, snapshotValues);
   }
   /**
    * Generate a share token for a completed run

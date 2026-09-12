@@ -3,9 +3,9 @@
  * actually visits, for MAP-8's highlight/dim treatment (GH-153 AC3). Pure —
  * no React — matching `mapLayout.ts`/`mapLintDecoration.ts`'s discipline.
  *
- * `SimulatedPath.visited` only ever lists **section** ids (`resolveNextSection`
- * resolves to a section, never a step) and `traversedEdges` never fires for
- * the very first section entered (no edge exists "into the start" — see
+ * `SimulatedPath.visited` only ever lists **page** ids (`resolveNextPage`
+ * resolves to a page, never a step) and `traversedEdges` never fires for
+ * the very first page entered (no edge exists "into the start" — see
  * `shared/workflowSimulation.ts`'s loop). So a node's on-path status can't be
  * read off `visited` alone: it also has to check whether the node is an
  * endpoint of any traversed edge, which is what makes a `final_documents`

@@ -9,7 +9,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Code2, Database, CheckCircle, GitBranch, Trash2, ChevronDown, ChevronRight, ArrowRight, ArrowLeft } from "lucide-react";
 import React from "react";
 
-import { JSBlockEditor, type JSBlock } from "@/components/blocks/JSBlockEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,14 +16,14 @@ import { useToast } from "@/hooks/use-toast";
 import type { PageItem } from "@/lib/dnd";
 import { cn } from "@/lib/utils";
 import { type ApiBlock } from '@/lib/vault-api';
-import { useDeleteBlock, useDeleteTransformBlock, useUpdateTransformBlock } from "@/lib/vault-hooks";
+import { useDeleteBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 // Narrowed prop type
 interface BlockCardProps {
   item: Extract<PageItem, { kind: 'block' }>;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onEnterNext?: () => void;
@@ -35,7 +34,6 @@ const BLOCK_TYPE_ICONS: Record<string, typeof Code2> = {
   prefill: Database,
   validate: CheckCircle,
   branch: GitBranch,
-  js: Code2,
   read_table: ArrowRight,
   write: ArrowLeft,
   send_table: ArrowLeft,
@@ -45,7 +43,6 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   prefill: "Prefill Data",
   validate: "Validate",
   branch: "Branch",
-  js: "JS Transform",
   write: "Send Data to Table",
   send_table: "Send Data to Table",
   read_table: "Read from Table",
@@ -125,10 +122,12 @@ function getBlockSummary(block: ApiBlock): string | null {
   return null;
 }
 
-// eslint-disable-next-line complexity
-export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded = false, onToggleExpand, onEnterNext: _onEnterNext, onEdit }: BlockCardProps) {
+export function BlockCard({ item, workflowId, pageId: _pageId, isExpanded = false, onToggleExpand, onEnterNext: _onEnterNext, onEdit }: BlockCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+    useSortable({
+      id: item.id,
+      data: { kind: "block", blockId: item.id, pageId: _pageId },
+    });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -137,8 +136,6 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
 
   const { selection, selectBlock } = useWorkflowBuilder();
   const deleteBlockMutation = useDeleteBlock();
-  const deleteTransformBlockMutation = useDeleteTransformBlock();
-  const updateTransformBlockMutation = useUpdateTransformBlock();
   const { toast } = useToast();
 
   const isSelected = selection?.type === "block" && selection.id === item.id;
@@ -162,8 +159,7 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
 
   const handleClick = () => {
     selectBlock(item.id);
-    // For non-JS blocks, also open the editor dialog
-    if (item.data.type !== "js" && onEdit) {
+    if (onEdit) {
       onEdit();
     }
   };
@@ -171,12 +167,7 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      // Use different API for transform blocks (type === "js")
-      if (item.data.type === "js") {
-        await deleteTransformBlockMutation.mutateAsync({ id: item.id, workflowId });
-      } else {
-        await deleteBlockMutation.mutateAsync({ id: item.id, workflowId });
-      }
+      await deleteBlockMutation.mutateAsync({ id: item.id, workflowId });
       toast({
         title: "Logic block deleted",
         description: "Logic block removed from page",
@@ -186,20 +177,6 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
         title: "Error",
         description: "Failed to delete logic block",
         variant: "destructive",
-      });
-    }
-  };
-
-  const handleJSBlockChange = (updated: JSBlock) => {
-    if (item.data.type === "js") {
-      updateTransformBlockMutation.mutate({
-        id: item.id,
-        workflowId,
-        name: updated.config?.name,
-        code: updated.config?.code,
-        inputKeys: updated.config?.inputKeys,
-        outputKey: updated.config?.outputKey,
-        timeoutMs: updated.config?.timeoutMs,
       });
     }
   };
@@ -261,9 +238,7 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sm">
-                {item.data.type === "js" && item.data.config?.name
-                  ? item.data.config.name
-                  : (BLOCK_TYPE_LABELS[item.data.type as string] || item.data.type)}
+                {BLOCK_TYPE_LABELS[item.data.type as string] || item.data.type}
               </div>
               {/* Block summary */}
               {getBlockSummary(item.data) && (
@@ -278,11 +253,6 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
                 <Badge variant="secondary" className="text-xs">
                   {item.data.phase}
                 </Badge>
-                {item.data.type === "js" && item.data.config?.outputKey && (
-                  <Badge variant="secondary" className="text-xs font-mono">
-                    → {item.data.config.outputKey}
-                  </Badge>
-                )}
                 {!item.data.enabled && (
                   <span className="text-xs text-muted-foreground">Disabled</span>
                 )}
@@ -301,16 +271,6 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
             </Button>
           </div>
 
-          {/* Expanded Content - Block Editors */}
-          {isExpanded && item.data.type === "js" && (
-            <div className="mt-3 pt-3 border-t">
-              <JSBlockEditor
-                block={item.data as unknown as JSBlock}
-                onChange={handleJSBlockChange}
-                workflowId={workflowId}
-              />
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

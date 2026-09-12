@@ -4,6 +4,17 @@ import type { DatavaultDatabasesRepository } from '../../../server/repositories'
 import { DataSourceService } from '../../../server/services/DataSourceService';
 import * as repositories from '../../../server/repositories';
 
+// Every method now opens one tenant-scoped transaction at the service boundary
+// (RLS-2e). With no tenant in the async context and RLS unenforced,
+// `withCurrentTenant` falls through to a plain `db.transaction`; the stub tx is
+// ignored by the mocked repository, so the assertions below are unchanged apart
+// from the trailing argument.
+vi.mock('../../../server/db', () => ({
+    db: {
+        transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ execute: vi.fn() })),
+    },
+}));
+
 // Mock the repositories module
 vi.mock('../../../server/repositories', () => ({
     datavaultDatabasesRepository: {
@@ -52,7 +63,7 @@ describe('DataSourceService', () => {
 
             const result = await service.listDataSources('tenant-1');
             expect(result).toEqual(mockSources);
-            expect(mockRepo.findByTenantId).toHaveBeenCalledWith('tenant-1');
+            expect(mockRepo.findByTenantId).toHaveBeenCalledWith('tenant-1', expect.anything());
         });
     });
 
@@ -127,7 +138,7 @@ describe('DataSourceService', () => {
 
             const result = await service.createDataSource(input as Parameters<typeof service.createDataSource>[0]);
             expect(result).toEqual(created);
-            expect(mockRepo.create).toHaveBeenCalledWith(input as Parameters<typeof service.createDataSource>[0]);
+            expect(mockRepo.create).toHaveBeenCalledWith(input as Parameters<typeof service.createDataSource>[0], expect.anything());
         });
     });
 
@@ -169,7 +180,7 @@ describe('DataSourceService', () => {
         it('should link if source exists', async () => {
             mockRepo.existsForTenant.mockResolvedValue(true);
             await service.linkDataSourceToWorkflow('wf-1', 'ds-1', 'tenant-1');
-            expect(mockRepo.linkToWorkflow).toHaveBeenCalledWith('wf-1', 'ds-1');
+            expect(mockRepo.linkToWorkflow).toHaveBeenCalledWith('wf-1', 'ds-1', expect.anything());
         });
     });
 });

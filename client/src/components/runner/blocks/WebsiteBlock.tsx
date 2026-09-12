@@ -14,7 +14,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { WebsiteConfig } from "@shared/types/stepConfigs";
+import { resolveWebsiteConfig } from "@shared/types/stepConfigs";
 
 export interface WebsiteBlockProps {
   step: Step;
@@ -28,7 +28,7 @@ export interface WebsiteBlockProps {
 }
 
 export function WebsiteBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: WebsiteBlockProps) {
-  const config = step.config as WebsiteConfig;
+  const config = resolveWebsiteConfig(step.config);
   const placeholder = config?.placeholder ?? "https://example.com";
 
   const handleBlur = () => {

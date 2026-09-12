@@ -20,7 +20,7 @@ interface AIFeedbackWidgetProps {
   aiProvider?: string;
   aiModel?: string;
   requestDescription?: string;
-  generatedSections?: number;
+  generatedPages?: number;
   generatedSteps?: number;
   onClose?: () => void;
   className?: string;
@@ -33,7 +33,7 @@ export function AIFeedbackWidget({
   aiProvider,
   aiModel,
   requestDescription,
-  generatedSections,
+  generatedPages,
   generatedSteps,
   onClose,
   className,
@@ -70,7 +70,7 @@ export function AIFeedbackWidget({
           qualityPassed: qualityScore?.passed,
           issuesCount: qualityScore?.issues.length,
           requestDescription,
-          generatedSections,
+          generatedPages,
           generatedSteps,
         }),
       });

@@ -8,10 +8,9 @@ import { BundleReader } from '../../../server/services/portability/bundleReader'
 import {
   externalConnections,
   workflows,
-  sections,
+  pages,
   steps,
   blocks,
-  transformBlocks,
   lifecycleHooks,
   documentHooks,
 } from '../../../shared/schema';
@@ -27,7 +26,6 @@ const HEADER_SENTINEL = 'sentinel_conn_header_value';
 const BLOCK_HEADER_SENTINEL = 'sentinel_block_header_value';
 const BLOCK_AUTH_SENTINEL = 'sk-sentinel12345678901234567890auth';
 const STEP_CONFIG_SENTINEL = 'ghp_sentinel12345678901234567890step';
-const TRANSFORM_SENTINEL = 'sk-sentinel12345678901234567890';
 const LIFECYCLE_SENTINEL = 'ghp_sentinel12345678901234567890';
 const DOCHOOK_SENTINEL = 'sentinel_dochook_1234567890123456789012345678';
 
@@ -36,7 +34,6 @@ const ALL_SENTINELS = [
   BLOCK_HEADER_SENTINEL,
   BLOCK_AUTH_SENTINEL,
   STEP_CONFIG_SENTINEL,
-  TRANSFORM_SENTINEL,
   LIFECYCLE_SENTINEL,
   DOCHOOK_SENTINEL,
 ];
@@ -71,8 +68,8 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
         .returning();
       testWorkflowId = workflow.id;
 
-      const [section] = await insert(sections)
-        .values({ workflowId: testWorkflowId, title: 'Section', order: 1 })
+      const [page] = await insert(pages)
+        .values({ workflowId: testWorkflowId, title: 'Page', order: 1 })
         .returning();
 
       // Project-scoped: a header bag with one credential-ish and one benign header.
@@ -89,9 +86,9 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
       // Workflow-scoped: the external_send block's own free-form header bag.
       await insert(blocks).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'external_send',
-        phase: 'onSectionSubmit',
+        phase: 'onPageSubmit',
         config: { 
           headers: [{ key: 'Authorization', value: BLOCK_HEADER_SENTINEL }],
           auth: { token: BLOCK_AUTH_SENTINEL }
@@ -99,35 +96,44 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
         order: 1,
       });
 
+      // STB-18: portability import now enforces the canonical `steps.config`
+      // shape (validateCanonicalStepConfig), so this fixture can no longer
+      // carry the sentinel under an arbitrary `deep.arrayConfig[]` path on a
+      // `text` step -- that path isn't a legal TextAdvancedConfigSchema key.
+      // A `list` field's own `config` is `z.unknown()` by design (the List
+      // schema validates structure, not each field's per-type config), so it
+      // stays a legal, unconstrained place to plant an arbitrary-depth
+      // secret-shaped literal while the outer step itself is fully canonical.
       await insert(steps).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
-        type: 'text',
+        pageId: page.id,
+        type: 'list',
         title: 'Step with secret',
         order: 1,
         config: {
-          deep: {
-            arrayConfig: [
-              { secretValue: STEP_CONFIG_SENTINEL }
-            ]
-          }
+          fields: [
+            {
+              kind: 'question',
+              id: 'field-with-secret',
+              alias: 'field_with_secret',
+              type: 'text',
+              title: 'Field with secret',
+              order: 0,
+              config: {
+                deep: {
+                  arrayConfig: [
+                    { secretValue: STEP_CONFIG_SENTINEL }
+                  ]
+                }
+              }
+            }
+          ]
         }
-      });
-
-      await insert(transformBlocks).values({
-        workflowId: testWorkflowId,
-        sectionId: section.id,
-        name: 'Transform',
-        language: 'javascript',
-        outputKey: 'transform_out',
-        code: `const token = "${TRANSFORM_SENTINEL}";`,
-        phase: 'onSectionSubmit',
-        order: 1,
       });
 
       await insert(lifecycleHooks).values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         name: 'Lifecycle',
         language: 'javascript',
         code: `const credential = "${LIFECYCLE_SENTINEL}";`,
@@ -240,15 +246,15 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
     const { reader, tmpPath } = await loadBundle(buffer);
 
     const warnings = reader.manifest.warnings ?? [];
-    for (const entity of ['transform_blocks', 'lifecycle_hooks', 'document_hooks']) {
+    for (const entity of ['lifecycle_hooks', 'document_hooks']) {
       const warning = warnings.find((w) => w.type === 'secret_scan' && w.entity === entity);
       expect(warning, `expected a secret_scan warning for ${entity}`).toBeDefined();
       expect(warning).toMatchObject({ type: 'secret_scan', entity, column: 'code', line: 1 });
     }
 
     // The code itself is deliberately not redacted — it is the workflow.
-    const { raw } = await collect(reader.readEntityStream('transform_blocks'));
-    expect(raw).toContain(TRANSFORM_SENTINEL);
+    const { raw } = await collect(reader.readEntityStream('lifecycle_hooks'));
+    expect(raw).toContain(LIFECYCLE_SENTINEL);
 
     await fs.promises.rm(tmpPath);
   });

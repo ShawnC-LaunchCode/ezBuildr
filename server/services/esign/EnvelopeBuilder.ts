@@ -22,6 +22,7 @@ import {
 } from '../../repositories';
 import { storageProvider } from '../storage';
 import { createError } from '../../utils/errors';
+import { withCurrentTenant } from '../../utils/rlsContext';
 
 import type {
   IEsignProvider,
@@ -31,6 +32,13 @@ import type {
   SignerInfo,
 } from './EsignProvider';
 import type { SignatureBlockConfig } from '../../../shared/types/stepConfigs';
+
+type TemplateRow = NonNullable<Awaited<ReturnType<typeof documentTemplateRepository.findByIdAndProjectId>>>;
+type GeneratedRow = Awaited<ReturnType<typeof runGeneratedDocumentsRepository.findByRunId>>[number];
+
+function findGenerated(documents: GeneratedRow[], documentId: string): GeneratedRow | undefined {
+  return documents.find((document) => document.id === documentId || document.templateId === documentId);
+}
 
 // ============================================================================
 // TYPES
@@ -148,21 +156,42 @@ export class EnvelopeBuilder {
     runId: string,
     documentConfigs: SignatureBlockConfig['documents']
   ): Promise<SignatureDocument[]> {
-    const run = await this.runRepo.findById(runId);
-    if (!run) {
-      throw createError.notFound('Workflow run', runId);
-    }
-    const workflow = await this.workflowRepo.findById(run.workflowId);
-    if (!workflow?.projectId) {
-      throw createError.validation('Workflow has no project');
-    }
-    const projectId = workflow.projectId;
-    const generatedDocuments = await this.generatedDocumentRepo.findByRunId(runId);
+    // RLS-B1: `workflows`, `run_generated_documents` and `templates` are all
+    // RLS-covered, so these reads must run in the caller's tenant transaction.
+    // They used to go to the bare pool, where a non-owner role sees zero rows —
+    // a real workflow came back `undefined` and was reported as "Workflow has no
+    // project". Storage paths are resolved only AFTER the transaction closes:
+    // `getLocalPath` can download from S3, and a transaction is never held open
+    // across network I/O (TENANT_ISOLATION_RLS §2d).
+    const { generatedDocuments, templatesById } = await withCurrentTenant(async (tx) => {
+      const run = await this.runRepo.findById(runId, tx);
+      if (!run) {
+        throw createError.notFound('Workflow run', runId);
+      }
+      const workflow = await this.workflowRepo.findById(run.workflowId, tx);
+      if (!workflow?.projectId) {
+        throw createError.validation('Workflow has no project');
+      }
+      const generated = await this.generatedDocumentRepo.findByRunId(runId, tx);
+      // Sequential, not Promise.all: concurrent queries on one transaction
+      // handle deadlock the same way a pool query inside one does.
+      const templateRows = new Map<string, TemplateRow>();
+      for (const docConfig of documentConfigs) {
+        if (findGenerated(generated, docConfig.documentId) !== undefined || templateRows.has(docConfig.documentId)) {
+          continue;
+        }
+        // Project-scoped lookup is the tenant boundary: a run-token holder cannot
+        // point a signature block at another customer's template UUID.
+        const template = await this.templateRepo.findByIdAndProjectId(docConfig.documentId, workflow.projectId, tx);
+        if (template) {
+          templateRows.set(docConfig.documentId, template);
+        }
+      }
+      return { generatedDocuments: generated, templatesById: templateRows };
+    });
 
     return Promise.all(documentConfigs.map(async (docConfig) => {
-      const generated = generatedDocuments.find((document) =>
-        document.id === docConfig.documentId || document.templateId === docConfig.documentId
-      );
+      const generated = findGenerated(generatedDocuments, docConfig.documentId);
       let source: DocumentSource | null = null;
       if (generated) {
         source = {
@@ -172,7 +201,8 @@ export class EnvelopeBuilder {
           mimeType: generated.mimeType ?? 'application/pdf',
         };
       } else {
-        source = await this.resolveTemplateSource(docConfig.documentId, projectId);
+        const template = templatesById.get(docConfig.documentId);
+        source = template ? await this.templateSource(template) : null;
       }
 
       if (!source) {
@@ -197,13 +227,7 @@ export class EnvelopeBuilder {
    * 2. Uploaded template library
    * 3. Workflow file attachments
    */
-  private async resolveTemplateSource(documentId: string, projectId: string): Promise<DocumentSource | null> {
-    // Project-scoped lookup is the tenant boundary: a run-token holder cannot
-    // point a signature block at another customer's template UUID.
-    const template = await this.templateRepo.findByIdAndProjectId(documentId, projectId);
-    if (!template) {
-      return null;
-    }
+  private async templateSource(template: TemplateRow): Promise<DocumentSource> {
     return {
       id: template.id,
       name: template.name,

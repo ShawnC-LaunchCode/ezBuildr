@@ -5,8 +5,8 @@
  * listening server, real JWT via register), locking in the error contracts that
  * Phase 1–2 established:
  *   - POST /api/workflows                                  (ICW-1)
- *   - POST /api/workflows/:id/sections
- *   - POST /api/workflows/:id/sections/:sectionId/steps    + simplified variant
+ *   - POST /api/workflows/:id/pages
+ *   - POST /api/workflows/:id/pages/:pageId/steps    + simplified variant
  *   - aggregate size caps                                  (ICW-11)
  *
  * The caps cases set tiny limits by mutating the shared `LIMITS` object. `LIMITS`
@@ -26,13 +26,16 @@ import { LIMITS } from "@shared/limits";
 import * as schema from "@shared/schema";
 import { buildTestWhen } from "../helpers/conditionFixtures";
 
-import { db } from "../../server/db";
 import {
   createAuthenticatedAgent,
   createTestUser,
   setupIntegrationTest,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 let ctx: IntegrationTestContext;
 let agent: ReturnType<typeof createAuthenticatedAgent>;
@@ -50,19 +53,19 @@ afterAll(async () => {
   await ctx.cleanup();
 });
 
-/** Create a workflow (filed under the test project) and one section; return both ids. */
-async function makeWorkflowWithSection(): Promise<{ workflowId: string; sectionId: string }> {
+/** Create a workflow (filed under the test project) and one page; return both ids. */
+async function makeWorkflowWithPage(): Promise<{ workflowId: string; pageId: string }> {
   const wfRes = await agent
     .post("/api/workflows")
     .send({ title: `WF ${nanoid()}`, projectId: ctx.projectId });
   expect(wfRes.status).toBe(201);
   const workflowId = wfRes.body.id as string;
 
-  const secRes = await agent
-    .post(`/api/workflows/${workflowId}/sections`)
-    .send({ title: "Section A" });
-  expect(secRes.status).toBe(201);
-  return { workflowId, sectionId: secRes.body.id as string };
+  const pageResponse = await agent
+    .post(`/api/workflows/${workflowId}/pages`)
+    .send({ title: "Page A" });
+  expect(pageResponse.status).toBe(201);
+  return { workflowId, pageId: pageResponse.body.id as string };
 }
 
 describe("POST /api/workflows", () => {
@@ -98,7 +101,7 @@ describe("POST /api/workflows", () => {
 
   it("returns 403 for a project the user cannot edit", async () => {
     // A project owned by a user in a different tenant — the caller has no ACL role.
-    const [foreignTenant] = await db
+    const [foreignTenant] = await getOwnerDb()
       .insert(schema.tenants)
       .values({ name: `Foreign ${nanoid()}`, plan: "pro" })
       .returning();
@@ -113,12 +116,11 @@ describe("POST /api/workflows", () => {
       .post("/api/workflows")
       .send({ title: "Sneaky", projectId: projRes.body.id });
 
-    expect(res.status).toBe(403);
-    expect(res.body.message).toMatch(/access denied/i);
+    expectCrossTenantDenied(res.status);
 
     // cleanup foreign tenant + its users to avoid FK debris across the suite
-    await db.delete(schema.users).where(eq(schema.users.tenantId, foreignTenant.id));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, foreignTenant.id));
+    await getOwnerDb().delete(schema.users).where(eq(schema.users.tenantId, foreignTenant.id));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, foreignTenant.id));
   });
 
   it("returns 401 without auth", async () => {
@@ -129,21 +131,21 @@ describe("POST /api/workflows", () => {
   });
 });
 
-describe("POST /api/workflows/:workflowId/sections", () => {
-  it("creates a section with auto-order (201)", async () => {
+describe("POST /api/workflows/:workflowId/pages", () => {
+  it("creates a page with auto-order (201)", async () => {
     const wfRes = await agent
       .post("/api/workflows")
       .send({ title: `WF ${nanoid()}`, projectId: ctx.projectId });
     const workflowId = wfRes.body.id as string;
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: "Page 2" });
 
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
-    // A fresh workflow already has an auto-created "Section 1" (order 1), so the
-    // next section is auto-assigned order 2.
+    // A fresh workflow already has an auto-created "Page 1" (order 1), so the
+    // next page is auto-assigned order 2.
     expect(res.body.order).toBe(2);
   });
 
@@ -152,7 +154,7 @@ describe("POST /api/workflows/:workflowId/sections", () => {
       .post("/api/workflows")
       .send({ title: `WF ${nanoid()}`, projectId: ctx.projectId });
     const res = await request(ctx.baseURL)
-      .post(`/api/workflows/${wfRes.body.id}/sections`)
+      .post(`/api/workflows/${wfRes.body.id}/pages`)
       .send({ title: "Nope" });
     expect(res.status).toBe(401);
   });
@@ -164,7 +166,7 @@ describe("POST /api/workflows/:workflowId/sections", () => {
     const other = await createTestUser(ctx, "viewer");
 
     const res = await request(ctx.baseURL)
-      .post(`/api/workflows/${wfRes.body.id}/sections`)
+      .post(`/api/workflows/${wfRes.body.id}/pages`)
       .set("Authorization", `Bearer ${other.token}`)
       .send({ title: "Intruder" });
 
@@ -174,20 +176,20 @@ describe("POST /api/workflows/:workflowId/sections", () => {
 
   it("returns 404 for a nonexistent workflow", async () => {
     const res = await agent
-      .post(`/api/workflows/${randomUUID()}/sections`)
+      .post(`/api/workflows/${randomUUID()}/pages`)
       .send({ title: "Ghost" });
     expect(res.status).toBe(404);
     expect(res.body.message).toMatch(/not found/i);
   });
 });
 
-describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
+describe("POST /api/workflows/:workflowId/pages/:pageId/steps", () => {
   it("creates a step with a valid alias (201)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "First name", alias: "first_name" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "First name", alias: "first_name", config: { variant: "short" } });
 
     expect(res.status).toBe(201);
     expect(res.body.alias).toBe("first_name");
@@ -195,11 +197,11 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
   });
 
   it("creates a 'list' step and reads it back with type 'list' (LIST-1)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "list", title: "Children" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "list", title: "Children", config: { fields: [] } });
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("list");
@@ -210,16 +212,16 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
   });
 
   it("rejects a 'list' step whose config has a field with a malformed alias (LIST2-3 AC1)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({
         type: "list",
         title: "Children",
         config: {
           fields: [
-            { kind: "question", id: "f-1", alias: "2bad", type: "short_text", title: "Bad alias", order: 0 },
+            { kind: "question", id: "f-1", alias: "2bad", type: "text", title: "Bad alias", order: 0, config: { variant: "short" } },
           ],
         },
       });
@@ -229,7 +231,7 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
   });
 
   it("rejects a 'list' step config nested deeper than the max depth (LIST2-3 AC3)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     // LIST_VALIDATION_MAX_DEPTH is 3; nest one level past it (4 ListConfig levels).
     const config = {
@@ -246,7 +248,7 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
                       kind: "list", id: "f-3", alias: "level3", title: "Level 3", order: 0,
                       list: {
                         fields: [
-                          { kind: "question", id: "f-4", alias: "leaf", type: "short_text", title: "Leaf", order: 0 },
+                          { kind: "question", id: "f-4", alias: "leaf", type: "text", title: "Leaf", order: 0, config: { variant: "short" } },
                         ],
                       },
                     },
@@ -260,7 +262,7 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
     };
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       .send({ type: "list", title: "Too Deep", config });
 
     expect(res.status).toBe(400);
@@ -268,37 +270,37 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
   });
 
   it("returns 400 for an invalid alias format", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Bad", alias: "1st-question" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Bad", alias: "1st-question", config: { variant: "short" } });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/variable names must/i);
   });
 
   it("returns 400 for a duplicate alias", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const first = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Q1", alias: "email" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Q1", alias: "email", config: { variant: "short" } });
     expect(first.status).toBe(201);
 
     const dup = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Q2", alias: "email" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Q2", alias: "email", config: { variant: "short" } });
 
     expect(dup.status).toBe(400);
     expect(dup.body.message).toMatch(/already in use/i);
   });
 
   it("returns 400 for a config invalid for the step type (post ICW-10)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
       // 'text' requires variant 'short' | 'long'; 'medium' is invalid.
       .send({ type: "text", title: "Bad config", config: { variant: "medium", validation: {} } });
 
@@ -307,11 +309,11 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
   });
 
   it("simplified route creates a step (201) — parity", async () => {
-    const { sectionId } = await makeWorkflowWithSection();
+    const { pageId } = await makeWorkflowWithPage();
 
     const res = await agent
-      .post(`/api/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Via simplified route" });
+      .post(`/api/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Via simplified route", config: { variant: "short" } });
 
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
@@ -319,48 +321,48 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
 });
 
 describe("aggregate size caps (ICW-11)", () => {
-  const originalSections = LIMITS.MAX_SECTIONS_PER_WORKFLOW;
+  const originalPages = LIMITS.MAX_PAGES_PER_WORKFLOW;
   const originalSteps = LIMITS.MAX_STEPS_PER_WORKFLOW;
 
   afterEach(() => {
-    LIMITS.MAX_SECTIONS_PER_WORKFLOW = originalSections;
+    LIMITS.MAX_PAGES_PER_WORKFLOW = originalPages;
     LIMITS.MAX_STEPS_PER_WORKFLOW = originalSteps;
   });
 
-  it("rejects section creation past the workflow cap (400)", async () => {
-    LIMITS.MAX_SECTIONS_PER_WORKFLOW = 3;
+  it("rejects page creation past the workflow cap (400)", async () => {
+    LIMITS.MAX_PAGES_PER_WORKFLOW = 3;
 
     const wfRes = await agent
       .post("/api/workflows")
       .send({ title: `Cap WF ${nanoid()}`, projectId: ctx.projectId });
     const workflowId = wfRes.body.id as string;
 
-    // Auto "Section 1" already counts (1). Two more reach the cap of 3.
-    expect((await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "s2" })).status).toBe(201);
-    expect((await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "s3" })).status).toBe(201);
+    // Auto "Page 1" already counts (1). Two more reach the cap of 3.
+    expect((await agent.post(`/api/workflows/${workflowId}/pages`).send({ title: "s2" })).status).toBe(201);
+    expect((await agent.post(`/api/workflows/${workflowId}/pages`).send({ title: "s3" })).status).toBe(201);
 
     const overflow = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: "s4" });
     expect(overflow.status).toBe(400);
-    expect(overflow.body.message).toMatch(/section limit reached/i);
+    expect(overflow.body.message).toMatch(/page limit reached/i);
   });
 
   it("rejects step creation past the workflow cap (400)", async () => {
     LIMITS.MAX_STEPS_PER_WORKFLOW = 2;
 
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     expect(
-      (await agent.post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`).send({ type: "short_text", title: "q1" })).status
+      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "text", title: "q1", config: { variant: "short" } })).status
     ).toBe(201);
     expect(
-      (await agent.post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`).send({ type: "short_text", title: "q2" })).status
+      (await agent.post(`/api/workflows/${workflowId}/pages/${pageId}/steps`).send({ type: "text", title: "q2", config: { variant: "short" } })).status
     ).toBe(201);
 
     const overflow = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "q3" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "q3", config: { variant: "short" } });
     expect(overflow.status).toBe(400);
     expect(overflow.body.message).toMatch(/question limit reached/i);
   });
@@ -368,7 +370,7 @@ describe("aggregate size caps (ICW-11)", () => {
 
 describe("edit role required for structural mutations (ICW2-1)", () => {
   let workflowId: string;
-  let sectionId: string;
+  let pageId: string;
   let sharedAgent: ReturnType<typeof createAuthenticatedAgent>;
   let aclEntryId: string;
 
@@ -380,17 +382,17 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
     expect(wfRes.status).toBe(201);
     workflowId = wfRes.body.id as string;
 
-    const secRes = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
-      .send({ title: "Owner section" });
-    expect(secRes.status).toBe(201);
-    sectionId = secRes.body.id as string;
+    const pageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
+      .send({ title: "Owner page" });
+    expect(pageResponse.status).toBe(201);
+    pageId = pageResponse.body.id as string;
 
     // 'builder' tenant role so tenant RBAC is not the limiter — the ACL role is.
     const sharedUser = await createTestUser(ctx, "builder");
     sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
 
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({
         workflowId,
@@ -402,66 +404,66 @@ describe("edit role required for structural mutations (ICW2-1)", () => {
     aclEntryId = aclEntry.id;
   });
 
-  it("view role can read but gets 403 on section and step mutations", async () => {
+  it("view role can read but gets 403 on page and step mutations", async () => {
     const read = await sharedAgent.get(`/api/workflows/${workflowId}`);
     expect(read.status).toBe(200);
 
-    const createSection = await sharedAgent
-      .post(`/api/workflows/${workflowId}/sections`)
+    const createPage = await sharedAgent
+      .post(`/api/workflows/${workflowId}/pages`)
       .send({ title: "Not allowed" });
-    expect(createSection.status).toBe(403);
-    expect(createSection.body.message).toMatch(/access denied/i);
+    expect(createPage.status).toBe(403);
+    expect(createPage.body.message).toMatch(/access denied/i);
 
     const createStep = await sharedAgent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Not allowed" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Not allowed", config: { variant: "short" } });
     expect(createStep.status).toBe(403);
 
     const reorder = await sharedAgent
-      .put(`/api/workflows/${workflowId}/sections/reorder`)
-      .send({ sections: [{ id: sectionId, order: 3 }] });
+      .put(`/api/workflows/${workflowId}/pages/reorder`)
+      .send({ pages: [{ id: pageId, order: 3, sectionId: null }] });
     expect(reorder.status).toBe(403);
   });
 
   it("the same mutations succeed once the ACL role is raised to edit", async () => {
-    await db
+    await getOwnerDb()
       .update(schema.workflowAccess)
       .set({ role: "edit" })
       .where(eq(schema.workflowAccess.id, aclEntryId));
 
-    const createSection = await sharedAgent
-      .post(`/api/workflows/${workflowId}/sections`)
-      .send({ title: "Editor section" });
-    expect(createSection.status).toBe(201);
+    const createPage = await sharedAgent
+      .post(`/api/workflows/${workflowId}/pages`)
+      .send({ title: "Editor page" });
+    expect(createPage.status).toBe(201);
 
     const createStep = await sharedAgent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Editor question" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Editor question", config: { variant: "short" } });
     expect(createStep.status).toBe(201);
   });
 });
 
-describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
-  it("section reorder containing a foreign workflow's section id → 404, no rows changed", async () => {
-    const mine = await makeWorkflowWithSection();
-    const other = await makeWorkflowWithSection();
+describe("reorder ids are scoped to their workflow/page (ICW2-1)", () => {
+  it("page reorder containing a foreign workflow's page id → 404, no rows changed", async () => {
+    const mine = await makeWorkflowWithPage();
+    const other = await makeWorkflowWithPage();
 
     const orderOf = async (id: string): Promise<number> => {
-      const [row] = await db
-        .select({ order: schema.sections.order })
-        .from(schema.sections)
-        .where(eq(schema.sections.id, id));
+      const [row] = await getOwnerDb()
+        .select({ order: schema.pages.order })
+        .from(schema.pages)
+        .where(eq(schema.pages.id, id));
       return row.order;
     };
-    const mineBefore = await orderOf(mine.sectionId);
-    const otherBefore = await orderOf(other.sectionId);
+    const mineBefore = await orderOf(mine.pageId);
+    const otherBefore = await orderOf(other.pageId);
 
     const res = await agent
-      .put(`/api/workflows/${mine.workflowId}/sections/reorder`)
+      .put(`/api/workflows/${mine.workflowId}/pages/reorder`)
       .send({
-        sections: [
-          { id: mine.sectionId, order: 7 },
-          { id: other.sectionId, order: 9 },
+        pages: [
+          { id: mine.pageId, order: 7, sectionId: null },
+          { id: other.pageId, order: 9, sectionId: null },
         ],
       });
     expect(res.status).toBe(404);
@@ -469,30 +471,30 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
 
     // The foreign row is untouched, and the transactional reorder rolled back
     // the in-scope update too.
-    expect(await orderOf(other.sectionId)).toBe(otherBefore);
-    expect(await orderOf(mine.sectionId)).toBe(mineBefore);
+    expect(await orderOf(other.pageId)).toBe(otherBefore);
+    expect(await orderOf(mine.pageId)).toBe(mineBefore);
   });
 
-  it("step reorder containing a step id from another section → 404, no rows changed", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
-    const otherSecRes = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
-      .send({ title: "Section B" });
-    expect(otherSecRes.status).toBe(201);
-    const otherSectionId = otherSecRes.body.id as string;
+  it("step reorder containing a step id from another page → 404, no rows changed", async () => {
+    const { workflowId, pageId } = await makeWorkflowWithPage();
+    const otherPageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
+      .send({ title: "Page B" });
+    expect(otherPageResponse.status).toBe(201);
+    const otherPageId = otherPageResponse.body.id as string;
 
-    const mkStep = async (secId: string, title: string): Promise<string> => {
+    const mkStep = async (targetPageId: string, title: string): Promise<string> => {
       const res = await agent
-        .post(`/api/workflows/${workflowId}/sections/${secId}/steps`)
-        .send({ type: "short_text", title });
+        .post(`/api/workflows/${workflowId}/pages/${targetPageId}/steps`)
+        .send({ type: "text", title, config: { variant: "short" } });
       expect(res.status).toBe(201);
       return res.body.id as string;
     };
-    const myStepId = await mkStep(sectionId, "Mine");
-    const foreignStepId = await mkStep(otherSectionId, "Foreign");
+    const myStepId = await mkStep(pageId, "Mine");
+    const foreignStepId = await mkStep(otherPageId, "Foreign");
 
     const orderOf = async (id: string): Promise<number> => {
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select({ order: schema.steps.order })
         .from(schema.steps)
         .where(eq(schema.steps.id, id));
@@ -502,7 +504,7 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
     const foreignBefore = await orderOf(foreignStepId);
 
     const res = await agent
-      .put(`/api/workflows/${workflowId}/sections/${sectionId}/steps/reorder`)
+      .put(`/api/workflows/${workflowId}/pages/${pageId}/steps/reorder`)
       .send({
         steps: [
           { id: myStepId, order: 4 },
@@ -519,10 +521,10 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
 
 describe("update payloads cannot mass-assign immutable/server-controlled fields (QA-SEC)", () => {
   it("PUT /api/steps/:id ignores a client-supplied id (no primary-key rewrite)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const { workflowId, pageId } = await makeWorkflowWithPage();
     const created = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Original" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Original", config: { variant: "short" } });
     expect(created.status).toBe(201);
     const stepId = created.body.id as string;
     const hijackId = randomUUID();
@@ -537,20 +539,20 @@ describe("update payloads cannot mass-assign immutable/server-controlled fields 
     expect(res.body.title).toBe("Renamed");
 
     // The row still lives at its original id; the attacker-chosen id never existed.
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .select({ id: schema.steps.id })
       .from(schema.steps)
       .where(eq(schema.steps.id, stepId));
     expect(row?.id).toBe(stepId);
-    const hijackRows = await db
+    const hijackRows = await getOwnerDb()
       .select({ id: schema.steps.id })
       .from(schema.steps)
       .where(eq(schema.steps.id, hijackId));
     expect(hijackRows).toHaveLength(0);
   });
 
-  it("PUT /api/sections/:id ignores a client-supplied workflowId (no cross-workflow reparent)", async () => {
-    const { sectionId, workflowId } = await makeWorkflowWithSection();
+  it("PUT /api/pages/:id ignores a client-supplied workflowId (no cross-workflow reparent)", async () => {
+    const { pageId, workflowId } = await makeWorkflowWithPage();
 
     // A second user's workflow the caller has no access to — the reparent target.
     const other = await createTestUser(ctx, "owner");
@@ -560,45 +562,45 @@ describe("update payloads cannot mass-assign immutable/server-controlled fields 
     const foreignWorkflowId = otherWf.body.id as string;
 
     const res = await agent
-      .put(`/api/sections/${sectionId}`)
+      .put(`/api/pages/${pageId}`)
       .send({ title: "Renamed", workflowId: foreignWorkflowId });
 
     expect(res.status).toBe(200);
     expect(res.body.title).toBe("Renamed");
-    // Crucially, the section stays in the caller's workflow.
+    // Crucially, the page stays in the caller's workflow.
     expect(res.body.workflowId).toBe(workflowId);
 
-    const [row] = await db
-      .select({ workflowId: schema.sections.workflowId })
-      .from(schema.sections)
-      .where(eq(schema.sections.id, sectionId));
+    const [row] = await getOwnerDb()
+      .select({ workflowId: schema.pages.workflowId })
+      .from(schema.pages)
+      .where(eq(schema.pages.id, pageId));
     expect(row?.workflowId).toBe(workflowId);
     expect(row?.workflowId).not.toBe(foreignWorkflowId);
   });
 });
 
-describe("cross-section step moves assign proper order (ICW2-5)", () => {
-  it("moving a step to another section appends it to the end by default", async () => {
-    const { workflowId, sectionId: srcSectionId } = await makeWorkflowWithSection();
+describe("cross-page step moves assign proper order (ICW2-5)", () => {
+  it("moving a step to another page appends it to the end by default", async () => {
+    const { workflowId, pageId: srcPageId } = await makeWorkflowWithPage();
     
-    // Create destination section
-    const destSecRes = await agent
-      .post(`/api/workflows/${workflowId}/sections`)
-      .send({ title: "Dest Section" });
-    const destSectionId = destSecRes.body.id as string;
+    // Create destination page
+    const destinationPageResponse = await agent
+      .post(`/api/workflows/${workflowId}/pages`)
+      .send({ title: "Dest Page" });
+    const destPageId = destinationPageResponse.body.id as string;
 
-    // Create steps in dest section to bump the max order
-    await agent.post(`/api/workflows/${workflowId}/sections/${destSectionId}/steps`).send({ type: "short_text", title: "Dest Step 1" });
-    await agent.post(`/api/workflows/${workflowId}/sections/${destSectionId}/steps`).send({ type: "short_text", title: "Dest Step 2" });
+    // Create steps in dest page to bump the max order
+    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "text", title: "Dest Step 1", config: { variant: "short" } });
+    await agent.post(`/api/workflows/${workflowId}/pages/${destPageId}/steps`).send({ type: "text", title: "Dest Step 2", config: { variant: "short" } });
 
-    // Create step in source section
-    const mkRes = await agent.post(`/api/workflows/${workflowId}/sections/${srcSectionId}/steps`).send({ type: "short_text", title: "Moving Step" });
+    // Create step in source page
+    const mkRes = await agent.post(`/api/workflows/${workflowId}/pages/${srcPageId}/steps`).send({ type: "text", title: "Moving Step", config: { variant: "short" } });
     const movingStepId = mkRes.body.id as string;
 
     // Move step via simplified PUT endpoint
     const moveRes = await agent
       .put(`/api/steps/${movingStepId}`)
-      .send({ sectionId: destSectionId });
+      .send({ pageId: destPageId });
     
     expect(moveRes.status).toBe(200);
     expect(moveRes.body.order).toBe(3); // Should append after the 2 existing steps
@@ -633,27 +635,27 @@ describe("workflow settings persist across save + reload (ICW2-9)", () => {
   });
 });
 
-describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete-impact (ICW2-13)", () => {
-  /** Create a short_text step under the given workflow/section; return its id. */
-  async function makeStep(workflowId: string, sectionId: string, alias: string): Promise<string> {
+describe("GET /api/steps/:stepId/delete-impact + /api/pages/:pageId/delete-impact (ICW2-13)", () => {
+  /** Create a short text step under the given workflow/page; return its id. */
+  async function makeStep(workflowId: string, pageId: string, alias: string): Promise<string> {
     const res = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: alias, alias });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: alias, alias, config: { variant: "short" } });
     expect(res.status).toBe(201);
     return res.body.id as string;
   }
 
-  it("counts answers + distinct runs per step and aggregates across a section", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
-    const stepId1 = await makeStep(workflowId, sectionId, "q_one");
-    const stepId2 = await makeStep(workflowId, sectionId, "q_two");
+  it("counts answers + distinct runs per step and aggregates across a page", async () => {
+    const { workflowId, pageId } = await makeWorkflowWithPage();
+    const stepId1 = await makeStep(workflowId, pageId, "q_one");
+    const stepId2 = await makeStep(workflowId, pageId, "q_two");
 
     // Two runs; step1 answered in both (2 answers / 2 runs), step2 in one (1 / 1).
-    const [run1] = await db.insert(schema.workflowRuns)
+    const [run1] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    const [run2] = await db.insert(schema.workflowRuns)
+    const [run2] = await getOwnerDb().insert(schema.workflowRuns)
       .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
-    await db.insert(schema.stepValues).values([
+    await getOwnerDb().insert(schema.stepValues).values([
       { runId: run1.id, stepId: stepId1, value: "a" },
       { runId: run2.id, stepId: stepId1, value: "b" },
       { runId: run1.id, stepId: stepId2, value: "c" },
@@ -663,30 +665,30 @@ describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete
     expect(stepImpact.status).toBe(200);
     expect(stepImpact.body).toEqual({ answerCount: 2, runCount: 2 });
 
-    // Section aggregates both steps: 3 answers across 2 distinct runs.
-    const sectionImpact = await agent.get(`/api/sections/${sectionId}/delete-impact`);
-    expect(sectionImpact.status).toBe(200);
-    expect(sectionImpact.body).toEqual({ answerCount: 3, runCount: 2 });
+    // Page aggregates both steps: 3 answers across 2 distinct runs.
+    const pageImpact = await agent.get(`/api/pages/${pageId}/delete-impact`);
+    expect(pageImpact.status).toBe(200);
+    expect(pageImpact.body).toEqual({ answerCount: 3, runCount: 2 });
   });
 
   it("returns zero impact for a step with no answers", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
-    const stepId = await makeStep(workflowId, sectionId, "q_empty");
+    const { workflowId, pageId } = await makeWorkflowWithPage();
+    const stepId = await makeStep(workflowId, pageId, "q_empty");
     const res = await agent.get(`/api/steps/${stepId}/delete-impact`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ answerCount: 0, runCount: 0 });
   });
 
   it("returns 401 without auth", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
-    const stepId = await makeStep(workflowId, sectionId, "q_noauth");
+    const { workflowId, pageId } = await makeWorkflowWithPage();
+    const stepId = await makeStep(workflowId, pageId, "q_noauth");
     const res = await request(ctx.baseURL).get(`/api/steps/${stepId}/delete-impact`);
     expect(res.status).toBe(401);
   });
 
   it("denies impact lookup to a non-collaborator (403/404 masked)", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
-    const stepId = await makeStep(workflowId, sectionId, "q_secret");
+    const { workflowId, pageId } = await makeWorkflowWithPage();
+    const stepId = await makeStep(workflowId, pageId, "q_secret");
     const other = await createTestUser(ctx, "viewer");
 
     const stepRes = await request(ctx.baseURL)
@@ -694,27 +696,27 @@ describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete
       .set("Authorization", `Bearer ${other.token}`);
     expect([403, 404]).toContain(stepRes.status);
 
-    const sectionRes = await request(ctx.baseURL)
-      .get(`/api/sections/${sectionId}/delete-impact`)
+    const pageRes = await request(ctx.baseURL)
+      .get(`/api/pages/${pageId}/delete-impact`)
       .set("Authorization", `Bearer ${other.token}`);
-    expect([403, 404]).toContain(sectionRes.status);
+    expect([403, 404]).toContain(pageRes.status);
   });
 });
 
 describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
-  it("creates a copy in the same section with a fresh alias and identical config, positioned after the source", async () => {
-    const { sectionId } = await makeWorkflowWithSection();
+  it("creates a copy in the same page with a fresh alias and identical config, positioned after the source", async () => {
+    const { pageId } = await makeWorkflowWithPage();
 
     const original = await agent
-      .post(`/api/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Original", alias: "clientName", config: { variant: "short" } });
+      .post(`/api/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Original", alias: "clientName", config: { variant: "short" } });
     expect(original.status).toBe(201);
 
     const dup = await agent.post(`/api/steps/${original.body.id}/duplicate`);
 
     expect(dup.status).toBe(201);
     expect(dup.body.id).not.toBe(original.body.id);
-    expect(dup.body.sectionId).toBe(sectionId);
+    expect(dup.body.pageId).toBe(pageId);
     expect(dup.body.title).toBe("Original");
     expect(dup.body.config).toEqual(original.body.config);
     // Fresh, unique alias — never a verbatim copy (would collide with the
@@ -725,10 +727,10 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
   });
 
   it("shifts a later sibling down by one to make room for the copy", async () => {
-    const { sectionId } = await makeWorkflowWithSection();
+    const { pageId } = await makeWorkflowWithPage();
 
-    const step1 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q1" });
-    const step2 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q2" });
+    const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q1", config: { variant: "short" } });
+    const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q2", config: { variant: "short" } });
     expect(step1.body.order).toBe(1);
     expect(step2.body.order).toBe(2);
 
@@ -736,7 +738,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     expect(dup.status).toBe(201);
     expect(dup.body.order).toBe(2);
 
-    const stepsRes = await agent.get(`/api/sections/${sectionId}/steps`);
+    const stepsRes = await agent.get(`/api/pages/${pageId}/steps`);
     const shiftedStep2 = (stepsRes.body as Array<{ id: string; order: number }>).find((s) => s.id === step2.body.id);
     expect(shiftedStep2?.order).toBe(3);
   });
@@ -749,16 +751,16 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
   it("view role gets 403, edit role succeeds", async () => {
     const wfRes = await agent.post("/api/workflows").send({ title: `Dup ACL WF ${nanoid()}` });
     const workflowId = wfRes.body.id as string;
-    const secRes = await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "Section" });
-    const sectionId = secRes.body.id as string;
+    const pageResponse = await agent.post(`/api/workflows/${workflowId}/pages`).send({ title: "Page" });
+    const pageId = pageResponse.body.id as string;
     const stepRes = await agent
-      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Q1" });
+      .post(`/api/workflows/${workflowId}/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Q1", config: { variant: "short" } });
     const stepId = stepRes.body.id as string;
 
     const sharedUser = await createTestUser(ctx, "builder");
     const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
       .returning();
@@ -767,7 +769,7 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     expect(denied.status).toBe(403);
     expect(denied.body.message).toMatch(/access denied/i);
 
-    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+    await getOwnerDb().update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
 
     const allowed = await sharedAgent.post(`/api/steps/${stepId}/duplicate`);
     expect(allowed.status).toBe(201);
@@ -777,8 +779,8 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
     const originalLimit = LIMITS.MAX_STEPS_PER_WORKFLOW;
     LIMITS.MAX_STEPS_PER_WORKFLOW = 1;
     try {
-      const { sectionId } = await makeWorkflowWithSection();
-      const step = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Only one" });
+      const { pageId } = await makeWorkflowWithPage();
+      const step = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Only one", config: { variant: "short" } });
       expect(step.status).toBe(201);
 
       const dup = await agent.post(`/api/steps/${step.body.id}/duplicate`);
@@ -790,20 +792,20 @@ describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
   });
 });
 
-describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
-  it("copies the section, its steps with fresh aliases, and section-scoped logic rules with remapped ids", async () => {
-    const { workflowId, sectionId } = await makeWorkflowWithSection();
+describe("POST /api/pages/:id/duplicate (ICW2-B5)", () => {
+  it("copies the page, its steps with fresh aliases, and page-scoped logic rules with remapped ids", async () => {
+    const { workflowId, pageId } = await makeWorkflowWithPage();
 
     const step1 = await agent
-      .post(`/api/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Q1", alias: "q_one" });
+      .post(`/api/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Q1", alias: "q_one", config: { variant: "short" } });
     const step2 = await agent
-      .post(`/api/sections/${sectionId}/steps`)
-      .send({ type: "short_text", title: "Q2", alias: "q_two" });
+      .post(`/api/pages/${pageId}/steps`)
+      .send({ type: "text", title: "Q2", alias: "q_two", config: { variant: "short" } });
     expect(step1.status).toBe(201);
     expect(step2.status).toBe(201);
 
-    const [rule] = await db
+    const [rule] = await getOwnerDb()
       .insert(schema.logicRules)
       .values({
         workflowId,
@@ -816,14 +818,14 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
       })
       .returning();
 
-    const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+    const dup = await agent.post(`/api/pages/${pageId}/duplicate`);
     expect(dup.status).toBe(201);
-    expect(dup.body.id).not.toBe(sectionId);
-    // The workflow's auto-created "Section 1" (order 1) plus this one (order 2)
-    // means the source section is order 2, so the copy lands at order 3.
+    expect(dup.body.id).not.toBe(pageId);
+    // The workflow's auto-created "Page 1" (order 1) plus this one (order 2)
+    // means the source page is order 2, so the copy lands at order 3.
     expect(dup.body.order).toBe(3);
 
-    const newStepsRes = await agent.get(`/api/sections/${dup.body.id}/steps`);
+    const newStepsRes = await agent.get(`/api/pages/${dup.body.id}/steps`);
     expect(newStepsRes.status).toBe(200);
     const newSteps = newStepsRes.body as Array<{ id: string; title: string; alias: string | null }>;
     expect(newSteps).toHaveLength(2);
@@ -836,70 +838,70 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
     expect(newStep2?.alias).not.toBe("q_two");
     expect(newStep2?.alias).toMatch(/^q_two_copy/);
 
-    // The section-scoped logic rule was copied with both ids remapped onto
+    // The page-scoped logic rule was copied with both ids remapped onto
     // the new steps — never left pointing at the source's step ids.
-    const allRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    const allRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
     const copiedRule = allRules.find((r) => r.id !== rule.id);
     expect(copiedRule).toBeDefined();
     expect(copiedRule?.conditionStepId).toBe(newStep1?.id);
     expect(copiedRule?.targetStepId).toBe(newStep2?.id);
   });
 
-  it("returns 404 for a nonexistent section", async () => {
-    const res = await agent.post(`/api/sections/${randomUUID()}/duplicate`);
+  it("returns 404 for a nonexistent page", async () => {
+    const res = await agent.post(`/api/pages/${randomUUID()}/duplicate`);
     expect(res.status).toBe(404);
   });
 
   it("view role gets 403, edit role succeeds", async () => {
-    const wfRes = await agent.post("/api/workflows").send({ title: `Dup Section ACL WF ${nanoid()}` });
+    const wfRes = await agent.post("/api/workflows").send({ title: `Dup Page ACL WF ${nanoid()}` });
     const workflowId = wfRes.body.id as string;
-    const secRes = await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "Section" });
-    const sectionId = secRes.body.id as string;
+    const pageResponse = await agent.post(`/api/workflows/${workflowId}/pages`).send({ title: "Page" });
+    const pageId = pageResponse.body.id as string;
 
     const sharedUser = await createTestUser(ctx, "builder");
     const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
-    const [aclEntry] = await db
+    const [aclEntry] = await getOwnerDb()
       .insert(schema.workflowAccess)
       .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
       .returning();
 
-    const denied = await sharedAgent.post(`/api/sections/${sectionId}/duplicate`);
+    const denied = await sharedAgent.post(`/api/pages/${pageId}/duplicate`);
     expect(denied.status).toBe(403);
     expect(denied.body.message).toMatch(/access denied/i);
 
-    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+    await getOwnerDb().update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
 
-    const allowed = await sharedAgent.post(`/api/sections/${sectionId}/duplicate`);
+    const allowed = await sharedAgent.post(`/api/pages/${pageId}/duplicate`);
     expect(allowed.status).toBe(201);
   });
 
-  it("returns 400 once the workflow section cap is reached (ICW-11)", async () => {
-    const originalLimit = LIMITS.MAX_SECTIONS_PER_WORKFLOW;
-    // Create the workflow/section under the real limit, then tighten the cap —
-    // creating the section itself must not be blocked by the test's own cap.
-    const { sectionId } = await makeWorkflowWithSection();
-    LIMITS.MAX_SECTIONS_PER_WORKFLOW = 2;
+  it("returns 400 once the workflow page cap is reached (ICW-11)", async () => {
+    const originalLimit = LIMITS.MAX_PAGES_PER_WORKFLOW;
+    // Create the workflow/page under the real limit, then tighten the cap —
+    // creating the page itself must not be blocked by the test's own cap.
+    const { pageId } = await makeWorkflowWithPage();
+    LIMITS.MAX_PAGES_PER_WORKFLOW = 2;
     try {
-      const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+      const dup = await agent.post(`/api/pages/${pageId}/duplicate`);
       expect(dup.status).toBe(400);
-      expect(dup.body.message).toMatch(/section limit reached/i);
+      expect(dup.body.message).toMatch(/page limit reached/i);
     } finally {
-      LIMITS.MAX_SECTIONS_PER_WORKFLOW = originalLimit;
+      LIMITS.MAX_PAGES_PER_WORKFLOW = originalLimit;
     }
   });
 
-  it("returns 400 when copying the section's steps would exceed the workflow step cap (ICW-11)", async () => {
+  it("returns 400 when copying the page's steps would exceed the workflow step cap (ICW-11)", async () => {
     const originalLimit = LIMITS.MAX_STEPS_PER_WORKFLOW;
     LIMITS.MAX_STEPS_PER_WORKFLOW = 2;
     try {
-      const { sectionId } = await makeWorkflowWithSection();
-      const step1 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q1" });
-      const step2 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q2" });
+      const { pageId } = await makeWorkflowWithPage();
+      const step1 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q1", config: { variant: "short" } });
+      const step2 = await agent.post(`/api/pages/${pageId}/steps`).send({ type: "text", title: "Q2", config: { variant: "short" } });
       expect(step1.status).toBe(201);
       expect(step2.status).toBe(201);
 
-      // At the cap already; duplicating the section would add 2 more steps.
-      const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+      // At the cap already; duplicating the page would add 2 more steps.
+      const dup = await agent.post(`/api/pages/${pageId}/duplicate`);
       expect(dup.status).toBe(400);
       expect(dup.body.message).toMatch(/question limit reached/i);
     } finally {

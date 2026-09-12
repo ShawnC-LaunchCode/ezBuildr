@@ -1,10 +1,9 @@
 import type { User } from '@shared/schema';
 
 import { createLogger } from '../logger';
-import { userRepository } from '../repositories';
 
 import { isAuthRequest } from './auth';
-import { getCachedUser, setCachedUser, invalidateUserCache } from './userCache';
+import { getUserById, invalidateUserCache } from './userCache';
 
 import type { Request, Response, NextFunction } from 'express';
 const logger = createLogger({ module: 'require-user-middleware' });
@@ -52,12 +51,10 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
       });
       return;
     }
-    // Check TTL cache before hitting the database
-    let user = getCachedUser(req.userId);
-    if (!user) {
-      user = await userRepository.findById(req.userId) ?? undefined;
-      if (user) { setCachedUser(user); }
-    }
+    // RLS-5: `getUserById` runs before any tenant is known, so its DB
+    // fallback pins `app.current_user_id` (users' self-id policy clause,
+    // migration 0028) rather than the tenant GUC it doesn't have yet.
+    const user = await getUserById(req.userId);
     if (!user) {
       logger.warn({ userId: req.userId, path: req.path }, 'User not found in database');
       res.status(404).json({
@@ -94,12 +91,7 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
     if (!isAuthRequest(req) || !req.userId) {
       return next();
     }
-    // Check TTL cache before hitting the database
-    let user = getCachedUser(req.userId);
-    if (!user) {
-      user = await userRepository.findById(req.userId) ?? undefined;
-      if (user) { setCachedUser(user); }
-    }
+    const user = await getUserById(req.userId);
     if (user) {
       // Attach user to request (type-safe)
       Object.assign(req as UserRequest, { user } as Partial<UserRequest>);

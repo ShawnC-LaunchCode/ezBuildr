@@ -5,10 +5,10 @@
  * Supports webhook notifications and email alerts (stub).
  */
 
-import { db } from '../db';
 import logger from '../logger';
 
 import sli from './sli';
+import { forEachTenant } from '../utils/forEachTenant';
 
 interface AlertConfig {
   webhookUrl?: string;
@@ -318,12 +318,18 @@ export async function batchEvaluateAlerts(): Promise<void> {
     `;
 
 
+    // RLS-7: `metrics_rollups` is RLS-covered and this batch job carries no
+    // tenant, so unscoped it found no targets and evaluated no alerts — the
+    // alerting path failing exactly the way alerting must never fail, by going
+    // quiet. Iterate tenants explicitly; see forEachTenant.
+    const { results: perTenantRows } = await forEachTenant('batchEvaluateAlerts', async (_tenantId, tx) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment -- SLI query results are dynamically typed.
-    const result = await db.execute({ sql: query, args: [] } as any) as any;
+      const res = await tx.execute({ sql: query, args: [] } as any) as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- SLI query results are dynamically typed.
+      return res.rows as any[];
+    });
 
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
-    for (const row of result.rows as any[]) {
+    for (const row of perTenantRows.flat()) {
       try {
         await evaluateAndAlert({
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.

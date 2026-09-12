@@ -79,6 +79,9 @@ async function processDocumentGenerationJob(
     if (!run) {
       throw new Error(`Workflow run not found: ${runId}`);
     }
+    if (run.executionMode === 'preview') {
+      throw new Error('Preview documents require the isolated run completion worker');
+    }
 
     await job.progress(20);
 

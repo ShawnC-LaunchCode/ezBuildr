@@ -52,7 +52,6 @@ describe("choice fields in ListFieldSettings (LIST2-8 AC1-3)", () => {
   it("adds, edits, reorders, and removes static options in field.config", () => {
     const initialConfig: ChoiceAdvancedConfig = {
       display: "dropdown",
-      allowMultiple: false,
       options: {
         type: "static",
         options: [
@@ -98,7 +97,6 @@ describe("choice fields in ListFieldSettings (LIST2-8 AC1-3)", () => {
     const onChange = vi.fn();
     const config: ChoiceAdvancedConfig = {
       display: "radio",
-      allowMultiple: false,
       options: {
         type: "static",
         options: [{ id: "opaque-id", label: "Sapphire", alias: "Sapphire" }],
@@ -133,7 +131,6 @@ describe("duplicate-alias highlighting (LIST2-8 reviewer regression)", () => {
       <ChoiceFieldHarness
         initialField={choiceField({
           display: "dropdown",
-          allowMultiple: false,
           options: {
             type: "static",
             options: [
@@ -153,7 +150,6 @@ describe("duplicate-alias highlighting (LIST2-8 reviewer regression)", () => {
       <ChoiceFieldHarness
         initialField={choiceField({
           display: "dropdown",
-          allowMultiple: false,
           options: {
             type: "static",
             options: [
@@ -175,7 +171,6 @@ describe("dynamic options for List choice fields (LIST2-8 AC5)", () => {
       <ChoiceFieldHarness
         initialField={choiceField({
           display: "dropdown",
-          allowMultiple: false,
           options: {
             type: "list",
             listVariable: "owners",

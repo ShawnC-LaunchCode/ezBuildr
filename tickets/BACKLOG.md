@@ -14,8 +14,55 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-09 the live board is `tickets/ROADMAP_TICKETS.md`** (the GH-146..174
-> epics). The Workflow Map initiative (MAP-1..10, epic **GH-153**) closed and retired into
+> **As of 2026-09-11 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
+> (ENV-1/ENV-3 remainders + RLS-1..5).**
+>
+> **The Code Blocks board (CB-1..11, 20 units) closed and retired into
+> `backlog/CODE_BLOCKS.md` on 2026-09-11.** All four phase gates were signed, and
+> it discharged `STB-B8`. It parks nine entries, `CB-B1..B9`, and seven standing
+> decisions **D-1..D-7** that bind anything touching Code Blocks (append-only
+> outputs, the two gates, trigger × repeat firing).
+>
+> - ⚠️ **`CB-B7` is the one to read first.** The pinned run definition omits
+>   Code Block output steps, and that has been rediscovered twice.
+> - Migration `0049` (the transform tables drop) runs on each environment **when
+>   it deploys**, so production loses its one row at the `main` promotion.
+>
+> **The Sections-above-Pages board (SECT-1..10) closed and retired into
+> `backlog/SECTIONS_AND_PAGES.md` on 2026-08-24** — all 11 tickets shipped across five
+> phase gates, and Phase 4 was live-verified end to end. It parks fifteen entries,
+> `SECT-B1..B15`, and carries ten standing decisions **D-1..D-10** that still bind
+> anything touching sections, pages or runner navigation. ⚠️ **`SECT-B11` is the entry
+> to look at first, and it is not a Sections issue:** `--primary` is a full `hsl(...)`
+> string rather than the channel triple Tailwind's `/opacity` modifier compiles against,
+> so `bg-primary/10` and every sibling render **transparent** — **45 live usages** in
+> `client/src`. The sequencing note that used to sit here (RLS Phase 2 before the SECT
+> rename, because RLS-3 and SECT-2 both rewrite the `sections` RLS policies) is now
+> spent: SECT-2 and SECT-3 have shipped, and SECT-3's new `sections` table carries its
+> own policy in migration `0039`.
+>
+> **The Template Marketplace board (TM-1..5) closed and retired into
+> `backlog/TEMPLATE_MARKETPLACE.md` on 2026-08-18** — all five tickets shipped and the gate
+> was proven against a real deployment. It parks six entries, `TM-B1..B6`. **Read `TM-B1`
+> before writing any integration test that asserts a 403/404**: the integration harness builds
+> its app from `registerRoutes`, which does **not** register the global `errorHandler` that
+> `server/index.ts` and `server/production.ts` do — so a route relying on the global handler
+> answers **500** to every denial under test and no test will say so.
+>
+> ⚠️ **Before adding any step to `npm run build`, check `.dockerignore` as well as the
+> Dockerfile.** TM-1 wired a build-time generator in; `scripts/**` was excluded from the build
+> context, and **every `dev` deploy failed for two days** while Railway kept serving the last
+> good build. See `TM-B2`.
+>
+> **The Roadmap epics board (GH-146..174) closed and retired into `backlog/ROADMAP.md`
+> on 2026-08-18** — 20 of 27 shipped. It parks six epics (**GH-163..173**) and twelve
+> observations (**GH-O1..GH-O19**). ⚠️ **Those six epics are not tickets.** They came
+> from a competitive audit written against the product's intended shape, and **5 of the
+> 6 file paths they cite do not exist**; promoting one requires a fresh audit, not a
+> re-read. **`GH-O4` is the one to look at first** — its stated precondition has since
+> fired. GH-174 was carried to `SECT-10` rather than parked.
+>
+> The Workflow Map initiative (MAP-1..10, epic **GH-153**) closed and retired into
 > `backlog/WORKFLOW_MAP.md` on 2026-08-09 — **all ten tickets and all eight of its backlog
 > observations shipped, so it parks nothing.** Its detail file is kept for the
 > `Closed — do not re-file` table, the six standing decisions D-1..D-6, and the process
@@ -26,7 +73,8 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 >
 > **The AI Service Layer initiative (AISL-1..12) closed and retired into
 > `backlog/AI_SERVICE_LAYER.md` on 2026-08-10.** All twelve tickets and all three
-> phase gates passed; it parks eleven entries, `AISL-B1..B11`. Before auditing
+> phase gates passed; it parks twelve entries, `AISL-B1..B12` (`B12` added 2026-09-03
+> by owner request, not by the initiative). Before auditing
 > anything in `server/services/ai/`, `server/lib/ai/`, or the `/api/ai/*` routes,
 > read that file — **`AISL-B7` in particular**, because
 > `WorkflowOptimizationService` looks like an AI service, is served at
@@ -53,6 +101,54 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| RUN-P1 | `triage` | **`onPageEnter` blocks NEVER EXECUTE** — but MEASURED 2026-09-10: the `blocks` table is EMPTY in production and on dev, so nothing is broken *today*. No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
+| AI-P1 | `mitigated` | **Mitigated, not verified end-to-end (2026-09-11):** production's `GEMINI_MODEL` now reads `gemini-2.5-flash` and the service restarted ~2026-09-10 09:25Z; the code default moved in `6ec92be9` and reaches prod on promotion. Prod's build predates the `/health` AI probe, so no live proof. Original: **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
+| AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
+| ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
+| LIST-B15 | `ready` | A `list` question cannot be a List Tools source. **Investigated 2026-09-10 — the original framing was partly wrong**: the broken configuration is ALREADY reachable via the Choice editor's convert-to-List-Tools action, and the envelope→rows conversion already exists twice. Recommendation: adapt at the runner's input boundary, ~half a day | Inline below: `LIST-B15` |
+| ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
+| ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
+| RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
+| ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
+| ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
+| RLS-B5 | `informational` | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
+| CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
+| CB-B5 | `needs-initiative` | Live-run document blobs leak: orphaned uploads, a ZIP with no row, and row deletion never removes blobs. Needs a retention ruling first; overlaps `ZR-B1`/`ZR-B3` | `backlog/CODE_BLOCKS.md` |
+| CB-B2 | `product-decision` | Sandbox timeout ceiling is 3000 ms, and **the Code Block schema accepts up to 30000, clamped silently**. Aligning the two is cheap; raising the ceiling needs a real case | `backlog/CODE_BLOCKS.md` |
+| CB-B3 | `needs-initiative` | Impure blocks are forced to `always`; there is no way to declare an external (DataVault) dependency in the change hash. Measure first | `backlog/CODE_BLOCKS.md` |
+| CB-B6 | `informational` | Client field-error focusing is fed by nothing: per-field validation is flattened to strings before it reaches the runner, so `focusFirstFieldError` has never fired | `backlog/CODE_BLOCKS.md` |
+| CB-B8 | `informational` | Inspector cross-tenant denial is enforced by RLS, not by `readInspector`'s own checks. Disabling both leaves the test green | `backlog/CODE_BLOCKS.md` |
+| CB-B9 | `informational` | Switching a Code Block's language leaves the other language's code in the editor; the failure is loud and self-inflicted | `backlog/CODE_BLOCKS.md` |
+| CB-B1 | `informational` | `js_question` `display: "visible"` never had a renderer; the field was deleted by CB-1. A visible computed display would be a new feature | `backlog/CODE_BLOCKS.md` |
+| CB-B4 | `informational` | `emit()` may be called only once, by design (one object, many keys). **Do not "fix" into multi-emit** | `backlog/CODE_BLOCKS.md` |
+| STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
+| STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
+| ~~STB-B8~~ | ✅ **discharged 2026-09-11** | Sandboxed JS/Python transforms. Shipped as the **Code Blocks (CB)** initiative, now retired into `backlog/CODE_BLOCKS.md`. ⚠️ **`server/services/scripting/` is still dormant, not dead — do not delete it**; Code Blocks build on it | `backlog/STEP_TOOLBOX.md` |
+| STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |
+| STB-B11 | `informational` | Backfilled version checksums cause one spurious draft version per converted workflow. Inherent to rewriting jsonb | `backlog/STEP_TOOLBOX.md` |
+| STB-B12 | `informational` | Pre-`pages` `blocks[]` version graphs are counted, not converted — all empty today; `--audit` fails if one is ever populated | `backlog/STEP_TOOLBOX.md` |
+| STB-B1 | `needs-initiative` | International phone/address — `AddressConfigSchema` is hard-wired to `country: 'US'` | `backlog/STEP_TOOLBOX.md` |
+| STB-B3 | `needs-initiative` | Respondent email verification — shape validation only today | `backlog/STEP_TOOLBOX.md` |
+| STB-B4 | `enhancement` | DNS-backed website validation — needs SSRF protection and an egress budget | `backlog/STEP_TOOLBOX.md` |
+| STB-B7 | `informational` | Nothing notices when an AI config-key exclusion becomes unnecessary | `backlog/STEP_TOOLBOX.md` |
+| STB-B9 | `informational` | File upload on version-pinned runs is unproven | `backlog/STEP_TOOLBOX.md` |
+| ZR-B1 | `needs-initiative` | **Client ask: ephemeral runs** — workflow saved, run data and generated documents never retained. 14 tables + blob store + 4 third-party egress paths, none with an off switch | `backlog/ZERO_RETENTION.md` |
+| ZR-B2 | `product-decision` | What "nothing stored" must cover — analytics, audit logs, PDF converter / AI / ESP / DocuSign copies, Neon PITR. **`ZR-B1` is blocked on this ruling** | `backlog/ZERO_RETENTION.md` |
+| ZR-B3 | `enhancement` | **There is no way to delete a run.** No `deleteRun` anywhere; runs die only via the workflow FK cascade, and no cron ages them out | `backlog/ZERO_RETENTION.md` |
+| SECT-B11 | `needs-initiative` | `/opacity` on `--primary` is silently transparent — **45 live usages** render no tint | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B2 | `product-decision` | `logic_rules` targeting a Section — needs a ruling on what `skip_to` a Section means | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B8 | `product-decision` | Cross-tenant concealment is 404 on Section create, 403 on update/delete and all of `PageService` | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B14 | `product-decision` | 22 dead links in two closed security audit records — repoint, mark historical, or leave | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B3 | `needs-initiative` | Workflow map draws Section containers — size `mapLayout.ts` before promoting | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B1 | `enhancement` | Review screen grouped by Section — where a 100-page respondent actually spends time | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B5 | `enhancement` | Curated marketplace templates should ship with Sections — now unblocked | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B6 | `enhancement` | Per-Section progress in the runner header ("Page 3 of 11 in Assets") | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B10 | `enhancement` | Six run routes still lack `optionalHybridAuth` before `creatorOrRunTokenAuth` | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B12 | `enhancement` | Dead `setCurrentPageIndex` prop on `LoadedRunnerScreenProps` + 3 test mocks | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B15 | `enhancement` | ~25 documents still say "VaultLogic" — one (`docs/api/API.md`) is linked from CLAUDE.md's index | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B13 | `operational` | Five stale probe rows in the shared `dev` Neon branch (from TM, 2026-08-18) | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B9 | `informational` | `updateProgress` is an RLS throw-point on the anonymous path — RLS-5 sweeps it | `backlog/SECTIONS_AND_PAGES.md` |
+| SECT-B7 | `wont-fix` | `PreviewRouter.isPageVisible` ignores visibility — dead code, nothing instantiates it | `backlog/SECTIONS_AND_PAGES.md` |
 | DV-B3 | `informational` | `records`/Collections parallel data model — never investigated, likely origin of the DV-1/DV-3 bugs | `backlog/DATAVAULT.md` |
 | DV-B7 | `enhancement` | Six copies of workflow→tenant resolution, two failure semantics; creator-tenant fallback unaudited | `backlog/DATAVAULT.md` |
 | DV-B1 | `needs-initiative` | External DataVault API — token lifecycle exists but is inert | `backlog/DATAVAULT.md` |
@@ -84,8 +180,8 @@ IDs are stable, heading anchors are not.
 | LU-B3 | `informational` | Dead-store-action guardrail tests references, not reachability | `backlog/LOGIC_UNIFICATION.md` |
 | LU-B4 | `informational` | Builder store is global but conceptually per-workflow — latent if tabs land | `backlog/LOGIC_UNIFICATION.md` |
 | DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
-| ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** in `ROADMAP_TICKETS.md`; this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
-| DEBT-OPS2 | `operational` | Branch protection is off | `backlog/TECH_DEBT.md` |
+| ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** on the Roadmap board (retired → `backlog/ROADMAP.md`); this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
+| ~~DEBT-OPS2~~ | **RESOLVED** | ~~Branch protection is off~~ — **stale entry, do not re-file.** Branch protection was *never* off; it uses a **repository ruleset** (`main-protection`), and the legacy `repos/.../branches/main/protection` API returns 404 *"Branch protection has been disabled"* even while the ruleset is active. Several audits concluded protection was off from that 404 alone. Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets` instead — see `CLAUDE.md` "The real boundary: rulesets, not the legacy API" | `backlog/TECH_DEBT.md` |
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
 | AISL-B1 | `needs-initiative` | Structured outputs would *delete* the JSON-parse/truncation subsystem; provider-coupled, Size L | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B2 | `needs-initiative` | Model tiering by `TaskType`; unevaluable until `/usage` has real data, and **conflicts with AISL-B3** | `backlog/AI_SERVICE_LAYER.md` |
@@ -98,8 +194,634 @@ IDs are stable, heading anchors are not.
 | AISL-B9 | `enhancement` | Anonymous public-link runs still call AI untenanted (no budget, no ledger row) | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B10 | `needs-initiative` | Nothing *writes* `workflow_personalization_settings`, so AISL-12's toggles are unsettable; four sibling columns still dead | `backlog/AI_SERVICE_LAYER.md` |
 | AISL-B11 | `needs-initiative` | `IntegrationHub` order-dependent flake — three devs in a row had to judge whether red meant red | `backlog/AI_SERVICE_LAYER.md` |
+| AISL-B12 | `product-decision` | **Owner request 2026-09-03: make preview auto-fill type-smart** (a "name" question should get a name). **Parked for thinking — no approach chosen**; three are recorded, incl. the owner's current lean (pre-generate a value pool with a few offline calls, then just draw from it). Note **"AI Auto-Fill" makes no AI call today** — `isAIRandomAvailable()` is hardcoded `false`, `/api/ai/random-fill` does not exist, and `AI_AUTOFILL` is read by nothing | `backlog/AI_SERVICE_LAYER.md` |
 | ~~G171-B1..B5~~ | ✅ all fixed | Template filter family + the dead `unresolved_variables` report (filed as G171-O1..O3 by a concurrent session). **Parks nothing** | `backlog/TEMPLATE_VERSIONING.md` |
 | BIZ-O1 | `enhancement` | Other import-side jsonb blobs (`sections.config`, `steps.config`, `graphJson`) validated by shape only; `fieldSchemas` is the hook if they need more | `backlog/BUSINESS_DAYS.md` |
+| LD-O1 | `enhancement` | No `spellNumber` filter — retainer renders "2 additional attorneys" where drafting convention spells small numbers | `backlog/LEGAL_DRAFTING.md` |
+| LD-O2 | `informational` | Vestigial `/intake` rate-limiter registrations, and a security comment claiming to protect a route tree that no longer exists | `backlog/LEGAL_DRAFTING.md` |
+| TM-B1 | `needs-initiative` | **Integration harness omits the global `errorHandler`, so every route trusting it answers 500 to denials under test — untested denial paths, repo-wide** | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B2 | `operational` | A failed Railway build is invisible; `dev` failed for 2 days while serving stale code. Owner ruled: `Wait for CI` on for `production` only | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B3 | `enhancement` | Login page renders API errors as `[object Object]`, so the commonest signup failure tells the user nothing | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B4 | `needs-initiative` | User publishing (`POST /api/market/publish`) unbuilt — needs a data model, moderation, and a dev/test→prod visibility ruling | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B5 | `product-decision` | Does the product want `usageCount`/`rating`/`isOfficial` at all? Removed in TM-4 because the curated catalog supplies none | `backlog/TEMPLATE_MARKETPLACE.md` |
+| TM-B6 | `informational` | `workflow.json` stays the editable source of truth and is never itself installed; never add a second *install* path | `backlog/TEMPLATE_MARKETPLACE.md` |
+| GH-O4 | `enhancement` | **⚠️ Precondition has fired.** `outputFileExists()` does a raw `fs.access`, bypassing the storage provider — was harmless "until O-3 happens", and O-3 closed 2026-08-04 with prod on S3 | `backlog/ROADMAP.md` |
+| GH-O1 | `operational` | Production runs the `.env.example` placeholder `JWT_SECRET`/`SESSION_SECRET`. **Ruled deliberate by the repo owner — do not re-file as a finding** | `backlog/ROADMAP.md` |
+| GH-O11 | `product-decision` | `/intake/preview` previews a hardcoded fake form, not the real branded runner — (a) re-point and delete the ~1,040-line `Themed*` stack, (b) delete the route, or (c) leave | `backlog/ROADMAP.md` |
+| GH-O7 | `needs-initiative` | White-label can't be plan-gated until `subscriptions` can key on a user; gating today permanently denies every user-owned workflow. `tenants.plan` is vestigial — don't build on it | `backlog/ROADMAP.md` |
+| GH-O8 | `product-decision` | No project-level branding; one tenant has many orgs, so where the tier sits is ambiguous | `backlog/ROADMAP.md` |
+| GH-O10 | `enhancement` | Email, custom domains and the signature-transition screen are still unbranded — the remaining GH-158 criteria | `backlog/ROADMAP.md` |
+| GH-O16 | `enhancement` | Two redirect paths, only one hardened — `FinalDocumentsSection` checks protocol only while `WorkflowRunner` uses `getSafeRedirectUrl` | `backlog/ROADMAP.md` |
+| GH-O18 | `enhancement` | No test exercises a real AI provider call; every suite `vi.mock`s `createAIServiceFromEnv`, so a provider-side break is invisible | `backlog/ROADMAP.md` |
+| GH-O19 | `enhancement` | Final Documents inspector's `draftConfig` never re-syncs, so a collaborator's concurrent edit is overwritten wholesale | `backlog/ROADMAP.md` |
+| GH-O5 | `enhancement` | `pingClamd` misreads a `PONG\0` split across TCP segments as an unhealthy scanner | `backlog/ROADMAP.md` |
+| GH-O15 | `informational` | `totalGenerated` counts output *files*, not documents — DOCX+PDF from one template reports 1 attempted, 2 generated | `backlog/ROADMAP.md` |
+| GH-163..173 | `needs-initiative` | Six parked roadmap epics (blocks, kiosk, Easy Mode, mobile builder, OCR, legal drafting). **Not tickets — 5 of 6 cite files that don't exist.** GH-173 is substantially delivered by the LD and TM boards | `backlog/ROADMAP.md` |
+
+---
+
+## LIST-B15 investigated: the premise was partly wrong — updated 2026-09-10
+
+The mechanical claims all held: a `list` value really is stored `{ items: [...] }`
+(`shared/types/stepConfigs.ts:1013-1022`), nothing projects it on write,
+`RunDataService` hands the raw envelope to block runners, and
+`ListToolsBlockRunner.ts:56-66` rejects it with a clear error rather than
+mis-handling it silently. Two things were wrong:
+
+**1. "Offering it would ADD a broken option" is false — the broken option already
+exists.** `ChoiceCardEditor.tsx:141` already lists `list` steps as list sources,
+and its convert-to-a-List-Tools-block action posts that alias as `sourceListVar`
+(`ChoiceCardEditor.tsx:226` → `server/routes/blocks.routes.ts:285-386`). Omitting
+`list` from the List Tools picker hides the broken configuration from one screen
+while leaving another door wide open.
+
+**2. The conversion is already solved, twice, at the CONSUMER boundary.**
+`client/src/lib/choice-utils.ts:31-64` turns the envelope into a `ListVariable`
+and feeds it to **the same `transformList` pipeline the runner uses**;
+`shared/conditionEvaluator.ts:238-280` resolves it structurally for logic. The
+established pattern here is *consumers adapt the envelope; the read path stays
+raw*.
+
+### Why the read-path projection I first suggested would have been the wrong fix
+
+Projecting inside `RunDataService`/`getRunValues` breaks four things, and **every
+one of them fails silently**:
+
+- conditional logic stops seeing the envelope, so "item count > 2" compares an
+  array to a number and is quietly false — page visibility drifts;
+- documents call `projectListValue` on an already-projected array, which returns
+  `[]` — every list loop in every template renders empty, no error;
+- list-bound choice labels lose the `itemId` they resolve from;
+- code blocks reading `.items` break.
+
+### Recommendation
+
+Adapt at the runner's input boundary instead. Lift `choice-utils.ts:31-64` into a
+shared `listValueToListVariable` in `shared/listPipeline.ts` (keeping `itemId`,
+which `projectListValue` strips), have `choice-utils` call it so there is one
+definition, and add a branch in `ListToolsBlockRunner.ts:56` before the error.
+Then add `"list"` to `LIST_SOURCE_STEP_TYPES`. `RunDataService`,
+`conditionEvaluator`, `VariableNormalizer` and code blocks are untouched — the
+point of the narrow variant.
+
+**Size: ~half a day.** Known test churn:
+`tests/unit/client/ListToolsBlockEditor.sourcePicker.test.tsx:53-56` currently
+*asserts* `list` is excluded and must be inverted; the existing `choice-utils`
+tests passing unchanged is the regression proof for the lift.
+
+⚠️ **Check `RUN-P1` first.** If `onPageEnter` blocks never run, proving List
+processing end to end may be blocked by that rather than by this.
+
+### Also found, filed separately rather than folded in
+
+- `ValidateBlockRunner.ts:105-126` — a `forEach` rule pointed at a list question
+  silently validates nothing. This is the real silent-wrong-answer in the area.
+- `variableResolver.ts:80` → `ExternalSendRunner.ts:71` / `WriteRunner.ts:46` —
+  Send Data and Write-to-table serialize the raw `{items}` envelope into webhook
+  payloads and DataVault columns.
+- The List Tools picker has no ordering/timing validation, unlike the Choice
+  editor's `useListToolsValidation.ts:74-124`.
+
+## `onPageEnter` blocks never execute (RUN-P1) — filed 2026-09-10
+
+**Tag:** `triage` — **downgraded from ⚠️ production on 2026-09-10 by measurement.**
+Found while investigating LIST-B15; unrelated to it.
+
+**The severity question is now answered.** Production has **0 rows** in `blocks`,
+against 86 workflows and 97 runs; dev has 0 too. Nobody has ever created a
+Logic/Action block anywhere. So this is a latent bug in an unused feature, not a
+live outage — it was filed as ⚠️ production before that count existed, and that
+was wrong. It still bites the first author who adds a Read Table block, which is
+why it stays open rather than being closed.
+
+`blockRunner.runPhase` has exactly four call sites, and between them they pass four
+phases:
+
+```
+RunExecutionCoordinator.ts:162   onNext
+RunExecutionCoordinator.ts:372   onPageSubmit
+RunCompletionService.ts:56       onRunComplete
+RunLifecycleService.ts:140       onRunStart
+```
+
+**`onPageEnter` is never passed.** A block sitting in that phase is never run.
+
+Two places put blocks there by default:
+
+- `client/src/components/builder/pages/newBlockDefaults.ts:34` — `onPageEnter` is
+  the seeded phase for **every new Read Table block** added from Add Action.
+- `server/routes/blocks.routes.ts:376` — hard-codes `phase: 'onPageEnter'` for the
+  Choice→"convert to a List Tools block" action.
+
+So a Read Table block created through the builder appears configured, saves, shows
+in the canvas, and does nothing at run time. (List Tools is NOT affected: it seeds
+`onPageSubmit`, `newBlockDefaults.ts:55`.)
+
+**It also kills a lifecycle-hook phase.** `BlockRunner.ts:137-143` maps
+`onPageEnter -> "beforePage"`, but that map is consulted *inside* `runPhase`, so
+`beforePage` hooks can only fire on a call that never happens. Anyone who authored
+a `beforePage` lifecycle hook has a hook that has never run.
+
+### What is still not known
+
+1. Whether page-enter behaviour was designed and never wired, or wired and later
+   lost. The empty tables mean no user has ever depended on it either way.
+2. Whether the fix is to add an `onPageEnter` execution point or to stop seeding a
+   phase that was never wired. **No data migration is needed** — there are no rows.
+
+That second question is now cheap to answer either way, which is the one upside of
+nobody having used the feature: this can be fixed properly rather than carefully.
+
+Do not fix blind. The interesting possibility is that the phase was designed and
+never wired, in which case the seed is the bug and the phase should go.
+
+## Production's configured Gemini model is retired (AI-P1) — filed 2026-09-09
+
+> **Status 2026-09-11: mitigated, not verified.** Railway `production` now has
+> `GEMINI_MODEL=gemini-2.5-flash` (read directly), and the process uptime puts its last
+> restart at ~2026-09-10 09:25Z, consistent with the variable change being deployed. The
+> hardcoded default moved to `gemini-2.5-flash` in `6ec92be9`, which reaches production
+> only on the next promotion. Production's build predates the `/health` `aiProvider`
+> probe (`cf673f30`), so nothing live confirms AI calls succeed there yet — after the
+> promotion, `curl https://www.ezbuildr.com/health` should show `aiProvider.available: true`.
+
+**Tag:** ⚠️ `production`. **This is almost certainly a live outage of two features.**
+Found by CB-10c's live proof and entirely unrelated to CB-10c.
+
+Railway `production` has `GEMINI_MODEL=gemini-2.0-flash`. Against a working API key
+that model now returns a provider **404 "no longer available"**, and both AI
+endpoints surface **500**. The same key on `gemini-2.5-flash` works, so this is the
+model being retired by Google, not a quota or credential problem.
+
+Affected in production: **AI workflow generation** and **AI Assist**. Nothing else.
+
+`gemini-2.0-flash` is also the hardcoded fallback in five code paths, so unsetting
+the variable does not help:
+
+```
+server/services/ai/providerConfig.ts:20   DEFAULT_GEMINI_MODEL
+server/services/ai/ModelRegistry.ts:187
+server/services/AIService.ts:169, :186, :232
+server/controllers/AiController.ts:88
+.env.example:147,149
+```
+
+**Fastest mitigation** is a Railway variable change on `production` — set
+`GEMINI_MODEL` to a current model (`gemini-2.5-flash` is already in the registry and
+was proven working) and redeploy so the env change takes effect. That is an owner
+decision and a production change, so it was NOT made here. The durable fix is to
+move the hardcoded default off a retired model and decide who owns model currency,
+which wants its own ticket.
+
+Worth checking `dev` and `test` environments for the same value.
+
+## AI Assist's prompt under-specifies the schema (AI-B2) — filed 2026-09-09
+
+**Tag:** `triage`. Pre-existing; surfaced while proving CB-10c.
+
+The AI Assist prompt refers to the generation schema without including it, so the
+model is free to invent. Observed on a first live request: HTTP **422** for missing
+page `order` and step `title`, and for step types `text_input` / `email_input` —
+neither of which is canonical (`text` and `email` are). A retry that spelled the
+required fields out in the *user request* succeeded, with no code or prompt change.
+
+So the surviving path works, but unconstrained Assist suggestions are unreliable.
+This is not caused by removing the transform arrays — the rejected fields are step
+and page fields.
+
+Fix is probably to inline the canonical step-type list and required fields into the
+suggestion prompt the way the generation prompt does.
+
+## List Tools' source picker queries the wrong id (LIST-B1) — filed 2026-09-09, ✅ FIXED 2026-09-10
+
+**Tag:** `triage`. Found by the CB-10b dev; **pre-existing, not caused by CB-10b** —
+both files are byte-unchanged by that commit.
+
+**Fixed 2026-09-10.** `ListToolsBlockEditor` now calls `useWorkflowSteps`
+(`GET /api/workflows/:id/steps`, which includes virtual steps — where block list
+outputs live). The filter moved into `client/src/components/blocks/list-tools/
+listSourceVariables.ts` and also drops the block's own `outputListVar`, so a List
+Tools block can no longer be pointed at itself; a saved-but-missing source still
+renders rather than blanking the trigger. Guarded by
+`tests/unit/client/ListToolsBlockEditor.sourcePicker.test.tsx`, which fails on the
+pre-fix tree (verified by reverting). Live-verified on `dev:test`: the two endpoints
+answer as diagnosed (`/api/pages/<workflowId>/steps` → **404 Page not found**;
+`/api/workflows/<id>/steps` → both computed virtual steps), the dropdown offers
+`clients (Read Table: Clients)`, and selecting it persists
+`sourceListVar: "clients"` and survives a reopen. The picker was left offering
+`computed` only — see `LIST-B15` for why `list` questions are excluded.
+
+`ListToolsBlockEditor.tsx:31` calls `useSteps(workflowId)`. `useSteps` takes a
+**pageId** (`hooks/api/useSteps.ts:8`) and issues `stepAPI.list(pageId)`. Both
+parameters are `string`, so TypeScript cannot catch the swap. The query asks for the
+steps of a page whose id is actually a workflow id, gets nothing back, and the
+Source List Variable dropdown offers no variables — so `sourceListVar` can never be
+set and **no List Tools block can be fully configured through the UI**.
+
+`ListToolsSourceParams.tsx:30` compounds it by including only computed steps.
+
+Consequence for review: end-to-end List processing cannot be proven live. The CB-10b
+dev hit this, diagnosed it correctly, and explicitly refused to seed the config to
+work around it — which was the right call, and is why this is written down instead
+of being invisible.
+
+Cheap to confirm: the dropdown is empty on any workflow. Fix is likely one argument,
+but check what the picker is *supposed* to offer (all list-valued variables in the
+workflow, presumably) before assuming `pageId` is simply the right thing to pass.
+
+## A `list` question cannot be a List Tools source (LIST-B15) — filed 2026-09-10
+
+**Tag:** `triage`. Found while fixing `LIST-B1`; a real gap, not a regression.
+
+The List Tools source picker offers `computed` steps only, which covers every
+block-produced list (Read Table, Query, List Tools all persist their output as a
+`computed` virtual step). It does **not** offer `list` questions, and that is
+deliberate: a `list` step's stored value is `ListValue` — `{ items: [...] }` —
+and `RunDataService.buildForRun` hands raw step values to the block context with
+no projection. `projectListValue` (`shared/types/stepConfigs.ts:1033`) is called
+in exactly one place, `server/services/document/VariableNormalizer.ts:168`, the
+document pipeline. So `ListToolsBlockRunner` sees an object, fails
+`isListVariable`, fails `Array.isArray`, and returns
+`Input variable "..." is not a valid list or array`. Offering it would be a
+guaranteed-broken option.
+
+The user-visible consequence: you cannot filter, sort or de-duplicate the rows of
+a repeating question, only lists that came out of a data block — which is very
+likely something an author expects to work.
+
+Fix is a decision, not a one-liner: either project `ListValue` to a row array
+where block context is built (changes what every block and script sees for a list
+alias, so it needs a compatibility check on scripts reading `.items`), or teach
+`ListToolsBlockRunner` to normalize `ListValue` at its input boundary (narrower,
+but leaves every other block still seeing the raw shape). Then add `list` to
+`LIST_SOURCE_STEP_TYPES` in
+`client/src/components/blocks/list-tools/listSourceVariables.ts`, whose comment
+records this reasoning.
+
+## Add Action seeds a List Tools block with the wrong config keys (LIST-B16) — filed 2026-09-10, ✅ FIXED 2026-09-10
+
+**Tag:** `triage`. Found while fixing `LIST-B2`; pre-existing.
+
+**Fixed 2026-09-10.** It was worse than "wrong defaults":
+`ListToolsBlockService.createBlock` aliases its virtual step from
+`config.outputListVar`, so with the old seed the block's **output had no alias at
+all** and was not addressable as a variable anywhere. It healed only once the
+author saved a real output name, because `updateBlock` re-aliases the step when
+`outputListVar` changes — which is why this looked cosmetic. Demonstrated live
+side by side: the old seed's virtual step comes back `alias: null`, the new one
+`alias: "processed_list"`.
+
+The seeds now live in `client/src/components/builder/pages/newBlockDefaults.ts`,
+one `const` per type, each annotated with its own config type (`ReadTableConfig`,
+`WriteBlockConfig`, `ExternalSendBlockConfig`, `ListToolsConfig`) — the
+annotations are the fix, not the corrected values, since the old seeds were built
+inline into a `Record<string, unknown>` where nothing could see the drift. The
+table is `satisfies Record<LogicBlockType, ...>` and `LOGIC_TYPES.easy` is typed
+to the same union, so a menu entry with no seed is a compile error; proven by
+adding a fifth type and watching `tsc` fail in two places. The other three seeds
+were already correct against their types — only `list_tools` was wrong. The dead
+`branch` seed (never in the menu) went with it. Guarded by
+`tests/unit/client/newBlockDefaults.test.ts` (3 of 5 fail on the old seed).
+
+Also in that file: `LOGIC_TYPES` has only an `easy` key and is read
+unconditionally, so the menu is mode-independent despite looking mode-keyed. Left
+as-is — it is not a bug today, and List Tools *should* be offered in both modes.
+
+`LogicAddMenu.tsx:89` seeds a new `list_tools` block with
+`{ inputKey: '', operation: 'filter', outputKey: 'processed_list' }`. `ListToolsConfig`
+(`shared/types/blocks.ts`) has none of those fields — it wants `sourceListVar` and
+`outputListVar`, plus the optional `filters`/`sort`/`limit`/`offset`/`select`/`dedupe`.
+So a block added from the page canvas's Add Action menu opens with an empty Output
+List Variable and the "Required Fields" warning showing, and once the author fills
+the real fields in, the three dead keys are saved alongside them forever. The runner
+ignores unknown keys, so nothing breaks — it is wrong defaults, not a crash.
+
+Compare `ListToolsBlockService.createBlock`, which is handed a config by the caller
+and stores it as given; the API path used by `ChoiceCardEditor`'s
+`create-list-tools` route seeds the right shape. Fix is to seed
+`{ sourceListVar: '', outputListVar: 'processed_list' }` here, and to decide whether
+the old keys should be stripped from existing rows or just left inert (per
+[[db-holds-only-test-data]] there is likely nothing to migrate — verify before
+writing a migration).
+
+## Easy mode renders a blank Block Type for list_tools (LIST-B2) — filed 2026-09-09, ✅ FIXED 2026-09-10
+
+**Tag:** `informational`. Cosmetic. Newly visible, not newly broken.
+
+**Fixed 2026-09-10**, by taking the ticket's second option — the type is not
+user-changeable in *any* mode, so the control is no longer a picker. All five
+sites that open `BlockEditorDialog` set a block first (`PageCanvas:118`,
+`SidebarTree:260`, `ChoiceCardEditor:266/416/461`), and `getInitialFormData`
+defaults a null block to `'write'`, which early-returns to the Send Data to Table
+editor — so `disabled={!!block}` was true every single time the select rendered.
+It was a label wearing a dropdown's clothes, whose option list was nevertheless
+filtered by mode. It is now read-only text from
+`forms/blockTypeLabel.ts`, which falls back to the raw type name and so cannot
+render blank for any type, including the `js`/`transform` blocks that were blank
+in **both** modes.
+
+That left the `FEATURES` gate in `client/src/lib/mode.ts` with no callers at all —
+`EASY_BLOCK_TYPES`/`ALL_BLOCK_TYPES` had exactly this one read, and
+`EASY_OPERATORS`/`ALL_OPERATORS`/`isFeatureAllowed`/`getAvailableOperators` never
+had any — so it is deleted, `'js'` included (which is what the note below asked
+for). `mode.ts` now exports only `resolveMode`, the types, and `getModeLabel`. The
+comment left in its place records why, and that mode still shapes
+`ListToolsBlockEditor`'s own surface. Guarded by
+`tests/unit/client/RegularBlockForm.blockType.test.tsx` (4 of its 7 fail on the
+pre-fix tree). Live-verified on `dev:test` in Easy **and** Advanced mode, light
+and dark (contrast 5.12:1 / 4.71:1) and at 390px.
+
+`RegularBlockForm.tsx:105` only renders the `list_tools` SelectItem when
+`availableBlockTypes.includes('list_tools')`, and `EASY_BLOCK_TYPES`
+(`client/src/lib/mode.ts:12`) omits it — it exists only in `ALL_BLOCK_TYPES`. So in
+Easy mode a `list_tools` block shows an empty Block Type select: the value is set,
+but no option matches it.
+
+This was previously MASKED by a worse bug. Before CB-10b, `getInitialFormData` read
+`block?.source === 'regular' ? block.type : 'write'`, and the page-canvas path never
+set `source` — so such a block resolved to `'write'`, which made
+`RegularBlockForm` return `SendDataToTableBlockEditor` at its early return. A List
+Tools block opened from the canvas rendered the **Send Data to Table editor**.
+CB-10b removing the dead discriminator fixed that; the blank select is the leftover.
+
+Either surface `list_tools` in Easy mode, or suppress the Block Type select when the
+type is not user-changeable in the current mode. Also note `ALL_BLOCK_TYPES` still
+lists `'js'`, which is unreachable once CB-10c/10d land — clear it there.
+
+## Nothing catches the client ignoring authoritative navigation (RUN-B1) — filed 2026-09-09
+
+**Tag:** `triage`. Found while grading CB-10a; **not caused by it.**
+
+`applyAdvanceNavigation` in `client/src/hooks/runner/useRunNavigation.ts` resolves
+the server's `result.navigation.nextPageId` to a local index. Replace that lookup
+with a blind `currentPageIndex + 1`:
+
+```diff
+-    const nextIndex = visiblePages.findIndex((page) => page.id === nextPageId);
++    const nextIndex = currentPageIndex + 1;
+```
+
+and the **entire** unit suite still passes — 338 files, 3860 tests, zero failures.
+The client would be quietly ignoring the server's authoritative navigation and
+walking pages in definition order, which is precisely the class of bug CB-9a-3
+introduced authoritative navigation to prevent, and every skip-logic workflow
+would route wrongly.
+
+**Confirmed pre-existing.** The same mutation was applied to the tree at
+`1d1e87a8` — before CB-10a deleted anything — and `tests/unit/client/` passed
+there too (127 files, 860 tests). So CB-10a removed no coverage here; the
+coverage was never written. Recorded because a deletion ticket is exactly when
+this kind of hole gets mistaken for collateral damage, and because the hole is
+real either way.
+
+Cheap to close: a `useRunNavigation` case that returns a `nextPageId` pointing at
+a page which is NOT `currentPageIndex + 1`, asserting `setCurrentPageIndex` gets
+that page's index. The integration side already proves the server sends it
+(`preview.execution.test.ts`, "Authoritative navigation, in the same answer") —
+it is only the client's application of it that is untested.
+
+## npm audit fails on @xmldom/xmldom (DEP-B1) — filed 2026-09-09
+
+**Tag:** `triage`. **This is what turns the Deployment Safety Check red on `dev`**,
+separately from the RLS gate (`RLS-B1`).
+
+Not a regression from anything committed. The Security Scan job runs `npm audit`,
+which is time-sensitive: `b0b79c5a` passed it at 20:16 on 2026-09-08 and `3fe96a60`
+failed it at 21:56 the same evening, with **no change to `package.json` or
+`package-lock.json` between them** (`git diff b0b79c5a..9106f628 -- package.json
+package-lock.json` is empty). The advisories were published in the gap.
+
+### The awkward part
+
+```
+docxtemplater@3.67.6 -> @xmldom/xmldom@0.9.10
+mammoth@1.11.0       -> @xmldom/xmldom@0.8.13
+vulnerable: <=0.8.14 || 0.9.0-beta.1 - 0.9.11
+```
+
+`0.9.12` clears the docxtemplater copy. **The 0.8.x line has no fixed release at
+all** — every `0.8.x` is in range — so `mammoth`'s copy cannot be patched in place.
+The options, none free:
+
+1. **`overrides` to `^0.9.12` for both.** Clears the scan, but forces `mammoth` onto
+   a parser a minor-major ahead of what it pins. `mammoth` is the DOCX→HTML path;
+   this needs the document suites run before anyone believes it.
+2. **Override the 0.9.x copy only, allowlist the `mammoth` one** with a justification
+   and an expiry, pending a `mammoth` release.
+3. **Allowlist both**, shortest expiry, and revisit.
+
+Most of the listed advisories are injection/bypass issues in `requireWellFormed`
+serialization and ReDoS on malformed input. Whether they are reachable here depends
+on whether any attacker-controlled XML reaches either parser — **that reachability
+question should be answered before choosing**, because it decides between (1) and (3).
+Per `.audit-allowlist.json`'s own header, an unexplained entry is how the gate rots.
+
+## preview.isolation failed the RLS gate (RLS-B1) — filed 2026-09-09, ✅ fixed 2026-09-11
+
+**Tag:** ✅ fixed 2026-09-11. Kept because the diagnosis filed below was wrong on every
+count, and the wrong version was still being handed to new sessions as settled. Read
+the **Resolution** before trusting anything above it. *Not the same entry as the
+ENV/RLS initiative's `RLS-B1` (restricted-suite non-determinism, further down this
+file). This ID was reused when this entry was filed.*
+
+Two of the 19 tests in `tests/integration/preview.isolation.test.ts` (CB-9a-1) fail
+under enforcement. The other two files the gate reported were fixed in `af6c809a`;
+these are a different cause and were deliberately not fixed there.
+
+```
+RLS_RESTRICTED=true VITEST_SINGLE_FORK=true npx vitest run --project integration   tests/integration/preview.isolation.test.ts        # 2 failed | 17 passed
+```
+
+**Confirmed in CI, not just locally.** The gate on `4c0de05c` reports
+`RLS gate: 1 failing file(s), 0 allowlisted` — down from 3 before `af6c809a` —
+with `148 passed (149)` files and `1386 passed (1388)` tests under enforcement.
+So the remaining surface really is these two tests in one file; everything else
+in the integration suite already holds as a non-owner role.
+
+1. *"simulates signature creation before the provider..."* —
+   `POST /api/esign/execute/:runId/:stepId` returns **400 "Workflow has no project"**.
+2. *"suppresses document delivery jobs and provider sends..."* —
+   `documentDeliveryService.processPendingDeliveries()` dispatches nothing;
+   `safeFetch` is called 0 times instead of 1.
+
+### What was filed as ruled out (superseded; see Resolution)
+
+- *Not a missing policy.* This one was true.
+- *"`users`, `projects` and `organizations` never get `ENABLE ROW LEVEL SECURITY`."*
+  **False.** In the restricted test schema all three have `relrowsecurity` **and**
+  `relforcerowsecurity` true, read straight from `pg_class`. Of the tables in this
+  path, only `workflow_runs` is unprotected. The claim came from reading the
+  migration chain instead of the database.
+- *"The 400 is raised inside the `withCurrentTenant` block."* **False.** That block
+  succeeded.
+
+### Resolution — measured 2026-09-11
+
+Instrumented rather than reasoned about. The diagnosis above (the tenant is set but
+does not match; possibly a CB-9a-1 fixture problem) was wrong. **Both failures were
+production code.**
+
+**Esign (test 1).** The *preview* call always returned 200. The 400 came from the
+second call, on the live run. Inside `SignatureBlockService`'s transaction,
+`app_current_tenant()` **equalled** the workflow's owner tenant, and the workflow
+was found with its project. The throw came from `EnvelopeBuilder.resolveDocuments`,
+*after* that transaction closed. It re-read `workflows`, `run_generated_documents`
+and `templates` on the bare pool, where there is no GUC. So it got zero rows, and a
+real workflow read as "Workflow has no project".
+
+**Delivery (test 2).** Two production gaps stacked:
+
+1. `enqueueDeliveriesForRun`, called without a transaction from `generateDocuments`,
+   read the workflow and the resolver's `users`/`projects` on the pool. It resolved
+   no tenant and threw. Its caller logs and swallows that, so no row was ever written.
+2. Even given a row, the worker's `claimBatch` ran in a pool transaction with no
+   tenant. Under enforcement it claimed nothing and reported success. **Once FORCE is
+   on in production, document delivery would have stopped silently.**
+
+**Fixes:**
+- `EnvelopeBuilder` now reads inside `withCurrentTenant` and resolves storage paths
+  after the transaction closes.
+- The enqueue opens its own tenant transaction when it isn't handed one, and triggers
+  the worker only after commit.
+- The worker claims through `forEachTenant` (the `RLS-B4` pattern) and scopes each
+  delivery's reads and writes to that row's own `tenant_id`. The adapter's network
+  send runs between transactions, never inside one.
+
+Each fix was reverted individually, and the file went red each time.
+
+### Split out — `RLS-B5`, still open
+
+`authorizeRun` in `esign.routes.ts` reads `workflowRunRepository.findById(runId)` on
+the pool with no tenant. That is the same shape as the bugs above and as `af6c809a`.
+It is harmless today only because `workflow_runs` is the one table in this path
+without RLS enabled, and it stops being harmless the moment that table is enforced.
+
+---
+
+## Zero-retention / ephemeral runs (ZR) — [detail](backlog/ZERO_RETENTION.md) — filed 2026-09-01
+
+**Not a retired initiative — a live client ask, parked before any audit.** A
+client wants ezBuildr used with nothing retained that could later be subpoenaed:
+the ezBuildr user's **workflow** is saved as normal, but the **run** is not —
+no answers, no client data, and no surviving copy of any document generated from
+them, while end users must still be able to generate those documents in-session.
+
+- **ZR-B1 — ephemeral run mode** · `needs-initiative`. There is no flag, mode, or
+  branch anywhere that suppresses a run write today. The detail file inventories
+  the fourteen tables that persist client data (`step_values` holds every answer
+  and is upserted on autosave; `script_execution_log.inputSample` holds derived
+  answer data *by design*; `transform_block_runs.outputSample` did too, until
+  CB-10d2 dropped that table on 2026-09-10, and its successor `code_block_runs`
+  stores only an input hash), plus
+  the generated-document bytes in the storage provider. Two candidate models —
+  never write, or write-then-shred — and choosing between them is most of the
+  design work. Write-then-shred is materially weaker for the stated legal
+  purpose, because Neon PITR and branch snapshots retain what a purge deletes.
+- **ZR-B2 — the erasure boundary** · `product-decision`. "Nothing that could be
+  subpoenaed" is a statement about custody, not code. Analytics? Audit logs? The
+  PDF converter, AI providers, the ESP and DocuSign, which all receive run data
+  and are **not ezBuildr's to delete**? And is the promise "we do not retain" or
+  "we cannot produce it"? **ZR-B1 cannot be scoped until this is ruled**, ideally
+  with the client's counsel.
+- **ZR-B3 — no per-run delete exists** · `enhancement`. Independent of the ask
+  and the cheapest partial answer to it. `deleteRun`/`purgeRun`/`removeRun` match
+  nothing in `server/` or `client/src`; the only run-scoped deletes are for a
+  run's *documents* and a step's *files*. A run dies only as collateral of
+  deleting its parent workflow, and `server/cron.ts` runs no retention sweep — so
+  a tenant cannot honour one client's deletion request without destroying the
+  workflow every other client also ran. Promotable on its own as a normal ticket.
+
+---
+
+## Canonical Step Toolbox (STB) — [detail](backlog/STEP_TOOLBOX.md) — retired 2026-09-03
+
+**All 28 tickets shipped across six phase gates.** The platform stored several dialects
+for the same question family — `short_text`/`text`, `yes_no`/`true_false`/`boolean`,
+`radio`/`multiple_choice`/`choice`, plus a `*_advanced` twin for almost everything. It now
+stores **18 canonical types**, enforced by the `step_type` enum itself (migration `0042`
+cut it from 37).
+
+- **Retired names stay READABLE, not writable.** `LEGACY_STEP_ADAPTERS` maps all 19 so a
+  pre-backfill export bundle still imports; the enum and `validateCanonicalStepConfig`
+  refuse them on write. **`validateStepConfig` is the permissive read path and must never
+  be tightened** — that broke three times during the initiative.
+- ⚠️ **Production is NOT backfilled.** `dev` and `test` are, and audit clean. Migration
+  `0042`'s `ALTER … USING` cast **fails on any unconverted row**, and Railway migrates on
+  deploy — so production needs snapshot → `--apply --database-url` → `--audit` *before*
+  the promotion carrying `0042`. Restore points `br-silent-math-ahw5fz1u` (dev) and
+  `br-plain-fire-ahl47pjw` (test) are retained.
+- **Point the converter at the owner/migration role, never the app's restricted role.**
+  Under RLS the restricted role sees almost nothing and the script reports a clean run
+  having converted nothing — the same trap that briefly took the RLS gate from 3 files to 5.
+- The detail file carries **14 standing decisions (D-1..D-14)** that still bind anything
+  touching step types, presets, or stored answer shapes.
+
+## Sections above Pages (SECT) — [detail](backlog/SECTIONS_AND_PAGES.md) — retired 2026-08-24
+
+**All 11 tickets shipped** (SECT-1..10, with 8A/8B) across five phase gates.
+Phase 0 renamed the existing "section" concept to **page** across ~511 files;
+Phases 1–4 then built **sections** as a real group layer above pages — authored
+in the builder, carried through publish/export/import/diff, evaluated for
+visibility, persisted as run reached-state, and navigable in the runner.
+
+**The ten standing decisions D-1..D-10 are in the detail file and still bind
+anything touching sections, pages or runner navigation.** The two most often
+got wrong: **D-2** (a Section is a *contiguous span* over one flat `pages.order`
+— there is no `sections.order`) and **D-6** (greyed ≠ hidden — a page excluded
+by `visibleIf` is absent from the nav entirely, while visible-but-unreached is
+greyed; conflating them is an information disclosure, not a cosmetic bug).
+
+⚠️ **`SECT-B11` is the one worth promoting.** `--primary` is a complete
+`hsl(...)` string, not the channel triple Tailwind's `/opacity` modifier
+compiles against, so `bg-primary/10` and every sibling resolve to **transparent**.
+**45 existing usages in `client/src`** are rendering nothing where a subtle fill
+was intended. This is a live, repo-wide visual defect that the Sections work
+merely surfaced — it is not a Sections issue and should not be promoted as one.
+
+⚠️ **Do not hand-migrate a shared Neon branch.** A SECT-8B finding claimed the
+`dev` branch needed manual migration for `0040`; `railway.json` runs
+`npm run db:migrate` as a `preDeployCommand`, so every environment migrates on
+its next deploy. A missing column on `dev` blocks *local* verification only.
+Relatedly, a verification probe that imports `server/db` reads `.env` and writes
+to the shared dev branch **even when the app under test points at a throwaway** —
+SECT-9 leaked a tenant row that way.
+
+## Environment split & tenant isolation (ENV / RLS) — [detail](backlog/ENVIRONMENTS_AND_RLS.md) — **partially** retired 2026-08-23
+
+**⚠️ Still open: `RLS-4` for PRODUCTION**, on the live board at
+[`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md). ENV-1..4 and
+RLS-1, 2a–2f, 3, 5, 6, 7 all shipped. RLS enforcement is live on dev and test;
+production still connects as `neondb_owner` (BYPASSRLS) and is 26 migrations
+behind (0024–0049, measured 2026-09-11), so it is gated on a `test` → `main`
+promotion, not on RLS work.
+
+The detail file's **Withdrawn findings** table is the important part: five claims
+from earlier audits were disproved, and two of them ("branch protection is off",
+"migration 0001 is broken") misled multiple passes before being caught.
+
+- **RLS-B1 — the restricted integration suite is not deterministic** · `needs-initiative`.
+  ~2 files per full run die in setup with `Registration failed`, different files each
+  time. Three causes eliminated (async-context leak, session GUC, leaked transaction);
+  same-connection instrumentation left in `auth.routes.ts` to catch the next occurrence.
+  This was the reason the RLS gate stayed advisory. **Re-measured 2026-09-11: zero
+  occurrences in all 29 gate runs since 2026-09-08** (single-fork), so the gate is now a
+  required check on `main`. Keep the instrumentation; lifting the single-fork pin is
+  RLS-11 cause 5.
+- **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
+  above); this initiative only adds that it now carries an RLS policy. Recorded here so the
+  next audit does not file it a third time — it has already been filed twice.
+- **RLS-B3 — `DEBT-11` is superseded** · `wont-fix`. "RLS policies defined but not enforced"
+  described exactly the state this initiative removed. Strike it from `backlog/TECH_DEBT.md`
+  once production is cut over, or the next audit re-files it.
+- **RLS-B4 — background workers are not requests** · `informational`, **delivered**. Predicted
+  the failure and it happened; `server/utils/forEachTenant.ts` is the answer. Kept because the
+  reasoning governs any new scheduled job and the failure mode is silent.
+- **ENV-B1/B2 — `dev.`/`test.ezbuildr.com` do not resolve** · `operational`. DNS records were
+  never created at the registrar. Owner decision 2026-08-15: leave. If ever activated,
+  `BASE_URL`/`ALLOWED_ORIGIN` must move in the same change or OAuth and CORS break.
+- **ENV-B3 — `/health` cannot tell you which environment you are on** · `informational`. All
+  three run `NODE_ENV=production` and report `"environment": "production"`. Compare the host
+  or the database instead.
 
 ---
 
@@ -126,6 +848,53 @@ the detail file uses the `-B` IDs.** All are now closed:
   the authoring guide's own blank-on-empty rule; and `add('1200','300')` concatenated to
   `'1200300'` (`73c9e0b6`).
 - **G171-O3 / reviewer process** — kept in the detail file, not as work.
+
+## Template Marketplace (TM) — [detail](backlog/TEMPLATE_MARKETPLACE.md) — retired 2026-08-18
+
+**5 of 5 tickets closed**, gate proven against deploy `cf12917f`: the deployed gallery returned
+all three curated templates and `POST /api/templates/retainer-agreement/install` created a real
+workflow in the caller's project. Parks six entries. Carries four settled decisions — curated
+templates are **code-shipped, never database rows**; bundles are **generated at build time**
+(a committed bundle rots as `migrationHead` moves); generated output lives in **`dist/`**,
+never read from `templates/` at runtime; and **user publishing stays out of scope** with
+`publishTemplate` still throwing behind a test.
+
+**The two findings worth reading before similar work:**
+
+- **TM-B1** (`needs-initiative`) — the integration harness omits the `errorHandler` that
+  production registers, so **denial paths are untested repo-wide** for any route that does not
+  call `classifyRouteError` itself. Security-shaped, not tidiness.
+- **TM-B2** (`operational`) — a red Railway build is invisible; `dev` failed for two days while
+  serving pre-TM-1 code, so the feature *looked* shipped. Owner ruled `Wait for CI` on for
+  `production` only, and a deploy-status check is still worth building.
+
+Its lesson for anyone adding a build step: **the gate criterion no test could satisfy is the
+one that found the real bug.** All suites were green while the product was not shipping,
+because `.dockerignore` excluded the generator from the build context.
+
+## Legal drafting (LD) — [detail](backlog/LEGAL_DRAFTING.md) — retired 2026-08-18
+
+**2 of 2 tickets closed**, gate fully satisfied — the repo owner opened a rendered curated
+document on 2026-08-18, the one criterion neither dev nor reviewer could meet. Parks two
+entries. Carries three settled rulings: **pronouns are explicit-only with a they/them
+default and no inference path ever**, legal numbering is a **pure function of explicit
+ordinals** (no hidden counter, so a skipped conditional section cannot renumber a contract),
+and curated content lives at `templates/curated/<slug>/`.
+
+⚠️ **The parent epic GH-173 is NOT closed by this board.** LD delivered the *authoring*; the
+curated templates shipped **inert**, with no consumer in `server/` or `client/`. Delivery was
+the TM board, which shipped and retired 2026-08-18 → `backlog/TEMPLATE_MARKETPLACE.md`.
+**GH-173 is never getting flipped** — the Roadmap board retired first, leaving no file or
+counter, and the owner ruled the item dropped. The epic stays parked as `needs-initiative`.
+
+- **LD-O1 — no number-spelling filter** · `enhancement`. "2 additional attorneys" where
+  convention wants "Two". A `spellNumber` primitive is the same pure-function shape as the
+  existing ones; no grammar change.
+- **LD-O2 — vestigial `/intake` rate-limiter registrations** · `informational`, P3.
+  `server/index.ts:48` and `server/production.ts:56` still throttle a route tree O-12
+  removed. The registration is harmless; the **security comment above it is misleading**,
+  describing protection of a surface that does not exist. Distinct from `RM-2`, the same
+  pipeline's other orphan.
 
 ## Business-day date math (BIZ) — [detail](backlog/BUSINESS_DAYS.md) — retired 2026-08-12
 

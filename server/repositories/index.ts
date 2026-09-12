@@ -12,6 +12,7 @@ export { BaseRepository, type DbTransaction } from "./BaseRepository";
 // Export domain repositories (user, analytics, system)
 // NOTE: Survey repositories removed (Nov 2025) - workflow-only platform
 export { UserRepository, userRepository } from "./UserRepository";
+export { AdminAccessLogRepository, adminAccessLogRepository } from "./AdminAccessLogRepository";
 export { OrganizationRepository, organizationRepository } from "./OrganizationRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
@@ -26,6 +27,7 @@ export { AiUsageRepository, aiUsageRepository } from "./AiUsageRepository";
 export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
 export { WorkflowVersionRepository, workflowVersionRepository } from "./WorkflowVersionRepository";
+export { PageRepository, pageRepository } from "./PageRepository";
 export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
@@ -47,7 +49,6 @@ export {
 } from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
-export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
 export { RunGeneratedDocumentsRepository, runGeneratedDocumentsRepository } from "./RunGeneratedDocumentsRepository";
 export { SnapshotRepository, snapshotRepository, type WorkflowSnapshot, type SnapshotValueMap } from "./SnapshotRepository";
 export { WorkflowQueriesRepository, workflowQueriesRepository } from "./WorkflowQueriesRepository";
@@ -99,3 +100,4 @@ export {
 // Export type for Insert operations
 
 export * from "./ExternalDestinationsRepository";
+export { RunSubmissionRepository, runSubmissionRepository } from "./RunSubmissionRepository";

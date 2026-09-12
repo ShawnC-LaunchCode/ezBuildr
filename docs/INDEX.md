@@ -1,8 +1,8 @@
-# VaultLogic Documentation Index
+# ezBuildr Documentation Index
 
-Welcome to the VaultLogic documentation! This index provides an organized overview of all available documentation.
+Welcome to the ezBuildr documentation! This index provides an organized overview of all available documentation.
 
-**Last Updated:** January 19, 2026
+**Last Updated:** August 2026
 
 ---
 
@@ -19,7 +19,6 @@ Welcome to the VaultLogic documentation! This index provides an organized overvi
 - [API Reference](api/API.md) - Complete workflow API endpoints
 - [API Documentation](api/API_DOCUMENTATION.md) - Additional API details
 - [Block Framework](api/BLOCKS.md) - Block types and examples
-- [Transform Blocks](api/TRANSFORM_BLOCKS.md) - JS/Python code blocks
 
 ---
 
@@ -115,7 +114,7 @@ Welcome to the VaultLogic documentation! This index provides an organized overvi
 
 Detailed reference docs optimized for Claude:
 
-- [Schema Reference](claude/SCHEMA.md) - All 80+ database tables
+- [Schema Reference](claude/SCHEMA.md) - All 108 database tables
 - [API Endpoints](claude/API_ENDPOINTS.md) - All routes by domain
 - [Services Reference](claude/SERVICES.md) - 90+ service classes
 - [Frontend Pages](claude/PAGES.md) - 30+ pages with routes
@@ -144,9 +143,11 @@ docs/
 ├── reference/                  # Reference materials
 ├── scripting/                  # Custom scripting docs
 ├── testing/                    # Testing documentation
-├── troubleshooting/            # Troubleshooting guides
-└── archive/                    # Historical docs
+└── troubleshooting/            # Troubleshooting guides
 ```
+
+(Plus several narrower folders not indexed above — `security/`, `perf/`,
+`features/`, `hardening/`, `ai/`, and others — browse `docs/` directly for those.)
 
 ---
 

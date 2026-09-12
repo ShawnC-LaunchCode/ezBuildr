@@ -5,14 +5,12 @@
  * for third-party API integrations (e.g., external services)
  */
 import { eq } from 'drizzle-orm';
-import express from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 import { users, tenants, projects, externalConnections as connections, secrets } from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { registerConnectionsV2Routes } from '../../../server/routes/connections-v2.routes';
 import { authService } from '../../../server/services/AuthService';
 import {
@@ -22,6 +20,11 @@ import {
 } from '../../../server/services/oauth2';
 
 import type { Express } from 'express';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
+import { setCurrentTenantId } from "../../../server/utils/rlsContext";
+import { createBareTestApp } from "../../helpers/testApp";
 
 // The connections route runs validateSafeUrl(baseUrl), which does real DNS
 // resolution as SSRF protection. The example hosts used here (api.example.com)
@@ -41,25 +44,27 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let authToken: string;
   beforeAll(async () => {
     // Create test Express app
-    app = express();
-    app.use(express.json());
+    app = createBareTestApp();
     app.set('trust proxy', 1);
     // Mock auth middleware for tests
 
     app.use((req: any, res, next) => {
       req.userId = testUserId;
       req.tenantId = testTenantId;
+      // What the real hybridAuth does — see tests/helpers/testApp.ts. Without
+      // it every RLS-scoped read in the connections routes runs with no tenant.
+      setCurrentTenantId(testTenantId);
       next();
     });
     // Register routes
     registerConnectionsV2Routes(app);
     // Create test data
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'OAuth Test Tenant',
       plan: 'pro',
     }).returning();
     testTenantId = tenant.id;
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       id: nanoid(),
       email: 'oauth-test@example.com',
       firstName: 'OAuth',
@@ -75,7 +80,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
     testUserId = user.id;
     // Create JWT token
     authToken = authService.createToken(user);
-    const [project] = await db.insert(projects).values({
+    const [project] = await getOwnerDb().insert(projects).values({
       title: 'OAuth Test Project',
       name: 'OAuth Test Project',
       creatorId: testUserId,
@@ -87,13 +92,13 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   });
   beforeEach(async () => {
     // Clean up connections before each test
-    await db.delete(connections).where(eq(connections.projectId, testProjectId));
-    await db.delete(secrets).where(eq(secrets.projectId, testProjectId));
+    await getOwnerDb().delete(connections).where(eq(connections.projectId, testProjectId));
+    await getOwnerDb().delete(secrets).where(eq(secrets.projectId, testProjectId));
   });
   afterAll(async () => {
     // Clean up test data
     if (testTenantId) {
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
   });
   describe('OAuth2 Authorization Flow Initiation', () => {
@@ -279,7 +284,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
       expect(createResponse.status).toBe(201);
       const connectionId = createResponse.body.id;
       // Check initial status (should be disabled/not authorized)
-      const connection = await db.query.externalConnections.findFirst({
+      const connection = await getOwnerDb().query.externalConnections.findFirst({
         where: eq(connections.id, connectionId),
       });
       expect(connection).toBeDefined();

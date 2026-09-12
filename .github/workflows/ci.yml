@@ -34,12 +34,33 @@ jobs:
     - name: Install Dependencies
       run: npm ci
 
+    # `npm run lint` is repo-wide and took 187s uncached (measured 2026-09-05);
+    # with a warm ESLint cache the same run is ~4s. The cache is safe to restore
+    # across runs: --cache-strategy content hashes file CONTENT (not mtime, which
+    # checkout rewrites), and ESLint stores a per-file config hash alongside it,
+    # so an entry whose file or config changed is re-linted rather than trusted.
+    # The key still busts on any config or dependency change, because a plugin
+    # version bump can change results without changing the config object.
+    #
+    # Deliberately NOT caching .tsbuildinfo here. Type-check is 40s cold / 9s
+    # warm on a job that is not the critical path (Tests is), so the upside is
+    # ~30s — and a stale TypeScript build cache in this repo has produced false
+    # GREENS before (see CLAUDE.md on worktrees sharing one tsbuildinfo). A
+    # 30-second saving is not worth a type-check that can pass without looking.
+    - name: Restore ESLint cache
+      uses: actions/cache@v4
+      with:
+        path: .eslintcache
+        key: eslint-${{ runner.os }}-${{ hashFiles('.eslintrc.json', '.eslintignore', 'package-lock.json') }}-${{ github.sha }}
+        restore-keys: |
+          eslint-${{ runner.os }}-${{ hashFiles('.eslintrc.json', '.eslintignore', 'package-lock.json') }}-
+
     - name: Type Check
       run: npm run type-check
 
     - name: Lint
       run: npm run lint --if-present
-      
+
     - name: Strict Zones Type Check
       run: npm run check:strict-zones
 

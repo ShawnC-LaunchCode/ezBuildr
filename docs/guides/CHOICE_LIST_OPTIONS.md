@@ -397,10 +397,6 @@ For large lists (>1000 options):
 
 ## Related Documentation
 
-- [List Tools Block](./LIST_TOOLS_BLOCK.md)
-- [Read Table Block](./READ_TABLE_BLOCK.md)
-- [Conditional Logic](../reference/CONDITIONAL_LOGIC.md)
-- [Choice Questions](../reference/CHOICE_QUESTIONS.md)
 - [Workflow Variables](../guides/VARIABLES_IN_DOCUMENTS.md)
 
 ---

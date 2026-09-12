@@ -3,8 +3,8 @@
  *
  * RUN2-18: the version-pinned path used to look for a `nodes[]` graph shape
  * that VersionService.serializeWorkflow never emits (it emits
- * `sections[].steps[]`), so every shared run with a pinned version silently
- * returned `finalBlockConfig: null`. This covers the fixed sections[]-based
+ * `pages[].steps[]`), so every shared run with a pinned version silently
+ * returned `finalBlockConfig: null`. This covers the fixed pages[]-based
  * lookup (for both 'final' and 'final_documents' step types), confirms the
  * old nodes[] shape is no longer read at all, and confirms the draft-run
  * (no workflowVersionId) path is untouched.
@@ -17,10 +17,20 @@ import { RunStateService } from '../../../server/services/workflow-runs/RunState
 import { db } from '../../../server/db';
 import { workflowRepository, stepRepository } from '../../../server/repositories';
 
+// getSharedRunDetails now resolves the share link's tenant before reading
+// `workflows`/`steps` (both RLS-covered) — the route carries no auth, so
+// nothing else can. That resolution runs in a transaction, and the reads run
+// in a tenant-scoped one, so the db mock needs `transaction`.
 vi.mock('../../../server/db', () => ({
   db: {
     select: vi.fn(),
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({ execute: vi.fn() })),
   },
+}));
+
+vi.mock('../../../server/services/WorkflowTenantResolver', () => ({
+  workflowTenantResolver: { resolveForWorkflowId: vi.fn().mockResolvedValue('tenant-1') },
 }));
 
 vi.mock('../../../server/repositories', () => ({
@@ -74,12 +84,12 @@ describe('RunStateService.getSharedRunDetails', () => {
     vi.mocked(workflowRepository.findById).mockResolvedValue({ accessSettings: {} } as never);
   });
 
-  it('AC1: resolves the config of a "final" step in the pinned version sections[]', async () => {
+  it('AC1: resolves the config of a "final" step in the pinned version pages[]', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      sections: [
-        { id: 's1', steps: [{ id: 'st1', type: 'short_text', config: {} }] },
-        { id: 's2', steps: [{ id: 'st2', type: 'final', config: { documents: ['doc1'] } }] },
+      pages: [
+        { id: 's1', steps: [{ id: 'st1', type: 'text', config: {} }] },
+        { id: 's2', steps: [{ id: 'st2', type: 'final_documents', config: { documents: ['doc1'] } }] },
       ],
     });
 
@@ -88,10 +98,10 @@ describe('RunStateService.getSharedRunDetails', () => {
     expect(result.finalBlockConfig).toEqual({ documents: ['doc1'] });
   });
 
-  it('AC1: resolves the config of a "final_documents" step in the pinned version sections[]', async () => {
+  it('AC1: resolves the config of a "final_documents" step in the pinned version pages[]', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      sections: [
+      pages: [
         { id: 's1', steps: [{ id: 'st1', type: 'final_documents', config: { documents: ['doc2'] } }] },
       ],
     });
@@ -104,7 +114,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC2: returns null when the pinned version has no final block', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      sections: [{ id: 's1', steps: [{ id: 'st1', type: 'short_text', config: {} }] }],
+      pages: [{ id: 's1', steps: [{ id: 'st1', type: 'text', config: {} }] }],
     });
 
     const result = await service.getSharedRunDetails('token');
@@ -115,7 +125,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC4: a legacy nodes[] graph shape is no longer read (dead branch removed, not a fallback)', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: 'v1' }));
     mockVersionSelect({
-      nodes: [{ type: 'final', data: { config: { documents: ['legacy'] } } }],
+      nodes: [{ type: 'final_documents', data: { config: { documents: ['legacy'] } } }],
     });
 
     const result = await service.getSharedRunDetails('token');
@@ -126,7 +136,7 @@ describe('RunStateService.getSharedRunDetails', () => {
   it('AC3: the draft-run path (no workflowVersionId) is unchanged — reads live steps table, never touches db.select', async () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: null }));
     vi.mocked(stepRepository.findByWorkflowIdWithAliases).mockResolvedValue([
-      { id: 'st1', type: 'final', config: { documents: ['draft-doc'] } },
+      { id: 'st1', type: 'final_documents', config: { documents: ['draft-doc'] } },
     ] as never);
 
     const result = await service.getSharedRunDetails('token');

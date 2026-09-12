@@ -11,12 +11,17 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { workflows, users, tenants, projects, sections, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, pages, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { runService } from "../../server/services/RunService";
 import { VersionService, versionService } from "../../server/services/VersionService";
 import { runRuntimeService } from "../../server/services/workflow-runs/RunRuntimeService";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe("RUN2-7 publish is gated on lint", () => {
   let tenantId: string;
@@ -27,10 +32,10 @@ describe("RUN2-7 publish is gated on lint", () => {
   let validWorkflowId: string;
 
   beforeAll(async () => {
-    const [tenant] = await db.insert(tenants).values({ name: "Publish Gate Tenant", plan: "pro" }).returning();
+    const [tenant] = await getOwnerDb().insert(tenants).values({ name: "Publish Gate Tenant", plan: "pro" }).returning();
     tenantId = tenant.id;
 
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       email: `publishgate_${randomUUID().slice(0, 8)}@example.com`,
       fullName: "Publish Gate Owner",
       tenantId,
@@ -39,7 +44,7 @@ describe("RUN2-7 publish is gated on lint", () => {
     }).returning();
     userId = user.id;
 
-    const [outsider] = await db.insert(users).values({
+    const [outsider] = await getOwnerDb().insert(users).values({
       email: `outsider_${randomUUID().slice(0, 8)}@example.com`,
       fullName: "No Access",
       tenantId,
@@ -48,7 +53,7 @@ describe("RUN2-7 publish is gated on lint", () => {
     }).returning();
     outsiderId = outsider.id;
 
-    const [project] = await db.insert(projects).values({
+    const [project] = await getOwnerDb().insert(projects).values({
       title: "Publish Gate Project",
       name: "Publish Gate Project",
       tenantId,
@@ -58,9 +63,9 @@ describe("RUN2-7 publish is gated on lint", () => {
     }).returning();
     projectId = project.id;
 
-    // Invalid: a section with no questions at all -> lint error
+    // Invalid: a page with no questions at all -> lint error
     // "Workflow must have at least one question."
-    const [invalid] = await db.insert(workflows).values({
+    const [invalid] = await getOwnerDb().insert(workflows).values({
       title: "Empty Interview",
       projectId,
       creatorId: userId,
@@ -68,10 +73,10 @@ describe("RUN2-7 publish is gated on lint", () => {
       status: "draft",
     }).returning();
     invalidWorkflowId = invalid.id;
-    await db.insert(sections).values({ workflowId: invalidWorkflowId, title: "Page 1", order: 0 });
+    await getOwnerDb().insert(pages).values({ workflowId: invalidWorkflowId, title: "Page 1", order: 0 });
 
-    // Valid: a section with a real question.
-    const [valid] = await db.insert(workflows).values({
+    // Valid: a page with a real question.
+    const [valid] = await getOwnerDb().insert(workflows).values({
       title: "Good Interview",
       projectId,
       creatorId: userId,
@@ -79,14 +84,14 @@ describe("RUN2-7 publish is gated on lint", () => {
       status: "draft",
     }).returning();
     validWorkflowId = valid.id;
-    const [validSection] = await db.insert(sections)
+    const [validPage] = await getOwnerDb().insert(pages)
       .values({ workflowId: validWorkflowId, title: "Page 1", order: 0 })
       .returning();
-    await db.insert(steps).values({
+    await getOwnerDb().insert(steps).values({
       workflowId: validWorkflowId,
-      sectionId: validSection.id,
+      pageId: validPage.id,
       title: "Your name",
-      type: "short_text",
+      type: "text",
       alias: "name",
       order: 0,
     });
@@ -95,49 +100,55 @@ describe("RUN2-7 publish is gated on lint", () => {
   afterAll(async () => {
     for (const id of [invalidWorkflowId, validWorkflowId]) {
       if (!id) { continue; }
-      await db.delete(workflowRuns).where(eq(workflowRuns.workflowId, id));
-      await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, id));
-      await db.delete(steps).where(eq(steps.workflowId, id));
-      await db.delete(sections).where(eq(sections.workflowId, id));
-      await db.delete(workflows).where(eq(workflows.id, id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.workflowId, id));
+      await getOwnerDb().delete(workflowVersions).where(eq(workflowVersions.workflowId, id));
+      await getOwnerDb().delete(steps).where(eq(steps.workflowId, id));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, id));
     }
-    if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
+    if (projectId) { await getOwnerDb().delete(projects).where(eq(projects.id, projectId)); }
     for (const id of [userId, outsiderId]) {
       if (!id) { continue; }
 
-      try { await db.delete(auditLogs).where(eq(auditLogs.userId, id)); } catch (e) { /* may be empty */ }
-      await db.delete(users).where(eq(users.id, id));
+      try { await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, id)); } catch (e) { /* may be empty */ }
+      await getOwnerDb().delete(users).where(eq(users.id, id));
     }
-    if (tenantId) { await db.delete(tenants).where(eq(tenants.id, tenantId)); }
+    if (tenantId) { await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId)); }
   });
 
   it("refuses to publish a workflow with lint errors, and creates no version", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(invalidWorkflowId, userId))
       .rejects.toThrow(/Cannot publish workflow:.*at least one question/i);
 
-    const versions = await db.select().from(workflowVersions)
+    const versions = await getOwnerDb().select().from(workflowVersions)
       .where(eq(workflowVersions.workflowId, invalidWorkflowId));
     expect(versions).toHaveLength(0);
 
-    const [wf] = await db.select().from(workflows).where(eq(workflows.id, invalidWorkflowId));
+    const [wf] = await getOwnerDb().select().from(workflows).where(eq(workflows.id, invalidWorkflowId));
     expect(wf.status).toBe("draft");
     expect(wf.currentVersionId).toBeNull();
   });
 
   it("surfaces the failure as a 400, not a 500", async () => {
+
+    enterTenantContextForTests(tenantId);
     await expect(versionService.publishVersion(invalidWorkflowId, userId))
       .rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("force: true publishes anyway and records the overridden lint errors", async () => {
+
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(invalidWorkflowId, userId, "forced past lint", true);
     expect(version.published).toBe(true);
 
-    const [wf] = await db.select().from(workflows).where(eq(workflows.id, invalidWorkflowId));
+    const [wf] = await getOwnerDb().select().from(workflows).where(eq(workflows.id, invalidWorkflowId));
     expect(wf.status).toBe("active");
     expect(wf.currentVersionId).toBe(version.id);
 
-    const logs = await db.select().from(auditLogs).where(eq(auditLogs.entityId, version.id));
+    const logs = await getOwnerDb().select().from(auditLogs).where(eq(auditLogs.entityId, version.id));
     const publishLog = logs.find(log => log.action === "publish");
     expect(publishLog).toBeDefined();
     const details = publishLog?.details as { forced?: boolean; lintErrorsOverridden?: string[] };
@@ -146,15 +157,19 @@ describe("RUN2-7 publish is gated on lint", () => {
   });
 
   it("publishes a lint-clean workflow normally", async () => {
+
+    enterTenantContextForTests(tenantId);
     const version = await versionService.publishVersion(validWorkflowId, userId, "clean");
     expect(version.published).toBe(true);
 
-    const [wf] = await db.select().from(workflows).where(eq(workflows.id, validWorkflowId));
+    const [wf] = await getOwnerDb().select().from(workflows).where(eq(workflows.id, validWorkflowId));
     expect(wf.status).toBe("active");
     expect(wf.currentVersionId).toBe(version.id);
   });
 
   it("guarantees a workflow that passes the gate also loads at run time (RUN2-9 AC3)", async () => {
+
+    enterTenantContextForTests(tenantId);
     // The structural gate requires UUID ids specifically so that anything it
     // admits parses against RunRuntimeService's VersionRuntimeSchema. Prove the
     // loop closes: publish -> start a run -> load the pinned runtime.
@@ -163,13 +178,15 @@ describe("RUN2-7 publish is gated on lint", () => {
     const runtime = await runRuntimeService.getRuntime(run.id, { userId });
 
     expect(runtime.run.workflowVersionId).toBe(version.id);
-    expect(runtime.sections.length).toBeGreaterThan(0);
+    expect(runtime.pages.length).toBeGreaterThan(0);
     expect(runtime.steps.length).toBeGreaterThan(0);
 
-    await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+    await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
   });
 
   it("checks authorization before doing any serialization work", async () => {
+
+    enterTenantContextForTests(tenantId);
     const serializeSpy = vi.spyOn(VersionService.prototype, "serializeWorkflow");
     try {
       await expect(versionService.publishVersion(validWorkflowId, outsiderId))

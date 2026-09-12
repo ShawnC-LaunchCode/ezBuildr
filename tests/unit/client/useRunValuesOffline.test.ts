@@ -32,11 +32,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-100',
         run: initialRun,
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -72,11 +69,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-buffer-wins',
         run: initialRun,
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -107,11 +101,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
     };
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-late-hydration',
         run: initialRun,
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -156,11 +147,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-200',
         run: { values: [] },
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -199,11 +187,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-300',
         run: { values: [] },
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -241,11 +226,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-inflight',
         run: { values: [] },
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -297,11 +279,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-per-step',
         run: initialRun,
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 
@@ -353,11 +332,8 @@ describe('useRunValues with offline buffering and conflict recovery', () => {
 
     const { result } = renderHook(() =>
       useRunValues({
-        mode: 'production',
         actualRunId: 'run-reconnect',
         run: { values: [] },
-        previewState: null,
-        previewEnvironment: null,
       })
     );
 

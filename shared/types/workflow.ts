@@ -10,44 +10,34 @@ export type BlockType =
     | "find_record"
     | "delete_record";
 
+/**
+ * Stored step identities. Mirrors `stepTypeEnum` exactly — STB-21 reduced both
+ * to the canonical toolbox, so a retired name is no longer representable in the
+ * database OR in TypeScript. Preset ids (Short Text, Yes/No, Currency, ...) are
+ * a builder concern and never appear here.
+ *
+ * Reading a pre-backfill definition still works: `LEGACY_STEP_ADAPTERS` maps the
+ * retired names on the way in. They are unwritable, not unreadable.
+ */
 export type StepType =
-    | "short_text"
-    | "long_text"
-    | "multiple_choice"
-    | "radio"
-    | "yes_no"
-    | "date_time"
-    | "file_upload"
-    | "computed"
-    | "js_question"
-    | "final_documents"
-    | "signature_block"
-    | "true_false"
-    | "phone"
-    | "date"
-    | "time"
-    | "datetime"
-    | "email"
-    | "number"
-    | "currency"
-    | "scale"
-    | "website"
-    | "display"
-    | "address"
     | "text"
     | "boolean"
-    | "phone_advanced"
-    | "datetime_unified"
+    | "phone"
+    | "date_time"
     | "choice"
-    | "email_advanced"
-    | "number_advanced"
-    | "scale_advanced"
-    | "website_advanced"
-    | "address_advanced"
+    | "email"
+    | "number"
+    | "scale"
+    | "website"
+    | "address"
     | "multi_field"
-    | "display_advanced"
-    | "final"
-    | "list";
+    | "display"
+    | "file_upload"
+    | "list"
+    | "js_question"
+    | "computed"
+    | "final_documents"
+    | "signature_block";
 
 /** Calendars supported by the workflow-level business-day date filters. */
 export const BUSINESS_DAY_CALENDARS = ['weekends-only', 'us-federal'] as const;

@@ -1,6 +1,7 @@
 # Template versioning & impact analysis (GH-171 / G171-0..6) — retired 2026-08-12
 
-Epic **GH-171** in `tickets/ROADMAP_TICKETS.md`, plus its follow-up file
+Epic **GH-171** on the Roadmap board (retired 2026-08-18 → `backlog/ROADMAP.md`; full text:
+`git log -p -- tickets/ROADMAP_TICKETS.md`), plus its follow-up file
 `tickets/GH171_FOLLOWUP_TICKETS.md` (deleted at retirement). All four ACs met, all
 seven follow-up tickets closed, and the one product defect the follow-ups surfaced is
 fixed.

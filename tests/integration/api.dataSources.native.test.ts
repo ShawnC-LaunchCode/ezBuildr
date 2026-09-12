@@ -4,8 +4,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 describe.sequential("Data Sources API - Native Catalog", () => {
     let ctx: IntegrationTestContext;
     beforeAll(async () => {
@@ -23,14 +25,14 @@ describe.sequential("Data Sources API - Native Catalog", () => {
     it("should list databases and databases' tables in the catalog", { timeout: 30000 }, async () => {
         // 1. Create a Native Database
         const dbName = `TestDB-${nanoid()}`;
-        const dbResponse = await db.insert(schema.datavaultDatabases).values({
+        const dbResponse = await getOwnerDb().insert(schema.datavaultDatabases).values({
             name: dbName,
             tenantId: ctx.tenantId,
         }).returning();
         const databaseId = dbResponse[0].id;
         // 2. Create a Table inside that Database
         const tableName = `TableInDB-${nanoid()}`;
-        await db.insert(schema.datavaultTables).values({
+        await getOwnerDb().insert(schema.datavaultTables).values({
             name: tableName,
             slug: tableName.toLowerCase(),
             tenantId: ctx.tenantId,
@@ -39,7 +41,7 @@ describe.sequential("Data Sources API - Native Catalog", () => {
         });
         // 3. Create an Orphan Table (no database)
         const orphanTableName = `OrphanTable-${nanoid()}`;
-        await db.insert(schema.datavaultTables).values({
+        await getOwnerDb().insert(schema.datavaultTables).values({
             name: orphanTableName,
             slug: orphanTableName.toLowerCase(),
             tenantId: ctx.tenantId,
@@ -72,7 +74,7 @@ describe.sequential("Data Sources API - Native Catalog", () => {
     it("should create a native_table data source", { timeout: 30000 }, async () => {
         // 1. Create a table
         const tableName = `SourceTable-${nanoid()}`;
-        const tableRes = await db.insert(schema.datavaultTables).values({
+        const tableRes = await getOwnerDb().insert(schema.datavaultTables).values({
             name: tableName,
             slug: tableName.toLowerCase(),
             tenantId: ctx.tenantId,

@@ -2,7 +2,7 @@
 import { AlertTriangle, ArrowRight, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { ApiSection, ApiStep } from "@/lib/vault-hooks";
+import { ApiPage, ApiStep } from "@/lib/vault-hooks";
 
 // Utility to convert var.name or var_name to "Var Name"
 const toFriendlyName = (variable: string) => {
@@ -15,31 +15,31 @@ const toFriendlyName = (variable: string) => {
 
 interface MissingItemsListProps {
     missing: string[];
-    sections: ApiSection[] | undefined;
+    pages: ApiPage[] | undefined;
     allSteps: Record<string, ApiStep[]>;
-    onGoToSection: (sectionId: string) => void;
+    onGoToPage: (pageId: string) => void;
 }
 
-export function MissingItemsList({ missing, sections, allSteps, onGoToSection }: MissingItemsListProps) {
+export function MissingItemsList({ missing, pages, allSteps, onGoToPage }: MissingItemsListProps) {
     // Helper to find a relevant page for a missing variable
-    const getRelevantSectionId = (variableName: string): string | null => {
-        if (!sections) { return null; }
+    const getRelevantPageId = (variableName: string): string | null => {
+        if (!pages) { return null; }
         // Simple heuristic: matching prefix (e.g. "client." matches other "client." vars)
         const parts = variableName.split('.');
         const prefix = parts.length > 1 ? parts[0] : null; // Only use prefix if dot notation exists
 
         if (!prefix) { return null; }
 
-        let bestSectionId: string | null = null;
+        let bestPageId: string | null = null;
         let maxMatches = 0;
 
-        sections.forEach(section => {
-            // Skip final docs or system sections
+        pages.forEach(page => {
+            // Skip final docs or system pages
             // Safely check config
-            const config = section.config as Record<string, unknown> | undefined;
+            const config = page.config as Record<string, unknown> | undefined;
             if (config?.finalBlock === true) { return; }
 
-            const steps = allSteps[section.id] ?? [];
+            const steps = allSteps[page.id] ?? [];
             let matches = 0;
             steps.forEach(step => {
                 // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
@@ -50,17 +50,17 @@ export function MissingItemsList({ missing, sections, allSteps, onGoToSection }:
 
             if (matches > 0 && matches > maxMatches) {
                 maxMatches = matches;
-                bestSectionId = section.id;
+                bestPageId = page.id;
             }
         });
-        return bestSectionId;
+        return bestPageId;
     };
 
     return (
         <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-1">
             {missing.map((name) => {
-                const sectionId = getRelevantSectionId(name);
-                const section = sectionId ? sections?.find(s => s.id === sectionId) : null;
+                const pageId = getRelevantPageId(name);
+                const page = pageId ? pages?.find(s => s.id === pageId) : null;
                 return (
                     <div key={name} className="flex flex-col gap-1 text-xs bg-amber-50 dark:bg-amber-900/10 p-2 rounded border border-amber-100 dark:border-amber-800/20">
                         <div className="flex items-start gap-2 text-amber-900 dark:text-amber-100">
@@ -69,18 +69,18 @@ export function MissingItemsList({ missing, sections, allSteps, onGoToSection }:
                                 {toFriendlyName(name)}
                             </span>
                         </div>
-                        {section && (
+                        {page && (
                             <div className="pl-5.5 mt-1">
                                 <Button
                                     variant="link"
                                     className="h-auto p-0 text-amber-700 dark:text-amber-300 text-[10px] hover:text-amber-900"
-                                    onClick={() => onGoToSection(section.id)}
+                                    onClick={() => onGoToPage(page.id)}
                                 >
-                                    Go to {section.title} <ArrowRight className="h-2.5 w-2.5 ml-1" />
+                                    Go to {page.title} <ArrowRight className="h-2.5 w-2.5 ml-1" />
                                 </Button>
                             </div>
                         )}
-                        {!section && (
+                        {!page && (
                             <div className="pl-5.5 mt-1 flex items-center gap-1.5 text-amber-600/70 text-[10px]">
                                 <Lightbulb className="h-2.5 w-2.5" />
                                 <span>You may want to add a question for this.</span>

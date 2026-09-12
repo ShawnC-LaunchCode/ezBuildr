@@ -9,12 +9,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -58,7 +60,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
       tenantName: 'RUN-13 Tenant',
       createProject: true,
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(FILES_DIR, { recursive: true });
   });
 
@@ -83,7 +85,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   async function createRun(workflowId: string, workflowVersionId?: string): Promise<{ runId: string; runToken: string }> {
     const runToken = `run13-token-${randomUUID()}`;
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId,
       runToken,
@@ -95,7 +97,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   async function createOtherProjectTemplate(): Promise<string> {
-    const [otherProject] = await db.insert(schema.projects).values({
+    const [otherProject] = await getOwnerDb().insert(schema.projects).values({
       title: 'RUN-13 Other Project',
       name: 'RUN-13 Other Project',
       tenantId: ctx.tenantId,
@@ -113,11 +115,11 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   async function createLegacyWorkflowWithTemplate(templateId: string): Promise<{ workflowId: string; runId: string; runToken: string }> {
     const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
-    const section = await factory.createSection(workflow.id, {
+    const page = await factory.createPage(workflow.id, {
       config: { finalBlock: true, templates: [templateId] },
     });
-    await factory.createStep(section.id, {
-      type: 'short_text',
+    await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       required: false,
@@ -126,7 +128,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     // RVP-4: generateDocuments now collects final-block configs from a
     // pinned run's VERSION graph, not the live tables -- and the publish
     // gate (GH-152 / DOCUMENT_HARDENING) refuses to publish a version whose
-    // legacy Final Documents section references a template outside the
+    // legacy Final Documents page references a template outside the
     // project in the first place, so this exact broken-reference scenario
     // can no longer reach a pinned run in production. Leave the run
     // versionless here, matching the pre-existing/legacy runs this
@@ -136,7 +138,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   async function getGeneratedDocuments(runId: string): Promise<Array<typeof schema.runGeneratedDocuments.$inferSelect>> {
-    return db
+    return getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -145,7 +147,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   async function waitForGenerationStatus(runId: string, expectedPrefix: string): Promise<string> {
     const deadline = Date.now() + 3000;
     while (Date.now() < deadline) {
-      const [run] = await db
+      const [run] = await getOwnerDb()
         .select({ generationStatus: schema.workflowRuns.generationStatus })
         .from(schema.workflowRuns)
         .where(eq(schema.workflowRuns.id, runId));
@@ -162,16 +164,16 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
   it('RUN-10: concurrent document generation persists exactly one document set', async () => {
     const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
     });
     const templateId = await createTemplateOnDisk(ctx.projectId!, 'Concurrent Contract', 'Contract for {{clientName}}');
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -186,7 +188,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     // branch instead of pinning to the empty placeholder graph
     // factory.createWorkflow creates before this test adds its steps.
     const { runId } = await createRun(workflow.id);
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId,
       stepId: textStep.id,
       value: 'Ada Lovelace LLC',

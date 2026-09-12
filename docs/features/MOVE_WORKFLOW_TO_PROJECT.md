@@ -287,8 +287,6 @@ export function useMoveWorkflow() {
 
 ## Related Documentation
 
-- [Workflow Builder Settings](./WORKFLOW_BUILDER_SETTINGS.md)
-- [Projects](./PROJECTS.md)
 - [API Documentation](../api/API.md)
 - [Testing Guide](../testing/TESTING.md)
 

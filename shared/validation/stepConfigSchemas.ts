@@ -13,7 +13,14 @@ import { z } from 'zod';
 import { LIST_VALIDATION_MAX_DEPTH } from './BlockValidation';
 import { findDuplicateFieldAliases, validateFieldAliasFormat } from './listFieldHelpers';
 import { conditionExpressionSchema } from '../types/conditions';
-import { LIST_FIELD_QUESTION_TYPES, type ListConfig, type ListField } from '../types/stepConfigs';
+import { documentFieldMappingSchema } from '../types/documentMapping';
+import {
+  CANONICAL_STEP_TYPES,
+  STORED_LIST_FIELD_QUESTION_TYPES,
+  type CanonicalStepType,
+  type ListConfig,
+  type ListField,
+} from '../types/stepConfigs';
 
 // ============================================================================
 // BASE SCHEMAS
@@ -45,7 +52,10 @@ const ChoiceOptionSchema = z.object({
 // ============================================================================
 
 export const PhoneConfigSchema = z.object({
-  format: z.enum(['US', 'international']).optional(),
+  format: z.enum(['national', 'international', 'US']).optional(),
+  validation: z.object({
+    strict: z.boolean().optional(),
+  }).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -60,7 +70,7 @@ export const TimeConfigSchema = z.object({
   step: z.number().int().min(1).max(60).optional(),
 }).optional();
 
-export const DateTimeConfigSchema = z.object({
+export const LegacyCombinedDateTimeConfigSchema = z.object({
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
@@ -69,6 +79,9 @@ export const DateTimeConfigSchema = z.object({
 
 export const EmailConfigSchema = z.object({
   allowMultiple: z.boolean().optional(),
+  maxEmails: z.number().int().min(1).optional(),
+  restrictDomains: z.array(z.string()).optional(),
+  blockDomains: z.array(z.string()).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -79,6 +92,78 @@ export const NumberConfigSchema = z.object({
   allowDecimal: z.boolean().optional(),
   placeholder: z.string().optional(),
 }).optional();
+
+/**
+ * Canonical `number` config (STB-9/STB-10).
+ *
+ * `formatOnInput` is live grouping and is meaningless without grouping at all,
+ * and `prefix`/`suffix` are plain-number decorations (Decision 8) — both are
+ * refused rather than silently ignored, so an author cannot save a config the
+ * runner will not honour.
+ */
+export const NumberCanonicalConfigSchema = z.object({
+  // Defaulted for pre-STB-9 rows. New writers always include the discriminator.
+  mode: z.enum(['number', 'currency_whole', 'currency_decimal']).default('number'),
+  validation: NumberValidationSchema,
+  currency: z.string().regex(/^[A-Z]{3}$/, 'currency must be an uppercase ISO 4217 code').optional(),
+  thousandsSeparator: z.boolean().optional(),
+  formatOnInput: z.boolean().optional(),
+  prefix: z.string().max(8).optional(),
+  suffix: z.string().max(8).optional(),
+  placeholder: z.string().optional(),
+}).superRefine((config, ctx) => {
+  const isCurrency = config.mode !== 'number';
+  if (!isCurrency && config.formatOnInput === true && config.thousandsSeparator !== true) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['formatOnInput'],
+      message: 'formatOnInput requires thousandsSeparator: live grouping needs grouping enabled',
+    });
+  }
+  if (isCurrency && config.prefix !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['prefix'],
+      message: 'prefix is not allowed in currency modes: the ISO currency symbol owns the prefix',
+    });
+  }
+  if (isCurrency && config.currency === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['currency'],
+      message: 'currency is required in currency modes',
+    });
+  }
+  if (isCurrency && config.suffix !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['suffix'],
+      message: 'suffix is not allowed in currency modes: ISO currency formatting owns decorations',
+    });
+  }
+  if (!isCurrency && config.currency !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['currency'],
+      message: 'currency is only allowed in currency modes',
+    });
+  }
+  if (isCurrency && config.validation?.precision !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['validation', 'precision'],
+      message: 'precision is not allowed in currency modes: the ISO currency defines fraction digits',
+    });
+  }
+  const validation = config.validation;
+  if (validation?.min !== undefined && validation.max !== undefined && validation.min > validation.max) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['validation', 'min'],
+      message: 'min cannot be greater than max',
+    });
+  }
+});
 
 export const CurrencyConfigSchema = z.object({
   currency: z.enum(['USD', 'EUR', 'GBP']).optional(),
@@ -99,6 +184,9 @@ export const ScaleConfigSchema = z.object({
 
 export const WebsiteConfigSchema = z.object({
   requireProtocol: z.boolean().optional(),
+  allowedProtocols: z.array(z.enum(['http', 'https', 'ftp'])).optional(),
+  restrictDomains: z.array(z.string()).optional(),
+  blockDomains: z.array(z.string()).optional(),
   placeholder: z.string().optional(),
 }).optional();
 
@@ -128,7 +216,7 @@ export const TrueFalseConfigSchema = z.object({
 // ============================================================================
 
 export const TextAdvancedConfigSchema = z.object({
-  variant: z.enum(['short', 'long']).optional(),
+  variant: z.enum(['short', 'long']),
   validation: TextValidationSchema,
   placeholder: z.string().optional(),
   helpText: z.string().optional(),
@@ -142,33 +230,27 @@ export const BooleanAdvancedConfigSchema = z.object({
   trueAlias: z.string().optional(),
   falseAlias: z.string().optional(),
   defaultValue: z.union([z.boolean(), z.string()]).optional(),
-  displayStyle: z.enum(['toggle', 'radio', 'checkbox']).optional(),
+  displayStyle: z.enum(['buttons', 'radio', 'toggle', 'checkbox']).optional(),
 });
 
-export const PhoneAdvancedConfigSchema = z.object({
-  defaultCountry: z.string().optional(),
-  allowedCountries: z.array(z.string()).optional(),
-  format: z.enum(['national', 'international']).optional(),
-  validation: z.object({
-    strict: z.boolean().optional(),
-  }).optional(),
-});
 
-export const DateTimeUnifiedConfigSchema = z.object({
+
+export const DateTimeConfigSchema = z.object({
   kind: z.enum(['date', 'time', 'datetime']),
-  format: z.string().optional(),
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
+  defaultToToday: z.boolean().optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
   timeStep: z.number().int().min(1).max(60).optional(),
-  timezone: z.string().optional(),
-  showTimezone: z.boolean().optional(),
 });
+
+/** @deprecated Use DateTimeConfigSchema. */
+export const DateTimeUnifiedConfigSchema = DateTimeConfigSchema;
 
 export const ChoiceAdvancedConfigSchema = z.object({
   // 'combobox' = searchable dropdown that also accepts an unlisted answer.
   display: z.enum(['radio', 'dropdown', 'combobox', 'multiple']),
-  allowMultiple: z.boolean(),
+  layout: z.enum(['vertical', 'horizontal']).optional(),
   options: z.union([
     z.array(z.union([
       ChoiceOptionSchema,
@@ -185,14 +267,7 @@ export const ChoiceAdvancedConfigSchema = z.object({
   randomizeOrder: z.boolean().optional(),
 });
 
-export const EmailAdvancedConfigSchema = z.object({
-  allowMultiple: z.boolean().optional(),
-  maxEmails: z.number().int().min(1).optional(),
-  restrictDomains: z.array(z.string()).optional(),
-  blockDomains: z.array(z.string()).optional(),
-  requireVerification: z.boolean().optional(),
-  placeholder: z.string().optional(),
-});
+
 
 export const NumberAdvancedConfigSchema = z.object({
   mode: z.enum(['number', 'currency_whole', 'currency_decimal']),
@@ -205,7 +280,7 @@ export const NumberAdvancedConfigSchema = z.object({
   placeholder: z.string().optional(),
 });
 
-export const ScaleAdvancedConfigSchema = z.object({
+const StrictLegacyScale = z.object({
   min: z.number(),
   max: z.number(),
   step: z.number(),
@@ -216,18 +291,29 @@ export const ScaleAdvancedConfigSchema = z.object({
   maxLabel: z.string().optional(),
   labels: z.record(z.number(), z.string()).optional(),
   color: z.string().optional(),
-});
+}).strict();
 
-export const WebsiteAdvancedConfigSchema = z.object({
-  requireProtocol: z.boolean(),
-  allowedProtocols: z.array(z.enum(['http', 'https', 'ftp'])).optional(),
-  restrictDomains: z.array(z.string()).optional(),
-  blockDomains: z.array(z.string()).optional(),
-  validateDns: z.boolean().optional(),
-  placeholder: z.string().optional(),
-});
+export const ScaleLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyScale.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  const display = parsed.data.display === 'stars' || parsed.data.display === 'slider' ? parsed.data.display : 'slider';
+  return {
+    min: parsed.data.min,
+    max: parsed.data.max,
+    step: parsed.data.step,
+    display,
+    showValue: parsed.data.showValue,
+    minLabel: parsed.data.minLabel,
+    maxLabel: parsed.data.maxLabel,
+  };
+}, ScaleConfigSchema);
 
-export const AddressAdvancedConfigSchema = z.object({
+
+
+const StrictLegacyAddress = z.object({
   country: z.string().optional(),
   allowedCountries: z.array(z.string()).optional(),
   fields: z.array(z.object({
@@ -239,7 +325,19 @@ export const AddressAdvancedConfigSchema = z.object({
   })),
   autoComplete: z.boolean().optional(),
   validateAddress: z.boolean().optional(),
-});
+}).strict();
+
+export const AddressLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyAddress.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  return {
+    country: 'US',
+    fields: ['street', 'city', 'state', 'zip']
+  };
+}, AddressConfigSchema);
 
 export const MultiFieldConfigSchema = z.object({
   layout: z.enum(['first_last', 'contact', 'date_range', 'custom']),
@@ -254,7 +352,7 @@ export const MultiFieldConfigSchema = z.object({
   storeAs: z.enum(['separate', 'combined']),
 });
 
-export const DisplayAdvancedConfigSchema = z.object({
+const StrictLegacyDisplay = z.object({
   markdown: z.string(),
   allowHtml: z.boolean(),
   template: z.boolean().optional(),
@@ -264,8 +362,19 @@ export const DisplayAdvancedConfigSchema = z.object({
     textColor: z.string().optional(),
     fontSize: z.enum(['sm', 'md', 'lg']).optional(),
     alignment: z.enum(['left', 'center', 'right']).optional(),
-  }).optional(),
-});
+  }).strict().optional(),
+}).strict();
+
+export const DisplayLegacyReadSchema = z.preprocess((val, ctx) => {
+  const parsed = StrictLegacyDisplay.safeParse(val);
+  if (!parsed.success) {
+    parsed.error.issues.forEach(i => ctx.addIssue(i));
+    return z.NEVER;
+  }
+  return {
+    markdown: parsed.data.markdown,
+  };
+}, DisplayConfigSchema);
 
 // ============================================================================
 // LEGACY SCHEMAS
@@ -313,16 +422,62 @@ export const LegacyDateTimeConfigSchema = z.object({
 // ============================================================================
 
 export const JsQuestionConfigSchema = z.object({
-  display: z.enum(['visible', 'hidden']),
   code: z.string(),
-  inputKeys: z.array(z.string()),
-  outputKey: z.string(),
+  inputs: z.array(z.object({
+    key: z.string().min(1),
+    required: z.boolean(),
+  })),
+  outputs: z.array(z.object({
+    key: z.string().min(1),
+    type: z.enum(['string', 'number', 'boolean', 'date', 'object', 'list']),
+    description: z.string().optional(),
+  })).min(1).superRefine((outputs, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, output] of outputs.entries()) {
+      const normalized = output.key.toLowerCase();
+      if (seen.has(normalized)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index, 'key'],
+          message: `Duplicate output key "${output.key}"`,
+        });
+      }
+      seen.add(normalized);
+    }
+  }),
   timeoutMs: z.number().int().min(100).max(30000).optional(),
-  helpText: z.string().optional(),
+  // CB-3: firing is trigger x repeat, two independent choices (Decisions 3).
+  // Both are optional so every Code Block stored before CB-3 stays valid and
+  // reads as the documented defaults ('everySubmit' x 'onChange').
+  trigger: z.enum(['everySubmit', 'atPage', 'runStart', 'runComplete']).optional(),
+  triggerPageId: z.string().optional(),
+  repeat: z.enum(['onChange', 'once', 'always']).optional(),
+  // CB-11: which sandbox runs `code`. Optional for the same reason as `trigger`
+  // and `repeat` -- every Code Block stored before CB-11 has no such key and
+  // reads as the documented default ('javascript'), so no backfill was needed.
+  language: z.enum(['javascript', 'python']).optional(),
+}).superRefine((config, ctx) => {
+  // AC 8. Enforced here as well as in `validateFiringPolicy` because this is
+  // the write boundary the API actually goes through -- a config that never
+  // reaches the service must still be rejected, naming the field.
+  const isAtPage = config.trigger === 'atPage';
+  if (isAtPage && (config.triggerPageId === undefined || config.triggerPageId === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['triggerPageId'],
+      message: 'triggerPageId is required when trigger is "atPage"',
+    });
+  }
+  if (!isAtPage && config.triggerPageId !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['triggerPageId'],
+      message: 'triggerPageId is only allowed when trigger is "atPage"',
+    });
+  }
 });
 
 export const ComputedStepConfigSchema = z.object({
-  transformBlockId: z.string().optional(),
   formula: z.string().optional(),
   inputKeys: z.array(z.string()).optional(),
 }).optional();
@@ -424,10 +579,7 @@ export const FinalBlockConfigSchema = z.object({
     alias: z.string().min(1, 'Document alias is required'),
     pinnedVersionId: z.string().uuid().nullable().optional(),
     conditions: conditionExpressionSchema.optional(),
-    mapping: z.record(z.object({
-      type: z.literal('variable'),
-      source: z.string(),
-    })).optional(),
+    mapping: documentFieldMappingSchema.optional(),
   })).refine(
     (docs) => {
       // Check for duplicate aliases
@@ -437,6 +589,39 @@ export const FinalBlockConfigSchema = z.object({
     { message: 'Document aliases must be unique' }
   ),
   deliveryDestinations: z.array(DeliveryDestinationSchema).optional(),
+});
+
+/**
+ * Canonical signature-block authoring contract.
+ *
+ * This type was canonical but previously had no schema, so every writer
+ * accepted arbitrary JSON while the runtime only recognized this shape.
+ */
+export const SignatureBlockConfigSchema = z.object({
+  signerRole: z.string().min(1),
+  routingOrder: z.number().int().min(1),
+  documents: z.array(z.object({
+    id: z.string().min(1),
+    documentId: z.string().min(1),
+    mapping: documentFieldMappingSchema.optional(),
+  })),
+  conditions: conditionExpressionSchema.nullable().optional(),
+  markdownHeader: z.string().optional(),
+  provider: z.enum(['docusign', 'hellosign', 'native']).optional(),
+  allowDecline: z.boolean().optional(),
+  expiresInDays: z.number().int().min(1).optional(),
+  signerEmail: z.string().optional(),
+  signerName: z.string().optional(),
+  message: z.string().optional(),
+  redirectUrl: z.string().optional().refine(val => {
+    if (!val) { return true; }
+    try {
+      const url = new URL(val, 'http://localhost');
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  }, { message: 'Invalid redirect URL scheme' }),
 });
 
 // ============================================================================
@@ -466,7 +651,7 @@ const ListFieldAliasSchema = z.string().superRefine((value, ctx) => {
 });
 
 const ListFieldQuestionTypeSchema = z.string().refine(
-  (value) => (LIST_FIELD_QUESTION_TYPES as readonly string[]).includes(value),
+  (value) => (STORED_LIST_FIELD_QUESTION_TYPES as readonly string[]).includes(value),
   { message: 'Invalid list field question type' }
 );
 
@@ -531,6 +716,189 @@ export const ListConfigSchema = buildListConfigSchema(1) as z.ZodType<ListConfig
 // CONFIG VALIDATOR FACTORY
 // ============================================================================
 
+const configSchemaMap: Partial<Record<string, z.ZodTypeAny>> = {
+  // Canonical stored types
+  text: TextAdvancedConfigSchema,
+  boolean: BooleanAdvancedConfigSchema,
+  phone: PhoneConfigSchema,
+  date_time: DateTimeConfigSchema,
+  choice: ChoiceAdvancedConfigSchema,
+  email: EmailConfigSchema,
+  number: NumberCanonicalConfigSchema,
+  scale: ScaleConfigSchema,
+  website: WebsiteConfigSchema,
+  address: AddressConfigSchema,
+  multi_field: MultiFieldConfigSchema,
+  display: DisplayConfigSchema,
+  file_upload: FileUploadConfigSchema,
+  list: ListConfigSchema,
+  js_question: JsQuestionConfigSchema,
+  computed: ComputedStepConfigSchema,
+  final_documents: FinalBlockConfigSchema,
+  signature_block: SignatureBlockConfigSchema,
+
+  // Retired names remain readable until the stored-artifact backfill. They
+  // are intentionally absent from the canonical write boundary below.
+  date: DateConfigSchema,
+  time: TimeConfigSchema,
+  datetime: LegacyCombinedDateTimeConfigSchema,
+  currency: CurrencyConfigSchema,
+  true_false: TrueFalseConfigSchema,
+  phone_advanced: PhoneConfigSchema,
+  datetime_unified: DateTimeConfigSchema,
+  email_advanced: EmailConfigSchema,
+  number_advanced: NumberAdvancedConfigSchema,
+  scale_advanced: ScaleLegacyReadSchema,
+  website_advanced: WebsiteConfigSchema,
+  address_advanced: AddressLegacyReadSchema,
+  display_advanced: DisplayLegacyReadSchema,
+  multiple_choice: LegacyMultipleChoiceConfigSchema,
+  radio: LegacyRadioConfigSchema,
+  yes_no: LegacyYesNoConfigSchema,
+};
+
+const canonicalTypeSet = new Set<string>(CANONICAL_STEP_TYPES);
+
+function unwrapSchemaForTraversal(schema: z.ZodTypeAny): z.ZodTypeAny {
+  let current = schema;
+  for (;;) {
+    if (
+      current instanceof z.ZodOptional ||
+      current instanceof z.ZodDefault ||
+      current instanceof z.ZodNullable
+    ) {
+      current = (current as unknown as { _def: { innerType: z.ZodTypeAny } })._def.innerType;
+      continue;
+    }
+    if (current instanceof z.ZodEffects) {
+      current = (current as unknown as { _def: { schema: z.ZodTypeAny } })._def.schema;
+      continue;
+    }
+    if (current instanceof z.ZodLazy) {
+      current = (current as unknown as { _def: { getter: () => z.ZodTypeAny } })._def.getter();
+      continue;
+    }
+    return current;
+  }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function selectMatchingSchema(options: readonly z.ZodTypeAny[], value: unknown): z.ZodTypeAny | undefined {
+  return options.find(option => option.safeParse(value).success) ?? options[0];
+}
+
+function collectObjectUnknownConfigKeyIssues(
+  shape: Partial<Record<string, z.ZodTypeAny>>,
+  unknownKeys: string,
+  value: Record<string, unknown>,
+  path: Array<string | number>,
+  issues: z.ZodIssue[]
+): void {
+  for (const [key, child] of Object.entries(value)) {
+    const childSchema = shape[key];
+    if (childSchema === undefined) {
+      if (unknownKeys !== 'passthrough') {
+        const issuePath = [...path, key];
+        issues.push({
+          code: z.ZodIssueCode.custom,
+          path: issuePath,
+          message: `Unknown config key "${issuePath.join('.')}"`,
+        });
+      }
+      continue;
+    }
+    collectUnknownConfigKeyIssues(childSchema, child, [...path, key], issues);
+  }
+}
+
+/**
+ * Find keys Zod would otherwise silently strip. The walk is recursive so the
+ * issue path identifies the exact nested key (including array indexes), while
+ * deliberately preserving schemas that explicitly opt into `.passthrough()`.
+ */
+function collectUnknownConfigKeyIssues(
+  inputSchema: z.ZodTypeAny,
+  value: unknown,
+  path: Array<string | number>,
+  issues: z.ZodIssue[]
+): void {
+  const schema = unwrapSchemaForTraversal(inputSchema);
+
+  if (schema instanceof z.ZodObject) {
+    if (!isObjectRecord(value)) { return; }
+    const shape = schema.shape as unknown as Partial<Record<string, z.ZodTypeAny>>;
+    const unknownKeys = (schema as unknown as { _def: { unknownKeys: string } })._def.unknownKeys;
+    collectObjectUnknownConfigKeyIssues(shape, unknownKeys, value, path, issues);
+    return;
+  }
+
+  if (schema instanceof z.ZodArray) {
+    if (!Array.isArray(value)) { return; }
+    const element = (schema as unknown as { _def: { type: z.ZodTypeAny } })._def.type;
+    value.forEach((item, index) => collectUnknownConfigKeyIssues(element, item, [...path, index], issues));
+    return;
+  }
+
+  if (schema instanceof z.ZodTuple) {
+    if (!Array.isArray(value)) { return; }
+    const items = (schema as unknown as { _def: { items: z.ZodTypeAny[] } })._def.items;
+    items.forEach((item, index) => collectUnknownConfigKeyIssues(item, value[index], [...path, index], issues));
+    return;
+  }
+
+  if (schema instanceof z.ZodRecord) {
+    if (!isObjectRecord(value)) { return; }
+    const valueType = (schema as unknown as { _def: { valueType: z.ZodTypeAny } })._def.valueType;
+    for (const [key, child] of Object.entries(value)) {
+      collectUnknownConfigKeyIssues(valueType, child, [...path, key], issues);
+    }
+    return;
+  }
+
+  if (schema instanceof z.ZodDiscriminatedUnion || schema instanceof z.ZodUnion) {
+    const options = (schema as unknown as { _def: { options: z.ZodTypeAny[] } })._def.options;
+    const selected = selectMatchingSchema(options, value);
+    if (selected) { collectUnknownConfigKeyIssues(selected, value, path, issues); }
+  }
+}
+
+/**
+ * Mirror the legacy read adapters' strict-input/preprocess pattern without
+ * changing the permissive schemas used to read rows already in the database.
+ */
+function canonicalBoundarySchema(readSchema: z.ZodTypeAny): z.ZodTypeAny {
+  const objectSchema = unwrapSchemaForTraversal(readSchema);
+  const strictInput = objectSchema instanceof z.ZodObject
+    ? z.object(objectSchema.shape as z.ZodRawShape).strict()
+    : objectSchema;
+  const strictInputWithOptionality = readSchema.safeParse(undefined).success
+    ? strictInput.optional()
+    : strictInput;
+
+  // `fatal` is load-bearing. Returning z.NEVER does NOT stop Zod running the
+  // outer readSchema on the discarded value, so without it every rejection
+  // trailed phantom `Required` issues for fields the caller DID supply. Those
+  // reach the 400 body verbatim, and STB-16 routes them to the AI patch loop,
+  // where a model would 'fix' a field that was never missing.
+  return z.preprocess((value, ctx) => {
+    const issues: z.ZodIssue[] = [];
+    collectUnknownConfigKeyIssues(readSchema, value, [], issues);
+    if (issues.length > 0) {
+      issues.forEach(issue => ctx.addIssue({ ...issue, fatal: true }));
+      return z.NEVER;
+    }
+    const parsed = strictInputWithOptionality.safeParse(value);
+    if (!parsed.success) {
+      parsed.error.issues.forEach(issue => ctx.addIssue({ ...issue, fatal: true }));
+      return z.NEVER;
+    }
+    return parsed.data;
+  }, readSchema);
+}
+
 /**
  * Get the appropriate validation schema for a step type
  *
@@ -538,52 +906,41 @@ export const ListConfigSchema = buildListConfigSchema(1) as z.ZodType<ListConfig
  * @returns Zod schema for validating the config, or undefined if no validation needed
  */
 export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
-  const schemaMap: Record<string, z.ZodTypeAny> = {
-    // Easy Mode
-    phone: PhoneConfigSchema,
-    date: DateConfigSchema,
-    time: TimeConfigSchema,
-    datetime: DateTimeConfigSchema,
-    email: EmailConfigSchema,
-    number: NumberConfigSchema,
-    currency: CurrencyConfigSchema,
-    scale: ScaleConfigSchema,
-    website: WebsiteConfigSchema,
-    display: DisplayConfigSchema,
-    address: AddressConfigSchema,
-    true_false: TrueFalseConfigSchema,
+  return configSchemaMap[stepType];
+}
 
-    // Advanced Mode
-    text: TextAdvancedConfigSchema,
-    boolean: BooleanAdvancedConfigSchema,
-    phone_advanced: PhoneAdvancedConfigSchema,
-    datetime_unified: DateTimeUnifiedConfigSchema,
-    choice: ChoiceAdvancedConfigSchema,
-    email_advanced: EmailAdvancedConfigSchema,
-    number_advanced: NumberAdvancedConfigSchema,
-    scale_advanced: ScaleAdvancedConfigSchema,
-    website_advanced: WebsiteAdvancedConfigSchema,
-    address_advanced: AddressAdvancedConfigSchema,
-    multi_field: MultiFieldConfigSchema,
-    display_advanced: DisplayAdvancedConfigSchema,
+/** Return the strict canonical-only schema used by request/ingest writers. */
+export function getCanonicalConfigSchema(stepType: string): z.ZodTypeAny | undefined {
+  if (!canonicalTypeSet.has(stepType)) { return undefined; }
+  const schema = configSchemaMap[stepType as CanonicalStepType];
+  return schema === undefined ? undefined : canonicalBoundarySchema(schema);
+}
 
-    // Legacy
-    multiple_choice: LegacyMultipleChoiceConfigSchema,
-    radio: LegacyRadioConfigSchema,
-    yes_no: LegacyYesNoConfigSchema,
-    date_time: LegacyDateTimeConfigSchema,
-
-    // Special
-    js_question: JsQuestionConfigSchema,
-    computed: ComputedStepConfigSchema,
-    file_upload: FileUploadConfigSchema,
-    final_documents: FinalBlockConfigSchema,
-
-    // Structural
-    list: ListConfigSchema,
-  };
-
-  return schemaMap[stepType];
+/**
+ * Validate a canonical type/config pair at a write boundary. Unlike
+ * `validateStepConfig`, this rejects retired/unknown type names and unknown
+ * config keys instead of preserving read compatibility.
+ */
+export function validateCanonicalStepConfig(stepType: string, config: unknown): {
+  success: boolean;
+  data?: unknown;
+  error?: z.ZodError;
+} {
+  const schema = getCanonicalConfigSchema(stepType);
+  if (!schema) {
+    return {
+      success: false,
+      error: new z.ZodError([{
+        code: z.ZodIssueCode.custom,
+        path: ['type'],
+        message: `Step type "${stepType}" is retired or is not canonical`,
+      }]),
+    };
+  }
+  const result = schema.safeParse(config);
+  return result.success
+    ? { success: true, data: result.data }
+    : { success: false, error: result.error };
 }
 
 /**

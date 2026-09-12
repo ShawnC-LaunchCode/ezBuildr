@@ -7,6 +7,8 @@ import type { WorkflowQuery, QueryFilter, QueryListVariable } from '@shared/type
 import { db } from '../../db';
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
 
+import type { DbTransaction } from '../../repositories';
+
 export class QueryRunner {
     private db: typeof db;
     constructor(dbInstance?: typeof db) {
@@ -22,10 +24,20 @@ export class QueryRunner {
     async executeQuery(
         query: WorkflowQuery,
         contextVariables: Record<string, unknown>,
-        tenantId: string
+        tenantId: string,
+        tx?: DbTransaction
     ): Promise<QueryListVariable> {
         // 1. Basic Validation
         if (!query.tableId) { throw new Error('Query missing tableId'); }
+        // RLS-5: `datavault_rows`, `datavault_values` and `datavault_tables`
+        // are all covered (migration 0011), so this must run inside a
+        // tenant-scoped transaction. It is the CALLER'S transaction, not one
+        // opened here: this is a lib, the services above it are the service
+        // boundary, and this class takes an injectable `db` that a
+        // self-opened `withTenant` would silently bypass. The
+        // `eq(datavaultTables.tenantId, tenantId)` predicate below stays
+        // either way — RLS is the backstop, not the replacement.
+        const conn = tx ?? this.db;
         // 2. Resolve Filter Values
         const resolvedFilters = this.resolveFilters(query.filters, contextVariables);
         // 3. Build the complete condition set before applying a single WHERE clause.
@@ -89,7 +101,7 @@ export class QueryRunner {
             }
             if (condition) {
                 conditions.push(exists(
-                    this.db.select({ one: sql`1` })
+                    conn.select({ one: sql`1` })
                         .from(v)
                         .where(and(
                             eq(v.rowId, datavaultRows.id),
@@ -106,7 +118,7 @@ export class QueryRunner {
         // The prompt says "Apply sorting... Return ListVariable".
         // DB sorting is better for pagination.
         // Let's implement primary sort column logic
-        let sqlQuery = this.db.select({ id: datavaultRows.id })
+        let sqlQuery = conn.select({ id: datavaultRows.id })
             .from(datavaultRows)
             .innerJoin(datavaultTables, eq(datavaultRows.tableId, datavaultTables.id))
             .$dynamic();
@@ -144,7 +156,7 @@ export class QueryRunner {
             // Actually getRowsWithValues might not take specific IDs. 
             // Better to use batchFindByIds which we implemented in Prompt 1 (or I saw in the file).
             const request = [{ tableId: query.tableId, rowIds }];
-            const batchMap = await datavaultRowsRepository.batchFindByIds(request);
+            const batchMap = await datavaultRowsRepository.batchFindByIds(request, tx);
             rows = rowIds.map((id: string) => {
                 const entry = batchMap.get(id);
                 if (!entry) { return null; }

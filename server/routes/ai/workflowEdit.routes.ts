@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
+import type { Workflow, Page, Section, Step, LogicRule } from "@shared/schema";
 
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowRateLimit, aiDailyRateLimit } from "../../middleware/ai.middleware";
 import { buildOpsDiff } from "@shared/aiOpsDiff";
+import { validateWorkflowPatchOpsForMode } from "@shared/aiVocabulary";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { AIError } from "../../services/ai/AIError";
@@ -13,12 +15,14 @@ import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
 import { aiSettingsService, DEFAULT_SYSTEM_PROMPT } from "../../services/AiSettingsService";
+import { sectionService } from "../../services/SectionService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
 import type { AuthRequest } from "../../middleware/auth";
+import type { Mode } from "@shared/mode";
 import type {
   AiEditProposal,
   AiModelResponse,
@@ -31,8 +35,13 @@ const logger = createLogger({ module: "ai-workflow-edit-routes" });
 
 // Define comprehensive workflow type used in context building
 interface WorkflowWithDetails extends Workflow {
-  sections: (Section & { steps: Step[] })[];
+  pages: (Page & { steps: Step[] })[];
   logicRules: LogicRule[];
+  // `getWorkflowWithDetails` does not load Sections — none of its many other
+  // callers need them — so the edit route fetches them alongside. Without this
+  // the model cannot see the grouping it is being asked to edit, and could
+  // only ever propose ungrouped pages.
+  sections: Section[];
 }
 
 function getValidationDetailMessages(error: unknown): string[] {
@@ -102,20 +111,29 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         const requestData = validationResult.data;
         // 2. Get current workflow
 
-        const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId) as WorkflowWithDetails;
+        const workflowDetails = await workflowService.getWorkflowWithDetails(workflowId, userId);
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!currentWorkflow) {
+        if (!workflowDetails) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
+        const currentWorkflow = {
+          ...workflowDetails,
+          sections: await sectionService.getSections(workflowId, userId),
+        } as unknown as WorkflowWithDetails;
+        const { mode } = await workflowService.getResolvedMode(workflowId, userId);
 
         // 3. Propose-only (dry run): generate ops and return them with a diff.
         // Nothing is written — no snapshot, no version, no rows — so Discard on
         // the client is genuinely a no-op (ICW2-10).
         if (requestData.dryRun === true) {
-          return await proposeEdit(res, requestData, currentWorkflow, workflowId, authReq.tenantId);
+          return await proposeEdit(res, requestData, currentWorkflow, {
+            workflowId,
+            mode,
+            tenantId: authReq.tenantId,
+          });
         }
 
-        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, tenantId: authReq.tenantId });
+        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, mode, tenantId: authReq.tenantId });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const actual = error instanceof Error ? error.message : "";
@@ -172,15 +190,14 @@ function respondToModelFailure(res: Response, error: unknown, workflowId: string
 async function generateOps(
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
+  mode: Mode,
   tenantId?: string,
 ): Promise<AiModelResponse> {
-  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
+  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt(mode);
   return callAiForWorkflowEdit(
     requestData.userMessage ?? '',
     currentWorkflow,
-    requestData.preferences,
-    systemPromptTemplate,
-    tenantId,
+    { preferences: requestData.preferences, systemPromptTemplate, mode, tenantId },
   );
 }
 
@@ -191,12 +208,12 @@ async function proposeEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
-  workflowId: string,
-  tenantId?: string,
+  ctx: { workflowId: string; mode: Mode; tenantId?: string },
 ): Promise<Response> {
+  const { workflowId, mode, tenantId } = ctx;
   let aiResponse: AiModelResponse;
   try {
-    aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+    aiResponse = await generateOps(requestData, currentWorkflow, mode, tenantId);
   } catch (error) {
     return respondToModelFailure(res, error, workflowId);
   }
@@ -225,27 +242,9 @@ async function applyEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
-  ctx: { workflowId: string; userId: string; tenantId?: string },
+  ctx: { workflowId: string; userId: string; mode: Mode; tenantId?: string },
 ): Promise<Response> {
-  const { workflowId, userId, tenantId } = ctx;
-  // Create BEFORE snapshot.
-  // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
-  // exists, so if we cannot create one we abort before mutating anything
-  // rather than proceed with no safety net (ICW-16).
-  let beforeSnapshot;
-  try {
-    beforeSnapshot = await snapshotService.createSnapshot(
-      workflowId,
-      `AI Edit BEFORE: ${new Date().toISOString()}`
-    );
-  } catch (error) {
-    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
-    return res.status(503).json({
-      success: false,
-      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
-    });
-  }
-
+  const { workflowId, userId, mode, tenantId } = ctx;
   // Ops from a reviewed proposal, or freshly generated for auto-apply.
   let ops: WorkflowPatchOp[];
   let summary: string[];
@@ -263,7 +262,7 @@ async function applyEdit(
   } else {
     let aiResponse: AiModelResponse;
     try {
-      aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+      aiResponse = await generateOps(requestData, currentWorkflow, mode, tenantId);
     } catch (error) {
       return respondToModelFailure(res, error, workflowId);
     }
@@ -272,6 +271,41 @@ async function applyEdit(
     confidence = aiResponse.confidence;
     warnings = aiResponse.warnings ?? [];
     questions = aiResponse.questions ?? [];
+  }
+
+  // Reject every malformed step config before the snapshot pipeline writes
+  // anything. applyOps repeats this validation against fresh database state,
+  // but the early pass is what keeps a rejected patch truly write-free.
+  try {
+    validateWorkflowPatchOpsForMode(
+      ops,
+      mode,
+      new Map(currentWorkflow.pages.flatMap((page) => page.steps.map((step) => [step.id, step.type]))),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown mode validation error";
+    return res.status(400).json({
+      success: false,
+      error: "Failed to apply operations",
+      details: [`Validation failed for workflow patch: ${message}`],
+    });
+  }
+
+  // Create BEFORE snapshot only after the whole patch is known to have valid
+  // canonical step/config pairs. If snapshot creation fails, abort before any
+  // operation mutates the workflow (ICW-16).
+  let beforeSnapshot;
+  try {
+    beforeSnapshot = await snapshotService.createSnapshot(
+      workflowId,
+      `AI Edit BEFORE: ${new Date().toISOString()}`
+    );
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
+    return res.status(503).json({
+      success: false,
+      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
+    });
   }
 
   const { errors } = await workflowPatchService.applyOps(workflowId, userId, ops);
@@ -358,10 +392,14 @@ async function applyEdit(
 async function callAiForWorkflowEdit(
   userMessage: string,
   currentWorkflow: WorkflowWithDetails,
-  preferences?: z.infer<typeof aiPreferencesSchema>,
-  systemPromptTemplate?: string,
-  tenantId?: string,
+  options: {
+    preferences?: z.infer<typeof aiPreferencesSchema>;
+    systemPromptTemplate?: string;
+    mode: Mode;
+    tenantId?: string;
+  },
 ): Promise<AiModelResponse> {
+  const { preferences, systemPromptTemplate, mode, tenantId } = options;
   // maxTokens raised above the provider's 4k default to fit larger edit outputs.
   // tenantId (ICW2-B7): when present, AIProviderClient enforces/records the
   // per-tenant AI budget for this call; omitted callers get no enforcement.
@@ -429,6 +467,19 @@ Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
     });
   }
 
+  const existingStepTypes = new Map(
+    currentWorkflow.pages.flatMap((page) => page.steps.map((step) => [step.id, step.type] as const)),
+  );
+  try {
+    validateWorkflowPatchOpsForMode(validationResult.data.ops, mode, existingStepTypes);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI patch violates the workflow mode";
+    throw Object.assign(new Error(message), {
+      code: 'VALIDATION_ERROR',
+      details: [{ message }],
+    });
+  }
+
   return validationResult.data;
 }
 /**
@@ -449,19 +500,37 @@ function buildSystemPrompt(preferences?: z.infer<typeof aiPreferencesSchema>, te
  * Build workflow context summary
  */
 function buildWorkflowContext(workflow: WorkflowWithDetails): string {
-  const sections = workflow.sections ?? [];
+  const pages = workflow.pages ?? [];
   const logicRules = workflow.logicRules ?? [];
+  const sections = workflow.sections ?? [];
+  const sectionById = new Map(sections.map((section) => [section.id, section]));
   let context = `Workflow: ${workflow.title}
 Status: ${workflow.status}
+Pages: ${pages.length}
 Sections: ${sections.length}
 `;
+  // Sections are listed with their ids, because every section.* op targets one
+  // by id, and with their page spans, so the model can see which pages it may
+  // move without breaking a Section's contiguity.
   for (const section of sections) {
-    const steps = section.steps ?? [];
-    context += `\n### Section ${section.order}: ${section.title}
+    const members = pages
+      .filter((page) => page.sectionId === section.id)
+      .map((page) => `${page.order}`)
+      .join(', ');
+    context += `- Section "${section.title}" (id: ${section.id}) covers page(s) ${members || '(none)'}`;
+    if (section.visibleIf) { context += ` [CONDITIONAL]`; }
+    context += '\n';
+  }
+  for (const page of pages) {
+    const steps = page.steps ?? [];
+    const section = page.sectionId === null ? undefined : sectionById.get(page.sectionId);
+    const sectionLabel = section ? ` [in Section "${section.title}"]` : ' [ungrouped]';
+    context += `\n### Page ${page.order}: ${page.title}${sectionLabel}
 Steps: ${steps.length}
 `;
     for (const step of steps) {
-      context += `  - [${step.type}] ${step.title}`;
+      const canonicalStep = adaptLegacyStep(step);
+      context += `  - [${canonicalStep.type}] ${step.title}`;
       if (step.alias) { context += ` (alias: ${step.alias})`; }
       if (step.required) { context += ` [REQUIRED]`; }
       if (step.visibleIf) { context += ` [CONDITIONAL]`; }

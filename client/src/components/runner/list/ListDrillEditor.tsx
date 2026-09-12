@@ -1,9 +1,9 @@
 /**
  * The drilled-in item editor for the runner's List block (LIST-8). Rendered
- * by WorkflowRunner.tsx in place of the whole section body while a List step
+ * by WorkflowRunner.tsx in place of the whole page body while a List step
  * is drilled into — not just in place of the ListBlock — per the design:
- * drilling replaces the section body, with a breadcrumb and its own
- * back/Done controls instead of the section's Back/Next.
+ * drilling replaces the page body, with a breadcrumb and its own
+ * back/Done controls instead of the page's Back/Next.
  */
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
@@ -44,7 +44,7 @@ function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: Ap
   return {
     id: field.id,
     workflowId: parent.workflowId,
-    sectionId: parent.sectionId,
+    pageId: parent.pageId,
     type: field.type,
     title: field.title,
     description: field.description ?? null,

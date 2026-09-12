@@ -14,9 +14,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { users, workflows, workflowRuns, organizationMemberships } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 import { TestFactory } from "../../helpers/testFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 
 
@@ -62,7 +64,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
 
         const userId = registerRes.body.user.id;
 
-        await db.update(users)
+        await getOwnerDb().update(users)
             .set({
                 emailVerified: true,
                 tenantId: ctx.tenantId,
@@ -73,7 +75,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
         // Add user to the common organization so they can create org-owned resources
         // This fixes the 403 error in "Cross-User Authorization" test
         if (ctx.orgId) {
-            await db.insert(organizationMemberships).values({
+            await getOwnerDb().insert(organizationMemberships).values({
                 orgId: ctx.orgId,
                 userId: userId,
                 role: 'admin',
@@ -334,7 +336,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
 
             const user2Id = user2Res.body.user.id;
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({
                     emailVerified: true,
                     tenantId: ctx.tenantId,
@@ -465,7 +467,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .send(user2)
                 .expect(201);
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
 
@@ -507,10 +509,10 @@ describe.sequential("Protected Routes Integration Tests", () => {
                     intakeConfig: { allowPrefill: false },
                 },
             });
-            const section = await factory.createSection(created.workflow.id);
-            await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
+            const page = await factory.createPage(created.workflow.id);
+            await factory.createStep(page.id, { alias: `q${nanoid(6)}` });
             // An anonymous run requires a published version to pin to.
-            await db.update(workflows)
+            await getOwnerDb().update(workflows)
                 .set({ currentVersionId: created.version.id })
                 .where(eq(workflows.id, created.workflow.id));
             return created.workflow.publicLink!;
@@ -525,7 +527,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(201);
 
             // Verify anonymous creation — no user context was attached
-            const run = await db.query.workflowRuns.findFirst({
+            const run = await getOwnerDb().query.workflowRuns.findFirst({
                 where: eq(workflowRuns.id, res.body.data.runId)
             });
 
@@ -544,7 +546,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(201);
 
             // Verify authenticated creation
-            const run = await db.query.workflowRuns.findFirst({
+            const run = await getOwnerDb().query.workflowRuns.findFirst({
                 where: eq(workflowRuns.id, res.body.data.runId)
             });
 

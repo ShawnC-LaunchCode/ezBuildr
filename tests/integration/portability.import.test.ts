@@ -10,6 +10,13 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import * as schema from "@shared/schema";
 import { resolveBusinessDayCalendar } from "@shared/types/workflow";
 import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
+import { applyTenantToTransaction, withTenantAsUser } from "../../server/utils/rlsContext";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the app —
+// see tests/helpers/ownerDb.ts. The app under test still runs restricted.
+import { getOwnerDb } from "../helpers/ownerDb";
+
+const odb = () => getOwnerDb();
 import { registerRoutes } from "../../server/routes";
 import {
   recomputeChecksum, seedWorkflow, seedTemplate, seedDatavault
@@ -29,6 +36,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   // A second tenant, for the cross-tenant denial case.
   let otherToken: string;
   let otherTenantId: string;
+  let otherUserId: string;
   let otherProjectId: string;
 
   async function downloadBundle(scope: string, id: string, token: string): Promise<Buffer> {
@@ -49,6 +57,9 @@ describe.sequential("Portability Import API Integration Tests", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — see the note in portability.export.test.ts.
+    app.use(rlsContext);
     server = await registerRoutes(app);
 
     const port = await new Promise<number>((resolve) => {
@@ -59,7 +70,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     });
     baseURL = `http://localhost:${port}`;
 
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await odb().insert(schema.tenants).values({
       name: "Test Tenant for Portability Import",
       plan: "free",
     }).returning();
@@ -78,12 +89,16 @@ describe.sequential("Portability Import API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
 
-    await db.update(schema.users)
-      .set({ tenantId, tenantRole: "owner" })
-      .where(eq(schema.users.id, userId));
+    // RLS-5: registration leaves tenant_id NULL, so this is the
+    // UPDATE-moving-a-row-between-tenants shape — pinning the target tenant
+    // alone leaves the row invisible to USING and the write matches zero rows.
+    await withTenantAsUser(tenantId, userId, (tx) =>
+      tx.update(schema.users)
+        .set({ tenantId, tenantRole: "owner" })
+        .where(eq(schema.users.id, userId)));
 
     // Second tenant + user, entirely separate.
-    const [otherTenant] = await db.insert(schema.tenants).values({
+    const [otherTenant] = await odb().insert(schema.tenants).values({
       name: "Other Tenant for Portability Import",
       plan: "free",
     }).returning();
@@ -100,10 +115,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
       })
       .expect(201);
     otherToken = otherRegister.body.token;
+    otherUserId = otherRegister.body.user.id;
 
-    await db.update(schema.users)
-      .set({ tenantId: otherTenantId, tenantRole: "owner" })
-      .where(eq(schema.users.id, otherRegister.body.user.id));
+    // RLS-5: same shape as the update above.
+    await withTenantAsUser(otherTenantId, otherRegister.body.user.id, (tx) =>
+      tx.update(schema.users)
+        .set({ tenantId: otherTenantId, tenantRole: "owner" })
+        .where(eq(schema.users.id, otherRegister.body.user.id)));
 
     const otherProject = await request(baseURL)
       .post("/api/projects")
@@ -116,7 +134,8 @@ describe.sequential("Portability Import API Integration Tests", () => {
   afterAll(async () => {
     for (const id of [tenantId, otherTenantId]) {
       if (id) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, id));
+        await odb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, id));
+        await odb().delete(schema.tenants).where(eq(schema.tenants.id, id));
       }
     }
     if (server) {
@@ -134,40 +153,47 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     // Give the project a workflow with real contents, so the round-trip is
     // asserting structure rather than an empty shell.
-    const [workflow] = await db.insert(schema.workflows).values({
-      title: `Import Workflow ${nanoid()}`,
-      name: `Import Workflow`,
-      projectId,
-      creatorId: userId,
-      ownerId: userId,
-      ownerType: 'user',
-      ownerUuid: userId,
-    }).returning();
-    workflowId = workflow.id;
+    // RLS-5: `workflows`/`pages`/`steps` are RLS-covered through the
+    // ownership-derived policy, so these fresh INSERTs need the tenant pinned.
+    // One transaction for all three, since the page/step rows are only
+    // permitted once their parent workflow is visible within the same scope.
+    workflowId = await db.transaction(async (tx) => {
+      await applyTenantToTransaction(tx, tenantId);
+      const [workflow] = await tx.insert(schema.workflows).values({
+        title: `Import Workflow ${nanoid()}`,
+        name: `Import Workflow`,
+        projectId,
+        creatorId: userId,
+        ownerId: userId,
+        ownerType: 'user',
+        ownerUuid: userId,
+      }).returning();
 
-    const [section] = await db.insert(schema.sections).values({
-      workflowId,
-      title: "Page One",
-      order: 0,
-    }).returning();
+      const [page] = await tx.insert(schema.pages).values({
+        workflowId: workflow.id,
+        title: "Page One",
+        order: 0,
+      }).returning();
 
-    await db.insert(schema.steps).values({
-      workflowId,
-      sectionId: section.id,
-      type: 'text',
-      title: 'Your name',
-      alias: 'your_name',
-      order: 0,
+      await tx.insert(schema.steps).values({
+        workflowId: workflow.id,
+        pageId: page.id,
+        type: 'text',
+        title: 'Your name',
+        alias: 'your_name',
+        order: 0,
+      });
+      return workflow.id;
     });
 
     bundle = await downloadBundle("project", projectId, authToken);
 
-    await db.delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
+    await odb().delete(schema.auditLogs).where(eq(schema.auditLogs.userId, userId));
   });
 
   it("AC 1: preview returns the ImportPreview JSON and writes nothing", async () => {
-    const projectsBefore = await db.select().from(schema.projects);
-    const workflowsBefore = await db.select().from(schema.workflows);
+    const projectsBefore = await odb().select().from(schema.projects);
+    const workflowsBefore = await odb().select().from(schema.workflows);
 
     const response = await request(baseURL)
       .post("/api/portability/import/preview")
@@ -180,13 +206,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(response.body).toHaveProperty("canProceed");
     expect(response.body.entityCounts.workflows).toBeGreaterThan(0);
 
-    const projectsAfter = await db.select().from(schema.projects);
-    const workflowsAfter = await db.select().from(schema.workflows);
+    const projectsAfter = await odb().select().from(schema.projects);
+    const workflowsAfter = await odb().select().from(schema.workflows);
     expect(projectsAfter.length).toBe(projectsBefore.length);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
 
     // AC 6: previews are not audit-logged.
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs).toHaveLength(0);
   });
@@ -203,17 +229,17 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(newRootId).not.toBe(projectId);
 
     // The imported project really carries the workflow's contents (IEX-13).
-    const [importedWorkflow] = await db.select().from(schema.workflows)
+    const [importedWorkflow] = await odb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, newRootId));
     expect(importedWorkflow).toBeDefined();
     expect(importedWorkflow.id).not.toBe(workflowId);
 
-    const importedSteps = await db.select().from(schema.steps)
+    const importedSteps = await odb().select().from(schema.steps)
       .where(eq(schema.steps.workflowId, importedWorkflow.id));
     expect(importedSteps).toHaveLength(1);
     expect(importedSteps[0].alias).toBeTruthy();
 
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs).toHaveLength(1);
     expect(logs[0].entityId).toBe(newRootId);
@@ -234,7 +260,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       .attach("file", bundle, "bundle.ezb")
       .expect(201);
 
-    const [importedProject] = await db.select().from(schema.projects)
+    const [importedProject] = await odb().select().from(schema.projects)
       .where(eq(schema.projects.id, response.body.rootId));
     expect(importedProject.title).toBe("Renamed On Import");
 
@@ -265,7 +291,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect([403, 404]).toContain(response.status);
 
     // Nothing was written into the other tenant.
-    const otherWorkflows = await db.select().from(schema.workflows)
+    const otherWorkflows = await odb().select().from(schema.workflows)
       .where(eq(schema.workflows.projectId, otherProjectId));
     expect(otherWorkflows).toHaveLength(0);
   });
@@ -299,7 +325,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
   });
 
   it("IEX2-2 AC 3: an unresolvable NOT NULL reference is a 400, not a 500", async () => {
-    // `steps.sectionId` is NOT NULL, so an unresolvable value cannot be dropped
+    // `steps.pageId` is NOT NULL, so an unresolvable value cannot be dropped
     // and the import must be rejected. The classification is substring matching
     // on the thrown message (BUNDLE_REJECTION_SIGNALS), so it is only one
     // rename away from silently reverting to a 500 — hence a route-level test
@@ -313,7 +339,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
       id: randomUUID(),
       title: "Orphan Step",
       alias: `orphan_${nanoid(6)}`,
-      sectionId: randomUUID(), // a section that is not in the bundle
+      pageId: randomUUID(), // a page that is not in the bundle
       order: 99,
     }));
     zip.updateFile("entities/steps.jsonl", Buffer.from(`${stepsLines.join("\n")}\n`));
@@ -332,7 +358,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.status).toBe(400);
     expect(apply.status).not.toBe(500);
     expect(apply.body.message).toMatch(/Unresolvable reference/);
-    expect(apply.body.message).toMatch(/steps\.sectionId/);
+    expect(apply.body.message).toMatch(/steps\.pageId/);
 
     // Preview refuses the same bundle up front rather than only at apply.
     const preview = await request(baseURL)
@@ -374,7 +400,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.body.entityCounts.fake_entity).toBeUndefined();
 
     // AC 2: Audit row carries observed counts
-    const logs = await db.select().from(schema.auditLogs)
+    const logs = await odb().select().from(schema.auditLogs)
       .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
     expect(logs.length).toBeGreaterThan(0);
     
@@ -398,7 +424,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
     const tampered = zip.toBuffer();
 
-    const workflowsBefore = await db.select().from(schema.workflows);
+    const workflowsBefore = await odb().select().from(schema.workflows);
 
     const apply = await request(baseURL)
       .post("/api/portability/import/apply")
@@ -413,7 +439,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     // The rejection must roll back Pass 2, not merely report a 400 after it
     // committed — otherwise the import leaves orphaned rows no rootId can reach.
-    const workflowsAfter = await db.select().from(schema.workflows);
+    const workflowsAfter = await odb().select().from(schema.workflows);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
   });
 
@@ -484,6 +510,167 @@ describe.sequential("Portability Import API Integration Tests", () => {
       return downloadBundle("workflow", workflowId, authToken);
     }
 
+    it("SECT-4: imports two Sections and five ordered pages into tenant B with every id remapped", async () => {
+      const source = await db.transaction(async (tx) => {
+        await applyTenantToTransaction(tx, tenantId);
+        const [existingPage] = await tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, workflowId));
+        const insertedSections = await tx.insert(schema.sections).values([
+          { workflowId, title: 'Identity' },
+          { workflowId, title: 'Review' },
+        ]).returning();
+        const [firstPage] = await tx.update(schema.pages).set({
+          sectionId: insertedSections[0].id,
+          title: 'Name',
+          order: 0,
+        }).where(eq(schema.pages.id, existingPage.id)).returning();
+        const additionalPages = await tx.insert(schema.pages).values([
+          { workflowId, sectionId: insertedSections[0].id, title: 'Address', order: 1 },
+          { workflowId, sectionId: null, title: 'Ungrouped consent', order: 2 },
+          { workflowId, sectionId: insertedSections[1].id, title: 'Summary', order: 3 },
+          { workflowId, sectionId: insertedSections[1].id, title: 'Signature', order: 4 },
+        ]).returning();
+        return { sections: insertedSections, pages: [firstPage, ...additionalPages] };
+      });
+
+      const published = await request(baseURL)
+        .post(`/api/workflows/${workflowId}/publish`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ notes: 'SECT-4 vertical proof' })
+        .expect(200);
+      const publishedGraph = published.body.data.graphJson as {
+        sections: Array<{ id: string }>;
+        pages: Array<{ id: string; sectionId: string | null }>;
+      };
+      expect(publishedGraph.sections).toHaveLength(2);
+      expect(publishedGraph.pages).toHaveLength(5);
+      expect(publishedGraph.pages.find(page => page.id === source.pages[2].id)?.sectionId).toBeNull();
+
+      const started = await request(baseURL)
+        .post(`/api/workflows/${workflowId}/runs`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({})
+        .expect(201);
+      const runtime = await request(baseURL)
+        .get(`/api/runs/${started.body.data.runId}/runtime`)
+        .set("Authorization", `Bearer ${started.body.data.runToken}`)
+        .expect(200);
+      expect(runtime.body.data.sections).toHaveLength(2);
+      expect(runtime.body.data.pages).toHaveLength(5);
+
+      const exported = await downloadBundle("project", projectId, authToken);
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .attach("file", exported, "sections.ezb")
+        .expect(200);
+      expect(preview.body).toMatchObject({ canProceed: true, errors: [] });
+      expect(preview.body.entityCounts).toMatchObject({ sections: 2, pages: 5 });
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .attach("file", exported, "sections.ezb")
+        .expect(201);
+
+      const imported = await withTenantAsUser(otherTenantId, otherUserId, async (tx) => {
+        const [project] = await tx.select().from(schema.projects)
+          .where(eq(schema.projects.id, applied.body.rootId));
+        const [workflow] = await tx.select().from(schema.workflows)
+          .where(eq(schema.workflows.projectId, project.id));
+        const importedSections = await tx.select().from(schema.sections)
+          .where(eq(schema.sections.workflowId, workflow.id));
+        const importedPages = await tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, workflow.id));
+        return { project, workflow, sections: importedSections, pages: importedPages };
+      });
+
+      expect(imported.project.tenantId).toBe(otherTenantId);
+      expect(imported.project.id).not.toBe(projectId);
+      expect(imported.workflow.id).not.toBe(workflowId);
+      expect(imported.sections).toHaveLength(2);
+      expect(imported.pages).toHaveLength(5);
+
+      const sourceSectionIds = new Set(source.sections.map(section => section.id));
+      const importedSectionIds = new Set(imported.sections.map(section => section.id));
+      for (const section of imported.sections) {
+        expect(sourceSectionIds.has(section.id)).toBe(false);
+      }
+
+      const importedByTitle = new Map(imported.pages.map(page => [page.title, page]));
+      expect(imported.pages.map(page => page.order).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4]);
+      expect(importedByTitle.get('Ungrouped consent')?.sectionId).toBeNull();
+      for (const title of ['Name', 'Address', 'Summary', 'Signature']) {
+        const membership = importedByTitle.get(title)?.sectionId;
+        expect(membership).toEqual(expect.any(String));
+        expect(importedSectionIds.has(membership!)).toBe(true);
+        expect(sourceSectionIds.has(membership!)).toBe(false);
+      }
+      expect(imported.pages.some(page => page.sectionId !== null && sourceSectionIds.has(page.sectionId))).toBe(false);
+      expect(imported.pages.every(page => !source.pages.some(sourcePage => sourcePage.id === page.id))).toBe(true);
+    });
+
+    it("SECT-4: warns and retains a page with null membership when its Section is absent", async () => {
+      const [sourcePage] = await odb().select().from(schema.pages)
+        .where(eq(schema.pages.workflowId, workflowId));
+      const [sourceSection] = await odb().insert(schema.sections).values({
+        workflowId,
+        title: 'Will be omitted',
+      }).returning();
+      await odb().update(schema.pages)
+        .set({ sectionId: sourceSection.id })
+        .where(eq(schema.pages.id, sourcePage.id));
+
+      const exported = await exportWorkflowBundle(workflowId);
+      const zip = new AdmZip(exported);
+      // adm-zip cannot re-read a zero-byte updated entry reliably; a blank
+      // JSONL line is semantically empty and retains a valid CRC.
+      zip.updateFile("entities/sections.jsonl", Buffer.from("\n"));
+      const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+      manifest.entityCounts.sections = 0;
+      recomputeChecksum(zip, manifest);
+      zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+      const missingSectionBundle = zip.toBuffer();
+
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .field("targetProjectId", otherProjectId)
+        .attach("file", missingSectionBundle, "missing-section.ezb")
+        .expect(200);
+      expect(preview.body.canProceed).toBe(true);
+      expect(preview.body.warnings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'dangling_reference',
+          entity: 'pages',
+          column: 'sectionId',
+          missingId: sourceSection.id,
+        }),
+      ]));
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${otherToken}`)
+        .field("targetProjectId", otherProjectId)
+        .attach("file", missingSectionBundle, "missing-section.ezb")
+        .expect(201);
+      const importedPages = await withTenantAsUser(otherTenantId, otherUserId, (tx) =>
+        tx.select().from(schema.pages)
+          .where(eq(schema.pages.workflowId, applied.body.rootId))
+      );
+      expect(importedPages).toHaveLength(1);
+      expect(importedPages[0]).toMatchObject({ title: sourcePage.title, sectionId: null });
+      expect(importedPages[0].id).not.toBe(sourcePage.id);
+      expect(applied.body.warnings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'dangling_reference',
+          entity: 'pages',
+          column: 'sectionId',
+          missingId: sourceSection.id,
+        }),
+      ]));
+    });
+
     it("AC 2: a workflow with a document template previews clean and applies 201", async () => {
       const { workflowId } = await seedWorkflow({ projectId, userId });
       await seedTemplate({ projectId, userId, attachToWorkflowId: workflowId });
@@ -511,13 +698,13 @@ describe.sequential("Portability Import API Integration Tests", () => {
       expect(applied.body.blobsRestored).toBeGreaterThan(0);
 
       // The imported link must point at the imported template, not the source's.
-      const [importedLink] = await db.select()
+      const [importedLink] = await odb().select()
         .from(schema.workflowTemplates)
         .innerJoin(schema.workflowVersions,
           eq(schema.workflowTemplates.workflowVersionId, schema.workflowVersions.id))
         .where(eq(schema.workflowVersions.workflowId, applied.body.rootId));
       expect(importedLink).toBeTruthy();
-      const [importedTemplate] = await db.select().from(schema.templates)
+      const [importedTemplate] = await odb().select().from(schema.templates)
         .where(eq(schema.templates.id, importedLink.workflow_templates.templateId));
       expect(importedTemplate).toBeTruthy();
     });
@@ -550,17 +737,17 @@ describe.sequential("Portability Import API Integration Tests", () => {
       expect(applied.body.entityCounts.workflow_queries).toBe(1);
 
       // The imported query must resolve to the imported database.
-      const [importedQuery] = await db.select().from(schema.workflowQueries)
+      const [importedQuery] = await odb().select().from(schema.workflowQueries)
         .where(eq(schema.workflowQueries.workflowId, applied.body.rootId));
       expect(importedQuery).toBeTruthy();
-      const [importedDb] = await db.select().from(schema.datavaultDatabases)
+      const [importedDb] = await odb().select().from(schema.datavaultDatabases)
         .where(eq(schema.datavaultDatabases.id, importedQuery.dataSourceId));
       expect(importedDb).toBeTruthy();
     });
   });
 
   it("IEX3-2: a List whose nested choice lost its DataVault binding imports 201 and says so", async () => {
-    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    const { workflowId, pageId } = await seedWorkflow({ projectId, userId });
     // A binding whose target no longer exists — the user deleted the table the
     // dropdown was wired to. Nothing can make this travel, so the import has to
     // report it rather than handing back a silently broken dropdown.
@@ -577,8 +764,8 @@ describe.sequential("Portability Import API Integration Tests", () => {
       columnId: randomUUID(),
     };
 
-    await db.insert(schema.steps).values({
-      workflowId, sectionId, type: "list", title: "Beneficiaries",
+    await getOwnerDb().insert(schema.steps).values({
+      workflowId, pageId, type: "list", title: "Beneficiaries",
       alias: "beneficiaries", order: 1,
       config: {
         fields: [
@@ -651,7 +838,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     it("AC 1: an invalid businessDayCalendar is a 400 at import naming the field and the allowed values", async () => {
       const tampered = withWorkflowSettings(bundle, { businessDayCalendar: "garbage" });
-      const workflowsBefore = await db.select().from(schema.workflows);
+      const workflowsBefore = await odb().select().from(schema.workflows);
 
       const apply = await request(baseURL)
         .post("/api/portability/import/apply")
@@ -666,7 +853,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
       // Rejected before anything was written, so there is no half-imported
       // workflow carrying a calendar that will explode at render time.
-      const workflowsAfter = await db.select().from(schema.workflows);
+      const workflowsAfter = await odb().select().from(schema.workflows);
       expect(workflowsAfter.length).toBe(workflowsBefore.length);
 
       // Preview refuses it up front rather than only at apply.
@@ -680,7 +867,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     });
 
     it("AC 2: a valid us-federal calendar still round-trips", async () => {
-      await db.update(schema.workflows)
+      await getOwnerDb().update(schema.workflows)
         .set({ settings: { businessDayCalendar: "us-federal", completionMessage: "Done" } })
         .where(eq(schema.workflows.id, workflowId));
 
@@ -700,7 +887,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         .attach("file", exported, "wf.ezb")
         .expect(201);
 
-      const [imported] = await db.select().from(schema.workflows)
+      const [imported] = await odb().select().from(schema.workflows)
         .where(eq(schema.workflows.id, applied.body.rootId));
       const settings = imported.settings as Record<string, unknown>;
       expect(settings.businessDayCalendar).toBe("us-federal");
@@ -720,7 +907,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
         .attach("file", exported, "wf.ezb")
         .expect(201);
 
-      const [imported] = await db.select().from(schema.workflows)
+      const [imported] = await odb().select().from(schema.workflows)
         .where(eq(schema.workflows.id, applied.body.rootId));
       expect((imported.settings as Record<string, unknown>).businessDayCalendar).toBeUndefined();
       // The function the DOCX render path calls, on the imported row.

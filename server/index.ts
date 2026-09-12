@@ -10,11 +10,13 @@ import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiting";
 import { requestIdMiddleware } from "./middleware/requestId";
+import { rlsContext } from "./middleware/rlsContext";
 import { requestTimeout } from "./middleware/timeout.js";
 import { initTelemetry } from "./observability/telemetry";
 
 initTelemetry();
 import { registerRoutes } from "./routes";
+import { logStorageProvider } from "./services/storage";
 import { serveStatic } from "./static";
 import { log as _log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
@@ -48,6 +50,17 @@ app.use('/api', globalLimiter);
 app.use('/intake', globalLimiter);
 app.use('/public', globalLimiter);
 app.use('/oauth', globalLimiter);
+// =====================================================================
+// 8️⃣ RLS TENANT CONTEXT (SEC-051)
+// =====================================================================
+// Must run before route registration below: ezBuildr resolves auth per-route
+// (hybridAuth/optionalHybridAuth are declared inline on each route, not as a
+// single global middleware run before dispatch), so there is no point in the
+// request lifecycle where req.tenantId is already known for every request.
+// This opens the AsyncLocalStorage context early; server/middleware/auth.ts
+// writes the tenant id into it once a route's own auth middleware resolves
+// it. See server/middleware/rlsContext.ts for the full explanation.
+app.use(rlsContext);
 
 void (async () => {
     try {
@@ -120,6 +133,17 @@ void (async () => {
         // is idempotent, so this is a no-op in dev/prod. Vitest never runs this file.
         await initializeDatabase();
         logger.info('Database initialized.');
+        // RLS-6: the admin console's second, BYPASSRLS-role pool. Optional —
+        // unset (isAdminDbConfigured() false) until an environment actually
+        // provisions ADMIN_DATABASE_URL, which is not expected before RLS-4
+        // lands. AdminAccessService falls back to the normal pool when this
+        // was never initialized, so skipping it here is safe, not a gap.
+        const { initializeAdminDb, isAdminDbConfigured } = await import('./db/adminDb.js');
+        if (isAdminDbConfigured()) {
+            logger.info('Initializing admin DB (RLS-6)...');
+            await initializeAdminDb();
+            logger.info('Admin DB initialized.');
+        }
         // Register configured production e-signature providers only after
         // environment validation has completed. With no DocuSign credentials,
         // the initializer logs the integration as unavailable and boot continues.
@@ -170,6 +194,10 @@ void (async () => {
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
         }, () => {
             logger.warn(`serving on port ${port}`);
+            // Moved out of `server/services/storage`'s module scope: logging as
+            // an import side effect killed a unit-fast file in CI that merely
+            // pulled storage in transitively.
+            logStorageProvider();
             // Record which DOCX->PDF converter this instance will use. Without
             // this, a misconfigured converter degraded every generated PDF with
             // nothing in the boot log to show it.

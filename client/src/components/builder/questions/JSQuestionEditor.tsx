@@ -1,64 +1,44 @@
 /**
- * JS Question Editor Component
- * Editor for JavaScript question configuration
- * Handles code, input/output mapping, display mode, and timeout settings
+ * Compute-only Code Block editor. The stored step type remains `js_question`.
+ *
+ * Since CB-8 this is a thin summary in the step card; the authoring surface is
+ * `CodeBlockEditorModal`, which owns its own draft and its own save. The
+ * `onChange`-per-keystroke path that used to run through here is gone: a save
+ * that nobody awaits has nowhere to put CB-5/CB-6/CB-7's rejection message.
  */
 
-import { useState, useEffect } from "react";
-
-import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
 import { cn } from "@/lib/utils";
 
 import { JSCodeEditorSection } from "./js-question/JSCodeEditorSection";
-import { JSDisplaySettings } from "./js-question/JSDisplaySettings";
-import { JSQuestionConfig } from "./js-question/types";
+import type { JSQuestionConfig } from "./js-question/types";
 
 export type { JSQuestionConfig };
 
 interface JSQuestionEditorProps {
   config: JSQuestionConfig;
-  onChange: (config: JSQuestionConfig) => void;
   className?: string;
   elementId: string;
-  workflowId?: string; // For variable picker
+  pageId?: string;
+  workflowId?: string;
+  title?: string;
 }
 
-export function JSQuestionEditor({ config, onChange, className, elementId, workflowId }: JSQuestionEditorProps): JSX.Element {
-  const [localConfig, setLocalConfig] = useState<JSQuestionConfig>(config);
-
-  // Sync with external changes
-  useEffect(() => {
-    setLocalConfig(config);
-  }, [config]);
-
-
-  const handleComponentChange = (updates: Partial<JSQuestionConfig>) => {
-    const newConfig = { ...localConfig, ...updates };
-    setLocalConfig(newConfig);
-    onChange(newConfig);
-  };
-
+export function JSQuestionEditor({
+  config, className, elementId, pageId, workflowId, title,
+}: JSQuestionEditorProps): JSX.Element {
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="text-sm font-medium text-muted-foreground border-b pb-1">
-        JavaScript Configuration
+      <div className="border-b pb-1 text-sm font-medium text-muted-foreground">
+        Code Block Configuration
       </div>
 
-      <JSDisplaySettings
-        config={localConfig}
-        onChange={handleComponentChange}
-        elementId={elementId}
-      />
-
       <JSCodeEditorSection
-        config={localConfig}
-        onChange={handleComponentChange}
+        config={config}
         elementId={elementId}
+        pageId={pageId}
         workflowId={workflowId}
+        title={title}
       />
-
-      {/* Helper Library Documentation */}
-      <HelperLibraryDocs />
     </div>
   );
 }

@@ -13,6 +13,8 @@ import type {
 
 import { db } from '../db';
 import { createLogger } from '../logger';
+import { type DbTransaction } from '../repositories';
+import { withCurrentTenant, withVerifiedIdentifier } from '../utils/rlsContext';
 
 import { workflowTenantResolver } from './WorkflowTenantResolver';
 
@@ -28,11 +30,34 @@ const logger = createLogger({ module: 'BrandingService' });
  */
 export class BrandingService {
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-4 precondition 4). If the caller already handed us a
+   * transaction, reuse it — never open a nested one, which would deadlock
+   * the size-1 test pool while the caller's own transaction still holds the
+   * only connection (measured via `VersionService.serializeWorkflowInTx`,
+   * see the comment at `WorkflowService.getWorkflowWithDetails`'s branding
+   * call site). Otherwise open exactly one via `withCurrentTenant`, which
+   * reads the tenant already populated in the request's async context
+   * (`hybridAuth`, or `runTokenAuth`/`RunAuthResolver` for the anonymous
+   * participant path) and sets the transaction-local `app.current_tenant_id`
+   * GUC for the `workflows` read inside `fn`.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Get tenant branding configuration
    */
-  async getBrandingByTenantId(tenantId: string): Promise<TenantBranding | null> {
+  async getBrandingByTenantId(tenantId: string, tx?: DbTransaction): Promise<TenantBranding | null> {
     try {
-      const [tenant] = await db
+      const [tenant] = await (tx ?? db)
         .select({ branding: tenants.branding })
         .from(tenants)
         .where(eq(tenants.id, tenantId));
@@ -100,17 +125,29 @@ export class BrandingService {
    * Never throws: this runs on the anonymous participant read path, so a
    * branding lookup failure degrades to the product default rather than
    * breaking the run.
+   *
+   * `tx` (RLS-4 precondition 4): pass the caller's own open transaction when
+   * one exists (e.g. `WorkflowService.getWorkflowWithDetails` nested inside
+   * `VersionService.serializeWorkflowInTx`) so this reuses it instead of
+   * opening a second one. Leave it undefined for the ordinary top-level
+   * case — `withTx` then opens its own short transaction against the
+   * ambient tenant, which is what makes the `workflows` read (RLS-covered,
+   * ownership-derived) succeed under FORCE instead of silently returning
+   * zero rows and falling back to default branding.
    */
   async resolveForWorkflow(
     workflowId: string,
-    workflowSettings: unknown
+    workflowSettings: unknown,
+    tx?: DbTransaction
   ): Promise<ResolvedBranding> {
     const workflowBranding = this.parseWorkflowBranding(workflowSettings);
 
     try {
-      const tenantId = await this.resolveTenantIdForWorkflow(workflowId);
-      const tenantBranding = tenantId !== null ? await this.getBrandingByTenantId(tenantId) : null;
-      return resolveBranding(tenantBranding, workflowBranding);
+      return await this.withTx(tx, async (scopedTx) => {
+        const tenantId = await this.resolveTenantIdForWorkflow(workflowId, scopedTx);
+        const tenantBranding = tenantId !== null ? await this.getBrandingByTenantId(tenantId, scopedTx) : null;
+        return resolveBranding(tenantBranding, workflowBranding);
+      });
     } catch (error) {
       logger.error({ error, workflowId }, 'Failed to resolve workflow branding; using workflow-only branding');
       return resolveBranding(null, workflowBranding);
@@ -143,8 +180,8 @@ export class BrandingService {
    * `ownerType`/`ownerUuid`, so a transferred workflow rendered the original
    * creator's branding rather than the new owner's.
    */
-  private async resolveTenantIdForWorkflow(workflowId: string): Promise<string | null> {
-    return workflowTenantResolver.resolveForWorkflowId(workflowId);
+  private async resolveTenantIdForWorkflow(workflowId: string, tx?: DbTransaction): Promise<string | null> {
+    return workflowTenantResolver.resolveForWorkflowId(workflowId, tx);
   }
 
   /**
@@ -158,12 +195,21 @@ export class BrandingService {
       // Look up domain — only *verified* domains resolve branding, so a tenant
       // cannot influence branding for a domain it has not proven ownership of
       // (SEC-026). Unverified/squatted domains behave as if unregistered.
-      const [domainRecord] = await db
-        .select({
-          tenantId: tenantDomains.tenantId,
-        })
-        .from(tenantDomains)
-        .where(and(eq(tenantDomains.domain, domain.toLowerCase()), eq(tenantDomains.verified, true)));
+      // TENANT BOOTSTRAP: an unauthenticated visitor arrived on this hostname
+      // and resolving its tenant is the whole point of the call, so there is no
+      // ambient tenant to scope with. Migration 0035 adds a USING-only clause
+      // matching `domain` — and repeating the `verified` requirement, so the
+      // SEC-026 rule below is now enforced by the database as well as here.
+      const [domainRecord] = await withVerifiedIdentifier(
+        'app.current_branding_domain',
+        domain.toLowerCase(),
+        (tx) => tx
+          .select({
+            tenantId: tenantDomains.tenantId,
+          })
+          .from(tenantDomains)
+          .where(and(eq(tenantDomains.domain, domain.toLowerCase()), eq(tenantDomains.verified, true)))
+      );
 
       if (domainRecord === undefined) {
         logger.debug({ domain }, 'Domain not found or not verified');
@@ -188,10 +234,10 @@ export class BrandingService {
    */
   async getDomainsByTenantId(tenantId: string): Promise<TenantDomain[]> {
     try {
-      const domains = await db
+      const domains = await withCurrentTenant((tx) => tx
         .select()
         .from(tenantDomains)
-        .where(eq(tenantDomains.tenantId, tenantId));
+        .where(eq(tenantDomains.tenantId, tenantId)));
 
       logger.debug({ tenantId, count: domains.length }, 'Retrieved tenant domains');
       return domains;
@@ -208,7 +254,7 @@ export class BrandingService {
     try {
       const verificationToken = crypto.randomBytes(16).toString('hex');
 
-      const [newDomain] = await db
+      const [newDomain] = await withCurrentTenant((tx) => tx
         .insert(tenantDomains)
         .values({
           tenantId,
@@ -216,7 +262,7 @@ export class BrandingService {
           verified: false,
           verificationToken,
         })
-        .returning();
+        .returning());
 
       // `.returning()` is typed as an array, so the destructured row widens to
       // `| undefined` under the strict-zone check this module is now pulled
@@ -249,10 +295,10 @@ export class BrandingService {
   async removeDomain(tenantId: string, domainId: string): Promise<boolean> {
     try {
       // Verify domain belongs to tenant before deleting
-      const [domain] = await db
+      const [domain] = await withCurrentTenant((tx) => tx
         .select()
         .from(tenantDomains)
-        .where(eq(tenantDomains.id, domainId));
+        .where(eq(tenantDomains.id, domainId)));
 
       if (domain === undefined) {
         logger.warn({ domainId }, 'Domain not found');
@@ -265,9 +311,9 @@ export class BrandingService {
       }
 
       // Delete domain
-      await db
+      await withCurrentTenant((tx) => tx
         .delete(tenantDomains)
-        .where(eq(tenantDomains.id, domainId));
+        .where(eq(tenantDomains.id, domainId)));
 
       logger.info({ tenantId, domainId }, 'Domain removed from tenant');
       return true;
@@ -298,10 +344,10 @@ export class BrandingService {
     tenantId: string,
     domainId: string
   ): Promise<{ verified: boolean; reason?: string }> {
-    const [domain] = await db
+    const [domain] = await withCurrentTenant((tx) => tx
       .select()
       .from(tenantDomains)
-      .where(eq(tenantDomains.id, domainId));
+      .where(eq(tenantDomains.id, domainId)));
 
     if (domain === undefined) {
       throw new Error('Domain not found');
@@ -333,10 +379,10 @@ export class BrandingService {
       return { verified: false, reason: 'TXT record found but did not match the expected verification value' };
     }
 
-    await db
+    await withCurrentTenant((tx) => tx
       .update(tenantDomains)
       .set({ verified: true, updatedAt: new Date() })
-      .where(eq(tenantDomains.id, domainId));
+      .where(eq(tenantDomains.id, domainId)));
 
     logger.info({ tenantId, domainId, domain: domain.domain }, 'Domain ownership verified');
     return { verified: true };
@@ -347,10 +393,19 @@ export class BrandingService {
    */
   async isDomainAvailable(domain: string): Promise<boolean> {
     try {
-      const [existing] = await db
+      // Tenant-scoped, which makes this an advisory check within the caller's
+      // own tenant rather than the global one it reads as. That is deliberate:
+      // `tenant_domains.domain` carries a global UNIQUE constraint
+      // (`tenant_domains_domain_unique`), so the authoritative answer comes
+      // from the INSERT in `addDomain`, whose 23505 the route maps to the same
+      // 409 this pre-check produces. Scoping it also closes a TOCTOU race the
+      // pre-check always had — two tenants claiming one domain concurrently
+      // both saw "available" — and stops a cross-tenant read whose only
+      // possible output was "someone else has this".
+      const [existing] = await withCurrentTenant((tx) => tx
         .select({ id: tenantDomains.id })
         .from(tenantDomains)
-        .where(eq(tenantDomains.domain, domain.toLowerCase()));
+        .where(eq(tenantDomains.domain, domain.toLowerCase())));
 
       return existing === undefined;
     } catch (error) {

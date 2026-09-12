@@ -10,8 +10,11 @@ import {
 } from '../../repositories';
 import { hashToken } from '../../utils/encryption';
 import { createError } from '../../utils/errors';
+import { codeBlockService } from '../codeBlocks/CodeBlockService';
 import { auditLogService } from '../AuditLogService';
 import { sendRunResumeEmail } from '../emailService';
+import { runWithTenantContext, withTenant, withVerifiedIdentifier } from '../../utils/rlsContext';
+import { workflowTenantResolver } from '../WorkflowTenantResolver';
 import { workflowService } from '../WorkflowService';
 import { RunAuthResolver, runAuthResolver } from './RunAuthResolver';
 
@@ -89,7 +92,10 @@ export class RunResumeService {
     this.assertIncomplete(authorized.run);
     const recipientEmail = input.email.trim().toLowerCase();
     const expiryMinutes = this.validateExpiry(input.expiryMinutes);
-    const created = await this.resumeRepo.transaction(async (tx) => {
+    // `run_resume_links` is RLS-covered and `.transaction()` on a repository is
+    // a BARE transaction with no tenant GUC, so every insert here failed WITH
+    // CHECK under enforcement.
+    const created = await withTenant(authorized.tenantId, async (tx) => {
       const now = this.now();
       await this.resumeRepo.revokeActiveForRun(input.runId, now, tx);
       return this.createLink({
@@ -122,7 +128,7 @@ export class RunResumeService {
       input.clientEmail,
     );
     const expiryMinutes = this.validateExpiry(input.expiryMinutes);
-    const created = await this.resumeRepo.transaction(async (tx) => {
+    const created = await withTenant(authorized.tenantId, async (tx) => {
       const now = this.now();
       await this.runRepo.updateIfIncomplete(input.runId, {
         assignedToUserId: target.userId,
@@ -172,26 +178,44 @@ export class RunResumeService {
     token: string;
     ipAddress?: string | null;
     userAgent?: string | null;
-  }): Promise<{ runId: string; runToken: string; tokenExpiresAt: Date; currentSectionId: string | null }> {
+  }): Promise<{
+    runId: string;
+    runToken: string;
+    tokenExpiresAt: Date;
+    currentPageId: string | null;
+    visitedPageIds: string[];
+  }> {
     const runToken = this.runTokenFactory();
     const runTokenHash = hashToken(runToken);
     const now = this.now();
     const tokenExpiresAt = new Date(now.getTime() + RUN_TOKEN_CONFIG.EXPIRY_MS);
 
-    const restored = await this.resumeRepo.transaction(async (tx) => {
+    // Redemption is the ANONYMOUS path — the holder presents a token and no
+    // session, so there is no ambient tenant and `authorize` is not called.
+    // `run_resume_links` is RLS-covered, so this needs one anyway. Resolve it
+    // from the run: `workflow_runs` carries no policy, so reading it needs no
+    // scope, and the workflow's tenant then comes from the shared resolver
+    // under migration 0030's clause. No new policy is required.
+    const redeemTenantId = await this.resolveTenantForRunId(input.runId);
+    if (!redeemTenantId) {
+      throw createError.unauthorized('Resume link is invalid or expired');
+    }
+    const restored = await withTenant(redeemTenantId, async (tx) => {
       const link = await this.resumeRepo.consumeActive(input.runId, hashToken(input.token), now, tx);
       if (!link) {
         throw createError.unauthorized('Resume link is invalid or expired');
       }
       const run = await this.runRepo.findById(input.runId, tx);
-      if (!run) {
+      if (!run || run.executionMode === 'preview') {
         throw createError.notFound('Run');
       }
       this.assertIncomplete(run);
-      const updated = await this.runRepo.updateIfIncomplete(input.runId, {
-        runToken: runTokenHash,
+      const updated = await this.runRepo.resumeIfIncomplete(
+        input.runId,
+        runTokenHash,
         tokenExpiresAt,
-      }, tx);
+        tx,
+      );
       await this.auditService.logRunEvent({
         runId: input.runId,
         tenantId: link.tenantId,
@@ -207,17 +231,32 @@ export class RunResumeService {
       return updated;
     });
 
+    // CB-3: a resume landing is an evaluation point. The run may have been
+    // parked for weeks; re-evaluating here means the respondent sees current
+    // computed values rather than whatever was true when they left. CB-2's
+    // change gate makes this free when nothing moved, and evaluateAll never
+    // throws outward, so a bad block cannot break resuming a run.
+    // `runWithTenantContext`, NOT `withTenant`: the latter opens a transaction,
+    // and `evaluateAll` opens its own via `withCurrentTenant`. Nesting them
+    // deadlocks the size-1 test pool -- four resume/visited-page integration
+    // tests timed out at 30s apiece before this was corrected. This call only
+    // needs the ambient tenant id, not a transaction of its own.
+    await runWithTenantContext(redeemTenantId, () =>
+      codeBlockService.evaluateAll(restored.id, restored.workflowId, 'submit', {})
+    );
+
     return {
       runId: restored.id,
       runToken,
       tokenExpiresAt,
-      currentSectionId: restored.currentSectionId,
+      currentPageId: restored.currentPageId,
+      visitedPageIds: restored.visitedPageIds,
     };
   }
 
   async revokeRunAccess(runId: string, userId: string): Promise<void> {
-    await this.authorize(runId, { userId }, true);
-    await this.resumeRepo.transaction(async (tx) => {
+    const revokeAuth = await this.authorize(runId, { userId }, true);
+    await withTenant(revokeAuth.tenantId, async (tx) => {
       const now = this.now();
       await this.runRepo.revokeToken(runId, tx);
       await this.resumeRepo.revokeActiveForRun(runId, now, tx);
@@ -233,7 +272,7 @@ export class RunResumeService {
       throw createError.forbidden('Access denied - run mismatch');
     }
     const resolved = await this.authResolver.resolveRun(runId, auth.userId);
-    if (!resolved.run) {
+    if (!resolved.run || resolved.run.executionMode === 'preview') {
       throw createError.notFound('Run');
     }
     if (!resolved.tenantId) {
@@ -273,6 +312,21 @@ export class RunResumeService {
     return expiryMinutes;
   }
 
+  /**
+   * Discover the tenant that owns a run, with nothing in context. Used by the
+   * anonymous resume-redemption path — see the note at its call site.
+   */
+  private async resolveTenantForRunId(runId: string): Promise<string | undefined> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) { return undefined; }
+    const tenantId = await withVerifiedIdentifier(
+      'app.current_workflow_id',
+      run.workflowId,
+      (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+    );
+    return tenantId ?? undefined;
+  }
+
   private async resolveHandoffTarget(
     tenantId: string,
     assigneeUserId?: string,
@@ -282,7 +336,11 @@ export class RunResumeService {
       throw createError.validation('Choose exactly one assignee user or client email');
     }
     if (assigneeUserId) {
-      const user = await this.userRepo.findById(assigneeUserId);
+      // `users` is RLS-covered — unscoped this found nobody and every handoff
+      // answered "Assignee user not found" for a colleague who plainly exists.
+      // Scoped to `tenantId`, which is also the tenant the check below requires,
+      // so an assignee outside it is invisible AND rejected.
+      const user = await withTenant(tenantId, (tx) => this.userRepo.findById(assigneeUserId, tx));
       if (!user) {
         throw createError.notFound('Assignee user');
       }

@@ -8,7 +8,7 @@
  * combobox pattern already used by `DocumentPicker` — rather than adding a
  * new dependency.
  *
- * Preserves the section grouping the `Select` version had (`SelectGroup`/
+ * Preserves the page grouping the `Select` version had (`SelectGroup`/
  * `SelectLabel`) via `CommandGroup`'s `heading`, and filters on both alias
  * and label by passing both as cmdk `keywords`.
  */
@@ -29,32 +29,32 @@ import { cn } from "@/lib/utils";
 
 import type { VariableInfo } from "@shared/types/conditions";
 
-interface VariableSection {
-  sectionId: string;
+interface VariablePage {
+  pageId: string;
   title: string;
   variables: VariableInfo[];
 }
 
-function groupBySection(variables: VariableInfo[]): VariableSection[] {
-  const sections: VariableSection[] = [];
-  const bySectionId = new Map<string, VariableSection>();
+function groupByPage(variables: VariableInfo[]): VariablePage[] {
+  const pages: VariablePage[] = [];
+  const byPageId = new Map<string, VariablePage>();
 
   for (const variable of variables) {
-    const existing = bySectionId.get(variable.sectionId);
+    const existing = byPageId.get(variable.pageId);
     if (existing) {
       existing.variables.push(variable);
       continue;
     }
-    const section: VariableSection = {
-      sectionId: variable.sectionId,
-      title: variable.sectionTitle,
+    const page: VariablePage = {
+      pageId: variable.pageId,
+      title: variable.pageTitle,
       variables: [variable],
     };
-    bySectionId.set(variable.sectionId, section);
-    sections.push(section);
+    byPageId.set(variable.pageId, page);
+    pages.push(page);
   }
 
-  return sections;
+  return pages;
 }
 
 interface VariableComboboxProps {
@@ -82,7 +82,7 @@ export function VariableCombobox({
   disabled = false,
 }: VariableComboboxProps) {
   const [open, setOpen] = useState(false);
-  const sections = useMemo(() => groupBySection(variables), [variables]);
+  const pages = useMemo(() => groupByPage(variables), [variables]);
   const selected = variables.find((v) => v.id === value || v.alias === value);
   const selectedLabel = selected ? (selected.alias ?? selected.title) : undefined;
 
@@ -110,9 +110,9 @@ export function VariableCombobox({
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
-            {sections.map((section) => (
-              <CommandGroup key={section.sectionId} heading={section.title}>
-                {section.variables.map((v) => {
+            {pages.map((page) => (
+              <CommandGroup key={page.pageId} heading={page.title}>
+                {page.variables.map((v) => {
                   const itemValue = v.alias ?? v.id;
                   return (
                     <CommandItem

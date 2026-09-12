@@ -10,13 +10,13 @@ import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
 import { registerAiRoutes } from "./ai.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
-import aiTransformRouter from "./api.ai.transform.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerAuthRoutes } from "./auth.routes";
 import { registerBillingRoutes } from "./billing.routes";
 import { registerBlockRoutes } from "./blocks.routes";
 import { registerBlueprintRoutes } from "./blueprint.routes";
 import { registerBrandingRoutes } from "./branding.routes";
+import { registerCodeBlockRoutes } from "./codeBlocks.routes";
 import { registerCollectionsRoutes } from "./collections.routes";
 import { registerConnectionsV2Routes } from "./connections-v2.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
@@ -48,6 +48,7 @@ import { registerProjectRoutes } from "./projects.routes";
 import publicRouter from "./public.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
+import { registerPageRoutes } from "./pages.routes";
 import { registerSectionRoutes } from "./sections.routes";
 import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerStepRoutes } from "./steps.routes";
@@ -55,7 +56,6 @@ import { registerStorageRoutes } from "./storage.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTemplateAnalysisRoutes } from "./templateAnalysis.routes";
 import { registerTenantRoutes } from "./tenant.routes";
-import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerVersionRoutes } from "./versions.routes";
 import webhookRouter from "./webhooks.routes";
@@ -107,17 +107,27 @@ export function registerAllRoutes(app: Express): void {
   app.use("/api/ai/workflows/optimize", aiOptimizationRouter);
 
   // AI Transforms
-  app.use("/api/ai/transform", aiTransformRouter);
 
   // AI Workflow Editing (Stage 22)
   registerAiWorkflowEditRoutes(app);
 
-  // Workflow (section/form builder) routes
+  // Workflow (page/form builder) routes
   registerWorkflowRoutes(app);
   registerSectionRoutes(app);
+  registerPageRoutes(app);
   registerStepRoutes(app);
   registerBlockRoutes(app);
-  registerTransformBlockRoutes(app);
+  registerCodeBlockRoutes(app);
+
+  // Template Marketplace (browse / install / publish) — MUST be registered
+  // before registerApiTemplateRoutes below. Both routers define a GET
+  // `/templates/:id`: this one for curated marketplace slugs (`nda`,
+  // `retainer-agreement`, ...), the Stage-4 one for document templates keyed
+  // by UUID. Express dispatches to whichever router was mounted first, so
+  // mounting order is what keeps the two from shadowing each other — the
+  // marketplace handler skips (`next('route')`) any UUID-shaped `:id`,
+  // letting a real document-template lookup fall through unchanged (TM-2).
+  app.use("/api", marketplaceRouter);
 
   // REST API Endpoints
   registerApiTemplateRoutes(app);
@@ -143,9 +153,6 @@ export function registerAllRoutes(app: Express): void {
   registerProjectRoutes(app);
   registerSnapshotRoutes(app);
   registerWorkflowTemplateRoutes(app);
-
-  // Template Marketplace (browse / install / publish)
-  app.use("/api", marketplaceRouter);
 
   app.use("/api", lifecycleHooksRoutes);
   app.use("/api", documentHooksRoutes);

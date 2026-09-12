@@ -7,6 +7,7 @@ import { aclService } from '../services/AclService';
 import { templateService } from '../services/TemplateService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { classifyRouteError } from '../utils/routeErrors';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 const router = Router();
 
@@ -79,7 +80,7 @@ router.post('/:id/instantiate', requireAuth, requireUser, asyncHandler(async (re
         if (!user.tenantId) { return res.status(401).json({ error: 'Tenant required' }); }
 
         if (projectId) {
-            const hasProjectAccess = await aclService.hasProjectRole(user.id, projectId, 'edit');
+            const hasProjectAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(user.id, projectId, 'edit', aclTx));
             if (!hasProjectAccess) {
                 throw new Error("Access denied - insufficient permissions for this project");
             }

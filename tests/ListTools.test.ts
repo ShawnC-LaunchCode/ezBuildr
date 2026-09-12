@@ -83,7 +83,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -116,7 +116,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -150,7 +150,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -183,7 +183,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -214,7 +214,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -244,7 +244,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -275,7 +275,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -307,7 +307,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -334,7 +334,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -363,7 +363,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -394,7 +394,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -434,7 +434,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -469,7 +469,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -499,7 +499,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -545,7 +545,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -595,7 +595,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -621,7 +621,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 
@@ -653,7 +653,7 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
-        sectionId: null,
+        pageId: null,
         virtualStepId: null,
       };
 

@@ -4,8 +4,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { datavaultTables, datavaultTablePermissions, auditLogs } from '@shared/schema';
 
-import { db } from '../../server/db';
 import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { waitForAuditLogs, waitForRows } from '../helpers/waitForRows';
 
 interface AuditChangeSet {
   before?: Record<string, unknown>;
@@ -53,7 +56,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     nonMember = await createTestUser(ctx, 'viewer');
 
     // 3. Create Test Table (Owned by 'owner')
-    const [table] = await db
+    const [table] = await getOwnerDb()
       .insert(datavaultTables)
       .values({
         tenantId: ctx.tenantId,
@@ -65,7 +68,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     tableId = table.id;
 
     // 4. Grant Permissions
-    await db.insert(datavaultTablePermissions).values([
+    await getOwnerDb().insert(datavaultTablePermissions).values([
       { tableId, userId: writer.userId, role: 'write' },
       { tableId, userId: reader.userId, role: 'read' },
     ]);
@@ -217,7 +220,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       expect(res.body.role).toBe('read');
 
       // Cleanup: Remove the permission
-      await db
+      await getOwnerDb()
         .delete(datavaultTablePermissions)
         .where(
           eq(datavaultTablePermissions.userId, nonMember.userId)
@@ -264,7 +267,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
   describe('DELETE /api/datavault/permissions/:permissionId', () => {
     it('should allow owner to revoke permissions', async () => {
       // Get writer's permission ID
-      const perms = await db
+      const perms = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.userId, writer.userId));
@@ -280,7 +283,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       expect(res.body.success).toBe(true);
 
       // Re-grant the permission
-      await db.insert(datavaultTablePermissions).values({
+      await getOwnerDb().insert(datavaultTablePermissions).values({
         tableId,
         userId: writer.userId,
         role: 'write',
@@ -288,7 +291,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     });
 
     it('should deny writer from revoking permissions', async () => {
-      const perms = await db
+      const perms = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.userId, reader.userId));
@@ -363,9 +366,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       const permissionId = res.body.id;
 
       // Allow async fire-and-forget audit log to complete
-      await new Promise((r) => setTimeout(r, 100));
-
-      const logs = await db
+      const logs = await waitForAuditLogs(() => getOwnerDb()
         .select()
         .from(auditLogs)
         .where(
@@ -373,7 +374,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
             eq(auditLogs.resourceId, permissionId),
             eq(auditLogs.action, 'datavault.table_permission.granted')
           )
-        );
+        ));
 
       expect(logs).toHaveLength(1);
       expect(logs[0].userId).toBe(owner.userId);
@@ -401,9 +402,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       expect(deleteRes.status).toBe(200);
 
       // Allow async fire-and-forget audit log to complete
-      await new Promise((r) => setTimeout(r, 100));
-
-      const logs = await db
+      const logs = await waitForAuditLogs(() => getOwnerDb()
         .select()
         .from(auditLogs)
         .where(
@@ -411,7 +410,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
             eq(auditLogs.resourceId, permissionId),
             eq(auditLogs.action, 'datavault.table_permission.revoked')
           )
-        );
+        ));
 
       expect(logs).toHaveLength(1);
       expect(logs[0].userId).toBe(owner.userId);
@@ -446,12 +445,23 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
         .send({ targetOwnerType: 'user', targetOwnerUuid: owner.userId });
       expect(transferRes.status).toBe(200);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const logs = await db
-        .select()
-        .from(auditLogs)
-        .where(eq(auditLogs.resourceId, tableId));
+      // Three separate fire-and-forget writes (grant, revoke, transfer). Wait
+      // for each ACTION, not for a row count: this resourceId accumulates audit
+      // entries from earlier tests in this file, so "at least 3 rows" is
+      // satisfied by unrelated pre-existing entries and returns before any of
+      // the three land.
+      const wantedActions = [
+        'datavault.table.access_granted',
+        'datavault.table.access_revoked',
+        'datavault.table.ownership_transferred',
+      ];
+      const logs = await waitForRows(
+        () => getOwnerDb()
+          .select()
+          .from(auditLogs)
+          .where(eq(auditLogs.resourceId, tableId)),
+        (rows) => wantedActions.every((a) => rows.some((row) => row.action === a)),
+      );
       const grantLog = logs.filter((log) => log.action === 'datavault.table.access_granted');
       const revokeLog = logs.filter((log) => log.action === 'datavault.table.access_revoked');
       const transferLog = logs.filter((log) => log.action === 'datavault.table.ownership_transferred');
@@ -495,12 +505,23 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
         .send({ targetOwnerType: 'user', targetOwnerUuid: owner.userId });
       expect(transferRes.status).toBe(200);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const logs = await db
-        .select()
-        .from(auditLogs)
-        .where(eq(auditLogs.resourceId, databaseId));
+      // Three separate fire-and-forget writes (grant, revoke, transfer). Wait
+      // for each ACTION, not for a row count: this resourceId accumulates audit
+      // entries from earlier tests in this file, so "at least 3 rows" is
+      // satisfied by unrelated pre-existing entries and returns before any of
+      // the three land.
+      const wantedActions = [
+        'datavault.database.access_granted',
+        'datavault.database.access_revoked',
+        'datavault.database.ownership_transferred',
+      ];
+      const logs = await waitForRows(
+        () => getOwnerDb()
+          .select()
+          .from(auditLogs)
+          .where(eq(auditLogs.resourceId, databaseId)),
+        (rows) => wantedActions.every((a) => rows.some((row) => row.action === a)),
+      );
       const grantLog = logs.filter((log) => log.action === 'datavault.database.access_granted');
       const revokeLog = logs.filter((log) => log.action === 'datavault.database.access_revoked');
       const transferLog = logs.filter((log) => log.action === 'datavault.database.ownership_transferred');

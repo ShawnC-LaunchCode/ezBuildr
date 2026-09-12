@@ -1,10 +1,10 @@
 import type { WriteBlockConfig, WriteResult, BlockContext } from "@shared/types/blocks";
 
-import { db } from "../../db";
 import { ConflictError } from "../../errors/AppError";
 import { createLogger } from "../../logger";
 import { datavaultRowsRepository, type DbTransaction } from "../../repositories";
 import { datavaultRowsService } from "../../services/DatavaultRowsService";
+import { runWithTenantContext, withTenant } from "../../utils/rlsContext";
 import { AuditLogger } from "../audit/auditLogger";
 import { resolveSingleValue, resolveColumnMappings } from "../shared/variableResolver";
 const logger = createLogger({ module: "write-runner" });
@@ -26,9 +26,20 @@ export class WriteRunner {
             preview: isPreview
         }, "Starting write execution");
         try {
-            // 0. Verify table exists and user has write permission
+            // 0. Verify table exists and user has write permission.
+            // RLS-2b: DatavaultTablesService now opens a service-boundary
+            // tenant transaction reading from the request's async context.
+            // No `tx` is open yet at this point (that happens at step 4
+            // below), and this runner can be invoked from a background job
+            // with no ambient context — so open one explicitly with the
+            // `tenantId` this method already received as an argument, rather
+            // than depending on ambient state that may not exist. Every
+            // datavaultRowsService call further down (executeCreate/Update/
+            // Upsert) already threads the transaction's own `tx` explicitly
+            // and is unaffected by ambient context either way.
             const { datavaultTablesService } = await import("../../services/DatavaultTablesService");
-            await datavaultTablesService.verifyTenantOwnership(config.tableId, tenantId);
+            await runWithTenantContext(tenantId, () =>
+                datavaultTablesService.verifyTenantOwnership(config.tableId, tenantId));
             // 1. Resolve Values (Variables & Expressions)
             // This happens BEFORE preview check so we validate logic even in preview
             // Pass aliasMap to allow resolving variable aliases to step IDs
@@ -87,7 +98,17 @@ export class WriteRunner {
                 };
             }
             // 4. Execute Real Write (wrapped in transaction for atomicity)
-            const writeResult = await db.transaction(async (tx: DbTransaction) => {
+            //
+            // RLS-5: `withTenant`, not a bare `db.transaction` — every table
+            // written below (`datavault_rows`, `datavault_values`) is
+            // RLS-covered via migration 0011, so an unpinned transaction has
+            // each insert rejected and the block reports success while writing
+            // nothing. A write block runs inside a workflow run, which reaches
+            // this with no ambient tenant (a run token, or the background
+            // completion worker), so the tenant this method already received —
+            // and already used for the ownership check above — is pinned
+            // explicitly.
+            const writeResult = await withTenant(tenantId, async (tx: DbTransaction) => {
                 let resultRowId: string;
                 let actualOperation: "create" | "update" | "upsert" = config.mode;
                 if (config.mode === "create") {

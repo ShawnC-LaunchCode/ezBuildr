@@ -6,11 +6,12 @@ import { toDataURL as qrToDataURL } from "qrcode";
 
 import * as speakeasy from "speakeasy";
 
-import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
+import { mfaSecrets, mfaBackupCodes } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
 import { encrypt, decrypt } from "../utils/encryption";
+import { findSelfUser, updateSelfUser } from "../utils/selfUser";
 
 
 
@@ -125,9 +126,7 @@ export class MfaService {
             .where(eq(mfaSecrets.userId, userId));
 
         // Update user record
-        await db.update(users)
-            .set({ mfaEnabled: true })
-            .where(eq(users.id, userId));
+        await this.setUserMfaFlag(userId, true);
 
         log.info({ userId }, 'MFA enabled successfully');
 
@@ -183,9 +182,12 @@ export class MfaService {
      * Check if user has MFA enabled
      */
     async isMfaEnabled(userId: string): Promise<boolean> {
-        const user = await db.query.users.findFirst({
-            where: eq(users.id, userId)
-        });
+        // RLS-5: reads the caller's own `users` row before a tenant is pinned —
+        // the self-identification case (0028). Unscoped this returns undefined
+        // for any user who has a tenant, so MFA would silently report as
+        // DISABLED for everyone: a login that should demand a second factor
+        // would skip it. `findSelfUser` pins `app.current_user_id`.
+        const user = await findSelfUser(userId);
 
         return user?.mfaEnabled ?? false;
     }
@@ -323,15 +325,38 @@ export class MfaService {
             .where(eq(mfaSecrets.userId, userId));
 
         // Update user record
-        await db.update(users)
-            .set({ mfaEnabled: false })
-            .where(eq(users.id, userId));
+        await this.setUserMfaFlag(userId, false);
 
         // Delete backup codes
         await db.delete(mfaBackupCodes)
             .where(eq(mfaBackupCodes.userId, userId));
 
         log.info({ userId }, 'MFA disabled');
+    }
+
+    /**
+     * Flip `users.mfaEnabled` for the user this operation is about.
+     *
+     * RLS-5: `users` is covered, and this write is reached before any tenant is
+     * pinned (MFA setup/verify run on the auth routes, where establishing the
+     * caller is still in progress). Written from the pool it fails WITH CHECK
+     * for any user who has a tenant, leaving `mfa_secrets.enabled = true` while
+     * the user row still says MFA is off — a split state, not a clean failure.
+     * `updateSelfUser` pins the self-id GUC so the row is visible and the row's
+     * own tenant so the write is permitted.
+     *
+     * ⚠️ `adminResetMfa` reaches `disableMfa` for ANOTHER user, which is a
+     * cross-tenant admin write and does not belong on this path — it is part of
+     * the admin.routes/adminDb cluster still outstanding in
+     * docs/architecture/RLS_HANDOFF.md, and is the reason this reads the row rather than
+     * assuming the caller's own tenant.
+     */
+    private async setUserMfaFlag(userId: string, enabled: boolean): Promise<void> {
+        const user = await findSelfUser(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        await updateSelfUser(userId, user.tenantId, { mfaEnabled: enabled });
     }
 
     /**

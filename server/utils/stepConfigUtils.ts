@@ -20,16 +20,11 @@ import type {
   ChoiceAdvancedConfig,
   MultiFieldConfig,
   AddressConfig,
-  AddressAdvancedConfig,
   ScaleConfig,
-  ScaleAdvancedConfig,
   BooleanAdvancedConfig,
   EmailConfig,
-  EmailAdvancedConfig,
   PhoneConfig,
-  PhoneAdvancedConfig,
   WebsiteConfig,
-  WebsiteAdvancedConfig,
   NumberConfig,
   NumberAdvancedConfig,
   NumberValidation,
@@ -38,7 +33,13 @@ import type {
   LegacyYesNoConfig,
   FileUploadConfig,
 } from '@shared/types/stepConfigs';
-import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
+import { resolveDateTimeConfig, resolveNumberConfig } from '@shared/types/stepConfigs';
+import { validateCanonicalStepConfig } from '@shared/validation/stepConfigSchemas';
+
+function formatConfigIssuePath(path: Array<string | number>): string {
+  if (path[0] === 'type') { return 'type'; }
+  return path.length === 0 ? 'config' : `config.${path.join('.')}`;
+}
 
 // ============================================================================
 // CONFIG VALIDATION
@@ -64,12 +65,12 @@ export function validateAndNormalizeConfig(
   const { strict = true, normalize = true } = options;
 
   // Validate config
-  const result = validateStepConfig(stepType, config);
+  const result = validateCanonicalStepConfig(stepType, config);
 
   if (!result.success) {
     if (strict) {
       const errorMessages = result.error!.errors
-        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .map(e => `${formatConfigIssuePath(e.path)}: ${e.message}`)
         .join(', ');
       throw new Error(`Invalid config for step type '${stepType}': ${errorMessages}`);
     } else {
@@ -218,7 +219,7 @@ export function sanitizeStepValue(
     case 'datetime':
     case 'datetime_unified':
     case 'date_time':
-      return sanitizeDateTimeValue(value, config);
+      return sanitizeDateTimeValue(stepType, value, config);
 
     case 'scale':
     case 'scale_advanced':
@@ -233,11 +234,8 @@ export function sanitizeStepValue(
 /**
  * Sanitize email value
  */
-/**
- * Sanitize email value
- */
 function sanitizeEmailValue(value: unknown, config?: StepConfig): string | string[] {
-  const emailConfig = config as (EmailConfig | EmailAdvancedConfig) | undefined;
+  const emailConfig = config as EmailConfig | undefined;
   if (typeof value === 'string') {
     const email = value.trim().toLowerCase();
     if (emailConfig?.allowMultiple && email.includes(',')) {
@@ -266,7 +264,7 @@ function sanitizePhoneValue(value: unknown, _config?: StepConfig): string {
  * Sanitize website value
  */
 function sanitizeWebsiteValue(value: unknown, config?: StepConfig): string {
-  const webConfig = config as (WebsiteConfig | WebsiteAdvancedConfig) | undefined;
+  const webConfig = config as WebsiteConfig | undefined;
   if (typeof value !== 'string') {
     return String(value);
   }
@@ -284,7 +282,7 @@ function sanitizeWebsiteValue(value: unknown, config?: StepConfig): string {
 /**
  * Sanitize number value
  */
-function sanitizeNumberValue(value: unknown, config?: StepConfig): number | null {
+function sanitizeNumberValue(value: unknown, _config?: StepConfig): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
@@ -295,20 +293,11 @@ function sanitizeNumberValue(value: unknown, config?: StepConfig): number | null
     return null;
   }
 
-  const numConfig = config as (NumberConfig | NumberAdvancedConfig | CurrencyConfig) | undefined;
-
-  // Apply precision if specified
-  const precision = (numConfig as NumberValidation)?.precision ?? (numConfig as NumberAdvancedConfig)?.validation?.precision;
-  if (precision !== undefined) {
-    return parseFloat(num.toFixed(precision));
-  }
-
-  // For currency modes with no decimal
-  // Safe cast for checking mode/allowDecimal presence
-  const currencyConfig = numConfig as CurrencyConfig & NumberAdvancedConfig & NumberConfig;
-  if (currencyConfig?.mode === 'currency_whole' || (currencyConfig?.allowDecimal === false)) {
-    return Math.round(num);
-  }
+  // No precision rounding here. `precision` is display-only (Decision 13);
+  // the stored value is whatever the respondent entered. This function is also
+  // currently referenced from nowhere -- the live submit path validates through
+  // `BlockValidation.getValidationSchema` -- so anything added here silently
+  // does nothing. Check for a caller before trusting it.
 
   return num;
 }
@@ -322,13 +311,12 @@ function sanitizeAddressValue(value: unknown, config?: StepConfig): AddressValue
   }
 
   const address: AddressValue = {};
-  const addrConfig = config as (AddressConfig | AddressAdvancedConfig) | undefined;
+  const addrConfig = config as AddressConfig | undefined;
 
   // Ensure all expected fields are present
   const fields = addrConfig?.fields ?? ['street', 'city', 'state', 'zip'];
 
-  for (const field of fields) {
-    const fieldKey = typeof field === 'string' ? field : field.key;
+  for (const fieldKey of fields) {
     const valObj = value as Record<string, unknown>;
     if (valObj[fieldKey]) {
       (address as Record<string, string>)[fieldKey] = String(valObj[fieldKey]).trim();
@@ -389,7 +377,7 @@ function sanitizeChoiceValue(value: unknown, config?: StepConfig): ChoiceValue {
   }
   if (value === null || value === undefined) {
     const choiceConfig = config as (ChoiceAdvancedConfig | LegacyMultipleChoiceConfig) | undefined;
-    return choiceConfig?.allowMultiple ? [] : '';
+    return (choiceConfig && 'display' in choiceConfig && choiceConfig.display === 'multiple') ? [] : '';
   }
   return String(value);
 }
@@ -397,22 +385,27 @@ function sanitizeChoiceValue(value: unknown, config?: StepConfig): ChoiceValue {
 /**
  * Sanitize date/time value
  */
-function sanitizeDateTimeValue(value: unknown, _config?: StepConfig): string | null {
+function sanitizeDateTimeValue(stepType: string, value: unknown, config?: StepConfig): string | null {
   if (!value) {
     return null;
   }
 
   if (typeof value === 'string') {
-    // Validate ISO format
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      return null;
-    }
-    return value;
+    const kind = resolveDateTimeConfig(stepType, config).kind;
+    const valid = kind === 'date'
+      ? /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+      : kind === 'time'
+        ? /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value)
+        : !Number.isNaN(Date.parse(value)) && value.includes('T');
+    return valid ? value : null;
   }
 
   if (value instanceof Date) {
-    return value.toISOString();
+    const iso = value.toISOString();
+    const kind = resolveDateTimeConfig(stepType, config).kind;
+    if (kind === 'date') { return iso.slice(0, 10); }
+    if (kind === 'time') { return iso.slice(11, 16); }
+    return iso.slice(0, 16);
   }
 
   return null;
@@ -428,7 +421,7 @@ function sanitizeScaleValue(value: unknown, config?: StepConfig): number | null 
     return null;
   }
 
-  const scaleConfig = config as (ScaleConfig | ScaleAdvancedConfig) | undefined;
+  const scaleConfig = config as ScaleConfig | undefined;
 
   // Clamp to min/max
   if (scaleConfig?.min !== undefined && num < scaleConfig.min) {
@@ -488,17 +481,17 @@ export function validateStepValue(
   switch (stepType) {
     case 'email':
     case 'email_advanced':
-      validateEmail(value, config as EmailConfig | EmailAdvancedConfig, errors);
+      validateEmail(value, config as EmailConfig, errors);
       break;
 
     case 'phone':
     case 'phone_advanced':
-      validatePhone(value, config as PhoneConfig | PhoneAdvancedConfig, errors);
+      validatePhone(value, config as PhoneConfig, errors);
       break;
 
     case 'website':
     case 'website_advanced':
-      validateWebsite(value, config as WebsiteConfig | WebsiteAdvancedConfig, errors);
+      validateWebsite(value, config as WebsiteConfig, errors);
       break;
 
     case 'number':
@@ -509,7 +502,7 @@ export function validateStepValue(
 
     case 'scale':
     case 'scale_advanced':
-      validateScale(value, config as ScaleConfig | ScaleAdvancedConfig, errors);
+      validateScale(value, config as ScaleConfig, errors);
       break;
 
     case 'choice':
@@ -519,7 +512,7 @@ export function validateStepValue(
 
     case 'address':
     case 'address_advanced':
-      validateAddress(value, config as AddressConfig | AddressAdvancedConfig, errors);
+      validateAddress(value, config as AddressConfig, errors);
       break;
 
     case 'multi_field':
@@ -533,7 +526,7 @@ export function validateStepValue(
   };
 }
 
-function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig | undefined, errors: string[]): void {
+function validateEmail(value: unknown, config: EmailConfig | undefined, errors: string[]): void {
   const emails = Array.isArray(value) ? value : [value];
 
   for (const email of emails) {
@@ -564,7 +557,7 @@ function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig
   }
 }
 
-function validatePhone(value: unknown, _config: PhoneConfig | PhoneAdvancedConfig | undefined, errors: string[]): void {
+function validatePhone(value: unknown, _config: PhoneConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Phone number must be a string');
     return;
@@ -579,7 +572,7 @@ function validatePhone(value: unknown, _config: PhoneConfig | PhoneAdvancedConfi
 
 
 // eslint-disable-next-line complexity
-function validateWebsite(value: unknown, config: WebsiteConfig | WebsiteAdvancedConfig | undefined, errors: string[]): void {
+function validateWebsite(value: unknown, config: WebsiteConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Website must be a string');
     return;
@@ -627,13 +620,9 @@ function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedCon
     return;
   }
 
-  // Handle both StepConfig and NumberValidation shapes
-  let validation: NumberValidation | undefined;
-  if (config && 'validation' in config) {
-    validation = (config).validation;
-  } else {
-    validation = config as NumberValidation | undefined;
-  }
+  // Same resolver as the sanitizer and the client rules (STB-9): min/max/step
+  // and precision are read from one place, so the four layers cannot disagree.
+  const validation = resolveNumberConfig('number', config).validation;
 
   if (validation?.min !== undefined && num < validation.min) {
     errors.push(`Value must be at least ${validation.min}`);
@@ -642,9 +631,11 @@ function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedCon
   if (validation?.max !== undefined && num > validation.max) {
     errors.push(`Value must be at most ${validation.max}`);
   }
+
+
 }
 
-function validateScale(value: unknown, config: ScaleConfig | ScaleAdvancedConfig | undefined, errors: string[]): void {
+function validateScale(value: unknown, config: ScaleConfig | undefined, errors: string[]): void {
   validateNumber(value, config, errors);
 }
 
@@ -685,7 +676,7 @@ function validateChoice(value: unknown, config: ChoiceAdvancedConfig | LegacyMul
   }
 }
 
-function validateAddress(value: unknown, config: AddressConfig | AddressAdvancedConfig | undefined, errors: string[]): void {
+function validateAddress(value: unknown, config: AddressConfig | undefined, errors: string[]): void {
   if (!value || typeof value !== 'object') {
     errors.push('Address must be an object');
     return;
@@ -700,11 +691,9 @@ function validateAddress(value: unknown, config: AddressConfig | AddressAdvanced
     ? (config?.fields ?? ['street', 'city', 'state', 'zip'])
     : [];
 
-  for (const field of requiredFields) {
-    const fieldKey = typeof field === 'string' ? field : field.key;
+  for (const fieldKey of requiredFields) {
     if (!valObj[fieldKey] || String(valObj[fieldKey]).trim() === '') {
-      const fieldLabel = typeof field === 'object' ? field.label : fieldKey;
-      errors.push(`${fieldLabel} is required`);
+      errors.push(`${fieldKey} is required`);
     }
   }
 }
@@ -777,7 +766,7 @@ export function getDefaultValue(stepType: string, config?: StepConfig): unknown 
     case 'choice':
     case 'multiple_choice': {
       const choiceConfig = config as (ChoiceAdvancedConfig | LegacyMultipleChoiceConfig) | undefined;
-      return choiceConfig?.allowMultiple ?? (choiceConfig && 'minSelections' in choiceConfig) ? [] : '';
+      return ((choiceConfig && 'display' in choiceConfig && choiceConfig.display === 'multiple') ?? (choiceConfig && 'minSelections' in choiceConfig)) ? [] : '';
     }
 
     case 'boolean':

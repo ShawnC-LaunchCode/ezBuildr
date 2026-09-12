@@ -1,501 +1,203 @@
-import { LIMITS, LimitExceededError } from "@shared/limits";
-import type { Section, InsertSection, Step } from "@shared/schema";
-import { db } from "../db";
+import type { InsertSection, Section } from "@shared/schema";
 
 import {
+  pageRepository,
   sectionRepository,
-  workflowRepository,
-  stepRepository,
-  stepValueRepository,
-  logicRuleRepository,
-  type DeleteImpact,
   type DbTransaction,
 } from "../repositories";
+import { getCurrentTenantId, withCurrentTenant } from "../utils/rlsContext";
 
-import { remapJsonIds } from "../utils/remapJsonIds";
-
-import { generateAliasCopy } from "./stepAlias";
+import { assertValidSectionSpans, SectionLayoutError } from "./sectionSpans";
 import { workflowService } from "./WorkflowService";
-import { isBackwardSkipTarget } from "./workflowStructureRules";
+import { workflowTenantResolver } from "./WorkflowTenantResolver";
 
 const SECTION_NOT_FOUND = "Section not found";
 
-/** `order` is optional at the API boundary — the service auto-increments it. */
-type CreateSectionData = Omit<InsertSection, 'workflowId' | 'order'> & Partial<Pick<InsertSection, 'order'>>;
-
-/**
- * A `skip_to` rule that a reorder just turned backward, so it can no longer
- * fire (MAP-B4). Titles are included so the builder can name the rule in a
- * toast without a second round-trip.
- */
-export interface ReorderSkipRuleWarning {
-  ruleId: string;
-  conditionSectionId: string;
-  conditionSectionTitle: string;
-  targetSectionId: string;
-  targetSectionTitle: string;
+export interface CreateSectionData {
+  title: string;
+  description?: string | null;
+  visibleIf?: unknown;
 }
 
-/**
- * Constructor dependencies for {@link SectionService}, grouped into a single
- * object so adding a repo (e.g. `logicRuleRepo` for ICW2-B5) never trips the
- * `max-params` lint rule. All fields are optional and default to the
- * production singletons; tests override just what they need to mock.
- */
+export interface UpdateSectionData {
+  title?: string;
+  description?: string | null;
+  visibleIf?: unknown;
+}
+
 export interface SectionServiceDeps {
   sectionRepo?: typeof sectionRepository;
-  workflowRepo?: typeof workflowRepository;
-  stepRepo?: typeof stepRepository;
+  pageRepo?: typeof pageRepository;
   workflowSvc?: typeof workflowService;
-  stepValueRepo?: typeof stepValueRepository;
-  logicRuleRepo?: typeof logicRuleRepository;
 }
 
-/**
- * Service layer for section-related business logic
- */
 export class SectionService {
-  private sectionRepo: typeof sectionRepository;
-  private workflowRepo: typeof workflowRepository;
-  private stepRepo: typeof stepRepository;
-  private workflowSvc: typeof workflowService;
-  private stepValueRepo: typeof stepValueRepository;
-  private logicRuleRepo: typeof logicRuleRepository;
+  private readonly sectionRepo: typeof sectionRepository;
+  private readonly pageRepo: typeof pageRepository;
+  private readonly workflowSvc: typeof workflowService;
 
   constructor(deps: SectionServiceDeps = {}) {
     this.sectionRepo = deps.sectionRepo ?? sectionRepository;
-    this.workflowRepo = deps.workflowRepo ?? workflowRepository;
-    this.stepRepo = deps.stepRepo ?? stepRepository;
+    this.pageRepo = deps.pageRepo ?? pageRepository;
     this.workflowSvc = deps.workflowSvc ?? workflowService;
-    this.stepValueRepo = deps.stepValueRepo ?? stepValueRepository;
-    this.logicRuleRepo = deps.logicRuleRepo ?? logicRuleRepository;
   }
 
-  /**
-   * Create a new section
-   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (scopedTx: DbTransaction) => Promise<T>,
+  ): Promise<T> {
+    return tx ? fn(tx) : withCurrentTenant(fn);
+  }
+
   async createSection(
     workflowId: string,
     userId: string,
-    data: CreateSectionData
+    data: CreateSectionData,
+    pageIds: string[],
+    callerTx?: DbTransaction,
   ): Promise<Section> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
-
-    // Get current sections to determine next order
-    const existingSections = await this.sectionRepo.findByWorkflowId(workflowId);
-    if (existingSections.length >= LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
-      );
-    }
-    const nextOrder = existingSections.length > 0
-      ? Math.max(...existingSections.map((s) => s.order)) + 1
-      : 1;
-
-    // Strip a client-supplied `id` so the server owns the primary key.
-    const { id: _ignoredId, ...safeData } = data;
-    return this.sectionRepo.create({
-      ...safeData,
-      workflowId,
-      order: data.order ?? nextOrder,
-      // Server-controlled: never let a client-supplied value mark a
-      // freshly created section as already soft-deleted (ICW2-B1).
-      deletedAt: null,
-    });
-  }
-
-  /** All aliases in a workflow, lowercased for case-insensitive comparison */
-  private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
-    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, undefined, true);
-    return new Set(
-      allSteps
-        .map((s) => s.alias?.toLowerCase())
-        .filter((a): a is string => a !== undefined && a !== null && a !== '')
-    );
-  }
-
-  /**
-   * Copy the logic rules scoped to a duplicated section: rules whose
-   * condition step, target step, or target section belongs to the source
-   * section, remapped onto the freshly duplicated ids. Rules referencing a
-   * condition step outside the section are skipped (that step was not
-   * duplicated, so there is no valid id to remap the condition onto).
-   */
-  private async copySectionLogicRules(
-    tx: DbTransaction,
-    workflowId: string,
-    sourceSectionId: string,
-    sourceSteps: Step[],
-    idMap: Map<string, string>
-  ): Promise<void> {
-    const sourceStepIds = new Set(sourceSteps.map((s) => s.id));
-    const allRules = await this.logicRuleRepo.findByWorkflowId(workflowId, tx);
-    const relevantRules = allRules.filter(
-      (rule) =>
-        sourceStepIds.has(rule.conditionStepId) ||
-        rule.targetSectionId === sourceSectionId ||
-        (rule.targetStepId !== null && sourceStepIds.has(rule.targetStepId))
-    );
-
-    for (const rule of relevantRules) {
-      const conditionStepId = idMap.get(rule.conditionStepId);
-      if (!conditionStepId) {
-        continue;
-      }
-      await this.logicRuleRepo.create(
-        {
-          workflowId,
-          conditionStepId,
-          when: remapJsonIds(rule.when, idMap),
-          targetType: rule.targetType,
-          targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
-          targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
-          action: rule.action,
-          order: rule.order,
-        },
-        tx
-      );
-    }
-  }
-
-  /**
-   * Duplicate a section: the section itself, all of its steps (each with a
-   * fresh unique alias), and its section-scoped logic rules with ids
-   * remapped onto the copies (ICW2-B5). Inserted immediately after the
-   * source (later siblings shift by one).
-   */
-  async duplicateSection(sectionId: string, userId: string): Promise<Section> {
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-
-    const existingSections = await this.sectionRepo.findByWorkflowId(section.workflowId);
-    if (existingSections.length >= LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
-      );
-    }
-
-    // Include virtual (computed) steps too — duplicating the section duplicates all of them.
-    const sourceSteps = await this.stepRepo.findBySectionId(sectionId, undefined, true);
-
-    const currentStepCount = await this.stepRepo.countByWorkflowId(section.workflowId);
-    if (currentStepCount + sourceSteps.length > LIMITS.MAX_STEPS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
-      );
-    }
-
-    const taken = await this.getWorkflowAliases(section.workflowId);
-
-    return db.transaction(async (tx) => {
-      const toShift = existingSections.filter((s) => s.order > section.order);
-      for (const sibling of toShift) {
-        await this.sectionRepo.updateOrder(sibling.id, section.workflowId, sibling.order + 1, tx);
-      }
-
-      const newSection = await this.sectionRepo.create(
-        {
-          workflowId: section.workflowId,
-          title: section.title,
-          description: section.description,
-          order: section.order + 1,
-          config: section.config,
-          visibleIf: section.visibleIf,
-        },
-        tx
-      );
-
-      const idMap = new Map<string, string>([[sectionId, newSection.id]]);
-
-      for (const step of sourceSteps) {
-        const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
-        if (alias) {
-          taken.add(alias.toLowerCase());
+    return this.withTx(callerTx, async (tx) => {
+      try {
+        await this.workflowSvc.verifyAccess(workflowId, userId, "edit", tx);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Access denied")) {
+          const ambientTenantId = getCurrentTenantId();
+          const workflowTenantId = await workflowTenantResolver.resolveForWorkflowId(workflowId, tx);
+          if (!ambientTenantId || !workflowTenantId || ambientTenantId !== workflowTenantId) {
+            throw new Error("Workflow not found");
+          }
         }
-        const newStep = await this.stepRepo.create(
-          {
-            workflowId: section.workflowId,
-            sectionId: newSection.id,
-            type: step.type,
-            title: step.title,
-            description: step.description,
-            required: step.required,
-            config: step.config,
-            alias,
-            defaultValue: step.defaultValue,
-            order: step.order,
-            isVirtual: step.isVirtual,
-            visibleIf: step.visibleIf,
-          },
-          tx
-        );
-        idMap.set(step.id, newStep.id);
+        throw error;
+      }
+      await this.sectionRepo.lockWorkflowStructure(workflowId, tx);
+
+      if (pageIds.length === 0) {
+        throw new SectionLayoutError("A Section requires at least one page");
+      }
+      if (new Set(pageIds).size !== pageIds.length) {
+        throw new SectionLayoutError("Section pageIds must not contain duplicates");
       }
 
-      await this.copySectionLogicRules(tx, section.workflowId, sectionId, sourceSteps, idMap);
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const pageById = new Map(activePages.map((page) => [page.id, page]));
+      for (const pageId of pageIds) {
+        if (!pageById.has(pageId)) {
+          throw new Error("Page not found");
+        }
+      }
 
-      return newSection;
+      const safeData: InsertSection = {
+        workflowId,
+        title: data.title,
+        description: data.description,
+        visibleIf: data.visibleIf,
+      };
+      const section = await this.sectionRepo.create(safeData, tx);
+      for (const pageId of pageIds) {
+        await this.pageRepo.updateSectionId(pageId, workflowId, section.id, tx);
+      }
+
+      const persistedPages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const existingSections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+      assertValidSectionSpans(persistedPages, existingSections);
+      return section;
+    });
+  }
+
+  async getSections(
+    workflowId: string,
+    userId: string,
+    tx?: DbTransaction,
+  ): Promise<Section[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, "view", scopedTx);
+      return this.sectionRepo.findByWorkflowId(workflowId, scopedTx);
     });
   }
 
   /**
-   * Strip server-controlled / immutable fields from a general update payload
-   * to prevent mass-assignment. A section never moves between workflows, so a
-   * client-supplied `workflowId` would reparent the section (and its steps)
-   * into an arbitrary workflow — including one in another tenant — past the
-   * access check, which only authorizes the section's *current* workflow.
-   * `id` would rewrite the primary key. `deletedAt` is only ever set/cleared
-   * by the dedicated delete/restore flows (ICW2-B1).
+   * Move one page into a Section, or out of every Section (`sectionId: null`).
+   *
+   * The manual builder only ever changes membership through
+   * `PageService.reorderPages`, which demands the workflow's complete page
+   * layout — a contract no AI patch op can reasonably satisfy for a one-page
+   * change. This is the single-page equivalent: it takes the same structure
+   * lock and re-asserts the same span invariant afterwards, so a move that
+   * would split a Section, or empty one, rolls back instead of persisting a
+   * corrupt layout.
    */
-  private static stripImmutableFields(data: Partial<InsertSection>): Partial<InsertSection> {
-    const updates = { ...data };
-    delete updates.id;
-    delete updates.workflowId;
-    delete updates.createdAt;
-    delete updates.updatedAt;
-    delete updates.deletedAt;
-    return updates;
+  async setPageSection(
+    workflowId: string,
+    userId: string,
+    pageId: string,
+    sectionId: string | null,
+    callerTx?: DbTransaction,
+  ): Promise<void> {
+    await this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, "edit", tx);
+      await this.sectionRepo.lockWorkflowStructure(workflowId, tx);
+
+      const activePages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      if (!activePages.some((page) => page.id === pageId)) {
+        throw new Error("Page not found");
+      }
+
+      const workflowSections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+      if (sectionId !== null && !workflowSections.some((section) => section.id === sectionId)) {
+        throw new Error("Section not found");
+      }
+
+      await this.pageRepo.updateSectionId(pageId, workflowId, sectionId, tx);
+
+      const persistedPages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      assertValidSectionSpans(persistedPages, workflowSections);
+    });
   }
 
-  /**
-   * Update section
-   */
   async updateSection(
     sectionId: string,
-    workflowId: string,
     userId: string,
-    data: Partial<InsertSection>
+    data: UpdateSectionData,
+    callerTx?: DbTransaction,
   ): Promise<Section> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
-
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    return this.sectionRepo.update(sectionId, SectionService.stripImmutableFields(data));
-  }
-
-  /**
-   * Delete section (soft-delete — ICW2-B1). Cascades to the section's own
-   * steps so they are excluded everywhere too, mirroring the FK cascade a
-   * hard delete would have triggered — but without destroying `step_values`.
-   * See `restoreSection` to undo.
-   */
-  async deleteSection(sectionId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
-
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    await db.transaction(async (tx) => {
-      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
-      await this.sectionRepo.softDelete(sectionId, tx);
-    });
-  }
-
-  /**
-   * Restore a soft-deleted section and its steps (ICW2-B1). Uses an
-   * unscoped lookup since the section's `deletedAt` is set, so the filtered
-   * `findById` cannot see it. Restore UI is deferred — this is server-side
-   * only.
-   */
-  async restoreSection(sectionId: string, userId: string): Promise<Section> {
-    const section = await this.sectionRepo.findByIdIncludingDeleted(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-
-    return db.transaction(async (tx) => {
-      await this.stepRepo.restoreBySectionId(sectionId, tx);
-      const restored = await this.sectionRepo.restore(sectionId, tx);
-      if (!restored) {
+    return this.withTx(callerTx, async (tx) => {
+      const section = await this.sectionRepo.findById(sectionId, tx);
+      if (!section) {
         throw new Error(SECTION_NOT_FOUND);
       }
-      return restored;
+      await this.workflowSvc.verifyAccess(section.workflowId, userId, "edit", tx);
+      return this.sectionRepo.update(sectionId, data, tx);
     });
   }
 
-  /**
-   * Impact of deleting a section: answers + distinct runs that would be
-   * permanently destroyed via the section->steps->step_values cascade.
-   * Aggregates counts across every step in the section. Read-only — gates
-   * the client's destructive-confirm dialog (ICW2-13).
-   */
-  async getSectionDeleteImpact(sectionId: string, workflowId: string, userId: string): Promise<DeleteImpact> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
-
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    // Include virtual (computed) steps too — deleting the section cascades to all of them.
-    const steps = await this.stepRepo.findBySectionId(sectionId, undefined, true);
-    return this.stepValueRepo.countImpactForSteps(steps.map((s) => s.id));
-  }
-
-  /**
-   * Impact of deleting a section (workflow looked up automatically).
-   */
-  async getSectionDeleteImpactById(sectionId: string, userId: string): Promise<DeleteImpact> {
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    return this.getSectionDeleteImpact(sectionId, section.workflowId, userId);
-  }
-
-  /**
-   * Reorder sections.
-   *
-   * A drag that moves a section above another can turn a valid forward
-   * `skip_to` rule into a backward one — `isForwardSkipTarget` then discards
-   * it at run time and the author is told nothing until the next publish
-   * (MAP-B4, decision D-5). The reorder itself always succeeds — this is a
-   * non-blocking warning, not a gate — but the caller gets back the rules
-   * the reorder just broke so the builder can say so immediately.
-   */
-  async reorderSections(
-    workflowId: string,
-    userId: string,
-    sectionOrders: Array<{ id: string; order: number }>
-  ): Promise<{ affectedSkipRules: ReorderSkipRuleWarning[] }> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
-
-    // Update each section's order
-    await db.transaction(async (tx) => {
-      for (const { id, order } of sectionOrders) {
-        await this.sectionRepo.updateOrder(id, workflowId, order, tx);
-      }
-    });
-
-    return { affectedSkipRules: await this.findBackwardSkipRules(workflowId) };
-  }
-
-  /**
-   * Every `skip_to` section rule whose target now sits at or before the
-   * section holding its condition question, evaluated against the
-   * workflow's *current* (post-reorder) section order. Reuses
-   * `isBackwardSkipTarget` — the same order comparison `checkSkipDirection`
-   * uses at publish time — rather than re-deriving it (MAP-B4).
-   */
-  private async findBackwardSkipRules(workflowId: string): Promise<ReorderSkipRuleWarning[]> {
-    const [sections, steps, rules] = await Promise.all([
-      this.sectionRepo.findByWorkflowId(workflowId),
-      // Include virtual steps: a rule's condition can reference a computed step too.
-      this.stepRepo.findByWorkflowId(workflowId, undefined, true),
-      this.logicRuleRepo.findByWorkflowId(workflowId),
-    ]);
-
-    const sectionById = new Map(sections.map((section) => [section.id, section]));
-    const sectionIdByStepId = new Map(steps.map((step) => [step.id, step.sectionId]));
-
-    const affected: ReorderSkipRuleWarning[] = [];
-    for (const rule of rules) {
-      if (rule.action !== "skip_to" || rule.targetType !== "section" || rule.targetSectionId === null) {
-        continue;
-      }
-
-      const targetSection = sectionById.get(rule.targetSectionId);
-      const conditionSectionId = sectionIdByStepId.get(rule.conditionStepId);
-      const conditionSection = conditionSectionId !== undefined ? sectionById.get(conditionSectionId) : undefined;
-      if (!targetSection || !conditionSection) {
-        continue;
-      }
-
-      if (isBackwardSkipTarget(targetSection.order, conditionSection.order)) {
-        affected.push({
-          ruleId: rule.id,
-          conditionSectionId: conditionSection.id,
-          conditionSectionTitle: conditionSection.title,
-          targetSectionId: targetSection.id,
-          targetSectionTitle: targetSection.title,
-        });
-      }
-    }
-
-    return affected;
-  }
-
-  /**
-   * Get sections for a workflow
-   */
-  async getSections(workflowId: string, userId: string): Promise<Section[]> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
-    return this.sectionRepo.findByWorkflowId(workflowId);
-  }
-
-  /**
-   * Get sections for a workflow without ownership check
-   * Used for preview/run token authentication
-   */
-  async getSectionsByWorkflowId(workflowId: string): Promise<Section[]> {
-    return this.sectionRepo.findByWorkflowId(workflowId);
-  }
-
-  /**
-   * Get section with steps
-   */
-  async getSectionWithSteps(sectionId: string, workflowId: string, userId: string): Promise<Section & { steps: Step[] }> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
-
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    const steps = await this.stepRepo.findBySectionId(sectionId);
-
-    return {
-      ...section,
-      steps,
-    };
-  }
-
-  /**
-   * Update section by ID only (looks up workflow automatically)
-   */
-  async updateSectionById(
+  async deleteSection(
     sectionId: string,
     userId: string,
-    data: Partial<InsertSection>
-  ): Promise<Section> {
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+    callerTx?: DbTransaction,
+  ): Promise<void> {
+    await this.withTx(callerTx, async (tx) => {
+      const initial = await this.sectionRepo.findById(sectionId, tx);
+      if (!initial) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
+      await this.workflowSvc.verifyAccess(initial.workflowId, userId, "edit", tx);
+      await this.sectionRepo.lockWorkflowStructure(initial.workflowId, tx);
 
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    return this.sectionRepo.update(sectionId, SectionService.stripImmutableFields(data));
-  }
+      const section = await this.sectionRepo.findByIdAndWorkflow(
+        sectionId,
+        initial.workflowId,
+        tx,
+      );
+      if (!section) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
 
-  /**
-   * Delete section by ID only (looks up workflow automatically).
-   * Soft-delete — ICW2-B1 — see `deleteSection` for the cascade rationale.
-   */
-  async deleteSectionById(sectionId: string, userId: string): Promise<void> {
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
-
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    await db.transaction(async (tx) => {
-      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
-      await this.sectionRepo.softDelete(sectionId, tx);
+      await this.sectionRepo.delete(sectionId, tx);
+      const activePages = await this.pageRepo.findByWorkflowId(initial.workflowId, tx);
+      const remainingSections = await this.sectionRepo.findByWorkflowId(initial.workflowId, tx);
+      assertValidSectionSpans(activePages, remainingSections);
     });
   }
 }
 
-// Singleton instance
 export const sectionService = new SectionService();

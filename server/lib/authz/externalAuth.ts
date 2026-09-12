@@ -2,11 +2,46 @@
 import { eq } from "drizzle-orm";
 import { Request, Response, NextFunction } from "express";
 
-import { oauthAccessTokens, apiKeys } from "@shared/schema";
+import { oauthAccessTokens, apiKeys, projects } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
 import { hashToken, verifyToken } from "../../utils/encryption";
+import { setCurrentTenantId, withVerifiedIdentifier } from "../../utils/rlsContext";
+
+/**
+ * RLS-5: an external credential is not a tenant JWT.
+ *
+ * Neither `attachUserToRequest` nor `cookieStrategy` runs for an OAuth token or
+ * an API key, so nothing populates the async tenant context — exactly the gap
+ * `runTokenAuth` had before RLS-2e. Every external route then reads `workflows`
+ * (covered) with no tenant pinned and, under enforcement, returns an EMPTY
+ * LIST rather than an error: the integration looks like it is working and
+ * silently sees none of the customer's data.
+ *
+ * `workspaceId` came from a verified token/key row, so it is a legitimately
+ * established value — pin it as `app.current_project_id` (migration 0033) just
+ * long enough to read the project it names, then bind that project's tenant
+ * for the rest of the request. Best-effort, matching `runTokenAuth`: if it
+ * cannot be resolved the context stays empty and downstream fails closed
+ * rather than inventing a tenant.
+ */
+async function bindTenantForWorkspace(workspaceId: string): Promise<void> {
+    try {
+        const project = await withVerifiedIdentifier(
+            'app.current_project_id',
+            workspaceId,
+            (tx) => tx.query.projects.findFirst({ where: eq(projects.id, workspaceId) }),
+        );
+        if (project?.tenantId) {
+            setCurrentTenantId(project.tenantId);
+        } else {
+            logger.warn({ workspaceId }, "External auth accepted but tenant could not be resolved; RLS-scoped reads will fail closed");
+        }
+    } catch (err) {
+        logger.warn({ err, workspaceId }, "Tenant resolution failed for external auth");
+    }
+}
 
 export interface ExternalAuthRequest extends Request {
     externalAuth?: {
@@ -48,6 +83,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
                 clientId: accessToken.clientId,
                 userId: accessToken.userId ?? undefined
             };
+            await bindTenantForWorkspace(accessToken.workspaceId);
             return next();
 
         } catch (err) {
@@ -85,12 +121,14 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
              // eslint-disable-next-line @typescript-eslint/no-floating-promises
              /* await */ db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, keyRecord.id));
 
+            const apiKeyWorkspaceId = (keyRecord as Record<string, unknown>).workspaceId as string;
             req.externalAuth = {
                 type: 'api_key',
-                workspaceId: (keyRecord as Record<string, unknown>).workspaceId as string,
+                workspaceId: apiKeyWorkspaceId,
                 scopes: keyRecord.scopes,
                 apiKeyId: keyRecord.id
             };
+            await bindTenantForWorkspace(apiKeyWorkspaceId);
             return next();
 
         } catch (err) {

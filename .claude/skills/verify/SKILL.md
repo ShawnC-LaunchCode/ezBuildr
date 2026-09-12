@@ -108,6 +108,35 @@ and membership — copy from there if your change touches org-level ACLs.
    authenticated request *before* attaching the tenant, a stale row can linger
    briefly. Attach the tenant first and you will never see it.
 
+### Getting an authenticated *browser* (not just a token)
+
+The recipe above gives you a bearer token for `curl`. It does **not** get you a
+logged-in browser, and you cannot bridge the two by injecting the token: the
+client holds it in a module-scoped variable (`globalAccessToken` in
+`client/src/lib/vault-api.ts`), never in `localStorage`, so `browser_evaluate`
+cannot reach it. Verified 2026-08-28, and this is the sequence that works:
+
+1. **Register through the UI** at `/auth/register` — test mode leaves the gate
+   open. This sets the httpOnly `refresh_token` cookie, which is the part you
+   actually need.
+2. It then redirects you to `/auth/login`. **Do not try to log in** — trap 2
+   still applies. Instead run a probe that finds the user by email and sets
+   `tenantId`, `role`, `tenantRole` **and `emailVerified: true`**.
+3. **Navigate anywhere.** The app refreshes from the cookie, re-hydrates the
+   tenant from the database, and you are simply signed in — no login form.
+
+To get a bearer token back *out* of that browser session for `curl`, call
+**`POST /api/auth/refresh-token`**. Note the name: there is no `/api/auth/refresh`,
+and hitting it returns the SPA's `index.html`, which surfaces as
+`SyntaxError: Unexpected token '<'` from `res.json()` and looks like an auth
+failure rather than a wrong path.
+
+```js
+// browser_evaluate
+const r = await fetch('/api/auth/refresh-token', { method: 'POST', credentials: 'include' });
+return (await r.json()).token;      // ~355 chars, good for Authorization: Bearer
+```
+
 ### Cleaning up — and the trap that leaks fixtures
 
 You are writing to the **dev database**, which the repo owner also uses from a
@@ -267,12 +296,25 @@ el.setAttribute('data-claude-target', '1');   // in browser_evaluate
 **Always confirm the value stuck** — read the input back, *and* read the persisted
 config over the API.
 
-### Screenshots land in the repo root
+### Screenshots land in the repo root — of the *main* checkout
 
 `browser_take_screenshot` with a bare `filename` writes to the **current working
 directory**, not `.playwright-mcp/`. That drops untracked `.png` files where they
 can be swept into a commit. Pass `.playwright-mcp/shot.png` explicitly, or move
 them afterwards — only `.playwright-mcp/` is gitignored.
+
+**And in a worktree, that path still resolves against the main checkout.**
+Verified 2026-08-28: driving a server started from `.claude/worktrees/p1-verify`,
+every `filename` — screenshots *and* `browser_evaluate`'s `filename` output —
+landed in `C:\Users\scoot\poll\ezBuildr\.playwright-mcp\`, not the worktree's.
+Harmless (that directory is gitignored), but you will chase a "missing" file if
+you expect it beside your worktree. Read such files back from the main checkout's
+path.
+
+One Windows follow-on: `python` is a native binary and does **not** understand
+Git Bash's `/c/Users/...` form. `cat /c/...` works because bash rewrites it;
+`json.load(open('/c/...'))` raises `FileNotFoundError`. Use `C:/Users/...` in
+anything you hand to a native tool.
 
 ### Things that look like bugs and aren't
 

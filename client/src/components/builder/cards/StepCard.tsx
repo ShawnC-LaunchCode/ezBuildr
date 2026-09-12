@@ -39,7 +39,7 @@ import { StepTitleRow } from "./common/StepTitleRow";
 
 interface StepCardProps {
     step: ApiStep;
-    sectionId: string;
+    pageId: string;
     workflowId: string;
     isExpanded?: boolean;
     autoFocus?: boolean;
@@ -53,7 +53,7 @@ interface StepCardProps {
 
 export function StepCard({
     step,
-    sectionId,
+    pageId,
     workflowId,
     isExpanded = false,
     autoFocus = false,
@@ -106,7 +106,10 @@ export function StepCard({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: step.id });
+    } = useSortable({
+        id: step.id,
+        data: { kind: "step", stepId: step.id, pageId },
+    });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -115,12 +118,12 @@ export function StepCard({
 
     // Immediate update handlers with optimistic rendering
     const handleTitleChange = (value: string) => {
-        updateStepMutation.mutate({ id: step.id, sectionId, title: value });
+        updateStepMutation.mutate({ id: step.id, pageId, title: value });
     };
 
     const performDelete = async () => {
         try {
-            await deleteStepMutation.mutateAsync({ id: step.id, sectionId });
+            await deleteStepMutation.mutateAsync({ id: step.id, pageId });
             toast({
                 title: "Question deleted",
                 description: "Question removed from page",
@@ -158,7 +161,7 @@ export function StepCard({
 
     const handleDuplicate = async () => {
         try {
-            await duplicateStepMutation.mutateAsync({ id: step.id, sectionId });
+            await duplicateStepMutation.mutateAsync({ id: step.id, pageId });
             toast({
                 title: "Question duplicated",
                 description: "A copy was added to this page",
@@ -183,6 +186,7 @@ export function StepCard({
                         {/* Drag Handle */}
                         <button
                             className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded mt-1"
+                            aria-label={`Reorder question ${step.title}`}
                             {...attributes}
                             {...listeners}
                         >
@@ -192,7 +196,7 @@ export function StepCard({
                         {/* Icon and Collapse Button (stacked vertically) */}
                         <div className="flex flex-col items-center gap-1">
                             <div className="mt-2 relative">
-                                {getQuestionTypeIcon(step.type)}
+                                {getQuestionTypeIcon(step.type, step.config)}
                                 {/* Show logic indicator when collapsed */}
                                 {!isExpanded && !!step.visibleIf && (
                                     <div className="absolute -top-1 -right-1">
@@ -257,7 +261,7 @@ export function StepCard({
 
                             {/* Expanded Content - Rendered by Router */}
                             {isExpanded && (
-                                <StepEditorRouter step={step} sectionId={sectionId} workflowId={workflowId} />
+                                <StepEditorRouter step={step} pageId={pageId} workflowId={workflowId} />
                             )}
                         </div>
                     </div>

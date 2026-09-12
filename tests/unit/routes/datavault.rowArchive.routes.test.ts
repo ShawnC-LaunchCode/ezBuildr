@@ -76,14 +76,25 @@ vi.mock('../../../server/services/DatavaultDatabasesService', () => ({
   datavaultDatabasesService: {},
 }));
 
-vi.mock('../../../server/logger', () => ({
-  logger: {
+// RLS-2b: server/utils/rlsContext.ts (now imported by
+// server/routes/datavault/options.routes.ts, reachable via
+// registerDatavaultRoutes below) calls createLogger at module load — add it
+// to this mock or that import throws "No createLogger export is defined".
+// The noop object is defined INSIDE the factory (not hoisted-in from an
+// outer const) because vi.mock factories are hoisted above top-level
+// variable initialization.
+vi.mock('../../../server/logger', () => {
+  const noopLogger = {
     debug: () => undefined,
     info: () => undefined,
     warn: () => undefined,
     error: () => undefined,
-  },
-}));
+  };
+  return {
+    logger: noopLogger,
+    createLogger: () => noopLogger,
+  };
+});
 
 interface MockedRowsService {
   getRow: Mock;

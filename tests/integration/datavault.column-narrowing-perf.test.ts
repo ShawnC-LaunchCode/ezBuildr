@@ -1,6 +1,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
+// RLS-5: reads are scoped, or the benchmark measures an empty table under the
+// restricted role — and scoped is what the application does now anyway.
+import { enterTenantContextForTests, withTenant } from '../../server/utils/rlsContext';
 import { seedWideDatavaultTable, type SeedWideDatavaultResult } from '../helpers/datavaultSeeder';
 
 describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
@@ -13,6 +16,8 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
   });
 
   it('measures payload size and query time on a 50-column table (full vs narrowed fetch)', async () => {
+    // RLS-2b: calls the converted service directly (no HTTP), so bind the tenant
+    // context the rlsContext middleware would otherwise have set.
     console.log('\n===============================================================');
     console.log('   DVP-3: WIDE TABLE (50 COLUMNS) COLUMN NARROWING BENCHMARK   ');
     console.log('===============================================================\n');
@@ -20,6 +25,7 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
     // 1. Seed 50 columns x 1000 rows = 50,000 values
     const seedStart = Date.now();
     seededData = await seedWideDatavaultTable({ columnCount: 50, rowCount: 1000, batchSize: 500 });
+    enterTenantContextForTests(seededData.tenantId);
     const seedDurationMs = Date.now() - seedStart;
 
     console.log(`  [ok] Table ID: ${seededData.tableId}`);
@@ -36,8 +42,8 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
     const targetColIds = targetCols.map((c) => c.id);
 
     // Warm-up queries
-    await datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0 });
-    await datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0, columnIds: targetColIds });
+    await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0 }, tx));
+    await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0, columnIds: targetColIds }, tx));
 
     const iterations = 5;
 
@@ -48,7 +54,7 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
 
     for (let i = 0; i < iterations; i++) {
       const t0 = performance.now();
-      fullRows = await datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0 });
+      fullRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.getRowsWithValues(seededData.tableId, { limit: 100, offset: 0 }, tx));
       const t1 = performance.now();
       fullDurationTotal += t1 - t0;
       if (i === 0) {
@@ -73,11 +79,11 @@ describe('DataVault Wide Table Column Narrowing Benchmark (DVP-3)', () => {
 
     for (let i = 0; i < iterations; i++) {
       const t0 = performance.now();
-      narrowedRows = await datavaultRowsRepository.getRowsWithValues(seededData.tableId, {
+      narrowedRows = await withTenant(seededData.tenantId, (tx) => datavaultRowsRepository.getRowsWithValues(seededData.tableId, {
         limit: 100,
         offset: 0,
         columnIds: targetColIds,
-      });
+      }, tx));
       const t1 = performance.now();
       narrowedDurationTotal += t1 - t0;
       if (i === 0) {

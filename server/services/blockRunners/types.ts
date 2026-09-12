@@ -86,8 +86,6 @@ export interface BlockRunnerDependencies {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   blockService?: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  transformBlockService?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   collectionService?: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recordService?: any;

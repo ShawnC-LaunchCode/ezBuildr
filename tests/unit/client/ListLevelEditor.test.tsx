@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ListLevelEditor } from '../../../client/src/components/builder/cards/list/ListLevelEditor';
-import { reorderFields, removeField } from '../../../client/src/components/builder/cards/list/listEditorHelpers';
+import {
+  changeFieldType,
+  createQuestionField,
+  LONG_TEXT_FIELD_PRESET,
+  reorderFields,
+  removeField,
+  SHORT_TEXT_FIELD_PRESET,
+} from '../../../client/src/components/builder/cards/list/listEditorHelpers';
 
 import { LIST_VALIDATION_MAX_DEPTH } from '@shared/validation/BlockValidation';
 import type { ListConfig, ListField } from '@shared/types/stepConfigs';
@@ -144,6 +151,8 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
     // Sanity: the palette is actually populated, so the absences below are a
     // real filter, not an empty menu.
     expect(screen.getByText('Short Text')).toBeInTheDocument();
+    expect(screen.getByText('Long Text')).toBeInTheDocument();
+    expect(screen.queryByText('Text', { exact: true })).not.toBeInTheDocument();
     // Both "list" and "js_question" have BLOCK_REGISTRY entries — if the
     // LIST_FIELD_QUESTION_TYPES filter were ever dropped in favor of
     // rendering BLOCK_REGISTRY directly, these would reappear.
@@ -168,6 +177,95 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
     expect(nextConfig.fields[0]).toMatchObject({ kind: 'question', type: 'email' });
   });
 
+  it.each([
+    ['Short Text', 'short'],
+    ['Long Text', 'long'],
+  ] as const)('appends %s with canonical type and an explicit %s variant', async (label, variant) => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={onChange} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label));
+
+    const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
+    expect(nextConfig.fields[0]).toMatchObject({
+      kind: 'question',
+      type: 'text',
+      config: { variant },
+    });
+  });
+
+  it('renders distinct presentation marks for the Short Text and Long Text presets', async () => {
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={vi.fn()} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    const shortIcon = within(screen.getByRole('menuitem', { name: /Short Text/ })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('menuitem', { name: /Long Text/ })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(shortIcon.textContent).not.toBe(longIcon.textContent);
+  });
+
+  it('shows friendly text-family presentation for legacy text rows', () => {
+    const config: ListConfig = {
+      fields: [
+        questionField({ id: 'short', alias: 'short', title: 'Legacy short', order: 0, type: 'short_text' }),
+        questionField({ id: 'long', alias: 'long', title: 'Legacy long', order: 1, type: 'long_text' }),
+      ],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const shortIcon = within(screen.getByRole('button', { name: 'Short Text' })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('button', { name: 'Long Text' })).getByTitle('Long Text');
+    expect(shortIcon).toHaveClass('bg-qtype-text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveClass('bg-qtype-text');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(screen.queryByTitle('short_text')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('long_text')).not.toBeInTheDocument();
+  });
+
+  it('keeps canonical text field labels and icons aligned with their variants', () => {
+    const config: ListConfig = {
+      fields: [
+        questionField({
+          id: 'short', alias: 'short', title: 'Canonical short', order: 0,
+          type: 'text', config: { variant: 'short' },
+        }),
+        questionField({
+          id: 'long', alias: 'long', title: 'Canonical long', order: 1,
+          type: 'text', config: { variant: 'long' },
+        }),
+      ],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const shortIcon = within(screen.getByRole('button', { name: 'Short Text' })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('button', { name: 'Long Text' })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(screen.queryByRole('button', { name: 'Text' })).not.toBeInTheDocument();
+  });
+
+  it('leaves a bare canonical text field on the registry presentation', () => {
+    const config: ListConfig = {
+      fields: [questionField({
+        id: 'bare', alias: 'bare', title: 'Bare text', order: 0, type: 'text',
+      })],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    const icon = within(screen.getByRole('button', { name: 'Text' })).getByTitle('Text');
+    expect(icon).toHaveTextContent('T');
+    expect(screen.queryByRole('button', { name: 'Short Text' })).not.toBeInTheDocument();
+  });
+
   it('reuses the same palette component to change an existing field\'s type (AC6)', async () => {
     const config: ListConfig = {
       fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0, type: 'short_text' })],
@@ -182,6 +280,81 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
     expect(nextConfig.fields[0]).toMatchObject({ kind: 'question', type: 'number' });
+  });
+});
+
+describe('listEditorHelpers — canonical text transitions', () => {
+  it.each([
+    ['short_text', 'short'],
+    ['long_text', 'long'],
+  ] as const)('canonicalizes legacy %s when creating a field', (legacyType, variant) => {
+    expect(createQuestionField([], legacyType)).toMatchObject({
+      kind: 'question',
+      type: 'text',
+      config: { variant },
+    });
+  });
+
+  it.each([
+    ['short_text', 'short'],
+    ['long_text', 'long'],
+  ] as const)(
+    'canonicalizes legacy %s and drops incompatible prior config when changing a field',
+    (legacyType, variant) => {
+      const numberField = questionField({
+        id: 'number', alias: 'amount', title: 'Amount', order: 0, type: 'number',
+        config: { min: 1, max: 100 },
+      });
+
+      const changed = changeFieldType(numberField, legacyType);
+
+      expect(changed).toMatchObject({
+        kind: 'question',
+        type: 'text',
+        config: { variant },
+      });
+      expect((changed as { config?: unknown }).config).toEqual({ variant });
+    }
+  );
+
+  it('drops incompatible prior config when a non-text field becomes Long Text', () => {
+    const numberField = questionField({
+      id: 'number', alias: 'amount', title: 'Amount', order: 0, type: 'number',
+      config: { min: 1, max: 100 },
+    });
+
+    expect(changeFieldType(numberField, LONG_TEXT_FIELD_PRESET)).toMatchObject({
+      kind: 'question',
+      type: 'text',
+      config: { variant: 'long' },
+    });
+    expect((changeFieldType(numberField, LONG_TEXT_FIELD_PRESET) as { config?: unknown }).config)
+      .toEqual({ variant: 'long' });
+  });
+
+  it('preserves applicable text config while changing the canonical variant', () => {
+    const longText = questionField({
+      id: 'notes', alias: 'notes', title: 'Notes', order: 0, type: 'text',
+      config: {
+        variant: 'long',
+        placeholder: 'Details',
+        helpText: 'Stored only',
+        autoComplete: 'off',
+        validation: { minLength: 3, maxLength: 200, pattern: '^A', patternMessage: 'Start A' },
+      },
+    });
+
+    expect(changeFieldType(longText, SHORT_TEXT_FIELD_PRESET)).toMatchObject({
+      kind: 'question',
+      type: 'text',
+      config: {
+        variant: 'short',
+        placeholder: 'Details',
+        helpText: 'Stored only',
+        autoComplete: 'off',
+        validation: { minLength: 3, maxLength: 200, pattern: '^A', patternMessage: 'Start A' },
+      },
+    });
   });
 });
 

@@ -15,9 +15,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { users, userCredentials, workflows } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 import { TestFactory } from "../../helpers/testFactory";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 
 
@@ -62,7 +64,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
 
         const userId = registerRes.body.user.id;
 
-        await db.update(users)
+        await getOwnerDb().update(users)
             .set({ emailVerified: true })
             .where(eq(users.id, userId));
 
@@ -76,10 +78,10 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         if (loginRes.status !== 200) {
             console.error("Login Failed!", loginRes.status, loginRes.body);
             // Check DB
-            const userInDb = await db.query.users.findFirst({ where: eq(users.email, testUser.email) });
+            const userInDb = await getOwnerDb().query.users.findFirst({ where: eq(users.email, testUser.email) });
             console.log("User in DB:", userInDb);
             if (userInDb) {
-                const creds = await db.query.userCredentials.findFirst({ where: eq(userCredentials.userId, userInDb.id) });
+                const creds = await getOwnerDb().query.userCredentials.findFirst({ where: eq(userCredentials.userId, userInDb.id) });
                 console.log("Creds in DB:", creds);
             }
         }
@@ -212,7 +214,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                 .send(user2)
                 .expect(201);
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
 
@@ -268,10 +270,10 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                     requireLogin: false,
                 },
             });
-            const section = await factory.createSection(created.workflow.id);
-            await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
+            const page = await factory.createPage(created.workflow.id);
+            await factory.createStep(page.id, { alias: `q${nanoid(6)}` });
             // An anonymous run requires a published version to pin to.
-            await db.update(workflows)
+            await getOwnerDb().update(workflows)
                 .set({ currentVersionId: created.version.id })
                 .where(eq(workflows.id, created.workflow.id));
             return created.workflow.publicLink!;
@@ -349,7 +351,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
                 .send(user2)
                 .expect(201);
 
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
 

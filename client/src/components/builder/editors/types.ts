@@ -5,7 +5,7 @@ import type { ApiStep } from "@/lib/vault-api";
 
 export interface StepEditorProps {
     step: ApiStep;
-    sectionId: string;
+    pageId: string;
     workflowId: string;
     // Optional: Pass the mode explicitly if calculated upstream to avoid recalculating in every child
     mode?: 'easy' | 'advanced';

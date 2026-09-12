@@ -23,11 +23,10 @@ import type {
 } from "@shared/types/conditions";
 import type {
   ChoiceAdvancedConfig,
-  DisplayAdvancedConfig,
   DisplayConfig,
   ListField,
   MultiFieldConfig,
-  ScaleAdvancedConfig,
+  ScaleConfig,
   StepConfig,
 } from "@shared/types/stepConfigs";
 
@@ -69,7 +68,7 @@ function renderTypeSettings(field: QuestionListField, onConfigChange: (config: S
     case "scale":
       return (
         <ScaleSettingsSection
-          config={field.config as ScaleAdvancedConfig | undefined}
+          config={field.config as ScaleConfig | undefined}
           onChange={onConfigChange}
         />
       );
@@ -84,7 +83,7 @@ function renderTypeSettings(field: QuestionListField, onConfigChange: (config: S
     case "display":
       return (
         <DisplayContentSection
-          config={field.config as DisplayConfig | DisplayAdvancedConfig | undefined}
+          config={field.config as DisplayConfig | undefined}
           onChange={onConfigChange}
         />
       );
@@ -145,8 +144,8 @@ function buildSiblingVariables(siblingFields: readonly ListField[]): VariableInf
     // short_text operators in getOperatorsForStepType, which is the existing
     // behavior this reuses rather than reinvents.
     type: (sibling.kind === "question" ? sibling.type : "list") as VariableInfo["type"],
-    sectionId: "this-item",
-    sectionTitle: "This item's fields",
+    pageId: "this-item",
+    pageTitle: "This item's fields",
   }));
 }
 
@@ -160,7 +159,7 @@ function buildSiblingVariables(siblingFields: readonly ListField[]): VariableInf
  * authoring component is controlled, never self-saving). It instead renders
  * `LogicBuilder` itself (LU-2, Decision #2) with an injected sibling variable
  * list in place of `LogicBuilder`'s own `useWorkflowVariables` fetch — the
- * same toggle, condition-tree editor, and empty-state handling steps/sections
+ * same toggle, condition-tree editor, and empty-state handling steps/pages
  * get, scoped to `item.values` operands instead of workflow variables.
  */
 function FieldVisibilitySection({

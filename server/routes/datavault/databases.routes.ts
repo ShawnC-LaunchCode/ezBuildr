@@ -10,6 +10,7 @@ import { classifyRouteError } from '../../utils/routeErrors';
 import { validationMessages } from '../../utils/validationMessages';
 
 import { AuditLogger } from '../../lib/audit/auditLogger';
+import { withCurrentTenant } from "../../utils/rlsContext";
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
@@ -41,7 +42,7 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         if (scopeId && typeof scopeId === 'string') {
           if (scopeType === 'project') {
             // Verify user has at least 'view' access to the project
-            const projectRole = await aclService.resolveRoleForProject(userId, scopeId);
+            const projectRole = await withCurrentTenant((aclTx) => aclService.resolveRoleForProject(userId, scopeId, aclTx));
             if (projectRole === 'none') {
               return res.status(403).json({
                 message: 'Access denied: You do not have permission to view this project'
@@ -49,7 +50,7 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
             }
           } else if (scopeType === 'workflow') {
             // Verify user has at least 'view' access to the workflow
-            const workflowRole = await aclService.resolveRoleForWorkflow(userId, scopeId);
+            const workflowRole = await withCurrentTenant((aclTx) => aclService.resolveRoleForWorkflow(userId, scopeId, aclTx));
             if (workflowRole === 'none') {
               return res.status(403).json({
                 message: 'Access denied: You do not have permission to view this workflow'

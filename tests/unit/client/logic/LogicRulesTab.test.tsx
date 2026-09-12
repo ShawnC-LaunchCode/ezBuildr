@@ -2,7 +2,7 @@
 /**
  * LogicRulesTab (LU-6b) — the workflow-scoped rule list: create, edit,
  * delete, and reorder. Ordering is author-visible (AC2): `evaluateRules`
- * (shared/workflowLogic.ts) sorts section-targeted rules by `order` and the
+ * (shared/workflowLogic.ts) sorts page-targeted rules by `order` and the
  * first firing `skip_to` wins.
  *
  * `LogicRuleEditor`'s own target/action-pairing coverage lives in
@@ -49,10 +49,10 @@ vi.mock('@/hooks/api/useLogicRules', () => ({
 }));
 
 vi.mock('@/lib/vault-hooks', () => ({
-  useSections: () => ({
+  usePages: () => ({
     data: [
-      { id: 'section-1', title: 'Section One' },
-      { id: 'section-2', title: 'Section Two' },
+      { id: 'page-1', title: 'Page One' },
+      { id: 'page-2', title: 'Page Two' },
     ],
   }),
   useWorkflowSteps: () => ({
@@ -92,7 +92,7 @@ function rule(overrides: Partial<ApiLogicRule>): ApiLogicRule {
     when: FAKE_WHEN,
     targetType: 'step',
     targetStepId: 'step-2',
-    targetSectionId: null,
+    targetPageId: null,
     action: 'show',
     order: 1,
     ...overrides,
@@ -131,16 +131,16 @@ describe('LogicRulesTab — rendering existing rules', () => {
     expect(within(row).getByText(/When:/)).toBeInTheDocument();
   });
 
-  it('resolves a section target label from the sections list', () => {
+  it('resolves a page target label from the pages list', () => {
     listRulesMock.mockReturnValue({
-      data: [rule({ id: 'r1', action: 'skip_to', targetType: 'section', targetStepId: null, targetSectionId: 'section-2' })],
+      data: [rule({ id: 'r1', action: 'skip_to', targetType: 'page', targetStepId: null, targetPageId: 'page-2' })],
       isLoading: false,
     });
     render(<LogicRulesTab workflowId="wf-1" />);
 
     const row = screen.getByTestId('logic-rule-r1');
     expect(within(row).getByText('Skip to')).toBeInTheDocument();
-    expect(within(row).getByText('Section Two')).toBeInTheDocument();
+    expect(within(row).getByText('Page Two')).toBeInTheDocument();
   });
 });
 
@@ -150,18 +150,18 @@ describe('LogicRulesTab — create (AC1)', () => {
     render(<LogicRulesTab workflowId="wf-1" />);
 
     fireEvent.click(screen.getByText('Add rule'));
-    // Section target type is the editor's default; a target must still be chosen.
+    // Page target type is the editor's default; a target must still be chosen.
     const user = userEvent.setup();
     await user.click(document.getElementById('rule-target')!);
-    await user.click(await screen.findByRole('option', { name: 'Section One' }));
+    await user.click(await screen.findByRole('option', { name: 'Page One' }));
     fireEvent.click(screen.getByText('set-condition'));
     fireEvent.click(screen.getByText('Add rule'));
 
     expect(createMutateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'wf-1',
-        targetType: 'section',
-        targetSectionId: 'section-1',
+        targetType: 'page',
+        targetPageId: 'page-1',
         action: 'show',
         when: FAKE_WHEN,
       }),

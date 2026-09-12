@@ -12,12 +12,13 @@ import {
     boolean,
     integer,
     pgEnum,
+    pgPolicy,
     check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 import { users, tenants } from './auth';
-import { projects, workflows, workflowVersions, sections, steps, templates, workflowTemplates, transformBlocks } from './workflow';
+import { projects, workflows, workflowVersions, pages, steps, templates, workflowTemplates } from './workflow';
 
 // ===================================================================
 // ENUMS
@@ -29,7 +30,6 @@ export const signatureRequestStatusEnum = pgEnum('signature_request_status', ['p
 export const signatureProviderEnum = pgEnum('signature_provider', ['native', 'docusign', 'hellosign']);
 export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined', 'completed', 'voided', 'expired']);
 
-export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', ['success', 'timeout', 'error']);
 export const scriptExecutionStatusEnum = pgEnum('script_execution_status', ['success', 'error', 'timeout']);
 
 export const portalAccessModeEnum = pgEnum('portal_access_mode', ['anonymous', 'token', 'portal']);
@@ -50,11 +50,18 @@ export const workflowRuns = pgTable("workflow_runs", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }),
     runToken: text("run_token").notNull().unique(),
+    executionMode: text("execution_mode").$type<'live' | 'preview'>().default('live').notNull(),
+    previewExpiresAt: timestamp("preview_expires_at", { withTimezone: true }),
+    previewRetiredAt: timestamp("preview_retired_at", { withTimezone: true }),
+    previewLeaseOwner: uuid("preview_lease_owner"),
+    previewLeaseExpiresAt: timestamp("preview_lease_expires_at", { withTimezone: true }),
+    previewArtifacts: text("preview_artifacts").array().default(sql`'{}'::text[]`).notNull(),
     // Absolute expiry for the run token (bearer credential). NULL = grandfathered
     // (never expires); set on new runs so leaked run links stop working eventually.
     tokenExpiresAt: timestamp("token_expires_at"),
     createdBy: text("created_by"), // "creator:<userId>" or "anon"
-    currentSectionId: uuid("current_section_id").references(() => sections.id, { onDelete: 'set null' }),
+    currentPageId: uuid("current_page_id").references(() => pages.id, { onDelete: 'set null' }),
+    visitedPageIds: uuid("visited_page_ids").array().default(sql`'{}'::uuid[]`).notNull(),
     progress: integer("progress").default(0),
     completed: boolean("completed").default(false),
     completedAt: timestamp("completed_at"),
@@ -74,15 +81,38 @@ export const workflowRuns = pgTable("workflow_runs", {
     ownerUuid: varchar("owner_uuid"),
 }, (table) => [
     index("workflow_runs_workflow_idx").on(table.workflowId),
+    index("workflow_runs_preview_expiry_idx").on(table.previewExpiresAt).where(sql`${table.executionMode} = 'preview'`),
+    check("workflow_runs_execution_mode_check", sql`${table.executionMode} IN ('live', 'preview')`),
+    check("workflow_runs_preview_identity_check", sql`${table.executionMode} = 'live' OR (${table.previewExpiresAt} IS NOT NULL AND ${table.workflowVersionId} IS NOT NULL AND ${table.createdBy} IS NOT NULL)`),
     index("workflow_runs_version_idx").on(table.workflowVersionId),
     index("workflow_runs_completed_idx").on(table.completed),
     index("workflow_runs_run_token_idx").on(table.runToken),
     index("workflow_runs_share_token_idx").on(table.shareTokenHash),
-    index("workflow_runs_current_section_idx").on(table.currentSectionId),
+    index("workflow_runs_current_page_idx").on(table.currentPageId),
     index("workflow_runs_created_at_idx").on(table.createdAt),
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
     index("workflow_runs_assigned_user_idx").on(table.assignedToUserId),
     index("workflow_runs_portal_access_key_idx").on(table.portalAccessKey),
+]);
+
+export const codeBlockRuns = pgTable("code_block_runs", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    stepId: uuid("step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
+    inputHash: text("input_hash"),
+    status: text("status").$type<'fired' | 'skipped_unready' | 'skipped_unchanged' | 'error'>().notNull(),
+    pendingInputs: text("pending_inputs").array().default(sql`'{}'::text[]`).notNull(),
+    errorMessage: text("error_message"),
+    firedAt: timestamp("fired_at"),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex("code_block_runs_run_step_unique").on(table.runId, table.stepId),
+    check("code_block_runs_status_check", sql`${table.status} IN ('fired', 'skipped_unready', 'skipped_unchanged', 'error')`),
+    pgPolicy("tenant_isolation", {
+        for: 'all',
+        using: sql`EXISTS (SELECT 1 FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.id = ${table.runId} AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id) = app_current_tenant())`,
+        withCheck: sql`EXISTS (SELECT 1 FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.id = ${table.runId} AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id) = app_current_tenant())`,
+    }),
 ]);
 
 /**
@@ -139,6 +169,47 @@ export const runCompletionJobs = pgTable("run_completion_jobs", {
     check("run_completion_jobs_max_attempts_check", sql`${table.maxAttempts} > 0`),
     check("run_completion_jobs_status_check", sql`${table.status} IN ('pending', 'processing', 'retry', 'succeeded', 'dead_letter')`),
 ]);
+
+/**
+ * CB-9a-2: the durable identity of ONE logical submission.
+ *
+ * A single user action ("Next") is two HTTP requests — submit, then next — and
+ * both used to call `evaluateAll(..., 'submit', ...)`. That fired every
+ * `repeat: 'always'` block twice per action and let the second pass overwrite a
+ * `fired` state with `skipped_unchanged` before the client could read it.
+ *
+ * The fix is a shared logical-operation boundary rather than a change to what
+ * `onChange` means: both requests carry the same client-generated
+ * `submission_key`, the first one executes and records its result here, and the
+ * second navigates without re-evaluating. A retry after a lost response finds a
+ * finished row and replays the stored response instead of executing again —
+ * which is why this is persisted rather than held in memory or inferred from a
+ * client-side pending flag. A block's input hash is a CHANGE gate, never
+ * request idempotency: identical inputs are exactly when a replay is most
+ * dangerous for an `always` block.
+ */
+export const runSubmissions = pgTable("run_submissions", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    /** Client-generated idempotency key, unique per run. */
+    submissionKey: varchar("submission_key", { length: 200 }).notNull(),
+    pageId: uuid("page_id"),
+    status: varchar("status", { length: 20 }).default('in_progress').notNull(),
+    /** The submit response to replay verbatim on a retry of the same key. */
+    response: jsonb("response"),
+    /** The navigation result of the paired `next`, replayed the same way. */
+    navigation: jsonb("navigation"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => [
+    // The whole mechanism: a second attempt at the same key cannot insert.
+    uniqueIndex("run_submissions_run_key_unique").on(table.runId, table.submissionKey),
+    index("run_submissions_run_idx").on(table.runId),
+    check("run_submissions_status_check", sql`${table.status} IN ('in_progress', 'succeeded', 'failed')`),
+]);
+
+export type RunSubmission = InferSelectModel<typeof runSubmissions>;
+export type InsertRunSubmission = InferInsertModel<typeof runSubmissions>;
 
 // Step values (Answers)
 export const stepValues = pgTable("step_values", {
@@ -233,21 +304,6 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     index("run_generated_documents_run_idx").on(table.runId),
 ]);
 
-// Transform Block Runs
-export const transformBlockRuns = pgTable("transform_block_runs", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
-    blockId: uuid("block_id").references(() => transformBlocks.id, { onDelete: 'cascade' }).notNull(),
-    startedAt: timestamp("started_at").defaultNow().notNull(),
-    finishedAt: timestamp("finished_at"),
-    status: transformBlockRunStatusEnum("status").notNull(),
-    errorMessage: text("error_message"),
-    outputSample: jsonb("output_sample"),
-}, (table) => [
-    index("transform_block_runs_run_idx").on(table.runId),
-    index("transform_block_runs_block_idx").on(table.blockId),
-]);
-
 // Script Execution Log
 export const scriptExecutionLog = pgTable("script_execution_log", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -336,7 +392,7 @@ export const aiWorkflowFeedback = pgTable("ai_workflow_feedback", {
     qualityPassed: boolean("quality_passed"),
     issuesCount: integer("issues_count"),
     requestDescription: text("request_description"),
-    generatedSections: integer("generated_sections"),
+    generatedPages: integer("generated_pages"),
     generatedSteps: integer("generated_steps"),
     wasEdited: boolean("was_edited").default(false),
     editCount: integer("edit_count").default(0),
@@ -460,6 +516,7 @@ export const sliWindows = pgTable("sli_windows", {
 // ===================================================================
 
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
+export const insertCodeBlockRunSchema = createInsertSchema(codeBlockRuns);
 export const insertRunResumeLinkSchema = createInsertSchema(runResumeLinks);
 export const insertRunCompletionJobSchema = createInsertSchema(runCompletionJobs);
 export const insertStepValueSchema = createInsertSchema(stepValues);
@@ -467,7 +524,6 @@ export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
 export const insertSignatureRequestSchema = createInsertSchema(signatureRequests);
 export const insertSignatureEventSchema = createInsertSchema(signatureEvents);
 export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments);
-export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns);
 export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog);
 
 // Analytics Inserts
@@ -478,6 +534,8 @@ export const insertSliWindowSchema = createInsertSchema(sliWindows);
 
 // Types
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
+export type CodeBlockRun = InferSelectModel<typeof codeBlockRuns>;
+export type InsertCodeBlockRun = InferInsertModel<typeof codeBlockRuns>;
 export type InsertWorkflowRun = InferInsertModel<typeof workflowRuns>;
 export type RunResumeLink = InferSelectModel<typeof runResumeLinks>;
 export type InsertRunResumeLink = InferInsertModel<typeof runResumeLinks>;
@@ -495,8 +553,6 @@ export type SignatureEvent = InferSelectModel<typeof signatureEvents>;
 export type InsertSignatureEvent = InferInsertModel<typeof signatureEvents>;
 export type RunGeneratedDocument = InferSelectModel<typeof runGeneratedDocuments>;
 export type InsertRunGeneratedDocument = InferInsertModel<typeof runGeneratedDocuments>;
-export type TransformBlockRun = InferSelectModel<typeof transformBlockRuns>;
-export type InsertTransformBlockRun = InferInsertModel<typeof transformBlockRuns>;
 export type ScriptExecutionLog = InferSelectModel<typeof scriptExecutionLog>;
 export type InsertScriptExecutionLog = InferInsertModel<typeof scriptExecutionLog>;
 

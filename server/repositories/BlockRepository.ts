@@ -51,11 +51,11 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
   }
 
   /**
-   * Find blocks by section ID and phase
+   * Find blocks by page ID and phase
    * Returns enabled blocks ordered by order field
    */
-  async findBySectionPhase(
-    sectionId: string,
+  async findByPagePhase(
+    pageId: string,
     phase: BlockPhase,
     tx?: DbTransaction
   ): Promise<Block[]> {
@@ -65,7 +65,7 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
       .from(blocks)
       .where(
         and(
-          eq(blocks.sectionId, sectionId),
+          eq(blocks.pageId, pageId),
           eq(blocks.phase, phase),
           eq(blocks.enabled, true)
         )
@@ -122,10 +122,10 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
   }
 
   /**
-   * Delete all blocks for a section
+   * Delete all blocks for a page
    */
-  async deleteBySectionId(sectionId: string, tx?: DbTransaction): Promise<void> {
-    await this.deleteWhere(eq(blocks.sectionId, sectionId), tx);
+  async deleteByPageId(pageId: string, tx?: DbTransaction): Promise<void> {
+    await this.deleteWhere(eq(blocks.pageId, pageId), tx);
   }
 }
 

@@ -38,16 +38,16 @@ const step = {
   type: "short_text",
   title: "What is your name?",
   order: 1,
-  sectionId: "sec-1",
+  pageId: "page-1",
 } as unknown as ApiStep;
 
-function renderCard(isExpanded: boolean) {
+function renderCard(isExpanded: boolean, cardStep: ApiStep = step) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <StepCard
-        step={step}
-        sectionId="sec-1"
+        step={cardStep}
+        pageId="page-1"
         workflowId="wf-1"
         isExpanded={isExpanded}
         onToggleExpand={vi.fn()}
@@ -57,6 +57,31 @@ function renderCard(isExpanded: boolean) {
 }
 
 describe("StepCard expand toggle accessibility (O-5)", () => {
+  it.each([
+    ["short", "Short Text", "T"],
+    ["long", "Long Text", "¶"],
+  ] as const)("shows the %s preset tile for a canonical text step", (variant, label, glyph) => {
+    renderCard(false, {
+      ...step,
+      id: `canonical-${variant}`,
+      type: "text",
+      config: { variant },
+    });
+
+    const icon = screen.getByTitle(label);
+    expect(icon).toHaveClass("bg-qtype-text");
+    expect(icon).toHaveTextContent(glyph);
+    expect(screen.queryByTitle("Text")).not.toBeInTheDocument();
+  });
+
+  it("shows a friendly text-family tile for a legacy text row", () => {
+    renderCard(false);
+    const icon = screen.getByTitle("Short Text");
+    expect(icon).toHaveClass("bg-qtype-text");
+    expect(icon).toHaveTextContent("T");
+    expect(screen.queryByTitle("short_text")).not.toBeInTheDocument();
+  });
+
   it("exposes a named toggle that says which question it belongs to", () => {
     renderCard(false);
     const toggle = screen.getByRole("button", { name: /expand settings for what is your name\?/i });

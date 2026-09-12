@@ -2,6 +2,8 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 
+import { createError } from "../utils/errors";
+
 /**
  * Applies security headers, CORS, and payload limits uniformly across
  * both development (index.ts) and production (production.ts) entrypoints
@@ -74,7 +76,7 @@ export function applySecurityMiddleware(app: express.Application): void {
             try {
                 hostname = new URL(origin).hostname;
             } catch (e) {
-                return callback(new Error("Invalid origin URL"), false);
+                return callback(createError.forbidden("Origin not allowed"), false);
             }
             
             // In development, allow localhost origins
@@ -103,8 +105,17 @@ export function applySecurityMiddleware(app: express.Application): void {
                 }
             }
             
-            // Default: deny
-            callback(new Error("Not allowed by CORS"), false);
+            // Default: deny.
+            //
+            // This must be a typed ApiError, not a bare `new Error`. The cors
+            // package forwards whatever it gets to next(err), and errorHandler's
+            // message-pattern classifier matched none of its forbidden patterns
+            // against "Not allowed by CORS" -- so a rejected origin answered 500
+            // INTERNAL_ERROR. It still failed closed, but the status said the
+            // server was broken rather than that the origin was refused, which
+            // masks the real cause during exactly the kind of origin
+            // misconfiguration this check exists to catch.
+            callback(createError.forbidden("Origin not allowed"), false);
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

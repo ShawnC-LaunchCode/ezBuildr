@@ -6,27 +6,34 @@
  * - Execute onRunStart blocks
  * - Generate documents for completed runs
  * - Manage initial value population
- * - Determine start section with auto-advance
+ * - Determine start page with auto-advance
  */
 
 import { logger } from "../../logger";
-import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
+import { runPreviewPolicyService } from './RunPreviewPolicyService';
+import { stepValueRepository, stepRepository, pageRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
+import { codeBlockService } from "../codeBlocks/CodeBlockService";
 import { finalBlockRenderer, createProjectTemplateResolver } from "../document/FinalBlockRenderer";
 import { lifecycleHookService } from "../scripting/LifecycleHookService";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
 import { normalizeFinalDocumentsTemplateEntry } from "../../../shared/finalDocumentsTemplates";
-import type { FinalBlockConfig, FinalDocumentOutputFormat } from "../../../shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanLogicalValue,
+  type FinalBlockConfig,
+  type FinalDocumentOutputFormat,
+} from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { createError } from "../../utils/errors";
+import { getCurrentTenantId, runWithTenantContext, withCurrentTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
+import { workflowTenantResolver } from "../WorkflowTenantResolver";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
-import { runDefinitionProvider, RunDefinitionProvider, type RunSection } from "./RunDefinitionProvider";
-import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
-
+import { runDefinitionProvider, RunDefinitionProvider, type RunPage } from "./RunDefinitionProvider";
 export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
@@ -39,15 +46,15 @@ interface LegacyFinalDocumentEntry {
   conditions: FinalBlockConfig['documents'][number]['conditions'];
 }
 
-function collectLegacyFinalDocumentConfig(sections: RunSection[]): {
+function collectLegacyFinalDocumentConfig(pages: RunPage[]): {
   entries: LegacyFinalDocumentEntry[];
   outputFormats: Set<FinalDocumentOutputFormat>;
 } {
   const entries: LegacyFinalDocumentEntry[] = [];
   const outputFormats = new Set<FinalDocumentOutputFormat>();
 
-  for (const section of sections) {
-    const config = section.config as {
+  for (const page of pages) {
+    const config = page.config as {
       finalBlock?: boolean;
       templates?: unknown[];
       outputFormats?: unknown[];
@@ -76,11 +83,13 @@ function collectLegacyFinalDocumentConfig(sections: RunSection[]): {
 // alone rather than becoming NaN), and a boolean alias always stores a real
 // boolean. Everything else (choice, address, multi_field, date/time, ...)
 // legitimately carries arrays/objects and is left as parsed.
-const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["short_text", "long_text", "text", "email", "website", "phone"]);
-const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "currency", "scale"]);
+const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["text", "email", "website", "phone"]);
+const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "scale"]);
 
-function coerceInitialValueForStepType(value: unknown, stepType: string): unknown {
-  const normalizedType = normalizeRunnerStepType(stepType);
+import { adaptLegacyStep } from "../../../shared/types/stepConfigs";
+
+function coerceInitialValueForStepType(value: unknown, stepType: string, config?: unknown): unknown {
+  const normalizedType = adaptLegacyStep({ type: stepType, config }).type;
 
   if (TEXT_LIKE_RUNNER_STEP_TYPES.has(normalizedType)) {
     return typeof value === "string" ? value : String(value);
@@ -95,9 +104,8 @@ function coerceInitialValueForStepType(value: unknown, stepType: string): unknow
   }
 
   if (normalizedType === "boolean") {
-    if (typeof value === "boolean") {return value;}
-    if (value === "true") {return true;}
-    if (value === "false") {return false;}
+    const logicalValue = resolveBooleanLogicalValue(value, config);
+    if (logicalValue !== undefined) { return getBooleanStorageValue(logicalValue, config); }
     return value;
   }
 
@@ -109,7 +117,7 @@ export class RunLifecycleService {
   constructor(
     private valueRepo = stepValueRepository,
     private stepRepo = stepRepository,
-    private sectionRepo = sectionRepository,
+    private pageRepo = pageRepository,
     private persistence = new RunPersistenceWriter(),
     private logicSvc = logicService,
     private runDataSvc: RunDataService = runDataService,
@@ -123,8 +131,9 @@ export class RunLifecycleService {
   async executeOnRunStart(
     runId: string,
     workflowId: string,
-    versionId?: string
-  ): Promise<{ success: boolean; errors?: string[] }> {
+    versionId?: string,
+    mode: 'live' | 'preview' = 'live'
+  ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     try {
       const values = await this.persistence.getRunValues(runId);
 
@@ -132,6 +141,7 @@ export class RunLifecycleService {
         workflowId,
         runId,
         phase: "onRunStart",
+        mode,
         data: values,
         versionId: versionId ?? 'draft',
       });
@@ -141,7 +151,12 @@ export class RunLifecycleService {
         return { success: false, errors: blockResult.errors };
       }
 
-      return { success: true };
+      // CB-3: `trigger: 'runStart'` blocks are eligible here and nowhere else --
+      // this is the only point with inbound/prefill data and no page context.
+      // Failures are the block's own (Decisions 5) and never fail run creation.
+      await codeBlockService.evaluateAll(runId, workflowId, 'runStart', values);
+
+      return { success: true, ...(blockResult.notices ? { notices: blockResult.notices } : {}) };
     } catch (error) {
       logger.error({ runId, error }, `Failed to execute onRunStart blocks for run ${runId}`);
       return { success: false, errors: [(error as Error).message] };
@@ -160,12 +175,29 @@ export class RunLifecycleService {
   ): Promise<void> {
     const { initialValues, snapshotValues, randomValues } = options;
 
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map(s => s.id);
-
-    // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds);
+    // RLS-11 cause 2: both reads must run inside a tenant transaction.
+    //
+    // `pages` and `steps` are RLS-covered through their workflow's
+    // ownership-derived policy, whose USING clause is `CASE WHEN
+    // app_current_tenant() IS NULL THEN false ...`. Called without a `tx` these
+    // ran on the bare pool, where that GUC is unset — so both returned ZERO
+    // rows even on the fully authenticated path, where a real tenant was
+    // sitting in the async context the whole time and simply was not being
+    // applied to the connection.
+    //
+    // Nothing failed. `allSteps` was empty, the loop below had nothing to
+    // iterate, `valuesToSave` stayed empty, and the guarded bulk save never
+    // ran. Every step `defaultValue` and every prefilled `initialValues`
+    // silently did not persist, and the run started blank — a missing WRITE
+    // caused by a filtered READ, with no error anywhere.
+    //
+    // One transaction for both reads, so pages and steps are also a consistent
+    // snapshot rather than two reads either side of a concurrent edit.
+    const allSteps = await withCurrentTenant(async (tx) => {
+      const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+      const pageIds = pages.map(page => page.id);
+      return this.stepRepo.findByPageIds(pageIds, tx);
+    });
 
     const valuesToSave: Array<{ stepId: string; value: unknown }> = [];
 
@@ -178,9 +210,9 @@ export class RunLifecycleService {
       // Priority 1: initialValues (by alias or stepId)
       if (initialValues) {
         if (step.alias && initialValues[step.alias] !== undefined) {
-          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type);
+          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type, step.config);
         } else if (initialValues[step.id] !== undefined) {
-          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type);
+          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type, step.config);
         }
       }
 
@@ -202,7 +234,7 @@ export class RunLifecycleService {
 
       // Priority 4: step's defaultValue
       if (valueToSet === undefined && step.defaultValue !== undefined && step.defaultValue !== null) {
-        valueToSet = step.defaultValue;
+        valueToSet = coerceInitialValueForStepType(step.defaultValue, step.type, step.config);
       }
 
       // Add to list if we have a value
@@ -279,19 +311,19 @@ export class RunLifecycleService {
   }
 
   /**
-   * Determine the appropriate start section for a run
+   * Determine the appropriate start page for a run
    * Used for auto-advance when creating runs from snapshots
    *
    * Rules:
-   * A) Skip invisible sections via existing logic
+   * A) Skip invisible pages via existing logic
    * B) For each required visible step:
    *    - If no run value → stop here
    *    - If snapshot version mismatch → stop here
    * C) If all satisfied → jump to first visible final block
-   * D) Else fallback to workflow's first section
+   * D) Else fallback to workflow's first page
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async determineStartSection(
+  async determineStartPage(
     runId: string,
     workflowId: string,
     snapshotValues?: SnapshotValueMap
@@ -309,34 +341,34 @@ export class RunLifecycleService {
 
     // Build LogicContext once. RVP-2: buildContext now sources from the
     // run's pinned definition (via runId) rather than always reading the
-    // live tables -- pass runId through so a pinned run's start section is
+    // live tables -- pass runId through so a pinned run's start page is
     // resolved from what the respondent was actually shown.
     const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap, runId);
-    const sections = logicCtx.sections;
-    if (sections.length === 0) {
-      throw new Error("Workflow has no sections");
+    const pages = logicCtx.pages;
+    if (pages.length === 0) {
+      throw new Error("Workflow has no pages");
     }
 
-    // Sort sections by order
-    const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Sort pages by order
+    const sortedPages = [...pages].sort((a, b) => (a.order || 0) - (b.order || 0));
     const allSteps = logicCtx.steps;
 
-    // Iterate through sections to find the first incomplete one
-    for (const section of sortedSections) {
-      // Check if section is visible using logic service
-      const sectionVisible = await this.logicSvc.isSectionVisible(logicCtx, section.id);
+    // Iterate through pages to find the first incomplete one
+    for (const page of sortedPages) {
+      // Check if page is visible using logic service
+      const pageVisible = await this.logicSvc.isPageVisible(logicCtx, page.id);
 
-      if (!sectionVisible) {
-        continue; // Skip invisible sections
+      if (!pageVisible) {
+        continue; // Skip invisible pages
       }
 
-      // Get steps for this section
-      const sectionSteps = allSteps.filter(s => s.sectionId === section.id && !s.isVirtual);
+      // Get steps for this page
+      const pageSteps = allSteps.filter(s => s.pageId === page.id && !s.isVirtual);
 
       // Check if all required steps have valid values
       let allRequiredStepsSatisfied = true;
 
-      for (const step of sectionSteps) {
+      for (const step of pageSteps) {
         // Check if step is visible
         const stepVisible = await this.logicSvc.isStepVisible(logicCtx, step.id);
 
@@ -378,13 +410,13 @@ export class RunLifecycleService {
       }
 
       if (!allRequiredStepsSatisfied) {
-        // Found first incomplete section - return this section
-        return section.id;
+        // Found first incomplete page - return this page
+        return page.id;
       }
     }
 
-    // All sections complete - return the last section (or first if none)
-    return sortedSections[sortedSections.length - 1]?.id || sortedSections[0].id;
+    // All pages complete - return the last page (or first if none)
+    return sortedPages[sortedPages.length - 1]?.id || sortedPages[0].id;
   }
 
   /** Per-run in-flight document generation, so concurrent triggers
@@ -399,7 +431,7 @@ export class RunLifecycleService {
   async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const inFlight = this.docGenInFlight.get(runId);
     if (inFlight) {return inFlight;}
-    const generation = this.generateDocumentsInner(runId, options)
+    const generation = runPreviewPolicyService.execute(runId, () => this.generateDocumentsInner(runId, options))
       .finally(() => this.docGenInFlight.delete(runId));
     this.docGenInFlight.set(runId, generation);
     return generation;
@@ -412,6 +444,38 @@ export class RunLifecycleService {
       const run = await workflowRunRepository.findById(runId);
       if (!run) {throw createError.notFound('Workflow run', runId);}
       const workflowId = run.workflowId;
+
+      // RLS-5: this method is reached from `RunCompletionJobWorker.processJob`
+      // — a BACKGROUND JOB, not an HTTP request — so nothing upstream has
+      // populated the async tenant context and `withCurrentTenant` has nothing
+      // to read. Everything below reads `workflows`/`pages`/`steps`, all
+      // RLS-covered, so under a non-owner role they silently return zero rows
+      // and this fails as "Workflow not found" on a workflow that plainly
+      // exists (13 of the RLS-5 run's failures were exactly this).
+      //
+      // `workflow_runs` carries no tenant_id and no policy, so `run` above is
+      // readable without any of this — which makes `run.workflowId` a
+      // legitimately-established value, the same standing `runTokenAuth` has.
+      // Pin it via migration 0030's self-identification clause just long
+      // enough to resolve the tenant, then run the whole remainder inside that
+      // tenant's context so every converted service below works too.
+      //
+      // Best-effort by design, matching `runTokenAuth`: if resolution fails we
+      // leave the context empty rather than inventing a tenant, and the
+      // downstream services fail closed on their own terms.
+      if (getCurrentTenantId() === undefined) {
+        const resolvedTenantId = await withVerifiedIdentifier(
+          'app.current_workflow_id',
+          workflowId,
+          (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+        );
+        if (resolvedTenantId) {
+          return await runWithTenantContext(
+            resolvedTenantId,
+            () => this.generateDocumentsInner(runId, options)
+          );
+        }
+      }
 
       const existingDocs = await runGeneratedDocumentsRepository.findByRunId(runId);
       if (existingDocs.length > 0) {
@@ -429,7 +493,7 @@ export class RunLifecycleService {
       // 2. Collect document configs from every supported authoring shape:
       //    - Final Block steps (step.config as FinalBlockConfig), for both
       //      'final' and 'final_documents'
-      //    - Legacy Final Documents sections (section.config.finalBlock)
+      //    - Legacy Final Documents pages (page.config.finalBlock)
       // RVP-4: sourced from the run's pinned definition (RunDefinitionProvider,
       // RVP-1), not the live tables. A document generated after the fact must
       // reflect the template mapping the respondent actually answered against,
@@ -437,14 +501,23 @@ export class RunLifecycleService {
       // this is a correctness/auditability guarantee, not just UX. A
       // versionless run still falls back to the live tables via the
       // provider's 'live' branch (unchanged today-behavior, AC3).
-      const { steps: definitionSteps, sections: definitionSections } = await this.definitionProvider.getDefinition(run);
-      const workflow = await workflowRepository.findById(workflowId);
+      const { steps: definitionSteps, pages: definitionPages } = await this.definitionProvider.getDefinition(run);
+      // RLS-5: `runWithTenantContext` above populates the async STORE, which is
+      // what converted services read — but a repository call issued directly on
+      // the pool never consults it. The store and the transaction GUC are
+      // independent (the same distinction that made the first AuditLogger fix a
+      // no-op), so this read needs a real tenant transaction of its own, not
+      // merely an ambient tenant. Scoped per-read rather than wrapping the whole
+      // method: document generation does template rendering and external I/O
+      // below, and holding a transaction open across that is exactly the
+      // long-transaction hazard the service-boundary ruling warns about.
+      const workflow = await withCurrentTenant((tx) => workflowRepository.findById(workflowId, tx));
       if (!workflow) {throw createError.notFound('Workflow', workflowId);}
       if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
 
       const finalBlockConfigs: FinalBlockConfig[] = [];
       for (const step of definitionSteps) {
-        if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
+        if (step.type !== 'final_documents') {continue;}
         if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
         const config = step.config as FinalBlockConfig | null;
         if (config?.documents && config.documents.length > 0) {
@@ -453,7 +526,7 @@ export class RunLifecycleService {
       }
 
       if (options.finalStepId === undefined) {
-        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionSections);
+        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionPages);
         if (legacyConfig) {
           finalBlockConfigs.push(legacyConfig);
         }
@@ -463,10 +536,16 @@ export class RunLifecycleService {
         if (options.finalStepId !== undefined) {
           throw createError.validation('Invalid step: must be a Final Block with configured documents');
         }
-        logger.info({ runId }, 'No Final Block steps or Final Documents sections found, skipping document generation');
+        logger.info({ runId }, 'No Final Block steps or Final Documents pages found, skipping document generation');
         await workflowRunRepository.updateGenerationStatus(runId, 'done');
         return { success: true, documentsGenerated: 0, documents: [] };
       }
+
+      // CB-3: the completion pass. `trigger: 'runComplete'` blocks are eligible
+      // only here, and this must happen BEFORE run data is built -- a block that
+      // fires now must have its outputs visible to the documents that render on
+      // the next line, not one run too late.
+      await codeBlockService.evaluateAll(runId, workflowId, 'runComplete', {});
 
       // 3. Get canonical run data and hand documents the alias-keyed view.
       const runData = options.runData ?? await this.runDataSvc.buildForRun(runId, workflowId);
@@ -478,7 +557,9 @@ export class RunLifecycleService {
       // owner_uuid — GH-170's F1 fatal bug came from exactly that shortcut.
       // Only used to resolve `datavault` mapping bindings (GH-156); every
       // other read stays unaffected if this project lookup is somehow null.
-      const project = await projectRepository.findById(workflow.projectId);
+      // RLS-5: `projects` is RLS-covered — same per-read scoping as the
+      // workflow lookup above.
+      const project = await withCurrentTenant((tx) => projectRepository.findById(workflow.projectId!, tx));
       const tenantId = project?.tenantId ?? undefined;
 
       // 4. Create scoped Template Resolver
@@ -491,7 +572,7 @@ export class RunLifecycleService {
       // affect what the documents contain: after the alias-keyed run data is
       // built, before the first template renders.
       //
-      // Output merging, the mutationMode gate and the outputKeys whitelist all
+      // Append-only output merging and the outputKeys whitelist
       // live inside executeHooksForPhase; do not re-implement them here. Errors
       // are non-breaking, matching beforePage/afterPage in BlockRunner -- a
       // failing hook must not lose a completed run's documents.
@@ -525,6 +606,9 @@ export class RunLifecycleService {
       for (const finalBlockConfig of finalBlockConfigs) {
         const generationResult = await finalBlockRenderer.render({
           finalBlockConfig,
+          outputDir: run.executionMode === 'preview' ? runPreviewPolicyService.artifactDirectory(runId) : undefined,
+          uploadArtifact: run.executionMode === 'preview'
+            ? (key, bytes, mimeType) => runPreviewPolicyService.upload(runId, key, bytes, mimeType) : undefined,
           stepValues: hookedStepValues,
           workflowId: run.workflowId,
           runId: run.id,
@@ -565,6 +649,7 @@ export class RunLifecycleService {
               pdfStrategy: doc.pdfStrategy,
             });
           } catch (persistError) {
+            if (run.executionMode === 'preview') { throw persistError; }
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
           }
         }
@@ -610,7 +695,7 @@ export class RunLifecycleService {
       }
 
       // Dispatch document deliveries if configured
-      if (totalGenerated > 0) {
+      if (totalGenerated > 0 && run.executionMode !== 'preview') {
         for (const finalBlockConfig of finalBlockConfigs) {
           if (finalBlockConfig.deliveryDestinations && finalBlockConfig.deliveryDestinations.length > 0) {
             try {
@@ -646,8 +731,8 @@ export class RunLifecycleService {
   }
 
   /**
-   * Synthesize a FinalBlockConfig from legacy Final Documents sections
-   * (section.config.finalBlock === true with config.templates). Template-level
+   * Synthesize a FinalBlockConfig from legacy Final Documents pages
+   * (page.config.finalBlock === true with config.templates). Template-level
    * mapping carries over so the unified renderer path preserves the old
    * behavior.
    *
@@ -667,13 +752,13 @@ export class RunLifecycleService {
    * no second shape to mismatch — not "avoided by having no rows" but
    * structurally unrepresentable.
    *
-   * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
+   * RVP-4: `pages` is the run's pinned (or, for a versionless run, live)
    * definition from `RunDefinitionProvider` -- not a fresh live-table read --
-   * so a legacy Final Documents section edited after the respondent started
+   * so a legacy Final Documents page edited after the respondent started
    * does not retroactively change what gets generated.
    */
-  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
-    const { entries, outputFormats } = collectLegacyFinalDocumentConfig(sections);
+  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, pages: RunPage[]): Promise<FinalBlockConfig | null> {
+    const { entries, outputFormats } = collectLegacyFinalDocumentConfig(pages);
 
     if (entries.length === 0) {
       return null;
@@ -688,7 +773,7 @@ export class RunLifecycleService {
         // loudly (surfaced as generationStatus 'failed:…' by the caller)
         // instead of silently skipping, matching the step-based path's
         // resolver semantics.
-        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references unresolvable template');
+        logger.warn({ workflowId, templateId }, 'Legacy Final Documents page references unresolvable template');
         throw createError.notFound('Template', templateId);
       }
       documents.push({

@@ -46,21 +46,21 @@ describe('DataVault Row Notes API', () => {
     // In real tests, create test tenant, users, table, and row:
     //
     // // Create test tenant
-    // const [tenant] = await db.insert(tenants).values({
+    // const [tenant] = await getOwnerDb().insert(tenants).values({
     //   name: 'Test Tenant',
     //   plan: 'free',
     // }).returning();
     // testTenantId = tenant.id;
     //
     // // Create test users
-    // const [user1] = await db.insert(users).values({
+    // const [user1] = await getOwnerDb().insert(users).values({
     //   tenantId: testTenantId,
     //   email: 'user1@example.com',
     //   role: 'creator',
     // }).returning();
     // testUserId = user1.id;
     //
-    // const [user2] = await db.insert(users).values({
+    // const [user2] = await getOwnerDb().insert(users).values({
     //   tenantId: testTenantId,
     //   email: 'user2@example.com',
     //   role: 'creator',
@@ -68,7 +68,7 @@ describe('DataVault Row Notes API', () => {
     // testUser2Id = user2.id;
     //
     // // Create test table
-    // const [table] = await db.insert(datavaultTables).values({
+    // const [table] = await getOwnerDb().insert(datavaultTables).values({
     //   tenantId: testTenantId,
     //   name: 'Test Table',
     //   createdBy: testUserId,
@@ -76,7 +76,7 @@ describe('DataVault Row Notes API', () => {
     // testTableId = table.id;
     //
     // // Create test row
-    // const [row] = await db.insert(datavaultRows).values({
+    // const [row] = await getOwnerDb().insert(datavaultRows).values({
     //   tableId: testTableId,
     //   createdBy: testUserId,
     // }).returning();
@@ -85,13 +85,13 @@ describe('DataVault Row Notes API', () => {
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
-    //   await db.delete(tenants).where(eq(tenants.id, testTenantId));
+    //   await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     // }
   });
   beforeEach(async () => {
     // Clean up notes before each test
     // if (testRowId) {
-    //   await db.delete(datavaultRowNotes).where(eq(datavaultRowNotes.rowId, testRowId));
+    //   await getOwnerDb().delete(datavaultRowNotes).where(eq(datavaultRowNotes.rowId, testRowId));
     // }
   });
   describe('POST /api/datavault/rows/:rowId/notes', () => {
@@ -131,17 +131,17 @@ describe('DataVault Row Notes API', () => {
     });
     it('should reject note for row from different tenant', async () => {
       // Template test - create row in different tenant:
-      // const [otherTenant] = await db.insert(tenants).values({
+      // const [otherTenant] = await getOwnerDb().insert(tenants).values({
       //   name: 'Other Tenant',
       //   plan: 'free',
       // }).returning();
       //
-      // const [otherTable] = await db.insert(datavaultTables).values({
+      // const [otherTable] = await getOwnerDb().insert(datavaultTables).values({
       //   tenantId: otherTenant.id,
       //   name: 'Other Table',
       // }).returning();
       //
-      // const [otherRow] = await db.insert(datavaultRows).values({
+      // const [otherRow] = await getOwnerDb().insert(datavaultRows).values({
       //   tableId: otherTable.id,
       // }).returning();
       //

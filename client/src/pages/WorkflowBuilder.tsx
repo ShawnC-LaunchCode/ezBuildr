@@ -1,5 +1,5 @@
 /**
- * Workflow Builder - Tabbed interface with Sections, Templates, Data Sources, Settings, Snapshots
+ * Workflow Builder - Tabbed interface with Pages, Templates, Data Sources, Settings, Snapshots
  * PR1: Added tab-based navigation structure
  */
 import { useQueryClient } from "@tanstack/react-query";
@@ -42,7 +42,7 @@ import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
 import { MapTab } from "@/components/builder/map/MapTab";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
 import { ReviewTab } from "@/components/builder/tabs/ReviewTab";
-import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
+import { PagesTab } from "@/components/builder/tabs/PagesTab";
 import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
 import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
 import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
@@ -135,14 +135,14 @@ export default function WorkflowBuilder() {
   const [launchingPreview] = useState(false);
   // searchParams hoisted above
   const requestedTab = searchParams.get("tab");
-  const requestedSectionId = searchParams.get("sectionId");
+  const requestedPageId = searchParams.get("pageId");
   const requestedStepId = searchParams.get("stepId");
   const requestedBlockId = searchParams.get("blockId");
   const requestedPanel = searchParams.get("panel");
   const [activeTab, setActiveTab] = useState<BuilderTab>(
-    isBuilderTab(requestedTab) ? requestedTab : "sections",
+    isBuilderTab(requestedTab) ? requestedTab : "pages",
   );
-  const selectSection = useWorkflowBuilder(state => state.selectSection);
+  const selectPage = useWorkflowBuilder(state => state.selectPage);
   const selectStep = useWorkflowBuilder(state => state.selectStep);
   const selectBlock = useWorkflowBuilder(state => state.selectBlock);
 
@@ -154,8 +154,8 @@ export default function WorkflowBuilder() {
       selectStep(requestedStepId);
     } else if (requestedBlockId) {
       selectBlock(requestedBlockId);
-    } else if (requestedSectionId) {
-      selectSection(requestedSectionId);
+    } else if (requestedPageId) {
+      selectPage(requestedPageId);
     }
     if (requestedPanel === "logic") {
       setLogicPanelOpen(true);
@@ -163,11 +163,11 @@ export default function WorkflowBuilder() {
   }, [
     requestedBlockId,
     requestedPanel,
-    requestedSectionId,
+    requestedPageId,
     requestedStepId,
     requestedTab,
     selectBlock,
-    selectSection,
+    selectPage,
     selectStep,
   ]);
   const mode = workflowMode?.mode ?? "easy";
@@ -395,9 +395,9 @@ export default function WorkflowBuilder() {
                 />
               </div>
               {/* Content */}
-              <BuilderTabPanel activeTab={activeTab} tab="sections">
-                {activeTab === "sections" && (
-                  <SectionsTab workflowId={workflowId} mode={mode} />
+              <BuilderTabPanel activeTab={activeTab} tab="pages">
+                {activeTab === "pages" && (
+                  <PagesTab workflowId={workflowId} mode={mode} />
                 )}
               </BuilderTabPanel>
               <BuilderTabPanel activeTab={activeTab} tab="map">

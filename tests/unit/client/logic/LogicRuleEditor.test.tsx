@@ -5,7 +5,7 @@
  * here: its own condition-tree behavior is already covered by
  * `tests/unit/client/LogicBuilder.test.tsx` and `ConditionRow.test.tsx` — this
  * file exercises what THIS component owns: target-type/action pairing
- * (AC1/AC2), skip_to's section-only target, and the create/update payload
+ * (AC1/AC2), skip_to's page-only target, and the create/update payload
  * shape (never sending `conditionStepId` — the server derives it, O-7).
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -34,7 +34,7 @@ vi.mock('@/components/logic', () => ({
 
 import { LogicRuleEditor } from '../../../../client/src/components/builder/logic/LogicRuleEditor';
 
-import type { ApiSection, ApiStep } from '@/lib/vault-api';
+import type { ApiPage, ApiStep } from '@/lib/vault-api';
 
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) {
@@ -58,10 +58,10 @@ const STEPS = [
   { id: 'step-2', title: 'Second step', alias: null },
 ] as unknown as ApiStep[];
 
-const SECTIONS = [
-  { id: 'section-1', title: 'Section One' },
-  { id: 'section-2', title: 'Section Two' },
-] as unknown as ApiSection[];
+const PAGES = [
+  { id: 'page-1', title: 'Page One' },
+  { id: 'page-2', title: 'Page Two' },
+] as unknown as ApiPage[];
 
 async function chooseSelectOption(triggerId: string, optionText: string): Promise<void> {
   const user = userEvent.setup();
@@ -80,9 +80,9 @@ async function openSelect(triggerId: string): Promise<void> {
 }
 
 describe('LogicRuleEditor — target/action pairing (LU-6b AC1/AC2)', () => {
-  it('defaults to section target with show/hide/skip_to actions available', async () => {
+  it('defaults to page target with show/hide/skip_to actions available', async () => {
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
     );
 
     await openSelect('rule-action');
@@ -94,7 +94,7 @@ describe('LogicRuleEditor — target/action pairing (LU-6b AC1/AC2)', () => {
 
   it('switching target type to Question offers require/make_optional instead of skip_to', async () => {
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
     );
 
     await chooseSelectOption('rule-target-type', 'Question');
@@ -105,14 +105,14 @@ describe('LogicRuleEditor — target/action pairing (LU-6b AC1/AC2)', () => {
     expect(screen.queryByRole('option', { name: 'Skip to' })).not.toBeInTheDocument();
   });
 
-  it('the target picker lists sections when target type is section, and steps when it is a question', async () => {
+  it('the target picker lists pages when target type is page, and steps when it is a question', async () => {
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={vi.fn()} onCancel={vi.fn()} />
     );
 
     await openSelect('rule-target');
-    expect(await screen.findByRole('option', { name: 'Section One' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Section Two' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Page One' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Page Two' })).toBeInTheDocument();
     await userEvent.setup().keyboard('{Escape}'); // close the open listbox before touching another trigger
 
     await chooseSelectOption('rule-target-type', 'Question');
@@ -127,7 +127,7 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('rejects saving without a chosen target', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
     fireEvent.click(screen.getByText('set-condition'));
@@ -140,10 +140,10 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('rejects saving without a valid condition', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
-    await chooseSelectOption('rule-target', 'Section One');
+    await chooseSelectOption('rule-target', 'Page One');
     fireEvent.click(screen.getByText('Add rule'));
 
     expect(onSave).not.toHaveBeenCalled();
@@ -153,10 +153,10 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('calls onSave with the target/action/when payload and never includes conditionStepId (O-7 — server derives it)', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
-    await chooseSelectOption('rule-target', 'Section One');
+    await chooseSelectOption('rule-target', 'Page One');
     fireEvent.click(screen.getByText('set-condition'));
     fireEvent.click(screen.getByText('Add rule'));
 
@@ -164,8 +164,8 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
     const payload = onSave.mock.calls[0][0];
     expect(payload).toEqual(
       expect.objectContaining({
-        targetType: 'section',
-        targetSectionId: 'section-1',
+        targetType: 'page',
+        targetPageId: 'page-1',
         targetStepId: null,
         action: 'show',
         when: FAKE_WHEN,
@@ -177,23 +177,23 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('offers skip_to as an action and includes it in the saved payload', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
-    await chooseSelectOption('rule-target', 'Section Two');
+    await chooseSelectOption('rule-target', 'Page Two');
     await chooseSelectOption('rule-action', 'Skip to');
     fireEvent.click(screen.getByText('set-condition'));
     fireEvent.click(screen.getByText('Add rule'));
 
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'skip_to', targetType: 'section', targetSectionId: 'section-2' })
+      expect.objectContaining({ action: 'skip_to', targetType: 'page', targetPageId: 'page-2' })
     );
   });
 
   it('saving a require rule against a question target', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
     await chooseSelectOption('rule-target-type', 'Question');
@@ -210,7 +210,7 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('saving a make_optional rule against a question target', async () => {
     const onSave = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
     await chooseSelectOption('rule-target-type', 'Question');
@@ -227,7 +227,7 @@ describe('LogicRuleEditor — save payload (LU-6b AC1/AC3, O-7)', () => {
   it('calls onCancel when Cancel is clicked', () => {
     const onCancel = vi.fn();
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} isSaving={false} onSave={vi.fn()} onCancel={onCancel} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} isSaving={false} onSave={vi.fn()} onCancel={onCancel} />
     );
 
     fireEvent.click(screen.getByText('Cancel'));
@@ -245,13 +245,13 @@ describe('LogicRuleEditor — editing an existing rule', () => {
       when: FAKE_WHEN,
       targetType: 'step' as const,
       targetStepId: 'step-2',
-      targetSectionId: null,
+      targetPageId: null,
       action: 'hide' as const,
       order: 1,
     };
 
     render(
-      <LogicRuleEditor workflowId="wf-1" steps={STEPS} sections={SECTIONS} rule={rule} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
+      <LogicRuleEditor workflowId="wf-1" steps={STEPS} pages={PAGES} rule={rule} isSaving={false} onSave={onSave} onCancel={vi.fn()} />
     );
 
     expect(screen.getByText('Save rule')).toBeInTheDocument();

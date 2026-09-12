@@ -21,7 +21,7 @@ describeWithDb('migrateOptionAliases DB', () => {
   let _testUserId: string;
   let _testProjectId: string;
   let testWorkflowId: string;
-  let testSectionId: string;
+  let testPageId: string;
   let txFactory: TestFactory;
 
   beforeEach(async () => {
@@ -38,8 +38,8 @@ describeWithDb('migrateOptionAliases DB', () => {
       });
       testWorkflowId = workflow.id;
 
-      const section = await txFactory.createSection(testWorkflowId, { title: 'Test Section' });
-      testSectionId = section.id;
+      const page = await txFactory.createPage(testWorkflowId, { title: 'Test Page' });
+      testPageId = page.id;
     });
   });
 
@@ -50,7 +50,7 @@ describeWithDb('migrateOptionAliases DB', () => {
   it('migrates an option alias and its logic rules', async () => {
     let stepId: string = '';
     await db.transaction(async (tx: DbTransaction) => {
-      const step = await txFactory.createStep(testSectionId, {
+      const step = await txFactory.createStep(testPageId, {
         type: 'choice',
         title: 'Q1',
         alias: 'q1',
@@ -93,7 +93,7 @@ describeWithDb('migrateOptionAliases DB', () => {
 
   it('is idempotent on second run', async () => {
     await db.transaction(async (_tx: DbTransaction) => {
-      await txFactory.createStep(testSectionId, {
+      await txFactory.createStep(testPageId, {
         type: 'choice',
         title: 'Q1',
         alias: 'q1',
@@ -120,7 +120,7 @@ describeWithDb('migrateOptionAliases DB', () => {
   it('performs no writes in dry-run mode while reporting counts', async () => {
     let stepId: string = '';
     await db.transaction(async (_tx: DbTransaction) => {
-      const step = await txFactory.createStep(testSectionId, {
+      const step = await txFactory.createStep(testPageId, {
         type: 'choice',
         title: 'Q1',
         alias: 'q1',
@@ -149,7 +149,7 @@ describeWithDb('migrateOptionAliases DB', () => {
   it('skips migration if label is duplicated within the step', async () => {
     let stepId: string = '';
     await db.transaction(async (_tx: DbTransaction) => {
-      const step = await txFactory.createStep(testSectionId, {
+      const step = await txFactory.createStep(testPageId, {
         type: 'choice',
         title: 'Q2',
         alias: 'q2',

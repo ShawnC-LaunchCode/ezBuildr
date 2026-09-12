@@ -15,7 +15,7 @@ export interface SnipDefinition {
     version: string;         // Semantic version: "1.0.0"
     category?: string;       // Optional grouping: "Intake", "Financial", etc.
 
-    pages: SnipPage[];       // Pages/sections to import
+    pages: SnipPage[];       // Pages to import
     logicBlocks?: SnipLogicBlock[];  // Optional logic blocks
     templateAttachments?: string[];  // Reserved for future use
 
@@ -56,10 +56,10 @@ export interface SnipQuestion {
 export interface SnipLogicBlock {
     id: string;
     type: "read" | "write" | "js" | "validate";
-    phase: "onSectionEnter" | "onSectionSubmit";
+    phase: "onPageEnter" | "onPageSubmit";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;
-    sectionIndex: number;    // Which snip page this attaches to
+    pageIndex: number;    // Which snip page this attaches to
     order: number;
 }
 

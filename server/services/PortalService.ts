@@ -23,7 +23,7 @@ export class PortalService {
             // Find runs associated with this email
             // Either client_email matches OR they created it (if we enforce that, but for now client_email)
             const runs = await db.query.workflowRuns.findMany({
-                where: eq(workflowRuns.clientEmail, email),
+                where: and(eq(workflowRuns.clientEmail, email), eq(workflowRuns.executionMode, 'live')),
                 orderBy: [desc(workflowRuns.updatedAt)],
                 with: {
                     workflow: {
@@ -68,6 +68,7 @@ export class PortalService {
         const run = await db.query.workflowRuns.findFirst({
             where: and(
                 eq(workflowRuns.id, runId),
+                eq(workflowRuns.executionMode, 'live'),
                 eq(workflowRuns.clientEmail, email)
             )
         });

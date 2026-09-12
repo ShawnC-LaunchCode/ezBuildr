@@ -3,14 +3,16 @@ import { describe, it, expect, beforeEach, vi, type Mock, type Mocked } from "vi
 // Use dynamic import for service to ensure mocks apply
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
-import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
+import { createTestWorkflow, createTestPage, createTestLogicRule } from "../../factories/workflowFactory";
 import { DEFAULT_RESOLVED_BRANDING } from "../../../shared/types/branding";
+import { enterTenantContextForTests } from "../../../server/utils/rlsContext";
+import { db } from "../../../server/db";
 
 import type { InsertWorkflow, Project } from "../../../shared/schema";
 import type { WorkflowService } from "../../../server/services/WorkflowService";
 import type {
   WorkflowRepository,
-  SectionRepository,
+  PageRepository,
   StepRepository,
   LogicRuleRepository,
   ProjectRepository,
@@ -20,22 +22,41 @@ import type {
 
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";
 
-vi.mock("../../../server/db", () => ({
-  db: {
-    query: {
-      workflowVersions: {
-        findFirst: vi.fn(),
-      },
-      transformBlocks: {
-        findMany: vi.fn().mockResolvedValue([]),
-      },
+// RLS-2e: WorkflowService now opens a tenant-scoped transaction via
+// `withCurrentTenant`/`withTenant` (server/utils/rlsContext.ts), which
+// internally calls the real `db.transaction`. This suite calls WorkflowService
+// directly (not through HTTP), so — per the RLS rollout's measured hazard —
+// `enterTenantContextForTests` must be called INSIDE each test body
+// (beforeEach does not propagate through AsyncLocalStorage into the test).
+// The mocked `db.transaction` below must hand back a stub `tx` with a working
+// `execute` (used by `applyTenantToTransaction` to set the GUC) or the whole
+// chain throws "tx.execute is not a function".
+const TEST_TENANT_ID = "tenant-workflow-service-test";
+
+vi.mock("../../../server/db", () => {
+  // RLS-2e: getWorkflowWithDetails now reads via `scopedTx.query...`, not
+  // `db.query...` — the same `query` object is exposed on both the plain
+  // `db` mock AND the stub `tx` handed to db.transaction's callback, so
+  // either access path resolves.
+  const query = {
+    workflowVersions: {
+      findFirst: vi.fn(),
     },
-    // syncWithGraph's soft-delete cascade (ICW2-B11) runs inside
-    // db.transaction; the fake just invokes the callback with a stub tx.
-    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
-  },
-  initializeDatabase: vi.fn(),
-}));
+  };
+  return {
+    db: {
+      query,
+      // syncWithGraph's soft-delete cascade (ICW2-B11) and
+      // getWorkflowWithDetails's transaction both run inside db.transaction;
+      // the fake invokes the callback with a stub tx exposing `execute`
+      // (applyTenantToTransaction's GUC set) and the same `query` object.
+      transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ execute: vi.fn().mockResolvedValue(undefined), query })
+      ),
+    },
+    initializeDatabase: vi.fn(),
+  };
+});
 
 vi.mock("../../../server/services/VersionService", () => ({
   versionService: {
@@ -62,7 +83,7 @@ describe("WorkflowService", () => {
   let service: WorkflowService;
   let WorkflowServiceClass: new (
     workflowRepo: WorkflowRepository,
-    sectionRepo: SectionRepository,
+    pageRepo: PageRepository,
     stepRepo: StepRepository,
     logicRuleRepo: LogicRuleRepository,
     workflowAccessRepo: WorkflowAccessRepository,
@@ -71,7 +92,7 @@ describe("WorkflowService", () => {
   ) => WorkflowService;
 
   let mockWorkflowRepo: Mocked<WorkflowRepository>;
-  let mockSectionRepo: Mocked<SectionRepository>;
+  let mockPageRepo: Mocked<PageRepository>;
   let mockStepRepo: Mocked<StepRepository>;
   let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
   let mockWorkflowAccessRepo: Mocked<WorkflowAccessRepository>;
@@ -82,19 +103,21 @@ describe("WorkflowService", () => {
     vi.clearAllMocks();
 
     // Re-mock DB for this test context to avoid setup.ts pollution
-    vi.mock("../../../server/db", () => ({
-      db: {
-        query: {
-          workflowVersions: {
-            findFirst: vi.fn(),
-          },
-          transformBlocks: {
-            findMany: vi.fn().mockResolvedValue([]),
-          },
+    vi.mock("../../../server/db", () => {
+      const query = {
+        workflowVersions: {
+          findFirst: vi.fn(),
         },
-        transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
-      },
-    }));
+      };
+      return {
+        db: {
+          query,
+          transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({ execute: vi.fn().mockResolvedValue(undefined), query })
+          ),
+        },
+      };
+    });
 
     // Setup AclService Mocks
     (aclService.hasWorkflowRole as Mock).mockResolvedValue(true);
@@ -109,6 +132,7 @@ describe("WorkflowService", () => {
       update: vi.fn(),
       delete: vi.fn(),
       findByUserAccess: vi.fn(),
+      findPublicLinksByPrefix: vi.fn().mockResolvedValue([]),
       transaction: vi.fn(async (callback: (tx: DbTransaction) => Promise<unknown>) => callback({} as DbTransaction)),
       moveToProject: vi.fn(),
       findUnfiledByCreatorId: vi.fn(),
@@ -116,18 +140,18 @@ describe("WorkflowService", () => {
       findAll: vi.fn(),
     } as unknown as Mocked<WorkflowRepository>;
 
-    mockSectionRepo = {
+    mockPageRepo = {
       findByWorkflowId: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
       softDelete: vi.fn(),
       findById: vi.fn(),
-    } as unknown as Mocked<SectionRepository>;
+    } as unknown as Mocked<PageRepository>;
 
     mockStepRepo = {
-      findBySectionIds: vi.fn(),
-      softDeleteBySectionId: vi.fn(),
+      findByPageIds: vi.fn(),
+      softDeleteByPageId: vi.fn(),
     } as unknown as Mocked<StepRepository>;
 
     mockLogicRuleRepo = {
@@ -149,7 +173,7 @@ describe("WorkflowService", () => {
     const module = await import("../../../server/services/WorkflowService");
     WorkflowServiceClass = module.WorkflowService as unknown as new (
       workflowRepo: WorkflowRepository,
-      sectionRepo: SectionRepository,
+      pageRepo: PageRepository,
       stepRepo: StepRepository,
       logicRuleRepo: LogicRuleRepository,
       workflowAccessRepo: WorkflowAccessRepository,
@@ -163,7 +187,7 @@ describe("WorkflowService", () => {
 
     service = new WorkflowServiceClass(
       mockWorkflowRepo,
-      mockSectionRepo,
+      mockPageRepo,
       mockStepRepo,
       mockLogicRuleRepo,
       mockWorkflowAccessRepo,
@@ -174,19 +198,22 @@ describe("WorkflowService", () => {
 
   describe("verifyOwnership", () => {
     it("should return workflow if user is the creator", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       const result = await service.verifyOwnership(workflow.id, "user-123");
       expect(result).toEqual(workflow);
-      expect(mockWorkflowRepo.findByIdOrSlug).toHaveBeenCalledWith(workflow.id);
+      expect(mockWorkflowRepo.findByIdOrSlug).toHaveBeenCalledWith(workflow.id, expect.any(Object));
     });
     it("should throw error if workflow not found", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(null);
       await expect(service.verifyOwnership("workflow-123", "user-123")).rejects.toThrow(
         "Workflow not found"
       );
     });
     it("should throw error if user is not the creator", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       await expect(service.verifyOwnership(workflow.id, "other-user")).rejects.toThrow(
@@ -195,7 +222,8 @@ describe("WorkflowService", () => {
     });
   });
   describe("createWorkflow", () => {
-    it("should create workflow with default first section", async () => {
+    it("should create workflow with default first page", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflowData: InsertWorkflow = {
         projectId: "project-123",
         name: "My Workflow",
@@ -210,13 +238,13 @@ describe("WorkflowService", () => {
         ownerId: "user-123",
         status: "draft",
       });
-      const createdSection = createTestSection(createdWorkflow.id, {
-        title: "Section 1",
+      const createdPage = createTestPage(createdWorkflow.id, {
+        title: "Page 1",
         order: 1,
       });
       mockProjectRepo.findById.mockResolvedValue({ id: "project-123", ownerType: "user", ownerUuid: "user-123" } as unknown as Project);
       mockWorkflowRepo.create.mockResolvedValue(createdWorkflow);
-      mockSectionRepo.create.mockResolvedValue(createdSection);
+      mockPageRepo.create.mockResolvedValue(createdPage);
       const result = await service.createWorkflow(workflowData, "user-123");
       expect(result).toEqual(createdWorkflow);
       expect(mockWorkflowRepo.create).toHaveBeenCalledWith(
@@ -226,39 +254,98 @@ describe("WorkflowService", () => {
           ownerId: "user-123",
           status: "draft",
         }),
-        {}
+        expect.any(Object)
       );
-      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+      expect(mockPageRepo.create).toHaveBeenCalledWith(
         {
           workflowId: createdWorkflow.id,
-          title: "Section 1",
+          title: "Page 1",
           order: 1,
         },
-        {}
+        expect.any(Object)
       );
+      // AC5: one transaction at the service boundary, shared by both
+      // repositories — not merely two calls each scoped to "some" tx.
+      const workflowCreateTx = mockWorkflowRepo.create.mock.calls[0][1];
+      const pageCreateTx = mockPageRepo.create.mock.calls[0][1];
+      expect(workflowCreateTx).toBeDefined();
+      expect(workflowCreateTx).toBe(pageCreateTx);
     });
   });
   describe("getWorkflowWithDetails", () => {
-    it("should return workflow with sections, steps, and logic rules", async () => {
+    // RLS-4 precondition 4 (closed). `getWorkflowWithDetails` now threads its
+    // own `tx` parameter straight into `BrandingService.resolveForWorkflow`
+    // instead of branching on whether it opened its own transaction.
+    // `BrandingService` itself decides how to run: reuse the caller's tx
+    // (VersionService.serializeWorkflowInTx's case — this is what used to
+    // deadlock the size-1 pool) or open its own short transaction against
+    // the ambient tenant (the top-level, no-tx case). Either way branding
+    // resolution is real, not a synchronous workflow-only fallback.
+    //
+    // These two tests are what stands between that and a silent
+    // customer-visible bug: if `tx` ever stopped being threaded through, the
+    // builder (or the nested VersionService path) would silently render
+    // default branding and every other assertion in this file would still
+    // pass.
+    it("resolves REAL branding on the top-level path (no caller tx)", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
-      const sections = [
-        createTestSection(validUUID),
-        createTestSection(validUUID),
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockWorkflowRepo.findById.mockResolvedValue(workflow);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+
+      await service.getWorkflowWithDetails(validUUID, "user-123");
+
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledTimes(1);
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, undefined);
+    });
+
+    it("resolves REAL branding through the caller's transaction when nested inside one", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      const workflow = createTestWorkflow({ creatorId: "user-123" });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockWorkflowRepo.findById.mockResolvedValue(workflow);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+
+      // A caller-supplied tx is what VersionService.serializeWorkflowInTx
+      // passes; the pool read here is what used to deadlock. The fake only
+      // needs the one drizzle accessor the nested path touches.
+      const callerTx = {
+        query: {
+          workflowVersions: { findFirst: vi.fn().mockResolvedValue(null) },
+        },
+      } as never;
+      await service.getWorkflowWithDetails(validUUID, "user-123", callerTx);
+
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, callerTx);
+    });
+
+    it("should return workflow with pages, steps, and logic rules", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      const workflow = createTestWorkflow({ creatorId: "user-123" });
+      const pages = [
+        createTestPage(validUUID),
+        createTestPage(validUUID),
       ];
       const logicRules = [createTestLogicRule(validUUID)];
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue(sections);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue(pages);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue(logicRules);
       const result = await service.getWorkflowWithDetails(validUUID, "user-123");
       expect(result.id).toBe(workflow.id);
-      expect(result.sections).toHaveLength(2);
-      expect(result.sections[0].steps).toHaveLength(0);
-      expect(result.sections[1].steps).toHaveLength(0);
+      expect(result.pages).toHaveLength(2);
+      expect(result.pages[0].steps).toHaveLength(0);
+      expect(result.pages[1].steps).toHaveLength(0);
       expect(result.logicRules).toHaveLength(1);
     });
     it("should throw error if user does not own workflow", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
@@ -266,7 +353,13 @@ describe("WorkflowService", () => {
         "Access denied"
       );
     });
+    // The top-level, no-`tx` call (every caller except VersionService) must
+    // resolve REAL tenant-aware branding through BrandingService. This test
+    // asserts `mockBrandingSvc.resolveForWorkflow` was called with the real
+    // values and returned; a regression that stopped threading `tx` through
+    // or reintroduced a synchronous fallback would turn it red.
     it("returns server-resolved branding so preview matches production (GH-158 O-9)", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       // The builder preview renders from this payload and has no run. Resolving
       // server-side is what lets it show tenant-level branding the workflow's
       // own settings do not carry — previously invisible in preview.
@@ -282,18 +375,19 @@ describe("WorkflowService", () => {
       mockBrandingSvc.resolveForWorkflow.mockResolvedValue(tenantResolved);
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
-      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findByPageIds.mockResolvedValue([]);
       mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
       const result = await service.getWorkflowWithDetails(validUUID, "user-123");
 
       expect(result.branding).toEqual(tenantResolved);
-      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings);
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings, undefined);
     });
   });
   describe("listWorkflows", () => {
     it("should return all workflows for a user", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflows = [
         createTestWorkflow({ creatorId: "user-123", title: "Workflow 1" }),
         createTestWorkflow({ creatorId: "user-123", title: "Workflow 2" }),
@@ -302,9 +396,10 @@ describe("WorkflowService", () => {
       const result = await service.listWorkflows("user-123");
       expect(result).toEqual(workflows);
       expect(result).toHaveLength(2);
-      expect(mockWorkflowRepo.findByUserAccess).toHaveBeenCalledWith("user-123");
+      expect(mockWorkflowRepo.findByUserAccess).toHaveBeenCalledWith("user-123", undefined, expect.any(Object));
     });
     it("should return empty array if user has no workflows", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       mockWorkflowRepo.findByUserAccess.mockResolvedValue([]);
       const result = await service.listWorkflows("user-123");
       expect(result).toEqual([]);
@@ -312,6 +407,7 @@ describe("WorkflowService", () => {
   });
   describe("updateWorkflow", () => {
     it("should update workflow if user is the owner", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       const updatedWorkflow = { ...workflow, title: "Updated Title" };
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
@@ -321,11 +417,14 @@ describe("WorkflowService", () => {
         title: "Updated Title",
       });
       expect(result.title).toBe("Updated Title");
-      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, {
-        title: "Updated Title",
-      });
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        { title: "Updated Title" },
+        expect.any(Object)
+      );
     });
     it("should throw error if user does not own workflow", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
@@ -336,14 +435,16 @@ describe("WorkflowService", () => {
   });
   describe("deleteWorkflow", () => {
     it("should delete workflow if user is the owner", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);
       mockWorkflowRepo.delete.mockResolvedValue(undefined);
       await service.deleteWorkflow(workflow.id, "user-123");
-      expect(mockWorkflowRepo.delete).toHaveBeenCalledWith(workflow.id);
+      expect(mockWorkflowRepo.delete).toHaveBeenCalledWith(workflow.id, expect.any(Object));
     });
     it("should throw error if user does not own workflow", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
@@ -354,6 +455,7 @@ describe("WorkflowService", () => {
   });
   describe("moveToProject", () => {
     it("should reset ownership to the project's owner and update workflow runs in the same transaction", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({
         creatorId: "user-123",
         projectId: null,
@@ -370,8 +472,13 @@ describe("WorkflowService", () => {
       const whereMock = vi.fn().mockResolvedValue(undefined);
       const setMock = vi.fn().mockReturnValue({ where: whereMock });
       const updateMock = vi.fn().mockReturnValue({ set: setMock });
-      const mockTx = { update: updateMock } as unknown as DbTransaction;
-      mockWorkflowRepo.transaction.mockImplementationOnce(
+      // RLS-2e: moveToProject now opens its transaction via
+      // withCurrentTenant -> db.transaction (not workflowRepo.transaction,
+      // which it no longer calls), and its `scopedTx.update(workflowRuns)`
+      // call needs `update` on the stub tx alongside `execute` (used by
+      // applyTenantToTransaction to set the GUC).
+      const mockTx = { update: updateMock, execute: vi.fn().mockResolvedValue(undefined) } as unknown as DbTransaction;
+      vi.mocked(db.transaction).mockImplementationOnce(
         async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
       );
 
@@ -400,6 +507,7 @@ describe("WorkflowService", () => {
     // (mirroring createWorkflow's no-projectId branch) and propagates it to
     // workflowRuns, in the same transaction as the workflow update.
     it("should reset ownership to the personal/user model and update workflow runs when moving to unfiled", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({
         creatorId: "user-123",
         projectId: "project-123",
@@ -411,8 +519,8 @@ describe("WorkflowService", () => {
       const whereMock = vi.fn().mockResolvedValue(undefined);
       const setMock = vi.fn().mockReturnValue({ where: whereMock });
       const updateMock = vi.fn().mockReturnValue({ set: setMock });
-      const mockTx = { update: updateMock } as unknown as DbTransaction;
-      mockWorkflowRepo.transaction.mockImplementationOnce(
+      const mockTx = { update: updateMock, execute: vi.fn().mockResolvedValue(undefined) } as unknown as DbTransaction;
+      vi.mocked(db.transaction).mockImplementationOnce(
         async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
       );
 
@@ -439,6 +547,7 @@ describe("WorkflowService", () => {
     });
 
     it("should throw error if user does not have owner access", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
@@ -449,6 +558,7 @@ describe("WorkflowService", () => {
   });
   describe("changeStatus", () => {
     it("should change workflow status to active", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "draft" });
       const updatedWorkflow = { ...workflow, status: "active" as const };
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
@@ -456,12 +566,45 @@ describe("WorkflowService", () => {
       mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
       const result = await service.changeStatus(workflow.id, "user-123", "active");
       expect(result.status).toBe("active");
-      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, {
-        status: "active",
-        currentVersionId: "version-1"
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        {
+          status: "active",
+          currentVersionId: "version-1",
+          // Publishing is what makes the workflow reachable, so it turns on
+          // public access and mints the participant link in the same write.
+          isPublic: true,
+          publicLink: expect.any(String) as unknown as string,
+        },
+        expect.any(Object)
+      );
+      // Uniqueness is checked against public_link, not the slug column.
+      expect(mockWorkflowRepo.findPublicLinksByPrefix).toHaveBeenCalled();
+    });
+    it("should reuse an existing public link rather than minting a second one", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        status: "draft",
+        publicLink: "already-shared",
       });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockWorkflowRepo.findById.mockResolvedValue(workflow);
+      mockWorkflowRepo.update.mockResolvedValue({ ...workflow, status: "active" as const });
+
+      await service.changeStatus(workflow.id, "user-123", "active");
+
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        expect.objectContaining({ isPublic: true, publicLink: "already-shared" }),
+        expect.any(Object)
+      );
+      // A link already in circulation must never be regenerated — that would
+      // silently break every copy of it participants already hold.
+      expect(mockWorkflowRepo.findPublicLinksByPrefix).not.toHaveBeenCalled();
     });
     it("should change workflow status to archived", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "active" });
       const updatedWorkflow = { ...workflow, status: "archived" as const };
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
@@ -471,6 +614,7 @@ describe("WorkflowService", () => {
       expect(result.status).toBe("archived");
     });
     it("should throw error if user does not own workflow", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
@@ -484,35 +628,37 @@ describe("WorkflowService", () => {
     // than reaching into module internals.
     type SyncGraphJson = Parameters<WorkflowService["syncWithGraph"]>[1];
 
-    it("soft-deletes the removed final section AND cascades to its steps instead of hard-deleting either", async () => {
-      const finalSection = createTestSection("wf-1", {
-        id: "final-section-1",
+    it("soft-deletes the removed final page AND cascades to its steps instead of hard-deleting either", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      const finalPage = createTestPage("wf-1", {
+        id: "final-page-1",
         config: { finalBlock: true },
       });
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([finalSection]);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([finalPage]);
 
-      // No 'final' node in the graph anymore — the section should be removed.
+      // No 'final' node in the graph anymore — the page should be removed.
       const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
 
       await service.syncWithGraph("wf-1", graphJson, "user-1");
 
-      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(
-        "final-section-1",
+      expect(mockStepRepo.softDeleteByPageId).toHaveBeenCalledWith(
+        "final-page-1",
         expect.anything()
       );
-      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith("final-section-1", expect.anything());
-      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+      expect(mockPageRepo.softDelete).toHaveBeenCalledWith("final-page-1", expect.anything());
+      expect(mockPageRepo.delete).not.toHaveBeenCalled();
     });
 
-    it("does nothing when there is no existing final section to remove", async () => {
-      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+    it("does nothing when there is no existing final page to remove", async () => {
+      enterTenantContextForTests(TEST_TENANT_ID);
+      mockPageRepo.findByWorkflowId.mockResolvedValue([]);
 
       const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
 
       await service.syncWithGraph("wf-1", graphJson, "user-1");
 
-      expect(mockSectionRepo.softDelete).not.toHaveBeenCalled();
-      expect(mockStepRepo.softDeleteBySectionId).not.toHaveBeenCalled();
+      expect(mockPageRepo.softDelete).not.toHaveBeenCalled();
+      expect(mockStepRepo.softDeleteByPageId).not.toHaveBeenCalled();
     });
   });
 });

@@ -17,10 +17,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 import type { Condition, ConditionExpression } from '@shared/types/conditions';
 
-import { db } from '../../server/db';
 import { exportService } from '../../server/services/portability/ExportService';
 import { importService } from '../../server/services/portability/ImportService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: direct service calls get no middleware, so the tenant
+// context is entered per test body — a hook entry does not propagate.
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
 
 describe('Portability round trip — logic rules (LU-6c)', () => {
   let ctx: IntegrationTestContext;
@@ -34,11 +39,13 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
   });
 
   it("preserves a rule's `when` ConditionExpression and remaps conditionStepId/targetStepId across export/import", async () => {
+
+    enterTenantContextForTests(ctx.tenantId);
     if (ctx.projectId === undefined) {
       throw new Error('Integration test project was not created');
     }
 
-    const [workflow] = await db.insert(schema.workflows).values({
+    const [workflow] = await getOwnerDb().insert(schema.workflows).values({
       title: `Portability Logic Rule Source ${randomUUID().slice(0, 8)}`,
       name: 'Portability Logic Rule Source',
       projectId: ctx.projectId,
@@ -48,28 +55,35 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
       ownerUuid: ctx.userId,
     }).returning();
 
-    const [section] = await db.insert(schema.sections).values({
+    const [page] = await getOwnerDb().insert(schema.pages).values({
       workflowId: workflow.id,
       title: 'Page One',
       order: 0,
     }).returning();
 
-    const [controllerStep] = await db.insert(schema.steps).values({
+    // STB-18: portability import now enforces the canonical `steps.type`/
+    // `config` boundary (validateCanonicalStepConfig), which rejects the
+    // retired `yes_no`/`short_text` names outright regardless of config. The
+    // remapping behaviour under test here is orthogonal to step type, so
+    // swap in the canonical `boolean`/`text` equivalents with valid configs.
+    const [controllerStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
-      sectionId: section.id,
-      type: 'yes_no',
+      pageId: page.id,
+      type: 'boolean',
       title: 'Has pets?',
       alias: 'has_pets',
       order: 0,
+      config: { trueLabel: 'Yes', falseLabel: 'No' },
     }).returning();
 
-    const [targetStep] = await db.insert(schema.steps).values({
+    const [targetStep] = await getOwnerDb().insert(schema.steps).values({
       workflowId: workflow.id,
-      sectionId: section.id,
-      type: 'short_text',
+      pageId: page.id,
+      type: 'text',
       title: 'Pet name',
       alias: 'pet_name',
       order: 1,
+      config: { variant: 'short' },
     }).returning();
 
     // The `when` payload's own operand deliberately references the step by
@@ -91,7 +105,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
       ],
     };
 
-    await db.insert(schema.logicRules).values({
+    await getOwnerDb().insert(schema.logicRules).values({
       workflowId: workflow.id,
       conditionStepId: controllerStep.id,
       when,
@@ -105,7 +119,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
     try {
       const result = await importService.apply(tmpPath, ctx.userId, { targetProjectId: ctx.projectId });
 
-      const newSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, result.rootId));
+      const newSteps = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, result.rootId));
       const newController = newSteps.find((step) => step.alias === 'has_pets');
       const newTarget = newSteps.find((step) => step.alias === 'pet_name');
       expect(newController).toBeDefined();
@@ -114,7 +128,7 @@ describe('Portability round trip — logic rules (LU-6c)', () => {
       expect(newController!.id).not.toBe(controllerStep.id);
       expect(newTarget!.id).not.toBe(targetStep.id);
 
-      const newRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, result.rootId));
+      const newRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, result.rootId));
       expect(newRules).toHaveLength(1);
       const [rule] = newRules;
 

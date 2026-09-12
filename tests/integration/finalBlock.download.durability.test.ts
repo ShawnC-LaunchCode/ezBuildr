@@ -25,13 +25,15 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
@@ -83,7 +85,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(OUTPUTS_DIR, { recursive: true });
   });
 
@@ -97,9 +99,9 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
   it('serves the document over HTTP after the generation directories are deleted', async () => {
     const projectId = ctx.projectId!;
     const { workflow } = await factory.createWorkflow(projectId, ctx.userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -114,8 +116,8 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
       fileRef,
     });
 
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -125,7 +127,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     });
 
     const runToken = `debt15-token-${Date.now()}`;
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -133,7 +135,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
         createdBy: `creator:${ctx.userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',
@@ -142,7 +144,7 @@ describe.sequential('DEBT-15: final-block download survives losing the working d
     const result = await runLifecycleService.generateDocuments(run.id);
     expect(result.success).toBe(true);
 
-    const [record] = await db
+    const [record] = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));

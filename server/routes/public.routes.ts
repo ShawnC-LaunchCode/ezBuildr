@@ -18,6 +18,14 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
     try {
         const { slug } = req.params;
 
+        // ⚠️ RLS-5: deliberately NOT wrapped in `withCurrentTenant`, and it must
+        // stay that way. This route is anonymous by design — there is no tenant
+        // to pin, and wrapping it would make every public link throw the moment
+        // RLS_ENFORCED flips. Migration 0031 added the carve-out this relies on:
+        // `is_public = true AND status = 'active'` is visible with NO tenant, so
+        // the database itself now hides drafts and private workflows — strictly
+        // stronger than the `if (!workflow.isPublic)` check below, which stays
+        // as defence in depth.
         // Use workflows table instead of legacy surveys
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow query result with dynamic schema
         const workflow: any = await db.query.workflows.findFirst({
@@ -71,7 +79,9 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
     const { runToken } = req.body;
 
     try {
-        // Find workflow to get workspaceId
+        // Find workflow to get workspaceId.
+        // Anonymous route — see the note above: 0031's public carve-out is what
+        // makes this readable with no tenant, and pinning one would break it.
         const workflow = await db.query.workflows.findFirst({
             where: eq(workflows.slug, slug)
         });

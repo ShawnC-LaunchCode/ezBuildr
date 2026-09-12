@@ -55,7 +55,7 @@ title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
 doc.add_paragraph()
 
-# Personal Information Section
+# Personal Information Page
 doc.add_heading('Applicant Information', level=2)
 
 applicant_table = doc.add_table(rows=5, cols=2)

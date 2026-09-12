@@ -17,14 +17,14 @@ async function verify() {
   `;
   console.table(projectCols);
 
-  console.log('\nSections Table:');
-  const sectionCols = await sql`
+  console.log('\nPages Table:');
+  const pageCols = await sql`
     SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = 'sections'
     AND column_name = 'updated_at'
   `;
-  console.table(sectionCols);
+  console.table(pageCols);
 
   console.log('\nSteps Table:');
   const stepCols = await sql`

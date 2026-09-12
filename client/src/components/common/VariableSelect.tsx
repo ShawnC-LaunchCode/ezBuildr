@@ -40,17 +40,17 @@ export function VariableSelect({ workflowId, value, onChange, placeholder, disab
     );
   }
 
-  // Group variables by section
-  const variablesBySection = variables.reduce((acc, variable) => {
-    const sectionId = variable.sectionId;
+  // Group variables by page
+  const variablesByPage = variables.reduce((acc, variable) => {
+    const pageId = variable.pageId;
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!acc[sectionId]) {
-      acc[sectionId] = {
-        title: variable.sectionTitle,
+    if (!acc[pageId]) {
+      acc[pageId] = {
+        title: variable.pageTitle,
         variables: [],
       };
     }
-    acc[sectionId].variables.push(variable);
+    acc[pageId].variables.push(variable);
     return acc;
   }, {} as Record<string, { title: string; variables: ApiWorkflowVariable[] }>);
 
@@ -78,12 +78,12 @@ export function VariableSelect({ workflowId, value, onChange, placeholder, disab
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {Object.entries(variablesBySection).map(([sectionId, { title, variables: sectionVars }]) => (
-          <SelectGroup key={sectionId}>
+        {Object.entries(variablesByPage).map(([pageId, { title, variables: pageVars }]) => (
+          <SelectGroup key={pageId}>
             <SelectLabel className="text-xs font-semibold text-muted-foreground">
               {title}
             </SelectLabel>
-            {sectionVars.map((variable) => (
+            {pageVars.map((variable) => (
               <SelectItem
                 key={variable.key}
                 value={variable.key}

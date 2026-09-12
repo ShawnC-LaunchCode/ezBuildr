@@ -81,7 +81,7 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="onSectionSubmit">
+                                <SelectItem value="onPageSubmit">
                                     <div className="flex flex-col">
                                         <span className="font-medium">When page is submitted</span>
                                         <span className="text-xs text-muted-foreground">Runs after user submits this page</span>
@@ -93,7 +93,7 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                         <span className="text-xs text-muted-foreground">Runs at the end of the workflow</span>
                                     </div>
                                 </SelectItem>
-                                <SelectItem value="onSectionEnter">
+                                <SelectItem value="onPageEnter">
                                     <div className="flex flex-col">
                                         <span className="font-medium">When page loads</span>
                                         <span className="text-xs text-muted-foreground">Runs before user sees this page</span>

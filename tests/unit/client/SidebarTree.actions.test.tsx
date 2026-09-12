@@ -6,15 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidebarTree } from '../../../client/src/components/builder/SidebarTree';
 import { TooltipProvider } from '../../../client/src/components/ui/tooltip';
 
-const createSectionAtEnd = vi.fn();
+const createPageAtEnd = vi.fn();
 const createStepAsync = vi.fn();
 
 vi.mock('@/lib/vault-hooks', () => ({
   useWorkflow: () => ({ data: { id: 'workflow-1', modeOverride: 'easy', projectId: null } }),
+  usePages: () => ({ data: [] }),
   useSections: () => ({ data: [] }),
   useBlocks: () => ({ data: [] }),
-  useCreateSectionAtEnd: () => ({ createSectionAtEnd, isPending: false }),
+  useCreatePageAtEnd: () => ({ createPageAtEnd, isPending: false }),
   useCreateStep: () => ({ mutateAsync: createStepAsync }),
+  useCreateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // Child surfaces are stubbed so this test isolates the outline's own wiring:
@@ -33,20 +37,20 @@ vi.mock('@/components/builder/BlockEditorDialog', () => ({
   BlockEditorDialog: () => null,
 }));
 
-vi.mock('@/components/builder/SectionSettingsDialog', () => ({
-  SectionSettingsDialog: () => null,
+vi.mock('@/components/builder/PageSettingsDialog', () => ({
+  PageSettingsDialog: () => null,
 }));
 
 vi.mock('@/components/builder/sidebar/DocumentStatusPanel', () => ({
   DocumentStatusPanel: () => null,
 }));
 
-vi.mock('@/components/builder/sidebar/SectionItem', () => ({
-  SectionItem: () => null,
+vi.mock('@/components/builder/sidebar/PageItem', () => ({
+  PageItem: () => null,
 }));
 
 beforeEach(() => {
-  createSectionAtEnd.mockReset().mockResolvedValue({ id: 'section-1' });
+  createPageAtEnd.mockReset().mockResolvedValue({ id: 'page-1' });
   createStepAsync.mockReset().mockResolvedValue({ id: 'step-1' });
 });
 
@@ -71,13 +75,23 @@ describe('SidebarTree authoring actions', () => {
 
     expect(screen.getByRole('button', { name: /Edit with AI/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add Snip/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add Section/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
 
     expect(screen.getByRole('menuitem', { name: /Regular Page/i })).toBeInTheDocument();
     expect(
-      screen.getByRole('menuitem', { name: /Final Documents Section/i })
+      screen.getByRole('menuitem', { name: /Final Documents Page/i })
     ).toBeInTheDocument();
+  });
+
+  it('opens the add-Section dialog', async () => {
+    const user = userEvent.setup();
+    renderTree();
+
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+
+    expect(screen.getByRole('dialog', { name: /Add Section/i })).toBeInTheDocument();
   });
 
   it('opens the AI assistant dialog', async () => {
@@ -107,7 +121,7 @@ describe('SidebarTree authoring actions', () => {
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
     await user.click(screen.getByRole('menuitem', { name: /Regular Page/i }));
 
-    expect(createSectionAtEnd).toHaveBeenCalledWith();
+    expect(createPageAtEnd).toHaveBeenCalledWith();
     expect(createStepAsync).not.toHaveBeenCalled();
   });
 
@@ -116,9 +130,9 @@ describe('SidebarTree authoring actions', () => {
     renderTree();
 
     await user.click(screen.getByRole('button', { name: /Add Page/i }));
-    await user.click(screen.getByRole('menuitem', { name: /Final Documents Section/i }));
+    await user.click(screen.getByRole('menuitem', { name: /Final Documents Page/i }));
 
-    expect(createSectionAtEnd).toHaveBeenCalledWith(
+    expect(createPageAtEnd).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Final Documents',
         config: expect.objectContaining({ finalBlock: true }),
@@ -126,7 +140,7 @@ describe('SidebarTree authoring actions', () => {
     );
     expect(createStepAsync).toHaveBeenCalledWith(
       expect.objectContaining({
-        sectionId: 'section-1',
+        pageId: 'page-1',
         type: 'final_documents',
         alias: 'final_documents',
       })

@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import {
     getConfigSchema,
+    validateCanonicalStepConfig,
     validateStepConfig,
     FinalBlockConfigSchema,
     TextAdvancedConfigSchema as _TextAdvancedConfigSchema,
     ChoiceAdvancedConfigSchema,
+    BooleanAdvancedConfigSchema,
     ListConfigSchema
 } from '../../../../shared/validation/stepConfigSchemas';
 import { LIST_VALIDATION_MAX_DEPTH } from '../../../../shared/validation/BlockValidation';
@@ -52,9 +54,230 @@ describe('Step Config Schemas', () => {
             expect(result.success).toBe(true);
             expect(result.data).toBe(config);
         });
+
+        it.each(['date', 'time', 'datetime'] as const)('accepts canonical date_time kind %s', (kind) => {
+            const config = {
+                kind,
+                minDate: '2026-01-01',
+                maxDate: '2026-12-31',
+                defaultToToday: true,
+                timeFormat: '24h',
+                timeStep: 5,
+            };
+            const result = validateStepConfig('date_time', config);
+            expect(result.success).toBe(true);
+            expect(result.data).toEqual(config);
+        });
+
+        it.each([
+            {},
+            { kind: 'calendar' },
+            { kind: 'time', timeStep: 0 },
+            { kind: 'datetime', timeFormat: 'military' },
+        ])('rejects invalid canonical date_time config %#', (config) => {
+            expect(validateStepConfig('date_time', config).success).toBe(false);
+        });
+
+        it('strips retired and deferred date_time keys from the active contract', () => {
+            const result = validateStepConfig('date_time', {
+                kind: 'datetime',
+                showDate: true,
+                showTime: true,
+                timezone: 'America/Chicago',
+                showTimezone: true,
+            });
+            expect(result.success).toBe(true);
+            expect(result.data).toEqual({ kind: 'datetime' });
+        });
+    });
+
+    describe('canonical request/ingest boundary (STB-17)', () => {
+        it.each([
+            ['text', { variant: 'short' }],
+            ['boolean', { displayStyle: 'buttons' }],
+            ['phone', { format: 'US' }],
+            ['date_time', { kind: 'date' }],
+            ['choice', { display: 'radio', options: [{ id: 'yes', label: 'Yes' }] }],
+            ['email', { placeholder: 'name@example.com' }],
+            ['number', { mode: 'number' }],
+            ['scale', { min: 1, max: 5 }],
+            ['website', { allowedProtocols: ['https'] }],
+            ['address', { country: 'US', fields: ['street', 'city', 'state', 'zip'] }],
+            ['multi_field', { layout: 'first_last', fields: [], storeAs: 'separate' }],
+            ['display', { markdown: '# Heading' }],
+            ['file_upload', { maxFiles: 1 }],
+            ['list', { fields: [] }],
+            ['js_question', { code: 'emit({ result: 1 })', inputs: [], outputs: [{ key: 'result', type: 'number' }] }],
+            ['computed', {}],
+            ['final_documents', { markdownHeader: 'Done', documents: [] }],
+            ['signature_block', {
+                signerRole: 'Applicant',
+                routingOrder: 1,
+                documents: [{ id: 'signature-document', documentId: 'template-id' }],
+                provider: 'native',
+            }],
+        ] as const)('accepts a valid canonical %s pair', (stepType, config) => {
+            expect(validateCanonicalStepConfig(stepType, config).success).toBe(true);
+        });
+
+        it.each([
+            'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no',
+            'true_false', 'date', 'time', 'datetime', 'currency', 'final',
+            'phone_advanced', 'datetime_unified', 'email_advanced', 'number_advanced',
+            'scale_advanced', 'website_advanced', 'address_advanced', 'display_advanced',
+            'unknown_type',
+        ])('rejects retired or unknown type %s at the type path', (stepType) => {
+            const result = validateCanonicalStepConfig(stepType, {});
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['type'] });
+            expect(result.error?.issues[0]?.message).toContain(stepType);
+        });
+
+        it('rejects a top-level unknown key with its exact path instead of stripping it', () => {
+            const result = validateCanonicalStepConfig('display', {
+                markdown: '# Heading',
+                allowHtml: false,
+            });
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['allowHtml'] });
+            expect(result.error?.issues[0]?.message).toContain('allowHtml');
+        });
+
+        it('rejects a nested unknown key with its exact path instead of stripping it', () => {
+            const result = validateCanonicalStepConfig('text', {
+                variant: 'short',
+                validation: { minLength: 1, removedRule: true },
+            });
+            expect(result.success).toBe(false);
+            expect(result.error?.issues[0]).toMatchObject({ path: ['validation', 'removedRule'] });
+            expect(result.error?.issues[0]?.message).toContain('validation.removedRule');
+        });
+
+        it('reports only the real issue, with no phantom Required for supplied fields', () => {
+            // Returning z.NEVER from a preprocess does not stop Zod running the
+            // outer schema on the discarded value, so these rejections used to
+            // trail `markdown: Required` / `variant: Required` for fields that
+            // WERE supplied. Those strings reach the 400 body and the AI patch
+            // loop, which would then correct a field that was never missing.
+            const unknownKey = validateCanonicalStepConfig('display', {
+                markdown: '# Heading',
+                allowHtml: false,
+            });
+            expect(unknownKey.success).toBe(false);
+            expect(unknownKey.error?.issues).toHaveLength(1);
+            expect(unknownKey.error?.issues[0]).toMatchObject({ path: ['allowHtml'] });
+
+            const nested = validateCanonicalStepConfig('text', {
+                variant: 'short',
+                validation: { minLength: 1, removedRule: true },
+            });
+            expect(nested.success).toBe(false);
+            expect(nested.error?.issues).toHaveLength(1);
+
+            // A genuinely absent required field must still be reported.
+            const reallyMissing = validateCanonicalStepConfig('display', {});
+            expect(reallyMissing.success).toBe(false);
+            expect(reallyMissing.error?.issues[0]).toMatchObject({ path: ['markdown'] });
+        });
+
+        it.each([
+            ['address_advanced', { country: 'US', fields: [{ key: 'street1', label: 'Street', type: 'text', required: true }], autoComplete: true }],
+            ['address_advanced', { country: 'CA', allowedCountries: ['CA', 'US'], fields: [{ key: 'street1', label: 'Street', type: 'text', required: true }] }],
+            ['scale_advanced', { min: 1, max: 5, step: 1, display: 'buttons', showValue: true }],
+            ['scale_advanced', { min: 1, max: 5, step: 1, display: 'stars', stars: 5, color: '#ff0000' }],
+            ['display_advanced', { markdown: '# H', allowHtml: false, template: true, variables: ['firstName'] }],
+        ] as const)('keeps stored legacy %s rows readable', (stepType, config) => {
+            expect(validateStepConfig(stepType, config).success).toBe(true);
+        });
+    });
+
+    describe('Canonical Configs (STB-13)', () => {
+        it('should accept valid canonical phone config and silently strip removed keys', () => {
+            const valid = validateStepConfig('phone', {
+                format: 'US',
+                placeholder: 'Phone number',
+                validation: { strict: true }
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('phone', {
+                format: 'US',
+                allowedCountries: ['US', 'CA'], // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ format: 'US' });
+            expect(stripped.data).not.toHaveProperty('allowedCountries');
+        });
+
+        it('should accept valid canonical email config and silently strip removed keys', () => {
+            const valid = validateStepConfig('email', {
+                allowMultiple: true,
+                maxEmails: 2,
+                restrictDomains: ['example.com']
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('email', {
+                allowMultiple: true,
+                requireVerification: true, // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ allowMultiple: true });
+            expect(stripped.data).not.toHaveProperty('requireVerification');
+        });
+
+        it('should accept valid canonical website config and silently strip removed keys', () => {
+            const valid = validateStepConfig('website', {
+                requireProtocol: true,
+                allowedProtocols: ['https']
+            });
+            expect(valid.success).toBe(true);
+
+            const stripped = validateStepConfig('website', {
+                requireProtocol: true,
+                validateDns: true, // removed key
+            });
+            expect(stripped.success).toBe(true);
+            expect(stripped.data).toEqual({ requireProtocol: true });
+            expect(stripped.data).not.toHaveProperty('validateDns');
+        });
+
+        it('should still validate legacy configs under the retired type name and strip removed keys (read-compat)', () => {
+            const legacy = validateStepConfig('phone_advanced', {
+                format: 'international',
+                defaultCountry: 'US'
+            });
+            expect(legacy.success).toBe(true);
+            expect(legacy.data).toEqual({ format: 'international' });
+            expect(legacy.data).not.toHaveProperty('defaultCountry');
+        });
     });
 
     describe('Specific Schema Validations', () => {
+        describe('BooleanAdvancedConfigSchema', () => {
+            it.each(['buttons', 'radio', 'toggle', 'checkbox'] as const)(
+                'accepts the legal %s display style',
+                (displayStyle) => {
+                    const result = BooleanAdvancedConfigSchema.safeParse({
+                        trueLabel: 'Yes',
+                        falseLabel: 'No',
+                        storeAsBoolean: true,
+                        displayStyle,
+                    });
+                    expect(result.success).toBe(true);
+                }
+            );
+
+            it('rejects an unknown display style', () => {
+                expect(BooleanAdvancedConfigSchema.safeParse({
+                    trueLabel: 'Yes',
+                    falseLabel: 'No',
+                    storeAsBoolean: true,
+                    displayStyle: 'segmented',
+                }).success).toBe(false);
+            });
+        });
+
         describe('FinalBlockConfigSchema', () => {
             it('should enforce unique aliases', () => {
                 const validConfig = {
@@ -288,6 +511,80 @@ describe('Step Config Schemas', () => {
 
             it('ListConfigSchema is exported directly for consumers that want it without the string dispatch', () => {
                 expect(ListConfigSchema.safeParse({ fields: [] }).success).toBe(true);
+            });
+        });
+    });
+
+    describe('STB-14 Acceptance Tests (Round 3)', () => {
+        describe('AC 5/6: Legacy read-compat strict rejection & canonical output', () => {
+            it('address_advanced: validates strictly and returns canonical shape', () => {
+                const legacyValid = {country:'US', fields:[{key:'street1',label:'Street',type:'text',required:true}], autoComplete:true};
+                const legacyGarbage = {...legacyValid, bogusKey: 123};
+                const legacyMissingField = {country:'US', autoComplete:true}; // missing fields
+
+                // Valid legacy read
+                const result1 = validateStepConfig('address_advanced', legacyValid);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ country: 'US', fields: ['street', 'city', 'state', 'zip'] });
+
+                // Strict rejection
+                const result2 = validateStepConfig('address_advanced', legacyGarbage);
+                expect(result2.success).toBe(false);
+
+                // Missing required legacy keys
+                const result3 = validateStepConfig('address_advanced', legacyMissingField);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape (when reading as standard address)
+                const canonicalValid = { country: 'US', fields: ['street', 'city', 'state', 'zip'] };
+                const result4 = validateStepConfig('address', canonicalValid);
+                expect(result4.success).toBe(true);
+            });
+
+            it('scale_advanced: validates strictly and returns canonical shape', () => {
+                const config1 = {min:1,max:5,step:1,display:'buttons' as const,showValue:true};
+                const config2 = {min:1,max:5,step:1,display:'stars' as const,stars:5,color:'#ff0000'};
+                const configGarbage = {min:1,max:5,step:1,display:'slider' as const, foo: 'bar'};
+
+                // Valid legacy read mapping to canonical (buttons -> slider)
+                const result1 = validateStepConfig('scale_advanced', config1);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ min: 1, max: 5, step: 1, display: 'slider', showValue: true });
+
+                // Valid legacy read mapping to canonical (stars -> stars)
+                const result2 = validateStepConfig('scale_advanced', config2);
+                expect(result2.success).toBe(true);
+                expect(result2.data).toEqual({ min: 1, max: 5, step: 1, display: 'stars' });
+
+                // Strict rejection
+                const result3 = validateStepConfig('scale_advanced', configGarbage);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape (when reading as standard scale)
+                const canonicalValid = { min: 1, max: 5, step: 1, display: 'slider' };
+                const result4 = validateStepConfig('scale', canonicalValid);
+                expect(result4.success).toBe(true);
+            });
+
+            it('display_advanced: validates strictly and returns canonical shape', () => {
+                const config = {markdown:'# H', allowHtml:false, template:true, variables:['firstName']};
+                const configGarbage = {...config, unknownProp: 42};
+                const configMissing = {allowHtml: false}; // missing markdown
+
+                const result1 = validateStepConfig('display_advanced', config);
+                expect(result1.success).toBe(true);
+                expect(result1.data).toEqual({ markdown: '# H' });
+
+                const result2 = validateStepConfig('display_advanced', configGarbage);
+                expect(result2.success).toBe(false);
+
+                const result3 = validateStepConfig('display_advanced', configMissing);
+                expect(result3.success).toBe(false);
+
+                // Canonical shape
+                const canonicalValid = { markdown: '# H' };
+                const result4 = validateStepConfig('display', canonicalValid);
+                expect(result4.success).toBe(true);
             });
         });
     });

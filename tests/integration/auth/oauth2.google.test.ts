@@ -10,11 +10,13 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import { users, tenants, refreshTokens } from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
 
 import type { Express } from 'express';
 import type { TokenPayload } from 'google-auth-library';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 describe('OAuth2 Google Authentication Flow', () => {
   let app: Express;
   let testTenantId: string;
@@ -28,7 +30,7 @@ describe('OAuth2 Google Authentication Flow', () => {
     // Register auth routes
     await setupAuth(app);
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'Test Tenant',
       plan: 'pro',
     }).returning();
@@ -41,12 +43,12 @@ describe('OAuth2 Google Authentication Flow', () => {
     };
     _testOnly_setGoogleClient(mockGoogleClient);
     // Clean up test users
-    await db.delete(users).where(eq(users.email, 'testuser@example.com'));
+    await getOwnerDb().delete(users).where(eq(users.email, 'testuser@example.com'));
   });
   afterAll(async () => {
     // Clean up
     if (testTenantId) {
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     }
     _testOnly_setGoogleClient(null);
   });
@@ -97,7 +99,7 @@ describe('OAuth2 Google Authentication Flow', () => {
       expect(Array.isArray(cookies)).toBe(true);
       expect((cookies as unknown as string[]).some((c: string) => c.startsWith('refresh_token='))).toBe(true);
       // Verify user was created in database
-      const dbUser = await db.query.users.findFirst({
+      const dbUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, 'google-user-123'),
       });
       expect(dbUser).toBeDefined();
@@ -183,9 +185,9 @@ describe('OAuth2 Google Authentication Flow', () => {
     it('should update existing user on subsequent logins', async () => {
       const userId = 'google-user-existing';
       // Clean up any existing user first
-      await db.delete(users).where(eq(users.id, userId));
+      await getOwnerDb().delete(users).where(eq(users.id, userId));
       // Create existing user
-      await db.insert(users).values({
+      await getOwnerDb().insert(users).values({
         id: userId,
         email: 'existing@example.com',
         firstName: 'Old',
@@ -227,7 +229,7 @@ describe('OAuth2 Google Authentication Flow', () => {
         profileImageUrl: 'https://example.com/new-avatar.jpg',
       });
       // Verify database was updated
-      const updatedUser = await db.query.users.findFirst({
+      const updatedUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, userId),
       });
       expect(updatedUser?.firstName).toBe('Updated');
@@ -257,7 +259,7 @@ describe('OAuth2 Google Authentication Flow', () => {
         });
       expect(response.status).toBe(200);
       // Verify refresh token exists in database
-      const token = await db.query.refreshTokens.findFirst({
+      const token = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.userId, 'google-user-refresh'),
       });
       expect(token).toBeDefined();

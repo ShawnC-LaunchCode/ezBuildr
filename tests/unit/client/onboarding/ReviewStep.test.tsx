@@ -39,7 +39,9 @@ function makeVariables(): OnboardingVariable[] {
     {
       name: 'client_name',
       alias: 'clientName',
-      type: 'short_text',
+      type: 'text',
+      presetId: 'easy.short-text',
+      config: { variant: 'short' },
       label: 'Client Name',
       confidence: 0.95,
       source: 'explicit_tag',
@@ -93,7 +95,9 @@ describe('ReviewStep (GH-167 AC2)', () => {
     expect(payload.variables[0]).toMatchObject({
       name: 'client_name',
       alias: 'clientFullName',
-      type: 'long_text',
+      type: 'text',
+      presetId: 'easy.long-text',
+      config: { variant: 'long' },
     });
   });
 

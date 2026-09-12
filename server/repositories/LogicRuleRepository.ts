@@ -44,7 +44,7 @@ export class LogicRuleRepository extends BaseRepository<
 
   /**
    * Find a rule by ID, scoped to a workflow (LU-6b). Mirrors
-   * `SectionRepository.findByIdAndWorkflow` — used so update/delete can
+   * `PageRepository.findByIdAndWorkflow` — used so update/delete can
    * confirm a rule belongs to the workflow the caller already has `edit`
    * access to, rather than trusting a bare `ruleId`.
    */
@@ -63,7 +63,7 @@ export class LogicRuleRepository extends BaseRepository<
 
   /**
    * Update a rule's order, scoped to a workflow (LU-6b). Ordering is
-   * author-visible: `evaluateRules` sorts section-targeted rules by `order`
+   * author-visible: `evaluateRules` sorts page-targeted rules by `order`
    * and the first firing `skip_to` wins, so reordering must be a first-class
    * operation, not an implementation detail.
    */

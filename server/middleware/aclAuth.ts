@@ -2,6 +2,7 @@ import type { AccessRole } from "@shared/schema";
 
 import { createLogger } from "../logger";
 import { aclService } from "../services/AclService";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 
@@ -40,10 +41,10 @@ export function requireProjectRole(
         });
       }
 
-      const hasAccess = await aclService.hasProjectRole(userId, projectId, minRole);
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, minRole, aclTx));
 
       if (!hasAccess) {
-        const userRole = await aclService.resolveRoleForProject(userId, projectId);
+        const userRole = await withCurrentTenant((aclTx) => aclService.resolveRoleForProject(userId, projectId, aclTx));
         logger.warn(
           { userId, projectId, requiredRole: minRole, userRole },
           'Project access denied: Insufficient permissions'
@@ -101,10 +102,10 @@ export function requireWorkflowRole(
         });
       }
 
-      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, minRole);
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasWorkflowRole(userId, workflowId, minRole, aclTx));
 
       if (!hasAccess) {
-        const userRole = await aclService.resolveRoleForWorkflow(userId, workflowId);
+        const userRole = await withCurrentTenant((aclTx) => aclService.resolveRoleForWorkflow(userId, workflowId, aclTx));
         logger.warn(
           { userId, workflowId, requiredRole: minRole, userRole },
           'Workflow access denied: Insufficient permissions'

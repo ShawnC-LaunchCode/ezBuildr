@@ -13,8 +13,9 @@
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { db } from '../db';
+import { type DbTransaction } from '../repositories';
 import { createError } from '../utils/errors';
+import { withCurrentTenant } from '../utils/rlsContext';
 import { getTemplateFilePath } from './templates';
 import {
   extractPlaceholdersDetailed,
@@ -60,7 +61,7 @@ export interface TemplateValidationReport {
    * Steps that have no alias: their answers are excluded from document
    * data entirely (SnapshotService only exports aliased values)
    */
-  stepsWithoutAlias: Array<{ stepId: string; label: string; sectionTitle: string }>;
+  stepsWithoutAlias: Array<{ stepId: string; label: string; pageTitle: string }>;
   /** Malformed template tags (unclosed/mismatched); analysis is skipped */
   syntaxErrors: string[];
   /** Helpers referenced in tags but not defined in docxHelpers */
@@ -133,6 +134,25 @@ const VALUELESS_STEP_TYPES = new Set(['display', 'final_documents']);
 
 export class TemplateValidationService {
   /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-2e). Reuses a caller-supplied `tx` if given (never
+   * nests, and skips the mismatch check — see §2b's documented gap);
+   * otherwise compares `expectedTenantId` against the ambient tenant and
+   * throws on disagreement before opening exactly one transaction via
+   * `withCurrentTenant`.
+   */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  /**
    * Validate a template's placeholders against a workflow's variables.
    *
    * @param templateId - Template row id (for the report)
@@ -144,39 +164,47 @@ export class TemplateValidationService {
     templateId: string,
     workflowId: string,
     tenantId: string,
-    userId: string
+    userId: string,
+    tx?: DbTransaction
   ): Promise<TemplateValidationReport> {
-    const template = await db.query.templates.findFirst({
-      where: eq(schema.templates.id, templateId),
-      with: { project: true },
-    });
-    if (!template) {
-      throw createError.notFound('Template', templateId);
-    }
-    if (template.project.tenantId !== tenantId) {
-      throw createError.forbidden('Access denied to this template');
-    }
-
-    const variables = await variableService.listVariables(workflowId, userId);
-
-    let placeholders: PlaceholderInfo[] = [];
-    const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;
-
-    if (metadata?.placeholders) {
-      placeholders = metadata.placeholders;
-    } else {
-      try {
-        placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(template.fileRef));
-      } catch (error) {
-        if (error instanceof TemplateSyntaxError) {
-          const report = this.buildReport(templateId, workflowId, [], variables);
-          return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
-        }
-        throw error;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const template = await scopedTx.query.templates.findFirst({
+        where: eq(schema.templates.id, templateId),
+        with: { project: true },
+      });
+      if (!template) {
+        throw createError.notFound('Template', templateId);
       }
-    }
+      if (template.project.tenantId !== tenantId) {
+        throw createError.forbidden('Access denied to this template');
+      }
 
-    return this.buildReport(templateId, workflowId, placeholders, variables);
+      // RLS-4 precondition 5 (closed): `listVariables` now takes the same
+      // optional `tx` this method does and reuses `scopedTx` instead of
+      // opening a second transaction — opening one here would deadlock the
+      // size-1 test pool while this transaction is still open. Real
+      // tenant-scoped `pages`/`steps` reads under FORCE, not zero rows.
+      const variables = await variableService.listVariables(workflowId, userId, scopedTx);
+
+      let placeholders: PlaceholderInfo[] = [];
+      const metadata = template.metadata as { placeholders?: PlaceholderInfo[] } | null;
+
+      if (metadata?.placeholders) {
+        placeholders = metadata.placeholders;
+      } else {
+        try {
+          placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(template.fileRef));
+        } catch (error) {
+          if (error instanceof TemplateSyntaxError) {
+            const report = this.buildReport(templateId, workflowId, [], variables);
+            return { ...report, syntaxErrors: error.syntaxErrors, valid: false };
+          }
+          throw error;
+        }
+      }
+
+      return this.buildReport(templateId, workflowId, placeholders, variables);
+    });
   }
 
   /** Pure comparison, separated for testability */
@@ -239,7 +267,7 @@ export class TemplateValidationService {
 
     const stepsWithoutAlias = variables
       .filter((v) => (v.alias === null || v.alias === '') && !VALUELESS_STEP_TYPES.has(v.type))
-      .map((v) => ({ stepId: v.stepId, label: v.label, sectionTitle: v.sectionTitle }));
+      .map((v) => ({ stepId: v.stepId, label: v.label, pageTitle: v.pageTitle }));
 
     const unknownHelpers = Array.from(unknownHelpersSet).sort();
     

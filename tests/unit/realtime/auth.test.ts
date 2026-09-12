@@ -11,8 +11,8 @@ import { workflowService } from "../../../server/services/WorkflowService";
  * granted edit access through `workflow_access` could never join, and
  * presence could never show a second person. The fix reuses
  * `WorkflowService.verifyAccess` (the same 'edit' gate every other
- * section/step mutation already goes through) instead of a bespoke
- * creator-only check, mirroring how `SectionService.test.ts` and friends
+ * page/step mutation already goes through) instead of a bespoke
+ * creator-only check, mirroring how `PageService.test.ts` and friends
  * mock `workflowService` rather than re-testing `AclService`'s own role
  * resolution underneath it.
  */

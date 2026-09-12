@@ -6,10 +6,14 @@ import {
   type DbTransaction,
 } from "../repositories";
 import { generateApiToken, hashToken } from "../utils/encryption";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 
 /**
  * Service layer for DataVault API tokens business logic
  * Handles API token generation, validation, and management
+ *
+ * RLS-2b: copies the service-boundary tenant transaction pattern from
+ * CollectionService (RLS-2a) — see docs/architecture/TENANT_ISOLATION_RLS.md §2b.
  */
 export class DatavaultApiTokensService {
   private tokensRepo: typeof datavaultApiTokensRepository;
@@ -21,6 +25,26 @@ export class DatavaultApiTokensService {
   ) {
     this.tokensRepo = tokensRepo ?? datavaultApiTokensRepository;
     this.databasesRepo = databasesRepo ?? datavaultDatabasesRepository;
+  }
+
+  /** See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
   }
 
   /**
@@ -75,11 +99,13 @@ export class DatavaultApiTokensService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<Omit<DatavaultApiToken, 'tokenHash'>[]> {
-    // Verify database belongs to tenant
-    await this.verifyDatabaseOwnership(databaseId, tenantId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify database belongs to tenant
+      await this.verifyDatabaseOwnership(databaseId, tenantId, scopedTx);
 
-    // Get tokens (hash is excluded in repository method)
-    return this.tokensRepo.findByDatabaseId(databaseId, tx);
+      // Get tokens (hash is excluded in repository method)
+      return this.tokensRepo.findByDatabaseId(databaseId, scopedTx);
+    });
   }
 
   /**
@@ -95,53 +121,56 @@ export class DatavaultApiTokensService {
     expiresAt?: Date,
     tx?: DbTransaction
   ): Promise<{ token: DatavaultApiToken; plainToken: string }> {
-    // Verify database belongs to tenant
-    await this.verifyDatabaseOwnership(databaseId, tenantId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify database belongs to tenant
+      await this.verifyDatabaseOwnership(databaseId, tenantId, scopedTx);
 
-    // Validate inputs
-    if (!label || label.trim().length === 0) {
-      throw new Error("Token label cannot be empty");
-    }
+      // Validate inputs
+      if (!label || label.trim().length === 0) {
+        throw new Error("Token label cannot be empty");
+      }
 
-    if (label.length > 255) {
-      throw new Error("Token label is too long (max 255 characters)");
-    }
+      if (label.length > 255) {
+        throw new Error("Token label is too long (max 255 characters)");
+      }
 
-    this.validateScopes(scopes);
+      this.validateScopes(scopes);
 
-    // Validate expiration date
-    if (expiresAt && expiresAt < new Date()) {
-      throw new Error("Expiration date must be in the future");
-    }
+      // Validate expiration date
+      if (expiresAt && expiresAt < new Date()) {
+        throw new Error("Expiration date must be in the future");
+      }
 
-    // Generate a secure random token
-    const plainToken = generateApiToken();
+      // Generate a secure random token
+      const plainToken = generateApiToken();
 
-    // Hash the token for storage
-    const tokenHash = hashToken(plainToken);
+      // Hash the token for storage
+      const tokenHash = hashToken(plainToken);
 
-    // Check if hash already exists (extremely unlikely but possible)
-    const hashExists = await this.tokensRepo.tokenHashExists(tokenHash, tx);
-    if (hashExists) {
-      // Regenerate token (collision, extremely rare)
-      return this.createToken(databaseId, tenantId, label, scopes, expiresAt, tx);
-    }
+      // Check if hash already exists (extremely unlikely but possible)
+      const hashExists = await this.tokensRepo.tokenHashExists(tokenHash, scopedTx);
+      if (hashExists) {
+        // Regenerate token (collision, extremely rare) — pass scopedTx through
+        // so the retry reuses this same transaction rather than opening another.
+        return this.createToken(databaseId, tenantId, label, scopes, expiresAt, scopedTx);
+      }
 
-    // Create token record
-    const token = await this.tokensRepo.createToken(
-      {
-        databaseId,
-        tenantId,
-        label: label.trim(),
-        tokenHash,
-        scopes,
-        expiresAt: expiresAt ?? null,
-      },
-      tx
-    );
+      // Create token record
+      const token = await this.tokensRepo.createToken(
+        {
+          databaseId,
+          tenantId,
+          label: label.trim(),
+          tokenHash,
+          scopes,
+          expiresAt: expiresAt ?? null,
+        },
+        scopedTx
+      );
 
-    // Return both the token record and the plain token
-    return { token, plainToken };
+      // Return both the token record and the plain token
+      return { token, plainToken };
+    });
   }
 
   /**
@@ -153,18 +182,20 @@ export class DatavaultApiTokensService {
     databaseId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Verify database belongs to tenant
-    await this.verifyDatabaseOwnership(databaseId, tenantId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify database belongs to tenant
+      await this.verifyDatabaseOwnership(databaseId, tenantId, scopedTx);
 
-    // Verify token exists and belongs to this database/tenant
-    const token = await this.tokensRepo.findByIdWithAuth(tokenId, tenantId, databaseId, tx);
+      // Verify token exists and belongs to this database/tenant
+      const token = await this.tokensRepo.findByIdWithAuth(tokenId, tenantId, databaseId, scopedTx);
 
-    if (!token) {
-      throw new Error("Token not found or access denied");
-    }
+      if (!token) {
+        throw new Error("Token not found or access denied");
+      }
 
-    // Delete token
-    await this.tokensRepo.deleteToken(tokenId, tx);
+      // Delete token
+      await this.tokensRepo.deleteToken(tokenId, scopedTx);
+    });
   }
 
   /**
@@ -204,11 +235,13 @@ export class DatavaultApiTokensService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Verify database belongs to tenant
-    await this.verifyDatabaseOwnership(databaseId, tenantId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify database belongs to tenant
+      await this.verifyDatabaseOwnership(databaseId, tenantId, scopedTx);
 
-    // Delete all tokens
-    await this.tokensRepo.deleteByDatabaseId(databaseId, tx);
+      // Delete all tokens
+      await this.tokensRepo.deleteByDatabaseId(databaseId, scopedTx);
+    });
   }
 }
 

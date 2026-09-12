@@ -1,6 +1,6 @@
 /**
  * Branch Block Runner
- * Evaluates conditions and returns next section decision
+ * Evaluates conditions and returns next page decision
  */
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
@@ -20,7 +20,7 @@ export class BranchBlockRunner extends BaseBlockRunner {
       if (conditionMet) {
         return {
           success: true,
-          nextSectionId: branch.gotoSectionId,
+          nextPageId: branch.gotoPageId,
         };
       }
     }
@@ -28,7 +28,7 @@ export class BranchBlockRunner extends BaseBlockRunner {
     // No branch matched, use fallback
     return {
       success: true,
-      nextSectionId: config.fallbackSectionId,
+      nextPageId: config.fallbackPageId,
     };
   }
 }

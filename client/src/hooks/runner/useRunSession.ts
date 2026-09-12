@@ -4,12 +4,26 @@ import { getRunToken, setRunToken } from "@/lib/runTokens";
 import { fetchAPI, type ApiRunRuntime, type ApiStepValue } from "@/lib/vault-api";
 import { useRunRuntime } from "@/lib/vault-hooks";
 import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue } from "@/pages/workflow-runner/runner.utils";
-import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
 
 const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
 
-type RunnerMode = 'preview' | 'production';
+/**
+ * CB-9a-3a: how `runId` should be interpreted.
+ *
+ * `'resolve'` is the historical behaviour and the default, so no existing
+ * caller changes: the id may be a workflow id, a public slug, a live run, or an
+ * abandoned run to fork a replacement from.
+ *
+ * `'session'` says the caller already created this session server-side and it
+ * must be used verbatim. That distinction is load-bearing rather than tidy. A
+ * preview run deliberately carries NO run token (9a-1), so under `'resolve'` it
+ * falls through every branch to `startReplacementRunFromExistingRunId`, which
+ * reads its `workflowId`, starts a brand new ORDINARY LIVE run, and reports
+ * "New session started" — silently abandoning the preview and executing against
+ * live. The fork path itself is untouched and still serves respondents
+ * returning to an abandoned run.
+ */
+export type RunIdKind = 'resolve' | 'session';
 type InitialValues = Record<string, StepValue> | undefined;
 type RunWithValues = ApiRunRuntime['run'] & { values: ApiStepValue[] };
 
@@ -23,8 +37,6 @@ interface UseRunSessionReturn {
   actualRunId: string | null;
   isInitializing: boolean;
   initError: string | null;
-  mode: RunnerMode;
-  previewState: PreviewRunState | null;
   run: RunWithValues | undefined;
   runtime: ApiRunRuntime | undefined;
   workflowId: string | undefined;
@@ -76,7 +88,12 @@ async function consumeResumeLinkFromUrl(runId: string, urlParams: URLSearchParam
     return false;
   }
   const response = await fetchAPI<{
-    data: { runId: string; runToken: string };
+    data: {
+      runId: string;
+      runToken: string;
+      currentPageId: string | null;
+      visitedPageIds: string[];
+    };
   }>(`/api/runs/${runId}/resume`, {
     method: 'POST',
     body: JSON.stringify({ token: resumeToken }),
@@ -145,27 +162,26 @@ async function resolveRunSession(runId: string, initialValues: InitialValues): P
   return toResolvedSession(await startRunFromSlug(runId, initialValues));
 }
 
-export function useRunSession(runId?: string, previewEnvironment?: PreviewEnvironment): UseRunSessionReturn {
+export function useRunSession(
+  runId?: string,
+  runIdKind: RunIdKind = 'resolve'
+): UseRunSessionReturn {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const previewState = usePreviewEnvironment(previewEnvironment ?? null);
-  const mode: RunnerMode = previewEnvironment ? 'preview' : 'production';
-
   useEffect(() => {
-    if (previewEnvironment) {
-      if (runId) {
-        setActualRunId(runId);
-      }
-      setIsInitializing(false);
-      return;
-    }
-
     async function initialize(): Promise<void> {
       if (!runId) {
         setInitError('No run ID provided');
+        setIsInitializing(false);
+        return;
+      }
+
+      if (runIdKind === 'session') {
+        // Already a session. Resolving it here is what would fork it.
+        setActualRunId(runId);
         setIsInitializing(false);
         return;
       }
@@ -203,10 +219,10 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
     }
 
     void initialize();
-  }, [runId, toast, previewEnvironment]);
+  }, [runId, toast, runIdKind]);
 
   const { data: runtime, error: runtimeError, isLoading: isRuntimeLoading } = useRunRuntime(actualRunId ?? '', {
-    enabled: mode === 'production' && actualRunId !== null && !isInitializing,
+    enabled: actualRunId !== null && !isInitializing,
   });
   // Memoized on `runtime` (react-query keeps that reference stable across
   // re-renders via structural sharing, only changing on a real refetch) so
@@ -221,15 +237,13 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
     [runtime]
   );
 
-  const workflowId = mode === 'preview' ? previewState?.workflowId : run?.workflowId;
+  const workflowId = run?.workflowId;
   const effectiveInitError = initError ?? (runtimeError instanceof Error ? runtimeError.message : null);
 
   return {
     actualRunId,
-    isInitializing: isInitializing || (mode === 'production' && actualRunId !== null && isRuntimeLoading),
+    isInitializing: isInitializing || (actualRunId !== null && isRuntimeLoading),
     initError: effectiveInitError,
-    mode,
-    previewState,
     run,
     runtime,
     workflowId,

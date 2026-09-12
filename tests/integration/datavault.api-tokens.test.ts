@@ -52,14 +52,14 @@ describe('DataVault API Tokens', () => {
     // In real tests, create test tenant, user, and database:
     //
     // // Create test tenant
-    // const [tenant] = await db.insert(tenants).values({
+    // const [tenant] = await getOwnerDb().insert(tenants).values({
     //   name: 'Test Tenant',
     //   plan: 'free',
     // }).returning();
     // testTenantId = tenant.id;
     //
     // // Create test user
-    // const [user] = await db.insert(users).values({
+    // const [user] = await getOwnerDb().insert(users).values({
     //   tenantId: testTenantId,
     //   email: 'user@example.com',
     //   role: 'creator',
@@ -68,7 +68,7 @@ describe('DataVault API Tokens', () => {
     // testUserId = user.id;
     //
     // // Create test database
-    // const [database] = await db.insert(datavaultDatabases).values({
+    // const [database] = await getOwnerDb().insert(datavaultDatabases).values({
     //   tenantId: testTenantId,
     //   name: 'Test Database',
     //   scopeType: 'account',
@@ -78,13 +78,13 @@ describe('DataVault API Tokens', () => {
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
-    //   await db.delete(tenants).where(eq(tenants.id, testTenantId));
+    //   await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     // }
   });
   beforeEach(async () => {
     // Clean up tokens before each test
     // if (testDatabaseId) {
-    //   await db.delete(datavaultApiTokens).where(eq(datavaultApiTokens.databaseId, testDatabaseId));
+    //   await getOwnerDb().delete(datavaultApiTokens).where(eq(datavaultApiTokens.databaseId, testDatabaseId));
     // }
   });
   describe('POST /api/datavault/databases/:databaseId/tokens', () => {
@@ -249,7 +249,7 @@ describe('DataVault API Tokens', () => {
       // const tokenHash = hashToken(token);
       //
       // // Insert test token directly
-      // await db.insert(datavaultApiTokens).values({
+      // await getOwnerDb().insert(datavaultApiTokens).values({
       //   databaseId: testDatabaseId,
       //   tenantId: testTenantId,
       //   label: 'Auth Test Token',
@@ -268,7 +268,7 @@ describe('DataVault API Tokens', () => {
       // const expiredDate = new Date(Date.now() - 1000); // 1 second ago
       //
       // // Insert expired token
-      // await db.insert(datavaultApiTokens).values({
+      // await getOwnerDb().insert(datavaultApiTokens).values({
       //   databaseId: testDatabaseId,
       //   tenantId: testTenantId,
       //   label: 'Expired Token',

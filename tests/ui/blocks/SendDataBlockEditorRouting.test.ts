@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 const createMockWriteBlock = () => ({
   id: 'block-1',
   type: 'write',
-  phase: 'onSectionSubmit',
+  phase: 'onPageSubmit',
   order: 0,
   enabled: true,
   raw: {
@@ -28,7 +28,7 @@ const createMockWriteBlock = () => ({
 const createMockReadBlock = () => ({
   id: 'block-2',
   type: 'read_table',
-  phase: 'onSectionEnter',
+  phase: 'onPageEnter',
   order: 0,
   enabled: true,
   raw: {

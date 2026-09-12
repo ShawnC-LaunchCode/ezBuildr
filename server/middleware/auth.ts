@@ -1,8 +1,8 @@
 import { UnauthorizedError } from '../errors/AuthErrors';
 import { createLogger } from '../logger';
-import { userRepository } from '../repositories';
 import { authService, type JWTPayload } from '../services/AuthService';
 import { parseCookies } from "../utils/cookies";
+import { setCurrentTenantId } from '../utils/rlsContext';
 import { sendErrorResponse } from '../utils/responses';
 
 import { getUserById } from './userCache';
@@ -119,7 +119,11 @@ async function cookieStrategy(req: Request): Promise<boolean> {
     if (refreshToken) {
       const userId = await authService.validateRefreshToken(refreshToken);
       if (userId) {
-        const user = await userRepository.findById(userId);
+        // RLS-5: route through the same self-identification-aware path as
+        // the JWT strategy (`getUserById`) rather than a bare
+        // `userRepository.findById` — this runs before any tenant is known
+        // too, so it needs `users`' self-id policy clause (migration 0028).
+        const user = await getUserById(userId);
         if (user) {
           // Type-safe property assignment
           Object.assign(req, {
@@ -128,6 +132,13 @@ async function cookieStrategy(req: Request): Promise<boolean> {
             tenantId: user.tenantId ?? undefined,
             userRole: user.tenantRole
           } as AuthRequest);
+          // RLS (SEC-051): bind the resolved tenant into the request's async context
+          // (opened earlier, empty, by server/middleware/rlsContext.ts) so downstream
+          // code can find it via getCurrentTenantId()/withCurrentTenant() without it
+          // being threaded through every call.
+          if (user.tenantId) {
+            setCurrentTenantId(user.tenantId);
+          }
           logger.debug({ userId }, 'Authenticated via Refresh Token Cookie (Hybrid)');
           return true;
         }
@@ -225,6 +236,16 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
     } catch (e) {
       logger.warn({ error: e, userId: authReq.userId }, 'Failed to re-hydrate user from DB; using token claims');
     }
+  }
+
+  // RLS (SEC-051): bind the resolved tenant into the request's async context (opened
+  // earlier, empty, by server/middleware/rlsContext.ts) so downstream code can find it
+  // via getCurrentTenantId()/withCurrentTenant() without it being threaded through
+  // every call. Uses the final tenantId (post re-hydration attempt above, or the JWT
+  // claim if re-hydration failed) so this always reflects what authorization decisions
+  // for this request actually used.
+  if (authReq.tenantId) {
+    setCurrentTenantId(authReq.tenantId);
   }
 }
 /**

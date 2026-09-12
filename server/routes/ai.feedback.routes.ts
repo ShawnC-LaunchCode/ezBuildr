@@ -24,7 +24,7 @@ const AiFeedbackSchema = z.object({
   qualityPassed: z.boolean().optional(),
   issuesCount: z.number().int().min(0).optional(),
   requestDescription: z.string().optional(),
-  generatedSections: z.number().int().min(0).optional(),
+  generatedPages: z.number().int().min(0).optional(),
   generatedSteps: z.number().int().min(0).optional(),
 });
 
@@ -62,7 +62,7 @@ export function registerAiFeedbackRoutes(app: Express): void {
             qualityPassed: feedbackData.qualityPassed ?? null,
             issuesCount: feedbackData.issuesCount ?? null,
             requestDescription: feedbackData.requestDescription ?? null,
-            generatedSections: feedbackData.generatedSections ?? null,
+            generatedPages: feedbackData.generatedPages ?? null,
             generatedSteps: feedbackData.generatedSteps ?? null,
           })
           .returning();

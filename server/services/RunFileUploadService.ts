@@ -6,12 +6,12 @@ import type { FileUploadConfig, FileUploadValue, ListConfig, ListField } from '@
 import { FileUploadConfigSchema } from '@shared/validation/stepConfigSchemas';
 
 import {
-  projectRepository,
   stepValueRepository,
   workflowRepository,
   workflowRunRepository,
 } from '../repositories';
 import { createError } from '../utils/errors';
+import { getCurrentTenantId, withCurrentTenant } from '../utils/rlsContext';
 
 import { isFileTypeAccepted, MAX_FILE_SIZE } from './fileService';
 import { runDefinitionProvider } from './workflow-runs/RunDefinitionProvider';
@@ -20,6 +20,8 @@ import { storageProvider } from './storage';
 import type { StorageProvider } from './storage/types';
 import { storageQuotaService, type StorageQuotaService } from './StorageQuotaService';
 import { workflowService } from './WorkflowService';
+import { runPreviewPolicyService } from './workflow-runs/RunPreviewPolicyService';
+import { workflowTenantResolver, type WorkflowTenantResolver } from './WorkflowTenantResolver';
 
 interface TemporaryRunUpload {
   path: string;
@@ -63,7 +65,7 @@ interface RunUploadContext {
 
 type RunRepositoryPort = Pick<typeof workflowRunRepository, 'findById'>;
 type WorkflowRepositoryPort = Pick<typeof workflowRepository, 'findById'>;
-type ProjectRepositoryPort = Pick<typeof projectRepository, 'findById'>;
+type TenantResolverPort = Pick<WorkflowTenantResolver, 'resolveForRun'>;
 type StepValueRepositoryPort = Pick<typeof stepValueRepository, 'findByRunAndStep' | 'upsert'>;
 type DefinitionProviderPort = Pick<typeof runDefinitionProvider, 'getDefinition'>;
 type WorkflowAccessPort = Pick<typeof workflowService, 'verifyAccess'>;
@@ -71,7 +73,7 @@ type WorkflowAccessPort = Pick<typeof workflowService, 'verifyAccess'>;
 interface RunFileUploadDependencies {
   runRepo: RunRepositoryPort;
   workflowRepo: WorkflowRepositoryPort;
-  projectRepo: ProjectRepositoryPort;
+  tenantResolver: TenantResolverPort;
   valueRepo: StepValueRepositoryPort;
   definitionProvider: DefinitionProviderPort;
   workflowAccess: WorkflowAccessPort;
@@ -118,7 +120,7 @@ function safeExtension(filename: string): string {
 export class RunFileUploadService {
   private runRepo: RunRepositoryPort;
   private workflowRepo: WorkflowRepositoryPort;
-  private projectRepo: ProjectRepositoryPort;
+  private tenantResolver: TenantResolverPort;
   private valueRepo: StepValueRepositoryPort;
   private definitionProvider: DefinitionProviderPort;
   private workflowAccess: WorkflowAccessPort;
@@ -129,7 +131,7 @@ export class RunFileUploadService {
   constructor(dependencies: Partial<RunFileUploadDependencies> = {}) {
     this.runRepo = dependencies.runRepo ?? workflowRunRepository;
     this.workflowRepo = dependencies.workflowRepo ?? workflowRepository;
-    this.projectRepo = dependencies.projectRepo ?? projectRepository;
+    this.tenantResolver = dependencies.tenantResolver ?? workflowTenantResolver;
     this.valueRepo = dependencies.valueRepo ?? stepValueRepository;
     this.definitionProvider = dependencies.definitionProvider ?? runDefinitionProvider;
     this.workflowAccess = dependencies.workflowAccess ?? workflowService;
@@ -258,6 +260,10 @@ export class RunFileUploadService {
   ): Promise<RunUploadContext> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw createError.notFound('Run', runId); }
+    if (run.executionMode === 'preview') {
+      await runPreviewPolicyService.authorize(run, userId);
+      throw createError.validation('File uploads are unsupported in preview sessions');
+    }
     if (requireMutable && run.completed) { throw createError.runCompleted(); }
 
     if (!runTokenAuthorized) {
@@ -265,11 +271,47 @@ export class RunFileUploadService {
       await this.workflowAccess.verifyAccess(run.workflowId, userId);
     }
 
-    const workflow = await this.workflowRepo.findById(run.workflowId);
-    if (!workflow?.projectId) { throw createError.notFound('Project for run'); }
-    const project = await this.projectRepo.findById(workflow.projectId);
-    if (!project?.tenantId) { throw createError.notFound('Tenant for run'); }
-    return { run, tenantId: project.tenantId };
+    // RLS-4 precondition 2 (closed): `workflows`/`projects` are RLS-covered,
+    // and these reads used to run on the bare pool with no tenant. For the
+    // authenticated path, `hybridAuth` has already pinned the real tenant
+    // into the async context by this point (0028), so `getCurrentTenantId()`
+    // below is the fast path there.
+    //
+    // STB-23 (round 2): the run-token path is NOT guaranteed to have that
+    // ambient tenant by the time we get here. This route
+    // (`POST /api/runs/:runId/steps/:stepId/files`) runs multer
+    // (`acceptRunFileUpload`) between `creatorOrRunTokenAuth` and this
+    // service call; multer resumes the middleware chain from its own stream
+    // callback, OUTSIDE the AsyncLocalStorage frame `runTokenAuth` set the
+    // tenant on, so the route re-mounts `rlsContext` afterward to reopen a
+    // context. That re-mount only re-seeds from `req.tenantId`
+    // (`server/middleware/rlsContext.ts`), which `hybridAuth` sets on the
+    // request object but `runTokenAuth` never does — it calls
+    // `setCurrentTenantId` directly on the (now-discarded) async context
+    // instead. Net effect: `getCurrentTenantId()` is reliably undefined here
+    // for every run-token upload, authenticated-JWT or not, verified live
+    // against the running app and via a run-token-specific regression test.
+    //
+    // Rather than patch that middleware ordering (shared by other multipart
+    // routes and out of this ticket's footprint), fall back to
+    // `WorkflowTenantResolver.resolveForRun`, the same project -> owner ->
+    // creator -> run-creator precedence `DocumentDeliveryService` already
+    // relies on. It works with NO ambient tenant: every read it does is its
+    // own short-lived, verified bootstrap (GUC-scoped to the row it just
+    // read), which is exactly why it succeeds for an Unfiled workflow
+    // (`projectId = null`) where the old project-only fallback had nothing
+    // left to try. Do not fall back to `project.tenantId` alone again — that
+    // was STB-23 round 1's fix, and it silently failed to cover the
+    // customer-facing run-token path this whole ticket is about.
+    return withCurrentTenant(async (tx) => {
+      const workflow = await this.workflowRepo.findById(run.workflowId, tx);
+      if (!workflow) { throw createError.notFound('Workflow for run'); }
+
+      const tenantId = getCurrentTenantId()
+        ?? await this.tenantResolver.resolveForRun(run, workflow, tx);
+      if (!tenantId) { throw createError.notFound('Tenant for run'); }
+      return { run, tenantId };
+    });
   }
 
   private async resolveUploadConfig(

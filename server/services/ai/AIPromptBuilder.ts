@@ -12,6 +12,9 @@ import type {
   AIConnectLogicRequest,
   AIVisualizeLogicRequest,
 } from '../../../shared/types/ai';
+import { buildStepTypeCatalog } from '../../../shared/aiVocabulary';
+
+import type { Mode } from '../../../shared/mode';
 
 export class AIPromptBuilder {
   /**
@@ -32,10 +35,10 @@ export class AIPromptBuilder {
   /**
    * Build the prompt for workflow generation
    */
-  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): { systemMessage: string; userPrompt: string } {
+  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest, mode: Mode): { systemMessage: string; userPrompt: string } {
     const constraints = request.constraints ?? {};
-    const maxSections = constraints.maxSections ?? 10;
-    const maxStepsPerSection = constraints.maxStepsPerSection ?? 10;
+    const maxPages = constraints.maxPages ?? 10;
+    const maxStepsPerPage = constraints.maxStepsPerPage ?? 10;
 
     const systemMessage = `You are an expert workflow designer for ezBuildr, a professional document automation and workflow platform.
 Your task is to design a HIGH-QUALITY, PRODUCTION-READY workflow based on the user's description.
@@ -58,12 +61,20 @@ Output a JSON object with this exact structure:
     {
       "id": "unique_section_id",
       "title": "Section Title",
+      "description": "Optional description"
+    }
+  ],
+  "pages": [
+    {
+      "id": "unique_page_id",
+      "title": "Page Title",
       "description": "Optional description",
       "order": 0,
+      "sectionId": "unique_section_id_or_null",
       "steps": [
         {
           "id": "unique_step_id",
-          "type": "short_text|long_text|multiple_choice|radio|checkbox|yes_no|date_time|file_upload",
+          "type": "canonical type from the mode catalog below",
           "title": "Question or field title",
           "description": "Optional description",
           "alias": "camelCaseVariableName",
@@ -91,70 +102,55 @@ Output a JSON object with this exact structure:
           }
         ]
       },
-      "targetType": "section|step",
+      "targetType": "page|step",
       "targetAlias": "targetVariableName",
       "action": "show|hide|require|make_optional|skip_to",
       "description": "What this rule does"
-    }
-  ],
-  "transformBlocks": [
-    {
-      "id": "unique_block_id",
-      "name": "Block Name",
-      "language": "javascript|python",
-      "code": "code to execute",
-      "inputKeys": ["alias1", "alias2"],
-      "outputKey": "outputAlias",
-      "phase": "onSectionSubmit|onWorkflowComplete",
-      "timeoutMs": 1000
     }
   ],
   "notes": "Optional notes about design decisions"
 }
 
 CRITICAL CONSTRAINTS:
-- Maximum ${maxSections} sections
-- Maximum ${maxStepsPerSection} steps per section
+- Maximum ${maxPages} pages
+- Maximum ${maxStepsPerPage} steps per page
 - All step aliases MUST be unique across the workflow and use camelCase (e.g., "firstName", "emailAddress")
 - ALWAYS generate a descriptive, meaningful alias for EVERY step - NEVER leave empty
 - All IDs must be unique and use lowercase_with_underscores format
 - Step titles must be clear questions or instructions (e.g., "What is your full name?" not "Name")
-- For multiple_choice, radio types, ALWAYS include config.options as array of strings (minimum 2 options)
-- Transform block code MUST call emit(value) exactly once
-- NO network calls or file system access in transform blocks
+- For choice, ALWAYS include config.options with at least 2 canonical option objects
+- Every page "sectionId" must match a "sections[].id" or be null
+- Pages sharing a section MUST be consecutive in "order" — a section covers one
+  unbroken run of pages and can never be empty. A workflow whose sections
+  interleave is rejected outright, so order the pages section by section.
 
-STEP TYPE SELECTION GUIDE:
-- **short_text**: Names, titles, single-line answers (< 100 chars)
-- **long_text**: Descriptions, explanations, comments (> 100 chars)
-- **email**: Email addresses (use this instead of short_text for emails)
-- **phone**: Phone numbers with formatting
-- **number**: Numeric values, quantities, counts
-- **currency**: Money amounts (auto-formats with $ symbol)
-- **date**: Date selection without time
-- **date_time**: Date with time selection
-- **radio**: Single selection from 2-7 options (mutually exclusive)
-- **multiple_choice**: Multi-select from 2-10 options (checkboxes)
-- **yes_no**: Simple binary choice
-- **scale**: Rating or scale (1-5, 1-10, etc.)
-- **address**: Full mailing address
-- **website**: URLs with validation
-- **file_upload**: Document or image uploads
-- **display**: Information-only, no input required
+STEP TYPE CATALOG FOR ${mode.toUpperCase()} MODE:
+Friendly preset names below map to canonical stored types/configs; never use a
+preset label or a retired alias as the step type.
+${buildStepTypeCatalog(mode)}
+
+SECTION GUIDANCE:
+- Sections are the chapter above pages: use them to group a run of related
+  pages ("Assets", "Debts", "Declarations"), not individual questions.
+- Leave "sections" empty for a short workflow. Once a workflow runs past about
+  six pages, grouping them is what keeps it navigable — that is the case
+  sections exist for.
+- Aim for sections of two to five pages. A section holding every page says
+  nothing, and one page per section is just the flat list with extra chrome.
 
 BEST PRACTICES:
-1. Group related questions into logical sections (e.g., "Personal Information", "Contact Details")
+1. Group related questions into logical pages (e.g., "Personal Information", "Contact Details")
 2. Start with basic identifying information before complex questions
 3. Use appropriate field types for better validation (email vs short_text, phone vs short_text)
 4. Provide clear, actionable descriptions for complex questions
 5. Use logic rules to show/hide conditional questions based on previous answers
-6. Keep sections focused - don't mix unrelated topics
-7. Use transform blocks for calculated fields (full name from first+last, total from sum, etc.)
+6. Keep pages focused - don't mix unrelated topics
 
 LOGIC RULES GUIDANCE:
-- Use show/hide for optional sections based on answers
+- Use show/hide for optional pages based on answers
 - Use require/make_optional for conditional required fields
 - Use skip_to for branching workflows
-- "when" is a condition tree, exactly like a step/section visibility condition: a "group" with
+- "when" is a condition tree, exactly like a step/page visibility condition: a "group" with
   "operator" AND|OR and a "conditions" array of leaf conditions (and/or nested groups). Keep it
   to a single leaf condition unless the request genuinely needs multiple criteria combined.
 - Keep conditions simple: prefer "equals"/"not_equals"/"is_empty"/"is_not_empty" over the more
@@ -162,12 +158,6 @@ LOGIC RULES GUIDANCE:
 - "value" is the comparison value; "valueType" is almost always "constant". "between" and the
   date-diff operators use "value" AND "value2" instead of a combined range object
 - Every leaf condition's "variable" MUST be a step alias declared elsewhere in this same JSON
-
-TRANSFORM BLOCK PATTERNS:
-- Concatenation: \`emit(input.firstName + ' ' + input.lastName);\`
-- Calculations: \`emit(input.quantity * input.price);\`
-- Formatting: \`emit(input.rawValue.toUpperCase());\`
-- Date math: Use helpers.date methods for date calculations
 
 Output ONLY valid JSON, NO markdown code blocks, NO additional text.`;
 
@@ -191,12 +181,11 @@ ${JSON.stringify(existingWorkflow, null, 2)}
 
 Output a JSON object with this exact structure:
 {
-  "newSections": [ /* array of new sections to add, same schema as workflow generation */ ],
+  "newPages": [ /* array of new pages to add, same schema as workflow generation */ ],
   "newLogicRules": [ /* array of new logic rules, same schema as workflow generation */ ],
-  "newTransformBlocks": [ /* array of new transform blocks, same schema as workflow generation */ ],
   "modifications": [
     {
-      "type": "section|step|logic_rule|transform_block",
+      "type": "page|step|logic_rule",
       "id": "existing_item_id",
       "changes": { "field": "newValue" },
       "reason": "Why this change is suggested"
@@ -324,7 +313,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
 Task: Generate logical conditions (logicRules) to connect steps based on the user's description.
 Each rule's trigger condition is "when": a ConditionExpression group ({ type: "group", id, operator:
 "AND"|"OR", conditions: [...] }) whose leaf conditions ({ type: "condition", id, variable, operator,
-value, valueType: "constant" }) reference a step by its alias - the same shape used for step/section
+value, valueType: "constant" }) reference a step by its alias - the same shape used for step/page
 visibility. Do not use a flat conditionStepAlias/operator/conditionValue shape.
 Workflow Context:
 ${JSON.stringify(request.currentWorkflow, null, 2)}

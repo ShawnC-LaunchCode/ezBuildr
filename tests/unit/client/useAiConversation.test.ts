@@ -38,9 +38,9 @@ vi.mock('@/components/builder/ai/useFileUpload', () => ({
 import { useAiConversation } from '../../../client/src/components/builder/ai/useAiConversation';
 
 const PROPOSAL = {
-    ops: [{ op: 'section.create' as const, title: 'Contact', order: 1 }],
-    changes: [{ type: 'add' as const, entity: 'section' as const, explanation: 'Add section "Contact"' }],
-    summary: ['Added a contact section'],
+    ops: [{ op: 'page.create' as const, title: 'Contact', order: 1 }],
+    changes: [{ type: 'add' as const, entity: 'page' as const, explanation: 'Add page "Contact"' }],
+    summary: ['Added a contact page'],
     confidence: 0.9,
     warnings: [],
     questions: [],
@@ -53,7 +53,7 @@ describe('useAiConversation', () => {
             workflowId: 'wf-1',
             versionId: 'v-1',
             noChanges: false,
-            summary: ['Added a contact section'],
+            summary: ['Added a contact page'],
             warnings: [],
         });
         toastSpy.mockReset();
@@ -63,9 +63,9 @@ describe('useAiConversation', () => {
     it('advanced mode only proposes on send — nothing is applied', async () => {
         const { result } = renderHook(() => useAiConversation('wf-1'));
 
-        await act(async () => { await result.current.handleSend('Add a contact section'); });
+        await act(async () => { await result.current.handleSend('Add a contact page'); });
 
-        expect(proposeMutate).toHaveBeenCalledWith({ workflowId: 'wf-1', userMessage: 'Add a contact section' });
+        expect(proposeMutate).toHaveBeenCalledWith({ workflowId: 'wf-1', userMessage: 'Add a contact page' });
         expect(applyMutate).not.toHaveBeenCalled();
 
         await waitFor(() => { expect(result.current.proposal).not.toBeNull(); });
@@ -76,13 +76,13 @@ describe('useAiConversation', () => {
 
     it('Apply replays the reviewed ops through the apply endpoint', async () => {
         const { result } = renderHook(() => useAiConversation('wf-1'));
-        await act(async () => { await result.current.handleSend('Add a contact section'); });
+        await act(async () => { await result.current.handleSend('Add a contact page'); });
 
         await act(async () => { await result.current.handleApply(); });
 
         expect(applyMutate).toHaveBeenCalledWith({
             workflowId: 'wf-1',
-            userMessage: 'Add a contact section',
+            userMessage: 'Add a contact page',
             ops: PROPOSAL.ops,
         });
         expect(result.current.proposal).toBeNull();
@@ -91,7 +91,7 @@ describe('useAiConversation', () => {
 
     it('Discard issues no request and clears the proposal (AC4)', async () => {
         const { result } = renderHook(() => useAiConversation('wf-1'));
-        await act(async () => { await result.current.handleSend('Add a contact section'); });
+        await act(async () => { await result.current.handleSend('Add a contact page'); });
 
         proposeMutate.mockClear();
         act(() => { result.current.handleDiscard(); });
@@ -106,10 +106,10 @@ describe('useAiConversation', () => {
         modeRef.mode = 'easy';
         const { result } = renderHook(() => useAiConversation('wf-1'));
 
-        await act(async () => { await result.current.handleSend('Add a contact section'); });
+        await act(async () => { await result.current.handleSend('Add a contact page'); });
 
         expect(proposeMutate).not.toHaveBeenCalled();
-        expect(applyMutate).toHaveBeenCalledWith({ workflowId: 'wf-1', userMessage: 'Add a contact section' });
+        expect(applyMutate).toHaveBeenCalledWith({ workflowId: 'wf-1', userMessage: 'Add a contact page' });
         expect(result.current.proposal).toBeNull();
         expect(result.current.messages[result.current.messages.length - 1].status).toBe('applied');
     });
@@ -118,7 +118,7 @@ describe('useAiConversation', () => {
         proposeMutate.mockRejectedValueOnce(new Error('AI service is busy.'));
         const { result } = renderHook(() => useAiConversation('wf-1'));
 
-        await act(async () => { await result.current.handleSend('Add a contact section'); });
+        await act(async () => { await result.current.handleSend('Add a contact page'); });
 
         expect(result.current.proposal).toBeNull();
         expect(result.current.messages[result.current.messages.length - 1].content)

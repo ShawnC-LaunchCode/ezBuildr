@@ -61,8 +61,8 @@ export class AutoTestRunner {
         // Limit to 50 steps to prevent infinite loops logic
         let safetyCounter = 0;
         while (!env.getState().completed && safetyCounter < 50) {
-            const currentSection = env.getSections()[env.getState().currentSectionIndex];
-            visitedPages.push(currentSection.id);
+            const currentPage = env.getPages()[env.getState().currentPageIndex];
+            visitedPages.push(currentPage.id);
             // Attempt to move next
             router.next();
             safetyCounter++;

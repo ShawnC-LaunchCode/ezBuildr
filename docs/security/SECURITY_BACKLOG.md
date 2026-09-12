@@ -222,7 +222,7 @@ break introduced by the hardening.
 | SEC-106 | Raw invite/signature tokens | Invite + signature tokens now `hashToken`-ed — [OrganizationService.ts:466](../../server/services/OrganizationService.ts), [SignatureRequestService.ts:70](../../server/services/SignatureRequestService.ts). **OAuth tokens remain → SEC-120.** |
 | SEC-107 | Plaintext webhook HMAC secret | `encrypt()` on write, `tryDecrypt` on read — [webhooks.routes.ts:76](../../server/routes/webhooks.routes.ts) |
 | SEC-108 | Magic-link token in logs | Only 8-char truncated prefix logged — [PortalAuthService.ts:33](../../server/services/PortalAuthService.ts) |
-| SEC-109 | `steps.alias` not unique | `uniqueIndex(section_id, alias)` — [workflow.ts:272](../../shared/schema/workflow.ts), [0011](../../migrations/0011_unique_steps_alias.sql) *(delivery caveat → SEC-121)* |
+| SEC-109 | `steps.alias` not unique | `uniqueIndex(workflow_id, lower(alias))` for active steps — [workflow.ts](../../shared/schema/workflow.ts) *(delivery caveat → SEC-121)* |
 | SEC-110 | Missing hot-path indexes | `portal_access_key` + `audit_logs(timestamp,...)` indexes — [run.ts:110](../../shared/schema/run.ts), [auth.ts:347](../../shared/schema/auth.ts) *(delivery caveat → SEC-121)* |
 | SEC-112 | BlockService `creatorId` authz | Now `workflowSvc.verifyAccess(..., 'edit')` — [BlockService.ts:37](../../server/services/BlockService.ts) |
 | SEC-114 | Soft-delete leakage | `getRowWithValues` and `batchFindByIds` filter `deletedAt` — [DatavaultRowsRepository.ts:153](../../server/repositories/DatavaultRowsRepository.ts). No `files` read path exists to leak through. |

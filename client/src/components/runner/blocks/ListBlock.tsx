@@ -2,8 +2,8 @@
  * ListBlockRenderer - the collapsed, inline view of a `list` step (LIST-8).
  *
  * Only renders the item rows + "Add" — the moment an item is opened,
- * WorkflowRunner.tsx swaps the whole section body for ListDrillEditor
- * instead (drilling replaces the section body, not just this block). This
+ * WorkflowRunner.tsx swaps the whole page body for ListDrillEditor
+ * instead (drilling replaces the page body, not just this block). This
  * component's only job is to start that drill.
  */
 import { useListDrill } from "@/components/runner/list/ListDrillContext";

@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { steps as stepsTable, sections as sectionsTable } from "@shared/schema";
+import { steps as stepsTable, pages as pagesTable } from "@shared/schema";
 import type {
   LifecycleHook,
   LifecycleHookPhase,
@@ -17,42 +17,125 @@ import type {
   ScriptExecutionLog,
 } from "@shared/types/scripting";
 
-import { db } from "../../db";
 import { logger } from "../../logger";
 import { lifecycleHookRepository } from "../../repositories/LifecycleHookRepository";
 import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
 import { workflowRepository } from "../../repositories/WorkflowRepository";
+import { withCurrentTenant } from "../../utils/rlsContext";
 import { runAuthResolver } from "../runs/RunAuthResolver";
 import { workflowService } from "../WorkflowService";
 
 import { scriptEngine } from "./ScriptEngine";
 
+import type { DbTransaction } from "../../repositories";
+
 const WORKFLOW_NOT_FOUND_MSG = "Workflow not found";
 
+function appendHookOutputs(
+  hook: LifecycleHook,
+  output: unknown,
+  data: Record<string, unknown>,
+  aliasMap: Record<string, string>
+): void {
+  if (output === undefined) { return; }
+  const values = typeof output === 'object' && output !== null && !Array.isArray(output)
+    ? Object.entries(output as Record<string, unknown>)
+    : hook.outputKeys.slice(0, 1).map(key => [key, output] as const);
+  const unauthorizedKeys = values.map(([key]) => key).filter(key => !hook.outputKeys.includes(key));
+  if (unauthorizedKeys.length > 0) {
+    logger.warn({ hookId: hook.id, hookName: hook.name, unauthorizedKeys },
+      'Hook attempted to output non-whitelisted keys (ignored)');
+  }
+  const allowed = values.filter(([key]) => hook.outputKeys.includes(key));
+  const reserved = new Set([...Object.keys(data), ...Object.keys(aliasMap), ...Object.values(aliasMap)]
+    .map(key => key.toLowerCase()));
+  for (const [key] of allowed) {
+    if (reserved.has(key.toLowerCase())) {
+      throw new Error(`Hook "${hook.name}" cannot overwrite existing variable "${key}". Outputs must be append-only.`);
+    }
+    reserved.add(key.toLowerCase());
+  }
+  for (const [key, value] of allowed) {
+    Object.defineProperty(data, key, { value, enumerable: true, configurable: true, writable: true });
+  }
+}
+
 export class LifecycleHookService {
+  /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-2e, ambient-only variant). Reuses a caller-supplied `tx`
+   * rather than nesting.
+   *
+   * Only the DB phase of a method goes inside: `scriptEngine.execute` runs a
+   * sandboxed script (a subprocess, for Python) and must never be held inside
+   * an open transaction — see TENANT_ISOLATION_RLS §2d.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+  /**
+   * Read the hooks for a phase plus the workflow's step-alias map, in one
+   * tenant-scoped transaction. `steps` is RLS-covered; without a tenant the
+   * alias map would silently come back empty under enforcement, so this reads
+   * it scoped and fails loudly instead.
+   */
+  private async loadHooksAndAliases(
+    workflowId: string,
+    phase: LifecycleHookPhase,
+    pageId: string | undefined
+  ): Promise<{ hooks: LifecycleHook[]; aliasMap: Record<string, string> }> {
+    return this.withTx(undefined, async (tx) => {
+      const hooks = await lifecycleHookRepository.findEnabledByPhase(
+        workflowId,
+        phase,
+        pageId,
+        tx
+      ) as LifecycleHook[];
+
+      if (hooks.length === 0) {
+        return { hooks, aliasMap: {} };
+      }
+
+      const rows = await tx.select()
+        .from(stepsTable)
+        .innerJoin(pagesTable, eq(stepsTable.pageId, pagesTable.id))
+        .where(eq(pagesTable.workflowId, workflowId));
+
+      const aliasMap: Record<string, string> = {};
+      for (const row of rows) {
+        const step = row.steps; // Access steps column from join
+        if (step.alias) {
+          aliasMap[step.alias] = step.id; // alias → stepId
+        }
+      }
+      return { hooks, aliasMap };
+    });
+  }
   /**
    * Execute all hooks for a given phase
    * Non-breaking: continues on errors and collects them
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   async executeHooksForPhase(params: {
     workflowId: string;
     runId: string;
     phase: LifecycleHookPhase;
-    sectionId?: string;
+    pageId?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: Record<string, any>;
     userId?: string;
   }): Promise<LifecycleHookExecutionResult> {
-    const { workflowId, runId, phase, sectionId, data, userId } = params;
+    const { workflowId, runId, phase, pageId, data, userId } = params;
 
     try {
-      // Fetch enabled hooks for this phase
-      const hooks = await lifecycleHookRepository.findEnabledByPhase(
-        workflowId,
-        phase,
-        sectionId
-      );
+      // Fetch enabled hooks for this phase, plus the step aliases used for
+      // data mapping (stepId → alias) — one scoped transaction for both.
+      const { hooks, aliasMap } = await this.loadHooksAndAliases(workflowId, phase, pageId);
 
       if (hooks.length === 0) {
         return {
@@ -66,25 +149,11 @@ export class LifecycleHookService {
           workflowId,
           runId,
           phase,
-          sectionId,
+          pageId,
           hookCount: hooks.length,
         },
         "LifecycleHookService: Executing hooks for phase"
       );
-
-      // Fetch step aliases for data mapping (stepId → alias)
-      const steps = await db.select()
-        .from(stepsTable)
-        .innerJoin(sectionsTable, eq(stepsTable.sectionId, sectionsTable.id))
-        .where(eq(sectionsTable.workflowId, workflowId));
-
-      const aliasMap: Record<string, string> = {};
-      for (const row of steps) {
-        const step = row.steps; // Access steps column from join
-        if (step.alias) {
-          aliasMap[step.alias] = step.id; // alias → stepId
-        }
-      }
 
       logger.debug(
         {
@@ -115,7 +184,7 @@ export class LifecycleHookService {
               workflowId,
               runId,
               phase,
-              sectionId,
+              pageId,
               userId,
             },
             timeoutMs: hook.timeoutMs ?? 1000,
@@ -125,41 +194,7 @@ export class LifecycleHookService {
           const durationMs = Date.now() - hookStartTime;
 
           if (result.ok) {
-            // If mutation mode is enabled, merge outputs into data
-            if (hook.mutationMode && result.output) {
-              // Validate output against outputKeys whitelist
-              // eslint-disable-next-line max-depth
-              if (typeof result.output === "object" && result.output !== null && !Array.isArray(result.output)) {
-                // Only merge keys that are whitelisted in outputKeys
-                // eslint-disable-next-line max-depth
-                for (const key of hook.outputKeys) {
-                  // eslint-disable-next-line max-depth
-                  if (key in result.output) {
-                    resultData[key] = (result.output as Record<string, unknown>)[key];
-                  }
-                }
-
-                // Warn about non-whitelisted keys
-                const outputKeys = Object.keys(result.output);
-                const unauthorizedKeys = outputKeys.filter(k => !hook.outputKeys.includes(k));
-                // eslint-disable-next-line max-depth
-                if (unauthorizedKeys.length > 0) {
-                  logger.warn(
-                    {
-                      hookId: hook.id,
-                      hookName: hook.name,
-                      unauthorizedKeys,
-                    },
-                    "Hook attempted to output non-whitelisted keys (ignored)"
-                  );
-                }
-              } else if (hook.outputKeys.length > 0) {
-                // If output is a single value, use the first outputKey
-                const key = hook.outputKeys[0];
-                // eslint-disable-next-line max-depth
-                if (key) {resultData[key] = result.output;}
-              }
-            }
+            appendHookOutputs(hook, result.output, resultData, aliasMap);
 
             // Collect console logs
             if (result.consoleLogs && result.consoleLogs.length > 0) {
@@ -190,7 +225,6 @@ export class LifecycleHookService {
                 hookId: hook.id,
                 hookName: hook.name,
                 durationMs,
-                mutated: hook.mutationMode,
               },
               "LifecycleHookService: Hook executed successfully"
             );
@@ -294,17 +328,19 @@ export class LifecycleHookService {
     userId: string,
     data: CreateLifecycleHookInput
   ): Promise<LifecycleHook> {
-    // Verify workflow ownership
-    const workflow = await workflowRepository.findById(workflowId);
-    if (!workflow) {
-      throw new Error(WORKFLOW_NOT_FOUND_MSG);
-    }
-    await workflowService.verifyAccess(workflowId, userId, 'edit');
+    const hook = await this.withTx(undefined, async (tx) => {
+      // Verify workflow ownership
+      const workflow = await workflowRepository.findById(workflowId, tx);
+      if (!workflow) {
+        throw new Error(WORKFLOW_NOT_FOUND_MSG);
+      }
+      await workflowService.verifyAccess(workflowId, userId, 'edit', tx);
 
-    // Create hook
-    const hook = await lifecycleHookRepository.create({
-      ...data,
-      workflowId,
+      // Create hook
+      return lifecycleHookRepository.create({
+        ...data,
+        workflowId,
+      }, tx);
     });
 
     logger.info(
@@ -327,20 +363,22 @@ export class LifecycleHookService {
     userId: string,
     data: UpdateLifecycleHookInput
   ): Promise<LifecycleHook> {
-    // Get hook and verify ownership
-    const hook = await lifecycleHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    const { hook, updated } = await this.withTx(undefined, async (tx) => {
+      // Get hook and verify ownership
+      const found = await lifecycleHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow) {
-      throw new Error(WORKFLOW_NOT_FOUND_MSG);
-    }
-    await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow) {
+        throw new Error(WORKFLOW_NOT_FOUND_MSG);
+      }
+      await workflowService.verifyAccess(found.workflowId, userId, 'edit', tx);
 
-    // Update hook
-    const updated = await lifecycleHookRepository.update(hookId, data);
+      // Update hook
+      return { hook: found, updated: await lifecycleHookRepository.update(hookId, data, tx) };
+    });
 
     logger.info(
       {
@@ -357,20 +395,23 @@ export class LifecycleHookService {
    * Delete a lifecycle hook
    */
   async deleteHook(hookId: string, userId: string): Promise<void> {
-    // Get hook and verify ownership
-    const hook = await lifecycleHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    const hook = await this.withTx(undefined, async (tx) => {
+      // Get hook and verify ownership
+      const found = await lifecycleHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow) {
-      throw new Error(WORKFLOW_NOT_FOUND_MSG);
-    }
-    await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow) {
+        throw new Error(WORKFLOW_NOT_FOUND_MSG);
+      }
+      await workflowService.verifyAccess(found.workflowId, userId, 'edit', tx);
 
-    // Delete hook
-    await lifecycleHookRepository.delete(hookId);
+      // Delete hook
+      await lifecycleHookRepository.delete(hookId, tx);
+      return found;
+    });
 
     logger.info(
       {
@@ -389,17 +430,21 @@ export class LifecycleHookService {
     userId: string,
     testInput: TestHookInput
   ): Promise<TestHookResult> {
-    // Get hook and verify ownership
-    const hook = await lifecycleHookRepository.findByIdWithWorkflow(hookId);
-    if (!hook) {
-      throw new Error("Hook not found");
-    }
+    // Get hook and verify ownership. The transaction closes before the script
+    // runs — a sandboxed execution must not be held inside one (§2d).
+    const hook = await this.withTx(undefined, async (tx) => {
+      const found = await lifecycleHookRepository.findByIdWithWorkflow(hookId, tx);
+      if (!found) {
+        throw new Error("Hook not found");
+      }
 
-    const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow) {
-      throw new Error(WORKFLOW_NOT_FOUND_MSG);
-    }
-    await workflowService.verifyAccess(hook.workflowId, userId, 'view');
+      const workflow = await workflowRepository.findById(found.workflowId, tx);
+      if (!workflow) {
+        throw new Error(WORKFLOW_NOT_FOUND_MSG);
+      }
+      await workflowService.verifyAccess(found.workflowId, userId, 'view', tx);
+      return found;
+    });
 
     // Execute hook with test data
     const result = await scriptEngine.execute({
@@ -411,7 +456,7 @@ export class LifecycleHookService {
         workflowId: testInput.context?.workflowId ?? hook.workflowId,
         runId: testInput.context?.runId ?? "test-run",
         phase: testInput.context?.phase ?? hook.phase,
-        sectionId: testInput.context?.sectionId,
+        pageId: testInput.context?.pageId,
         userId: testInput.context?.userId,
         metadata: testInput.context?.metadata,
       },
@@ -432,14 +477,16 @@ export class LifecycleHookService {
    * List all hooks for a workflow
    */
   async listHooks(workflowId: string, userId: string): Promise<LifecycleHook[]> {
-    // Verify workflow ownership
-    const workflow = await workflowRepository.findById(workflowId);
-    if (!workflow) {
-      throw new Error(WORKFLOW_NOT_FOUND_MSG);
-    }
-    await workflowService.verifyAccess(workflowId, userId, 'view');
+    return this.withTx(undefined, async (tx) => {
+      // Verify workflow ownership
+      const workflow = await workflowRepository.findById(workflowId, tx);
+      if (!workflow) {
+        throw new Error(WORKFLOW_NOT_FOUND_MSG);
+      }
+      await workflowService.verifyAccess(workflowId, userId, 'view', tx);
 
-    return await lifecycleHookRepository.findByWorkflowId(workflowId) as LifecycleHook[];
+      return await lifecycleHookRepository.findByWorkflowId(workflowId, tx) as LifecycleHook[];
+    });
   }
 
   /**

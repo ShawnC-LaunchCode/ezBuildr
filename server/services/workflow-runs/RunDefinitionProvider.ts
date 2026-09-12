@@ -1,15 +1,17 @@
 import { z } from "zod";
 
-import type { LogicRule, Section, Step, WorkflowRun } from "@shared/schema";
+import type { LogicRule, Page, Section, Step, WorkflowRun } from "@shared/schema";
 
 import { logger } from "../../logger";
 import {
   logicRuleRepository,
+  pageRepository,
   sectionRepository,
   stepRepository,
   workflowVersionRepository,
 } from "../../repositories";
 import { createError } from "../../utils/errors";
+import { withCurrentTenant } from "../../utils/rlsContext";
 
 // This validates a version's serialized graphJson, whose fields come straight
 // from nullable DB columns. `.optional()` accepts `undefined` but REJECTS
@@ -32,14 +34,22 @@ const VersionStepSchema = z.object({
   isVirtual: z.boolean().nullish(),
 }).passthrough();
 
-const VersionSectionSchema = z.object({
+const VersionPageSchema = z.object({
   id: z.string().uuid(),
+  sectionId: z.string().uuid().nullish().default(null),
   title: z.string(),
   description: z.string().nullish(),
   order: z.number().nullish(),
   visibleIf: z.unknown().optional(),
   config: z.unknown().optional(),
   steps: z.array(VersionStepSchema).nullish(),
+}).passthrough();
+
+const VersionSectionSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullish(),
+  visibleIf: z.unknown().optional(),
 }).passthrough();
 
 // LU-6c: a rule's trigger condition is `when` (a ConditionExpression),
@@ -56,7 +66,7 @@ const VersionLogicRuleSchema = z.object({
   conditionStepId: z.string().nullish(),
   conditionStepAlias: z.string().nullish(),
   when: z.unknown().nullish(),
-  targetType: z.enum(["section", "step"]),
+  targetType: z.enum(["page", "step"]),
   targetId: z.string().nullish(),
   targetAlias: z.string().nullish(),
   action: z.string(),
@@ -69,7 +79,8 @@ const VersionRuntimeSchema = z.object({
   projectId: z.string().nullable().optional(),
   intakeConfig: z.unknown().optional(),
   settings: z.unknown().optional(),
-  sections: z.array(VersionSectionSchema),
+  sections: z.array(VersionSectionSchema).default([]),
+  pages: z.array(VersionPageSchema),
   logicRules: z.array(VersionLogicRuleSchema).nullish(),
 }).passthrough();
 
@@ -85,9 +96,10 @@ export interface RunDefinitionGraph {
   settings?: unknown;
 }
 
-export interface RunSection {
+export interface RunPage {
   id: string;
   workflowId: string;
+  sectionId: string | null;
   title: string;
   description: string | null;
   order: number;
@@ -96,10 +108,19 @@ export interface RunSection {
   createdAt: Date;
 }
 
+export interface RunSection {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
+  visibleIf?: unknown;
+  createdAt: Date;
+}
+
 export interface RunStep {
   id: string;
   workflowId: string;
-  sectionId: string;
+  pageId: string;
   type: Step["type"];
   title: string;
   description: string | null;
@@ -116,6 +137,7 @@ export interface RunStep {
 
 export interface RunDefinition {
   sections: RunSection[];
+  pages: RunPage[];
   steps: RunStep[];
   logicRules: LogicRule[];
   /** Which store the definition was resolved from. `'version'` is the pinned
@@ -128,7 +150,7 @@ export interface RunDefinition {
 }
 
 /**
- * Resolves the single set of sections/steps/logic-rules a run's server-side
+ * Resolves the single set of pages/steps/logic-rules a run's server-side
  * decisions (navigation, completion, execution) should use. Every workflow
  * decision path needs the same three collections; before this existed, each
  * one re-derived them independently from the live tables even for runs
@@ -140,9 +162,10 @@ export interface RunDefinition {
 export class RunDefinitionProvider {
   constructor(
     private versionRepo = workflowVersionRepository,
-    private sectionRepo = sectionRepository,
+    private pageRepo = pageRepository,
     private stepRepo = stepRepository,
     private logicRuleRepo = logicRuleRepository,
+    private sectionRepo = sectionRepository,
   ) {}
 
   async getDefinition(run: WorkflowRun): Promise<RunDefinition> {
@@ -185,11 +208,11 @@ export class RunDefinitionProvider {
 
     const graph = parsed.data;
     const timestamp = version.createdAt ?? new Date(0);
-    const steps: RunStep[] = graph.sections.flatMap((section) =>
-      (section.steps ?? []).map((step) => ({
+    const steps: RunStep[] = graph.pages.flatMap((page) =>
+      (page.steps ?? []).map((step) => ({
         id: step.id,
         workflowId: run.workflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: step.type as Step["type"],
         title: step.title,
         description: step.description ?? null,
@@ -207,7 +230,7 @@ export class RunDefinitionProvider {
     const stepIdByAlias = new Map(
       steps.filter((step) => step.alias).map((step) => [step.alias as string, step.id])
     );
-    const sectionIds = new Set(graph.sections.map((section) => section.id));
+    const pageIds = new Set(graph.pages.map((page) => page.id));
 
     // LU-6c: a rule's trigger condition is `when`, evaluated through the
     // same alias-aware ConditionExpression evaluator as `visibleIf` - it is
@@ -238,7 +261,7 @@ export class RunDefinitionProvider {
 
       const targetId = rule.targetId ?? (rule.targetType === "step"
         ? stepIdByAlias.get(rule.targetAlias ?? "")
-        : sectionIds.has(rule.targetAlias ?? "") ? rule.targetAlias : undefined);
+        : pageIds.has(rule.targetAlias ?? "") ? rule.targetAlias : undefined);
       return [{
         id: rule.id ?? `runtime-rule-${index}`,
         workflowId: run.workflowId,
@@ -246,7 +269,7 @@ export class RunDefinitionProvider {
         when: rule.when,
         targetType: rule.targetType,
         targetStepId: rule.targetType === "step" ? targetId ?? null : null,
-        targetSectionId: rule.targetType === "section" ? targetId ?? null : null,
+        targetPageId: rule.targetType === "page" ? targetId ?? null : null,
         action: rule.action as LogicRule["action"],
         order: rule.order ?? index + 1,
         createdAt: timestamp,
@@ -254,19 +277,30 @@ export class RunDefinitionProvider {
       } satisfies LogicRule];
     });
 
+    const pages: RunPage[] = graph.pages.map((page) => ({
+      id: page.id,
+      workflowId: run.workflowId,
+      sectionId: page.sectionId,
+      title: page.title,
+      description: page.description ?? null,
+      order: page.order ?? 0,
+      visibleIf: page.visibleIf,
+      config: page.config,
+      createdAt: timestamp,
+    }));
+
     const sections: RunSection[] = graph.sections.map((section) => ({
       id: section.id,
       workflowId: run.workflowId,
       title: section.title,
       description: section.description ?? null,
-      order: section.order ?? 0,
       visibleIf: section.visibleIf,
-      config: section.config,
       createdAt: timestamp,
     }));
 
     return {
       sections,
+      pages,
       steps,
       logicRules,
       source: "version",
@@ -281,26 +315,48 @@ export class RunDefinitionProvider {
   }
 
   private async getLiveDefinition(run: WorkflowRun): Promise<RunDefinition> {
-    const liveSections: Section[] = await this.sectionRepo.findByWorkflowId(run.workflowId);
-    const sectionIds = liveSections.map((section) => section.id);
-    const liveSteps: Step[] = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(run.workflowId);
+    // RLS-5: `pages`/`steps` are RLS-covered through their parent
+    // workflow's ownership-derived policy. On the bare pool these return zero
+    // rows and the run renders as an EMPTY definition — no error, just a
+    // workflow with no pages and no questions, and for document generation a
+    // silent "0 documents generated, success: true". One tenant transaction
+    // for all three reads, so they also see a consistent snapshot.
+    const { liveSections, livePages, liveSteps, logicRules } = await withCurrentTenant(async (tx) => {
+      const sectionsRead: Section[] = await this.sectionRepo.findByWorkflowId(run.workflowId, tx);
+      const pagesRead: Page[] = await this.pageRepo.findByWorkflowId(run.workflowId, tx);
+      const stepsRead: Step[] = await this.stepRepo.findByPageIds(
+        pagesRead.map((page) => page.id),
+        tx
+      );
+      const rulesRead = await this.logicRuleRepo.findByWorkflowId(run.workflowId, tx);
+      return { liveSections: sectionsRead, livePages: pagesRead, liveSteps: stepsRead, logicRules: rulesRead };
+    });
 
     const sections: RunSection[] = liveSections.map((section) => ({
       id: section.id,
       workflowId: section.workflowId,
       title: section.title,
       description: section.description ?? null,
-      order: section.order,
       visibleIf: section.visibleIf,
-      config: section.config,
       createdAt: section.createdAt ?? new Date(0),
+    }));
+
+    const pages: RunPage[] = livePages.map((page) => ({
+      id: page.id,
+      workflowId: page.workflowId,
+      sectionId: page.sectionId ?? null,
+      title: page.title,
+      description: page.description ?? null,
+      order: page.order,
+      visibleIf: page.visibleIf,
+      config: page.config,
+      createdAt: page.createdAt ?? new Date(0),
     }));
 
     const steps: RunStep[] = liveSteps.map((step) => ({
       id: step.id,
       workflowId: step.workflowId,
-      sectionId: step.sectionId,
+      pageId: step.pageId,
       type: step.type,
       title: step.title,
       description: step.description ?? null,
@@ -315,7 +371,7 @@ export class RunDefinitionProvider {
       updatedAt: step.updatedAt ?? new Date(0),
     }));
 
-    return { sections, steps, logicRules, source: "live" };
+    return { sections, pages, steps, logicRules, source: "live" };
   }
 }
 

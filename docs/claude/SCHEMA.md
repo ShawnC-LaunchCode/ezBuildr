@@ -1,12 +1,12 @@
 # Database Schema Reference
 
-Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
+Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `sections` / `steps` (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
+> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `pages` / `sections` / `steps` tables (no `tenant_id`) have ownership/join-based `tenant_isolation` policies; migration `0039` adds the Section policy. See [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
-## Workflow Core — `shared/schema/workflow.ts` (20 tables)
+## Workflow Core — `shared/schema/workflow.ts` (21 tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -17,17 +17,17 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `templates` / `template_versions` | Document templates + versioning |
 | `workflow_blueprints` | Template blueprint structures (JSONB) |
 | `workflow_templates` | Reusable workflow templates |
-| `sections` | Pages/sections: order, visibleIf |
+| `sections` | Optional named spans of contiguous pages; position is derived from the member pages and Sections cannot be empty. |
+| `pages` | Workflow pages: order, optional `section_id`, visibleIf. Membership changes only through atomic Section creation or page reorder. |
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
-| `transform_blocks` | JS/Python code blocks: code, inputKeys, outputKey, virtualStepId |
 | `lifecycle_hooks` | Workflow phase hooks: phase, language, code, mutationMode |
 | `document_hooks` | Document transformation hooks (`finalBlockDocumentId`, not a FK) |
 | `project_access` / `workflow_access` | Per-project / per-workflow permissions |
 | `collab_docs` / `collab_updates` / `collab_snapshots` | Real-time collaboration document state |
 
-## Auth & Tenancy — `shared/schema/auth.ts` (27 tables)
+## Auth & Tenancy — `shared/schema/auth.ts` (28 tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -44,22 +44,24 @@ Inventory of all **106 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `user_preferences` / `user_personalization_settings` | User settings (JSONB) |
 | `portal_tokens` | Portal magic-link tokens (there is no `portal_users` table) |
 | `audit_logs` | Activity/audit trail (tenant, workspace, entity scoped) |
+| `admin_access_log` | Cross-tenant admin console access audit trail (actor, action, target tenant/user) |
 | `resource_permissions` | Granular resource permissions |
 | `sessions` | Express session store |
 | `teams` / `team_members` | Teams and membership |
 
-## Runs & Metrics — `shared/schema/run.ts` (20 tables)
+## Runs & Metrics — `shared/schema/run.ts` (21 tables)
 
 | Table | Purpose |
 |-------|---------|
-| `workflow_runs` | Execution instances: hashed run token, progress/cursor, completion, client email, and explicit assigned user |
+| `workflow_runs` | Execution instances: hashed run token, progress/cursor, insertion-ordered visited page IDs, completion, client email, and explicit assigned user. **`execution_mode` ('live'/'preview') plus the preview expiry/retirement/lease/artifact columns are server-owned (CB-9a-1)** — DB triggers make preview identity immutable and forbid the distribution columns on a preview row |
 | `run_resume_links` | Tenant-scoped, hashed one-time save/resume and handoff credentials with expiry, use, and revocation timestamps |
 | `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
+| `run_submissions` | CB-9a-2 idempotency: one row per logical submission (`run_id` + client `submission_key`, uniquely indexed). Submit and its paired `next` share a key so a user action evaluates Code Blocks once; a retry replays the stored `response`/`navigation` instead of executing. A block's input hash is a change gate, not request idempotency |
+| `code_block_runs` | Per-run Code Block state, one row per (`run_id`, `step_id`): last `input_hash` (the change gate), `status` (`fired` / `skipped_unready` / `skipped_unchanged` / `error`), `pending_inputs` and `error_message`. Read by the preview inspector. RLS via the run's workflow owner (migration `0043`) |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail (`voided` request status; completed/voided/expired events) |
 | `run_generated_documents` | Generated PDF/DOCX artifacts |
-| `transform_block_runs` | Transform block execution audit |
 | `script_execution_log` | Hook/script execution audit (console output, duration) |
 | `workflow_run_events` / `workflow_run_metrics` | Run-level events + metrics |
 | `template_generation_metrics` | Document generation metrics (`run_id` is a plain nullable column) |
@@ -88,6 +90,7 @@ All DataVault tables are `datavault_`-prefixed:
 | `datavault_tables` | Table schemas |
 | `datavault_columns` | Column definitions (see column types below) |
 | `datavault_rows` / `datavault_values` | Row records + EAV cell values |
+| `datavault_unique_keys` | PG-backed unique-value index per column, keyed off a hash of the cell value |
 | `datavault_number_sequences` | Auto-number sequences |
 | `datavault_row_notes` | Row comments |
 | `datavault_api_tokens` | External API access tokens |
@@ -121,25 +124,37 @@ All DataVault tables are `datavault_`-prefixed:
 
 | File | Tables |
 |------|--------|
-| `shared/schema/ai.ts` | `ai_settings`, `workflow_personalization_settings` |
+| `shared/schema/ai.ts` | `ai_settings`, `workflow_personalization_settings`, `ai_usage` (per-tenant LLM token/cost ledger) |
 | `shared/schema/template_shares.ts` | `template_shares` |
 | `shared/schema/system.ts` | `system_stats` |
-| `shared/schema/files.ts` | `files` |
 | `shared/schema/branding.ts` | `email_template_metadata` |
 
 `shared/schema/analytics.ts` defines TypeScript interfaces only (no tables). `relations.ts` holds Drizzle relations; `index.ts` is the barrel.
 
 ## Key Enums (defined in `shared/schema/workflow.ts`)
 
-**Step types (`stepTypeEnum`, 37 values):**
-- Legacy/existing: `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `date_time`, `file_upload`, `computed`, `js_question`, `final_documents`, `signature_block`
-- Easy mode: `true_false`, `phone`, `date`, `time`, `datetime`, `email`, `number`, `currency`, `scale`, `website`, `display`, `address`, `final`
-- Advanced mode: `text`, `boolean`, `phone_advanced`, `datetime_unified`, `choice`, `email_advanced`, `number_advanced`, `scale_advanced`, `website_advanced`, `address_advanced`, `multi_field`, `display_advanced`
-- Structural: `list` (nestable repeating question, fully supported in the runner via drill-in navigation; both List initiatives closed 2026-08-02, parked follow-ups in `tickets/BACKLOG.md`). Replaced `repeater`/`loop_group`, both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
+**Step types (`stepTypeEnum`, 18 values):** the canonical toolbox, and nothing else. Reduced from 37 by
+STB-21 (migration `0042`) once the STB-19/20 backfill reported a zero audit.
+- Input: `text`, `boolean`, `phone`, `date_time`, `choice`, `email`, `number`, `scale`, `website`, `address`, `multi_field`
+- Structural / non-input: `display`, `file_upload`, `list`, `js_question`, `computed`, `final_documents`, `signature_block`
+
+`list` is the nestable repeating question, fully supported in the runner via drill-in navigation; both List
+initiatives closed 2026-08-02, parked follow-ups in `tickets/BACKLOG.md`. It replaced `repeater`/`loop_group`,
+both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
+
+**Retired names are readable, not writable.** Easy-mode labels (Short Text, Long Text, Yes/No, True/False,
+Date, Time, Date/Time, Single Select, Multiple Choice, Currency) are **preset ids** in the builder, never
+stored types; `*_advanced` was an exposure level, never a separate identity. The 19 retired names
+(`short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `true_false`, `date`, `time`, `datetime`,
+`datetime_unified`, `currency`, `final`, `number_advanced`, `scale_advanced`, `phone_advanced`,
+`email_advanced`, `website_advanced`, `address_advanced`, `display_advanced`) are still mapped by
+`LEGACY_STEP_ADAPTERS` in `shared/types/stepConfigs.ts`, so an export bundle or a pre-`pages` artifact written
+before the backfill still imports. The database now refuses to store them, and
+`validateCanonicalStepConfig` refuses to accept them at every write boundary.
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 
-**Condition operators:** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all store
+**Condition operators:** `logic_rules.when` and `steps.visibleIf` / `pages.visibleIf` all store
 the same `ConditionExpression` jsonb, evaluated by `shared/conditionEvaluator.ts` against the
 28-operator `ComparisonOperator` union in `shared/types/conditions.ts` (starts_with, date diffs,
 includes_all, etc.). The flat 9-value `conditionOperatorEnum` DB enum `logic_rules` used before
@@ -152,3 +167,8 @@ LU-6a/LU-6c is dropped — no column references it anymore.
 **Lifecycle hook phases:** beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
 **Document hook phases:** beforeGeneration, afterGeneration
 **Script languages:** JavaScript (vm2/vm sandbox), Python (subprocess isolation)
+
+> **Vocabulary boundary:** workflow navigation uses **pages** in TypeScript,
+> APIs, serialized JSON, and product copy. The group layer added later in Phase
+> 1 uses **sections** as a new, distinct container that must hold one or more
+> pages; it does not revive the former page-as-section terminology.

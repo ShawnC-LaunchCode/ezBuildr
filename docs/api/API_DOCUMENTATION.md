@@ -63,7 +63,7 @@ The OpenAPI specification includes:
 #### Core Resources
 - **Projects:** Top-level containers for workflows
 - **Workflows:** Complete workflow definitions
-- **Sections:** Workflow pages/sections
+- **Pages:** Ordered workflow pages
 - **Steps:** Individual workflow steps (15+ question types)
 - **Runs:** Workflow execution instances
 - **Values:** Step values and run data
@@ -381,10 +381,10 @@ The most accurate approach is to manually maintain the specification as you buil
 - [OpenAPI Generator](https://openapi-generator.tech) - Generate client SDKs
 
 ### ezBuildr Documentation
-- [Main README](../README.md)
-- [Architecture Overview](../CLAUDE.md)
-- [API Reference](./api/API.md)
-- [Developer Reference](./reference/DEVELOPER_REFERENCE.md)
+- [Main README](../../README.md)
+- [Architecture Overview](../../CLAUDE.md)
+- [API Reference](./API.md)
+- [Developer Reference](../reference/DEVELOPER_REFERENCE.md)
 
 ---
 

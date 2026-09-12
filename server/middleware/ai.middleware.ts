@@ -18,8 +18,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Prevents memory issues and API overload from huge workflow objects
  */
 export const validateWorkflowSize = (
-    maxSections = LIMITS.AI_MAX_SECTIONS,
-    maxStepsPerSection = LIMITS.AI_MAX_STEPS_PER_SECTION
+    maxPages = LIMITS.AI_MAX_PAGES,
+    maxStepsPerPage = LIMITS.AI_MAX_STEPS_PER_PAGE
 ) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -33,43 +33,43 @@ export const validateWorkflowSize = (
                 return next();
             }
 
-            // Check sections count
-            const sections = Array.isArray(workflow.sections)
-                ? workflow.sections as unknown[]
+            // Check pages count
+            const pages = Array.isArray(workflow.pages)
+                ? workflow.pages as unknown[]
                 : undefined;
-            if (sections && sections.length > maxSections) {
+            if (pages && pages.length > maxPages) {
                 return res.status(413).json({
                     success: false,
-                    message: `Workflow too large: ${sections.length} sections (max: ${maxSections})`,
+                    message: `Workflow too large: ${pages.length} pages (max: ${maxPages})`,
                     error: 'workflow_too_large',
                     details: {
-                        sectionsCount: sections.length,
-                        maxSections,
-                        suggestion: 'Consider breaking this workflow into smaller workflows or using fewer sections.',
+                        pagesCount: pages.length,
+                        maxPages,
+                        suggestion: 'Consider breaking this workflow into smaller workflows or using fewer pages.',
                     },
                 });
             }
 
-            // Check steps per section
-            if (sections) {
-                for (let i = 0; i < sections.length; i++) {
-                    const section = sections[i];
-                    if (!isRecord(section)) {
+            // Check steps per page
+            if (pages) {
+                for (let i = 0; i < pages.length; i++) {
+                    const page = pages[i];
+                    if (!isRecord(page)) {
                         continue;
                     }
-                    const steps = Array.isArray(section.steps) ? section.steps : undefined;
-                    if (steps && steps.length > maxStepsPerSection) {
-                        const sectionTitle = typeof section.title === 'string' ? section.title : String(i);
+                    const steps = Array.isArray(page.steps) ? page.steps : undefined;
+                    if (steps && steps.length > maxStepsPerPage) {
+                        const pageTitle = typeof page.title === 'string' ? page.title : String(i);
                         return res.status(413).json({
                             success: false,
-                            message: `Section "${sectionTitle}" has too many steps: ${steps.length} (max: ${maxStepsPerSection})`,
-                            error: 'section_too_large',
+                            message: `Page "${pageTitle}" has too many steps: ${steps.length} (max: ${maxStepsPerPage})`,
+                            error: 'page_too_large',
                             details: {
-                                sectionIndex: i,
-                                sectionTitle,
+                                pageIndex: i,
+                                pageTitle,
                                 stepsCount: steps.length,
-                                maxStepsPerSection,
-                                suggestion: 'Split this section into multiple smaller sections.',
+                                maxStepsPerPage,
+                                suggestion: 'Split this page into multiple smaller pages.',
                             },
                         });
                     }
@@ -88,7 +88,7 @@ export const validateWorkflowSize = (
                     details: {
                         jsonSizeMB: (jsonSize / 1024 / 1024).toFixed(2),
                         maxSizeMB: 5,
-                        suggestion: 'Reduce the number of sections, steps, or remove unnecessary data.',
+                        suggestion: 'Reduce the number of pages, steps, or remove unnecessary data.',
                     },
                 });
             }

@@ -4,6 +4,7 @@
  */
 
 import type { ScriptExecutionContext, ScriptContextAPI } from "@shared/types/scripting";
+import { runPreviewPolicyService } from '../workflow-runs/RunPreviewPolicyService';
 
 /**
  * Build script context from execution context
@@ -16,11 +17,12 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
     },
     run: {
       id: executionContext.runId,
+      ...(runPreviewPolicyService.executionMode(executionContext.runId) === 'preview' ? { mode: 'preview' as const } : {}),
     },
     phase: executionContext.phase,
-    section: executionContext.sectionId
+    page: executionContext.pageId
       ? {
-          id: executionContext.sectionId,
+          id: executionContext.pageId,
         }
       : undefined,
     user: executionContext.userId
@@ -46,7 +48,7 @@ export function createTestContext(overrides?: Partial<ScriptExecutionContext>): 
     workflowId: overrides?.workflowId ?? "test-workflow-id",
     runId: overrides?.runId ?? "test-run-id",
     phase: overrides?.phase ?? "test",
-    sectionId: overrides?.sectionId,
+    pageId: overrides?.pageId,
     userId: overrides?.userId,
     metadata: overrides?.metadata ?? {},
   };

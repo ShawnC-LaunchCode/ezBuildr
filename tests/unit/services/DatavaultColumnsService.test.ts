@@ -1,14 +1,31 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 import type { DatavaultTable, DatavaultColumn } from '@shared/schema';
-import type { DatavaultColumnsRepository, DatavaultTablesRepository } from '../../../server/repositories';
+import type { DatavaultColumnsRepository, DatavaultTablesRepository, DbTransaction } from '../../../server/repositories';
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import * as repositories from '../../../server/repositories';
+import { db } from '../../../server/db';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultColumnsService Tests
  *
  * Unit tests for DatavaultColumnsService
+ *
+ * RLS-2b: every public method now opens a tenant-scoped transaction at the
+ * service boundary (via `withTx` -> `withCurrentTenant`) when no `tx` is
+ * supplied, which requires a tenant in the request's async context (RLS-1) —
+ * unavailable to a plain unit test. These tests pass an explicit fake `tx` to
+ * take the "caller already has a transaction" branch of `withTx`, matching
+ * the pattern established in tests/unit/services/CollectionService.test.ts
+ * (RLS-2a). The RLS transaction itself is proven against a real database in
+ * tests/integration/rls2b-datavault.test.ts.
+ *
+ * `mockTx` here must BE the mocked `db` object (below), not an unrelated
+ * fake: `deleteColumn` -> `checkColumnUsage` (private) reads `tx ?? db`
+ * directly rather than going through a repository's `getDb(tx)`, and this
+ * file's mocked query chain is wired onto `db.select` — see Guardrail.test.ts
+ * for the same fix and fuller explanation.
  */
+const mockTx = db as unknown as DbTransaction;
 
 describe('DatavaultColumnsService', () => {
   let service: DatavaultColumnsService;
@@ -98,7 +115,7 @@ describe('DatavaultColumnsService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
 
-      const result = await service.listColumns(mockTableId, mockTenantId);
+      const result = await service.listColumns(mockTableId, mockTenantId, mockTx);
 
       expect(result).toEqual(mockColumns);
     });
@@ -106,7 +123,7 @@ describe('DatavaultColumnsService', () => {
     it('should throw 404 if table not found', async () => {
       mockTablesRepo.findById.mockResolvedValue(undefined);
 
-      await expect(service.listColumns(mockTableId, mockTenantId))
+      await expect(service.listColumns(mockTableId, mockTenantId, mockTx))
         .rejects
         .toThrow('Table not found');
     });
@@ -152,7 +169,7 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
       mockColumnsRepo.create.mockResolvedValue(createdColumn);
 
-      const result = await service.createColumn(insertData, mockTenantId);
+      const result = await service.createColumn(insertData, mockTenantId, mockTx);
 
       expect(result).toEqual(createdColumn);
       expect(result.slug).toBe('email_address');
@@ -197,7 +214,7 @@ describe('DatavaultColumnsService', () => {
         updatedAt: new Date(),
       } as unknown as DatavaultColumn);
 
-      const result = await service.createColumn(insertData, mockTenantId);
+      const result = await service.createColumn(insertData, mockTenantId, mockTx);
 
       expect(result.slug).toBe('email_1');
       expect(mockColumnsRepo.slugExists).toHaveBeenCalledTimes(2);
@@ -240,7 +257,7 @@ describe('DatavaultColumnsService', () => {
         updatedAt: new Date(),
       } as unknown as DatavaultColumn);
 
-      const result = await service.createColumn(insertData, mockTenantId);
+      const result = await service.createColumn(insertData, mockTenantId, mockTx);
 
       expect(result.slug).toBe('custom_email');
     });
@@ -291,7 +308,7 @@ describe('DatavaultColumnsService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.update.mockResolvedValue(updatedColumn);
 
-      const result = await service.updateColumn(mockColumnId, mockTenantId, updateData);
+      const result = await service.updateColumn(mockColumnId, mockTenantId, updateData, mockTx);
 
       expect(result).toEqual(updatedColumn);
     });
@@ -329,7 +346,7 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.findById.mockResolvedValue(mockColumn);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
 
-      await expect(service.updateColumn(mockColumnId, mockTenantId, { type: 'email' as const }))
+      await expect(service.updateColumn(mockColumnId, mockTenantId, { type: 'email' as const }, mockTx))
         .rejects
         .toThrow('Cannot change column type');
     });
@@ -370,9 +387,9 @@ describe('DatavaultColumnsService', () => {
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.delete.mockResolvedValue(undefined);
 
-      await service.deleteColumn(mockColumnId, mockTenantId);
+      await service.deleteColumn(mockColumnId, mockTenantId, mockTx);
 
-      expect(mockColumnsRepo.delete).toHaveBeenCalledWith(mockColumnId, undefined);
+      expect(mockColumnsRepo.delete).toHaveBeenCalledWith(mockColumnId, mockTx);
     });
   });
 
@@ -396,9 +413,9 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.findByTableId.mockResolvedValue(columnIds.map(id => ({ id } as unknown as DatavaultColumn)));
       mockColumnsRepo.reorderColumns.mockResolvedValue(undefined);
 
-      await service.reorderColumns(mockTableId, mockTenantId, columnIds);
+      await service.reorderColumns(mockTableId, mockTenantId, columnIds, mockTx);
 
-      expect(mockColumnsRepo.reorderColumns).toHaveBeenCalledWith(mockTableId, columnIds, undefined);
+      expect(mockColumnsRepo.reorderColumns).toHaveBeenCalledWith(mockTableId, columnIds, mockTx);
     });
   });
 
@@ -445,7 +462,7 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
       mockColumnsRepo.create.mockResolvedValue(createdColumn);
 
-      const result = await service.createColumn(insertData, mockTenantId);
+      const result = await service.createColumn(insertData, mockTenantId, mockTx);
 
       expect(result).toEqual(createdColumn);
       expect(result.options).toEqual(insertData.options);
@@ -482,7 +499,7 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
       mockColumnsRepo.create.mockResolvedValue(createdColumn);
 
-      const result = await service.createColumn(insertData, mockTenantId);
+      const result = await service.createColumn(insertData, mockTenantId, mockTx);
 
       expect(result).toEqual(createdColumn);
       expect(result.options).toEqual(insertData.options);
@@ -512,7 +529,7 @@ describe('DatavaultColumnsService', () => {
 
       mockTablesRepo.findById.mockResolvedValue(explicitTable);
 
-      await expect(service.createColumn(insertData, explicitTenantId))
+      await expect(service.createColumn(insertData, explicitTenantId, mockTx))
         .rejects
         .toThrow('Select and multiselect columns require at least one option');
     });
@@ -544,7 +561,7 @@ describe('DatavaultColumnsService', () => {
 
       mockTablesRepo.findById.mockResolvedValue(explicitTable);
 
-      await expect(service.createColumn(insertData, explicitTenantId))
+      await expect(service.createColumn(insertData, explicitTenantId, mockTx))
         .rejects
         .toThrow('Duplicate option value: active');
     });
@@ -576,7 +593,7 @@ describe('DatavaultColumnsService', () => {
 
       mockTablesRepo.findById.mockResolvedValue(explicitTable);
 
-      await expect(service.createColumn(insertData, explicitTenantId))
+      await expect(service.createColumn(insertData, explicitTenantId, mockTx))
         .rejects
         .toThrow('Each option must have both label and value');
     });

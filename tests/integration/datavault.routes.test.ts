@@ -11,11 +11,17 @@ import { datavaultRowsRepository } from '../../server/repositories/DatavaultRows
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
+import { runWithTenantContext, withTenant } from '../../server/utils/rlsContext';
 import {
   createTestUser,
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
+import { waitForAuditLogs, waitForRows } from '../helpers/waitForRows';
 
 interface AuditChangeSet {
   before?: Record<string, unknown>;
@@ -60,13 +66,13 @@ describe('DataVault API Routes', () => {
     });
     registerDatavaultRoutes(app);
     // In real tests, create test tenant and user:
-    // const [tenant] = await db.insert(tenants).values({
+    // const [tenant] = await getOwnerDb().insert(tenants).values({
     //   name: 'Test Tenant',
     //   plan: 'free',
     // }).returning();
     // testTenantId = tenant.id;
     //
-    // const [user] = await db.insert(users).values({
+    // const [user] = await getOwnerDb().insert(users).values({
     //   id: 'test-user-id',
     //   tenantId: testTenantId,
     //   email: 'test@example.com',
@@ -77,13 +83,13 @@ describe('DataVault API Routes', () => {
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
-    //   await db.delete(datavaultTables).where(eq(datavaultTables.tenantId, testTenantId));
+    //   await getOwnerDb().delete(datavaultTables).where(eq(datavaultTables.tenantId, testTenantId));
     // }
   });
   beforeEach(async () => {
     // Reset test data before each test
     // if (testTableId) {
-    //   await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
+    //   await getOwnerDb().delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
     // }
   });
   describe('Tables API', () => {
@@ -479,10 +485,14 @@ describe('DataVault unique row constraints', () => {
     });
     expect(archivedResponse.status).toBe(201);
 
-    await datavaultRowsService.archiveRow(
+    // RLS-2b: this calls the service directly rather than over HTTP, so no
+    // `rlsContext` middleware has populated the async tenant context. Stand in
+    // for it, exactly as RLS-2a did in collections.e2e.test.ts. Setup only —
+    // no assertion changed.
+    await runWithTenantContext(ctx.tenantId, () => datavaultRowsService.archiveRow(
       ctx.tenantId,
       archivedResponse.body.row.id as string
-    );
+    ));
 
     const replacementResponse = await authenticatedRequest().send({
       values: { [uniqueColumnId]: 'archived@example.com' },
@@ -501,7 +511,8 @@ describe('DataVault unique row constraints', () => {
     expect(secondResponse.status).toBe(201);
 
     await expect(
-      datavaultRowsRepository.checkColumnHasDuplicates(uniqueColumnId)
+      withTenant(ctx.tenantId, (tx) =>
+        datavaultRowsRepository.checkColumnHasDuplicates(uniqueColumnId, tx))
     ).resolves.toBe(false);
   });
 });
@@ -922,7 +933,7 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
     row5Id = r5.body.row.id;
 
     // Soft delete row 4 and row 5 -> 3 live rows, 2 archived rows
-    await db.update(datavaultRows)
+    await getOwnerDb().update(datavaultRows)
       .set({ deletedAt: new Date() })
       .where(inArray(datavaultRows.id, [row4Id, row5Id]));
   });
@@ -942,24 +953,32 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
     expect(table.rowCount).toBe(3);
 
     // Also assert directly against datavaultTablesService.listTablesWithStats
-    const serviceTables = await datavaultTablesService.listTablesWithStats(ctx.tenantId, ownerUserId);
+    const serviceTables = await runWithTenantContext(ctx.tenantId, () =>
+      datavaultTablesService.listTablesWithStats(ctx.tenantId, ownerUserId));
     const serviceTable = serviceTables.find((t: any) => t.id === tableId);
     expect(serviceTable?.rowCount).toBe(3);
   });
 
   it('AC2: countRows (via countByTableId) reports 3 for the same fixture', async () => {
-    const repoCount = await datavaultRowsRepository.countByTableId(tableId);
+    // Repository calls carry no scoping of their own — that lives at the
+    // service boundary — so a bare call runs with no tenant and counts 0 under
+    // a non-owner role. Open the transaction the service would have opened.
+    const repoCount = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, false, tx));
     expect(repoCount).toBe(3);
 
-    const serviceCount = await datavaultRowsService.countRows(tableId, ctx.tenantId);
+    const serviceCount = await runWithTenantContext(ctx.tenantId, () =>
+      datavaultRowsService.countRows(tableId, ctx.tenantId));
     expect(serviceCount).toBe(3);
   });
 
   it('AC3: passing showArchived: true reports 5, so archived view has correct total', async () => {
-    const repoCountArchivedObj = await datavaultRowsRepository.countByTableId(tableId, { showArchived: true });
+    const repoCountArchivedObj = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, { showArchived: true }, tx));
     expect(repoCountArchivedObj).toBe(5);
 
-    const repoCountArchivedBool = await datavaultRowsRepository.countByTableId(tableId, true);
+    const repoCountArchivedBool = await withTenant(ctx.tenantId, (tx) =>
+      datavaultRowsRepository.countByTableId(tableId, true, tx));
     expect(repoCountArchivedBool).toBe(5);
 
     const resArchived = await request(ctx.baseURL)
@@ -1052,7 +1071,7 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
 
     // Clean up the non-numeric test row if created
     if (nonNumericRow.body?.row?.id) {
-      await db.update(datavaultRows)
+      await getOwnerDb().update(datavaultRows)
         .set({ deletedAt: new Date() })
         .where(eq(datavaultRows.id, nonNumericRow.body.row.id));
     }
@@ -1109,7 +1128,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(archiveResponse.status).toBe(200);
 
-    const [archivedRow] = await db
+    const [archivedRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1124,7 +1143,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
       message: 'Row unarchived successfully',
     });
 
-    const [restoredRow] = await db
+    const [restoredRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1144,8 +1163,7 @@ describe('DataVault row unarchive routes (DV-14)', () => {
     const restoredTable = statsResponse.body.find((table: { id: string }) => table.id === tableId);
     expect(restoredTable?.rowCount).toBe(1);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    const unarchiveLogs = await db
+    const unarchiveLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1153,12 +1171,12 @@ describe('DataVault row unarchive routes (DV-14)', () => {
           eq(auditLogs.resourceId, rowId),
           eq(auditLogs.action, 'datavault.row.unarchived')
         )
-      );
+      ));
     expect(unarchiveLogs).toHaveLength(1);
     expect(getAuditChanges(unarchiveLogs[0]).after?.tableId).toBe(tableId);
   });
 
-  it('DV-14 AC4: missing rows return 404 and cross-tenant archived rows return 403', async () => {
+  it('DV-14 AC4: missing rows return 404 and cross-tenant archived rows are refused', async () => {
     const missingResponse = await request(ctx.baseURL)
       .patch('/api/datavault/rows/00000000-0000-0000-0000-000000000000/unarchive')
       .set('Authorization', `Bearer ${ownerToken}`);
@@ -1173,9 +1191,9 @@ describe('DataVault row unarchive routes (DV-14)', () => {
     const crossTenantResponse = await request(ctx.baseURL)
       .patch(`/api/datavault/rows/${rowId}/unarchive`)
       .set('Authorization', `Bearer ${otherTenantToken}`);
-    expect(crossTenantResponse.status).toBe(403);
+    expectCrossTenantDenied(crossTenantResponse.status);
 
-    const [stillArchivedRow] = await db
+    const [stillArchivedRow] = await getOwnerDb()
       .select({ deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(eq(datavaultRows.id, rowId));
@@ -1233,9 +1251,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(createRes.status).toBe(201);
     const rowId = createRes.body.row.id as string;
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    const createLogs = await db
+    const createLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1243,7 +1259,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, rowId),
           eq(auditLogs.action, 'datavault.row.created')
         )
-      );
+      ));
 
     expect(createLogs).toHaveLength(1);
     expect(createLogs[0].userId).toBe(ownerUserId);
@@ -1260,9 +1276,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(updateRes.status).toBe(204);
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    const updateLogs = await db
+    const updateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1270,7 +1284,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, rowId),
           eq(auditLogs.action, 'datavault.row.updated')
         )
-      );
+      ));
 
     expect(updateLogs).toHaveLength(1);
     expect(updateLogs[0].userId).toBe(ownerUserId);
@@ -1285,9 +1299,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(deleteRes.status).toBe(204);
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    const deleteLogs = await db
+    const deleteLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1295,7 +1307,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, rowId),
           eq(auditLogs.action, 'datavault.row.deleted')
         )
-      );
+      ));
 
     expect(deleteLogs).toHaveLength(1);
     expect(deleteLogs[0].userId).toBe(ownerUserId);
@@ -1334,9 +1346,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ rowIds: [rowAId, rowBId] });
 
     expect(bulkArchiveRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const archiveLogs = await db
+    const archiveLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1344,7 +1354,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, auditTableId),
           eq(auditLogs.action, 'datavault.row.bulk_archived')
         )
-      );
+      ));
 
     expect(archiveLogs).toHaveLength(1);
     expect(archiveLogs[0].userId).toBe(ownerUserId);
@@ -1352,7 +1362,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(getAuditChanges(archiveLogs[0]).after?.count).toBe(2);
     expect(getAuditChanges(archiveLogs[0]).after?.tableId).toBe(auditTableId);
 
-    const archivedRows = await db
+    const archivedRows = await getOwnerDb()
       .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
       .from(datavaultRows)
       .where(inArray(datavaultRows.id, [rowAId, rowBId]));
@@ -1367,12 +1377,16 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(bulkUnarchiveRes.status).toBe(200);
     expect(bulkUnarchiveRes.body.count).toBe(2);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const restoredRows = await db
-      .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
-      .from(datavaultRows)
-      .where(inArray(datavaultRows.id, [rowAId, rowBId]));
+    // Not an audit read: wait for the unarchive itself to be visible, so the
+    // predicate is "both rows are live again", not "some row exists" — the
+    // rows exist throughout, only `deletedAt` changes.
+    const restoredRows = await waitForRows(
+      () => getOwnerDb()
+        .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
+        .from(datavaultRows)
+        .where(inArray(datavaultRows.id, [rowAId, rowBId])),
+      (rows) => rows.length === 2 && rows.every((row) => row.deletedAt === null),
+    );
     expect(restoredRows).toHaveLength(2);
     expect(restoredRows.every((row) => row.deletedAt === null)).toBe(true);
 
@@ -1394,7 +1408,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     );
     expect(tableAfterUnarchive.rowCount).toBe(liveCountBeforeArchive);
 
-    const unarchiveLogs = await db
+    const unarchiveLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1402,7 +1416,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, auditTableId),
           eq(auditLogs.action, 'datavault.row.bulk_unarchived')
         )
-      );
+      ));
 
     expect(unarchiveLogs).toHaveLength(1);
     expect(unarchiveLogs[0].userId).toBe(ownerUserId);
@@ -1415,9 +1429,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ rowIds: [rowAId, rowBId] });
 
     expect(bulkDeleteRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const bulkDeleteLogs = await db
+    const bulkDeleteLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1425,7 +1437,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, auditTableId),
           eq(auditLogs.action, 'datavault.row.bulk_deleted')
         )
-      );
+      ));
 
     expect(bulkDeleteLogs).toHaveLength(1);
     expect(bulkDeleteLogs[0].userId).toBe(ownerUserId);
@@ -1438,9 +1450,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ columnIds: [auditCol2Id, auditColId] });
 
     expect(reorderRes.status).toBe(204);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const reorderLogs = await db
+    const reorderLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1448,7 +1458,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, auditTableId),
           eq(auditLogs.action, 'datavault.column.reordered')
         )
-      );
+      ));
 
     expect(reorderLogs).toHaveLength(1);
     expect(reorderLogs[0].userId).toBe(ownerUserId);
@@ -1466,9 +1476,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(createTableRes.status).toBe(201);
     const testTableId = createTableRes.body.id as string;
-    await new Promise((r) => setTimeout(r, 100));
-
-    const tableCreateLogs = await db
+    const tableCreateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1476,7 +1484,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testTableId),
           eq(auditLogs.action, 'datavault.table.created')
         )
-      );
+      ));
     expect(tableCreateLogs).toHaveLength(1);
     expect(tableCreateLogs[0].resourceType).toBe('datavault_table');
 
@@ -1487,9 +1495,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ name: 'AC3 Table Renamed' });
 
     expect(updateTableRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const tableUpdateLogs = await db
+    const tableUpdateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1497,7 +1503,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testTableId),
           eq(auditLogs.action, 'datavault.table.updated')
         )
-      );
+      ));
     expect(tableUpdateLogs).toHaveLength(1);
 
     // 3. Database create and update
@@ -1508,9 +1514,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(createDatabaseRes.status).toBe(201);
     const testDatabaseId = createDatabaseRes.body.id as string;
-    await new Promise((r) => setTimeout(r, 100));
-
-    const databaseCreateLogs = await db
+    const databaseCreateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1518,7 +1522,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testDatabaseId),
           eq(auditLogs.action, 'datavault.database.created')
         )
-      );
+      ));
     expect(databaseCreateLogs).toHaveLength(1);
 
     const updateDatabaseRes = await request(ctx.baseURL)
@@ -1527,9 +1531,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ name: 'AC3 Database Renamed' });
 
     expect(updateDatabaseRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const databaseUpdateLogs = await db
+    const databaseUpdateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1537,7 +1539,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testDatabaseId),
           eq(auditLogs.action, 'datavault.database.updated')
         )
-      );
+      ));
     expect(databaseUpdateLogs).toHaveLength(1);
 
     // 4. Table move
@@ -1547,9 +1549,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ databaseId: testDatabaseId });
 
     expect(moveTableRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const tableMoveLogs = await db
+    const tableMoveLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1557,7 +1557,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testTableId),
           eq(auditLogs.action, 'datavault.table.moved')
         )
-      );
+      ));
     expect(tableMoveLogs).toHaveLength(1);
     expect(getAuditChanges(tableMoveLogs[0]).after?.databaseId).toBe(testDatabaseId);
 
@@ -1569,9 +1569,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
 
     expect(createColRes.status).toBe(201);
     const testColId = createColRes.body.id as string;
-    await new Promise((r) => setTimeout(r, 100));
-
-    const colCreateLogs = await db
+    const colCreateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1579,7 +1577,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testColId),
           eq(auditLogs.action, 'datavault.column.created')
         )
-      );
+      ));
     expect(colCreateLogs).toHaveLength(1);
     expect(colCreateLogs[0].resourceType).toBe('datavault_column');
 
@@ -1590,9 +1588,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .send({ name: 'AC3ColRenamed' });
 
     expect(updateColRes.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const colUpdateLogs = await db
+    const colUpdateLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1600,7 +1596,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testColId),
           eq(auditLogs.action, 'datavault.column.updated')
         )
-      );
+      ));
     expect(colUpdateLogs).toHaveLength(1);
 
     // 7. Column Delete
@@ -1609,9 +1605,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(deleteColRes.status).toBe(204);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const colDeleteLogs = await db
+    const colDeleteLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1619,7 +1613,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testColId),
           eq(auditLogs.action, 'datavault.column.deleted')
         )
-      );
+      ));
     expect(colDeleteLogs).toHaveLength(1);
 
     // 8. Table Delete
@@ -1628,9 +1622,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(deleteTableRes.status).toBe(204);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const tableDeleteLogs = await db
+    const tableDeleteLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1638,7 +1630,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testTableId),
           eq(auditLogs.action, 'datavault.table.deleted')
         )
-      );
+      ));
     expect(tableDeleteLogs).toHaveLength(1);
 
     // 9. Database Delete
@@ -1647,9 +1639,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
 
     expect(deleteDatabaseRes.status).toBe(204);
-    await new Promise((r) => setTimeout(r, 100));
-
-    const databaseDeleteLogs = await db
+    const databaseDeleteLogs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1657,7 +1647,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, testDatabaseId),
           eq(auditLogs.action, 'datavault.database.deleted')
         )
-      );
+      ));
     expect(databaseDeleteLogs).toHaveLength(1);
   });
 
@@ -1671,9 +1661,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(rowRes.status).toBe(201);
     const largeRowId = rowRes.body.row.id as string;
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    const logs = await db
+    const logs = await waitForAuditLogs(() => getOwnerDb()
       .select()
       .from(auditLogs)
       .where(
@@ -1681,7 +1669,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
           eq(auditLogs.resourceId, largeRowId),
           eq(auditLogs.action, 'datavault.row.created')
         )
-      );
+      ));
 
     expect(logs).toHaveLength(1);
     const serializedChanges = JSON.stringify(logs[0].changes);
@@ -1723,7 +1711,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
   });
 
   it('AC8: POST /api/datavault/references/batch writes no audit entry', async () => {
-    const beforeLogs = await db
+    const beforeLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(eq(auditLogs.tenantId, ctx.tenantId));
@@ -1741,9 +1729,15 @@ describe('DataVault Audit Trail (DV-13)', () => {
       });
 
     expect(res.status).toBe(200);
+    // The ONLY fixed sleep left in this file, and deliberately so: this asserts
+    // an ABSENCE. You cannot poll for something not appearing — `waitForRows`
+    // would return instantly and prove nothing. A fixed grace period is the
+    // right primitive here, and its failure mode is a false PASS (a late write
+    // slipping in after the check), never the false failure that made every
+    // other sleep in this file a flake.
     await new Promise((r) => setTimeout(r, 100));
 
-    const afterLogs = await db
+    const afterLogs = await getOwnerDb()
       .select()
       .from(auditLogs)
       .where(eq(auditLogs.tenantId, ctx.tenantId));
@@ -1843,7 +1837,7 @@ describe('DataVault blank value coercion (DVH-1)', () => {
     expect(res.status).toBe(201);
     const rowId = res.body.row.id as string;
 
-    const stored = await db.select({ value: datavaultValues.value })
+    const stored = await getOwnerDb().select({ value: datavaultValues.value })
       .from(datavaultValues)
       .where(and(eq(datavaultValues.rowId, rowId), eq(datavaultValues.columnId, uniqueColumnId)));
     expect(stored).toHaveLength(1);
@@ -1852,7 +1846,7 @@ describe('DataVault blank value coercion (DVH-1)', () => {
     // Belt-and-braces: assert directly on the jsonb type in SQL, not just what
     // drizzle deserializes JS-side, so a stored '""' or JSON 'null' literal
     // (which would also deserialize oddly) can't hide behind the ORM mapping.
-    const raw = await db.execute<{ is_sql_null: boolean; jsonb_type: string | null }>(sql`
+    const raw = await getOwnerDb().execute<{ is_sql_null: boolean; jsonb_type: string | null }>(sql`
       SELECT (value IS NULL) AS is_sql_null, jsonb_typeof(value) AS jsonb_type
       FROM datavault_values
       WHERE row_id = ${rowId}::uuid AND column_id = ${uniqueColumnId}::uuid

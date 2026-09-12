@@ -17,7 +17,7 @@ Workflow runs in ezBuildr now use **run tokens** instead of participants/recipie
 **Added to `workflow_runs`:**
 - `runToken` (text, unique, not null) - UUID token for run-specific authorization
 - `createdBy` (text, nullable) - "creator:<userId>" or "anon"
-- `currentSectionId` (uuid, nullable) - track progress
+- `currentPageId` (uuid, nullable) - track progress
 - `progress` (integer, default 0) - percentage 0-100
 
 **Added to `workflows`:**
@@ -126,9 +126,9 @@ curl -X GET http://localhost:4001/api/runs/<runId> \
 }
 ```
 
-#### Submit Section Values with Token
+#### Submit Page Values with Token
 ```bash
-curl -X POST http://localhost:4001/api/runs/<runId>/sections/<sectionId>/submit \
+curl -X POST http://localhost:4001/api/runs/<runId>/pages/<pageId>/submit \
   -H "Authorization: Bearer <runToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -143,19 +143,19 @@ curl -X POST http://localhost:4001/api/runs/<runId>/sections/<sectionId>/submit 
 }
 ```
 
-#### Navigate to Next Section
+#### Navigate to Next Page
 ```bash
 curl -X POST http://localhost:4001/api/runs/<runId>/next \
   -H "Authorization: Bearer <runToken>" \
   -H "Content-Type: application/json" \
   -d '{
-    "currentSectionId": "section-1"
+    "currentPageId": "page-1"
   }'
 
 => {
   "success": true,
   "data": {
-    "nextSectionId": "section-2"
+    "nextPageId": "page-2"
   }
 }
 ```
@@ -234,7 +234,7 @@ All run routes use `creatorOrRunTokenAuth` middleware:
 - `GET /api/runs/:runId/values`
 - `POST /api/runs/:runId/values`
 - `POST /api/runs/:runId/values/bulk`
-- `POST /api/runs/:runId/sections/:sectionId/submit`
+- `POST /api/runs/:runId/pages/:pageId/submit`
 - `POST /api/runs/:runId/next`
 - `PUT /api/runs/:runId/complete`
 

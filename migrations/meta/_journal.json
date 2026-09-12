@@ -169,6 +169,188 @@
       "when": 1786278230211,
       "tag": "0023_condemned_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787107981566,
+      "tag": "0024_repair_rls_coverage",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787142603614,
+      "tag": "0025_admin_access_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787230209412,
+      "tag": "0026_rls_nullif_guc_cast",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1787233731830,
+      "tag": "0027_rls_null_tenant_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1787237620563,
+      "tag": "0028_rls_users_self_identification",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1787251600334,
+      "tag": "0029_rls_signature_requests_self_identification",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1787252198210,
+      "tag": "0030_rls_workflows_self_identification",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1787252562091,
+      "tag": "0031_rls_public_workflow_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787260439301,
+      "tag": "0032_rls_login_email_bootstrap",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1787274485360,
+      "tag": "0033_rls_bootstrap_project_org_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1787385649057,
+      "tag": "0034_rls_connections_self_identification",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1787386768819,
+      "tag": "0035_rls_tenant_domains_branding_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1787421638130,
+      "tag": "0036_rls_signature_requests_envelope_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1787485154200,
+      "tag": "0037_mighty_pete_wisdom",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1787495531799,
+      "tag": "0038_sad_roland_deschain",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1787515509641,
+      "tag": "0039_slimy_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1787583508352,
+      "tag": "0040_next_boomer",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1787662017565,
+      "tag": "0041_rls_enable_all_policy_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1788436674746,
+      "tag": "0042_deep_drax",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1788567969446,
+      "tag": "0043_needy_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1788648638213,
+      "tag": "0044_unusual_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1788721168140,
+      "tag": "0045_preview_run_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1788721221341,
+      "tag": "0046_preview_run_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1788751100173,
+      "tag": "0047_greedy_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788751124150,
+      "tag": "0048_preview_submission_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789057522347,
+      "tag": "0049_sad_stellaris",
+      "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,15 @@ test-results
 # Custom
 scripts/**
 !scripts/runMigrations.ts
+# `npm run build` runs `build:marketplace` -> `tsx scripts/generateMarketplaceBundles.ts`
+# (TM-1), so these two must reach the BUILD context or the image build dies with
+# ERR_MODULE_NOT_FOUND at /app/scripts/generateMarketplaceBundles.ts. That is exactly
+# what happened: every `dev` deploy from 2026-08-16 to 2026-08-18 failed this way and
+# the environment silently kept serving the last good build. No test can catch it —
+# the repo tree always has `scripts/`; only the Docker build context does not.
+# Keep this list in sync with the generator's own imports.
+!scripts/generateMarketplaceBundles.ts
+!scripts/curatedWorkflowSchema.ts
 custom-scripts
 uploads
 *.test.ts

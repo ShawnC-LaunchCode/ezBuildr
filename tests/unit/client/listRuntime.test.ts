@@ -425,7 +425,7 @@ describe('describeListErrorsForSummary', () => {
   const requiredDobConfig: ListConfig = {
     fields: [
       { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
-      { kind: 'question', id: 'f-dob', alias: 'dob', type: 'date', title: 'DOB', order: 1, required: true },
+      { kind: 'question', id: 'f-dob', alias: 'dob', type: 'date_time', title: 'DOB', order: 1, required: true, config: { kind: 'date' } },
     ],
     labelTemplate: '{name}',
   };

@@ -287,7 +287,7 @@ export function fenceUntrusted(content: unknown, maxLen = 8000): string {
 }
 
 /**
- * Validate logic rules reference existing steps/sections. LU-6c: a rule's
+ * Validate logic rules reference existing steps/pages. LU-6c: a rule's
  * condition is `when` (a ConditionExpression) - walk every operand it
  * references rather than checking a single flat `conditionStepAlias`.
  * Split out from `validateWorkflowStructure` to keep its cognitive
@@ -323,22 +323,22 @@ function validateLogicRuleReferences(
  * Validate workflow structure (unique IDs, etc)
  */
 export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
-  // Check for unique section IDs
-  const sectionIds = workflow.sections.map((s) => s.id);
-  const uniqueSectionIds = new Set(sectionIds);
-  if (sectionIds.length !== uniqueSectionIds.size) {
+  // Check for unique page IDs
+  const pageIds = workflow.pages.map((s) => s.id);
+  const uniquePageIds = new Set(pageIds);
+  if (pageIds.length !== uniquePageIds.size) {
     throw createAIError(
-      'Duplicate section IDs found in generated workflow',
+      'Duplicate page IDs found in generated workflow',
       'VALIDATION_ERROR',
     );
   }
 
-  // Check for unique step IDs and aliases across all sections
+  // Check for unique step IDs and aliases across all pages
   const stepIds = new Set<string>();
   const stepAliases = new Set<string>();
 
-  for (const section of workflow.sections) {
-    for (const step of section.steps) {
+  for (const page of workflow.pages) {
+    for (const step of page.steps) {
       if (stepIds.has(step.id)) {
         throw createAIError(
           `Duplicate step ID: ${step.id}`,
@@ -361,17 +361,6 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
 
   validateLogicRuleReferences(workflow.logicRules, stepIds, stepAliases);
 
-  // Validate transform blocks reference existing steps
-  for (const block of workflow.transformBlocks) {
-    for (const inputKey of block.inputKeys) {
-      if (!stepAliases.has(inputKey)) {
-        throw createAIError(
-          `Transform block references non-existent step alias: ${inputKey}`,
-          'VALIDATION_ERROR',
-        );
-      }
-    }
-  }
 }
 
 /**
@@ -387,14 +376,14 @@ export const VALID_STEP_TYPES = [
   'true_false', 'phone', 'date', 'time', 'datetime', 'email',
   'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
   // Advanced mode types
-  'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice',
-  'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced',
+  'text', 'boolean', 'datetime_unified', 'choice',
+  'number_advanced', 'scale_advanced',
   'address_advanced', 'multi_field', 'display_advanced',
   // Structural types
   'list',
 ] as const;
 
-type GeneratedStepType = AIGeneratedWorkflow['sections'][number]['steps'][number]['type'];
+type GeneratedStepType = AIGeneratedWorkflow['pages'][number]['steps'][number]['type'];
 type ValidStepType = typeof VALID_STEP_TYPES[number];
 
 /**
@@ -412,8 +401,8 @@ export const TYPE_ALIASES: Record<string, ValidStepType> = {
  * Normalize workflow types (e.g. map AI-friendly types to DB types)
  */
 export function normalizeWorkflowTypes(workflow: AIGeneratedWorkflow): void {
-  for (const section of workflow.sections) {
-    for (const step of section.steps) {
+  for (const page of workflow.pages) {
+    for (const step of page.steps) {
       // Apply type alias mapping
       if (TYPE_ALIASES[step.type]) {
         const originalType = step.type;

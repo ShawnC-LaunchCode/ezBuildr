@@ -127,12 +127,15 @@ export class RunDocumentDeliveryRepository extends BaseRepository<
    * as well as stuck processing jobs older than 5 minutes.
    * Uses FOR UPDATE SKIP LOCKED to support parallel workers without contention.
    */
-  async claimBatch(options: ClaimDeliveryJobsOptions = {}): Promise<RunDocumentDelivery[]> {
+  async claimBatch(options: ClaimDeliveryJobsOptions = {}, outerTx?: DbTransaction): Promise<RunDocumentDelivery[]> {
     const now = options.now ?? new Date();
     const limit = Math.max(1, Math.min(options.limit ?? 10, 100));
     const staleProcessingThreshold = new Date(now.getTime() - 5 * 60 * 1000);
 
-    return this.transaction(async (tx) => {
+    // An outer transaction is how the worker claims under a tenant (RLS-B1):
+    // `run_document_deliveries` is RLS-covered, and a transaction opened here on
+    // the pool carries no tenant GUC, so under enforcement it claims nothing.
+    const claim = async (tx: DbTransaction): Promise<RunDocumentDelivery[]> => {
       const candidates = await tx
         .select({ id: runDocumentDeliveries.id })
         .from(runDocumentDeliveries)
@@ -172,7 +175,8 @@ export class RunDocumentDeliveryRepository extends BaseRepository<
         })
         .where(inArray(runDocumentDeliveries.id, ids))
         .returning();
-    });
+    };
+    return outerTx ? claim(outerTx) : this.transaction(claim);
   }
 
   /**

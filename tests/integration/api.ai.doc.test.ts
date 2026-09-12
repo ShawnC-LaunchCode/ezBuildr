@@ -10,11 +10,13 @@ import _multer from "multer";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 
-import { db } from "../../server/db";
 import { documentAIAssistService } from "../../server/lib/ai/DocumentAIAssistService";
 import { logger } from "../../server/logger";
 import { registerRoutes } from "../../server/routes";
 import { aiUsage, tenants } from "../../shared/schema";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 // Mock Google Generative AI
 const { authState, mockGenerateContent, multerState } = vi.hoisted(() => ({
     authState: { tenantId: "11111111-1111-4111-8111-111111111111" },
@@ -125,7 +127,7 @@ describe("AI Document Assistant API Integration Tests", () => {
     let server: Server;
     let baseURL: string;
     beforeAll(async () => {
-        await db.insert(tenants).values({
+        await getOwnerDb().insert(tenants).values({
             id: authState.tenantId,
             name: "AI Document Assistant Test Tenant"
         });
@@ -143,8 +145,8 @@ describe("AI Document Assistant API Integration Tests", () => {
         baseURL = `http://localhost:${port}`;
     });
     afterAll(async () => {
-        await db.delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
-        await db.delete(tenants).where(eq(tenants.id, authState.tenantId));
+        await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
+        await getOwnerDb().delete(tenants).where(eq(tenants.id, authState.tenantId));
         if (server) {
             server.close();
         }
@@ -152,7 +154,7 @@ describe("AI Document Assistant API Integration Tests", () => {
     afterEach(async () => {
         vi.clearAllMocks();
         multerState.hasFile = true;
-        await db.delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
+        await getOwnerDb().delete(aiUsage).where(eq(aiUsage.tenantId, authState.tenantId));
     });
     describe("POST /api/ai/doc/analyze", () => {
         it("should analyze a DOCX file and return variables", async () => {
@@ -282,7 +284,7 @@ describe("AI Document Assistant API Integration Tests", () => {
             await fs.unlink(cleanupPath);
         }
 
-        const usageRows = await db
+        const usageRows = await getOwnerDb()
             .select()
             .from(aiUsage)
             .where(eq(aiUsage.tenantId, authState.tenantId));
@@ -316,7 +318,7 @@ describe("AI Document Assistant API Integration Tests", () => {
             );
             expect(mockGenerateContent).not.toHaveBeenCalled();
 
-            const usageRows = await db
+            const usageRows = await getOwnerDb()
                 .select()
                 .from(aiUsage)
                 .where(eq(aiUsage.tenantId, authState.tenantId));

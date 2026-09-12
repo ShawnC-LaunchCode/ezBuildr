@@ -55,7 +55,7 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "Keyboard-driven dnd-kit reorder is chromium-only (see file header)");
   test.setTimeout(120_000);
 
-  test("create -> section -> steps -> reorder -> condition -> activate -> run, entirely via the builder UI", async ({ page }) => {
+  test("create -> page -> steps -> reorder -> condition -> activate -> run, entirely via the builder UI", async ({ page }) => {
     // ------------------------------------------------------------------
     // Auth (page.request — allowed for auth/seed only)
     // ------------------------------------------------------------------
@@ -76,17 +76,17 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     const workflowId = workflowIdMatch![1];
 
     // ------------------------------------------------------------------
-    // 2. Add a section (page) through the builder UI.
+    // 2. Add a page (page) through the builder UI.
     //    `createWorkflow` seeds every new workflow with one empty default
-    //    section ("Section 1") — live-observed, not assumed — so after
+    //    page ("Page 1") — live-observed, not assumed — so after
     //    clicking "Add Page" there are two pages on screen. The one we just
     //    added is appended last (highest order), so `.last()`
     //    reliably targets it rather than the pre-existing default.
     // ------------------------------------------------------------------
     await page.getByRole("button", { name: "Add Page" }).click();
-    // `createSectionAtEnd` is an async mutation — wait for the count to
+    // `createPageAtEnd` is an async mutation — wait for the count to
     // actually reach 2 before resolving `.last()`, otherwise it can resolve
-    // to the pre-existing "Section 1" input a beat before the new one mounts
+    // to the pre-existing "Page 1" input a beat before the new one mounts
     // (a real race caught while developing this spec, not a hypothetical).
     await expect(page.getByPlaceholder("Page title")).toHaveCount(2);
     const pageTitleInput = page.getByPlaceholder("Page title").last();
@@ -99,7 +99,7 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
 
     // ------------------------------------------------------------------
     // 3. Add question #1 (Yes/No) — this becomes the visibility condition's
-    //    source variable. The default "Section 1" never gains any questions
+    //    source variable. The default "Page 1" never gains any questions
     //    in this test, so its own "Add Question" button stays put and ours
     //    (appended after it in DOM order) is reliably `.last()`; likewise
     //    `getByLabel("Question text")` only ever matches steps we created.
@@ -223,17 +223,17 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     await expect(dateStepCard.getByText("Conditional (1 rule)")).toBeVisible();
 
     // ---- Checkpoint 2/3: persisted state via API READ ----
-    // The workflow also carries the auto-created default "Section 1" (empty,
+    // The workflow also carries the auto-created default "Page 1" (empty,
     // untouched throughout this test), so find our page by title rather than
-    // assuming it's the only section.
-    const sectionsResponse = await page.request.get(`/api/workflows/${workflowId}/sections`);
-    expect(sectionsResponse.ok()).toBeTruthy();
-    const sections = await sectionsResponse.json();
-    const ourSection = sections.find((s: { title: string }) => s.title === "Applicant Details");
-    expect(ourSection).toBeDefined();
-    const sectionId = ourSection.id as string;
+    // assuming it's the only page.
+    const pagesResponse = await page.request.get(`/api/workflows/${workflowId}/pages`);
+    expect(pagesResponse.ok()).toBeTruthy();
+    const pages = await pagesResponse.json();
+    const ourPage = pages.find((s: { title: string }) => s.title === "Applicant Details");
+    expect(ourPage).toBeDefined();
+    const pageId = ourPage.id as string;
 
-    const stepsResponse = await page.request.get(`/api/sections/${sectionId}/steps`);
+    const stepsResponse = await page.request.get(`/api/pages/${pageId}/steps`);
     expect(stepsResponse.ok()).toBeTruthy();
     const steps = await stepsResponse.json();
     const yesNoStep = steps.find((s: { title: string }) => s.title === "Do you agree to the terms?");
@@ -298,16 +298,16 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     // bootstrap and create two runs, but this spec asserts on the rendered
     // runner UI, so which run "wins" doesn't matter here).
     await page.goto(`/run/${workflowId}`);
-    await expect(page.getByText("No questions in this section.")).toBeVisible();
+    await expect(page.getByText("No questions in this page.")).toBeVisible();
 
-    // The runner visits the auto-created default "Section 1" first (it has
+    // The runner visits the auto-created default "Page 1" first (it has
     // no questions), then our "Applicant Details" page — so it isn't the
-    // last section yet and the primary action reads "Next", not "Review".
-    // ICW2-B9 (fixed): run.currentSectionId is now initialized to the first
-    // visible section at run creation, so this first Next click is a real
+    // last page yet and the primary action reads "Next", not "Review".
+    // ICW2-B9 (fixed): run.currentPageId is now initialized to the first
+    // visible page at run creation, so this first Next click is a real
     // advance — no double-click/retry accommodation needed.
     await page.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(page.getByText("No questions in this section.")).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByText("No questions in this page.")).toHaveCount(0, { timeout: 10_000 });
 
     // ---- Checkpoint 3/3: a real run was created and the runner rendered it ----
     // A run-scoped /next fired (so a real anonymous run exists), we advanced onto
@@ -341,15 +341,15 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     // ------------------------------------------------------------------
     // 10. Reach Review and submit. The related answer-persistence gap this
     //     ticket also fixed: the Review page must show both answers instead
-    //     of "No questions answered in this section" for the section we just
+    //     of "No questions answered in this page" for the page we just
     //     answered.
     // ------------------------------------------------------------------
     await page.getByRole("button", { name: "Review", exact: true }).click();
     await expect(page.getByText("Review your answers")).toBeVisible();
-    // Only the empty default "Section 1" should render the empty-state copy —
+    // Only the empty default "Page 1" should render the empty-state copy —
     // if Applicant Details' answers were lost (the answer-persistence gap this
     // ticket also fixed), it would render a second one.
-    await expect(page.getByText("No questions answered in this section.")).toHaveCount(1);
+    await expect(page.getByText("No questions answered in this page.")).toHaveCount(1);
     const yesNoReviewRow = page.locator("div.grid", { hasText: "Do you agree to the terms?" });
     await expect(yesNoReviewRow.getByText("Yes", { exact: true })).toBeVisible();
     const dateReviewRow = page.locator("div.grid", { hasText: "Preferred start date" });

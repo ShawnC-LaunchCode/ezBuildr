@@ -94,7 +94,7 @@ afterEach(async () => { await rollbackTestTransaction(tx); });
 
 2. **Repositories:**
    - `mockWorkflowRepository()`
-   - `mockSectionRepository()`
+   - `mockPageRepository()`
    - `mockStepRepository()`
    - `mockRunRepository()`
    - `mockProjectRepository()`
@@ -159,7 +159,7 @@ it('should create workflow', async () => {
 - ✅ 15 test cases covering all public methods
 - ✅ Happy paths, edge cases, and error handling
 - ✅ Ownership verification logic
-- ✅ Workflow creation with default section
+- ✅ Workflow creation with default page
 - ✅ Workflow details retrieval
 - ✅ Concurrent workflow creation
 - ✅ Database error handling

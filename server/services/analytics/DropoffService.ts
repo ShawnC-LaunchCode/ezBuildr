@@ -18,7 +18,7 @@ class DropoffService {
         // 1. Get all page view events for this version
         // Group by pageId and count unique runIds
         // Note: We need the order of pages to build a proper funnel.
-        // For linear flows, "Section Order" from DB helps.
+        // For linear flows, "Page Order" from DB helps.
         // For non-linear, we might just list top drop-off pages by count.
         // SQL aggregation:
         // SELECT page_id, count(distinct run_id) as visitors
@@ -70,7 +70,7 @@ class DropoffService {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 stepId: row.pageId,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
-                label: `Page ${  row.pageId.substring(0, 8)}`, // Todo: Join with Sections table for real title
+                label: `Page ${  row.pageId.substring(0, 8)}`, // Todo: Join with Pages table for real title
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 visitors: Number(row.visitors),
                 dropoffs: 0,

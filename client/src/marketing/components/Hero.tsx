@@ -87,7 +87,7 @@ export default function Hero() {
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-[var(--lp2-dim)] max-w-xl leading-relaxed">
             Link to a form online or upload a copy — blank or already filled out.
-            ezBuildr&apos;s AI drafts about 90% of the automation: sections, steps,
+            ezBuildr&apos;s AI drafts about 90% of the automation: pages, steps,
             and logic. The last 10% is yours, with visual rules or real code.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">

@@ -17,18 +17,18 @@ const logger = createLogger({ module: 'alias-resolver' });
 export interface StepWithAlias {
   id: string;
   alias?: string | null;
-  sectionId?: string;
+  pageId?: string;
   title?: string;
 }
 
-export interface SectionWithAlias {
+export interface PageWithAlias {
   id: string;
   alias?: string | null;
   title?: string;
 }
 
 export interface WorkflowWithAliases {
-  sections?: Array<{
+  pages?: Array<{
     id: string;
     alias?: string | null;
     title?: string;
@@ -38,7 +38,7 @@ export interface WorkflowWithAliases {
 
 export interface ResolutionResult {
   id: string;
-  type: 'step' | 'section';
+  type: 'step' | 'page';
   alias?: string;
   title?: string;
 }
@@ -59,7 +59,7 @@ export class AliasResolver {
   private aliasToId: Map<string, string> = new Map();
   private idToAlias: Map<string, string> = new Map();
   private stepDetails: Map<string, ResolutionResult> = new Map();
-  private sectionDetails: Map<string, ResolutionResult> = new Map();
+  private pageDetails: Map<string, ResolutionResult> = new Map();
   private errors: ResolutionError[] = [];
 
   private constructor() { }
@@ -117,35 +117,35 @@ export class AliasResolver {
   }
 
   /**
-   * Create resolver from a workflow structure (sections + steps)
+   * Create resolver from a workflow structure (pages + steps)
    */
   static fromWorkflow(workflow: WorkflowWithAliases): AliasResolver {
     const resolver = new AliasResolver();
     const allSteps: StepWithAlias[] = [];
 
-    for (const section of workflow.sections ?? []) {
-      // Add section to resolver
-      if (section.id) {
-        resolver.aliasToId.set(section.id, section.id);
+    for (const page of workflow.pages ?? []) {
+      // Add page to resolver
+      if (page.id) {
+        resolver.aliasToId.set(page.id, page.id);
 
-        if (section.alias) {
-          const normalizedAlias = section.alias.toLowerCase();
-          resolver.aliasToId.set(normalizedAlias, section.id);
-          resolver.aliasToId.set(section.alias, section.id);
-          resolver.idToAlias.set(section.id, section.alias);
+        if (page.alias) {
+          const normalizedAlias = page.alias.toLowerCase();
+          resolver.aliasToId.set(normalizedAlias, page.id);
+          resolver.aliasToId.set(page.alias, page.id);
+          resolver.idToAlias.set(page.id, page.alias);
         }
 
-        resolver.sectionDetails.set(section.id, {
-          id: section.id,
-          type: 'section',
-          alias: section.alias ?? undefined,
-          title: section.title,
+        resolver.pageDetails.set(page.id, {
+          id: page.id,
+          type: 'page',
+          alias: page.alias ?? undefined,
+          title: page.title,
         });
       }
 
       // Collect steps
-      if (section.steps) {
-        allSteps.push(...section.steps.map(s => ({ ...s, sectionId: section.id })));
+      if (page.steps) {
+        allSteps.push(...page.steps.map(s => ({ ...s, pageId: page.id })));
       }
     }
 
@@ -180,7 +180,7 @@ export class AliasResolver {
   }
 
   /**
-   * Resolve an alias or ID to a step/section ID
+   * Resolve an alias or ID to a step/page ID
    * Returns undefined if not found
    */
   resolve(aliasOrId: string): string | undefined {
@@ -207,12 +207,12 @@ export class AliasResolver {
     const id = this.resolve(aliasOrId);
     if (!id) { return undefined; }
 
-    // Check steps first, then sections
+    // Check steps first, then pages
     if (this.stepDetails.has(id)) {
       return this.stepDetails.get(id);
     }
-    if (this.sectionDetails.has(id)) {
-      return this.sectionDetails.get(id);
+    if (this.pageDetails.has(id)) {
+      return this.pageDetails.get(id);
     }
 
     return { id, type: 'step' };

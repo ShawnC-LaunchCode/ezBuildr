@@ -10,6 +10,6 @@ import type { StepType } from "@/lib/vault-api";
  * generic page icon. It now delegates to QuestionTypeIcon, which reads
  * BLOCK_REGISTRY — the one place a type's mark and colour are defined.
  */
-export function getQuestionTypeIcon(type: StepType) {
-    return <QuestionTypeIcon type={type} size="md" />;
+export function getQuestionTypeIcon(type: StepType, config?: unknown) {
+    return <QuestionTypeIcon type={type} config={config} size="md" />;
 }

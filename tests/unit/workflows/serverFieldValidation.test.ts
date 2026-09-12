@@ -18,7 +18,7 @@ vi.mock("../../../server/logger", () => ({
 function step(overrides: Partial<Step> & { id: string }): Step {
   return {
     workflowId: "wf-1",
-    sectionId: "sec-1",
+    pageId: "page-1",
     title: "Field",
     type: "short_text",
     order: 0,

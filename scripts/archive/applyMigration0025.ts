@@ -4,7 +4,7 @@
  *
  * This script applies the comprehensive migration that fixes:
  * - Missing columns in projects table (created_by, owner_id, status)
- * - Missing updated_at columns in sections, steps, logic_rules
+ * - Missing updated_at columns in pages, steps, logic_rules
  *
  * Usage:
  *   npx tsx scripts/applyMigration0025.ts
@@ -92,7 +92,7 @@ async function applyMigration() {
   console.log('    ✓ Create performance indices');
   console.log('');
   console.log('  Part 2: Updated Timestamps');
-  console.log('    ✓ Add updated_at to sections table');
+  console.log('    ✓ Add updated_at to pages table');
   console.log('    ✓ Add updated_at to steps table');
   console.log('    ✓ Add updated_at to logic_rules table');
   console.log('    ✓ Backfill with created_at values');
@@ -148,7 +148,7 @@ async function applyMigration() {
     console.log('');
     console.log('📊 Changes applied:');
     console.log('   Part 1: projects table now has created_by, owner_id, status');
-    console.log('   Part 2: sections, steps, logic_rules now have updated_at');
+    console.log('   Part 2: pages, steps, logic_rules now have updated_at');
     console.log('');
     console.log('🔄 Next steps:');
     console.log('   1. Restart your application server');

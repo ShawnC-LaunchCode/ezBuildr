@@ -117,6 +117,13 @@ vi.mock('../../../server/db', () => ({
     },
     update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => undefined) })) })),
     insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+    // RLS-4 precondition 2: googleAuth.ts's upsertUser now pins the tenant
+    // it's assigning via withTenantAsUser (migration 0028's shape), which
+    // opens a real db.transaction and calls tx.execute() twice (the tenant
+    // GUC, then the self-id GUC) before userRepository.upsert (mocked
+    // separately below) ever runs — the fake tx needs execute() to exist,
+    // not just be present.
+    transaction: vi.fn((fn: (tx: unknown) => unknown) => fn({ execute: vi.fn(async () => undefined) })),
   },
   getDb: getDbMock,
 }));

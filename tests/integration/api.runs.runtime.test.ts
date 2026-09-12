@@ -6,19 +6,22 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { hashToken } from '../../server/utils/encryption';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('GET /api/runs/:runId/runtime', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   let versionId: string;
   let sectionId: string;
+  let pageId: string;
   let stepId: string;
   let runId: string;
   let runToken: string;
@@ -37,18 +40,28 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     workflowId = workflow.id;
     versionId = version.id;
 
-    const section = await factory.createSection(workflowId, {
-      title: 'Mutable live section',
+    const page = await factory.createPage(workflowId, {
+      title: 'Mutable live page',
       description: 'This text must not reach the pinned runtime',
     });
-    sectionId = section.id;
-    const step = await factory.createStep(sectionId, {
+    pageId = page.id;
+    const step = await factory.createStep(pageId, {
       title: 'Mutable live step',
       alias: 'legalName',
     });
     stepId = step.id;
 
-    await db.update(schema.workflowVersions)
+    const [section] = await getOwnerDb().insert(schema.sections).values({
+      workflowId,
+      title: 'Mutable live Section',
+      description: 'This title must not reach the pinned runtime',
+    }).returning();
+    sectionId = section.id;
+    await getOwnerDb().update(schema.pages)
+      .set({ sectionId })
+      .where(eq(schema.pages.id, pageId));
+
+    await getOwnerDb().update(schema.workflowVersions)
       .set({
         graphJson: {
           title: 'Pinned interview',
@@ -58,8 +71,14 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
           internalSecret: 'must-not-leak',
           sections: [{
             id: sectionId,
-            title: 'Pinned section',
-            description: 'Pinned section description',
+            title: 'Pinned Section',
+            description: 'Pinned Section description',
+          }],
+          pages: [{
+            id: pageId,
+            sectionId,
+            title: 'Pinned page',
+            description: 'Pinned page description',
             order: 0,
             privateNote: 'must-not-leak',
             steps: [{
@@ -80,25 +99,26 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       .where(eq(schema.workflowVersions.id, versionId));
 
     runToken = `runtime-${randomUUID()}`;
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(runToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
       createdBy: 'anon',
-      currentSectionId: sectionId,
+      currentPageId: pageId,
+      visitedPageIds: [pageId],
       metadata: { privateContext: 'must-not-leak' },
     }).returning();
     runId = run.id;
 
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId,
       stepId,
       value: 'Ada Lovelace',
     });
 
     otherRunToken = `other-runtime-${randomUUID()}`;
-    const [otherRun] = await db.insert(schema.workflowRuns).values({
+    const [otherRun] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(otherRunToken),
@@ -107,7 +127,7 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     otherRunId = otherRun.id;
 
     expiredRunToken = `expired-runtime-${randomUUID()}`;
-    const [expiredRun] = await db.insert(schema.workflowRuns).values({
+    const [expiredRun] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId,
       workflowVersionId: versionId,
       runToken: hashToken(expiredRunToken),
@@ -133,7 +153,8 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
         id: runId,
         workflowId,
         workflowVersionId: versionId,
-        currentSectionId: sectionId,
+        currentPageId: pageId,
+        visitedPageIds: [pageId],
         completed: false,
       },
       workflow: {
@@ -146,14 +167,21 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       sections: [{
         id: sectionId,
         workflowId,
-        title: 'Pinned section',
-        description: 'Pinned section description',
+        title: 'Pinned Section',
+        description: 'Pinned Section description',
+      }],
+      pages: [{
+        id: pageId,
+        workflowId,
+        sectionId,
+        title: 'Pinned page',
+        description: 'Pinned page description',
         order: 0,
       }],
       steps: [{
         id: stepId,
         workflowId,
-        sectionId,
+        pageId,
         type: 'short_text',
         title: 'Pinned name question',
         required: true,
@@ -166,9 +194,10 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
 
     expect(Object.keys(response.body.data.run).sort()).toEqual([
       'completed',
-      'currentSectionId',
+      'currentPageId',
       'generationStatus',
       'id',
+      'visitedPageIds',
       'workflowId',
       'workflowVersionId',
     ]);
@@ -221,11 +250,14 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
     expect(response.body).toMatchObject({ success: false, error: 'Invalid input' });
   });
 
-  it('keeps serving the pinned snapshot after the live section and step change', async () => {
-    await db.update(schema.sections)
-      .set({ title: 'Changed live section', description: 'Changed live description' })
+  it('keeps serving the pinned snapshot after the live page and step change', async () => {
+    await getOwnerDb().update(schema.pages)
+      .set({ title: 'Changed live page', description: 'Changed live description' })
+      .where(eq(schema.pages.id, pageId));
+    await getOwnerDb().update(schema.sections)
+      .set({ title: 'Changed live Section' })
       .where(eq(schema.sections.id, sectionId));
-    await db.update(schema.steps)
+    await getOwnerDb().update(schema.steps)
       .set({ title: 'Changed live step', required: false, config: { placeholder: 'Changed' } })
       .where(eq(schema.steps.id, stepId));
 
@@ -234,11 +266,14 @@ describe.sequential('GET /api/runs/:runId/runtime', () => {
       .set('Authorization', `Bearer ${runToken}`)
       .expect(200);
 
-    expect(response.body.data.sections[0]).toMatchObject({
-      id: sectionId,
-      title: 'Pinned section',
-      description: 'Pinned section description',
+    expect(response.body.data.pages[0]).toMatchObject({
+      id: pageId,
+      title: 'Pinned page',
+      description: 'Pinned page description',
     });
+    expect(response.body.data.sections).toEqual([
+      expect.objectContaining({ id: sectionId, title: 'Pinned Section' }),
+    ]);
     expect(response.body.data.steps[0]).toMatchObject({
       id: stepId,
       title: 'Pinned name question',

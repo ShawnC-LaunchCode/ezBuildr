@@ -45,6 +45,7 @@ const logger = createLogger({ module: 'finalBlock-renderer' });
  * Final Block rendering request
  */
 export interface FinalBlockRenderRequest {
+  uploadArtifact?: (key: string, bytes: Buffer, mimeType: string) => Promise<void>;
   /** Final Block configuration */
   finalBlockConfig: FinalBlockConfig;
 
@@ -272,7 +273,7 @@ export class FinalBlockRenderer {
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
       outputFormats,
-      runId
+      { runId, uploadArtifact: request.uploadArtifact }
     );
 
     // Step 4: Create ZIP archive if multiple documents
@@ -284,7 +285,7 @@ export class FinalBlockRenderer {
         archive = await this.createArchive(
           generationResult.documents,
           workflowId,
-          runId,
+          { runId, uploadArtifact: request.uploadArtifact },
           outputDir,
           outputFormats
         );
@@ -376,8 +377,9 @@ export class FinalBlockRenderer {
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
     outputFormats: FinalDocumentOutputFormat[],
-    runId: string
+    ownership: Pick<FinalBlockRenderRequest, 'runId' | 'uploadArtifact'>
   ): Promise<FinalBlockRenderResponse['documents']> {
+    const { runId, uploadArtifact } = ownership;
     const documents: FinalBlockRenderResponse['documents'] = [];
 
     for (const result of results) {
@@ -389,7 +391,8 @@ export class FinalBlockRenderer {
         const stats = await fs.stat(selected.filePath);
         const fileBuffer = await fs.readFile(selected.filePath);
         const storageKey = `runs/${runId}/documents/${filename}`;
-        await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
+        if (uploadArtifact) { await uploadArtifact(storageKey, fileBuffer, mimeType); }
+        else { await storageProvider.uploadFile(storageKey, fileBuffer, mimeType); }
 
         documents.push({
           alias: result.alias ?? 'document',
@@ -418,10 +421,11 @@ export class FinalBlockRenderer {
   private async createArchive(
     results: EnhancedGenerationResult[],
     workflowId: string,
-    runId: string,
+    ownership: Pick<FinalBlockRenderRequest, 'runId' | 'uploadArtifact'>,
     outputDir: string,
     outputFormats: FinalDocumentOutputFormat[]
   ): Promise<NonNullable<FinalBlockRenderResponse['archive']>> {
+    const { runId, uploadArtifact } = ownership;
     const zipDocuments: ZipDocument[] = [];
 
     for (const result of results) {
@@ -453,7 +457,8 @@ export class FinalBlockRenderer {
     const fileBuffer = await fs.readFile(zipResult.filePath);
 
     const storageKey = `runs/${runId}/documents/${zipResult.filename}`;
-    await storageProvider.uploadFile(storageKey, fileBuffer, 'application/zip');
+    if (uploadArtifact) { await uploadArtifact(storageKey, fileBuffer, 'application/zip'); }
+    else { await storageProvider.uploadFile(storageKey, fileBuffer, 'application/zip'); }
 
     return {
       filename: zipResult.filename,

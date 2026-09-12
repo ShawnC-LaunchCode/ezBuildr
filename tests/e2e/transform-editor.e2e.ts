@@ -9,7 +9,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
     test.setTimeout(60000);
 
     let workflowId: string;
-    let _sectionId: string;
+    let _pageId: string;
     let authToken: string;
 
     test.beforeEach(async ({ page }) => {
@@ -43,10 +43,10 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         const workflow = await createRes.json();
         workflowId = workflow.id;
 
-        // 3. Create Section (Page)
-        // We need a section to add blocks to
-        console.log(`Creating Section for ${workflowId}...`);
-        const createSectionRes = await page.request.post(`/api/workflows/${workflowId}/sections`, {
+        // 3. Create Page (Page)
+        // We need a page to add blocks to
+        console.log(`Creating Page for ${workflowId}...`);
+        const createPageRes = await page.request.post(`/api/workflows/${workflowId}/pages`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             },
@@ -56,11 +56,11 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
                 order: 0
             }
         });
-        console.log(`Create Section Status: ${createSectionRes.status()}`);
-        if (!createSectionRes.ok()) {console.log(await createSectionRes.text());}
-        expect(createSectionRes.ok()).toBeTruthy();
-        const section = await createSectionRes.json();
-        _sectionId = section.id;
+        console.log(`Create Page Status: ${createPageRes.status()}`);
+        if (!createPageRes.ok()) {console.log(await createPageRes.text());}
+        expect(createPageRes.ok()).toBeTruthy();
+        const workflowPage = await createPageRes.json();
+        _pageId = workflowPage.id;
 
         // 4. Navigate to Standard Builder
         console.log("Navigating to Builder...");
@@ -83,9 +83,9 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         // ===================================
         console.log("Step: Adding List Tools block");
 
-        // Find the Section Item in Sidebar and hover to reveal actions
-        const sectionItem = page.getByText("Test Page 1").locator(".."); // Go up to parent div
-        await sectionItem.hover();
+        // Find the Page Item in Sidebar and hover to reveal actions
+        const pageItem = page.getByText("Test Page 1").locator(".."); // Go up to parent div
+        await pageItem.hover();
 
         // Click "Add Action" (Zap icon)
         // It might be hidden if not hovered, but Playwright hover() should trigger it.
@@ -155,7 +155,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         // Re-open Block
         const blockAgain = page.locator('.react-flow__node').first();
         if (!await blockAgain.isVisible()) {
-            await sectionItem.click();
+            await pageItem.click();
         }
         await blockItem.dblclick();
 
@@ -169,10 +169,10 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
     });
 
     test("Session 6: Limit = 0 Behavior (UI Config)", async ({ page }) => {
-        // Find Section & Add Block
-        const sectionItem = page.getByText("Test Page 1").locator("..");
-        await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Action"]').click();
+        // Find Page & Add Block
+        const pageItem = page.getByText("Test Page 1").locator("..");
+        await pageItem.hover();
+        await pageItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)
@@ -195,10 +195,10 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
     });
 
     test("Session 2: Complex Transform (Filter + Sort + Limit)", async ({ page }) => {
-        // Find Section & Add Block
-        const sectionItem = page.getByText("Test Page 1").locator("..");
-        await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Action"]').click();
+        // Find Page & Add Block
+        const pageItem = page.getByText("Test Page 1").locator("..");
+        await pageItem.hover();
+        await pageItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)
@@ -287,9 +287,9 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         }
 
         // Add Block
-        const sectionItem = page.getByText("Test Page 1").locator("..");
-        await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Action"]').click();
+        const pageItem = page.getByText("Test Page 1").locator("..");
+        await pageItem.hover();
+        await pageItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)

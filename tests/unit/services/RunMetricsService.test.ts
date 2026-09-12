@@ -11,6 +11,34 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+// RLS-5: this service now opens tenant-scoped transactions via `rlsContext`,
+// which reaches for a REAL pool and throws "Database not initialized" in a unit
+// test. These tests exercise business logic, not the transaction — that is
+// proven against a real database under `RLS_RESTRICTED=true`. Replace the
+// wrappers with pass-throughs so the mocked repositories below still receive
+// the calls they assert on.
+//
+// Spreads `importOriginal` on purpose: the module also exports
+// `getCurrentTenantId`/`setCurrentTenantId`, and a partial mock would silently
+// make those undefined.
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  return {
+    ...actual,
+    withCurrentTenant: <T,>(fn: (tx: unknown) => Promise<T>) => fn(undefined),
+    withTenant: <T,>(_tenantId: string, fn: (tx: unknown) => Promise<T>) => fn(undefined),
+    withVerifiedIdentifier: <T,>(_guc: string, _value: string, fn: (tx: unknown) => Promise<T>) => fn(undefined),
+  };
+});
+
+// `getWorkflowContext` resolves the tenant through the shared
+// `WorkflowTenantResolver` singleton (RLS-5) rather than deriving it locally.
+// That singleton is not injected like the two repositories below, so without
+// this it reaches the real pool.
+vi.mock('../../../server/services/WorkflowTenantResolver', () => ({
+  workflowTenantResolver: { resolveForWorkflowId: vi.fn().mockResolvedValue('tenant-1') },
+}));
+
 vi.mock('../../../server/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),

@@ -5,6 +5,8 @@ import { db } from '../db';
 import { logger } from '../logger';
 import { pdfConverter } from '../services/document/PdfConverter';
 import { asyncHandler } from '../utils/asyncHandler';
+import { checkAiProvider } from '../utils/aiRuntime';
+import { checkPythonSandbox } from '../utils/pythonRuntime';
 
 const router = Router();
 
@@ -54,6 +56,42 @@ interface HealthCheckResponse {
     responseTime?: number;
     error?: string;
   };
+  /**
+   * Whether this instance can run Python Code Blocks (CB-11).
+   *
+   * Deliberately does NOT move the overall `status`. Unlike the PDF converter,
+   * which every document path uses, Python is opt-in: a deployment whose blocks
+   * are all JavaScript is entirely healthy without an interpreter. Flagging every
+   * such instance `degraded` would drain the word of meaning. It is reported
+   * because the alternative — the state before CB-11 — was finding out from a
+   * failed run in production.
+   */
+  pythonSandbox: {
+    available: boolean;
+    error?: string;
+  };
+  /**
+   * Whether the configured AI provider still serves the configured model (AI-P1).
+   *
+   * Added because its absence hid a real outage: production ran a withdrawn Gemini
+   * model, every generation and AI Assist call returned 500, and this endpoint
+   * reported `healthy` throughout, because it checked only the database and the
+   * PDF converter.
+   *
+   * `probe` says HOW the answer was reached — `provider` means the vendor was
+   * actually asked, `registry` means only that the model is one this codebase
+   * knows. A green light must not overstate what was checked.
+   *
+   * Like `pythonSandbox`, it deliberately does NOT move the overall `status`: AI is
+   * opt-in, so a deployment that never generates a workflow is not unhealthy for
+   * lacking it.
+   */
+  aiProvider: {
+    configured: boolean;
+    available: boolean;
+    probe: 'provider' | 'registry' | 'none';
+    error?: string;
+  };
   requestId?: string;
 }
 
@@ -69,6 +107,14 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     pdfConverter: {
       strategy: pdfConverter.primaryStrategy,
       reachable: false,
+    },
+    pythonSandbox: {
+      available: false,
+    },
+    aiProvider: {
+      configured: false,
+      available: false,
+      probe: 'none',
     },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Express request augmented with id
     requestId: (req as any).id,
@@ -115,6 +161,24 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     if (healthCheck.status === 'healthy') {
       healthCheck.status = 'degraded';
     }
+  }
+
+  // Python interpreter presence. Cached after the first probe, and never allowed
+  // to fail the check for the reason given on the field above.
+  const python = await checkPythonSandbox();
+  healthCheck.pythonSandbox.available = python.available;
+  if (python.error !== undefined) {
+    healthCheck.pythonSandbox.error = python.error;
+  }
+
+  // AI provider reachability. Cached with a TTL inside the probe, and never
+  // allowed to fail the check, for the reason given on the field above.
+  const ai = await checkAiProvider();
+  healthCheck.aiProvider.configured = ai.configured;
+  healthCheck.aiProvider.available = ai.available;
+  healthCheck.aiProvider.probe = ai.probe;
+  if (ai.error !== undefined) {
+    healthCheck.aiProvider.error = ai.error;
   }
 
   // Set appropriate HTTP status code

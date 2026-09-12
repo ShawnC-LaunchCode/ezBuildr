@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { hashToken } from '../../server/utils/encryption';
 import {
   createTestUser,
@@ -14,12 +13,16 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 describe.sequential('GH-147 save, resume, and staff handoff', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   let versionId: string;
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
   let runId: string;
   let originalRunToken: string;
@@ -34,23 +37,23 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     });
     workflowId = created.workflow.id;
     versionId = created.version.id;
-    const section = await factory.createSection(workflowId, { title: 'Saved section', order: 0 });
-    sectionId = section.id;
-    const step = await factory.createStep(sectionId, {
+    const page = await factory.createPage(workflowId, { title: 'Saved page', order: 0 });
+    pageId = page.id;
+    const step = await factory.createStep(pageId, {
       title: 'Validated name',
       alias: 'validatedName',
       required: true,
       order: 0,
     });
     stepId = step.id;
-    await db.update(schema.workflowVersions).set({
+    await getOwnerDb().update(schema.workflowVersions).set({
       graphJson: {
         title: 'Resume interview',
         description: null,
         projectId: ctx.projectId,
-        sections: [{
-          id: sectionId,
-          title: 'Saved section',
+        pages: [{
+          id: pageId,
+          title: 'Saved page',
           order: 0,
           steps: [{
             id: stepId,
@@ -64,7 +67,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
         logicRules: [],
       },
     }).where(eq(schema.workflowVersions.id, versionId));
-    await db.update(schema.workflows)
+    await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: versionId })
       .where(eq(schema.workflows.id, workflowId));
 
@@ -77,15 +80,15 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     originalRunToken = createResponse.body.data.runToken as string;
 
     const submitResponse = await request(ctx.baseURL)
-      .post(`/api/runs/${runId}/sections/${sectionId}/submit`)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
       .set('Authorization', `Bearer ${originalRunToken}`)
       .send({ values: [{ stepId, value: 'Ada Lovelace' }] })
       .expect(200);
     expect(submitResponse.body.success).toBe(true);
 
-    const [otherTenant] = await db.insert(schema.tenants).values({ name: 'Outside tenant' }).returning();
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({ name: 'Outside tenant' }).returning();
     otherTenantId = otherTenant.id;
-    const [otherUser] = await db.insert(schema.users).values({
+    const [otherUser] = await getOwnerDb().insert(schema.users).values({
       email: `outside-${randomBytes(6).toString('hex')}@example.com`,
       tenantId: otherTenantId,
       emailVerified: true,
@@ -96,13 +99,13 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
 
   afterAll(async () => {
     if (otherTenantUserId) {
-      await db.delete(schema.users).where(eq(schema.users.id, otherTenantUserId));
+      await getOwnerDb().delete(schema.users).where(eq(schema.users.id, otherTenantUserId));
     }
     if (otherTenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
     }
     if (ctx?.tenantId) {
-      await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, ctx.tenantId));
+      await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, ctx.tenantId));
     }
     await ctx.cleanup();
   });
@@ -117,12 +120,12 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
     expect(new Date(createLinkResponse.body.data.expiresAt).getTime())
       .toBeGreaterThan(Date.now() + 50 * 60_000);
 
-    const [storedLink] = await db.select()
+    const [storedLink] = await getOwnerDb().select()
       .from(schema.runResumeLinks)
       .where(eq(schema.runResumeLinks.runId, runId))
       .orderBy(desc(schema.runResumeLinks.createdAt))
       .limit(1);
-    const [queuedEmail] = await db.select()
+    const [queuedEmail] = await getOwnerDb().select()
       .from(schema.emailQueue)
       .where(eq(schema.emailQueue.to, recipientEmail))
       .orderBy(desc(schema.emailQueue.createdAt))
@@ -139,13 +142,15 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .expect(200);
     const restoredRunToken = redeemResponse.body.data.runToken as string;
     expect(restoredRunToken).not.toBe(originalRunToken);
-    expect(redeemResponse.body.data.currentSectionId).toBe(sectionId);
+    expect(redeemResponse.body.data.currentPageId).toBe(pageId);
+    expect(redeemResponse.body.data.visitedPageIds).toEqual([pageId]);
 
     const runtimeResponse = await request(ctx.baseURL)
       .get(`/api/runs/${runId}/runtime`)
       .set('Authorization', `Bearer ${restoredRunToken}`)
       .expect(200);
-    expect(runtimeResponse.body.data.run.currentSectionId).toBe(sectionId);
+    expect(runtimeResponse.body.data.run.currentPageId).toBe(pageId);
+    expect(runtimeResponse.body.data.run.visitedPageIds).toEqual([pageId]);
     expect(runtimeResponse.body.data.values).toEqual([
       expect.objectContaining({ runId, stepId, value: 'Ada Lovelace' }),
     ]);
@@ -159,7 +164,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ token: resumeToken })
       .expect(401);
 
-    const auditRows = await db.select()
+    const auditRows = await getOwnerDb().select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, runId));
     expect(auditRows.map(row => row.action)).toEqual(expect.arrayContaining([
@@ -170,7 +175,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
 
   it('enforces resume-link expiration without consuming or auditing the credential', async () => {
     const expiredToken = randomBytes(32).toString('hex');
-    const [expiredLink] = await db.insert(schema.runResumeLinks).values({
+    const [expiredLink] = await getOwnerDb().insert(schema.runResumeLinks).values({
       tenantId: ctx.tenantId,
       runId,
       tokenHash: hashToken(expiredToken),
@@ -183,7 +188,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ token: expiredToken })
       .expect(401);
 
-    const [stored] = await db.select()
+    const [stored] = await getOwnerDb().select()
       .from(schema.runResumeLinks)
       .where(eq(schema.runResumeLinks.id, expiredLink.id));
     expect(stored.usedAt).toBeNull();
@@ -202,7 +207,7 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       clientEmail: assignee.email.toLowerCase(),
     });
 
-    const [storedRun] = await db.select()
+    const [storedRun] = await getOwnerDb().select()
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
     expect(storedRun.assignedToUserId).toBe(assignee.userId);
@@ -223,13 +228,18 @@ describe.sequential('GH-147 save, resume, and staff handoff', () => {
       .send({ clientEmail: 'forwarded@example.com', expiryMinutes: 60 })
       .expect(403);
 
-    await request(ctx.baseURL)
+    // Cross-tenant assignee: refused either way. Under RLS the other tenant's
+    // user is invisible, so this is "not found" rather than "outside this
+    // tenant" — the contract decision in RLS_HANDOFF.md §0b. The 403 asserted
+    // just above is a DIFFERENT case (an in-tenant caller without edit rights)
+    // and stays a plain 403.
+    const crossTenant = await request(ctx.baseURL)
       .post(`/api/runs/${runId}/handoff`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
-      .send({ assigneeUserId: otherTenantUserId, expiryMinutes: 60 })
-      .expect(403);
+      .send({ assigneeUserId: otherTenantUserId, expiryMinutes: 60 });
+    expectCrossTenantDenied(crossTenant.status);
 
-    const auditRows = await db.select({ action: schema.auditLogs.action })
+    const auditRows = await getOwnerDb().select({ action: schema.auditLogs.action })
       .from(schema.auditLogs)
       .where(inArray(schema.auditLogs.action, ['run_handoff', 'run_resume_link_created']));
     expect(auditRows.some(row => row.action === 'run_handoff')).toBe(true);

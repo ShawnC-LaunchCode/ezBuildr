@@ -3,15 +3,21 @@ import { eq, and, desc, isNull, or, inArray, sql, getTableColumns } from "drizzl
 
 import { workflows, organizations, type Workflow, type InsertWorkflow } from "@shared/schema";
 
-import { db } from "../db";
+import { db, type DrizzleDB } from "../db";
 import { logger } from "../logger";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 /**
- * Repository for workflow data access
+ * Repository for workflow data access.
+ *
+ * A note that applies to every ownership query below: `owner_uuid` is a varchar,
+ * and for `ownerType = 'user'` it holds `users.id` verbatim. `users.id` is only
+ * a UUID for locally-registered accounts — Google sign-in stores the numeric
+ * Google `sub` (`server/googleAuth.ts`). The user-owned branch used to be gated
+ * on a UUID-shape test, which silently dropped it for Google users; where the
+ * legacy fallback is gated on `owner_type IS NULL`, that made their newly
+ * created rows invisible entirely.
  */
 export class WorkflowRepository extends BaseRepository<typeof workflows, Workflow, InsertWorkflow> {
   constructor(dbInstance?: typeof db) {
@@ -64,16 +70,14 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
     // Primary: New ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
-      );
-    }
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
+    );
     // Org-owned via new model
     if (orgIds.length > 0) {
       conditions.push(
@@ -116,17 +120,17 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    * Deliberately does NOT expand org memberships the way findByCreatorId
    * does. This backs the admin copy/delete UI, and a workflow the user can
    * merely reach through an org they belong to is not theirs to delete.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed explicitly by `AdminAccessService` — see `UserRepository.findAllUsers`'s
+   * doc comment for why this can't be a global switch.
    */
   async findAttributedToUser(
     userId: string,
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<Array<Workflow & { ownerName: string | null }>> {
-    const database = this.getDb(tx);
-    // ownerUuid holds a UUID; comparing a legacy non-UUID id against it in
-    // Postgres is a wasted predicate at best.
-    const ownedUnderNewModel = isUuid(userId)
-      ? [and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))]
-      : [];
+    const database = adminDbOverride ?? this.getDb(tx);
     return database
       .select({
         ...getTableColumns(workflows),
@@ -143,7 +147,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(or(
         eq(workflows.creatorId, userId),
         eq(workflows.ownerId, userId),
-        ...ownedUnderNewModel
+        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
       ))
       .orderBy(desc(workflows.updatedAt));
   }
@@ -160,7 +164,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Import workflowAccess here to avoid circular dependencies if possible, or assume it's available
     const { workflowAccess } = await import("@shared/schema");
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+    const { orgIds } = await getAccessibleOwnershipFilter(userId, tx);
     // Subquery for shared workflows
     const sharedWorkflowIds = database
       .select({ workflowId: workflowAccess.workflowId })
@@ -170,11 +174,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
     // 1. New ownership model: user-owned
-    if (isUuid(userId)) {
-      conditions.push(
-        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
-      );
-    }
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
+    );
     // 2. New ownership model: org-owned
     if (orgIds.length > 0) {
       conditions.push(
@@ -230,22 +232,20 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     const conditions = [
       and(eq(workflows.creatorId, creatorId), eq(workflows.status, status)),
       and(eq(workflows.ownerId, creatorId), eq(workflows.status, status)),
     ];
     // User-owned via new ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(
-          eq(workflows.ownerType, 'user'),
-          eq(workflows.ownerUuid, creatorId),
-          eq(workflows.status, status)
-        )
-      );
-    }
+    conditions.push(
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        eq(workflows.status, status)
+      )
+    );
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {
       conditions.push(
@@ -279,6 +279,23 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     return rows.filter((r): r is { id: string; slug: string } => r.slug !== null);
   }
   /**
+   * Find all workflows whose public link starts with the given prefix.
+   *
+   * Deliberately separate from findSlugsByPrefix: `slug` and `public_link` are
+   * different columns with independent namespaces, so uniqueness for one says
+   * nothing about the other. Generated public links must be checked here, or
+   * two same-titled workflows mint the same link and findByPublicLink hands
+   * one owner's participants to the other's workflow.
+   */
+  async findPublicLinksByPrefix(prefix: string, tx?: DbTransaction): Promise<Array<{ id: string; publicLink: string }>> {
+    const database = this.getDb(tx);
+    const rows = await database
+      .select({ id: workflows.id, publicLink: workflows.publicLink })
+      .from(workflows)
+      .where(sql`${workflows.publicLink} LIKE ${`${prefix}%`}`); // eslint-disable-line sonarjs/no-nested-template-literals
+    return rows.filter((r): r is { id: string; publicLink: string } => r.publicLink !== null);
+  }
+  /**
    * Find workflow by slug (Stage 12: Intake Portal)
    */
   async findBySlug(slug: string, tx?: DbTransaction): Promise<Workflow | null> {
@@ -305,6 +322,25 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   /**
    * Find workflow by ID or slug (helper for UUID/slug resolution)
    */
+  /**
+   * `findById` for the admin console's cross-tenant path.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed by `AdminAccessService` (the only module allowed to import it).
+   * A separate method rather than an extra parameter on `BaseRepository
+   * .findById`, because a bypass hook on every repository method is the
+   * opposite of the containment RLS-6 exists to create. With no override it
+   * degrades to the ordinary scoped read.
+   */
+  async findByIdForAdmin(
+    id: string,
+    adminDbOverride?: DrizzleDB
+  ): Promise<Workflow | undefined> {
+    if (!adminDbOverride) { return this.findById(id); }
+    const [row] = await adminDbOverride.select().from(workflows).where(eq(workflows.id, id)).limit(1);
+    return row;
+  }
+
   async findByIdOrSlug(idOrSlug: string, tx?: DbTransaction): Promise<Workflow | null> {
     // Try UUID first (faster and more common)
     const _database = this.getDb(tx);
@@ -342,22 +378,20 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
-    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId, tx);
     // Build conditions for ownership access
     const conditions = [
       and(eq(workflows.creatorId, creatorId), isNull(workflows.projectId)), // Legacy
       and(eq(workflows.ownerId, creatorId), isNull(workflows.projectId)), // Legacy
     ];
     // User-owned via new ownership model
-    if (isUuid(creatorId)) {
-      conditions.push(
-        and(
-          eq(workflows.ownerType, 'user'),
-          eq(workflows.ownerUuid, creatorId),
-          isNull(workflows.projectId)
-        )
-      );
-    }
+    conditions.push(
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        isNull(workflows.projectId)
+      )
+    );
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {
       conditions.push(

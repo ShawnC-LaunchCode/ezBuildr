@@ -27,15 +27,15 @@ async function checkWorkflowData() {
     console.log(`  Public Link: ${w.public_link}`);
   }
 
-  // Check sections
-  const sections = await client.query('SELECT id, title, "order" FROM sections WHERE workflow_id = $1 ORDER BY "order"', [workflowId]);
-  console.log(`\nSections: ${sections.rows.length}`);
-  sections.rows.forEach((s: Record<string, unknown>) => {
+  // Check pages
+  const pages = await client.query('SELECT id, title, "order" FROM pages WHERE workflow_id = $1 ORDER BY "order"', [workflowId]);
+  console.log(`\nPages: ${pages.rows.length}`);
+  pages.rows.forEach((s: Record<string, unknown>) => {
     console.log(`  - ${s.title} (order: ${s.order})`);
   });
 
   // Check steps
-  const steps = await client.query('SELECT id, section_id, title, type FROM steps WHERE section_id = ANY(SELECT id FROM sections WHERE workflow_id = $1)', [workflowId]);
+  const steps = await client.query('SELECT id, page_id, title, type FROM steps WHERE page_id = ANY(SELECT id FROM pages WHERE workflow_id = $1)', [workflowId]);
   console.log(`\nSteps: ${steps.rows.length}`);
 
   // Check project

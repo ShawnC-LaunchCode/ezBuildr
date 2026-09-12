@@ -19,7 +19,7 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 /**
- * Creates a complete sample workflow with multiple sections, steps, logic, and blocks.
+ * Creates a complete sample workflow with multiple pages, steps, logic, and blocks.
  * Demonstrates: Pages, Questions, Variables, Logic, and Documents.
  */
 export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, unknown, void> {
@@ -38,7 +38,7 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             const workflowId = workflow.id;
 
             // 2. Create Page 1: Contact Info
-            const p1Res = await apiRequest("POST", "/api/sections", {
+            const p1Res = await apiRequest("POST", "/api/pages", {
                 workflowId,
                 title: "Contact Information",
                 order: 0,
@@ -47,18 +47,18 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
 
             // P1 - Step 1: Name
             await apiRequest("POST", "/api/steps", {
-                sectionId: p1.id,
-                type: "short_text",
+                pageId: p1.id,
+                type: "text",
                 title: "What is your full name?",
                 alias: "full_name", // Variable alias
                 required: true,
                 order: 0,
-                config: { placeholder: "e.g. Jane Doe" }
+                config: { variant: "short", placeholder: "e.g. Jane Doe" }
             });
 
             // P1 - Step 2: Email
             await apiRequest("POST", "/api/steps", {
-                sectionId: p1.id,
+                pageId: p1.id,
                 type: "email",
                 title: "Email Address",
                 alias: "email",
@@ -68,7 +68,7 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             });
 
             // 3. Create Page 2: Service Selection (Conditional)
-            const p2Res = await apiRequest("POST", "/api/sections", {
+            const p2Res = await apiRequest("POST", "/api/pages", {
                 workflowId,
                 title: "Service Preferences",
                 order: 1,
@@ -77,25 +77,31 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
 
             // P2 - Step 1: Service Type
             await apiRequest("POST", "/api/steps", {
-                sectionId: p2.id,
-                type: "single_choice",
+                pageId: p2.id,
+                type: "choice",
                 title: "Which service are you interested in?",
                 alias: "service_type",
                 required: true,
                 order: 0,
-                options: ["Consulting", "Development", "Design"],
-                config: {}
+                config: {
+                    display: "radio",
+                    options: [
+                        { id: "consulting", label: "Consulting", alias: "Consulting" },
+                        { id: "development", label: "Development", alias: "Development" },
+                        { id: "design", label: "Design", alias: "Design" },
+                    ],
+                }
             });
 
             // P2 - Step 2: Budget (Visible only if Development)
             await apiRequest("POST", "/api/steps", {
-                sectionId: p2.id,
+                pageId: p2.id,
                 type: "number",
                 title: "Estimated Budget ($)",
                 alias: "budget",
                 required: false,
                 order: 1,
-                config: {},
+                config: { mode: "number" },
                 visibleIf: {
                     field: "service_type",
                     operator: "equals",
@@ -104,7 +110,7 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             });
 
             // 4. Create Logic Block (JS) - Auto-calculate tier
-            // Note: Blocks are created via a separate endpoint, usually associated with a section or global?
+            // Note: Blocks are created via a separate endpoint, usually associated with a page or global?
             // Based on previous files, blocks seem to be separate entities.
             // Checking BlocksPanel implementation (hooks/useCreateBlock) -> /api/blocks
             // Let's add a PREFILL block at the start to set a default region
@@ -122,7 +128,7 @@ export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, un
             });
 
             // 5. Create Final Page
-            const _pFinalRes = await apiRequest("POST", "/api/sections", {
+            const _pFinalRes = await apiRequest("POST", "/api/pages", {
                 workflowId,
                 title: "Review & Submit",
                 order: 2,

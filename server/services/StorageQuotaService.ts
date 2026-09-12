@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
 
-import { db } from '../db';
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
+import { withTenant } from '../utils/rlsContext';
 
 import { storageProvider } from './storage';
 import type { StorageProvider } from './storage/types';
@@ -39,12 +39,17 @@ export class StorageQuotaService {
             // Sum 'size' from metadata jsonb column
             // We join projects to filter by tenant
             // Note: DB table names are plural in schema (templates, projects)
-            const result = await db.execute(sql`
+            // RLS-5: this joins `projects`, which IS covered — and the method
+            // swallows its own errors and returns 0, so an unscoped read would
+            // report a tenant as using NO storage rather than failing. The
+            // tenant is right here in the argument, so pin it; the
+            // `p.tenant_id = ${tenantId}` predicate stays as the second check.
+            const result = await withTenant(tenantId, (tx) => tx.execute(sql`
                 SELECT sum((t.metadata->>'size')::bigint) as used
                 FROM templates t
                 JOIN projects p ON t.project_id = p.id
                 WHERE p.tenant_id = ${tenantId}
-            `);
+            `));
 
             // result is array of rows. Drizzle 'execute' returns raw result depends on driver.
             // For pg, it's usually { rows: [...] } but Drizzle wrapper might return rows directly?

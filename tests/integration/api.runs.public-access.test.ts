@@ -4,12 +4,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 describe.sequential('public run access policy', () => {
   let ownerCtx: IntegrationTestContext | null = null;
@@ -27,7 +30,8 @@ describe.sequential('public run access policy', () => {
       tenantName: 'Public run outsider',
     });
 
-    const factory = new TestFactory();
+    // Fixture rows belong to the observer, not the application pool (RLS-5).
+    const factory = new TestFactory(getOwnerDb());
     const requireLogin = await factory.createWorkflow(ownerCtx.projectId!, ownerCtx.userId, {
       workflow: {
         status: 'active',
@@ -35,9 +39,9 @@ describe.sequential('public run access policy', () => {
         requireLogin: true,
       },
     });
-    const publicSection = await factory.createSection(requireLogin.workflow.id);
-    await factory.createStep(publicSection.id, { alias: 'publicQuestion' });
-    await db.update(schema.workflows)
+    const publicPage = await factory.createPage(requireLogin.workflow.id);
+    await factory.createStep(publicPage.id, { alias: 'publicQuestion' });
+    await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: requireLogin.version.id })
       .where(eq(schema.workflows.id, requireLogin.workflow.id));
     requireLoginSlug = requireLogin.workflow.publicLink!;
@@ -48,9 +52,9 @@ describe.sequential('public run access policy', () => {
         isPublic: false,
       },
     });
-    const privateSection = await factory.createSection(privateWorkflow.workflow.id);
-    await factory.createStep(privateSection.id, { alias: 'privateQuestion' });
-    await db.update(schema.workflows)
+    const privatePage = await factory.createPage(privateWorkflow.workflow.id);
+    await factory.createStep(privatePage.id, { alias: 'privateQuestion' });
+    await getOwnerDb().update(schema.workflows)
       .set({ currentVersionId: privateWorkflow.version.id })
       .where(eq(schema.workflows.id, privateWorkflow.workflow.id));
     privateWorkflowId = privateWorkflow.workflow.id;
@@ -90,10 +94,10 @@ describe.sequential('public run access policy', () => {
   });
 
   it('denies a cross-tenant authenticated UUID launch for a private workflow', async () => {
-    await request(ownerCtx!.baseURL)
+    const denied = await request(ownerCtx!.baseURL)
       .post(`/api/workflows/${privateWorkflowId}/runs`)
       .set('Authorization', `Bearer ${outsiderCtx!.authToken}`)
-      .send({})
-      .expect(403);
+      .send({});
+    expectCrossTenantDenied(denied.status);
   });
 });

@@ -4,42 +4,42 @@ import { computeMapLayout } from "@/components/builder/map/mapLayout";
 import { buildWorkflowMap } from "@shared/workflowMap";
 
 import {
-  linearThreeSections,
+  linearThreePages,
   workflowWithFinalDocuments,
 } from "../../fixtures/workflowMap";
 
 describe("computeMapLayout (MAP-4)", () => {
-  it("stacks the spine (sections + terminal) top-to-bottom in order", () => {
-    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+  it("stacks the spine (pages + terminal) top-to-bottom in order", () => {
+    const { nodes, edges } = buildWorkflowMap(linearThreePages());
     const positions = computeMapLayout(nodes, edges);
 
-    const ySectionA = positions["section-a"].y;
-    const ySectionB = positions["section-b"].y;
-    const ySectionC = positions["section-c"].y;
+    const yPageA = positions["page-a"].y;
+    const yPageB = positions["page-b"].y;
+    const yPageC = positions["page-c"].y;
     const yTerminal = positions.__complete__.y;
 
-    expect(ySectionA).toBeLessThan(ySectionB);
-    expect(ySectionB).toBeLessThan(ySectionC);
-    expect(ySectionC).toBeLessThan(yTerminal);
+    expect(yPageA).toBeLessThan(yPageB);
+    expect(yPageB).toBeLessThan(yPageC);
+    expect(yPageC).toBeLessThan(yTerminal);
 
     // The spine shares one x coordinate — it's a vertical line, not a grid.
-    expect(positions["section-a"].x).toBe(positions["section-b"].x);
-    expect(positions["section-b"].x).toBe(positions["section-c"].x);
+    expect(positions["page-a"].x).toBe(positions["page-b"].x);
+    expect(positions["page-b"].x).toBe(positions["page-c"].x);
   });
 
-  it("places a final_documents node beside the section whose sequential edge leads to it, not on the spine", () => {
+  it("places a final_documents node beside the page whose sequential edge leads to it, not on the spine", () => {
     const { nodes, edges } = buildWorkflowMap(workflowWithFinalDocuments());
     const positions = computeMapLayout(nodes, edges);
 
-    const sectionPosition = positions["section-a"];
+    const pagePosition = positions["page-a"];
     const docPosition = positions["step-doc"];
 
-    expect(docPosition.x).not.toBe(sectionPosition.x);
-    expect(docPosition.y).toBe(sectionPosition.y);
+    expect(docPosition.x).not.toBe(pagePosition.x);
+    expect(docPosition.y).toBe(pagePosition.y);
   });
 
   it("is a pure function of its inputs — the same graph always yields the same positions", () => {
-    const { nodes, edges } = buildWorkflowMap(linearThreeSections());
+    const { nodes, edges } = buildWorkflowMap(linearThreePages());
     expect(computeMapLayout(nodes, edges)).toEqual(computeMapLayout(nodes, edges));
   });
 });

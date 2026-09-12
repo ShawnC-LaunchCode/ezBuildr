@@ -43,8 +43,8 @@ const COLLISION_LABELS: Record<ImportCollision["type"], string> = {
 };
 
 const ENTITY_LABELS: Record<string, string> = {
-  workflows: "Workflow", sections: "Pages", steps: "Questions",
-  logic_rules: "Logic rules", blocks: "Blocks", transform_blocks: "Transform blocks",
+  workflows: "Workflow", pages: "Pages", steps: "Questions",
+  logic_rules: "Logic rules", blocks: "Blocks",
   lifecycle_hooks: "Lifecycle hooks", document_hooks: "Document hooks",
   workflow_versions: "Versions", templates: "Document templates",
   template_versions: "Template versions", workflow_templates: "Template links",
@@ -57,7 +57,6 @@ const ENTITY_LABELS: Record<string, string> = {
 
 /** The entity types whose presence means code will execute in this tenant. */
 const EXECUTABLE_ENTITIES: Array<[string, string]> = [
-  ["transform_blocks", "transform blocks"],
   ["lifecycle_hooks", "lifecycle hooks"],
   ["document_hooks", "document hooks"],
 ];

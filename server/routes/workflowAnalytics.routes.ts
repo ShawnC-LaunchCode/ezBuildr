@@ -24,6 +24,7 @@ import { heatmapService } from '../services/analytics/HeatmapService';
 import sli from '../services/sli';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { AuthRequest } from '../middleware/auth';
 const router = Router();
@@ -106,7 +107,7 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -134,7 +135,10 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
       GROUP BY day
       ORDER BY day ASC
     `;
-    const runsPerDay = await db.execute(runsPerDayQuery);
+    // `metrics_events` is RLS-covered, so these two ran on the bare pool and
+    // returned no rows under enforcement — the analytics page rendered an
+    // empty chart and a zeroed doc-stats panel rather than an error.
+    const runsPerDay = await withCurrentTenant((tx) => tx.execute(runsPerDayQuery));
     // Get PDF/DOCX generation stats
     const docStatsQuery = sql`
       SELECT
@@ -147,7 +151,7 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
         ${query.workflowId ? sql`AND ${metricsEvents.workflowId} = ${query.workflowId}` : sql``}
         AND ${metricsEvents.ts} >= ${windowStart}
     `;
-    const docStatsResult = await db.execute(docStatsQuery);
+    const docStatsResult = await withCurrentTenant((tx) => tx.execute(docStatsQuery));
     const docStats = (docStatsResult.rows[0] as unknown) as DocStatsRow;
     const pdfTotal = safeParseInt(docStats.pdf_success) + safeParseInt(docStats.pdf_failed);
     const docxTotal = safeParseInt(docStats.docx_success) + safeParseInt(docStats.docx_failed);
@@ -205,7 +209,7 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -263,7 +267,7 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, query.projectId, 'view', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -314,7 +318,7 @@ router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
     if (body.workflowId) {
       await workflowService.verifyAccess(body.workflowId, userId, 'edit');
     } else {
-      const hasAccess = await aclService.hasProjectRole(userId, body.projectId, 'edit');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, body.projectId, 'edit', aclTx));
       if (!hasAccess) {
         return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
@@ -368,15 +372,15 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
       return;
     }
 
-    const existingConfig = await db.query.sliConfigs.findFirst({
+    const existingConfig = await withCurrentTenant((tx) => tx.query.sliConfigs.findFirst({
       where: (cfg, { eq }) => eq(cfg.id, id)
-    });
+    }));
     
     if (existingConfig) {
       if (existingConfig.workflowId) {
         await workflowService.verifyAccess(existingConfig.workflowId, userId, 'edit');
       } else if (existingConfig.projectId) {
-        const hasAccess = await aclService.hasProjectRole(userId, existingConfig.projectId, 'edit');
+        const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, existingConfig.projectId, 'edit', aclTx));
         if (!hasAccess) {
           return res.status(403).json({ error: ACCESS_DENIED_ERROR });
         }
@@ -530,7 +534,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
     const runsConfig = await db.execute(sql`
         SELECT count(*) as total
         FROM workflow_runs
-        WHERE workflow_id = ${workflowId}
+        WHERE execution_mode = 'live' AND workflow_id = ${workflowId}
         AND created_at >= ${windowStart}
         ${versionIdFilter !== undefined ? sql`AND workflow_version_id = ${versionIdFilter}` : sql``}
       `);

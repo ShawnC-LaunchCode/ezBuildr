@@ -22,14 +22,14 @@ import {
 // } from './legacy';
 import {
     workflowRuns, runResumeLinks, stepValues, reviewTasks, signatureRequests,
-    signatureEvents, runGeneratedDocuments, transformBlockRuns,
+    signatureEvents, runGeneratedDocuments,
     scriptExecutionLog,
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
 } from './run';
 import { runDocumentDeliveries } from './document_delivery';
 import {
     projects, workflows, workflowVersions, templates, templateVersions,
-    workflowTemplates, sections, steps, logicRules, blocks, transformBlocks,
+    workflowTemplates, sections, pages, steps, logicRules, blocks,
     lifecycleHooks, documentHooks, projectAccess, workflowAccess,
     collabDocs, collabUpdates, collabSnapshots
 } from './workflow';
@@ -129,9 +129,9 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
     }),
     versions: many(workflowVersions),
     sections: many(sections),
+    pages: many(pages),
     logicRules: many(logicRules),
     runs: many(workflowRuns),
-    transformBlocks: many(transformBlocks),
     lifecycleHooks: many(lifecycleHooks),
     documentHooks: many(documentHooks),
     dataSources: many(workflowDataSources),
@@ -193,14 +193,26 @@ export const sectionsRelations = relations(sections, ({ one, many }) => ({
         fields: [sections.workflowId],
         references: [workflows.id],
     }),
+    pages: many(pages),
+}));
+
+export const pagesRelations = relations(pages, ({ one, many }) => ({
+    workflow: one(workflows, {
+        fields: [pages.workflowId],
+        references: [workflows.id],
+    }),
+    section: one(sections, {
+        fields: [pages.sectionId],
+        references: [sections.id],
+    }),
     steps: many(steps),
     blocks: many(blocks),
 }));
 
 export const stepsRelations = relations(steps, ({ one, many }) => ({
-    section: one(sections, {
-        fields: [steps.sectionId],
-        references: [sections.id],
+    page: one(pages, {
+        fields: [steps.pageId],
+        references: [pages.id],
     }),
     values: many(stepValues),
 }));
@@ -218,9 +230,9 @@ export const logicRulesRelations = relations(logicRules, ({ one }) => ({
         fields: [logicRules.targetStepId],
         references: [steps.id],
     }),
-    targetSection: one(sections, {
-        fields: [logicRules.targetSectionId],
-        references: [sections.id],
+    targetPage: one(pages, {
+        fields: [logicRules.targetPageId],
+        references: [pages.id],
     }),
 }));
 
@@ -229,18 +241,10 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
         fields: [blocks.workflowId],
         references: [workflows.id],
     }),
-    section: one(sections, {
-        fields: [blocks.sectionId],
-        references: [sections.id],
+    page: one(pages, {
+        fields: [blocks.pageId],
+        references: [pages.id],
     }),
-}));
-
-export const transformBlocksRelations = relations(transformBlocks, ({ one, many }) => ({
-    workflow: one(workflows, {
-        fields: [transformBlocks.workflowId],
-        references: [workflows.id],
-    }),
-    runs: many(transformBlockRuns),
 }));
 
 export const lifecycleHooksRelations = relations(lifecycleHooks, ({ one }) => ({
@@ -248,9 +252,9 @@ export const lifecycleHooksRelations = relations(lifecycleHooks, ({ one }) => ({
         fields: [lifecycleHooks.workflowId],
         references: [workflows.id],
     }),
-    section: one(sections, {
-        fields: [lifecycleHooks.sectionId],
-        references: [sections.id],
+    page: one(pages, {
+        fields: [lifecycleHooks.pageId],
+        references: [pages.id],
     }),
 }));
 
@@ -313,9 +317,9 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
         fields: [workflowRuns.workflowId],
         references: [workflows.id],
     }),
-    currentSection: one(sections, {
-        fields: [workflowRuns.currentSectionId],
-        references: [sections.id],
+    currentPage: one(pages, {
+        fields: [workflowRuns.currentPageId],
+        references: [pages.id],
     }),
     assignedUser: one(users, {
         fields: [workflowRuns.assignedToUserId],
@@ -323,7 +327,6 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
     }),
     resumeLinks: many(runResumeLinks),
     stepValues: many(stepValues),
-    transformBlockRuns: many(transformBlockRuns),
     generatedDocuments: many(runGeneratedDocuments),
     documentDeliveries: many(runDocumentDeliveries),
 }));
@@ -396,17 +399,6 @@ export const runGeneratedDocumentsRelations = relations(runGeneratedDocuments, (
     template: one(workflowTemplates, {
         fields: [runGeneratedDocuments.templateId],
         references: [workflowTemplates.id],
-    }),
-}));
-
-export const transformBlockRunsRelations = relations(transformBlockRuns, ({ one }) => ({
-    run: one(workflowRuns, {
-        fields: [transformBlockRuns.runId],
-        references: [workflowRuns.id],
-    }),
-    block: one(transformBlocks, {
-        fields: [transformBlockRuns.blockId],
-        references: [transformBlocks.id],
     }),
 }));
 

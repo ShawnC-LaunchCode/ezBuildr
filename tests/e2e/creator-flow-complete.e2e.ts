@@ -11,7 +11,7 @@ import { test, expect } from "@playwright/test";
  * 4. Submit data through the preview runner
  * 5. Verify data persistence through the backend
  *
- * Scope: Workflows, Sections, Steps, Runs, Preview Runner
+ * Scope: Workflows, Pages, Steps, Runs, Preview Runner
  */
 test.describe("Creator Flow - Complete E2E", () => {
   test.setTimeout(90000); // Extended timeout for full flow
@@ -55,11 +55,11 @@ test.describe("Creator Flow - Complete E2E", () => {
     const workflowId = workflow.id;
     console.log(`✓ Workflow created: ${workflowId}`);
     // ====================================================================
-    // STEP 3: ADD SECTION (PAGE)
+    // STEP 3: ADD PAGE (PAGE)
     // ====================================================================
-    console.log("✓ Step 2: Adding section...");
-    const createSectionResponse = await page.request.post(
-      `/api/workflows/${workflowId}/sections`,
+    console.log("✓ Step 2: Adding page...");
+    const createPageResponse = await page.request.post(
+      `/api/workflows/${workflowId}/pages`,
       {
         data: {
           title: "Personal Information",
@@ -69,27 +69,27 @@ test.describe("Creator Flow - Complete E2E", () => {
       }
     );
     // Debug: Print status and response if it fails
-    if (!createSectionResponse.ok()) {
-      const errorBody = await createSectionResponse.text();
-      console.error(`Create section failed: ${createSectionResponse.status()}`);
+    if (!createPageResponse.ok()) {
+      const errorBody = await createPageResponse.text();
+      console.error(`Create page failed: ${createPageResponse.status()}`);
       console.error(`Response: ${errorBody}`);
     }
-    expect(createSectionResponse.ok()).toBeTruthy();
-    const section = await createSectionResponse.json();
-    expect(section).toHaveProperty("id");
-    const sectionId = section.id;
-    console.log(`✓ Section created: ${sectionId}`);
+    expect(createPageResponse.ok()).toBeTruthy();
+    const workflowPage = await createPageResponse.json();
+    expect(workflowPage).toHaveProperty("id");
+    const pageId = workflowPage.id;
+    console.log(`✓ Page created: ${pageId}`);
     // ====================================================================
     // STEP 4: ADD QUESTIONS (STEPS)
     // ====================================================================
     console.log("✓ Step 3: Adding questions...");
     // Add short text question
     const createStep1Response = await page.request.post(
-      `/api/sections/${sectionId}/steps`,
+      `/api/pages/${pageId}/steps`,
       {
         data: {
           title: "What is your name?",
-          type: "short_text",
+          type: "text",
           alias: "user_name",
           order: 0,
           required: true,
@@ -108,11 +108,11 @@ test.describe("Creator Flow - Complete E2E", () => {
     console.log(`✓ Step 1 created: ${step1.id} (short_text)`);
     // Add yes/no question
     const createStep2Response = await page.request.post(
-      `/api/sections/${sectionId}/steps`,
+      `/api/pages/${pageId}/steps`,
       {
         data: {
           title: "Do you agree to terms?",
-          type: "yes_no",
+          type: "boolean",
           alias: "agree_terms",
           order: 1,
           required: true,
@@ -322,12 +322,12 @@ test.describe("Creator Flow - Complete E2E", () => {
     console.log("✅ CREATOR FLOW E2E TEST PASSED");
     console.log("✅ ================================");
     console.log(`✅ Workflow: ${workflowId}`);
-    console.log(`✅ Section: ${sectionId}`);
+    console.log(`✅ Page: ${pageId}`);
     console.log(`✅ Steps: ${step1.id}, ${step2.id}`);
     console.log(`✅ Run: ${runId}`);
     console.log("✅ All operations successful:");
     console.log("   - Workflow creation ✓");
-    console.log("   - Section creation ✓");
+    console.log("   - Page creation ✓");
     console.log("   - Step creation ✓");
     console.log("   - Step editing ✓");
     console.log("   - Builder navigation ✓");

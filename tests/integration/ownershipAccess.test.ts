@@ -1,9 +1,11 @@
 import { eq, or } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { db } from '../../server/db';
 import { canAccessAsset, isOrgMember, canManageOrg, getUserOrgIds, canCreateWithOwnership } from '../../server/utils/ownershipAccess';
 import { organizationMemberships, organizations, users, tenants } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * Tests for Organization Ownership Access Control
  *
@@ -23,17 +25,17 @@ describe('Ownership Access Control', () => {
   beforeEach(async () => {
     try {
       // Create test tenant
-      await db.insert(tenants).values({
+      await getOwnerDb().insert(tenants).values({
         id: tenantId,
         name: 'Ownership Test Tenant',
       }).onConflictDoNothing();
       // Create test organizations
-      await db.insert(organizations).values([
+      await getOwnerDb().insert(organizations).values([
         { id: orgId1, name: 'Test Org 1', tenantId },
         { id: orgId2, name: 'Test Org 2', tenantId },
       ]).onConflictDoNothing();
       // Create test users
-      await db.insert(users).values([
+      await getOwnerDb().insert(users).values([
         { id: userId1, email: 'user1@test.com', fullName: 'User 1', tenantId },
         { id: userId2, email: 'user2@test.com', fullName: 'User 2', tenantId },
       ]).onConflictDoNothing();
@@ -46,7 +48,7 @@ describe('Ownership Access Control', () => {
   afterEach(async () => {
     try {
       // Clean up memberships
-      await db.delete(organizationMemberships)
+      await getOwnerDb().delete(organizationMemberships)
         .where(
           or(
             eq(organizationMemberships.orgId, orgId1),
@@ -68,7 +70,7 @@ describe('Ownership Access Control', () => {
     });
     it('should allow access to org-owned asset by org member', async () => {
       // Create membership
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'member',
@@ -90,7 +92,7 @@ describe('Ownership Access Control', () => {
   });
   describe('isOrgMember', () => {
     it('should return true for org member', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'member',
@@ -103,7 +105,7 @@ describe('Ownership Access Control', () => {
       expect(isMember).toBe(false);
     });
     it('should return true for org admin', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'admin',
@@ -114,7 +116,7 @@ describe('Ownership Access Control', () => {
   });
   describe('canManageOrg', () => {
     it('should return true for org admin', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'admin',
@@ -123,7 +125,7 @@ describe('Ownership Access Control', () => {
       expect(canManage).toBe(true);
     });
     it('should return false for org member (non-admin)', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'member',
@@ -138,7 +140,7 @@ describe('Ownership Access Control', () => {
   });
   describe('getUserOrgIds', () => {
     it('should return all org IDs for a user', async () => {
-      await db.insert(organizationMemberships).values([
+      await getOwnerDb().insert(organizationMemberships).values([
         { orgId: orgId1, userId: userId1, role: 'member' },
         { orgId: orgId2, userId: userId1, role: 'admin' },
       ]);
@@ -162,7 +164,7 @@ describe('Ownership Access Control', () => {
       expect(canCreate).toBe(false);
     });
     it('should allow creating org-owned asset if user is member', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'member',
@@ -177,7 +179,7 @@ describe('Ownership Access Control', () => {
   });
   describe('Cross-org Access Control', () => {
     it('should not allow member of org1 to access org2-owned assets', async () => {
-      await db.insert(organizationMemberships).values({
+      await getOwnerDb().insert(organizationMemberships).values({
         orgId: orgId1,
         userId: userId1,
         role: 'member',
@@ -186,7 +188,7 @@ describe('Ownership Access Control', () => {
       expect(hasAccess).toBe(false);
     });
     it('should allow member of multiple orgs to access all their org assets', async () => {
-      await db.insert(organizationMemberships).values([
+      await getOwnerDb().insert(organizationMemberships).values([
         { orgId: orgId1, userId: userId1, role: 'member' },
         { orgId: orgId2, userId: userId1, role: 'admin' },
       ]);

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +40,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -76,7 +76,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     const { unmount } = render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -88,7 +88,7 @@ describe('QuestionAddMenu', () => {
     mockMode('advanced');
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -107,7 +107,7 @@ describe('QuestionAddMenu', () => {
     const user = userEvent.setup();
     render(
       <QuestionAddMenu
-        sectionId="section-1"
+        pageId="page-1"
         nextOrder={1}
         workflowId="workflow-1"
       />
@@ -122,5 +122,97 @@ describe('QuestionAddMenu', () => {
     ];
     expect(call.type).toBe('list');
     expect(call.config.fields).toHaveLength(1);
+    expect(call.config.fields[0]).toMatchObject({ type: 'text', config: { variant: 'short' } });
+  });
+
+  it.each([
+    ['Short Text', 'short'],
+    ['Long Text', 'long'],
+  ] as const)('creates the Easy %s preset as canonical text', async (label, variant) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `text-${variant}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={3} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'text',
+      title: `New ${label}`,
+      config: { variant },
+    }));
+  });
+
+  it.each([
+    ['Yes/No', 'Yes', 'No'],
+    ['True/False', 'True', 'False'],
+  ] as const)('creates the Easy %s preset as canonical Boolean', async (label, trueLabel, falseLabel) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `boolean-${trueLabel}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={4} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    // Scoped to a menu item: the palette now carries several families, so a
+    // bare text match can collide as more presets are canonicalized.
+    await user.click(screen.getByText(label, { selector: '[role="menuitem"] *' }));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'boolean',
+      title: `New ${label}`,
+      config: { trueLabel, falseLabel, storeAsBoolean: true, displayStyle: 'buttons' },
+    }));
+  });
+
+  it.each([
+    ['Date', { kind: 'date', defaultToToday: false }],
+    ['Time', { kind: 'time', timeFormat: '12h', timeStep: 15 }],
+    ['Date/Time', { kind: 'datetime', timeFormat: '12h', timeStep: 15 }],
+  ] as const)('creates the Easy %s preset as canonical date_time', async (label, config) => {
+    mockMode('easy');
+    const mutateAsync = vi.fn().mockResolvedValue({ id: `date-time-${config.kind}` });
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={3} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText(label, { selector: '[role="menuitem"] *' }));
+
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'date_time',
+      title: `New ${label}`,
+      config,
+    }));
+  });
+
+  it('renders distinct presentation marks for the two canonical text presets', async () => {
+    mockMode('easy');
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={1} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    const shortIcon = within(screen.getByRole('menuitem', { name: /Short Text/ })).getByTitle('Short Text');
+    const longIcon = within(screen.getByRole('menuitem', { name: /Long Text/ })).getByTitle('Long Text');
+    expect(shortIcon).toHaveTextContent('T');
+    expect(longIcon).toHaveTextContent('¶');
+    expect(shortIcon.textContent).not.toBe(longIcon.textContent);
+  });
+
+  it('shows the canonical Text action in Advanced without friendly duplicate actions', async () => {
+    mockMode('advanced');
+    vi.mocked(useCreateStep).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useCreateStep>);
+
+    const user = userEvent.setup();
+    render(<QuestionAddMenu pageId="page-1" nextOrder={1} workflowId="workflow-1" />);
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    expect(screen.getByText('Text')).toBeInTheDocument();
+    expect(screen.queryByText('Short Text')).not.toBeInTheDocument();
+    expect(screen.queryByText('Long Text')).not.toBeInTheDocument();
   });
 });

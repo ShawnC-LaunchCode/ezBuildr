@@ -11,8 +11,8 @@ describe("VariableResolver", () => {
       alias: "firstName",
       type: "short_text",
       label: "First Name",
-      sectionId: "sec-1",
-      sectionTitle: "Section 1",
+      pageId: "page-1",
+      pageTitle: "Page 1",
       stepId: "step-1",
     },
     {
@@ -20,8 +20,8 @@ describe("VariableResolver", () => {
       alias: "lastName",
       type: "short_text",
       label: "Last Name",
-      sectionId: "sec-1",
-      sectionTitle: "Section 1",
+      pageId: "page-1",
+      pageTitle: "Page 1",
       stepId: "step-2",
     },
     {
@@ -29,8 +29,8 @@ describe("VariableResolver", () => {
       alias: null,
       type: "short_text",
       label: "Email",
-      sectionId: "section-1",
-      sectionTitle: "Section 1",
+      pageId: "page-1",
+      pageTitle: "Page 1",
       stepId: "step-uuid-789",
     },
     {
@@ -38,8 +38,8 @@ describe("VariableResolver", () => {
       alias: "age",
       type: "short_text",
       label: "Age",
-      sectionId: "section-1",
-      sectionTitle: "Section 1",
+      pageId: "page-1",
+      pageTitle: "Page 1",
       stepId: "step-uuid-101",
     },
   ];
@@ -129,8 +129,8 @@ describe("VariableResolver", () => {
         alias: "firstName",
         label: "First Name",
         type: "short_text",
-        sectionId: "sec-1",
-        sectionTitle: "Section 1",
+        pageId: "page-1",
+        pageTitle: "Page 1",
         stepId: "step-1",
       });
     });
@@ -143,8 +143,8 @@ describe("VariableResolver", () => {
         alias: "firstName",
         label: "First Name",
         type: "short_text",
-        sectionId: "sec-1",
-        sectionTitle: "Section 1",
+        pageId: "page-1",
+        pageTitle: "Page 1",
         stepId: "step-1",
       });
     });
@@ -164,8 +164,8 @@ describe("VariableResolver", () => {
           alias: "conflictingAlias",
           type: "short_text",
           label: "Conflicting",
-          sectionId: "sec-1",
-          sectionTitle: "Section 1",
+          pageId: "page-1",
+          pageTitle: "Page 1",
           stepId: "step-conflicting",
         },
       ];
@@ -185,8 +185,8 @@ describe("VariableResolver", () => {
         alias: null,
         label: "Email",
         type: "short_text",
-        sectionId: "section-1",
-        sectionTitle: "Section 1",
+        pageId: "page-1",
+        pageTitle: "Page 1",
         stepId: "step-uuid-789",
       });
     });

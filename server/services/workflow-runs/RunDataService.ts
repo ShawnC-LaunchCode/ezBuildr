@@ -3,12 +3,13 @@ import type { Step } from "@shared/schema";
 import { stepRepository, stepValueRepository, workflowRunRepository } from "../../repositories";
 import type { DbTransaction } from "../../repositories/BaseRepository";
 import { createError } from "../../utils/errors";
+import { withCurrentTenant } from '../../utils/rlsContext';
 
 export interface RunDataStepMeta {
   id: string;
   alias: string | null;
   type: Step['type'];
-  sectionId: string;
+  pageId: string;
   isVirtual: boolean;
 }
 
@@ -79,11 +80,22 @@ export class RunDataService {
    *   change (same semantics as the document-rendering fix), not a break.
    */
   async buildForRun(runId: string, workflowId?: string, tx?: DbTransaction): Promise<RunData> {
+    // RLS-5: `steps` is RLS-covered through its workflow's ownership-derived
+    // policy, and most callers pass no `tx` — so on the pool the step list came
+    // back EMPTY and every alias vanished. That is not a visible failure: it
+    // means `byAlias` seeds nothing, so document rendering treats every
+    // `{{ alias }}` as an UNKNOWN top-level variable and raises "undefined
+    // variable" rather than rendering blank. The null-seeding this service
+    // exists to do (see the comment above) silently stopped happening.
+    //
+    // Sequential inside one transaction, not Promise.all: concurrent queries on
+    // a single connection are the deadlock shape against the max:1 test pool.
+    if (tx === undefined) {
+      return withCurrentTenant((scopedTx) => this.buildForRun(runId, workflowId, scopedTx));
+    }
     const resolvedWorkflowId = workflowId ?? await this.resolveWorkflowId(runId, tx);
-    const [values, steps] = await Promise.all([
-      this.valueRepo.findByRunId(runId, tx),
-      this.stepRepo.findByWorkflowIdWithAliases(resolvedWorkflowId, tx),
-    ]);
+    const values = await this.valueRepo.findByRunId(runId, tx);
+    const steps = await this.stepRepo.findByWorkflowIdWithAliases(resolvedWorkflowId, tx);
 
     const byStepId: Record<string, unknown> = {};
     for (const value of values) {
@@ -101,7 +113,7 @@ export class RunDataService {
         id: step.id,
         alias: step.alias,
         type: step.type,
-        sectionId: step.sectionId,
+        pageId: step.pageId,
         isVirtual: step.isVirtual,
       })),
     };

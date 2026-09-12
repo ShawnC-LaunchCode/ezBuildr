@@ -2,9 +2,9 @@ import angularExpressionParser from "docxtemplater/expressions.js";
 
 import { formatAnswerValue } from "@/lib/formatAnswerValue";
 
-import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
 
 import { docxHelpers } from "../../../../server/services/docxHelpers";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 
 export interface RunnerAnswerDefinition {
   type: string;
@@ -51,14 +51,16 @@ function formatScopeValue(
     return value;
   }
 
-  const normalizedType = normalizeRunnerStepType(definition.type);
-  if (normalizedType !== "address" && normalizedType !== "choice") {
+  const adapted = adaptLegacyStep({ type: definition.type, config: definition.config });
+  const type = adapted.type;
+
+  if (type !== "address" && type !== "choice") {
     return value;
   }
 
   return formatAnswerValue(value, {
-    type: normalizedType,
-    config: definition.config,
+    type: type,
+    config: adapted.config,
   });
 }
 

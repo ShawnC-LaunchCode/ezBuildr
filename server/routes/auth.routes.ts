@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 
 import { serialize } from "cookie";
-import { eq, and, gt, ne, desc } from "drizzle-orm";
+import { eq, and, gt, ne, desc, sql } from "drizzle-orm";
 import { rateLimit } from 'express-rate-limit';
 
 import type { AuthUserPayload, User } from "@shared/schema";
@@ -30,6 +30,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { parseCookies } from "../utils/cookies"; // Import parseCookies
 import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
 import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
+import { withLoginEmail } from "../utils/rlsContext";
+import { findSelfUser, updateSelfUser } from "../utils/selfUser";
 import { sendErrorResponse } from "../utils/responses";
 
 import type { Express, Request, Response } from "express";
@@ -43,7 +45,13 @@ const logger = createLogger({ module: 'auth-routes' });
  * @throws Custom error classes (InvalidCredentialsError, AccountLockedError, EmailNotVerifiedError)
  */
 async function validateCredentials(email: string, password: string, req: Request): Promise<User> {
-  const user = await userRepository.findByEmail(email);
+  // RLS-5: the login lookup runs with neither a tenant nor a user id known —
+  // resolving who this is IS the point — so `users`' ordinary policy hides
+  // every user who has a real tenant and login fails as "Invalid
+  // credentials". Pin the caller-supplied email for this one read (migration
+  // 0032); see `withLoginEmail` for why this variant is the weakest of the
+  // four and what keeps it narrow.
+  const user = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
   if (!user) {
     logger.debug({ email }, 'DEBUG: ValidateCredentials - User not found');
     // Record failed attempt even if user doesn't exist (prevents enumeration)
@@ -225,7 +233,8 @@ export function registerAuthRoutes(app: Express): void {
       const userInputs = [email, firstName, lastName].filter(Boolean) as string[];
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' }); }
-      const existingUser = await userRepository.findByEmail(email);
+      // RLS-5: pre-tenant duplicate check — see validateCredentials above.
+      const existingUser = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
       if (existingUser) {
         // Generic messaging for account enumeration prevention
         return res.status(201).json({
@@ -233,18 +242,51 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
       const userId = crypto.randomUUID();
-      const user = await userRepository.create({
-        id: userId,
-        email,
-        firstName: firstName ?? null,
-        lastName: lastName ?? null,
-        fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
-        profileImageUrl: null,
-        tenantId: null,
-        role: 'creator',
-        tenantRole: null,
-        authProvider: 'local',
-        defaultMode: 'easy',
+      // RLS-5: deliberately NOT wrapped in a scoped transaction. A registration
+      // has no tenant to pin — membership is assigned later and is never taken
+      // from an unauthenticated body — and `users`' WITH CHECK is NULL-safe
+      // (migration 0027), so `tenant_id IS NULL` with no GUC set is precisely
+      // the case it permits. Pinning anything here would reject the insert.
+      //
+      // The plain `db.transaction` wrapper is NOT a tenant scope — it sets no
+      // GUC, so `app_current_tenant()` is still NULL here and WITH CHECK still
+      // sees exactly the case it permits. It exists so the diagnostic below
+      // runs on the SAME physical connection as the insert. RLS-5 is chasing an
+      // intermittent "new row violates row-level security policy for table
+      // users" here (~half of full restricted runs, a different suite each
+      // time), and a probe issued as its own pool query proved nothing: it
+      // lands on a different backend. Leave this in place until that is
+      // closed — it costs one extra round trip only on the failure path.
+      const user = await db.transaction(async (tx) => {
+        try {
+          return await userRepository.create({
+            id: userId,
+            email,
+            firstName: firstName ?? null,
+            lastName: lastName ?? null,
+            fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
+            profileImageUrl: null,
+            tenantId: null,
+            role: 'creator',
+            tenantRole: null,
+            authProvider: 'local',
+            defaultMode: 'easy',
+          }, tx);
+        } catch (err) {
+          try {
+            const state = await tx.execute(sql`
+              SELECT current_setting('app.current_tenant_id', true) AS tenant_guc,
+                     current_schema() AS schema,
+                     current_user AS db_role,
+                     pg_backend_pid() AS pid
+            `);
+            logger.error({ connectionState: state.rows[0], email },
+              'RLS-5: registration insert rejected — same-connection state');
+          } catch {
+            // The transaction is already aborted; nothing more to learn.
+          }
+          throw err;
+        }
       });
       const passwordHash = await authService.hashPassword(password);
       await userCredentialsRepository.createCredentials(userId, passwordHash);
@@ -405,7 +447,7 @@ export function registerAuthRoutes(app: Express): void {
         metricsService.recordAuthLatency(startTime, 'refresh', 401);
         return res.status(401).json({ message: 'Invalid refresh token' });
       }
-      const user = await userRepository.findById(result.userId);
+      const user = await findSelfUser(result.userId);
       if (!user) {
         metricsService.recordAuthLatency(startTime, 'refresh', 401);
         // eslint-disable-next-line sonarjs/no-duplicate-string
@@ -485,7 +527,7 @@ export function registerAuthRoutes(app: Express): void {
       const userId = await authService.verifyPasswordResetToken(token);
       if (!userId) { return res.status(400).json({ message: "Invalid token" }); }
       // Get user to pass email to password validation
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       const userInputs = user ? [user.email, user.firstName, user.lastName].filter(Boolean) as string[] : [];
       const pwdValidation = authService.validatePasswordStrength(newPassword, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message }); }
@@ -495,7 +537,7 @@ export function registerAuthRoutes(app: Express): void {
       await authService.consumePasswordResetToken(token);
 
       if (user?.isPlaceholder) {
-        await userRepository.updateUser(userId, { isPlaceholder: false, emailVerified: true });
+        await updateSelfUser(user.id, user.tenantId, { isPlaceholder: false, emailVerified: true });
       }
 
       // Audit log: Password reset
@@ -528,7 +570,8 @@ export function registerAuthRoutes(app: Express): void {
     const { email } = req.body as { email: string };
     if (!email) { return res.status(400).json({ message: "Email required" }); }
     try {
-      const user = await userRepository.findByEmail(email);
+      // RLS-5: pre-tenant lookup — see validateCredentials above.
+      const user = await withLoginEmail(email, (tx) => userRepository.findByEmail(email, tx));
       if (user && !user.emailVerified) {
         // Generate and send new verification token
         await authService.generateEmailVerificationToken(user.id, user.email);
@@ -546,7 +589,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       res.json({
         id: user.id,
@@ -604,7 +647,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized", code: "unauthorized" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: 'User not found' }); }
       const token = authService.createToken(user);
       res.json({ token, expiresIn: '15m' });
@@ -623,7 +666,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       // Check if MFA is already enabled
       if (user.mfaEnabled) {
@@ -698,7 +741,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const userId = payload.userId;
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 404);
         return res.status(404).json({ message: "User not found" });
@@ -802,7 +845,7 @@ export function registerAuthRoutes(app: Express): void {
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
       const { password } = req.body as { password: string };
       if (!password) { return res.status(400).json({ message: "Password required to disable MFA" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(404).json({ message: "User not found" }); }
       // Verify password
       if (user.authProvider === 'local') {
@@ -840,7 +883,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user?.mfaEnabled) {
         return res.status(400).json({ message: "MFA is not enabled" });
       }
@@ -996,7 +1039,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
-      const user = await userRepository.findById(userId);
+      const user = await findSelfUser(userId);
       if (!user) { return res.status(401).json({ message: "Unauthorized" }); }
 
       if (user.mfaEnabled) {
@@ -1131,7 +1174,9 @@ export function registerAuthRoutes(app: Express): void {
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     app.all('/api/auth/dev-login', asyncHandler(async (req: Request, res: Response) => {
       try {
-        const user = await userRepository.findByEmail('dev@example.com');
+        // RLS-5: pre-tenant lookup — see validateCredentials above.
+        const user = await withLoginEmail('dev@example.com', (tx) =>
+          userRepository.findByEmail('dev@example.com', tx));
         // Create dev user if doesn't exist logic reduced for brevity as it was likely deleted
         // Assuming user exists or basic mock for this fix to pass compile first
         if (!user) {

@@ -575,7 +575,7 @@ class WorkflowService {
 
 6. **DatavaultTablesService** - DataVault core
 7. **DatavaultRowsService** - Row operations
-8. **SectionService** - Section management
+8. **PageService** - Page management
 9. **LogicService** - Conditional logic
 10. **DocumentGenerationService** - Template rendering
 

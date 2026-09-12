@@ -23,7 +23,7 @@ export const queryKeys = {
     all: () => ['workflows'] as const,
     list: () => [...queryKeys.workflows.all(), 'list'] as const,
     detail: (id: string) => [...queryKeys.workflows.all(), 'detail', id] as const,
-    sections: (id: string) => [...queryKeys.workflows.all(), id, 'sections'] as const,
+    pages: (id: string) => [...queryKeys.workflows.all(), id, 'pages'] as const,
     variables: (id: string) => [...queryKeys.workflows.all(), id, 'variables'] as const,
     steps: (id: string) => [...queryKeys.workflows.all(), id, 'steps'] as const,
   },

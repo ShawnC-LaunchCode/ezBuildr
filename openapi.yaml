@@ -86,7 +86,7 @@ tags:
   - name: Authentication
     description: User authentication and token management
   - name: Workflows
-    description: Workflow CRUD operations, sections, steps, and configuration
+    description: Workflow CRUD operations, pages, steps, and configuration
   - name: Runs
     description: Workflow execution, step values, navigation, and completion
   - name: Blocks
@@ -119,114 +119,7 @@ tags:
     description: System administration and diagnostics
   - name: Blueprints
     description: Workflow templates (Blueprints) management
-paths:
-  # ===================================================================
-  # BLUEPRINT ENDPOINTS
-  # ===================================================================
-
-  /api/blueprints:
-    get:
-      tags:
-        - Blueprints
-      summary: List blueprints
-      description: Retrieve a list of available blueprints (templates) for the current tenant.
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      responses:
-        '200':
-          description: List of blueprints
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Blueprint'
-        '401':
-          $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/schemas/Error'
-
-    post:
-      tags:
-        - Blueprints
-      summary: Create blueprint
-      description: Create a new blueprint from an existing workflow version.
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlueprintCreate'
-      responses:
-        '200':
-          description: Blueprint created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Blueprint'
-        '400':
-          $ref: '#/components/schemas/Error'
-        '401':
-          $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/schemas/Error'
-
-  /api/blueprints/{id}/instantiate:
-    post:
-      tags:
-        - Blueprints
-      summary: Instantiate blueprint
-      description: Create a new workflow instance from a blueprint.
-      security:
-        - bearerAuth: []
-        - cookieAuth: []
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: string
-            format: uuid
-          required: true
-          description: Blueprint ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BlueprintInstantiate'
-      responses:
-        '200':
-          description: Blueprint instantiated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      workflowId:
-                        type: string
-                        format: uuid
-                      versionId:
-                        type: string
-                        format: uuid
-        '401':
-          $ref: '#/components/schemas/Error'
-        '404':
-          $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/schemas/Error'
+components:
   securitySchemes:
     bearerAuth:
       type: http
@@ -420,13 +313,13 @@ paths:
         status:
           type: string
           enum: [draft, active, archived]
-        sections:
+        pages:
           type: array
           items:
-            $ref: '#/components/schemas/Section'
+            $ref: '#/components/schemas/Page'
           description: Full workflow content replacement (from AI)
 
-    Section:
+    Page:
       type: object
       properties:
         id:
@@ -464,7 +357,7 @@ paths:
         id:
           type: string
           format: uuid
-        sectionId:
+        pageId:
           type: string
           format: uuid
         type:
@@ -519,7 +412,7 @@ paths:
           format: date-time
       required:
         - id
-        - sectionId
+        - pageId
         - type
         - order
 
@@ -533,7 +426,7 @@ paths:
           type: string
         type:
           type: string
-        sectionTitle:
+        pageTitle:
           type: string
         order:
           type: integer
@@ -559,7 +452,7 @@ paths:
           type: string
           nullable: true
           description: User ID (null for anonymous)
-        currentSectionId:
+        currentPageId:
           type: string
           format: uuid
           nullable: true
@@ -626,7 +519,7 @@ paths:
           type: boolean
           description: Generate random test data via AI
 
-    SectionSubmitRequest:
+    PageSubmitRequest:
       type: object
       properties:
         values:
@@ -645,7 +538,7 @@ paths:
       required:
         - values
 
-    SectionSubmitResponse:
+    PageSubmitResponse:
       type: object
       properties:
         success:
@@ -671,11 +564,11 @@ paths:
         workflowId:
           type: string
           format: uuid
-        sectionId:
+        pageId:
           type: string
           format: uuid
           nullable: true
-          description: Section ID (for beforePage/afterPage hooks)
+          description: Page ID (for beforePage/afterPage hooks)
         name:
           type: string
           minLength: 1
@@ -685,9 +578,9 @@ paths:
           enum: [beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated]
           description: |
             Hook execution phase:
-            - `beforePage`: Before section is displayed
-            - `afterPage`: After section is submitted
-            - `beforeFinalBlock`: Before final documents section
+            - `beforePage`: Before page is displayed
+            - `afterPage`: After page is submitted
+            - `beforeFinalBlock`: Before final documents page
             - `afterDocumentsGenerated`: After all documents are generated
         language:
           type: string
@@ -816,7 +709,7 @@ paths:
     LifecycleHookCreate:
       type: object
       properties:
-        sectionId:
+        pageId:
           type: string
           format: uuid
           nullable: true
@@ -883,7 +776,7 @@ paths:
               format: uuid
             phase:
               type: string
-            sectionId:
+            pageId:
               type: string
               format: uuid
             userId:
@@ -1137,6 +1030,114 @@ paths:
 
 paths:
   # ===================================================================
+  # BLUEPRINT ENDPOINTS
+  # ===================================================================
+
+  /api/blueprints:
+    get:
+      tags:
+        - Blueprints
+      summary: List blueprints
+      description: Retrieve a list of available blueprints (templates) for the current tenant.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of blueprints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Blueprint'
+        '401':
+          $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Blueprints
+      summary: Create blueprint
+      description: Create a new blueprint from an existing workflow version.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlueprintCreate'
+      responses:
+        '200':
+          description: Blueprint created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Blueprint'
+        '400':
+          $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/schemas/Error'
+
+  /api/blueprints/{id}/instantiate:
+    post:
+      tags:
+        - Blueprints
+      summary: Instantiate blueprint
+      description: Create a new workflow instance from a blueprint.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: Blueprint ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlueprintInstantiate'
+      responses:
+        '200':
+          description: Blueprint instantiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      workflowId:
+                        type: string
+                        format: uuid
+                      versionId:
+                        type: string
+                        format: uuid
+        '401':
+          $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/schemas/Error'
+
+  # ===================================================================
   # AUTHENTICATION ENDPOINTS
   # ===================================================================
 
@@ -1268,7 +1269,7 @@ paths:
     get:
       tags: [Workflows]
       summary: Get workflow
-      description: Get workflow with full details (sections, steps, rules)
+      description: Get workflow with full details (pages, steps, rules)
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -1289,11 +1290,11 @@ paths:
                   - $ref: '#/components/schemas/Workflow'
                   - type: object
                     properties:
-                      sections:
+                      pages:
                         type: array
                         items:
                           allOf:
-                            - $ref: '#/components/schemas/Section'
+                            - $ref: '#/components/schemas/Page'
                             - type: object
                               properties:
                                 steps:
@@ -1443,9 +1444,9 @@ paths:
         Create a new lifecycle hook for executing custom JavaScript/Python code during workflow phases.
 
         **Available Phases:**
-        - `beforePage`: Executed before section is displayed to user
-        - `afterPage`: Executed after section is submitted
-        - `beforeFinalBlock`: Executed before final documents section
+        - `beforePage`: Executed before page is displayed to user
+        - `afterPage`: Executed after page is submitted
+        - `beforeFinalBlock`: Executed before final documents page
         - `afterDocumentsGenerated`: Executed after all documents are generated
 
         **Helper Functions (40+ available):**
@@ -1496,11 +1497,11 @@ paths:
             examples:
               beforePage:
                 summary: Before Page Hook
-                description: Validate data before showing section
+                description: Validate data before showing page
                 value:
                   name: "Pre-flight validation"
                   phase: "beforePage"
-                  sectionId: "123e4567-e89b-12d3-a456-426614174000"
+                  pageId: "123e4567-e89b-12d3-a456-426614174000"
                   language: "javascript"
                   code: |
                     const age = input.age;
@@ -2109,7 +2110,7 @@ paths:
                       runToken:
                         type: string
                         description: Bearer token for this run
-                      currentSectionId:
+                      currentPageId:
                         type: string
                         format: uuid
                         nullable: true
@@ -2338,14 +2339,14 @@ paths:
         '403':
           description: Access denied
 
-  /api/runs/{runId}/sections/{sectionId}/submit:
+  /api/runs/{runId}/pages/{pageId}/submit:
     post:
       tags: [Runs]
-      summary: Submit section
+      summary: Submit page
       description: |
-        Submit section values with validation. Executes validation and transform blocks.
+        Submit page values with validation. Executes validation and transform blocks.
 
-        Returns validation errors if any, otherwise marks section as complete.
+        Returns validation errors if any, otherwise marks the page as complete.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -2357,7 +2358,7 @@ paths:
             type: string
             format: uuid
         - in: path
-          name: sectionId
+          name: pageId
           required: true
           schema:
             type: string
@@ -2367,14 +2368,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SectionSubmitRequest'
+              $ref: '#/components/schemas/PageSubmitRequest'
       responses:
         '200':
-          description: Section submitted (may contain validation errors)
+          description: Page submitted (may contain validation errors)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SectionSubmitResponse'
+                $ref: '#/components/schemas/PageSubmitResponse'
         '400':
           description: Invalid input
         '401':
@@ -2385,11 +2386,11 @@ paths:
   /api/runs/{runId}/next:
     post:
       tags: [Runs]
-      summary: Navigate to next section
+      summary: Navigate to next page
       description: |
-        Navigate to next section. Executes branch blocks to determine next section.
+        Navigate to next page. Executes branch blocks to determine the next page.
 
-        Returns next section ID or indicates workflow completion.
+        Returns the next page ID or indicates workflow completion.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -2402,7 +2403,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Next section determined
+          description: Next page determined
           content:
             application/json:
               schema:
@@ -2413,7 +2414,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      nextSectionId:
+                      nextPageId:
                         type: string
                         format: uuid
                         nullable: true

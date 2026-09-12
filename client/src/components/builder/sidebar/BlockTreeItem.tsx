@@ -83,7 +83,7 @@ export function BlockTreeItem({ block, mode, onEdit, workflowId }: BlockTreeItem
             </div>
             <span className="flex-1 truncate text-xs font-medium">
                 {getLabel(block.type)}
-                {block.phase === 'onSectionEnter' ? ' (Enter)' : ' (Submit)'}
+                {block.phase === 'onPageEnter' ? ' (Enter)' : ' (Submit)'}
             </span>
             {/* Delete Action (Hover) */}
             {!isLocked && (

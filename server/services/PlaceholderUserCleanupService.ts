@@ -1,8 +1,8 @@
 import { eq, and, inArray } from 'drizzle-orm';
 
 import { users, organizationInvites } from '../../shared/schema';
-import { db } from '../db';
 import { logger } from '../logger';
+import { forEachTenant } from '../utils/forEachTenant';
 
 /**
  * Placeholder User Cleanup Service
@@ -17,60 +17,61 @@ export class PlaceholderUserCleanupService {
    */
   async cleanupExpiredPlaceholders(): Promise<number> {
     try {
-      // Find all placeholder users
-      const placeholderUsers = await db
-        .select()
-        .from(users)
-        .where(eq(users.isPlaceholder, true));
-
-      if (placeholderUsers.length === 0) {
-        logger.info('No placeholder users found for cleanup');
-        return 0;
-      }
-
-      logger.info({ count: placeholderUsers.length }, 'Found placeholder users, checking for pending invites');
-
-      // For each placeholder user, check if they have any pending invites
-      const usersToDelete: string[] = [];
-
-      for (const user of placeholderUsers) {
-        const pendingInvites = await db
+      // RLS-7: a periodic job has no request and so no ambient tenant, and
+      // `users` is RLS-covered. Unscoped, the scan below returned zero rows
+      // under enforcement and this method logged "No placeholder users found
+      // for cleanup" forever — a job that reports success having done
+      // nothing. Iterate tenants explicitly instead; see forEachTenant.
+      const { results } = await forEachTenant('placeholderUserCleanup', async (_tenantId, tx) => {
+        const placeholderUsers = await tx
           .select()
-          .from(organizationInvites)
+          .from(users)
+          .where(eq(users.isPlaceholder, true));
+
+        if (placeholderUsers.length === 0) { return 0; }
+
+        // For each placeholder user, check if they have any pending invites
+        const usersToDelete: string[] = [];
+
+        for (const user of placeholderUsers) {
+          const pendingInvites = await tx
+            .select()
+            .from(organizationInvites)
+            .where(
+              and(
+                eq(organizationInvites.invitedUserId, user.id),
+                eq(organizationInvites.status, 'pending')
+              )
+            );
+
+          // If no pending invites, mark for deletion
+          if (pendingInvites.length === 0) {
+            usersToDelete.push(user.id);
+          }
+        }
+
+        if (usersToDelete.length === 0) { return 0; }
+
+        // Delete placeholder users with no pending invites
+        await tx
+          .delete(users)
           .where(
             and(
-              eq(organizationInvites.invitedUserId, user.id),
-              eq(organizationInvites.status, 'pending')
+              eq(users.isPlaceholder, true),
+              inArray(users.id, usersToDelete)
             )
           );
 
-        // If no pending invites, mark for deletion
-        if (pendingInvites.length === 0) {
-          usersToDelete.push(user.id);
-        }
-      }
+        return usersToDelete.length;
+      });
 
-      if (usersToDelete.length === 0) {
-        logger.info('No placeholder users eligible for cleanup');
-        return 0;
-      }
-
-      // Delete placeholder users with no pending invites
-      await db
-        .delete(users)
-        .where(
-          and(
-            eq(users.isPlaceholder, true),
-            inArray(users.id, usersToDelete.length > 0 ? usersToDelete : [''])
-          )
-        );
-
+      const deletedCount = results.reduce((sum, n) => sum + n, 0);
       logger.info(
-        { deletedCount: usersToDelete.length },
+        { deletedCount },
         'Cleaned up placeholder users with no pending invites'
       );
 
-      return usersToDelete.length;
+      return deletedCount;
     } catch (error) {
       logger.error({ error }, 'Error during placeholder user cleanup');
       throw error;
@@ -85,33 +86,38 @@ export class PlaceholderUserCleanupService {
     withPendingInvites: number;
     eligibleForCleanup: number;
   }> {
-    const placeholderUsers = await db
-      .select()
-      .from(users)
-      .where(eq(users.isPlaceholder, true));
-
-    let withPendingInvites = 0;
-
-    for (const user of placeholderUsers) {
-      const pendingInvites = await db
+    // Same per-tenant iteration as the cleanup above — these stats describe
+    // what that job would do, so they must see exactly what it sees.
+    const { results } = await forEachTenant('placeholderUserStats', async (_tenantId, tx) => {
+      const placeholderUsers = await tx
         .select()
-        .from(organizationInvites)
-        .where(
-          and(
-            eq(organizationInvites.invitedUserId, user.id),
-            eq(organizationInvites.status, 'pending')
-          )
-        );
+        .from(users)
+        .where(eq(users.isPlaceholder, true));
 
-      if (pendingInvites.length > 0) {
-        withPendingInvites++;
+      let withPending = 0;
+      for (const user of placeholderUsers) {
+        const pendingInvites = await tx
+          .select()
+          .from(organizationInvites)
+          .where(
+            and(
+              eq(organizationInvites.invitedUserId, user.id),
+              eq(organizationInvites.status, 'pending')
+            )
+          );
+
+        if (pendingInvites.length > 0) { withPending++; }
       }
-    }
+      return { total: placeholderUsers.length, withPending };
+    });
+
+    const totalPlaceholders = results.reduce((sum, r) => sum + r.total, 0);
+    const withPendingInvites = results.reduce((sum, r) => sum + r.withPending, 0);
 
     return {
-      totalPlaceholders: placeholderUsers.length,
+      totalPlaceholders,
       withPendingInvites,
-      eligibleForCleanup: placeholderUsers.length - withPendingInvites,
+      eligibleForCleanup: totalPlaceholders - withPendingInvites,
     };
   }
 }

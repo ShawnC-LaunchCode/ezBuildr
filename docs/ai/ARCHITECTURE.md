@@ -94,7 +94,7 @@ The AI system enables users to generate, revise, and optimize workflows using na
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          DATA LAYER                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  workflows ──► sections ──► steps ──► logicRules ──► transformBlocks    │
+│  workflows ──► pages ──► steps ──► logicRules ──► transformBlocks    │
 │                                                                          │
 │  ai_settings (global/org/user prompts)                                  │
 │  workflow_personalization_settings (per-workflow AI config)             │
@@ -144,7 +144,7 @@ Handles iterative workflow modifications. Supports three strategies:
 |----------|----------|-------------|
 | **Single-Shot** | Small workflows | < 2,500 input tokens |
 | **Chunked** | Large workflows | 2,500 - 10,000+ tokens |
-| **Two-Pass** | Massive single sections | > 6,000 output tokens |
+| **Two-Pass** | Massive single pages | > 6,000 output tokens |
 
 ### 4. IterativeQualityImprover
 
@@ -181,7 +181,7 @@ Scores workflows across 6 dimensions:
 |----------|--------|--------|
 | **Aliases** | 25% | Descriptive names, camelCase, uniqueness |
 | **Types** | 20% | Appropriate field types for context |
-| **Structure** | 15% | Logical sections, reasonable sizes |
+| **Structure** | 15% | Logical pages, reasonable sizes |
 | **UX** | 15% | Clear questions, proper formatting |
 | **Completeness** | 15% | Title, required fields present |
 | **Validation** | 10% | Required markers, option counts |
@@ -304,7 +304,7 @@ interface QualityIssue {
   type: 'error' | 'warning' | 'suggestion';
   category: string;
   message: string;
-  location?: string;  // e.g., "sections[0].steps[2]"
+  location?: string;  // e.g., "pages[0].steps[2]"
   suggestion?: string;
 }
 ```

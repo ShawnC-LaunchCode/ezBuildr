@@ -15,10 +15,10 @@ import {
   OAuth2State
 } from '@shared/types/connections';
 
-import { db } from '../db';
 import { assertOutboundUrlAllowed } from '../lib/security/ssrfGuard';
 import { logger } from '../logger';
 import { encrypt, decrypt } from '../utils/encryption';
+import { withCurrentTenant, withVerifiedIdentifier } from '../utils/rlsContext';
 
 import {
   generateOAuth2AuthorizationUrl,
@@ -73,45 +73,48 @@ function sanitizeHeaders(headers: unknown): Record<string, string> {
   return sanitized;
 }
 
+/** Row -> API shape. Extracted so the four read paths below cannot drift. */
+function toConnection(row: InferSelectModel<typeof connections>): Connection {
+  // TYPE SAFETY FIX: Validate connection type on read
+  if (!VALID_CONNECTION_TYPES.includes(row.type)) {
+    logger.warn({ connectionId: row.id, type: row.type }, 'Invalid connection type found in database');
+  }
+
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    projectId: row.projectId,
+    name: row.name,
+    type: row.type,
+    baseUrl: row.baseUrl ?? undefined,
+    authConfig: (row.authConfig as Record<string, unknown>) ?? {},
+    secretRefs: (row.secretRefs as Record<string, string>) ?? {},
+    oauthState: row.oauthState as OAuth2State | undefined,
+    defaultHeaders: sanitizeHeaders(row.defaultHeaders),
+    timeoutMs: row.timeoutMs ?? 8000,
+    retries: row.retries ?? 2,
+    backoffMs: row.backoffMs ?? 250,
+    enabled: row.enabled,
+    lastTestedAt: row.lastTestedAt ?? undefined,
+    lastUsedAt: row.lastUsedAt ?? undefined,
+    createdAt: row.createdAt ?? new Date(),
+    updatedAt: row.updatedAt ?? new Date(),
+  };
+}
+
 /**
  * List all connections for a project
  */
 export async function listConnections(projectId: string): Promise<Connection[]> {
-  const results = await db
-    .select()
-    .from(connections)
-    .where(eq(connections.projectId, projectId))
-    .orderBy(connections.name);
+  const results = await withCurrentTenant((tx) =>
+    tx
+      .select()
+      .from(connections)
+      .where(eq(connections.projectId, projectId))
+      .orderBy(connections.name)
+  );
 
-  type DbConnection = InferSelectModel<typeof connections>;
-
-  return results.map((row: DbConnection) => {
-    // TYPE SAFETY FIX: Validate connection type on read
-    if (!VALID_CONNECTION_TYPES.includes(row.type)) {
-      logger.warn({ connectionId: row.id, type: row.type }, 'Invalid connection type found in database');
-    }
-
-    return {
-      id: row.id,
-      tenantId: row.tenantId,
-      projectId: row.projectId,
-      name: row.name,
-      type: row.type,
-      baseUrl: row.baseUrl ?? undefined,
-      authConfig: (row.authConfig as Record<string, unknown>) ?? {},
-      secretRefs: (row.secretRefs as Record<string, string>) ?? {},
-      oauthState: row.oauthState as OAuth2State | undefined,
-      defaultHeaders: sanitizeHeaders(row.defaultHeaders),
-      timeoutMs: row.timeoutMs ?? 8000,
-      retries: row.retries ?? 2,
-      backoffMs: row.backoffMs ?? 250,
-      enabled: row.enabled,
-      lastTestedAt: row.lastTestedAt ?? undefined,
-      lastUsedAt: row.lastUsedAt ?? undefined,
-      createdAt: row.createdAt ?? new Date(),
-      updatedAt: row.updatedAt ?? new Date(),
-    };
-  });
+  return results.map(toConnection);
 }
 
 /**
@@ -121,64 +124,44 @@ export async function getConnection(
   projectId: string,
   connectionId: string
 ): Promise<Connection | null> {
-  const results = await db
-    .select()
-    .from(connections)
-    .where(
-      and(
-        eq(connections.id, connectionId),
-        eq(connections.projectId, projectId)
+  const results = await withCurrentTenant((tx) =>
+    tx
+      .select()
+      .from(connections)
+      .where(
+        and(
+          eq(connections.id, connectionId),
+          eq(connections.projectId, projectId)
+        )
       )
-    );
+  );
 
-  if (results.length === 0) {
-    return null;
-  }
-
-  const row = results[0];
-
-  // TYPE SAFETY FIX: Validate connection type on read
-  if (!VALID_CONNECTION_TYPES.includes(row.type)) {
-    logger.warn({ connectionId: row.id, type: row.type }, 'Invalid connection type found in database');
-  }
-
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    projectId: row.projectId,
-    name: row.name,
-    type: row.type,
-    baseUrl: row.baseUrl ?? undefined,
-    authConfig: (row.authConfig as Record<string, unknown>) ?? {},
-    secretRefs: (row.secretRefs as Record<string, string>) ?? {},
-    oauthState: row.oauthState as OAuth2State | undefined,
-    defaultHeaders: sanitizeHeaders(row.defaultHeaders),
-    timeoutMs: row.timeoutMs ?? 8000,
-    retries: row.retries ?? 2,
-    backoffMs: row.backoffMs ?? 250,
-    enabled: row.enabled,
-    lastTestedAt: row.lastTestedAt ?? undefined,
-    lastUsedAt: row.lastUsedAt ?? undefined,
-    createdAt: row.createdAt ?? new Date(),
-    updatedAt: row.updatedAt ?? new Date(),
-  };
+  return results.length === 0 ? null : toConnection(results[0]);
 }
 
 /**
- * Get a connection by its ID alone (project resolved from the row).
- * Used by the OAuth2 callback, where only the connectionId is carried in the signed state.
+ * Get a connection by its ID alone (project and tenant resolved from the row).
+ *
+ * This is the TENANT BOOTSTRAP read for the two entry points that have no
+ * session — the Stripe webhook and the OAuth2 callback — so it cannot use
+ * `withCurrentTenant`: there is no ambient tenant yet, and that is exactly what
+ * the caller is here to learn. It pins `app.current_connection_id` instead,
+ * which migration 0034 added to `connections`' policy as a USING-only clause
+ * matching this one row by primary key. Read that migration's header before
+ * changing this: the id is a capability (the webhook URL), not a proof, which
+ * is why the grant is read-only and single-row.
+ *
+ * Callers MUST wrap everything they do afterwards in `withTenant(connection
+ * .tenantId, ...)` — no write is reachable through this clause.
  */
 export async function getConnectionById(connectionId: string): Promise<Connection | null> {
-  const results = await db
-    .select({ projectId: connections.projectId })
-    .from(connections)
-    .where(eq(connections.id, connectionId));
+  const results = await withVerifiedIdentifier(
+    'app.current_connection_id',
+    connectionId,
+    (tx) => tx.select().from(connections).where(eq(connections.id, connectionId))
+  );
 
-  if (results.length === 0) {
-    return null;
-  }
-
-  return getConnection(results[0].projectId, connectionId);
+  return results.length === 0 ? null : toConnection(results[0]);
 }
 
 /**
@@ -188,47 +171,19 @@ export async function getConnectionByName(
   projectId: string,
   name: string
 ): Promise<Connection | null> {
-  const results = await db
-    .select()
-    .from(connections)
-    .where(
-      and(
-        eq(connections.projectId, projectId),
-        eq(connections.name, name)
+  const results = await withCurrentTenant((tx) =>
+    tx
+      .select()
+      .from(connections)
+      .where(
+        and(
+          eq(connections.projectId, projectId),
+          eq(connections.name, name)
+        )
       )
-    );
+  );
 
-  if (results.length === 0) {
-    return null;
-  }
-
-  const row = results[0];
-
-  // TYPE SAFETY FIX: Validate connection type on read
-  if (!VALID_CONNECTION_TYPES.includes(row.type)) {
-    logger.warn({ connectionId: row.id, type: row.type }, 'Invalid connection type found in database');
-  }
-
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    projectId: row.projectId,
-    name: row.name,
-    type: row.type,
-    baseUrl: row.baseUrl ?? undefined,
-    authConfig: (row.authConfig as Record<string, unknown>) ?? {},
-    secretRefs: (row.secretRefs as Record<string, string>) ?? {},
-    oauthState: row.oauthState as OAuth2State | undefined,
-    defaultHeaders: sanitizeHeaders(row.defaultHeaders),
-    timeoutMs: row.timeoutMs ?? 8000,
-    retries: row.retries ?? 2,
-    backoffMs: row.backoffMs ?? 250,
-    enabled: row.enabled,
-    lastTestedAt: row.lastTestedAt ?? undefined,
-    lastUsedAt: row.lastUsedAt ?? undefined,
-    createdAt: row.createdAt ?? new Date(),
-    updatedAt: row.updatedAt ?? new Date(),
-  };
+  return results.length === 0 ? null : toConnection(results[0]);
 }
 
 /**
@@ -246,12 +201,23 @@ export async function createConnection(
     throw new Error(`Connection with name "${input.name}" already exists in this project`);
   }
 
-  // Get tenantId from project
-  const project = await db
-    .select({ tenantId: projects.tenantId })
-    .from(projects)
-    .where(eq(projects.id, input.projectId))
-    .limit(1);
+  // Get tenantId from project.
+  //
+  // `projects` is RLS-covered, so this lookup must run tenant-scoped (RLS-2e).
+  // It ran on the bare pool until 2026-08-22: under enforcement the row was
+  // simply invisible, this threw "Project not found", and `classifyRouteError`
+  // turned that into a **404 on every connection creation** — Stripe, Clio and
+  // DocuSign setup all failed with a message pointing at the project rather
+  // than at the missing tenant scope. `externalConnections` itself is not
+  // RLS-covered, so only this read needed scoping; the insert below derives
+  // its `tenantId` from it and stays correct.
+  const project = await withCurrentTenant((tx) =>
+    tx
+      .select({ tenantId: projects.tenantId })
+      .from(projects)
+      .where(eq(projects.id, input.projectId))
+      .limit(1)
+  );
 
   if (project.length === 0) {
     throw new Error(`Project not found: ${input.projectId}`);
@@ -263,7 +229,7 @@ export async function createConnection(
   const sanitizedHeaders = sanitizeHeaders(input.defaultHeaders);
 
   // Insert connection
-  const result = await db
+  const result = await withCurrentTenant((tx) => tx
     .insert(connections)
     .values({
       tenantId: tenantId!,
@@ -279,7 +245,7 @@ export async function createConnection(
       backoffMs: input.backoffMs ?? 250,
       enabled: true,
     })
-    .returning();
+    .returning());
 
   return getConnection(input.projectId, result[0].id) as Promise<Connection>;
 }
@@ -310,7 +276,7 @@ export async function updateConnection(
   const sanitizedHeaders = input.defaultHeaders ? sanitizeHeaders(input.defaultHeaders) : undefined;
 
   // Update connection
-  await db
+  await withCurrentTenant((tx) => tx
     .update(connections)
     .set({
       name: input.name,
@@ -329,7 +295,7 @@ export async function updateConnection(
         eq(connections.id, connectionId),
         eq(connections.projectId, projectId)
       )
-    );
+    ));
 
   return getConnection(projectId, connectionId) as Promise<Connection>;
 }
@@ -341,14 +307,14 @@ export async function deleteConnection(
   projectId: string,
   connectionId: string
 ): Promise<void> {
-  await db
+  await withCurrentTenant((tx) => tx
     .delete(connections)
     .where(
       and(
         eq(connections.id, connectionId),
         eq(connections.projectId, projectId)
       )
-    );
+    ));
 }
 
 /**
@@ -465,10 +431,10 @@ export async function testConnection(
     const responseTime = Date.now() - startTime;
 
     // Update lastTestedAt
-    await db
+    await withCurrentTenant((tx) => tx
       .update(connections)
       .set({ lastTestedAt: new Date() })
-      .where(eq(connections.id, connectionId));
+      .where(eq(connections.id, connectionId)));
 
     return {
       success: response.ok,
@@ -577,13 +543,13 @@ export async function handleOAuth2Callback(
   };
 
   // Update connection with OAuth state
-  await db
+  await withCurrentTenant((tx) => tx
     .update(connections)
     .set({
       oauthState,
       updatedAt: new Date(),
     })
-    .where(eq(connections.id, connectionId));
+    .where(eq(connections.id, connectionId)));
 
   return getConnection(projectId, connectionId) as Promise<Connection>;
 }
@@ -643,13 +609,13 @@ export async function refreshConnectionToken(
   };
 
   // Update connection
-  await db
+  await withCurrentTenant((tx) => tx
     .update(connections)
     .set({
       oauthState,
       updatedAt: new Date(),
     })
-    .where(eq(connections.id, connectionId));
+    .where(eq(connections.id, connectionId)));
 
   // Return decrypted access token
   return tokenResponse.access_token;
@@ -693,8 +659,8 @@ export async function getConnectionStatus(
  * Update last used timestamp
  */
 export async function markConnectionUsed(connectionId: string): Promise<void> {
-  await db
+  await withCurrentTenant((tx) => tx
     .update(connections)
     .set({ lastUsedAt: new Date() })
-    .where(eq(connections.id, connectionId));
+    .where(eq(connections.id, connectionId)));
 }

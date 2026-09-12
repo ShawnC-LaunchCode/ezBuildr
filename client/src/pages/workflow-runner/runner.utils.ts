@@ -13,6 +13,8 @@ interface WorkflowRunResponse {
         runId: string;
         runToken: string;
         workflowId: string;
+        currentPageId: string | null;
+        visitedPageIds: string[];
     };
     error?: string;
 }
@@ -21,7 +23,7 @@ interface WorkflowRunResponse {
 export async function startRunFromSlug(
     slug: string,
     initialValues?: Record<string, unknown>
-): Promise<{ runId: string; runToken: string; workflowId: string }> {
+): Promise<WorkflowRunResponse['data']> {
     const result = await fetchAPI<WorkflowRunResponse>(`/api/workflows/public/${slug}/start`, {
         method: 'POST',
         body: JSON.stringify({ initialValues }),
@@ -34,7 +36,7 @@ export async function startRunFromSlug(
 export async function startRunFromWorkflowId(
     workflowId: string,
     initialValues?: Record<string, unknown>
-): Promise<{ runId: string; runToken: string; workflowId: string }> {
+): Promise<WorkflowRunResponse['data']> {
     const result = await fetchAPI<WorkflowRunResponse>(`/api/workflows/${workflowId}/runs`, {
         method: 'POST',
         body: JSON.stringify({ initialValues }),

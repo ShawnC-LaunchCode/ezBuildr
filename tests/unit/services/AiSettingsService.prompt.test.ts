@@ -1,58 +1,40 @@
-import { describe, it, expect } from 'vitest';
-import { DEFAULT_SYSTEM_PROMPT } from '../../../server/services/AiSettingsService';
+import { describe, expect, it } from 'vitest';
+
 import { buildWorkflowVocabulary } from '../../../shared/aiVocabulary';
+import {
+    buildDefaultSystemPrompt,
+    DEFAULT_SYSTEM_PROMPT,
+    renderWorkflowVocabulary,
+} from '../../../server/services/AiSettingsService';
 
-describe('DEFAULT_SYSTEM_PROMPT rendering (AISL-11)', () => {
-    it('places all placeholders after the vocabulary catalog', () => {
-        // Assert AC2: The set of placeholders is unchanged
+describe('mode-aware system prompt rendering', () => {
+    it('places the selected vocabulary before all personalization placeholders', () => {
+        const rendered = buildDefaultSystemPrompt('easy');
+        const vocabulary = buildWorkflowVocabulary('easy');
         const placeholders = ['{{interviewerRole}}', '{{readingLevel}}', '{{tone}}'];
-        for (const p of placeholders) {
-            expect(DEFAULT_SYSTEM_PROMPT).toContain(p);
-            // Assert exactly once each
-            const count = (DEFAULT_SYSTEM_PROMPT.match(new RegExp(p, 'g')) || []).length;
-            expect(count).toBe(1);
+        const vocabularyEnd = rendered.indexOf(vocabulary) + vocabulary.length;
+
+        for (const placeholder of placeholders) {
+            expect(rendered.match(new RegExp(placeholder, 'g'))).toHaveLength(1);
+            expect(rendered.indexOf(placeholder)).toBeGreaterThan(vocabularyEnd);
         }
-
-        const vocabCatalog = buildWorkflowVocabulary();
-        const indexOfVocab = DEFAULT_SYSTEM_PROMPT.indexOf(vocabCatalog);
-        expect(indexOfVocab).toBeGreaterThan(-1);
-
-        const lastIndexOfVocab = indexOfVocab + vocabCatalog.length;
-
-        // Find the index of the first placeholder
-        const firstPlaceholderIndex = Math.min(
-            ...placeholders.map(p => DEFAULT_SYSTEM_PROMPT.indexOf(p))
-        );
-
-        // Assert AC5: index of the first placeholder is greater than the index of the vocabulary catalog's last line
-        expect(firstPlaceholderIndex).toBeGreaterThan(lastIndexOfVocab);
     });
 
-    it('replaces all three placeholders when rendering (AC3)', () => {
-        const preferences = {
-            interviewerRole: 'workflow tester',
-            readingLevel: 'simple',
-            tone: 'friendly'
-        };
+    it('renders distinct Easy and Advanced canonical catalogs', () => {
+        const easy = buildDefaultSystemPrompt('easy');
+        const advanced = buildDefaultSystemPrompt('advanced');
+        expect(easy).toContain(buildWorkflowVocabulary('easy'));
+        expect(easy).not.toContain('- js_question:');
+        expect(advanced).toContain(buildWorkflowVocabulary('advanced'));
+        expect(advanced).toContain('- js_question:');
+    });
 
-        const rendered = DEFAULT_SYSTEM_PROMPT
-            .replace(/{{interviewerRole}}/g, preferences.interviewerRole)
-            .replace(/{{readingLevel}}/g, preferences.readingLevel)
-            .replace(/{{tone}}/g, preferences.tone);
-
-        // Should not contain any unresolved placeholder syntax
-        expect(rendered).not.toContain('{{');
-        expect(rendered).not.toContain('}}');
-
-        // Should contain the substituted values
-        expect(rendered).toContain(preferences.interviewerRole);
-        expect(rendered).toContain(preferences.readingLevel);
-        expect(rendered).toContain(preferences.tone);
-
-        // Should still contain the vocab catalog (AC4)
-        expect(rendered).toContain(buildWorkflowVocabulary());
-        
-        // Should still contain a guideline line (AC4)
-        expect(rendered).toContain('- Generate clear, concise operation steps');
+    it('appends the enforced vocabulary to a saved override without a catalog slot', () => {
+        const override = 'Custom workflow rules. Role: {{interviewerRole}}';
+        const rendered = renderWorkflowVocabulary(override, 'advanced');
+        expect(rendered).toContain(override);
+        expect(rendered).toContain(buildWorkflowVocabulary('advanced'));
+        expect(rendered.match(/Available operations:/g)).toHaveLength(1);
+        expect(DEFAULT_SYSTEM_PROMPT).toContain('{{workflowVocabulary}}');
     });
 });

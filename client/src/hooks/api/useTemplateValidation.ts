@@ -22,7 +22,7 @@ export interface TemplateValidationReport {
     }>;
     loopScoped: string[];
     unusedVariables: Array<{ alias: string; label: string }>;
-    stepsWithoutAlias: Array<{ stepId: string; label: string; sectionTitle: string }>;
+    stepsWithoutAlias: Array<{ stepId: string; label: string; pageTitle: string }>;
     syntaxErrors: string[];
     unknownHelpers: string[];
     valid: boolean;

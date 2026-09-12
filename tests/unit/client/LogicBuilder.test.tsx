@@ -54,9 +54,9 @@ const SIBLING_VARIABLES: VariableInfo[] = [
     alias: 'trigger',
     label: 'Trigger field',
     title: 'Trigger field',
-    type: 'short_text',
-    sectionId: 'this-item',
-    sectionTitle: "This item's fields",
+    type: 'text',
+    pageId: 'this-item',
+    pageTitle: "This item's fields",
   },
 ];
 
@@ -111,8 +111,8 @@ describe('LogicBuilder — fetch path still renders workflow variables (LU-2 AC4
           alias: 'first_name',
           label: 'First name',
           type: 'short_text',
-          sectionId: 's1',
-          sectionTitle: 'Page 1',
+          pageId: 's1',
+          pageTitle: 'Page 1',
         },
       ],
       isLoading: false,

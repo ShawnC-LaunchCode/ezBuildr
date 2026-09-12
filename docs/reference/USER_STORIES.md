@@ -78,12 +78,12 @@ The primary user who creates, manages, and analyzes surveys.
 **US-C-011: Add Pages to Survey**
 - **As a** survey creator
 - **I want to** add multiple pages to my survey
-- **So that** I can organize questions into logical sections
+- **So that** I can organize questions into logical pages
 
 **US-C-012: Edit Page Titles**
 - **As a** survey creator
 - **I want to** edit page titles
-- **So that** I can provide clear section headings for respondents
+- **So that** I can provide clear page headings for respondents
 
 **US-C-013: Reorder Pages**
 - **As a** survey creator
@@ -93,7 +93,7 @@ The primary user who creates, manages, and analyzes surveys.
 **US-C-014: Delete Pages**
 - **As a** survey creator
 - **I want to** delete pages from my survey
-- **So that** I can remove unnecessary sections
+- **So that** I can remove unnecessary pages
 
 ### Question Management
 
@@ -187,7 +187,7 @@ The primary user who creates, manages, and analyzes surveys.
 **US-C-032: Create Page-Level Logic**
 - **As a** survey creator
 - **I want to** create rules that show or hide entire pages
-- **So that** I can skip irrelevant sections based on responses
+- **So that** I can skip irrelevant pages based on responses
 
 ### Recipient Management
 

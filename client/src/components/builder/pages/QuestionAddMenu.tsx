@@ -30,13 +30,13 @@ import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface QuestionAddMenuProps {
-  sectionId: string;
+  pageId: string;
   nextOrder: number;
   workflowId: string;
 }
 
 export function QuestionAddMenu({
-  sectionId,
+  pageId,
   nextOrder,
   workflowId,
 }: QuestionAddMenuProps) {
@@ -54,7 +54,7 @@ export function QuestionAddMenu({
 
       // Create the step
       const step = await createStepMutation.mutateAsync({
-        sectionId,
+        pageId,
         type: block.type as StepType,
         title: `New ${block.label}`,
         description: null,
@@ -122,13 +122,13 @@ export function QuestionAddMenu({
                   </DropdownMenuLabel>
                   {blocksByCategory[category]?.map((block) => (
                     <DropdownMenuItem
-                      key={block.type}
+                      key={block.id ?? block.type}
                       onClick={() => {
                         void handleAddQuestion(block);
                       }}
                       className="cursor-pointer gap-2.5 py-1.5"
                     >
-                      <QuestionTypeIcon type={block.type} size="md" />
+                      <QuestionTypeIcon type={block.type} presentation={block} size="md" />
                       <div className="min-w-0 flex flex-col">
                         <span>{block.label}</span>
                         {block.description !== undefined && (

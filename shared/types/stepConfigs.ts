@@ -16,6 +16,36 @@
 import type { DeliveryDestination } from "./delivery";
 import type { MappingBinding } from "./documentMapping";
 
+/**
+ * Stored step identities after the toolbox migration is complete.
+ *
+ * `StepType` deliberately remains the wider persisted union during rollout.
+ * Presets and compatibility aliases must point at one of these identities
+ * without adding another canonical type.
+ */
+export const CANONICAL_STEP_TYPES = [
+  "text",
+  "boolean",
+  "phone",
+  "date_time",
+  "choice",
+  "email",
+  "number",
+  "scale",
+  "website",
+  "address",
+  "multi_field",
+  "display",
+  "file_upload",
+  "list",
+  "js_question",
+  "computed",
+  "final_documents",
+  "signature_block",
+] as const;
+
+export type CanonicalStepType = (typeof CANONICAL_STEP_TYPES)[number];
+
 // ============================================================================
 // BASE TYPES & UTILITIES
 // ============================================================================
@@ -55,12 +85,43 @@ export interface ChoiceOption {
 // ============================================================================
 
 /**
- * Phone Number Config (Easy Mode)
- * US phone number input with automatic formatting
+ * Canonical stored config for the `phone` family (STB-13).
  */
 export interface PhoneConfig {
-  format?: 'US' | 'international';  // Default: US
+  format?: 'national' | 'international' | 'US';
+  validation?: {
+    strict?: boolean;
+  };
   placeholder?: string;
+}
+
+/**
+ * Read a phone-family config through the canonical shape.
+ */
+export function resolvePhoneConfig(
+  rawConfig: unknown,
+): PhoneConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: PhoneConfig = {};
+  
+  if (config.format === 'national') { resolved.format = 'national'; }
+  else if (config.format === 'international') { resolved.format = 'international'; }
+  else { resolved.format = 'US'; }
+
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  
+  const nestedValidation = typeof config.validation === 'object' && config.validation !== null
+    ? config.validation as Record<string, unknown>
+    : {};
+  
+  if (typeof nestedValidation.strict === 'boolean') {
+    resolved.validation = { strict: nestedValidation.strict };
+  }
+  
+  return resolved;
 }
 
 /**
@@ -82,24 +143,44 @@ export interface TimeConfig {
   step?: number;           // Minutes step (default: 15)
 }
 
-/**
- * DateTime Config (Easy Mode)
- * Combined date and time picker
- */
+/** Canonical config for the Date, Time, and Date/Time preset family. */
 export interface DateTimeConfig {
+  kind: 'date' | 'time' | 'datetime';
   minDate?: string;
   maxDate?: string;
+  defaultToToday?: boolean;
   timeFormat?: '12h' | '24h';
   timeStep?: number;
 }
 
 /**
- * Email Config (Easy Mode)
- * Email input with basic validation
+ * Canonical stored config for the `email` family (STB-13).
  */
 export interface EmailConfig {
-  allowMultiple?: boolean; // Allow comma-separated emails
+  allowMultiple?: boolean;
+  maxEmails?: number;
+  restrictDomains?: string[];
+  blockDomains?: string[];
   placeholder?: string;
+}
+
+/**
+ * Read an email-family config through the canonical shape.
+ */
+export function resolveEmailConfig(
+  rawConfig: unknown,
+): EmailConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: EmailConfig = {};
+  if (typeof config.allowMultiple === 'boolean') { resolved.allowMultiple = config.allowMultiple; }
+  if (typeof config.maxEmails === 'number') { resolved.maxEmails = config.maxEmails; }
+  if (Array.isArray(config.restrictDomains)) { resolved.restrictDomains = config.restrictDomains as string[]; }
+  if (Array.isArray(config.blockDomains)) { resolved.blockDomains = config.blockDomains as string[]; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  return resolved;
 }
 
 /**
@@ -140,12 +221,33 @@ export interface ScaleConfig {
 }
 
 /**
- * Website Config (Easy Mode)
- * URL input with validation
+ * Canonical stored config for the `website` family (STB-13).
  */
 export interface WebsiteConfig {
-  requireProtocol?: boolean;  // Require http:// or https:// (default: false)
+  requireProtocol?: boolean;
+  allowedProtocols?: ('http' | 'https' | 'ftp')[];
+  restrictDomains?: string[];
+  blockDomains?: string[];
   placeholder?: string;
+}
+
+/**
+ * Read a website-family config through the canonical shape.
+ */
+export function resolveWebsiteConfig(
+  rawConfig: unknown,
+): WebsiteConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+    
+  const resolved: WebsiteConfig = {};
+  if (typeof config.requireProtocol === 'boolean') { resolved.requireProtocol = config.requireProtocol; }
+  if (Array.isArray(config.allowedProtocols)) { resolved.allowedProtocols = config.allowedProtocols as ('http' | 'https' | 'ftp')[]; }
+  if (Array.isArray(config.restrictDomains)) { resolved.restrictDomains = config.restrictDomains as string[]; }
+  if (Array.isArray(config.blockDomains)) { resolved.blockDomains = config.blockDomains as string[]; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  return resolved;
 }
 
 /**
@@ -192,6 +294,55 @@ export interface TextAdvancedConfig {
   autoComplete?: string;   // HTML autocomplete attribute
 }
 
+/** Canonical stored answer for either text variant. */
+export type TextValue = string | null;
+
+/**
+ * Read a text-family config through the canonical shape.
+ *
+ * `short_text` / `long_text` are retained here only as a read adapter for
+ * rows created before STB-3. New authoring paths persist `text` plus
+ * `variant`; STB-19 removes the aliases after stored artifacts are backfilled.
+ */
+export function resolveTextConfig(
+  stepType: string,
+  rawConfig: unknown,
+): TextAdvancedConfig {
+  const config = typeof rawConfig === 'object' && rawConfig !== null
+    ? rawConfig as Record<string, unknown>
+    : {};
+  const nestedValidation = typeof config.validation === 'object' && config.validation !== null
+    ? config.validation as Record<string, unknown>
+    : {};
+  const validation: TextValidation = {};
+
+  const minLength = nestedValidation.minLength ?? config.minLength;
+  const maxLength = nestedValidation.maxLength ?? config.maxLength;
+  const pattern = nestedValidation.pattern ?? config.pattern;
+  const patternMessage = nestedValidation.patternMessage ?? config.patternMessage;
+  if (typeof minLength === 'number') { validation.minLength = minLength; }
+  if (typeof maxLength === 'number') { validation.maxLength = maxLength; }
+  if (typeof pattern === 'string') { validation.pattern = pattern; }
+  if (typeof patternMessage === 'string') { validation.patternMessage = patternMessage; }
+
+  const configuredVariant = config.variant;
+  const variant = stepType === 'long_text'
+    ? 'long'
+    : stepType === 'short_text'
+      ? 'short'
+      : configuredVariant === 'long'
+        ? 'long'
+        : 'short';
+  const resolved: TextAdvancedConfig = { variant };
+
+  if (Object.keys(validation).length > 0) { resolved.validation = validation; }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+  if (typeof config.helpText === 'string') { resolved.helpText = config.helpText; }
+  if (typeof config.autoComplete === 'string') { resolved.autoComplete = config.autoComplete; }
+
+  return resolved;
+}
+
 /**
  * Boolean Config (Advanced Mode)
  * Boolean with fully customizable labels
@@ -203,36 +354,81 @@ export interface BooleanAdvancedConfig {
   trueAlias?: string;      // Alias for true value (if storeAsBoolean=false)
   falseAlias?: string;     // Alias for false value (if storeAsBoolean=false)
   defaultValue?: boolean | string;
-  displayStyle?: 'toggle' | 'radio' | 'checkbox';
+  displayStyle?: 'buttons' | 'radio' | 'toggle' | 'checkbox';
 }
 
-/**
- * Phone Config (Advanced Mode)
- * International phone support with country codes
- */
-export interface PhoneAdvancedConfig {
-  defaultCountry?: string; // ISO country code (default: US)
-  allowedCountries?: string[];  // Restrict to specific countries
-  format?: 'national' | 'international';
-  validation?: {
-    strict?: boolean;      // Strict validation (default: true)
+export interface ResolvedBooleanConfig {
+  trueLabel: string;
+  falseLabel: string;
+  trueAlias: string;
+  falseAlias: string;
+  storeAsBoolean: boolean;
+  displayStyle: 'buttons' | 'radio' | 'toggle' | 'checkbox';
+}
+
+function isBooleanConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readBooleanConfigString(
+  config: Record<string, unknown>,
+  key: string,
+  fallback: string
+): string {
+  const value = config[key];
+  return typeof value === 'string' && value.trim() !== '' ? value : fallback;
+}
+
+/** One read-compatible Boolean contract for storage, validation, logic, and display. */
+export function resolveBooleanConfig(rawConfig: unknown): ResolvedBooleanConfig {
+  const config = isBooleanConfigRecord(rawConfig) ? rawConfig : {};
+  const displayStyle = config.displayStyle;
+  const trueLabel = readBooleanConfigString(
+    config,
+    'trueLabel',
+    readBooleanConfigString(config, 'yesLabel', 'Yes')
+  );
+  const falseLabel = readBooleanConfigString(
+    config,
+    'falseLabel',
+    readBooleanConfigString(config, 'noLabel', 'No')
+  );
+  return {
+    trueLabel,
+    falseLabel,
+    trueAlias: readBooleanConfigString(config, 'trueAlias', 'true'),
+    falseAlias: readBooleanConfigString(config, 'falseAlias', 'false'),
+    storeAsBoolean: config.storeAsBoolean !== false,
+    displayStyle: displayStyle === 'radio' || displayStyle === 'toggle' || displayStyle === 'checkbox'
+      ? displayStyle
+      : 'buttons',
   };
 }
 
-/**
- * DateTime Config (Advanced Mode)
- * Unified date/time picker with metadata
- */
-export interface DateTimeUnifiedConfig {
-  kind: 'date' | 'time' | 'datetime';
-  format?: string;         // Custom format string (moment.js style)
-  minDate?: string;
-  maxDate?: string;
-  timeFormat?: '12h' | '24h';
-  timeStep?: number;
-  timezone?: string;       // IANA timezone (e.g., "America/New_York")
-  showTimezone?: boolean;  // Display timezone selector
+export function getBooleanStorageValue(logicalValue: boolean, rawConfig: unknown): boolean | string {
+  const config = resolveBooleanConfig(rawConfig);
+  if (config.storeAsBoolean) { return logicalValue; }
+  return logicalValue ? config.trueAlias : config.falseAlias;
 }
+
+/**
+ * Reads current aliases and historical label-backed answers. New writes must
+ * still use getBooleanStorageValue; accepting labels here is display/resume
+ * compatibility, not permission to persist another label-backed answer.
+ */
+export function resolveBooleanLogicalValue(value: unknown, rawConfig: unknown): boolean | undefined {
+  if (typeof value === 'boolean') { return value; }
+  if (typeof value !== 'string') { return undefined; }
+  const config = resolveBooleanConfig(rawConfig);
+  if (value === config.trueAlias || value === config.trueLabel) { return true; }
+  if (value === config.falseAlias || value === config.falseLabel) { return false; }
+  return undefined;
+}
+
+
+
+/** @deprecated Use DateTimeConfig. Retained as a source-compatible type name. */
+export type DateTimeUnifiedConfig = DateTimeConfig;
 
 /**
  * Dynamic Options Source Type
@@ -313,7 +509,7 @@ export interface ChoiceAdvancedConfig {
    * `searchable: true` pairing — see `searchable` below.
    */
   display: 'radio' | 'dropdown' | 'combobox' | 'multiple';
-  allowMultiple: boolean;  // Enable multi-select
+  layout?: 'vertical' | 'horizontal';  // Layout for radio/multiple controls
   options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or DynamicConfig (Legacy)
   dynamicOptions?: DynamicOptionsConfig; // Explicit dynamic options configuration
   min?: number;            // Minimum selections (for multiple)
@@ -360,11 +556,26 @@ export type ChoiceDisplay = 'radio' | 'dropdown' | 'combobox' | 'multiple';
  *    checkboxes.
  */
 export function resolveChoiceDisplay(
-  config: Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'> | undefined | null,
+  config: Pick<ChoiceAdvancedConfig, 'display' | 'searchable'> | undefined | null,
   stepType?: string,
 ): ChoiceDisplay {
   if (stepType === 'multiple_choice') { return 'multiple'; }
-  if (config?.allowMultiple === true || config?.display === 'multiple') { return 'multiple'; }
+  if (config?.display === 'multiple') { return 'multiple'; }
+  // Read compatibility for rows written before STB-7 (reviewer, 2026-08-29).
+  // `allowMultiple` is gone from the authored schema -- nothing can write it
+  // any more, and `display` alone decides cardinality for anything new. But it
+  // was a *required* field, and the previous resolver returned 'multiple' when
+  // either it or `display` said so, which the ticket's own Finding notes could
+  // disagree. AI, API and import callers bypass the editor that kept them in
+  // step, so a stored `{ display: 'radio', allowMultiple: true }` was a real
+  // multi-select whose answer is a string[]. Dropping the signal outright would
+  // silently make it single-select and orphan that answer, so it is honoured on
+  // read only, exactly as resolveTextConfig/resolveNumberConfig/
+  // resolveDateTimeConfig do for their families. STB-19 must map it to
+  // `display: 'multiple'` before removing it from stored artifacts.
+  if ((config as { allowMultiple?: unknown } | undefined | null)?.allowMultiple === true) {
+    return 'multiple';
+  }
   if (config?.display === 'combobox') { return 'combobox'; }
   if (config?.display === 'dropdown') {
     return config.searchable === true ? 'combobox' : 'dropdown';
@@ -372,25 +583,14 @@ export function resolveChoiceDisplay(
   return 'radio';
 }
 
-/**
- * Email Config (Advanced Mode)
- * Advanced email with additional validation
- */
-export interface EmailAdvancedConfig {
-  allowMultiple?: boolean;
-  maxEmails?: number;      // Max number of emails (if allowMultiple)
-  restrictDomains?: string[];  // Whitelist of allowed domains
-  blockDomains?: string[];     // Blacklist of blocked domains
-  requireVerification?: boolean;  // Require email verification
-  placeholder?: string;
-}
+
 
 /**
  * Number Config (Advanced Mode)
  * Advanced number with currency and formatting options
  */
 export interface NumberAdvancedConfig {
-  mode: 'number' | 'currency_whole' | 'currency_decimal';
+  mode: NumberMode;
   validation?: NumberValidation;
   currency?: string;       // ISO currency code (for currency modes)
   formatOnInput?: boolean; // Apply formatting as user types
@@ -400,53 +600,114 @@ export interface NumberAdvancedConfig {
   placeholder?: string;
 }
 
-/**
- * Scale Config (Advanced Mode)
- * Advanced scale with custom styling and ranges
- */
-export interface ScaleAdvancedConfig {
-  min: number;
-  max: number;
-  step: number;
-  display: 'slider' | 'stars' | 'buttons';
-  stars?: number;          // Number of stars (if display=stars)
-  showValue?: boolean;
-  minLabel?: string;
-  maxLabel?: string;
-  labels?: Record<number, string>;  // Custom labels for specific values
-  color?: string;          // Custom color/theme
-}
+/** Canonical stored answer for the number family. */
+export type NumberValue = number | null;
+
+export type NumberMode = 'number' | 'currency_whole' | 'currency_decimal';
 
 /**
- * Website Config (Advanced Mode)
- * Advanced URL validation with protocol/domain checking
+ * Canonical stored config for the `number` family (STB-9).
+ *
+ * Per Decision 8: display and storage are separate. `thousandsSeparator`,
+ * `formatOnInput`, `prefix` and `suffix` affect only what the respondent sees;
+ * the stored value is always `number | null`. `prefix`/`suffix` are
+ * plain-number decorations and must not be used to fake currency — ISO
+ * currency formatting owns symbols and ISO fraction rules.
  */
-export interface WebsiteAdvancedConfig {
-  requireProtocol: boolean;
-  allowedProtocols?: ('http' | 'https' | 'ftp')[];
-  restrictDomains?: string[];   // Whitelist of allowed domains
-  blockDomains?: string[];      // Blacklist of blocked domains
-  validateDns?: boolean;        // Check if domain exists (backend)
+export interface NumberCanonicalConfig {
+  mode: NumberMode;
+  validation?: NumberValidation;
+  /** ISO 4217 code. Present only for currency modes; defaults to USD when read. */
+  currency?: string;
+  /** Group thousands in the displayed value. Display only. */
+  thousandsSeparator?: boolean;
+  /** Group while the field has focus too, rather than only once it blurs. */
+  formatOnInput?: boolean;
+  prefix?: string;
+  suffix?: string;
   placeholder?: string;
 }
 
-/**
- * Address Config (Advanced Mode)
- * International address support with flexible field configuration
- */
-export interface AddressAdvancedConfig {
-  country?: string;        // ISO country code (default: US)
-  allowedCountries?: string[];  // Restrict to specific countries
-  fields: Array<{
-    key: string;           // Field identifier (e.g., "street1", "city")
-    label: string;         // Display label
-    type: 'text' | 'select';
-    required: boolean;
-    options?: string[];    // For select fields (e.g., states)
-  }>;
-  autoComplete?: boolean;  // Enable address autocomplete
-  validateAddress?: boolean;  // Validate address via API
+function resolveNumberMode(
+  stepType: string,
+  config: Record<string, unknown>,
+): NumberMode {
+  const storedMode = config.mode;
+  if (storedMode === 'currency_whole' || storedMode === 'currency_decimal') {
+    return storedMode;
+  }
+  if (stepType === 'currency') {
+    return config.allowDecimal === false ? 'currency_whole' : 'currency_decimal';
+  }
+  return 'number';
 }
+
+function readNumberSetting(
+  config: Record<string, unknown>,
+  nested: Record<string, unknown>,
+  key: keyof NumberValidation,
+): number | undefined {
+  const value = nested[key] ?? config[key];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function resolveNumberValidation(
+  config: Record<string, unknown>,
+  nested: Record<string, unknown>,
+  mode: NumberMode,
+): NumberValidation {
+  const validation: NumberValidation = {};
+  const keys = ['min', 'max', 'step', 'precision'] as const;
+
+  for (const key of keys) {
+    const value = readNumberSetting(config, nested, key);
+    if (value !== undefined) {
+      validation[key] = value;
+    }
+  }
+
+  // The retired easy shape expressed precision as a boolean.
+  if (mode === 'number' && validation.precision === undefined && config.allowDecimal === false) {
+    validation.precision = 0;
+  }
+
+  return validation;
+}
+
+/**
+ * Read a number-family config through the canonical shape.
+ *
+ * Handles four stored dialects: canonical `number`, the pre-STB-9 easy shape
+ * with `min`/`max`/`step`/`allowDecimal` at the root, `number_advanced`, and
+ * legacy `currency`. Read compatibility remains until STB-19 backfills rows;
+ * every new writer uses the canonical `number` identity.
+ */
+export function resolveNumberConfig(
+  stepType: string,
+  rawConfig: unknown,
+): NumberCanonicalConfig {
+  const config = isObjectRecord(rawConfig) ? rawConfig : {};
+  const nested = isObjectRecord(config.validation) ? config.validation : {};
+  const mode = resolveNumberMode(stepType, config);
+  const validation = resolveNumberValidation(config, nested, mode);
+
+  const resolved: NumberCanonicalConfig = { mode };
+  if (Object.keys(validation).length > 0) { resolved.validation = validation; }
+  if (config.thousandsSeparator === true) { resolved.thousandsSeparator = true; }
+  if (mode === 'number') {
+    if (config.formatOnInput === true) { resolved.formatOnInput = true; }
+    if (typeof config.prefix === 'string' && config.prefix !== '') { resolved.prefix = config.prefix; }
+    if (typeof config.suffix === 'string' && config.suffix !== '') { resolved.suffix = config.suffix; }
+  } else {
+    resolved.currency = typeof config.currency === 'string' && config.currency !== ''
+      ? config.currency.toUpperCase()
+      : 'USD';
+  }
+  if (typeof config.placeholder === 'string') { resolved.placeholder = config.placeholder; }
+
+  return resolved;
+}
+
 
 /**
  * Multi-Field Config (Advanced Mode)
@@ -463,23 +724,6 @@ export interface MultiFieldConfig {
     validation?: TextValidation | NumberValidation;
   }>;
   storeAs: 'separate' | 'combined';  // Store as separate step values or single object
-}
-
-/**
- * Display Config (Advanced Mode)
- * Rich display with templates and dynamic content
- */
-export interface DisplayAdvancedConfig {
-  markdown: string;
-  allowHtml: boolean;
-  template?: boolean;      // Enable variable substitution (e.g., {{firstName}})
-  variables?: string[];    // Whitelisted variables for template
-  style?: {
-    backgroundColor?: string;
-    textColor?: string;
-    fontSize?: 'sm' | 'md' | 'lg';
-    alignment?: 'left' | 'center' | 'right';
-  };
 }
 
 // ============================================================================
@@ -535,20 +779,64 @@ export interface LegacyDateTimeConfig {
   format?: string;
 }
 
+function dateTimeConfigRecord(rawConfig: unknown): Record<string, unknown> {
+  return typeof rawConfig === 'object' && rawConfig !== null && !Array.isArray(rawConfig)
+    ? rawConfig as Record<string, unknown>
+    : {};
+}
+
+/**
+ * Read pre-STB-4 date/time rows through the canonical config contract.
+ * New authoring always writes `date_time`; the aliases remain readable until
+ * STB-19 backfills stored artifacts and removes them from the enum.
+ */
+export function resolveDateTimeConfig(stepType: string, rawConfig: unknown): DateTimeConfig {
+  const config = dateTimeConfigRecord(rawConfig);
+  const configuredKind = config.kind;
+  let kind: DateTimeConfig['kind'];
+
+  if (configuredKind === 'date' || configuredKind === 'time' || configuredKind === 'datetime') {
+    kind = configuredKind;
+  } else if (stepType === 'date') {
+    kind = 'date';
+  } else if (stepType === 'time') {
+    kind = 'time';
+  } else if (config.showDate === false && config.showTime === true) {
+    kind = 'time';
+  } else if (config.showDate === true && config.showTime === false) {
+    kind = 'date';
+  } else {
+    kind = 'datetime';
+  }
+
+  const resolved: DateTimeConfig = { kind };
+  if (typeof config.minDate === 'string') { resolved.minDate = config.minDate; }
+  if (typeof config.maxDate === 'string') { resolved.maxDate = config.maxDate; }
+  if (typeof config.defaultToToday === 'boolean') { resolved.defaultToToday = config.defaultToToday; }
+
+  const legacyFormat = config.format;
+  const timeFormat = config.timeFormat
+    ?? (legacyFormat === '12h' || legacyFormat === '24h' ? legacyFormat : undefined);
+  if (timeFormat === '12h' || timeFormat === '24h') { resolved.timeFormat = timeFormat; }
+
+  const timeStep = config.timeStep ?? config.step;
+  if (typeof timeStep === 'number') { resolved.timeStep = timeStep; }
+  return resolved;
+}
+
 // ============================================================================
 // SPECIAL CONFIGS
 // ============================================================================
 
 // JsQuestionConfig is imported from ./steps
-import { JsQuestionConfig } from "./steps";
+import { JsQuestionConfig, LEGACY_JS_QUESTION_ADAPTER } from "./steps";
 
 /**
  * Computed Step Config
- * Virtual steps created by transform blocks
+ * Virtual computed output steps
  */
 export interface ComputedStepConfig {
-  transformBlockId?: string;  // Reference to transform block
-  formula?: string;           // Simple formula (alternative to transform block)
+  formula?: string;           // Simple formula
   inputKeys?: string[];       // Input variables
 }
 
@@ -590,7 +878,7 @@ export interface FinalBlockConfig {
     alias: string;            // Short name for this document (e.g., "contract", "receipt")
     pinnedVersionId?: string | null; // Selected version of the template (GH-171)
     // LU-5: the same ConditionExpression language steps.visible_if /
-    // sections.visible_if already use (28 operators, nested AND/OR groups),
+    // pages.visible_if already use (28 operators, nested AND/OR groups),
     // evaluated directly by shared/conditionEvaluator.ts - not the flat
     // `{key, op}` LogicExpression this superseded. See EnhancedDocumentEngine.
     conditions?: ConditionExpression | null;  // Optional conditional logic for this document
@@ -671,7 +959,15 @@ function isListFieldQuestionType(
  */
 export const LIST_FIELD_QUESTION_TYPES = RUNNER_RENDERED_STEP_TYPES.filter(isListFieldQuestionType);
 
-export type ListFieldQuestionType = (typeof LIST_FIELD_QUESTION_TYPES)[number];
+/** Pre-STB-19 nested definitions remain readable but are not authorable. */
+export const LEGACY_LIST_FIELD_QUESTION_TYPES = ["short_text", "long_text"] as const;
+
+export const STORED_LIST_FIELD_QUESTION_TYPES = [
+  ...LIST_FIELD_QUESTION_TYPES,
+  ...LEGACY_LIST_FIELD_QUESTION_TYPES,
+] as const;
+
+export type ListFieldQuestionType = (typeof STORED_LIST_FIELD_QUESTION_TYPES)[number];
 
 /** A field inside a List item. Recursive: a field may itself be a List. */
 export type ListField =
@@ -817,16 +1113,9 @@ export type StepConfig =
   // Advanced Mode
   | TextAdvancedConfig
   | BooleanAdvancedConfig
-  | PhoneAdvancedConfig
-  | DateTimeUnifiedConfig
   | ChoiceAdvancedConfig
-  | EmailAdvancedConfig
   | NumberAdvancedConfig
-  | ScaleAdvancedConfig
-  | WebsiteAdvancedConfig
-  | AddressAdvancedConfig
   | MultiFieldConfig
-  | DisplayAdvancedConfig
   // Legacy
   | LegacyMultipleChoiceConfig
   | LegacyRadioConfig
@@ -844,6 +1133,49 @@ export type StepConfig =
   | Record<string, never>
   | null
   | undefined;
+
+/**
+ * The configuration decision for every canonical stored step type.
+ *
+ * The exact-key constraint is intentional: extending
+ * `CANONICAL_STEP_TYPES` without adding a config mapping fails type-check,
+ * as does adding a mapping for a non-canonical identity. Several mappings
+ * use today's Advanced config shape because the later family tickets will
+ * converge the canonical stored name on that richer shape.
+ */
+type CanonicalStepConfig<Type extends CanonicalStepType> =
+  Type extends "text" ? TextAdvancedConfig :
+  Type extends "boolean" ? BooleanAdvancedConfig :
+  Type extends "phone" ? PhoneConfig :
+  Type extends "date_time" ? DateTimeConfig :
+  Type extends "choice" ? ChoiceAdvancedConfig :
+  Type extends "email" ? EmailConfig :
+  Type extends "number" ? NumberCanonicalConfig :
+  Type extends "scale" ? ScaleConfig :
+  Type extends "website" ? WebsiteConfig :
+  Type extends "address" ? AddressConfig :
+  Type extends "multi_field" ? MultiFieldConfig :
+  Type extends "display" ? DisplayConfig :
+  Type extends "file_upload" ? FileUploadConfig :
+  Type extends "list" ? ListConfig :
+  Type extends "js_question" ? JsQuestionConfig :
+  Type extends "computed" ? ComputedStepConfig :
+  Type extends "final_documents" ? FinalBlockConfig :
+  Type extends "signature_block" ? SignatureBlockConfig :
+  never;
+
+export type StepConfigByType = {
+  [Type in CanonicalStepType]: CanonicalStepConfig<Type>;
+};
+
+type AssertNoUnmappedCanonicalStepTypes<Type extends never> = Type;
+
+/** Type-check fails here if a canonical type resolves to no config decision. */
+export type CanonicalStepConfigCoverage = AssertNoUnmappedCanonicalStepTypes<
+  {
+    [Type in CanonicalStepType]: [StepConfigByType[Type]] extends [never] ? Type : never;
+  }[CanonicalStepType]
+>;
 
 // ============================================================================
 // TYPE GUARDS
@@ -880,7 +1212,7 @@ export function isMultiFieldConfig(config: unknown): config is MultiFieldConfig 
 /**
  * Type guard for Address config
  */
-export function isAddressConfig(config: unknown): config is AddressConfig | AddressAdvancedConfig {
+export function isAddressConfig(config: unknown): config is AddressConfig {
   return (
     isObjectRecord(config) &&
     (config.country === 'US' || typeof config.country === 'string') &&
@@ -904,7 +1236,7 @@ export function isNumberConfig(config: unknown): config is NumberConfig | Number
 /**
  * Type guard for DateTime config
  */
-export function isDateTimeConfig(config: unknown): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
+export function isDateTimeConfig(config: unknown): config is DateTimeConfig | DateConfig | TimeConfig | LegacyDateTimeConfig {
   return (
     isObjectRecord(config) &&
     (typeof config.kind === 'string' ||
@@ -987,3 +1319,57 @@ export interface FileUploadValue {
 // ============================================================================
 
 
+function resolveLegacyChoice(type: string, rawConfig: unknown): unknown {
+  const config = (typeof rawConfig === 'object' && rawConfig !== null) ? rawConfig as Record<string, unknown> : {};
+  const display = resolveChoiceDisplay(config as unknown as Pick<ChoiceAdvancedConfig, 'display' | 'searchable'>, type);
+  const resolved: Record<string, unknown> = { ...config, display };
+  if (config.minSelections !== undefined) {
+    resolved.min = config.minSelections;
+    delete resolved.minSelections;
+  }
+  if (config.maxSelections !== undefined) {
+    resolved.max = config.maxSelections;
+    delete resolved.maxSelections;
+  }
+  return resolved;
+}
+
+export const LEGACY_STEP_ADAPTERS: Record<string, { canonicalType: string; resolveConfig: (type: string, config: unknown) => unknown }> = {
+  short_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
+  long_text: { canonicalType: "text", resolveConfig: resolveTextConfig },
+  number_advanced: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  currency: { canonicalType: "number", resolveConfig: resolveNumberConfig },
+  date: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  time: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  datetime_unified: { canonicalType: "date_time", resolveConfig: resolveDateTimeConfig },
+  yes_no: { canonicalType: "boolean", resolveConfig: (_, config) => resolveBooleanConfig(config) },
+  true_false: { canonicalType: "boolean", resolveConfig: (_, config) => resolveBooleanConfig(config) },
+  multiple_choice: { canonicalType: "choice", resolveConfig: resolveLegacyChoice },
+  radio: { canonicalType: "choice", resolveConfig: resolveLegacyChoice },
+  phone_advanced: { canonicalType: "phone", resolveConfig: (_, config) => config },
+  email_advanced: { canonicalType: "email", resolveConfig: (_, config) => config },
+  scale_advanced: { canonicalType: "scale", resolveConfig: (_, config) => config },
+  website_advanced: { canonicalType: "website", resolveConfig: (_, config) => config },
+  address_advanced: { canonicalType: "address", resolveConfig: (_, config) => config },
+  display_advanced: { canonicalType: "display", resolveConfig: (_, config) => config },
+  final: { canonicalType: "final_documents", resolveConfig: (_, config) => config },
+  signature: { canonicalType: "signature_block", resolveConfig: (_, config) => config },
+};
+
+/** Adapt a pre-STB-19 row once at the read boundary, returning a canonical step. */
+export function adaptLegacyStep<T extends { type: string; config?: unknown }>(step: T): T {
+  if (step.type === 'js_question') {
+    return {
+      ...step,
+      config: LEGACY_JS_QUESTION_ADAPTER.resolveConfig(step.config),
+    };
+  }
+  const adapter = LEGACY_STEP_ADAPTERS[step.type];
+  if (adapter === undefined) { return step; }
+  return {
+    ...step,
+    type: adapter.canonicalType,
+    config: adapter.resolveConfig(step.type, step.config),
+  };
+}

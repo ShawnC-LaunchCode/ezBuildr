@@ -14,7 +14,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { EmailConfig } from "@shared/types/stepConfigs";
+import { resolveEmailConfig } from "@shared/types/stepConfigs";
 
 export interface EmailBlockProps {
   step: Step;
@@ -28,7 +28,7 @@ export interface EmailBlockProps {
 }
 
 export function EmailBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: EmailBlockProps) {
-  const config = step.config as EmailConfig;
+  const config = resolveEmailConfig(step.config);
   const placeholder = config?.placeholder ?? "email@example.com";
 
   return (

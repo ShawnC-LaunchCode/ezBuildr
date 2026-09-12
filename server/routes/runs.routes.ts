@@ -13,6 +13,7 @@ import { strictLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from '../services/fileService';
 import { runFileUploadService } from '../services/RunFileUploadService';
 import { runService } from "../services/RunService";
+import { runPreviewPolicyService } from '../services/workflow-runs/RunPreviewPolicyService';
 import { runResumeService } from "../services/runs/RunResumeService";
 import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -50,6 +51,7 @@ const RunHandoffBodySchema = z.object({
 );
 
 import type { Express, NextFunction, Request, Response } from "express";
+import { rlsContext } from "../middleware/rlsContext";
 const logger = createLogger({ module: "runs-routes" });
 
 // Common error messages
@@ -122,6 +124,23 @@ function validateRunFileAuth(
   return { userId, runTokenAuthorized: runAuth !== undefined };
 }
 
+/**
+ * CB-9a-2: read the optional logical-submission key off a request body.
+ *
+ * Three-valued on purpose: `undefined` means the caller did not supply one and
+ * gets the pre-CB-9a-2 behaviour, a string is the key, and `null` means the
+ * caller supplied something unusable and deserves a 400 rather than having it
+ * silently ignored — a dropped idempotency key looks like it worked right up
+ * until a retry double-fires.
+ */
+function parseSubmissionKey(body: unknown): string | undefined | null {
+  if (typeof body !== 'object' || body === null || !('submissionKey' in body)) { return undefined; }
+  const value = (body as { submissionKey: unknown }).submissionKey;
+  if (value === undefined || value === null) { return undefined; }
+  if (typeof value !== 'string' || value.length === 0 || value.length > 200) { return null; }
+  return value;
+}
+
 function getPublicErrorDetails(error: unknown, status: number): unknown {
   if (status >= 500 || typeof error !== 'object' || error === null || !('details' in error)) {
     return undefined;
@@ -136,6 +155,9 @@ function getPublicErrorCode(error: unknown, status: number): string | undefined 
   return typeof error.code === 'string' ? error.code : undefined;
 }
 
+const INVALID_INPUT_MESSAGE = 'Invalid input';
+const UNAUTHORIZED_MESSAGE = 'Unauthorized';
+
 function getRequestAuditContext(req: Request): { ipAddress: string | null; userAgent: string | null } {
   return {
     ipAddress: req.ip ?? null,
@@ -149,6 +171,50 @@ function getRequestAuditContext(req: Request): { ipAddress: string | null; userA
  */
 // eslint-disable-next-line max-lines-per-function -- Route registration requires many endpoints
 export function registerRunRoutes(app: Express): void {
+  app.get('/api/preview-runs/:runId', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const runId = z.string().uuid().parse(req.params.runId);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      const run = await runService.getRunWithValues(runId, userId);
+      if (run.executionMode !== 'preview') { res.status(404).json({ message: 'Run not found' }); return; }
+      res.json({ runId: run.id, workflowId: run.workflowId, workflowVersionId: run.workflowVersionId,
+        executionMode: run.executionMode, expiresAt: run.previewExpiresAt, currentPageId: run.currentPageId,
+        values: run.values, notices: (run.metadata as { previewNotices?: string[] } | null)?.previewNotices ?? [] });
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to read preview');
+      res.status(status).json({ message });
+    }
+  }));
+  app.post('/api/workflows/:workflowId/preview-runs', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const workflowId = z.string().uuid().parse(req.params.workflowId);
+      z.object({}).strict().parse(req.body);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      const run = await runService.createPreview(workflowId, userId);
+      res.status(201).json({ runId: run.id, workflowId: run.workflowId, workflowVersionId: run.workflowVersionId,
+        executionMode: run.executionMode, expiresAt: run.previewExpiresAt, currentPageId: run.currentPageId });
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to create preview');
+      res.status(status).json({ message });
+    }
+  }));
+  app.delete('/api/preview-runs/:runId', hybridAuth, asyncHandler(async (req, res) => {
+    try {
+      const runId = z.string().uuid().parse(req.params.runId);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) { res.status(401).json({ message: UNAUTHORIZED_MESSAGE }); return; }
+      await runPreviewPolicyService.retire(runId, userId);
+      res.status(204).end();
+    } catch (error) {
+      if (error instanceof z.ZodError) { res.status(400).json({ message: INVALID_INPUT_MESSAGE }); return; }
+      const { status, message } = classifyRouteError(error, 'Failed to retire preview');
+      res.status(status).json({ message });
+    }
+  }));
   /**
    * POST /api/workflows/public/:publicLinkSlug/start
    * Start an anonymous workflow run from a public link slug
@@ -166,7 +232,9 @@ export function registerRunRoutes(app: Express): void {
         data: {
           runId: run.id,
           runToken: run.runToken,
-          workflowId: run.workflowId
+          workflowId: run.workflowId,
+          currentPageId: run.currentPageId,
+          visitedPageIds: run.visitedPageIds,
         }
       });
     } catch (error) {
@@ -227,7 +295,8 @@ export function registerRunRoutes(app: Express): void {
           data: {
             runId: authenticatedRun.id,
             runToken: authenticatedRun.runToken,
-            currentSectionId: authenticatedRun.currentSectionId
+            currentPageId: authenticatedRun.currentPageId,
+            visitedPageIds: authenticatedRun.visitedPageIds,
           }
         });
       }
@@ -244,11 +313,16 @@ export function registerRunRoutes(app: Express): void {
         data: {
           runId: anonymousRun.id,
           runToken: anonymousRun.runToken,
-          currentSectionId: anonymousRun.currentSectionId
+          currentPageId: anonymousRun.currentPageId,
+          visitedPageIds: anonymousRun.visitedPageIds,
         }
       });
     } catch (error) {
       // Log error with full details
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ success: false, error: 'Invalid run creation input' });
+        return;
+      }
       if (error instanceof Error) {
         logger.error({
           message: error.message,
@@ -312,6 +386,11 @@ export function registerRunRoutes(app: Express): void {
     optionalHybridAuth,
     creatorOrRunTokenAuth,
     acceptRunFileUpload,
+  // RLS-5: re-open the tenant async context after multer. Multer resumes the
+  // chain from a stream callback, outside the store the app-level `rlsContext`
+  // opened, so every `withCurrentTenant` downstream runs unscoped. See the
+  // full explanation on the templates upload route.
+    rlsContext,
     asyncHandler(async (req: Request, res: Response): Promise<void> => {
       const files = (req.files as Express.Multer.File[] | undefined) ?? [];
       try {
@@ -417,7 +496,7 @@ export function registerRunRoutes(app: Express): void {
         res.status(202).json({ success: true, data: result });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+          res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
           return;
         }
         logger.error({ error, runId: req.params.runId }, 'Error creating resume link');
@@ -440,7 +519,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
         return;
       }
       logger.warn({ error, runId: req.params.runId }, 'Resume link redemption rejected');
@@ -467,7 +546,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
         return;
       }
       logger.error({ error, runId: req.params.runId }, 'Error handing off run');
@@ -572,32 +651,38 @@ export function registerRunRoutes(app: Express): void {
     }
   }));
   /**
-   * POST /api/runs/:runId/sections/:sectionId/submit
-   * Submit section values with validation
-   * Executes onSectionSubmit blocks (transform + validate)
+   * POST /api/runs/:runId/pages/:pageId/submit
+   * Submit page values with validation
+   * Executes onPageSubmit blocks (transform + validate)
    * Accepts creator session OR Bearer runToken
    */
 
-  app.post('/api/runs/:runId/sections/:sectionId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/pages/:pageId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { runId, sectionId } = req.params;
+      const { runId, pageId } = req.params;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { values } = req.body;
+      // CB-9a-2: optional idempotency key identifying one logical submission.
+      // Absent, behaviour is exactly as before; present, a retry replays.
+      const submissionKey = parseSubmissionKey(req.body);
+      if (submissionKey === null) {
+        return res.status(400).json({ success: false, errors: ["submissionKey must be a string of at most 200 characters"] });
+      }
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       logger.info({
         runId,
-        sectionId,
+        pageId,
         valuesType: typeof values,
         isArray: Array.isArray(values),
         valuesLength: Array.isArray(values) ? values.length : 0,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         bodyKeys: Object.keys(req.body)
-      }, "Section submit request received");
+      }, "Page submit request received");
 
       if (!Array.isArray(values)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-        logger.warn({ runId, sectionId, values }, "values is not an array");
+        logger.warn({ runId, pageId, values }, "values is not an array");
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
@@ -616,7 +701,7 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        const result = await runService.submitSectionNoAuth(runId, sectionId, values);
+        const result = await runService.submitPageNoAuth(runId, pageId, values, submissionKey);
         // Return 200 for both success and validation errors
         // (400 would cause fetch to throw, losing the error details)
         return res.json(result);
@@ -625,39 +710,94 @@ export function registerRunRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
-      // Submit section with validation
+      // Submit page with validation
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      const result = await runService.submitSection(runId, sectionId, userId, values);
+      const result = await runService.submitPage(runId, pageId, userId, values, submissionKey);
       if (result.success) {
-        logger.info({ runId, sectionId }, "Section submitted successfully");
-        res.json({ success: true, message: "Section values saved" });
+        logger.info({ runId, pageId }, "Page submitted successfully");
+        res.json({ success: true, message: "Page values saved", ...(result.notices ? { notices: result.notices } : {}) });
       } else {
         // Validation failed - return 200 with success: false and error messages
         // (400 would cause fetch to throw, losing the error details)
-        logger.warn({ runId, sectionId, errors: result.errors }, "Section validation failed");
+        logger.warn({ runId, pageId, errors: result.errors }, "Page validation failed");
         res.json({ success: false, errors: result.errors });
       }
     } catch (error) {
-      const { runId, sectionId } = req.params;
+      const { runId, pageId } = req.params;
       logger.error({
         error,
         runId,
-        sectionId,
-      }, "Error submitting section values");
-      const { status, message } = classifyRouteError(error, "Failed to submit section values");
+        pageId,
+      }, "Error submitting page values");
+      const { status, message } = classifyRouteError(error, "Failed to submit page values");
       const code = getPublicErrorCode(error, status);
       res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
+   * POST /api/runs/:runId/pages/:pageId/advance
+   * One logical submission: submit, evaluate, navigate, and return the
+   * authoritative state together (CB-9a-3). Session auth only — the
+   * two-request submit/next pair remains for run-token respondents.
+   */
+  app.post('/api/runs/:runId/pages/:pageId/advance', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { runId, pageId } = req.params;
+      const userId = (req as AuthRequest).userId;
+      const runAuth = (req as RunAuthRequest).runAuth;
+      if (!userId && !runAuth) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
+      const { values } = req.body;
+      if (!Array.isArray(values)) {
+        return res.status(400).json({ success: false, errors: ["values must be an array"] });
+      }
+      for (const v of values) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+        if (v?.value !== undefined && exceedsValueSizeLimit(v.value)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+          return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds ${MAX_VALUE_BYTES}-byte limit.`] });
+        }
+      }
+      const submissionKey = parseSubmissionKey(req.body);
+      // Required here, unlike submit/next: an advance IS a logical submission,
+      // and one without an identity cannot be replayed or discarded as stale.
+      if (submissionKey === null || submissionKey === undefined) {
+        return res.status(400).json({ success: false, errors: ["submissionKey is required and must be a string of at most 200 characters"] });
+      }
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
+        const tokenResult = await runService.advanceNoAuth(runId, pageId, values, submissionKey);
+        return res.json({ success: true, data: tokenResult });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
+      const result = await runService.advance(runId, pageId, userId as string, values, submissionKey);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      logger.error({ error }, "Error advancing run");
+      const { status, message } = classifyRouteError(error, "Failed to advance run");
+      const code = getPublicErrorCode(error, status);
+      return res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
+    }
+  }));
+
+  /**
    * POST /api/runs/:runId/next
-   * Navigate to next section (executes branch blocks)
+   * Navigate to next page (executes branch blocks)
    * Accepts creator session OR Bearer runToken
    */
 
-  app.post('/api/runs/:runId/next', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/next', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
+      const submissionKey = parseSubmissionKey(req.body);
+      if (submissionKey === null) {
+        return res.status(400).json({ success: false, errors: ["submissionKey must be a string of at most 200 characters"] });
+      }
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       // For run token auth
@@ -665,7 +805,7 @@ export function registerRunRoutes(app: Express): void {
         if (runAuth.runId !== runId) {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
-        const result = await runService.nextNoAuth(runId);
+        const result = await runService.nextNoAuth(runId, submissionKey);
         return res.json({ success: true, data: result });
       }
       // For session auth
@@ -673,11 +813,11 @@ export function registerRunRoutes(app: Express): void {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
       // Use the 'next' method from runService
-      const result = await runService.next(runId, userId);
+      const result = await runService.next(runId, userId, submissionKey);
       res.json({ success: true, data: result });
     } catch (error) {
-      logger.error({ error }, "Error navigating to next section");
-      const { status, message } = classifyRouteError(error, "Failed to navigate to next section");
+      logger.error({ error }, "Error navigating to next page");
+      const { status, message } = classifyRouteError(error, "Failed to navigate to next page");
       const code = getPublicErrorCode(error, status);
       res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
@@ -753,7 +893,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: runtime });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, error: "Invalid input", errors: error.errors });
+        return res.status(400).json({ success: false, error: INVALID_INPUT_MESSAGE, errors: error.errors });
       }
       logger.error({ error, runId: req.params.runId }, "Error fetching run runtime");
       const { status, message } = classifyRouteError(error, "Failed to fetch run runtime");
@@ -859,7 +999,7 @@ export function registerRunRoutes(app: Express): void {
   /**
    * POST /api/runs/:runId/generate-documents
    * Trigger document generation for a workflow run
-   * Can be called before run completion (for Final Documents sections)
+   * Can be called before run completion (for Final Documents pages)
    * Idempotent - won't regenerate if documents already exist
    * Accepts creator session OR Bearer runToken
    */

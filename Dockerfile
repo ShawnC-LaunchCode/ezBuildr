@@ -32,11 +32,23 @@ RUN node -e "console.log('Testing isolated-vm load...'); require('isolated-vm');
 COPY . .
 
 # ARG variables for frontend build (passed by Railway)
+#
+# Every VITE_* variable the client reads has to be listed here. Railway service
+# variables reach the runtime container automatically, but this builder stage sees
+# only what is declared ARG+ENV, and Vite constant-folds import.meta.env at build
+# time -- an undeclared flag is not merely false, its branch is eliminated from the
+# bundle entirely, and it does not change the layer cache, so the deploy looks like
+# a successful no-op. VITE_PUBLIC_SIGNUP_ENABLED was missing: setting it on dev
+# opened the server-side gate (shared/publicSignup.ts reads process.env at runtime)
+# while the client chunk stayed frozen at `const o="/coming-soon"` -- the API
+# accepted registration that the UI never offered.
 ARG VITE_GOOGLE_CLIENT_ID
 ARG VITE_BASE_URL
+ARG VITE_PUBLIC_SIGNUP_ENABLED
 # Set as ENV so they are visible to npm run build
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 ENV VITE_BASE_URL=$VITE_BASE_URL
+ENV VITE_PUBLIC_SIGNUP_ENABLED=$VITE_PUBLIC_SIGNUP_ENABLED
 
 # Set NODE_OPTIONS to increase memory limit for Vite build
 ENV NODE_OPTIONS="--max-old-space-size=4096"
@@ -55,8 +67,15 @@ WORKDIR /app
 # AcroForm filling (server/services/document/PdfService.ts unlockPdf). Without it,
 # locked/encrypted PDF forms silently fall back to the original (un-fillable) buffer.
 # Runtime-only; --no-install-recommends + apt cleanup keeps the image lean.
+#
+# python3 is used AT RUNTIME by server/utils/enhancedSandboxExecutor.ts, which runs
+# Python transform code via spawn(PYTHON_EXECUTABLE, ["-c", ...]) - PYTHON_EXECUTABLE
+# resolves to "python3" on Linux. The builder stage above also installs python3, but
+# only for node-gyp; this stage starts fresh from the base image, so without it here
+# every Python Code Block ENOENTs in the deployed image. No test can catch that: it
+# is a property of the image, not of the code.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends qpdf \
+    && apt-get install -y --no-install-recommends qpdf python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # dumb-init removed to prevent path mismatches on Debian

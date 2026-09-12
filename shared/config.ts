@@ -76,8 +76,6 @@ export const DATAVAULT_CONFIG = {
   /** Default timeout for API requests */
   DEFAULT_TIMEOUT_MS: 5000,
 
-  /** Timeout for transform block execution */
-  TRANSFORM_BLOCK_TIMEOUT_MS: 3000,
 } as const;
 
 /**
@@ -133,11 +131,11 @@ export const RATE_LIMIT_CONFIG = typeof process !== 'undefined' ? {
  * Settings for workflow execution and features
  */
 export const WORKFLOW_CONFIG = {
-  /** Maximum number of sections per workflow */
-  MAX_SECTIONS: 50,
+  /** Maximum number of pages per workflow */
+  MAX_PAGES: 50,
 
-  /** Maximum number of steps per section */
-  MAX_STEPS_PER_SECTION: 100,
+  /** Maximum number of steps per page */
+  MAX_STEPS_PER_PAGE: 100,
 
   /** Maximum number of logic rules per workflow */
   MAX_LOGIC_RULES: 200,

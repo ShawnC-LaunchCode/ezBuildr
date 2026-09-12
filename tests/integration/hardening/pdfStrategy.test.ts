@@ -27,10 +27,12 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { storageProvider } from '../../../server/services/storage';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { TestFactory } from '../../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 /**
  * PdfConverter reads PDF_CONVERTER_API_URL in its constructor and DocumentEngine
@@ -97,7 +99,7 @@ async function requireGotenberg(): Promise<void> {
 }
 
 describe('Hardening: generated documents record the real converter', () => {
-  const factory = new TestFactory(db);
+  const factory = new TestFactory();
   let tenantId: string;
   let userId: string;
   let projectId: string;
@@ -116,10 +118,10 @@ describe('Hardening: generated documents record the real converter', () => {
   afterAll(async () => {
     try {
       if (projectId) {
-        await db.delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
+        await getOwnerDb().delete(schema.workflows).where(eq(schema.workflows.projectId, projectId));
       }
       if (tenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
       for (const fileRef of templateFileRefs) {
         await fs.unlink(path.join(FILES_DIR, fileRef)).catch(() => { });
@@ -134,9 +136,9 @@ describe('Hardening: generated documents record the real converter', () => {
 
   it('records pdf_strategy=gotenberg for a PDF produced by a real Gotenberg', async () => {
     const { workflow } = await factory.createWorkflow(projectId, userId);
-    const section = await factory.createSection(workflow.id);
-    const textStep = await factory.createStep(section.id, {
-      type: 'short_text',
+    const page = await factory.createPage(workflow.id);
+    const textStep = await factory.createStep(page.id, {
+      type: 'text',
       title: 'Client name',
       alias: 'clientName',
       order: 0,
@@ -154,8 +156,8 @@ describe('Hardening: generated documents record the real converter', () => {
       fileRef,
     });
 
-    await factory.createStep(section.id, {
-      type: 'final',
+    await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       order: 1,
       config: {
@@ -164,7 +166,7 @@ describe('Hardening: generated documents record the real converter', () => {
       },
     });
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(schema.workflowRuns)
       .values({
         workflowId: workflow.id,
@@ -172,7 +174,7 @@ describe('Hardening: generated documents record the real converter', () => {
         createdBy: `creator:${userId}`,
       })
       .returning();
-    await db.insert(schema.stepValues).values({
+    await getOwnerDb().insert(schema.stepValues).values({
       runId: run.id,
       stepId: textStep.id,
       value: 'Acme Corporation',
@@ -183,7 +185,7 @@ describe('Hardening: generated documents record the real converter', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(1);
 
-    const records = await db
+    const records = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, run.id));

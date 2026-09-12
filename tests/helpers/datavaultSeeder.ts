@@ -5,6 +5,12 @@ import { eq } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
+// RLS-5: this is a FIXTURE builder — the world a test is exercised in, not the
+// application under test. Under RLS_RESTRICTED the app's pool is a genuine
+// non-owner, so seeding through it is rejected by `users`/`datavault_*`
+// policies and the suite fails for harness reasons. Callers can still pass an
+// explicit `dbInstance` (e.g. a transaction) and that wins.
+import { getOwnerDb } from './ownerDb';
 import type { DbTransaction } from '../../server/repositories/BaseRepository';
 
 type DBInstance = NonNullable<ReturnType<typeof getDb>>;
@@ -76,7 +82,7 @@ const DESCRIPTION_TEMPLATES = [
 export async function seedLargeDatavaultTable(
   options?: SeedLargeDatavaultOptions
 ): Promise<SeedDatavaultResult> {
-  const database = options?.dbInstance ?? getDb();
+  const database = options?.dbInstance ?? getOwnerDb();
   if (!database) {
     throw new Error('Database instance is required for seedLargeDatavaultTable');
   }
@@ -342,7 +348,7 @@ export interface SeedWideDatavaultResult {
 export async function seedWideDatavaultTable(
   options?: SeedWideDatavaultOptions
 ): Promise<SeedWideDatavaultResult> {
-  const database = options?.dbInstance ?? getDb();
+  const database = options?.dbInstance ?? getOwnerDb();
   if (!database) {
     throw new Error('Database instance is required for seedWideDatavaultTable');
   }

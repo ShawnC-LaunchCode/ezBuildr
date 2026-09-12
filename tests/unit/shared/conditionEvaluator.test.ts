@@ -1431,10 +1431,10 @@ describe("conditionEvaluator", () => {
   });
 
   describe("evaluateWorkflowVisibility", () => {
-    it("should evaluate visibility for all sections and steps", () => {
-      const sections = [
+    it("should evaluate visibility for all pages and steps", () => {
+      const pages = [
         {
-          id: "sec-1",
+          id: "page-1",
           visibleIf: {
             type: "group" as const,
             operator: "AND" as const,
@@ -1450,7 +1450,7 @@ describe("conditionEvaluator", () => {
           },
         },
         {
-          id: "sec-2",
+          id: "page-2",
           visibleIf: null as any,
         },
       ];
@@ -1483,10 +1483,10 @@ describe("conditionEvaluator", () => {
         age: 25,
       };
 
-      const result = evaluateWorkflowVisibility(sections, steps, data);
+      const result = evaluateWorkflowVisibility(pages, steps, data);
 
-      expect(result.sections["sec-1"]).toBe(true);
-      expect(result.sections["sec-2"]).toBe(true); // null expression = always visible
+      expect(result.pages["page-1"]).toBe(true);
+      expect(result.pages["page-2"]).toBe(true); // null expression = always visible
       expect(result.steps["step-1"]).toBe(true);
       expect(result.steps["step-2"]).toBe(true);
     });

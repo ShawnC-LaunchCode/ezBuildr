@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DevPanelBus } from "@/lib/devpanelBus";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
 
+import type { CodeEditorHandle } from "./codeEditorTypes";
 import { JSBlock, JSBlockConfig } from "./types";
 import { generateMockInput } from "./utils";
 
@@ -26,7 +27,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
     const [error, setError] = useState<string | null>(null);
     const [showPalette, setShowPalette] = useState(false);
     const [testData, setTestData] = useState<Record<string, string>>(block.config?.testData ?? {});
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const editorRef = useRef<CodeEditorHandle | null>(null);
 
     const { toast } = useToast();
     const { data: variables = [] } = useWorkflowVariables(workflowId ?? "");
@@ -49,38 +50,26 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
         });
     }, [block, blockName, code, displayMode, inputKeys, outputKey, timeoutMs, testData, onChange]);
 
+    const handleEditorReady = useCallback((handle: CodeEditorHandle) => {
+        editorRef.current = handle;
+    }, []);
+
+    // Monaco owns the buffer, so the edit goes through the editor and comes
+    // back out as an ordinary onChange — no manual splice, no caret arithmetic.
     const handleInsertVariable = useCallback((key: string) => {
-        const textarea = textareaRef.current;
-        if (!textarea) { return; }
-
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = code;
-        const before = text.substring(0, start);
-        const after = text.substring(end);
-
-        const toInsert = `input.${key}`;
-        const newCode = before + toInsert + after;
-
-        setCode(newCode);
-        updateBlockConfig({ code: newCode });
-
-        setTimeout(() => {
-            textarea.focus();
-            const newPosition = start + toInsert.length;
-            textarea.setSelectionRange(newPosition, newPosition);
-        }, 0);
-
+        const editor = editorRef.current;
+        if (!editor) { return; }
+        editor.insertAtCursor(`input.${key}`);
         toast({
             title: "Variable inserted",
             description: `"${key}" inserted at cursor position`,
         });
-    }, [code, toast, updateBlockConfig]);
+    }, [toast]);
 
     useEffect(() => {
         const unsubscribe = DevPanelBus.onInsert((key) => {
-            const textarea = textareaRef.current;
-            if (!textarea || document.activeElement !== textarea) {
+            const editor = editorRef.current;
+            if (editor?.isFocused() !== true) {
                 void navigator.clipboard.writeText(key).then(() => {
                     toast({
                         title: "Copied to clipboard",
@@ -230,9 +219,9 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
             testData, setTestData,
             variables
         },
-        refs: { textareaRef },
         actions: {
             updateBlockConfig,
+            handleEditorReady,
             handleInsertVariable,
             handleAddInputKey,
             handleRemoveInputKey,

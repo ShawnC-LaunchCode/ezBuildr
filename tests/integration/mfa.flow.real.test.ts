@@ -4,11 +4,13 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest";
 
 import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import { deleteTestUser, createVerifiedUser, createUserWithMfa, generateTotpCode } from "../helpers/testUtils";
 
 import type { Express } from "express";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 /**
  * MFA Flow Integration Tests (REAL)
  * Tests complete multi-factor authentication flows
@@ -62,10 +64,10 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
       });
       // Step 3: Verify MFA secret is stored but not enabled
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       expect(mfaSecret).toBeDefined();
@@ -79,12 +81,12 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(verifyResponse.status).toBe(200);
       expect((verifyResponse.body).message).toContain("enabled");
       // Step 5: Verify MFA is now enabled
-      const updatedSecret = await db.query.mfaSecrets.findFirst({
+      const updatedSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       expect(updatedSecret!.enabled).toBe(true);
       expect(updatedSecret!.enabledAt).toBeDefined();
-      const updatedUser = await db.query.users.findFirst({
+      const updatedUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, user!.id),
       });
       expect(updatedUser!.mfaEnabled).toBe(true);
@@ -108,7 +110,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(verifyResponse.status).toBe(400);
       expect(verifyResponse.body.message).toContain("Invalid");
       // MFA should not be enabled
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       expect(user!.mfaEnabled).toBe(false);
@@ -148,7 +150,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${loginResponse.body.token}`);
       const plainCodes = setupResponse.body.backupCodes;
       // Verify codes are hashed in database
-      const storedCodes = await db.query.mfaBackupCodes.findMany({
+      const storedCodes = await getOwnerDb().query.mfaBackupCodes.findMany({
         where: eq(mfaBackupCodes.userId, userId),
       });
       expect(storedCodes).toHaveLength(10);
@@ -247,10 +249,10 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${loginResponse.body.token}`);
       const backupCodes = setupResponse.body.backupCodes;
       // Enable MFA
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       const totpCode = generateTotpCode(mfaSecret!.secret);
@@ -278,7 +280,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       const { email: _email, password: _password, userId } = await createUserWithMfa();
       trackUser(userId);
       // Get backup codes
-      const storedCodes = await db.query.mfaBackupCodes.findMany({
+      const storedCodes = await getOwnerDb().query.mfaBackupCodes.findMany({
         where: eq(mfaBackupCodes.userId, userId),
       });
       const _plainCode = "ABCD-1234"; // We need the original plain code
@@ -301,10 +303,10 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${loginResponse.body.token}`);
       const backupCodes = setupResponse.body.backupCodes;
       // Enable MFA
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, user!.id),
       });
       const totpCode = generateTotpCode(mfaSecret!.secret);
@@ -375,7 +377,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .post("/api/auth/login")
         .send({ email, password });
       // Get MFA secret to generate code
-      const mfaSecret = await db.query.mfaSecrets.findFirst({
+      const mfaSecret = await getOwnerDb().query.mfaSecrets.findFirst({
         where: eq(mfaSecrets.userId, userId),
       });
       const totpCode = generateTotpCode(mfaSecret!.secret);
@@ -416,12 +418,12 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .send({ password });
       expect(disableResponse.status).toBe(200);
       // Verify MFA is disabled
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, userId),
       });
       expect(user!.mfaEnabled).toBe(false);
       // Verify backup codes are deleted
-      const backupCodesCount = await db.query.mfaBackupCodes.findMany({
+      const backupCodesCount = await getOwnerDb().query.mfaBackupCodes.findMany({
         where: eq(mfaBackupCodes.userId, userId),
       });
       expect(backupCodesCount.length).toBe(0);
@@ -451,7 +453,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(disableResponse.status).toBe(401);
       expect(disableResponse.body.message).toContain("Invalid password");
       // MFA should still be enabled
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.id, userId),
       });
       expect(user!.mfaEnabled).toBe(true);
@@ -475,7 +477,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(regenerateResponse.status).toBe(200);
       expect(regenerateResponse.body.backupCodes).toHaveLength(10);
       // Verify old codes are deleted
-      const allCodes = await db.query.mfaBackupCodes.findMany({
+      const allCodes = await getOwnerDb().query.mfaBackupCodes.findMany({
         where: eq(mfaBackupCodes.userId, userId),
       });
       // Should have exactly 10 new codes
@@ -499,7 +501,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     it("should enforce MFA for tenant users when required by tenant", async () => {
       // 1. Create a tenant with mfaRequired = true
       const tenantId = crypto.randomUUID();
-      await db.insert(tenants).values({
+      await getOwnerDb().insert(tenants).values({
         id: tenantId,
         name: "MFA Enforced Tenant",
         mfaRequired: true,
@@ -507,7 +509,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       // 2. Create user in that tenant (without MFA enabled individually)
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
-      await db.update(users)
+      await getOwnerDb().update(users)
         .set({ tenantId: tenantId, tenantRole: 'viewer' })
         .where(eq(users.id, userId));
       // 3. Login - should REQUIRE MFA because of tenant setting
@@ -520,7 +522,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(loginResponse.body.message).toContain("MFA required");
       // Cleanup
       await deleteTestUser(userId);
-      await db.delete(tenants).where(eq(tenants.id, tenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, tenantId));
     });
   });
 });

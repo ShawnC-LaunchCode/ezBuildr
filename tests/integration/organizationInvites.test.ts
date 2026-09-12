@@ -1,10 +1,13 @@
 import { eq, inArray, or } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { hashToken } from '../../server/utils/encryption';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs, passwordResetTokens } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * Tests for Organization Invite System
@@ -14,6 +17,15 @@ import { organizations, organizationMemberships, organizationInvites, users, ten
  * - Placeholder user creation
  * - Invite acceptance
  * - Expiry enforcement
+ *
+ * RLS-2d: every call here goes straight to `organizationService`, with no
+ * HTTP request and therefore no `rlsContext` middleware. `testTenantId` is a
+ * fixed constant, so `enterTenantContextForTests(testTenantId)` covers the
+ * `beforeEach` hook's own `createOrganization` call (binding immediately
+ * after the tenant id is known covers the rest of that hook — see
+ * `enterTenantContextForTests`'s doc comment) and is repeated at the top of
+ * every `it` body, since a hook's binding does not propagate into the test
+ * (AsyncLocalStorage.enterWith is scoped per vitest hook/test execution).
  */
 
 describe('Organization Invites', () => {
@@ -27,24 +39,25 @@ describe('Organization Invites', () => {
 
     // Setup test data
     beforeEach(async () => {
+        enterTenantContextForTests(testTenantId);
         // ... (lines 28-32 same)
         // Create test tenant
-        await db.insert(tenants).values({
+        await getOwnerDb().insert(tenants).values({
             id: testTenantId,
             name: 'Invite Test Tenant',
         }).onConflictDoNothing();
 
         // Create test users
         // Create test users (clean up first)
-        await db.delete(auditLogs).where(
+        await getOwnerDb().delete(auditLogs).where(
             or(
                 eq(auditLogs.userId, adminUserId),
                 eq(auditLogs.userId, existingUserId)
             )
         );
-        await db.delete(users).where(inArray(users.id, [adminUserId, existingUserId]));
+        await getOwnerDb().delete(users).where(inArray(users.id, [adminUserId, existingUserId]));
 
-        await db.insert(users).values([
+        await getOwnerDb().insert(users).values([
             { id: adminUserId, email: 'admin@test.com', fullName: 'Admin User', tenantId: testTenantId },
             { id: existingUserId, email: existingUserEmail, fullName: 'Existing User', tenantId: testTenantId },
         ]);
@@ -63,15 +76,15 @@ describe('Organization Invites', () => {
         try {
             if (testOrgId) {
                 // Delete invites
-                await db.delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
+                await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
                 // Delete memberships
-                await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+                await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
                 // Delete organization
-                await db.delete(organizations).where(eq(organizations.id, testOrgId));
+                await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
             }
 
             // Clean up placeholder users
-            await db.delete(users).where(eq(users.email, newUserEmail));
+            await getOwnerDb().delete(users).where(eq(users.email, newUserEmail));
         } catch (error) {
             // Ignore cleanup errors
         }
@@ -79,13 +92,14 @@ describe('Organization Invites', () => {
 
     describe('createInvite', () => {
         it('should create placeholder user for non-existent email', async () => {
+            enterTenantContextForTests(testTenantId);
             const result = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             expect(result.inviteId).toBeDefined();
             expect(result.token).toBeDefined();
 
             // Verify placeholder user was created
-            const placeholderUser = await db.query.users.findFirst({
+            const placeholderUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -94,7 +108,7 @@ describe('Organization Invites', () => {
             expect(placeholderUser?.placeholderEmail).toBe(newUserEmail);
             expect(placeholderUser?.fullName).toBe(newUserEmail.split('@')[0]); // Email prefix
 
-            const setupToken = await db.query.passwordResetTokens.findFirst({
+            const setupToken = await getOwnerDb().query.passwordResetTokens.findFirst({
                 where: eq(passwordResetTokens.userId, placeholderUser!.id),
             });
 
@@ -105,6 +119,7 @@ describe('Organization Invites', () => {
         });
 
         it('should create invite for existing user without creating placeholder', async () => {
+            enterTenantContextForTests(testTenantId);
             const result = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -114,7 +129,7 @@ describe('Organization Invites', () => {
             expect(result.inviteId).toBeDefined();
 
             // Verify existing user was not modified
-            const user = await db.query.users.findFirst({
+            const user = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, existingUserEmail),
             });
 
@@ -124,6 +139,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent duplicate pending invites', async () => {
+            enterTenantContextForTests(testTenantId);
             await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             await expect(
@@ -132,6 +148,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent inviting existing members', async () => {
+            enterTenantContextForTests(testTenantId);
             // Add user as member first
             await organizationService.addMember(testOrgId, existingUserId, adminUserId, 'member');
 
@@ -141,16 +158,18 @@ describe('Organization Invites', () => {
         });
 
         it('should require admin access to create invite', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.createInvite(testOrgId, newUserEmail, existingUserId)
             ).rejects.toThrow('Access denied');
         });
 
         it('should set expiry to 7 days from now', async () => {
+            enterTenantContextForTests(testTenantId);
             const beforeCreate = new Date();
             const result = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, result.inviteId),
             });
 
@@ -170,6 +189,7 @@ describe('Organization Invites', () => {
 
     describe('acceptInvite', () => {
         it('should accept invite and create membership', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -189,7 +209,7 @@ describe('Organization Invites', () => {
             expect(newMember?.role).toBe('member');
 
             // Verify invite was marked as accepted
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 
@@ -198,11 +218,12 @@ describe('Organization Invites', () => {
         });
 
         it('should convert placeholder user to real user on accept', async () => {
+            enterTenantContextForTests(testTenantId);
             // Create invite for new user (creates placeholder)
             const inviteResult = await organizationService.createInvite(testOrgId, newUserEmail, adminUserId);
 
             // Get placeholder user
-            const placeholderUser = await db.query.users.findFirst({
+            const placeholderUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -212,7 +233,7 @@ describe('Organization Invites', () => {
             await organizationService.acceptInvite(inviteResult.token, placeholderUser!.id);
 
             // Verify user is no longer placeholder
-            const updatedUser = await db.query.users.findFirst({
+            const updatedUser = await getOwnerDb().query.users.findFirst({
                 where: eq(users.email, newUserEmail),
             });
 
@@ -221,6 +242,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reject expired invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -228,7 +250,7 @@ describe('Organization Invites', () => {
             );
 
             // Manually expire the invite
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
                 .where(eq(organizationInvites.id, inviteResult.inviteId));
@@ -238,7 +260,7 @@ describe('Organization Invites', () => {
             ).rejects.toThrow('expired');
 
             // Verify invite was marked as expired
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 
@@ -246,6 +268,7 @@ describe('Organization Invites', () => {
         });
 
         it('should handle an already accepted invite idempotently', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -261,7 +284,7 @@ describe('Organization Invites', () => {
                 organizationService.acceptInvite(inviteResult.token, existingUserId)
             ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
 
-            const memberships = await db
+            const memberships = await getOwnerDb()
                 .select()
                 .from(organizationMemberships)
                 .where(eq(organizationMemberships.userId, existingUserId));
@@ -270,6 +293,7 @@ describe('Organization Invites', () => {
         });
 
         it('should verify email matches invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -286,6 +310,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reconcile a pending invite when membership already exists', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -303,10 +328,10 @@ describe('Organization Invites', () => {
                 organizationService.acceptInvite(inviteResult.token, existingUserId)
             ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
-            const memberships = await db
+            const memberships = await getOwnerDb()
                 .select()
                 .from(organizationMemberships)
                 .where(eq(organizationMemberships.userId, existingUserId));
@@ -316,6 +341,7 @@ describe('Organization Invites', () => {
         });
 
         it('should reject invalid token', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.acceptInvite('invalid-token', existingUserId)
             ).rejects.toThrow('not found');
@@ -324,6 +350,7 @@ describe('Organization Invites', () => {
 
     describe('getPendingInvitesForUser', () => {
         it('should return pending invites for user email', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -341,6 +368,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return expired invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -348,7 +376,7 @@ describe('Organization Invites', () => {
             );
 
             // Expire the invite
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ expiresAt: new Date(Date.now() - 1000) })
                 .where(eq(organizationInvites.id, inviteResult.inviteId));
@@ -359,6 +387,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return accepted invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -375,6 +404,7 @@ describe('Organization Invites', () => {
 
     describe('revokeInvite', () => {
         it('should allow admin to revoke invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -383,7 +413,7 @@ describe('Organization Invites', () => {
 
             await organizationService.revokeInvite(inviteResult.inviteId, adminUserId);
 
-            const invite = await db.query.organizationInvites.findFirst({
+            const invite = await getOwnerDb().query.organizationInvites.findFirst({
                 where: eq(organizationInvites.id, inviteResult.inviteId),
             });
 
@@ -391,6 +421,7 @@ describe('Organization Invites', () => {
         });
 
         it('should prevent accepting revoked invite', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -407,6 +438,7 @@ describe('Organization Invites', () => {
 
     describe('getOrganizationInvites', () => {
         it('should return pending invites for organization', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -423,6 +455,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return accepted invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -437,13 +470,14 @@ describe('Organization Invites', () => {
         });
 
         it('should not return expired invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
                 adminUserId
             );
 
-            await db
+            await getOwnerDb()
                 .update(organizationInvites)
                 .set({ status: 'expired' })
                 .where(eq(organizationInvites.id, inviteResult.inviteId));
@@ -454,6 +488,7 @@ describe('Organization Invites', () => {
         });
 
         it('should not return revoked invites', async () => {
+            enterTenantContextForTests(testTenantId);
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -468,6 +503,7 @@ describe('Organization Invites', () => {
         });
 
         it('should require admin access to get organization invites', async () => {
+            enterTenantContextForTests(testTenantId);
             await expect(
                 organizationService.getOrganizationInvites(testOrgId, existingUserId)
             ).rejects.toThrow('Access denied');

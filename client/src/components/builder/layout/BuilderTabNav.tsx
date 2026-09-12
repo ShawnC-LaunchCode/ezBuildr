@@ -1,6 +1,6 @@
 /**
  * BuilderTabNav - Tab navigation for workflow builder
- * Supports: Sections, Templates, Data Sources, Settings, Snapshots
+ * Supports: Pages, Templates, Data Sources, Settings, Snapshots
  */
 import {
   Layers,
@@ -17,14 +17,14 @@ import { cn } from "@/lib/utils";
 import type React from "react";
 import type { ComponentType } from "react";
 
-export type BuilderTab = "sections" | "map" | "templates" | "data-sources" | "settings" | "snapshots" | "review";
+export type BuilderTab = "pages" | "map" | "templates" | "data-sources" | "settings" | "snapshots" | "review";
 interface TabConfig {
   id: BuilderTab;
   label: string;
   icon: ComponentType<{ className?: string }>;
 }
 export const TABS: TabConfig[] = [
-  { id: "sections", label: "Sections", icon: Layers },
+  { id: "pages", label: "Pages", icon: Layers },
   { id: "map", label: "Map", icon: Waypoints },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "data-sources", label: "Data Sources", icon: Database },

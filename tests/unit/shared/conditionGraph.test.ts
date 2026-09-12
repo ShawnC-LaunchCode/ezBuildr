@@ -54,6 +54,26 @@ describe("conditionGraph", () => {
       expect(extractConditionReferences(nested).sort()).toEqual(["a", "b"]);
     });
 
+    it("extracts right-hand variable operands from value and value2", () => {
+      expect(extractConditionReferences({
+        type: "group",
+        conditions: [{
+          type: "condition",
+          variable: "left",
+          valueType: "variable",
+          value: "right-one",
+          value2: "right-two",
+        }],
+      })).toEqual(["left", "right-one", "right-two"]);
+    });
+
+    it("does not treat constant string values as references", () => {
+      expect(extractConditionReferences({
+        type: "group",
+        conditions: [{ type: "condition", variable: "left", valueType: "constant", value: "not-an-alias" }],
+      })).toEqual(["left"]);
+    });
+
     it("ignores a raw-string expression (O-4: strings can no longer be stored)", () => {
       // The old string branch pulled identifiers out with a bare regex, which
       // also matched string literals — `name == 'foo'` yielded `foo` as an
@@ -166,9 +186,9 @@ describe("conditionGraph", () => {
     /** A straight A -> B -> C -> terminal chain, no skips. */
     function linearChain(): { nodes: WorkflowFlowNode[]; edges: WorkflowFlowEdge[] } {
       const nodes: WorkflowFlowNode[] = [
-        { id: "a", kind: "section", order: 0 },
-        { id: "b", kind: "section", order: 1 },
-        { id: "c", kind: "section", order: 2 },
+        { id: "a", kind: "page", order: 0 },
+        { id: "b", kind: "page", order: 1 },
+        { id: "c", kind: "page", order: 2 },
         { id: "term", kind: "terminal", order: 3 },
       ];
       const edges: WorkflowFlowEdge[] = [
@@ -191,9 +211,9 @@ describe("conditionGraph", () => {
       // "orphan" has the lowest order of the disconnected pair, so it isn't
       // mistaken for the start node either.
       const nodes: WorkflowFlowNode[] = [
-        { id: "start", kind: "section", order: 0 },
-        { id: "next", kind: "section", order: 1 },
-        { id: "orphan", kind: "section", order: 2 },
+        { id: "start", kind: "page", order: 0 },
+        { id: "next", kind: "page", order: 1 },
+        { id: "orphan", kind: "page", order: 2 },
         { id: "term", kind: "terminal", order: 3 },
       ];
       const edges: WorkflowFlowEdge[] = [
@@ -207,8 +227,8 @@ describe("conditionGraph", () => {
 
     it("reports a non-terminal node with no outgoing edge as a dead end, and never the terminal", () => {
       const nodes: WorkflowFlowNode[] = [
-        { id: "a", kind: "section", order: 0 },
-        { id: "stuck", kind: "section", order: 1 },
+        { id: "a", kind: "page", order: 0 },
+        { id: "stuck", kind: "page", order: 1 },
         { id: "term", kind: "terminal", order: 2 },
       ];
       const edges: WorkflowFlowEdge[] = [
@@ -221,12 +241,12 @@ describe("conditionGraph", () => {
       expect(diagnostics.deadEnds).not.toContain("term");
     });
 
-    it("reports a skip_to cycle among sections in loops", () => {
+    it("reports a skip_to cycle among pages in loops", () => {
       // a(0) -skip-> c(2) [forward] -skip-> b(1) [backward] -skip-> a(0) [backward]
       const nodes: WorkflowFlowNode[] = [
-        { id: "a", kind: "section", order: 0 },
-        { id: "b", kind: "section", order: 1 },
-        { id: "c", kind: "section", order: 2 },
+        { id: "a", kind: "page", order: 0 },
+        { id: "b", kind: "page", order: 1 },
+        { id: "c", kind: "page", order: 2 },
         { id: "term", kind: "terminal", order: 3 },
       ];
       const edges: WorkflowFlowEdge[] = [
@@ -245,13 +265,13 @@ describe("conditionGraph", () => {
       expect(involved.has("c")).toBe(true);
     });
 
-    it("does NOT report a diamond (two forward skips converging on one section) as a loop", () => {
+    it("does NOT report a diamond (two forward skips converging on one page) as a loop", () => {
       // a(0) -skip-> d(3), b(1) -skip-> d(3): both forward, converging on d.
       const nodes: WorkflowFlowNode[] = [
-        { id: "a", kind: "section", order: 0 },
-        { id: "b", kind: "section", order: 1 },
-        { id: "c", kind: "section", order: 2 },
-        { id: "d", kind: "section", order: 3 },
+        { id: "a", kind: "page", order: 0 },
+        { id: "b", kind: "page", order: 1 },
+        { id: "c", kind: "page", order: 2 },
+        { id: "d", kind: "page", order: 3 },
         { id: "term", kind: "terminal", order: 4 },
       ];
       const edges: WorkflowFlowEdge[] = [

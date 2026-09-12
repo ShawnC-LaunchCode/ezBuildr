@@ -22,6 +22,59 @@ import {
 } from '../../../../../server/services/document/delivery/DocumentDeliveryService';
 import { runDataService } from '../../../../../server/services/workflow-runs/RunDataService';
 import { decrypt } from '../../../../../server/utils/encryption';
+import { forEachTenant } from '../../../../../server/utils/forEachTenant';
+
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+// RLS-5: this service now opens tenant-scoped transactions via `rlsContext`,
+// which reaches for a REAL pool and throws "Database not initialized" in a unit
+// test. These tests exercise business logic, not the transaction — that is
+// proven against a real database under `RLS_RESTRICTED=true`. Replace the
+// wrappers with pass-throughs so the mocked repositories below still receive
+// the calls they assert on.
+//
+// Spreads `importOriginal` on purpose: the module also exports
+// `getCurrentTenantId`/`setCurrentTenantId`, and a partial mock would silently
+// make those undefined.
+const RLS_TX_SENTINEL = { __rlsMockTx: true, execute: vi.fn().mockResolvedValue({ rows: [] }) };
+
+vi.mock('../../../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../../server/utils/rlsContext')>();
+  return {
+    ...actual,
+    // A truthy sentinel, not `undefined`: the service's `withTx` branches on
+    // whether it was handed a transaction, and repositories treat a falsy one
+    // as "use the pool". Passing undefined would take a different path than
+    // production does and quietly test the wrong branch.
+    withCurrentTenant: <T,>(fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+    withTenant: <T,>(_tenantId: string, fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+    withVerifiedIdentifier: <T,>(_guc: string, _value: string, fn: (tx: unknown) => Promise<T>) => fn(RLS_TX_SENTINEL),
+  };
+});
+
+// The worker claims per tenant (RLS-B1). The real helper enumerates `tenants`
+// on the pool; here it hands one tenant the same sentinel transaction.
+vi.mock('../../../../../server/utils/forEachTenant', () => ({
+  forEachTenant: vi.fn(async <T,>(_job: string, fn: (tenantId: string, tx: unknown) => Promise<T>) =>
+    ({ results: [await fn('11111111-1111-1111-1111-111111111111', RLS_TX_SENTINEL)], failures: 0 })),
+}));
+
+vi.mock("../../../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
 
 vi.mock('../../../../../server/repositories', () => ({
   runDocumentDeliveryRepository: {
@@ -96,7 +149,7 @@ describe('DocumentDeliveryService', () => {
     runToken: 'token-123',
     tokenExpiresAt: null,
     createdBy: 'user-001',
-    currentSectionId: null,
+    currentPageId: null,
     progress: 100,
     completed: true,
     completedAt: new Date(),
@@ -251,7 +304,9 @@ describe('DocumentDeliveryService', () => {
             tenantId: '22222222-2222-2222-2222-222222222222',
           }),
         ],
-        undefined
+        // RLS-B1: called without a transaction, the enqueue opens its own
+        // tenant-scoped one. On the bare pool it saw nothing under enforcement.
+        RLS_TX_SENTINEL
       );
     });
 
@@ -282,7 +337,7 @@ describe('DocumentDeliveryService', () => {
 
       expect(runDocumentDeliveryRepository.createDeliveries).toHaveBeenCalledWith(
         [expect.objectContaining({ tenantId: '22222222-2222-2222-2222-222222222222' })],
-        undefined
+        RLS_TX_SENTINEL
       );
     });
 
@@ -393,7 +448,9 @@ describe('DocumentDeliveryService', () => {
         expect.objectContaining({
           status: 'delivered',
           attempt: 1,
-        })
+        }),
+        // RLS-B1: the worker has no request tenant; it writes under the row's own.
+        RLS_TX_SENTINEL
       );
       expect(result.status).toBe('delivered');
     });
@@ -542,8 +599,34 @@ describe('DocumentDeliveryService', () => {
       const count = await service.processPendingDeliveries();
 
       expect(count).toBe(1);
-      expect(runDocumentDeliveryRepository.claimBatch).toHaveBeenCalled();
+      // RLS-B1: the claim runs inside a per-tenant transaction, never on the
+      // bare pool, where a non-owner role claims nothing.
+      expect(forEachTenant).toHaveBeenCalledTimes(1);
+      expect(runDocumentDeliveryRepository.claimBatch).toHaveBeenCalledWith({ limit: 10 }, RLS_TX_SENTINEL);
       expect(service.processDelivery).toHaveBeenCalledWith(mockBatch[0]);
+    });
+
+    it('claims tenant by tenant and stops once the batch limit is spent', async () => {
+      vi.mocked(forEachTenant).mockImplementationOnce(async (_job, fn) => {
+        const results = [];
+        for (const tenantId of ['tenant-a', 'tenant-b', 'tenant-c']) {
+          results.push(await fn(tenantId, RLS_TX_SENTINEL as never));
+        }
+        return { results, failures: 0 };
+      });
+      const row = (id: string) => ({ id }) as unknown as RunDocumentDelivery;
+      vi.mocked(runDocumentDeliveryRepository.claimBatch)
+        .mockResolvedValueOnce([row('a1'), row('a2')])
+        .mockResolvedValueOnce([row('b1')]);
+      vi.spyOn(service, 'processDelivery').mockImplementation(async (delivery) => delivery);
+
+      const count = await service.processPendingDeliveries(3);
+
+      expect(count).toBe(3);
+      // The second tenant is offered only what the first left over; the third,
+      // with the limit spent, is not asked at all.
+      expect(vi.mocked(runDocumentDeliveryRepository.claimBatch).mock.calls.map(([options]) => options))
+        .toEqual([{ limit: 3 }, { limit: 1 }]);
     });
   });
 
@@ -561,7 +644,8 @@ describe('DocumentDeliveryService', () => {
       expect(result).toEqual([]);
       expect(runDocumentDeliveryRepository.findByRunIdAndTenantId).toHaveBeenCalledWith(
         mockRun.id,
-        '11111111-1111-1111-1111-111111111111'
+        '11111111-1111-1111-1111-111111111111',
+        expect.anything()
       );
     });
 
@@ -584,7 +668,8 @@ describe('DocumentDeliveryService', () => {
         .resolves.toBe(delivery);
       expect(runDocumentDeliveryRepository.findByIdAndTenantId).toHaveBeenCalledWith(
         'delivery-tenant',
-        'tenant-1'
+        'tenant-1',
+        expect.anything()
       );
     });
   });

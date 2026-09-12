@@ -445,6 +445,22 @@ export class DatavaultRowsRepository extends BaseRepository<
     return { row, values };
   }
   /**
+   * A single row's values, WITHOUT `getRowWithValues`' "not archived" gate.
+   *
+   * Exists for the unarchive path, which by definition operates on a row whose
+   * `deleted_at` is set and still needs to know what it holds — see
+   * `DatavaultRowsService._unarchiveRowImpl`, which uses this to name the
+   * conflicting column from data instead of parsing it out of a Postgres
+   * error DETAIL that the server redacts for a non-privileged role.
+   */
+  async findValuesByRowId(rowId: string, tx?: DbTransaction): Promise<DatavaultValue[]> {
+    return this.getDb(tx)
+      .select()
+      .from(datavaultValues)
+      .where(eq(datavaultValues.rowId, rowId));
+  }
+
+  /**
    * Get multiple rows with their values
    */
   async getRowsWithValues(

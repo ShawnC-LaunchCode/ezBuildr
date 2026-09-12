@@ -4,13 +4,15 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import {
   setupIntegrationTest,
   createTestUser,
   createAuthenticatedAgent,
   type IntegrationTestContext,
 } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * Admin user-workflows API integration tests.
@@ -112,7 +114,7 @@ describe.sequential("Admin user workflows API", () => {
       expect(response.status).toBe(201);
       expect(response.body.workflow.id).not.toBe(workflowId);
 
-      const [copy] = await db
+      const [copy] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, response.body.workflow.id));
@@ -121,7 +123,7 @@ describe.sequential("Admin user workflows API", () => {
       expect(copy.title).toBe("Salvaged Copy");
 
       // The source is untouched — copy is a salvage step, not a move.
-      const [source] = await db
+      const [source] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));
@@ -171,7 +173,7 @@ describe.sequential("Admin user workflows API", () => {
         listResponse.body.workflows.some((w: { id: string }) => w.id === workflowId)
       ).toBe(false);
 
-      const rows = await db
+      const rows = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));
@@ -192,7 +194,7 @@ describe.sequential("Admin user workflows API", () => {
   describe("DELETE /api/admin/users/:userId", () => {
     it("deletes a zero-workflow user who owns a populated DataVault table", async () => {
       const target = await createTestUser(ctx, "builder");
-      const [table] = await db.insert(schema.datavaultTables).values({
+      const [table] = await getOwnerDb().insert(schema.datavaultTables).values({
         tenantId: ctx.tenantId,
         ownerUserId: target.userId,
         ownerType: "user",
@@ -200,7 +202,7 @@ describe.sequential("Admin user workflows API", () => {
         name: "Deletion regression table",
         slug: `deletion-regression-${target.userId}`,
       }).returning();
-      const [row] = await db.insert(schema.datavaultRows).values({
+      const [row] = await getOwnerDb().insert(schema.datavaultRows).values({
         tableId: table.id,
         createdBy: target.userId,
         updatedBy: target.userId,
@@ -211,13 +213,13 @@ describe.sequential("Admin user workflows API", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("User deleted successfully");
       expect(
-        await db.select().from(schema.users).where(eq(schema.users.id, target.userId))
+        await getOwnerDb().select().from(schema.users).where(eq(schema.users.id, target.userId))
       ).toHaveLength(0);
       expect(
-        await db.select().from(schema.datavaultTables).where(eq(schema.datavaultTables.id, table.id))
+        await getOwnerDb().select().from(schema.datavaultTables).where(eq(schema.datavaultTables.id, table.id))
       ).toHaveLength(0);
       expect(
-        await db.select().from(schema.datavaultRows).where(eq(schema.datavaultRows.id, row.id))
+        await getOwnerDb().select().from(schema.datavaultRows).where(eq(schema.datavaultRows.id, row.id))
       ).toHaveLength(0);
     });
   });

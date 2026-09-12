@@ -1,9 +1,80 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** open · **Written:** 2026-08-12
-**Ticket prefixes:** `ENV-1..4` (Phase 1), `RLS-1..5` (Phase 2)
-**Audit grade for the area:** **D** — tenant isolation has no database backstop, and there is
-no environment in which to safely build one.
+**Status:** four open — **RLS-11** (P2 — gate green and required on `main`; only cause 5, the single-fork pin, remains), **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-11
+
+> **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
+> RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
+> their closure record, the withdrawn findings, and every parked observation are
+> in [`tickets/backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md).
+> Full original text of any closed ticket:
+> `git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`.
+>
+> **Do not re-file** anything in that file's *Closed* or *Withdrawn findings*
+> tables — several of the withdrawn ones misled multiple earlier audits.
+
+**Where the durable knowledge lives** (none of it is in this file):
+
+| | |
+|---|---|
+| The patterns, §2a–§2g | [`docs/architecture/TENANT_ISOLATION_RLS.md`](../docs/architecture/TENANT_ISOLATION_RLS.md) |
+| Current state + the traps that cost real time | [`docs/architecture/RLS_HANDOFF.md`](../docs/architecture/RLS_HANDOFF.md) |
+| The cutover procedure, per environment | [`docs/deployment/RLS4_CUTOVER.md`](../docs/deployment/RLS4_CUTOVER.md) |
+| How the scope was bounded (retired plan) | [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md) |
+
+## Where enforcement actually stands
+
+> 🔴 **CORRECTED 2026-08-25. The previous version of this table said dev and
+> test were enforcing. They were not, and neither was anything else.**
+>
+> Measured directly against the Neon catalog, not inferred:
+>
+> | branch | policies | tables with `relrowsecurity` | tables with `FORCE` |
+> |---|---|---|---|
+> | dev, before 0041 | **37** | **1** (`sections`) | 0 |
+> | dev, after 0041 | 37 | **37** | **37** |
+> | test | 36 | 36 | 0 |
+> | production | 9 | 9 | 0 |
+>
+> **It was `dev` specifically that had drifted, not the whole estate.** `test`
+> got the 0024–0036 chain in one clean deploy on 2026-08-23 and its flags are
+> intact, so it *was* genuinely enforcing; it is only missing `FORCE`.
+> Production's 9 tables likewise enforce at the database level — but its app
+> connects as `neondb_owner`, which holds BYPASSRLS, so nothing is enforced
+> there in practice regardless.
+>
+> **A policy on a table whose `relrowsecurity` is false is inert** — Postgres
+> never evaluates it. So 36 of dev's 37 policies were decorative, including
+> `projects`, `users`, `workflows` and `connections`. Tenant isolation was
+> *defined* everywhere and *in force* nowhere.
+>
+> Enabling is a separate act from creating a policy, and the chain lost track of
+> that: **migrations 0026–0036 contain 23 `CREATE POLICY` statements and zero
+> `ENABLE ROW LEVEL SECURITY`**, because they assumed 0001/0024 had already done
+> it. On production 0001 silently no-op'd (its `to_regclass ... CONTINUE` guard);
+> on dev 0024 did run, and the flag was lost afterwards while 0026's recreated
+> policies survived.
+>
+> Why no test caught it: every RLS suite runs against a **freshly built test
+> schema**, where the chain does produce the right state. Nothing ever asserted
+> the property against a long-lived environment, so dev could drift silently.
+>
+> Fixed by **`0041_rls_enable_all_policy_tables`**, which drives the enable off
+> `pg_policies` rather than a hand-maintained table list, adds `FORCE` (RLS-4
+> AC1), and RAISEs if any policy-bearing table is left unenforcing.
+> `tests/integration/rls-coverage.test.ts` now asserts the same property and was
+> proven to fail when it is violated.
+
+| environment | app role | RLS enforcing | notes |
+|---|---|---|---|
+| dev | `ezbuildr_app` | ✅ **2026-08-25** | 42 migrations, 37/37/37 after 0041. Verified live: register + create project + read back on the restricted role |
+| test | `ezbuildr_app` | ⚠️ **enforcing, no FORCE** | 37 migrations, 36/36 enabled. Was enforcing all along; 0041 adds FORCE via a `dev` → `test` promotion |
+| **production** | `neondb_owner` | ❌ **not enforcing** | 24 migrations, 9 RLS tables — needs a `test` → `main` PR first |
+
+**What this changes.** Production is still the bulk of the remaining work, but
+the cutover procedure now needs a catalog check *before* the role swap (§4.0 of
+`RLS4_CUTOVER.md`): verifying isolation against tables where row security is off
+passes trivially and proves nothing. That check is what would have caught dev,
+where the app role ran for three days against inert policies.
 
 ---
 
@@ -14,9 +85,12 @@ no environment in which to safely build one.
   for the quote.
 - Load the project skills named in each ticket's **Ties** before touching code.
 - **Devs do not commit or stage.** The reviewer commits, one commit per passed ticket.
-- `npm run test:fast` is **not** a sufficient gate here — nothing in this initiative is
-  covered by the no-DB project. Run `npm run test:integration`, and for Phase 2 run it **as
-  the non-owner role** (RLS-5).
+- Run `npm run test:integration`, and **as the non-owner role** via
+  `npm run test:rls-gate` (RLS-5). ⚠️ **Also run `npm run test:fast`.** An earlier
+  version of this line said the no-DB project covered nothing here and could be
+  skipped — that was true when written and is now false: converting a service to
+  open a tenant-scoped transaction breaks its mocked-repository unit tests, which
+  is exactly how 32 failures reached CI on 2026-08-22. It costs 74 seconds.
 - Clear the shared type-check cache before trusting `tsc`: `rm -f node_modules/typescript/tsbuildinfo`.
 - **`npm run test:docker:up` starts postgres (5434) *and* gotenberg (3009).** Re-run it after
   any pull; a missing service produces failures that read like code defects. See the
@@ -31,519 +105,279 @@ Three facts, each verified 2026-08-12:
 1. **Local development shares one database with production.** `.env` `DATABASE_URL` points at
    the Neon production instance. A local `npm run db:migrate` hits production. Already
    recorded as `LU-B1` in `tickets/BACKLOG.md` and never resolved.
-2. **`main` auto-deploys to production with no staging gate, and branch protection is off**
-   (confirmed via `gh api …/branches/main/protection` → 404 "Branch protection has been
-   disabled on this repository").
+2. ~~**`main` auto-deploys to production with no staging gate, and branch protection is off**~~
+   **WRONG — corrected 2026-08-15.** Protection is enforced by a *ruleset*, which the legacy
+   `…/branches/main/protection` endpoint cannot see; it returns 404 "Branch protection has
+   been disabled" regardless. Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`
+   instead. `main-protection` is active with deletion, non-fast-forward, PR-required and 4
+   required checks. See ENV-4.
 3. **Row-level security is defined but structurally inert.** Details in Phase 2.
 
 Phase 1 must land before Phase 2 starts. Making RLS real requires connecting as a
 non-owner role and running a full integration suite against a database you are willing to
 break — doing that against the production database is the hazard Phase 1 removes.
 
-## Correction to an earlier claim — do not re-file
+## Withdrawn findings — do not re-file
 
-An earlier verbal audit (same day) claimed *"RLS is enabled on more tables than the policies
-cover, and RLS-enabled-with-no-policy means deny-all."* **That is wrong.** The `FOREACH`
-loop at `migrations/0001_enable_rls.sql:51` executes **both** `ALTER TABLE … ENABLE ROW LEVEL
-SECURITY` **and** `CREATE POLICY tenant_isolation …` for every table in its array, so every
-looped table has a policy. The error came from counting literal `CREATE POLICY` occurrences
-(4) without noticing one is inside a loop covering 24 tables. The real defect is different
-and worse — see RLS-2.
+### ⛔ Considered and rejected 2026-08-25: a pass/fail RLS test per DB operation
 
----
+The proposal was a test per database operation — own-tenant succeeds,
+cross-tenant returns nothing — so that RLS is proven at "100% of locations".
+**Measured surface:** ~980 drizzle call sites (430 `.select(`, 256 `.update(`,
+165 `.delete(`, 129 `.insert(`) across 395 repository methods, 50 repositories
+and 219 services. Two cases each with fixtures in two tenants across 37 tables
+of FK chains ≈ **200–330 hours**, plus a permanent per-method tax and roughly
+double the suite runtime (already 872s).
 
-# Phase 1 — Environment split (ENV)
+**Rejected because the enforcement point is the table, not the operation.** If
+the policy on `projects` is correct, Postgres filters all 430 selects against it
+identically — 980 operation tests would mostly be testing Postgres. The real
+risk was never "does the policy filter", it is "does this code path set the
+tenant GUC at all", which is a static-analysis and runtime-invariant problem
+(RLS-9, and the existing throw at `server/utils/rlsContext.ts:214`), not a test-
+matrix problem.
 
-## ENV-1 — Create dev and test Railway environments, each with its own database 🔲
+**The decisive evidence:** the 2026-08-25 defect — 36 policies defined and inert
+— would **not** have been caught by any of those 980 tests, because they would
+all have run against freshly built test schemas where the migration chain works
+correctly. It was a table-level structural property, and a table-level
+structural check is what found it. RLS-10 buys that property deliberately, for
+1–2 days instead of eight weeks.
 
-**Priority: P0** · Size: M · Files: Railway configuration, `.env`, `.env.example`, `docs/deployment/CI_CD_SETUP.md`
 
-### Finding
-
-`.env` `DATABASE_URL` is the production Neon connection string (`neondb_owner@…neon.tech/neondb`).
-Every local run — the dev server, any `tsx` probe, `npm run db:push`, `npm run db:migrate` —
-talks to production. The repo owner's plan is three Railway environments (`main`/`test`/`dev`),
-each with its own database.
-
-This is the ticket that unblocks everything else in this file.
-
-### Preferred fix
-
-Create the `dev` and `test` environments in Railway with their own Postgres instances, then
-repoint local `.env` at the **dev** database. Keep `production` as the only environment
-`main` deploys to.
-
-Use the `use-railway` skill rather than improvising CLI invocations. Set variables
-**per environment** — do not rely on inherited values.
-
-**Do not conflate Railway's `test` environment with the local test database.**
-`TEST_DATABASE_URL` points at the Docker Postgres on port **5434** and is what Vitest uses;
-Railway `test` is a deployed app with its own Neon/Postgres instance. Two different things
-with one word. `.env.example` must document both, distinctly.
-
-### Ties
-
-- Load `use-railway` (environments, variables, deploys) and `db-schema-change` (before any
-  migration runs against a new database).
-- **Sequenced before ENV-2** — ENV-2 needs a fresh database to compare against production.
-- `LU-B1` in `tickets/BACKLOG.md` is the standing record of this hazard; close it here.
-- One CLI trap: `railway variables --json`/`--kv` **renders** `${{...}}` references, so
-  grepping output for a reference finds nothing even when one exists. Probe with a throwaway
-  variable instead of trusting a grep.
-
-### Acceptance criteria
-
-1. `dev` and `test` Railway environments exist, each with its own database, neither sharing
-   production's.
-2. Local `.env` `DATABASE_URL` points at the **dev** database. Producing evidence: `/health`
-   on a locally-started server reports `database.connected: true` **and** the host is not the
-   production instance.
-3. `production` remains the only environment `main` deploys to; `dev`/`test` deploys do not
-   fire on a push to `main` unless deliberately configured.
-4. `.env.example` documents `DATABASE_URL` (per-environment) and `TEST_DATABASE_URL` (local
-   Docker, Vitest only) with a sentence each saying which is which.
-5. `docs/deployment/CI_CD_SETUP.md` describes the three environments and which branch, if
-   any, deploys to each.
-6. **A destructive-command smoke check:** running `npm run db:push` locally alters the dev
-   database and demonstrably not production (compare a `information_schema` probe on both
-   before/after, or add and drop a scratch column).
+Five claims from earlier audits were investigated and proved **wrong**, two of
+them after misleading several passes ("branch protection is off", "migration
+0001 is broken"). They are listed with their disproof in
+[`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md#withdrawn-findings--these-were-wrong-do-not-re-file).
+Check that table before filing anything against this area.
 
 ---
 
-## ENV-2 — Prove the migration chain reproduces production's schema 🔲
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test DONE; production remains
 
-**Priority: P0** · Size: M · Files: none expected; a written comparison plus whatever drift repair it turns up
+### Progress — 2026-08-22 · **dev is cut over and enforcing**
 
-### Finding
+Procedure, measured Neon facts and rollback: [`RLS4_CUTOVER.md`](../docs/deployment/RLS4_CUTOVER.md).
 
-A fresh dev database will be built by running the migration chain
-(`migrations/0000_init_baseline.sql` + follow-ons). Production, however, has been maintained
-over a long period in a repo where `npm run db:push` is a documented workflow
-(`CLAUDE.md`, "Common Commands").
-
-**Whether the chain reproduces production's current schema is unverified.** If it does not,
-every developer works against a schema that differs from production in ways no test can
-catch — which is *worse* than sharing one database, because the divergence is silent.
-
-This ticket is stated as a risk to measure, not a defect to assume. It may come back clean.
-
-### Preferred fix
-
-Build a scratch database from the migration chain alone, then diff its schema against
-production's. Compare, at minimum: table list, column names/types/nullability, enum values,
-indexes, constraints, and which tables have RLS enabled.
-
-Read-only introspection against production only — `information_schema` and `pg_catalog`.
-**No writes to production in this ticket, at all.**
-
-If drift exists, the deliverable is a written inventory plus a decision from the repo owner on
-each item: add a migration to bring the chain up to production, or correct production. Do not
-silently "fix" production.
-
-### Ties
-
-- Load `db-schema-change` **first** — the migration chain was regenerated 2026-07-19 and
-  intuition about how migrations run here is wrong.
-- Depends on **ENV-1**.
-- Note for context: the test-suite path applies `migrations/*.sql` its own way via
-  `tests/setup.ts`, so a green test suite is **not** evidence that the chain matches
-  production.
-
-### Acceptance criteria
-
-1. A scratch database is built from the migration chain with no manual patching, and the
-   commands used are recorded.
-2. A written diff against production covering tables, columns (name/type/nullability), enum
-   values, indexes, constraints, and RLS-enabled tables.
-3. Either "no drift" is demonstrated, or every drift item is listed with a proposed
-   resolution and escalated to the repo owner for a decision.
-4. Zero writes to the production database; the introspection queries used are pasted.
-
----
-
-## ENV-3 — Per-environment secrets, and fix the live storage misconfiguration 🔲
-
-**Priority: P1** · Size: S · Files: Railway variables per environment, `.env.example`
-
-### Finding
-
-Two things, bundled because they are the same pass through Railway's variable UI.
-
-**(a) Secrets become per-environment.** Each environment's database holds its own
-AES-256-GCM-encrypted rows (`connections`, `secrets`). `VL_MASTER_KEY` decrypts them.
-`CLAUDE.md` is explicit: **never regenerate `VL_MASTER_KEY` on a machine with stored
-secrets** — it breaks every stored secret irrecoverably. So each environment needs its own
-stable key, and production's must not change. Do not copy production's key into dev; dev
-should not be able to decrypt production secrets even in principle.
-
-**(b) ~~`STORAGE_DRIVER=s3` is unset~~ — WRONG, and corrected 2026-08-13.** Production has
-`STORAGE_DRIVER=s3` with `AWS_S3_*` wired as Railway reference variables. It was closed as
-**O-3 on 2026-08-04** in `ROADMAP_TICKETS.md`; only the stale `DEBT-OPS1` index entry said
-otherwise, and I repeated it here without measuring. **There is no 404 incident.** Nothing
-to do for storage in this ticket.
-
-The general failure: a backlog index entry is a claim about a tree that has since moved.
-`tickets/BACKLOG.md`'s own header says exactly that — "Promoting one means re-verifying the
-finding first" — and I promoted it into a ticket without doing so.
-
-### Preferred fix
-
-Set per environment: `VL_MASTER_KEY` (distinct per env, generated fresh for `dev`/`test`,
-**production's left alone**), `JWT_SECRET`, `SESSION_SECRET`, `DATABASE_URL`, `BASE_URL`,
-`ALLOWED_ORIGIN`, and `STORAGE_DRIVER` with its bucket configuration.
-
-Note for context: production `JWT_SECRET`/`SESSION_SECRET` placeholders have been reviewed
-before and are deliberate — **do not flag them as findings**; this ticket only ensures each
-environment has its own.
-
-Ship the `STORAGE_DRIVER` change with `railway redeploy` (not the MCP `deploy`), and then
-**prove documents serve** rather than assuming.
-
-### Ties
-
-- Load `use-railway`.
-- Depends on **ENV-1**.
-- `DEBT-OPS1` in `tickets/BACKLOG.md` — close it here.
-
-### Acceptance criteria
-
-1. Each of the three environments has its own `VL_MASTER_KEY`; production's is provably
-   unchanged (compare before/after, or confirm it was never written).
-2. `JWT_SECRET`, `SESSION_SECRET`, `BASE_URL`, `ALLOWED_ORIGIN` set per environment.
-3. `STORAGE_DRIVER=s3` and its bucket configuration set in **production**, redeployed.
-4. **A generated document downloads successfully from production** — the URL and a non-404
-   status pasted. This is the criterion that actually closes `DEBT-OPS1`; a set variable is
-   not proof.
-5. `.env.example` lists every variable that must be set per environment.
-
----
-
-## ENV-4 — Turn on branch protection and make the test environment mean something 🔲
-
-**Priority: P1** · Size: S · Files: GitHub repository settings; possibly `.github/workflows/ci.yml`
-
-### Finding
-
-`gh api repos/ShawnC-LaunchCode/ezBuildr/branches/main/protection` returns **404 — "Branch
-protection has been disabled on this repository."** Combined with `main` auto-deploying to
-production, any push reaches customers with no review and no required check. Recorded as
-`DEBT-OPS2`.
-
-### Preferred fix
-
-Require a pull request and a passing CI check to merge to `main`. Once ENV-1 exists, the
-`test` environment is the natural place for the check to run.
-
-**Escalate before enabling:** the repo owner works this repo from a second IDE and this
-session has been committing directly to `main` all day. Requiring PRs changes their workflow,
-so confirm the desired strictness (linear history? required reviewers? admin bypass?) rather
-than picking for them.
-
-### Ties
-
-- Depends on **ENV-1** for a meaningful check target.
-- `DEBT-OPS2` in `tickets/BACKLOG.md` — close it here.
-- `tickets/BACKLOG.md` `DEBT-OPS3` (delete the stale `origin/debt9-typecheck-proof` branch) is
-  a one-liner worth doing in the same pass.
-
-### Progress — 2026-08-13 (the repo-side half is done; GitHub settings remain)
-
-The branch workflow this ticket assumes now exists and is enforced locally:
-
-- `dev` → `test` → `main` is documented in CLAUDE.md ("Branch flow"), with `test` → `main`
-  specified as **PR-only** because that hop reaches production.
-- **CI runs on all three branches.** `ci.yml`, `strict-mode-check.yml` and `auth-tests.yml`
-  previously triggered on `main` alone (and `strict-mode-check.yml` on a `develop` branch that
-  has never existed), so there was no check available to require on a `test` → `main` PR.
-  There is now — which is criterion 2's dependency.
-- `.claude/hooks/guard-branch-push.mjs` blocks a direct push to `test`/`main`, overridable with
-  `EZB_DIRECT_PUSH=1` when the repo owner asks. This constrains **Claude**, not git — it is not
-  a substitute for protection, which is why this ticket stays open.
-
-Still open here: the GitHub-side settings, and the escalation above is unchanged — the repo
-owner has **not** yet chosen linear history / required reviewers / admin bypass.
-
-### Acceptance criteria
-
-1. Branch protection is enabled on `main`; `gh api …/branches/main/protection` returns 200 and
-   its JSON is pasted.
-2. At least one status check is required, and it actually runs on a PR (evidenced by a test PR).
-3. The strictness settings were confirmed with the repo owner before enabling, and that
-   confirmation is noted.
-
----
-
-## Phase 1 Gate
-
-- [ ] ENV-1..4 ✅ each with a dated verification note
-- [ ] Local `.env` demonstrably points away from production
-- [ ] A generated document downloads from production (404s gone)
-- [ ] `gh api …/branches/main/protection` returns 200
-- [ ] Schema-drift comparison written and, if drift exists, ruled on by the repo owner
-- [ ] Reviewer has committed each passed ticket
-
----
-
-# Phase 2 — Make RLS real (RLS)
-
-**Do not start Phase 2 until the Phase 1 gate is signed off.** Every ticket here needs a
-database you can lock yourself out of.
-
-## The current state, verified 2026-08-12
-
-> ### 🔴 CORRECTED 2026-08-13 — measured against production, not read from the migration
->
-> An earlier version of this table described what `migrations/0001_enable_rls.sql` *says*
-> and presented it as the state of production. **A read-only snapshot of the production
-> database proves otherwise.** Reproduce with:
->
-> ```bash
-> npx tsx scripts/schema-snapshot.ts > snapshot.txt   # read-only; safe on prod
-> ```
->
-> | Measured on production (`billowing-base-67211686` / `production`) | Count |
-> |---|---|
-> | Tables | 107 |
-> | Tables with a `tenant_id` column | **26** |
-> | Of those, actually protected by RLS | **2** — `run_document_deliveries`, `run_resume_links` |
-> | **Tenant-bearing tables with NO RLS at all** | **24** |
-> | Tables with `FORCE ROW LEVEL SECURITY` | **0** |
-> | RLS policies present in total | 9 (7 are DataVault children with no `tenant_id`, scoping via parent) |
->
-> The 24 unprotected tables include `users`, `organizations`, `projects`, `connections`,
-> `audit_logs`, `teams`, `tenant_domains`, `signature_requests`, `records`.
->
-> **Migration `0001` provably did nothing.** All 24 migrations are applied
-> (`__drizzle_migrations` has 24 rows), yet the 24 tables in `0001`'s array are *exactly*
-> the 24 that lack RLS. The loop's `to_regclass(quote_ident(t))` guard (line ~47) skips a
-> table it cannot resolve with `RAISE NOTICE` and continues — so it ran, matched nothing,
-> and succeeded. It has looked applied for months.
->
-> **Two latent bugs in `0001` regardless:** it lists `files`, which has **no `tenant_id`
-> column** in production, so that entry could never have yielded a valid policy; and it
-> omits `ai_usage`, which does have one.
->
-> **So the real position is worse than "policies exist but the owner bypasses them."**
-> Policies do not exist for 24 of 26 tenant tables, *and* the 9 that exist are bypassed.
-> Tenant isolation in production is service-layer discipline alone, everywhere.
-
-| Fact (about the migration source, not production) | Evidence |
+| AC | State |
 |---|---|
-| `0001` *intends* RLS + a `tenant_isolation` policy on 24 tenant tables | `migrations/0001_enable_rls.sql:51` `FOREACH` loop — `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` per table. **Not present in production — see above.** |
-| It also *intends* ownership-based policies on `workflows`, `sections`, `steps` | same file, lines ~104, ~126, ~156, using `app_current_tenant()` (line 67). **Also absent from production.** |
-| Policies key off a **transaction-local GUC** | `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)` |
-| **No `FORCE ROW LEVEL SECURITY` anywhere** | `grep -rn "FORCE ROW LEVEL" migrations/ server/` → no matches |
-| The app connects as the **table owner** | `.env` `DATABASE_URL` user is `neondb_owner` |
-| ⇒ **every policy is bypassed in production** | Postgres: the table owner bypasses RLS unless `FORCE` is set |
-| **Nothing sets the GUC.** The helper exists and has no production callers | `set_config('app.current_tenant_id', …, true)` at `server/utils/rlsContext.ts:75`; `withTenant`/`applyTenantToTransaction` referenced only by `tests/integration/rls-context.test.ts` |
-| The middleware that would populate tenant context is **not registered** | `server/middleware/rlsContext.ts` exists; no reference in `server/index.ts` or `server/production.ts` |
-| Tenant scoping today is **service-layer only** | repositories use explicit `eq(table.tenantId, tenantId)` — e.g. `CollectionRepository.ts:26`, `DatavaultDatabasesRepository.ts:30` |
+| 1. Migration sets `FORCE` on every policy table | ❌ **not done — and read this before doing it.** `neondb_owner` holds `BYPASSRLS` *directly*, and BYPASSRLS beats FORCE, so a FORCE migration alone changes nothing here. The isolation comes from AC2. FORCE is still worth adding as defence against a future non-bypassing owner, but it is not what makes this work. |
+| 2. Least-privilege role, not owner, no BYPASSRLS | ✅ `ezbuildr_app` on the dev branch — `rolbypassrls=false`, no role memberships |
+| 3. `DATABASE_URL` uses it in dev and test | ✅ **both done** — dev 2026-08-22, test 2026-08-23. `production` is the only one left, and this AC gates it on exactly what has now happened |
+| 4. Cross-tenant read proven impossible | ✅ as the app role with tenant A pinned: that tenant's rows only, **0** from any other |
+| 5. Proven non-vacuous, incl. the empty-string trap | ✅ GUC unset → **0**; GUC `''` → **0**; real tenant → its rows. Both fail-closed |
+| 6. Documented rollback | ✅ `RLS4_CUTOVER.md` §5 — variable change + redeploy, no migration to revert |
 
-**The consequence, and why RLS-2 is the real work:** if you set `FORCE` today,
-`current_setting('app.current_tenant_id', true)` returns NULL for every query, the policy
-evaluates `tenant_id = NULL` → NULL → false, and **every query returns zero rows.** The
-application goes completely dark. The existing RLS tests pass because they connect as a
-non-owner role *and* set the GUC explicitly — they prove the policies are correct, not that
-the app can live under them.
+⚠️ Cutting over broke the first deploy: container start runs `db:migrate`, which
+needs DDL the app role does not have. Fixed by `MIGRATION_DATABASE_URL`
+(`scripts/runMigrations.ts`), which `test`/`production` must also set.
 
-## RLS-1 — Register the tenant-context middleware 🔲
+### ✅ `test` CUT OVER 2026-08-23 — the block below is resolved, kept for the lesson
 
-**Priority: P1** · Size: M · Files: `server/index.ts`, `server/production.ts`, `server/middleware/rlsContext.ts`
+Promoting `dev` → `test` (138 commits, fast-forward) ran the migrations at
+deploy time and took the test database from 24 migrations to **37**, and from
+**0** RLS-enabled tables to **36**. The same enforcement check that failed
+before then passed:
 
-### Finding
+| as `ezbuildr_app` on test | before promotion | after |
+|---|---|---|
+| no tenant GUC | 2 projects | **0** |
+| GUC = `''` | 2 projects | **0** |
 
-`server/middleware/rlsContext.ts` exports `rlsContext`, which calls `runWithTenantContext`
-(`server/utils/rlsContext.ts:59`) to put the tenant id into an `AsyncLocalStorage`. **It is
-registered in no application entrypoint** — grep `server/index.ts` and `server/production.ts`
-for `rlsContext` returns nothing. So the async context is never populated in a running app.
+Cut over with all four variables set together — including
+`MIGRATION_DATABASE_URL`, which is why it booted first try where dev took two
+attempts. Verified: `Admin DB: initialized.` in the boot log, `/health` healthy,
+and `pg_stat_activity` showing `ezbuildr_app` ×3 (app) alongside `neondb_owner`
+×3 (admin pool + migrations).
 
-### Preferred fix
+**The lesson to keep:** the verification step is what caught this. Setting the
+four variables without running the check would have produced a green-looking
+cutover on a database with no policies at all — enforcement "on", isolation
+absent, and nothing to indicate it.
 
-Register the middleware after authentication has resolved the tenant (it needs
-`req.tenantId`, which `hybridAuth`/`attachUserToRequest` sets — see
-`server/middleware/auth.ts:214`, which re-hydrates `tenantId` from the database on every
-request). Mirror how the sibling middlewares are registered in both entrypoints; production
-and dev entrypoints are separate files and **both** need it.
+### 🔴 The original block (resolved) — `test` had no RLS policies at all
 
-Unauthenticated and public routes have no tenant. The middleware must be a no-op there, not
-throw — public run access (`/api/workflows/public/:slug/start`) must keep working.
+Attempted 2026-08-22 and stopped on the verification step, which is what that
+step is for. As `ezbuildr_app` on the test branch with **no** tenant GUC:
+`SELECT count(*) FROM projects` returned **2**, not 0.
 
-### Ties
+Cause: the test database is **13 migrations behind**.
 
-- Load `add-api-endpoint` for middleware ordering conventions.
-- **Sequenced before RLS-2**, which consumes the context this ticket populates.
-- `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051) is the design doc — read it, and
-  update it if this changes the described flow.
+| branch | `drizzle.__drizzle_migrations` | latest |
+|---|---|---|
+| dev | **37** | 2026-08-22 |
+| test | **24** | ~2026-08-09 |
 
-### Vertical proof
+Everything from 0024 to 0036 is missing there — which is the entire RLS policy
+chain (0026–0036) plus the coverage repair (0024). `pg_class.relrowsecurity` is
+`false` and there are zero policies on `projects`, `users`, `workflows` and
+`connections`. Nothing to enforce, so a non-owner role changes nothing.
 
-Entry point: an authenticated `GET` on any tenant-scoped route. Hops: `hybridAuth` resolves
-`tenantId` → `rlsContext` middleware → `AsyncLocalStorage` populated → a handler reads it back.
-Unmocked: the middleware chain and the auth resolution. End state: a route can observe the
-current tenant id without it being threaded through its arguments. Cross-tenant case: a
-request authenticated as tenant B never observes tenant A's id. Suite:
-`tests/integration/` (extend `rls-context.test.ts` or add alongside it).
+The test environment only runs migrations when something deploys to it, and the
+`test` git branch is **131 commits behind `dev`**.
 
-### Acceptance criteria
+**The order was forced, and all three steps are now done:**
 
-1. `rlsContext` is registered in **both** `server/index.ts` and `server/production.ts`, after
-   tenant resolution.
-2. An integration test proves the context is populated for an authenticated request and
-   carries the correct tenant id.
-3. An integration test proves an unauthenticated/public route still succeeds with no tenant
-   context and does not throw.
-4. `type-check` 0 errors · `lint` 0 problems · `test:integration` no new failures.
+1. ✅ CI green on `dev` (2026-08-23).
+2. ✅ Promote `dev` → `test` — the deploy ran `db:migrate` to 0036.
+3. ✅ Cut `test` over and re-verify.
 
----
+**Production needs the same three steps**, and step 1 there is a `test` → `main`
+pull request, not a push.
 
-## RLS-2 — Set the transaction-local GUC on the repository data path 🔲
+### Production checklist — measured 2026-08-25, role creation deferred to cutover
 
-**Priority: P0** · Size: **L** · Files: `server/repositories/BaseRepository.ts`, `server/db.ts`, `server/utils/rlsContext.ts`, and the repository layer broadly
+Verified on branch `br-fancy-band-ahrwpxhj`: **106 tables, 9 RLS-enabled, and the
+only login roles are `neondb_owner`, `cloud_admin`, `neon_service`.** There is
+**no `ezbuildr_app` on production** — Neon copies roles at branch time, and both
+`dev` and `test` were branched on 2026-08-13, before that role existed. It must
+be created there with the SQL in `RLS4_CUTOVER.md` §2.
 
-> **⚠️ ESCALATED TO THE REPO OWNER AT GENERATION TIME — do not dispatch this as written.**
-> This is Size L, spans every data-access path, and the correct shape is an architectural
-> decision rather than a fix the ticket can prescribe. It is written up here so the decision
-> has a home, not because it is ready for a dev.
+Owner decision, 2026-08-25: **create the role during the cutover, not ahead of
+it**, so role creation and the variable swap are one operation. Password to be
+generated at that time and rotated by the owner before it is trusted.
 
-### Finding
+Run in this order — the first two are not RLS work:
 
-Policies key off `app.current_tenant_id`, set transaction-locally by
-`server/utils/rlsContext.ts:75`:
+1. **`test` → `main` pull request.** `origin/test` is 138 commits ahead of
+   `origin/main`, 0 behind. Required by the `main-protection` ruleset.
+2. **Merge deploys and runs `db:migrate`**, taking production 24 → 37 migrations
+   and 9 → 36 RLS tables. This is what creates the policies.
+3. **Create and verify `ezbuildr_app`** (§2), connecting as `neondb_owner`. Use
+   SQL, never the Neon Console/API/CLI — a console-created role inherits
+   `neon_superuser` and silently bypasses RLS. Assert `rolsuper`/`rolbypassrls`
+   both `f` and `pg_auth_members` empty before going further.
+4. **Capture the current production `DATABASE_URL` first** — that exact value
+   becomes `ADMIN_DATABASE_URL`. The admin bypass role *is* `neondb_owner`; no
+   second role is created.
+5. **Set all four Railway variables together, then redeploy.** Omitting
+   `MIGRATION_DATABASE_URL` is what broke dev's first deploy: container start
+   runs `db:migrate`, which needs DDL the app role does not have.
+6. **Verify** (§4): as `ezbuildr_app`, no GUC → 0 rows; GUC `''` → 0 rows;
+   tenant A pinned → A's rows only, 0 from any other.
 
-```ts
-await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
-```
+⚠️ **Do not repoint `DATABASE_URL` before step 2 has run.** Production has no
+policy chain today, so an app role going live first reproduces exactly the
+failure that stopped the `test` cutover on 2026-08-22: enforcement "on", nothing
+to enforce, and no signal that anything is wrong.
 
-`is_local => true` is correct and deliberate — the file's own comment explains that a
-session-level `SET` would stick to the pooled physical connection and leak across tenants,
-which is the bug being avoided. `CLAUDE.md` states the same rule.
+The `ezbuildr_app` role already exists on the test branch (created 2026-08-22,
+`rolbypassrls=false`, no memberships) and `ALTER DEFAULT PRIVILEGES` is set, so
+tables created by migrations 0024–0036 will be granted to it automatically. Only
+the four Railway variables and the redeploy remain.
 
-But **no production code calls it.** `withTenant` and `applyTenantToTransaction` appear only
-in `tests/integration/rls-context.test.ts`. Repositories issue queries directly against `db`
-with an explicit `eq(table.tenantId, tenantId)` predicate.
+Running the migrations against test out of band would work, but it would put the
+schema ahead of the code it is meant to be a snapshot of, which is the one thing
+the promotion model exists to prevent.
 
-So enforcing RLS requires that *every* tenant-scoped query run inside a transaction that has
-set the GUC. Today essentially none do.
+**Priority: P0** · Size: S · **UNBLOCKED** — RLS-2, RLS-3, RLS-6 and RLS-7 all closed
+2026-08-22, and the admin-access path called out below was built. Gated now only on a
+`test` → `main` PR, which is a promotion decision rather than an RLS one. · Files:
+Railway/Neon role configuration, `.env.example` (the migration half shipped as 0041)
 
-### The decision the repo owner needs to make
-
-Three shapes, with the trade-off that matters:
-
-1. **Wrap at the repository base.** `BaseRepository` opens a tenant transaction per operation.
-   Smallest call-site change; turns every single-row read into a transaction, and multi-repo
-   service operations get one transaction each rather than a shared one.
-2. **Wrap at the service boundary.** A service method opens one tenant transaction and threads
-   `tx` down. Correct transactional semantics and one GUC set per logical operation; touches
-   every service signature, and this repo already has a documented `tx`-threading hazard
-   (`SystemStats` deadlocked a size-1 pool when a repository ran pool queries inside a
-   caller's transaction).
-3. **Wrap at the request boundary.** One transaction per HTTP request. Conceptually cleanest
-   and the usual answer; long-lived transactions per request have real cost, and background
-   workers (`RunCompletionJobWorker`) are not requests and need their own path.
-
-**Recommendation: (2), incrementally, with (1) as the fallback for read-only repositories.**
-But this is a judgment call about transaction semantics across the whole backend and should be
-ruled on before anyone writes code.
-
-Whichever is chosen, **service-layer `eq(tenantId, …)` predicates stay.** RLS is a backstop,
-not a replacement — defence in depth, and it keeps the system working if the GUC is ever
-missing.
-
-### Ties
-
-- `add-api-endpoint` (3-tier pattern), `db-schema-change`.
-- **Blocks RLS-4** — `FORCE` cannot be set until this lands.
-- Depends on **RLS-1**.
-- Related hazard to read first: the `SystemStats` transaction deadlock — repository methods
-  that run pool queries inside a caller's transaction deadlock the size-1 test pool.
-
-### Acceptance criteria
-
-*Deliberately not written.* Escalated — the acceptance criteria depend on which shape is
-chosen, and writing them now would presume the answer.
-
----
-
-## RLS-3 — Repair policy coverage: 24 of 26 tenant tables are unprotected 🔲
-
-**Priority: P0** (raised from P1 on 2026-08-13 — the coverage gap was measured, not theoretical)
-· Size: M · Files: a new migration, `docs/architecture/TENANT_ISOLATION_RLS.md`
-
-> **The measurement is already done — start from it, don't redo it.** Production has 26
-> tables with a `tenant_id` column and **2** of them are protected. Regenerate the evidence
-> any time with `npx tsx scripts/schema-snapshot.ts` (read-only). The unprotected 24 are
-> exactly `0001`'s array, because that migration's loop silently matched nothing.
+> ### 🔴 DISCOVERED 2026-08-18 — this ticket silently breaks the admin console
 >
-> This ticket is therefore **repair**, not audit: write a migration that actually applies
-> RLS, and prove it applied by re-snapshotting rather than by the migration exiting 0 —
-> which is precisely what `0001` did wrong.
+> Measured, not theorised. Three facts that combine badly:
 >
-> Do **not** simply re-run `0001`'s approach. A loop that skips unresolvable tables with a
-> `RAISE NOTICE` is how this went unnoticed; the replacement must **fail loudly** if a table
-> it expects is absent.
+> - The policy is bare `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`
+>   with **no platform-admin clause** (`migrations/0001_enable_rls.sql`).
+> - **`users` is in the covered table list**, along with `projects`, `organizations`, `files`,
+>   `records` and the rest.
+> - Admin endpoints read **globally**: `userRepository.findAllUsers()`,
+>   `findAllUsersWithWorkflowCounts()`, and `workflowRepository.findAttributedToUser(userId)`
+>   for any user regardless of tenant (`server/routes/admin.routes.ts`).
 >
-> Two specific defects to fix while you are in there: `files` is in the array but has **no
-> `tenant_id` column**, and `ai_usage` has one but is **not** in the array.
-
-### Finding
-
-The loop covers 24 tables:
-
-```
-audit_logs collab_docs collections connections datavault_api_tokens datavault_databases
-datavault_number_sequences datavault_row_notes datavault_tables external_destinations files
-metrics_events metrics_rollups organizations projects records review_tasks signature_requests
-sli_configs sli_windows teams tenant_domains users workflow_blueprints
-```
-
-plus explicit ownership-based policies on `workflows`, `sections`, `steps`.
-
-`CLAUDE.md` says the schema has **106 tables**. Which of the remaining ones carry tenant data
-and have **no** policy is unknown. Two failure modes to look for, in opposite directions:
-
-- A tenant table with **no** policy — silently unprotected once `FORCE` lands.
-- A table in the array that no longer exists, or has no `tenant_id` column. The loop skips
-  missing tables with a `RAISE NOTICE` (line ~47), so a typo or a renamed table fails
-  **silently** — note that `review_tasks` and `signature_requests` were repointed to
-  `workflow_runs` during the graph-run-table removal, and `records` is flagged in
-  `tickets/BACKLOG.md` (`DV-B3`) as a parallel data model nobody has investigated.
-
-**Also verify that `0001` was actually applied to production.** Nobody has confirmed it; if it
-was not, RLS is not merely bypassed, it is absent.
-
-### Preferred fix
-
-Enumerate every table with a `tenant_id` column from `shared/schema/`, cross-check against
-`pg_policies` on a real database, and produce a coverage table: table → has `tenant_id` → RLS
-enabled → policy present. Add a follow-on migration for genuine gaps; remove stale array
-entries. Record the result in `docs/architecture/TENANT_ISOLATION_RLS.md`.
-
-Prefer a **test that asserts coverage** over a one-time spreadsheet, so a new tenant table
-without a policy fails CI rather than shipping.
-
-### Ties
-
-- Load `db-schema-change` before authoring any migration. **Never hand-edit the journal.**
-- `docs/claude/SCHEMA.md` is the table inventory; `docs/architecture/TENANT_ISOLATION_RLS.md`
-  is the design doc.
-- Can run in parallel with RLS-1 (disjoint files).
-
-### Acceptance criteria
-
-1. A coverage table for every table with a `tenant_id` column: RLS enabled? policy present?
-2. Every genuine gap either closed by a follow-on migration or explicitly ruled out of scope
-   with a reason.
-3. Stale entries in the loop's array removed, and it is stated whether any were silently
-   skipped in practice.
-4. Confirmed and recorded whether `0001` is applied to the production database.
-5. A test fails when a table with `tenant_id` has no policy.
-6. `type-check` 0 · `lint` 0 · `test:integration` no new failures.
-
----
-
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔲
-
-**Priority: P0** · Size: M · **BLOCKED on RLS-2 and RLS-3** · Files: a new migration, Railway/Neon role configuration, `.env.example`
+> The moment `FORCE` lands and the app runs as a non-owner role, `/api/admin` returns **only
+> the admin's own tenant** — not an error, just a truncated list. **That is the worst failure
+> shape: a console that looks like it is working.**
+>
+> Note this also answers "does RLS stop admin seeing everything?" — **today it does not**,
+> because owners bypass RLS until `FORCE` is set, so admin access is gated purely by
+> `users.role` in the application layer. Enforcing RLS constrains admin *harder than intended*
+> unless an explicit path is built first.
+>
+> **Repo owner requirement, 2026-08-18:** admins must keep the ability to see and help users —
+> including **running a workflow to replicate a reported problem** and **working inside the
+> user's account for testing**. That is a support-access feature, not a flag on this ticket.
+>
+> **Therefore: the admin-access path must land BEFORE this ticket — it is now `RLS-6`**, added
+> 2026-08-18 and scoped by the owner to the minimum that unblocks `FORCE` (cross-tenant read
+> path + audit). Tenant-switching support sessions and impersonation are a separate initiative
+> afterwards. Shipping `FORCE` first would break support at exactly the moment tenant
+> isolation starts being enforced.
+>
+> **Do not resolve this by giving the application role `BYPASSRLS`.** That would return the
+> system to "one connection sees everything" and delete the property this whole phase exists to
+> create. AC2 below stays as written.
+>
+> ### 🛑 BLOCKING (measured 2026-08-20): the policies raise instead of filtering
+>
+> **Do not set `FORCE` anywhere until this is fixed.** Proven by
+> `tests/integration/rls4-forceEnforcement.test.ts` against a real non-owner role:
+> with `FORCE` on and no tenant pinned, a query does **not** return zero rows — it
+> **raises** `invalid input syntax for type uuid: ""`.
+>
+> Once a custom GUC has been touched on a connection it reverts to **empty string**, not
+> unset, and every policy casts unguarded:
+> `USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)`.
+> `''::uuid` raises. **No policy in `0001` or `0024` wraps it in `NULLIF`** (verified).
+>
+> Fail-closed either way — nothing leaks — but the operational difference is large. The app
+> uses a **pooled** connection, so any query running outside a tenant transaction on a
+> connection that previously served one returns a hard **500** rather than an empty result.
+> That is most of the app, on day one of enforcement.
+>
+> **Fix before FORCE:** rewrite the policies as
+> `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`, which yields NULL,
+> filters the row, and does not raise. It needs a new migration recreating the policies —
+> `0001`/`0024` are applied and immutable.
+>
+> ### 🔴 Three preconditions, all discovered after this ticket was written
+>
+> **1. Ordering (from RLS-6).** Provision `ADMIN_DATABASE_URL` **first**, then set `FORCE` and
+> `RLS_ENFORCED` **together**. `AdminAccessService` throws if `RLS_ENFORCED` is on without the
+> admin pool — but `RLS_ENFORCED` is an application flag, **not** `FORCE` itself, so setting
+> FORCE while the flag is false leaves that guard blind and the admin console truncates
+> silently.
+>
+> **2. ✅ CLOSED 2026-08-19 — `AdminOrgStatsService` now reads through the admin path.**
+> `AdminOrgStatsRepository` gained an `adminDbOverride`, `AdminAccessService` gained an audited
+> `listOrgStats`, and the service reads through it, preserving RLS-6's containment (it never
+> imports `adminDb` itself). Original finding follows.
+>
+> ~~**`AdminOrgStatsService` is not on the admin path (from RLS-2d).**~~
+> `AdminOrgStatsRepository` imports the **normal** `db` pool and is **not** in RLS-6's `adminDb`
+> allowlist. It is an admin-only cross-tenant aggregate, so under `FORCE` it returns only the
+> acting admin's own tenant's organizations — no error, just a short list. **Route it through
+> `AdminAccessService`/`adminDb` and add it to the containment allowlist before FORCE.**
+>
+> **UPDATED 2026-08-20 — the rollout finished and the list grew to five. Treat this as a
+> checklist to verify, not a note to have read.** Precondition 2 is already CLOSED; the other
+> four are open. Every one of them is a *silent* failure: no error, just wrong or missing data.
+>
+> **4. `BrandingService.resolveForWorkflow` (from RLS-2e).** `resolveTenantIdForWorkflow` reads
+> **`workflows`** — RLS-covered — on the pool with no GUC, so it returns zero rows, `tenantId`
+> comes back null, and the client portal renders **default branding instead of the tenant's**.
+> Wrong logo and colours on a customer-facing page. Note it is `workflows` that is exposed, not
+> the branding column: `tenants` has no policy, so checking there finds nothing and misleads.
+>
+> **5. `VariableService.listVariables` (from RLS-2e).** Called by
+> `TemplateValidationService.validate`. Under `FORCE` it sees **zero variables** for the
+> workflow's sections and steps, so validation reports a template **clean when it is not** —
+> and template validation is the gate that stops broken documents reaching customers.
+>
+> **Also flagged, and this one is acceptable as-is:** `WorkflowClonerService.copyWorkflowAsAdmin`
+> is a genuine cross-tenant admin path left with no GUC. Under `FORCE` it **fails closed**
+> (throws or copies nothing) rather than leaking. Give it RLS-6-style bypass treatment when
+> convenient; it is not a correctness risk in the meantime.
+>
+> **3. Token-authenticated bootstrap lookups (from RLS-2c).**
+> `SignatureRequestService`'s `getSignatureRequestByToken` / `signDocument` /
+> `declineSignature` and the `markExpiredRequests` cron perform an **unscoped initial SELECT** —
+> the token is the authorization, and the row's own `tenantId` then drives every write. Under
+> `FORCE` that bootstrap runs with **no tenant GUC**. `RunFileUploadService` has the same shape
+> and was left unconverted for the same reason. Decide deliberately how these read under FORCE;
+> they are the public signing portal, so getting it wrong is a customer-visible outage.
 
 ### Finding
 
@@ -586,60 +420,495 @@ take the product down, and the blast radius is "every query returns zero rows".
 
 ---
 
-## RLS-5 — Gate: full integration as the non-owner role 🔲
+---
 
-**Priority: P0** · Size: M · Files: `vitest.config.ts` or CI configuration; `.github/workflows/ci.yml`
+## RLS-8 — Close the 32 call sites that bypass tenant scoping 🔲 open
+
+**Priority: P1** · Size: M · Files: see the audit output — run
+`npx tsx scripts/audit-rls-surface.ts`
 
 ### Finding
 
-The existing RLS suites (`rls-context.test.ts`, `rls-datavault.test.ts`,
-`rls-phase4-workflows.test.ts`) deliberately connect as a non-owner role to exercise policies.
-They prove the **policies** are right. Nothing proves the **application** works under them —
-and that is the risk RLS-4 carries.
+The audit reports **32 remaining call sites** (down from 121 at RLS-2f). These
+are precisely the paths that do **not** go through `withCurrentTenant`, which is
+why the runtime throw at `server/utils/rlsContext.ts:214` never fires for them —
+they are the residue the tripwire cannot see.
 
-### Preferred fix
+As measured 2026-08-25:
 
-Run the whole integration suite with `TEST_DATABASE_URL` pointed at the restricted role, as a
-CI job. Any test that fails only under RLS is a real gap: a query path that never sets the GUC.
+| bucket | count | worst offenders |
+|---|---|---|
+| repository calls, no scoping helper at all | 5 | `admin.routes.ts` (5/5) |
+| scoped somewhere, unthreaded sites remain | 2 | `auth.routes.ts`, `WorkflowPatchService.ts` |
+| direct `db.*` on covered tables | 18 | `DatavaultDatabasesRepository` (4), `SnapshotService` (3), `MfaService` (2), `sli.ts` (2) |
+| relational `db.query.<table>` reads | 2 | `public.routes.ts` |
+| bare `db.transaction()` | 2 | `auth.routes.ts`, `BlockRunner.ts` |
+| raw `db.execute()` naming a covered table | 3 | `UserRepository`, `BranchingService`, `DropoffService` |
 
-Expect failures on the first run, and treat them as the deliverable — the list of unprotected
-query paths is the point.
-
-### Ties
-
-- Depends on **RLS-4**. Load `run-tests`.
-- **Baseline:** `test:integration` on `main` is currently **112 files passed / 1111 passed /
-  0 failed / 0 skipped** (2026-08-12, both compose services up). Any failure here is new.
-- Do not run two DB-backed suites concurrently.
+`admin.routes.ts` is expected to be cross-tenant and should route through
+RLS-6/RLS-7's `adminDb` path rather than being "fixed" to scope. The rest need
+triage one by one — some are legitimate bootstrap paths (token-authenticated
+lookups, see RLS-4 precondition 3) and should be *documented* as such, not
+scoped.
 
 ### Acceptance criteria
 
-1. A CI job runs the full integration suite as the restricted role.
-2. It is green, or every failure is triaged as a named unprotected query path with a follow-up
-   ticket.
-3. The job is required by branch protection (ENV-4).
-4. Output pasted for both the owner-role and restricted-role runs, side by side.
+1. Every one of the 32 sites is either scoped, routed through the admin path, or
+   annotated with a one-line reason why it is a deliberate exception.
+2. `audit-rls-surface.ts` reports zero untriaged sites.
+3. `npm run test:rls-gate` still green, allowlist still empty.
+
+### Ties
+
+- Depends on nothing; blocks nothing. Do it before RLS-9's ratchet is turned on,
+  or the ratchet starts red.
+
+---
+
+## RLS-9 — Put the surface audit in CI with a two-way ratchet ✅ DONE 2026-08-25
+
+**Priority: P1** · Size: S · Files: `scripts/audit-rls-surface.ts`,
+`.github/workflows/rls-gate.yml` (or a new workflow), a new allowlist file
+
+### Finding
+
+**`scripts/audit-rls-surface.ts` is not wired into CI.** Verified 2026-08-25: it
+appears in no workflow and in no `package.json` script, and it has no allowlist,
+no baseline and no non-zero exit. It is a tool someone must remember to run.
+
+That is the actual hole in RLS coverage. The gate (`rls-gate.yml`) catches a
+lost scope only when some integration test asserts data comes back — and RLS
+read failures are **silent**, returning empty rather than throwing. So nothing
+currently stops call site #33 from landing.
+
+### Preferred fix
+
+Give it the same **two-way ratchet** as `.rls-allowlist.json`, which is the
+design that has kept the gate honest: an unlisted finding fails the build, *and*
+a listed entry that no longer reproduces also fails, with an instruction to
+delete it. One-way lists rot into decoration — this repo has been bitten by that
+shape more than once.
+
+### Acceptance criteria — all met 2026-08-25
+
+| AC | State |
+|---|---|
+| 1. Audit runs in CI on `dev`, `test`, `main` | ✅ new `rls-surface-audit` job in `.github/workflows/rls-gate.yml`, same branch triggers. Deliberately a separate job with **no database and no containers** — it finishes in seconds, so a static regression is not buried behind the 15-minute integration gate |
+| 2. A new unscoped call site fails | ✅ proven — see below |
+| 3. A stale entry fails with "delete this entry" | ✅ proven — see below |
+| 4. Proven non-vacuous | ✅ **all five directions exercised**, not just the two required |
+
+**Proof — mutate the target, confirm red** (the convention this repo exists on;
+a check that has never failed is not known to work):
+
+| mutation | result |
+|---|---|
+| new unscoped `db.select().from(projects)` in a fresh file | ❌ `NEW unscoped call sites` — exit 1 |
+| allowlisted file's count lowered (site count went UP) | ❌ `Allowlisted files that got WORSE: 1 -> 3` — exit 1 |
+| allowlisted file's count raised (site count went DOWN) | ❌ `IMPROVED — tighten the ratchet: 9 -> 3 (set count to 3)` — exit 1 |
+| fabricated entry for a file with no findings | ❌ `no longer reproduce — DELETE them` — exit 1 |
+| allowlist file removed entirely | ❌ `A missing allowlist is a FAILURE, never a pass` — exit 1 |
+| clean tree | ✅ `32 call site(s) across 20 pair(s); 20 allowlisted` — exit 0 |
+
+That last row is the one that matters most: a missing or unreadable allowlist
+**fails** rather than reading as "no findings". That exact failure shape is how
+the integration suite once went months without running in CI at all.
+
+### What shipped
+
+- `scripts/audit-rls-surface.ts` gained the gate (`--report` still gives the old
+  report-only behaviour and always exits 0).
+- `.rls-surface-allowlist.json` — **20 entries, 32 sites**, each with a
+  diagnosed reason and a recorded triage outcome. It is RLS-8's worklist, not
+  absolution.
+- `npm run audit:rls-surface` / `audit:rls-surface:report`.
+- Categories are **stable identifiers** (`repo-call`, `db-call`, `raw-execute`,
+  …), not the human headings in the report — renaming a heading must not
+  silently invalidate every allowlist entry.
+
+### Note for RLS-8
+
+The ratchet's downward direction means **fixing a site turns the build red**
+until its count is lowered or its entry deleted. That is intended: it is the
+mechanism that stops progress silently reverting. Expect to edit the allowlist
+in the same commit as each fix.
+
+---
+
+## RLS-10 — Data-driven proof that every policy actually isolates 🔲 open
+
+**Priority: P2** · Size: S/M · Files: `tests/integration/rls-coverage.test.ts`
+or a sibling suite
+
+### Finding
+
+`rls-coverage.test.ts` now proves every policy-bearing table is **enforcing**
+(`ENABLE` + `FORCE`, added with migration 0041). It does **not** prove any
+policy actually *isolates* — a policy could be enabled, forced, and wrong.
+
+The 27 integration files that assert cross-tenant denial cover a hand-picked
+subset of tables, chosen by whoever wrote them. There is no table-driven proof.
+
+### Preferred fix
+
+One suite that enumerates covered tables from `pg_policies` — not a hand-written
+list, which is the mistake migrations 0001/0011/0024 each made in turn — and for
+each asserts, as a non-owner role:
+
+| condition | expected |
+|---|---|
+| no tenant GUC | 0 rows |
+| GUC = `''` (the empty-string trap) | 0 rows |
+| GUC = tenant A | only tenant A's rows |
+| GUC = tenant B | 0 of tenant A's rows |
+
+New covered tables are then included automatically, which is the property that
+makes this worth writing at all.
+
+### Acceptance criteria
+
+1. Enumerated from the catalog, never a literal table list.
+2. All four conditions asserted per table.
+3. **Proven non-vacuous**: drop one policy, confirm that table fails; restore.
+4. Tables needing fixtures in two tenants are seeded generically, or skipped
+   with an explicit recorded reason — a silently skipped table is the failure
+   mode this whole initiative keeps producing.
+
+### Ties
+
+- This is the deliberate, cheap alternative to the per-operation test matrix
+  rejected under *Withdrawn findings*. Read that entry before proposing a
+  bigger version of this ticket.
+
+---
+
+## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 & 6 fixed, AC 4 met; cause 5 open
+
+**Priority: P2** (was P0; re-prioritized 2026-09-11 — the gate is green, required on `main`, and alerts Slack; what remains is cause 5, which costs ~5 minutes on a job off the critical path and threatens nothing user-facing) · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
+`server/services/workflow-runs/RunLifecycleService.ts` — remaining:
+`tests/integration/api.runs.file-upload.test.ts`,
+`tests/integration/runFileUpload.test.ts`, `tests/integration/text-canonicalization.test.ts`,
+`tests/integration/codeBlocks.aliasCollision.test.ts`,
+`tests/integration/codeBlocks.multiOutput.test.ts` — plus whatever server code the
+triage below lands on
+
+
+### Status — 2026-09-11
+
+- **Gate green** since `f57bf806` (2026-09-11), on `dev` and `test`; allowlist empty.
+- **It went red again in between** — 23 consecutive runs, 2026-09-07 → 09-11, 1–3
+  files each, with nobody forced to look. That is precisely the failure AC 4 names.
+  The last of it was cause 6's preview suites, fixed as backlog `RLS-B1` (`760353b6`).
+- **AC 4 met.** `RLS Enforcement Gate` is a **required check on `main-protection`**
+  (2026-09-11), and a failing gate on a push **posts to Slack**
+  (`scripts/ci/post-slack-gate-failure.js`, both jobs in `rls-gate.yml`). Not made
+  required on `dev`: `dev-protection` has no required checks and pushes use the owner
+  bypass, so it would change nothing there.
+- **The flake cited for keeping it advisory has not recurred**: zero
+  `Registration failed` lines across all 29 gate runs since 2026-09-08 (all single-fork).
+- **Open: cause 5 only** — the second half of AC 3 (green with the single-fork pin removed).
+### Finding
+
+`.github/workflows/rls-gate.yml` has failed on **every push since 2026-08-28** —
+**35 consecutive runs**, 9 days. Last green: `1e359b31`. First red: `f7a07709`
+("feat(steps): canonicalize Short and Long Text as `text`"), which is also where
+`text-canonicalization.test.ts` was introduced. Each initiative since (STB, GH-146
+file uploads, Code Blocks) has added to the pile against an already-red gate, so
+nobody's per-ticket run reported anything new.
+
+Reproduced locally 2026-09-06 on `b168a1d5`, single-fork exactly as CI runs it:
+**5 failing files / 6 failing tests, allowlist empty.** As of `8db4be80` it is
+**6 files** — CB-8 added `codeBlocks.testEndpoint.test.ts`, which has never been
+green under enforcement. The set is otherwise stable run to run. Normal (owner-role) mode
+on the same commit is **145 files green** — so every one of these is
+RLS-enforcement-specific and invisible to `npm run test:integration`.
+
+```
+npx tsx scripts/rls-gate.ts     # ~18 min; writes rls-gate-results.json
+```
+
+Five distinct root causes:
+
+| # | Files | Symptom | Reading |
+|---|---|---|---|
+| 1 | `api.runs.file-upload`, `runFileUpload` | 404 `"Workflow for run not found"` on a bare run token | The workflow self-identification bootstrap (migration `0030`, `app.current_workflow_id`) is not pinned on this path. **Likely a real defect.** |
+| 2 | `text-canonicalization` | prefill write silently produces **0** `step_values` rows, expected 1 | A write dropped with no error — the exact "RLS fails by returning empty" shape this gate exists to catch. **Likely a real defect.** |
+| 3 | `codeBlocks.aliasCollision`, `codeBlocks.testEndpoint` | raw `DrizzleQueryError` instead of the translated `400`; test-endpoint failures | The Code Blocks work is landing on top of a red gate and inheriting it. `testEndpoint` arrived with CB-8 on 2026-09-06 and was never green here. |
+| 4 | `codeBlocks.multiOutput` | cross-tenant step create answers `404`, test pins `403` | Arguably the *test* is wrong: under enforcement the foreign tenant cannot see the page, and 404 leaks less than 403. Needs a ruling, then either the test or `classifyRouteError` changes. |
+| 5 | rotating, 1–2 per run | a different extra file fails on every parallel run | The restricted-role harness is not worker-safe. See below. |
+
+**Why this is P0 and not test debt: `dev` has been enforcing since `0041`
+(2026-08-25), three days before the gate went red.** Causes 1 and 2 are
+user-visible paths — run-token file upload, and answer prefill — so they are
+expected to be broken in the dev environment right now. That has **not** been
+verified against the live app; doing so is acceptance criterion 1.
+
+### Causes 1 & 2 — FIXED and confirmed live on dev, 2026-09-07
+
+**Both were live on dev, and the same one-line-shaped mistake twice: a tenant
+that was known was never applied to the connection, so an RLS-covered read came
+back EMPTY and the caller read that as missing data.**
+
+**Cause 1 — the run-token tenant was resolved and then dropped.**
+`runTokenAuth` resolves the tenant correctly and calls `setCurrentTenantId`,
+which writes into the AsyncLocalStorage store. Any route running multer loses
+that store (multer resumes the chain from its own stream callback), so those
+routes re-mount `rlsContext` — which re-seeds **only** from `req.tenantId`, a
+field `hybridAuth` sets and `runTokenAuth` did not. Every multipart run-token
+request therefore ran unscoped. Fixed by stamping `req.tenantId` at both
+resolution sites in `server/middleware/runTokenAuth.ts`; that repairs every such
+route at once and gives downstream reads the real tenant, rather than
+bootstrapping `app.current_workflow_id` layer by layer — which `pages`/`steps`
+do not even honour (their policies key on tenant-ownership or `is_public`,
+never on that GUC). Safe because nothing treats the presence of `req.tenantId`
+as proof of a user: `requireTenant`/`checkTenantAccess` are only ever mounted
+beside `hybridAuth`.
+
+**Cause 2 — the prefill reads never opened a tenant transaction.**
+`RunLifecycleService.populateInitialValues` called `pageRepo.findByWorkflowId`
+and `stepRepo.findByPageIds` with **no `tx`**, so they ran on the bare pool where
+`app_current_tenant()` is unset — even on the fully authenticated path, where a
+real tenant was in the async context the whole time. `allSteps` came back empty,
+the loop had nothing to iterate, and every step `defaultValue` and every
+prefilled `initialValues` silently failed to persist. Fixed by wrapping both
+reads in one `withCurrentTenant` transaction.
+
+**AC 1 — confirmed against live dev** (read-only, via the Neon MCP on branch
+`br-shy-rain-ahpucki7`; nothing created or modified):
+
+| fact | value |
+|---|---|
+| deployed dev `DATABASE_URL` role (Railway) | `ezbuildr_app`, with `RLS_ENFORCED=true` |
+| `ezbuildr_app` bypasses RLS? | **no** — `rolbypassrls = false` |
+| `workflows`/`pages`/`steps`/`sections` | RLS **enabled AND forced** |
+| `app_current_tenant()` with no GUC | **NULL** → policy's tenant branch is `false` |
+| only surviving disjunct | `is_public = true AND status = 'active'` |
+| dev workflows matching it | **46 of 88** |
+
+So both defects were live on dev for the **42 non-public workflows** — uploads
+404ing on a valid run token, and runs starting with no defaults. **The
+`is_public` escape is why nobody noticed:** public-link runs, the most-demoed
+path, kept working, and the breakage was confined to private workflows.
+
+Note the local trap this exposed: local `.env` connects as `neondb_owner`, which
+holds BYPASSRLS, so **running the app locally against the dev database cannot
+reproduce any of this**. Only `ezbuildr_app` sees the policies.
+
+Gate effect: **6 failing files → 3.** `api.runs.file-upload`, `runFileUpload` and
+`text-canonicalization` all pass under enforcement; the three Code Blocks files
+(causes 3 and 4) remain.
+
+### Causes 3 & 4 — FIXED 2026-09-07
+
+**Cause 3 was a real defect, and a nastier one than the triage guessed.**
+`StepService.rethrowAliasCollision` turns a `23505` on
+`steps_workflow_alias_unique` into a helpful `400` naming the conflicting
+step — but it *required* the violation's `DETAIL` string and parsed the alias
+out of it. **Postgres omits DETAIL when the role is subject to RLS on the
+table**, because that string quotes column values the role may not be allowed
+to read. Measured as the restricted role: `code` is `'23505'` and `constraint`
+is `steps_workflow_alias_unique` exactly as expected, and `detail` is
+`undefined`.
+
+So on the branch that matters — production, once it connects as a non-owner —
+**every alias collision reaching the index escaped as a raw
+`DrizzleQueryError`** instead of the 400 the code exists to produce. It passed
+in owner mode, where DETAIL *is* present, which is why it read as correct.
+
+Two fixes, both of which behave identically in either mode:
+
+1. `restoreStep` now does the **preflight alias check** every other write path
+   already does (`validateOutputAliases`). It was the one route that reached
+   the unique index with no preflight and leaned on error forensics. Asking
+   first needs no DETAIL, names the owner, and never issues a statement that
+   would poison the caller's transaction.
+2. `rethrowAliasCollision` no longer *requires* DETAIL. The constraint name
+   alone already proves what happened, so the alias identity is an enrichment,
+   not a precondition: parse DETAIL when present, and still answer `400` when
+   it is withheld.
+
+**Cause 4 was test drift, and the ruling already existed.** Both
+`codeBlocks.multiOutput` and `codeBlocks.testEndpoint` pinned `403` on a
+**cross-tenant** denial, each with a comment reasoning from
+`classifyRouteError`. That reasoning is right in owner mode and wrong under
+enforcement, where the row is invisible, the route never reaches its own check,
+and the honest answer is `404`.
+
+Which code is correct was **decided, not defaulted**: `RLS_HANDOFF.md` §0b, put
+to the repo owner on 2026-08-22 and delegated back — 404 accepted for
+cross-tenant reads because it leaks strictly less (a 403 confirms the resource
+exists), and preserving 403 would require a deliberately-unscoped existence
+probe on the very paths that must fail closed. The repo already ships
+`expectCrossTenantDenied` for exactly this, and says a test passing in only one
+mode is evidence of nothing. Both sites now use it.
+
+Nothing was weakened to go green: each test still pins the property it exists
+for — `multiOutput` asserts no step was written, `testEndpoint` asserts the
+executor was never called. **In-tenant RBAC denials still assert a plain 403**
+and were not touched.
+
+### Cause 6, found 2026-09-07 — the CB-9a preview work is landing red ✅ fixed 2026-09-11 (backlog `RLS-B1`, `760353b6`; the CI collection break by `faaa7e68`)
+
+With causes 1–4 fixed the gate is down to **two** files, and both are new:
+`preview.isolation.test.ts` (CB-9a-1) and `preview.execution.test.ts`
+(CB-9a-3a). They arrived in the tree via the `cb-9` merge while causes 1–4 were
+being worked, and they are the same class as everything above:
+
+```
+normal (owner) mode : 2 files / 36 tests  PASS
+RLS_RESTRICTED=true : 2 files /  4 tests  FAIL
+```
+
+Symptoms: a signature-creation simulation answering `400` where the suite
+expects `200`, and `safeFetch` never called where a provider dispatch is
+expected — i.e. reads coming back empty again, in the delivery/provider paths.
+
+**Deliberately not fixed here.** CB-9a is actively in flight (a dev is mid-way
+through 9a-3b, and `0c540217` already records three transport defects found
+there), so changing it underneath that work would collide. It is written up so
+the number is honest rather than quietly attributed to RLS-11's other causes.
+
+**Separately, that same merge turned `dev` CI red — not the gate, ordinary CI.**
+Deterministic, 3 runs out of 3, starting at `37a1d702` (2026-09-07 12:13) and
+still red; the last green was `0cf8c649`. One file, zero failing tests — it
+cannot even be collected:
+
+```
+FAIL unit-fast tests/unit/services/RunExecutionCoordinator.validationErrors.test.ts
+TypeError: this[writeSym] is not a function
+  ❯ Object.LOG [as info]  node_modules/pino/lib/tools.js:74:21
+  ❯ server/services/storage/index.ts:15:12   logger.info('Initializing Disk Storage Provider')
+  ❯ server/services/workflow-runs/RunPreviewPolicyService.ts:10:1
+```
+
+`server/services/storage/index.ts` calls `logger.info` at **module scope**, and
+CB-9a-1's new `RunPreviewPolicyService` pulled that module into
+`RunLifecycleService`'s import graph — so a unit-fast file that never touched
+storage now executes that log line at import time and dies on it. The landmine
+is the import-time side effect, which predates CB-9a; the new import chain is
+what stepped on it. Passes locally, fails every CI run.
+
+Left for whoever owns CB-9a rather than fixed here, for the same
+work-in-flight reason as above.
+
+**This is the third time in nine days that new work has landed on this gate
+while it was red** — CB-8 added `codeBlocks.testEndpoint`, CB-9a has now added
+two more. That is the cost the gate's own header predicted, and it is what
+AC 4 (make a red gate visible within a day) exists to stop.
+
+### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
+
+Separate from the four above, and found by accident while making the suite
+parallel. Run with more than one worker under `RLS_RESTRICTED`, three
+consecutive CI runs reported the stable core of 5 **plus a rotating extra that
+differed every run**: `{datavault.routes, lifecycle-hooks-execution}`, then
+`{creation-limits-reorder}`, then `{api.workflows}`. Single-fork runs — in CI
+and locally — report the core and nothing else.
+
+Normal (owner-role) parallel runs are clean: 144 files, identical to serial. So
+this is specific to the restricted path, and the per-worker schemas that isolate
+ordinary runs are not enough here. Prime suspects: the shared non-owner role, and
+GUC pinning that assumes one connection per schema.
+
+`scripts/rls-gate.ts` therefore pins `VITEST_SINGLE_FORK=true` deliberately —
+the only place left that does — with the reasoning in a comment there. A gate
+with a rotating false member is worse than a slow gate: it pushes someone to
+"fix" a file that was never broken, or to allowlist it.
+
+### Acceptance criteria
+
+1. Causes 1 and 2 are reproduced (or ruled out) against the **live dev
+   environment**, not just the suite — see the `verify` skill. Record which.
+2. Each of the four causes is fixed at the layer that is actually wrong, or —
+   for cause 4 only — the test's expectation is corrected with the ruling
+   written down. Do not "fix" a real scoping defect by relaxing an assertion.
+3. `npm run test:rls-gate` is green with `.rls-allowlist.json` **still empty**,
+   and — cause 5 — green with the single-fork pin REMOVED from
+   `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
+   harness bug. Removing the pin without fixing worker-safety is not a pass.
+   ⚠️ **First half met 2026-09-11** (green, allowlist empty); the pin-removed half is
+   cause 5 and still open.
+   Adding an entry to close this ticket is an automatic fail: the gate's own
+   header says an unexplained entry is how it rots.
+4. Something makes a red gate visible within a day rather than 35 runs. Cheapest
+   credible option: make `RLS Enforcement Gate` a required check on `dev` in the
+   `dev-protection` ruleset. If the "Registration failed" flake in
+   RLS_HANDOFF §4 still makes that unsafe, say so and propose the alternative.
+   ✅ **Met 2026-09-11** — required on `main-protection` rather than `dev` (where the
+   owner bypass makes a required check a no-op), plus a Slack alert on any failing push.
+
+### Ties
+
+- Load the `run-tests` skill (the gate is the `integration` project under
+  `RLS_RESTRICTED=true`) and the `verify` skill for AC 1.
+- Causes 1/2 are independent of 3/4 and can run in parallel; 3 and 4 are both
+  Code Blocks and touch adjacent files, so sequence them or give them to one dev.
+- Related: **RLS-8** (32 unscoped call sites) may well contain cause 1's site —
+  check the audit output before hunting by hand.
+- The 9-day blindness is the same failure mode as the integration suite once
+  going months without running in CI. AC 4 is the part that stops a repeat.
 
 ---
 
 ## Phase 2 Gate
 
-- [ ] RLS-1, RLS-3, RLS-4, RLS-5 ✅ each with a dated verification note
-- [ ] RLS-2's shape ruled on by the repo owner, ticketed properly, and delivered
-- [ ] A cross-tenant read proven impossible at the database level, with fail-closed evidence
-- [ ] Full integration green as the restricted role in CI, and required by branch protection
-- [ ] `docs/architecture/TENANT_ISOLATION_RLS.md` matches reality
+- [~] RLS-1 ✅, RLS-2a ✅, RLS-2b ✅, RLS-2c ✅, RLS-2d ✅, RLS-2e ✅, RLS-2f ✅, RLS-3 ✅,
+      RLS-5 ✅, RLS-6 ✅, RLS-7 ✅ (2026-08-22). **RLS-4 is done for dev and test
+      (2026-08-25) and open for production.** Three coverage tickets were added
+      2026-08-25 — **RLS-8** (32 unscoped call sites), **RLS-9** (put the surface
+      audit in CI; it is wired into nothing today), **RLS-10** (data-driven proof
+      that policies isolate, not merely that they are enabled)
+- [x] **RLS-2's shape ruled on by the repo owner** — service boundary, 2026-08-18 — now
+      needs delivering
+- [x] A cross-tenant read proven impossible at the database level, with fail-closed evidence
+      — **dev, 2026-08-22.** As `ezbuildr_app`: tenant pinned -> that tenant's rows only,
+      0 from any other; GUC unset -> 0; GUC `''` -> 0. Both fail-closed, covering the
+      empty-string trap. Not yet true of `test`/`production` (no policies there yet)
+- [~] **The admin console still shows every tenant** after `FORCE` — proven in the test
+      suite (`api.admin-user-workflows` green under `RLS_RESTRICTED=true` with a real
+      BYPASSRLS pool, and `rls7-adminDb-readonly` proves that pool cannot write).
+      **Not yet exercised against the live dev environment**, which is the remaining half
+- [x] Full integration green as the restricted role in CI — **green again since
+      `f57bf806` (2026-09-11), allowlist empty, and now a required check on `main`.**
+      It was red 2026-08-28 → 09-06 and again 09-07 → 09-11 while advisory — see
+      RLS-11. The "Registration failed" flake (RLS_HANDOFF §4) has not recurred in 29
+      runs since 2026-09-08, all single-fork
+- [~] `docs/architecture/TENANT_ISOLATION_RLS.md` covers §2a–§2g and the admin
+      `BYPASSRLS` path. **Needs a pass for what 2026-08-22 changed**: the multer
+      async-context hazard, `forEachTenant` for background jobs, and the fact that in
+      Neon the bypass role is `neondb_owner` (so the read-only property rests on code
+      containment plus a test, not on privileges)
 - [ ] Reviewer has committed each passed ticket
 
+**Dispatch order (updated 2026-08-18 after RLS-1 landed and RLS-2 was split):**
+
+```
+RLS-1  ✅ done bc90cc3e
+RLS-2a    pilot: the pattern, on CollectionService
+RLS-2b    rollout: the remaining ~35 tenant-scoped services  ─┐ parallel with
+RLS-3     policy coverage repair                              ├─ each other and
+RLS-6     admin cross-tenant read path                        ─┘ with RLS-2b
+RLS-2f ✅ done 2026-08-21 — the call-site sweep (121 -> 25 sites)
+RLS-7     admin.routes' remaining cross-tenant ops  (blocks RLS-4, needs an owner ruling)
+RLS-4     FORCE + restricted role   (blocked on 2b, 2f, 3, 6 and 7)
+RLS-5     gate: full integration as the restricted role
+
+added 2026-08-25, after 0041 found the policies were defined but inert:
+RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
+RLS-9  ✅ surface audit into CI, two-way ratchet  ─┘ done 2026-08-25
+RLS-10    data-driven per-table isolation proof     (independent of both)
+
+added 2026-09-06, after the gate was found red for 9 days:
+RLS-11    repair the enforcement gate               (P0 — two causes look live in dev)
+```
+
+RLS-2b, RLS-3 and RLS-6 are mutually disjoint — services, migrations and the admin path
+respectively — so they can run concurrently once RLS-2a fixes the pattern. **RLS-4 needs all
+three**: without 2b it returns zero rows, without 3 the coverage is wrong, without 6 the admin
+console silently truncates.
+
+**Added 2026-08-21:** RLS-2f closed the gap the service-by-service rollout could not see —
+call sites that never went through a service. RLS-7 is the same argument as RLS-6, applied to
+the admin operations RLS-6 did not cover, and it blocks RLS-4 for the identical reason.
+
 ---
-
-## Backlog / observations
-
-- **`records` is a parallel data model nobody has investigated** (`DV-B3` in
-  `tickets/BACKLOG.md`). It is in the RLS array. RLS-3 should say whether it holds real tenant
-  data or is vestigial.
-- **`DEBT-11`** ("RLS policies defined but not enforced", `product-decision`) is **superseded by
-  this file** — resolve it as promoted rather than leaving it parked, or the next audit re-files it.
-- **Background workers are not requests.** `RunCompletionJobWorker` runs outside any HTTP
-  request, so whatever RLS-2 chooses must give workers a tenant-context path of their own.
-  Noted here because it is the likeliest thing to be forgotten until RLS-5 goes red.

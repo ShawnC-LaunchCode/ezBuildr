@@ -8,9 +8,14 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
+import { rlsContext } from "../../server/middleware/rlsContext";
 import { registerRoutes } from "../../server/routes";
 import { projectService } from "../../server/services/ProjectService";
+import { enterTenantContextForTests } from "../../server/utils/rlsContext";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 /**
  * Projects API Integration Tests
  *
@@ -29,6 +34,12 @@ describe.sequential("Projects API Integration Tests", () => {
     app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
+    // RLS-2d: mounted BEFORE registerRoutes, mirroring server/index.ts /
+    // server/production.ts — this suite builds its own app rather than using
+    // the shared integration harness, so it never got rlsContext for free.
+    // Without it, ProjectService's withCurrentTenant() has no tenant to
+    // read and every request 500s with "RLS: no tenant in context."
+    app.use(rlsContext);
     // Register all routes
     server = await registerRoutes(app);
     // Find available port
@@ -41,7 +52,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     baseURL = `http://localhost:${port}`;
     // Create test tenant
-    const [tenant] = await db.insert(schema.tenants).values({
+    const [tenant] = await getOwnerDb().insert(schema.tenants).values({
       name: "Test Tenant for Projects",
       plan: "free",
     }).returning();
@@ -60,14 +71,14 @@ describe.sequential("Projects API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
     // Assign tenant and role to user
-    await db.update(schema.users)
+    await getOwnerDb().update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
   });
   afterAll(async () => {
     // Cleanup
     if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
       await new Promise<void>((resolve) => {
@@ -201,10 +212,13 @@ describe.sequential("Projects API Integration Tests", () => {
       const activeProjectId = activeResponse.body.id;
       const archivedProjectId = archivedResponse.body.id;
 
+      // DELETE is the soft delete: it writes the same archived state the old
+      // (now removed) archive action did, and is the only way the app produces
+      // an archived project.
       await request(baseURL)
-        .put(`/api/projects/${archivedProjectId}/archive`)
+        .delete(`/api/projects/${archivedProjectId}`)
         .set("Authorization", `Bearer ${authToken}`)
-        .expect(200);
+        .expect(204);
 
       const seenIds: string[] = [];
       let cursor: string | undefined;
@@ -232,12 +246,12 @@ describe.sequential("Projects API Integration Tests", () => {
       expect(seenIds).not.toContain(archivedProjectId);
     });
     it("PROJ-8: active list carries ownerName for an org-owned project", async () => {
-      const [org] = await db.insert(schema.organizations).values({
+      const [org] = await getOwnerDb().insert(schema.organizations).values({
         name: `Owner Name Org ${nanoid()}`,
         tenantId,
         createdByUserId: userId,
       }).returning();
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId: org.id,
         userId,
         role: "admin",
@@ -359,7 +373,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .set("Authorization", `Bearer ${authToken}`)
         .expect(204);
       // Verify it's archived
-      const [project] = await db
+      const [project] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -376,10 +390,10 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       const editUserToken = registerResponse.body.token;
       const editUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, editUserId));
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId,
         principalType: "user",
         principalId: editUserId,
@@ -391,7 +405,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .set("Authorization", `Bearer ${editUserToken}`)
         .expect(403);
       // Verify it was NOT archived — the edit-role caller was rejected before any write.
-      const [project] = await db
+      const [project] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -405,7 +419,7 @@ describe.sequential("Projects API Integration Tests", () => {
     let projectId: string;
     beforeEach(async () => {
       // Create another tenant and user
-      const [otherTenant] = await db.insert(schema.tenants).values({
+      const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
         name: "Other Tenant",
         plan: "free",
       }).returning();
@@ -420,7 +434,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       otherAuthToken = registerResponse.body.token;
       const otherUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId: otherTenantId, tenantRole: "owner" })
         .where(eq(schema.users.id, otherUserId));
       // Create project in first tenant
@@ -432,14 +446,14 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     afterAll(async () => {
       if (otherTenantId) {
-        await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+        await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
       }
     });
     it("should not allow cross-tenant access", async () => {
-      await request(baseURL)
+      const res = await request(baseURL)
         .get(`/api/projects/${projectId}`)
-        .set("Authorization", `Bearer ${otherAuthToken}`)
-        .expect(403);
+        .set("Authorization", `Bearer ${otherAuthToken}`);
+      expectCrossTenantDenied(res.status);
     });
   });
   describe("PROJ-1: org-admin archive gate on updateProject", () => {
@@ -450,13 +464,13 @@ describe.sequential("Projects API Integration Tests", () => {
 
     beforeAll(async () => {
       // Org owned by the main tenant, with `userId` (tenant owner) as org admin.
-      const [org] = await db.insert(schema.organizations).values({
+      const [org] = await getOwnerDb().insert(schema.organizations).values({
         name: `Archive Gate Org ${nanoid()}`,
         tenantId,
         createdByUserId: userId,
       }).returning();
       orgId = org.id;
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId,
         userId,
         role: "admin",
@@ -474,10 +488,10 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(201);
       memberAuthToken = registerResponse.body.token;
       memberUserId = registerResponse.body.user.id;
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({ tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, memberUserId));
-      await db.insert(schema.organizationMemberships).values({
+      await getOwnerDb().insert(schema.organizationMemberships).values({
         orgId,
         userId: memberUserId,
         role: "member",
@@ -485,7 +499,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
     afterAll(async () => {
       if (orgId) {
-        await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId));
+        await getOwnerDb().delete(schema.organizations).where(eq(schema.organizations.id, orgId));
       }
     });
     beforeEach(async () => {
@@ -496,7 +510,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: `Archive Gate Project ${nanoid()}`, ownerType: "org", ownerUuid: orgId })
         .expect(201);
       projectId = response.body.id;
-      await db.insert(schema.projectAccess).values({
+      await getOwnerDb().insert(schema.projectAccess).values({
         projectId,
         principalType: "user",
         principalId: memberUserId,
@@ -504,10 +518,15 @@ describe.sequential("Projects API Integration Tests", () => {
       });
     });
     it("rejects a direct service archive by a non-admin org member and allows an org admin", async () => {
+      // RLS-2d: this bypasses HTTP (calling projectService directly), so
+      // rlsContext never runs and there is no ambient tenant. beforeAll/
+      // beforeEach cannot bind it (AsyncLocalStorage.enterWith does not
+      // propagate across hooks) — must be inside the test body itself.
+      enterTenantContextForTests(tenantId);
       await expect(
         projectService.updateProject(projectId, memberUserId, { status: "archived" })
       ).rejects.toThrow(/Access denied/);
-      const [unchanged] = await db
+      const [unchanged] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -532,7 +551,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: "Renamed via PATCH", status: "archived" })
         .expect(200);
       expect(response.body).toHaveProperty("name", "Renamed via PATCH");
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -546,7 +565,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .send({ name: "Renamed via PUT", status: "archived" })
         .expect(200);
       expect(response.body).toHaveProperty("name", "Renamed via PUT");
-      const [row] = await db
+      const [row] = await getOwnerDb()
         .select()
         .from(schema.projects)
         .where(eq(schema.projects.id, projectId));
@@ -575,7 +594,7 @@ describe.sequential("Projects API Integration Tests", () => {
         })
         .expect(400);
       expect(response.body.success).toBe(false);
-      const acl = await db
+      const acl = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(eq(schema.projectAccess.projectId, projectId));
@@ -636,7 +655,7 @@ describe.sequential("Projects API Integration Tests", () => {
         success: true,
         message: "Access revoked successfully",
       });
-      const [remaining] = await db
+      const [remaining] = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(
@@ -664,11 +683,14 @@ describe.sequential("Projects API Integration Tests", () => {
         },
       ];
 
+      // RLS-2d: direct service call, no HTTP request — bind the tenant
+      // in-body (see the note on the archive-gate test above).
+      enterTenantContextForTests(tenantId);
       await expect(
         projectService.grantProjectAccess(projectId, userId, entries)
       ).rejects.toThrow();
 
-      const acl = await db
+      const acl = await getOwnerDb()
         .select()
         .from(schema.projectAccess)
         .where(eq(schema.projectAccess.projectId, projectId));

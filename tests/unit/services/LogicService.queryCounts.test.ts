@@ -1,31 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { LogicRule, Section, Step, StepValue, WorkflowRun } from '@shared/schema';
+import type { LogicRule, Page, Step, StepValue, WorkflowRun } from '@shared/schema';
 
 import { LogicService } from '../../../server/services/LogicService';
 import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 
-function makeSections(): Section[] {
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
+function makePages(): Page[] {
     return Array.from({ length: 3 }, (_, index) => ({
-        id: `section-${index + 1}`,
+        id: `page-${index + 1}`,
         workflowId: 'wf-1',
-        title: `Section ${index + 1}`,
+        title: `Page ${index + 1}`,
         order: index,
-    })) as Section[];
+    })) as Page[];
 }
 
-function makeSteps(sections: Section[]): Step[] {
-    return sections.flatMap((section) =>
+function makeSteps(pages: Page[]): Step[] {
+    return pages.flatMap((page) =>
         Array.from({ length: 4 }, (_, index) => ({
-            id: `${section.id}-step-${index + 1}`,
+            id: `${page.id}-step-${index + 1}`,
             workflowId: 'wf-1',
-            sectionId: section.id,
-            type: 'short_text',
-            title: `${section.title} Step ${index + 1}`,
+            pageId: page.id,
+            type: 'text',
+            title: `${page.title} Step ${index + 1}`,
             order: index,
             required: false,
-            alias: `${section.id}_step_${index + 1}`,
+            alias: `${page.id}_step_${index + 1}`,
             config: {},
             isVirtual: false,
         }))
@@ -41,13 +60,13 @@ function makeRunValues(steps: Step[]): StepValue[] {
 }
 
 describe('Logic query counts', () => {
-    let sections: Section[];
+    let pages: Page[];
     let steps: Step[];
     let runValues: StepValue[];
     let runData: Record<string, unknown>;
-    let sectionRepo: { findByWorkflowId: ReturnType<typeof vi.fn> };
+    let pageRepo: { findByWorkflowId: ReturnType<typeof vi.fn> };
     let stepRepo: {
-        findBySectionIds: ReturnType<typeof vi.fn>;
+        findByPageIds: ReturnType<typeof vi.fn>;
         findByWorkflowIdWithAliases: ReturnType<typeof vi.fn>;
     };
     let logicRuleRepo: { findByWorkflowId: ReturnType<typeof vi.fn> };
@@ -59,16 +78,16 @@ describe('Logic query counts', () => {
     let logicSvc: LogicService;
 
     beforeEach(() => {
-        sections = makeSections();
-        steps = makeSteps(sections);
+        pages = makePages();
+        steps = makeSteps(pages);
         runValues = makeRunValues(steps);
         runData = Object.fromEntries(runValues.map((value) => [value.stepId, value.value]));
 
-        sectionRepo = {
-            findByWorkflowId: vi.fn().mockResolvedValue(sections),
+        pageRepo = {
+            findByWorkflowId: vi.fn().mockResolvedValue(pages),
         };
         stepRepo = {
-            findBySectionIds: vi.fn().mockResolvedValue(steps),
+            findByPageIds: vi.fn().mockResolvedValue(steps),
             findByWorkflowIdWithAliases: vi.fn().mockResolvedValue(steps),
         };
         logicRuleRepo = {
@@ -78,10 +97,10 @@ describe('Logic query counts', () => {
             findByRunId: vi.fn().mockResolvedValue(runValues),
             getRunDataAsJson: vi.fn().mockResolvedValue(runData),
         };
-        // RVP-2: LogicService now resolves sections/steps/rules through
+        // RVP-2: LogicService now resolves pages/steps/rules through
         // RunDefinitionProvider (RVP-1) rather than reading the live repos
         // directly. This run has no workflowVersionId, so the provider takes
-        // its 'live' branch -- the same sectionRepo/stepRepo/logicRuleRepo
+        // its 'live' branch -- the same pageRepo/stepRepo/logicRuleRepo
         // reads these tests already assert on, just one hop further away.
         runRepo = {
             findById: vi.fn().mockResolvedValue({
@@ -92,9 +111,10 @@ describe('Logic query counts', () => {
         };
         const definitionProvider = new RunDefinitionProvider(
             undefined,
-            sectionRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[1],
+            pageRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[1],
             stepRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[2],
-            logicRuleRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[3]
+            logicRuleRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[3],
+            { findByWorkflowId: vi.fn().mockResolvedValue([]) } as unknown as ConstructorParameters<typeof RunDefinitionProvider>[4]
         );
 
         logicSvc = new LogicService(
@@ -104,39 +124,39 @@ describe('Logic query counts', () => {
         );
     });
 
-    it('determineStartSection builds one logic context for a multi-section workflow', async () => {
+    it('determineStartPage builds one logic context for a multi-page workflow', async () => {
         const service = new RunLifecycleService(
             valueRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[0],
             stepRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[1],
-            sectionRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[2],
+            pageRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[2],
             {} as ConstructorParameters<typeof RunLifecycleService>[3],
             logicSvc
         );
 
-        const result = await service.determineStartSection('run-1', 'wf-1');
+        const result = await service.determineStartPage('run-1', 'wf-1');
 
-        expect(result).toBe('section-3');
+        expect(result).toBe('page-3');
         expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
-        expect(sectionRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
-        expect(stepRepo.findBySectionIds).toHaveBeenCalledTimes(1);
+        expect(pageRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
+        expect(stepRepo.findByPageIds).toHaveBeenCalledTimes(1);
         expect(stepRepo.findByWorkflowIdWithAliases).toHaveBeenCalledTimes(0);
         expect(valueRepo.findByRunId).toHaveBeenCalledTimes(1);
     });
 
-    it('evaluateNavigation loads sections, steps, rules, and values at most once', async () => {
-        await logicSvc.evaluateNavigation('wf-1', 'run-1', 'section-1');
+    it('evaluateNavigation loads pages, steps, rules, and values at most once', async () => {
+        await logicSvc.evaluateNavigation('wf-1', 'run-1', 'page-1');
 
-        expect(sectionRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
-        expect(stepRepo.findBySectionIds).toHaveBeenCalledTimes(1);
+        expect(pageRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
+        expect(stepRepo.findByPageIds).toHaveBeenCalledTimes(1);
         expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
         expect(valueRepo.getRunDataAsJson).toHaveBeenCalledTimes(1);
     });
 
-    it('validateCompletion loads sections, steps, rules, and values at most once', async () => {
+    it('validateCompletion loads pages, steps, rules, and values at most once', async () => {
         await logicSvc.validateCompletion('wf-1', 'run-1');
 
-        expect(sectionRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
-        expect(stepRepo.findBySectionIds).toHaveBeenCalledTimes(1);
+        expect(pageRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
+        expect(stepRepo.findByPageIds).toHaveBeenCalledTimes(1);
         expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledTimes(1);
         expect(valueRepo.getRunDataAsJson).toHaveBeenCalledTimes(1);
     });

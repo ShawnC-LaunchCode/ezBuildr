@@ -32,16 +32,16 @@ export function EnhancedVariablePicker({
   const { toast } = useToast();
   const [expandedVars, setExpandedVars] = useState<Set<string>>(new Set());
 
-  // Group variables by section/page
+  // Group variables by page
   const grouped = useMemo(() => {
     const groups = new Map<string, ApiWorkflowVariable[]>();
 
     variables.forEach((variable) => {
-      const sectionTitle = variable.sectionTitle || "Other";
-      if (!groups.has(sectionTitle)) {
-        groups.set(sectionTitle, []);
+      const pageTitle = variable.pageTitle || "Other";
+      if (!groups.has(pageTitle)) {
+        groups.set(pageTitle, []);
       }
-      groups.get(sectionTitle)!.push(variable);
+      groups.get(pageTitle)!.push(variable);
     });
 
     return Array.from(groups.entries());
@@ -93,10 +93,10 @@ export function EnhancedVariablePicker({
           </p>
         </div>
 
-        {grouped.map(([sectionTitle, vars]) => (
-          <div key={sectionTitle} className="space-y-2">
+        {grouped.map(([pageTitle, vars]) => (
+          <div key={pageTitle} className="space-y-2">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {sectionTitle}
+              {pageTitle}
             </h4>
             <div className="space-y-1">
               {vars.map((variable) => {

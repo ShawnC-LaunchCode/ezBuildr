@@ -16,10 +16,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { storageProvider } from '../../server/services/storage';
 import { getTemplateFilePath } from '../../server/services/templates';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: verification reads are the OBSERVER - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // Mock template scanner to avoid needing valid DOCX files
 vi.mock('../../server/services/document/TemplateScanner', () => ({
@@ -112,7 +113,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
     // The actual DB update will fail because the template doesn't exist
 
     // First, verify our template exists
-    const template = await db.query.templates.findFirst({
+    const template = await getOwnerDb().query.templates.findFirst({
       where: eq(schema.templates.id, testTemplateId),
     });
     expect(template).toBeDefined();
@@ -135,7 +136,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
     expect(fsSync.existsSync(originalFilePath)).toBe(true);
 
     // Original template should be unchanged in DB
-    const unchangedTemplate = await db.query.templates.findFirst({
+    const unchangedTemplate = await getOwnerDb().query.templates.findFirst({
       where: eq(schema.templates.id, testTemplateId),
     });
     expect(unchangedTemplate!.fileRef).toBe(originalFileRef);
@@ -183,7 +184,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
       const newFileRef = response.body.fileRef;
 
       // DB should point to new file
-      const updatedTemplate = await db.query.templates.findFirst({
+      const updatedTemplate = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, testTemplateId),
       });
       expect(updatedTemplate!.fileRef).toBe(newFileRef);
@@ -333,7 +334,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
     const templateId = createResponse.body.id;
 
     // Verify DB record
-    const template = await db.query.templates.findFirst({
+    const template = await getOwnerDb().query.templates.findFirst({
       where: eq(schema.templates.id, templateId),
     });
 
@@ -356,7 +357,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
     }
 
     // Final verification: DB fileRef points to existing file
-    const finalTemplate = await db.query.templates.findFirst({
+    const finalTemplate = await getOwnerDb().query.templates.findFirst({
       where: eq(schema.templates.id, templateId),
     });
 

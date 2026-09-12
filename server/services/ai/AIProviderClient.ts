@@ -18,6 +18,7 @@ import { ProviderFactory } from './providers/ProviderFactory';
 import type { IAIProvider } from './providers/types';
 import type { TaskType } from './types';
 import type { AIProviderConfig } from '../../../shared/types/ai';
+import { withTenant } from "../../utils/rlsContext";
 
 const logger = createLogger({ module: 'ai-provider-client' });
 
@@ -70,7 +71,10 @@ export class AIProviderClient {
    */
   private async enforceBudget(tenantId: string): Promise<void> {
     const since = new Date(Date.now() - LIMITS.AI_TENANT_BUDGET_WINDOW_DAYS * MS_PER_DAY);
-    const usedTokens = await this.aiUsageRepo.getTokenUsageSince(tenantId, since);
+    // Same table, and this one gates spend: unscoped it reads 0 and the monthly
+    // token budget never trips, so an over-budget tenant keeps making calls.
+    const usedTokens = await withTenant(tenantId, (tx) =>
+      this.aiUsageRepo.getTokenUsageSince(tenantId, since, tx));
     const usedCostUsd = await this.aiUsageRepo.getCostUsdSince(tenantId, since);
     const usedCents = Math.round(usedCostUsd * 100);
 
@@ -147,7 +151,13 @@ export class AIProviderClient {
     const { provider, model } = this.config;
     try {
       const costUsd = ModelRegistry.estimateCost(provider, model, inputTokens, outputTokens);
-      await this.aiUsageRepo.recordUsage({
+      // RLS-5: `ai_usage` is covered, and this method is deliberately
+      // best-effort — a telemetry failure must not fail the AI response. That
+      // makes an unscoped insert the WORST case: under enforcement it is
+      // rejected, the catch below swallows it, and every tenant's AI usage
+      // silently stops being recorded. Billing and the token budget both read
+      // this table. The tenant is right here in the argument.
+      await withTenant(tenantId, (tx) => this.aiUsageRepo.recordUsage({
         tenantId,
         provider,
         model,
@@ -155,7 +165,7 @@ export class AIProviderClient {
         inputTokens,
         outputTokens,
         costUsd,
-      });
+      }, tx));
     } catch (error: unknown) {
       logger.error({
         error: error instanceof Error ? error.message : String(error),

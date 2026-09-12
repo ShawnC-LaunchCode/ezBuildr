@@ -14,13 +14,15 @@ import { users, tenants, refreshTokens, trustedDevices , auditLogs } from '@shar
 
 
 
-import { db } from '../../../server/db';
 import { userCredentialsRepository } from '../../../server/repositories';
 import { registerAuthRoutes } from '../../../server/routes/auth.routes';
 import { authService } from '../../../server/services/AuthService';
 import { hashToken } from '../../../server/utils/encryption';
 
 import type { Express } from 'express';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 describe('OAuth2 Session Management', () => {
   let app: Express;
@@ -39,7 +41,7 @@ describe('OAuth2 Session Management', () => {
     registerAuthRoutes(app);
 
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: `Session Test Tenant ${nanoid()}`,
       plan: 'pro',
     }).returning();
@@ -50,7 +52,7 @@ describe('OAuth2 Session Management', () => {
     // Create fresh test user
     testUserEmail = `session-test-${nanoid()}@example.com`;
 
-    const [user] = await db.insert(users).values({
+    const [user] = await getOwnerDb().insert(users).values({
       id: nanoid(),
       email: testUserEmail,
       firstName: 'Session',
@@ -78,16 +80,16 @@ describe('OAuth2 Session Management', () => {
       afterAll(async () => {
         if (testTenantId) {
           // Find all users in this tenant to clean up their dependencies
-          const tenantUsers = await db.select().from(users).where(eq(users.tenantId, testTenantId));
+          const tenantUsers = await getOwnerDb().select().from(users).where(eq(users.tenantId, testTenantId));
 
           for (const user of tenantUsers) {
-            await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
-            await db.delete(trustedDevices).where(eq(trustedDevices.userId, user.id));
-            await db.delete(auditLogs).where(eq(auditLogs.userId, user.id));
+            await getOwnerDb().delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
+            await getOwnerDb().delete(trustedDevices).where(eq(trustedDevices.userId, user.id));
+            await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, user.id));
           }
 
-          await db.delete(users).where(eq(users.tenantId, testTenantId));
-          await db.delete(tenants).where(eq(tenants.id, testTenantId));
+          await getOwnerDb().delete(users).where(eq(users.tenantId, testTenantId));
+          await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
         }
       });
     }
@@ -141,7 +143,7 @@ describe('OAuth2 Session Management', () => {
 
     it('should return empty array when user has no active sessions', async () => {
       // Revoke all sessions
-      await db.update(refreshTokens)
+      await getOwnerDb().update(refreshTokens)
         .set({ revoked: true })
         .where(eq(refreshTokens.userId, testUserId));
 
@@ -155,7 +157,7 @@ describe('OAuth2 Session Management', () => {
 
     it('should not include expired sessions', async () => {
       // Create expired session
-      await db.insert(refreshTokens).values({
+      await getOwnerDb().insert(refreshTokens).values({
         token: 'expired-session-hash',
         userId: testUserId,
         expiresAt: new Date(Date.now() - 1000),
@@ -178,7 +180,7 @@ describe('OAuth2 Session Management', () => {
       const token = await authService.createRefreshToken(testUserId);
 
       // Revoke it
-      await db.update(refreshTokens)
+      await getOwnerDb().update(refreshTokens)
         .set({ revoked: true })
         .where(eq(refreshTokens.token, token));
 
@@ -220,7 +222,7 @@ describe('OAuth2 Session Management', () => {
       const token = await authService.createRefreshToken(testUserId);
 
       // Get session ID
-      const sessionRecord = await db.query.refreshTokens.findFirst({
+      const sessionRecord = await getOwnerDb().query.refreshTokens.findFirst({
         where: and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.token, hashToken(token))
@@ -237,7 +239,7 @@ describe('OAuth2 Session Management', () => {
       expect(response.body.message).toBe('Session revoked successfully');
 
       // Verify session is revoked
-      const updatedSession = await db.query.refreshTokens.findFirst({
+      const updatedSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.id, sessionRecord!.id),
       });
       expect(updatedSession?.revoked).toBe(true);
@@ -255,7 +257,7 @@ describe('OAuth2 Session Management', () => {
     it('should prevent revoking current session', async () => {
       const token = await authService.createRefreshToken(testUserId);
 
-      const sessionRecord = await db.query.refreshTokens.findFirst({
+      const sessionRecord = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -270,7 +272,7 @@ describe('OAuth2 Session Management', () => {
 
     it('should prevent revoking another user\'s session', async () => {
       // Create another user
-      const [otherUser] = await db.insert(users).values({
+      const [otherUser] = await getOwnerDb().insert(users).values({
         id: nanoid(),
         email: 'other-user@example.com',
         firstName: 'Other',
@@ -286,7 +288,7 @@ describe('OAuth2 Session Management', () => {
 
       // Create session for other user
       const otherToken = await authService.createRefreshToken(otherUser.id);
-      const otherSession = await db.query.refreshTokens.findFirst({
+      const otherSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(otherToken)),
       });
 
@@ -327,7 +329,7 @@ describe('OAuth2 Session Management', () => {
       expect(response.body.message).toBe('Logged out from all other devices');
 
       // Verify only current session remains active
-      const activeSessions = await db.select().from(refreshTokens)
+      const activeSessions = await getOwnerDb().select().from(refreshTokens)
         .where(and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)
@@ -339,7 +341,7 @@ describe('OAuth2 Session Management', () => {
 
     it('should revoke all trusted devices', async () => {
       // Create trusted devices
-      await db.insert(trustedDevices).values([
+      await getOwnerDb().insert(trustedDevices).values([
         {
           userId: testUserId,
           deviceFingerprint: 'device-1',
@@ -368,7 +370,7 @@ describe('OAuth2 Session Management', () => {
       expect(response.status).toBe(200);
 
       // Verify all trusted devices are revoked
-      const activeTrustedDevices = await db.select().from(trustedDevices)
+      const activeTrustedDevices = await getOwnerDb().select().from(trustedDevices)
         .where(and(
           eq(trustedDevices.userId, testUserId),
           eq(trustedDevices.revoked, false)
@@ -410,7 +412,7 @@ describe('OAuth2 Session Management', () => {
         });
 
         // Verify device exists in database
-        const devices = await db.select().from(trustedDevices)
+        const devices = await getOwnerDb().select().from(trustedDevices)
           .where(eq(trustedDevices.userId, testUserId));
 
         expect(devices.length).toBeGreaterThan(0);
@@ -424,7 +426,7 @@ describe('OAuth2 Session Management', () => {
           .set('User-Agent', 'Test Browser/1.0')
           .send({ password: 'StrongTestUser123!@#' });
 
-        const initialDevice = await db.query.trustedDevices.findFirst({
+        const initialDevice = await getOwnerDb().query.trustedDevices.findFirst({
           where: eq(trustedDevices.userId, testUserId),
         });
 
@@ -435,7 +437,7 @@ describe('OAuth2 Session Management', () => {
           .set('User-Agent', 'Test Browser/1.0')
           .send({ password: 'StrongTestUser123!@#' });
 
-        const devices = await db.select().from(trustedDevices)
+        const devices = await getOwnerDb().select().from(trustedDevices)
           .where(eq(trustedDevices.userId, testUserId));
 
         // Should still be only one device
@@ -451,7 +453,7 @@ describe('OAuth2 Session Management', () => {
     describe('GET /api/auth/trusted-devices', () => {
       it('should list all trusted devices', async () => {
         // Create trusted devices
-        await db.insert(trustedDevices).values([
+        await getOwnerDb().insert(trustedDevices).values([
           {
             userId: testUserId,
             deviceFingerprint: 'device-fingerprint-1',
@@ -489,7 +491,7 @@ describe('OAuth2 Session Management', () => {
       });
 
       it('should not include revoked devices', async () => {
-        await db.insert(trustedDevices).values({
+        await getOwnerDb().insert(trustedDevices).values({
           userId: testUserId,
           deviceFingerprint: 'revoked-device',
           deviceName: 'Revoked Device',
@@ -512,7 +514,7 @@ describe('OAuth2 Session Management', () => {
 
     describe('DELETE /api/auth/trusted-devices/:deviceId', () => {
       it('should revoke a trusted device', async () => {
-        const [device] = await db.insert(trustedDevices).values({
+        const [device] = await getOwnerDb().insert(trustedDevices).values({
           userId: testUserId,
           deviceFingerprint: 'device-to-revoke',
           deviceName: 'Device To Revoke',
@@ -529,7 +531,7 @@ describe('OAuth2 Session Management', () => {
         expect(response.body.message).toBe('Device revoked successfully');
 
         // Verify device is revoked
-        const updatedDevice = await db.query.trustedDevices.findFirst({
+        const updatedDevice = await getOwnerDb().query.trustedDevices.findFirst({
           where: eq(trustedDevices.id, device.id),
         });
         expect(updatedDevice?.revoked).toBe(true);
@@ -551,7 +553,7 @@ describe('OAuth2 Session Management', () => {
         ip: '192.168.1.100',
       });
 
-      const session = await db.query.refreshTokens.findFirst({
+      const session = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -564,7 +566,7 @@ describe('OAuth2 Session Management', () => {
         userAgent,
       });
 
-      const session = await db.query.refreshTokens.findFirst({
+      const session = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -575,7 +577,7 @@ describe('OAuth2 Session Management', () => {
     it('should update lastUsedAt on token refresh', async () => {
       const token = await authService.createRefreshToken(testUserId);
 
-      const _initialSession = await db.query.refreshTokens.findFirst({
+      const _initialSession = await getOwnerDb().query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
@@ -588,7 +590,7 @@ describe('OAuth2 Session Management', () => {
         .set('Cookie', `refresh_token=${token}`);
 
       // Get new session (old one should be revoked)
-      const sessions = await db.select().from(refreshTokens)
+      const sessions = await getOwnerDb().select().from(refreshTokens)
         .where(and(
           eq(refreshTokens.userId, testUserId),
           eq(refreshTokens.revoked, false)

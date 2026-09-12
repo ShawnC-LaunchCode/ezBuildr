@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react";
 
-import { useSteps } from "@/lib/vault-hooks";
+import { useWorkflowSteps } from "@/lib/vault-hooks";
 
 import type {
   ListToolsConfig
@@ -28,7 +28,13 @@ interface ListToolsBlockEditorProps {
 }
 
 export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: ListToolsBlockEditorProps) {
-  const { data: steps } = useSteps(workflowId);
+  // LIST-B1: must be `useWorkflowSteps` (GET /api/workflows/:id/steps), not
+  // `useSteps`, which takes a *pageId*. Both parameters are `string`, so the
+  // swap type-checks; it just asked for the steps of a page whose id was a
+  // workflow id, got nothing back, and left the Source List Variable dropdown
+  // permanently empty. This endpoint also includes virtual steps, which is
+  // where block list outputs live.
+  const { data: steps } = useWorkflowSteps(workflowId);
   const [localConfig, setLocalConfig] = useState<Partial<ListToolsConfig>>(config);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['source']));
 

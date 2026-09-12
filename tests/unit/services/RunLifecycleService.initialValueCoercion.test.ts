@@ -14,9 +14,9 @@
  */
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
-import type { Step, Section } from '@shared/schema';
+import type { Step, Page } from '@shared/schema';
 
-import { stepRepository, sectionRepository, stepValueRepository } from '../../../server/repositories';
+import { stepRepository, pageRepository, stepValueRepository } from '../../../server/repositories';
 import type { LogicService } from '../../../server/services/LogicService';
 import type { RunDataService } from '../../../server/services/workflow-runs/RunDataService';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
@@ -33,11 +33,29 @@ vi.mock('../../../server/repositories', async (importOriginal) => {
   return {
     ...actual,
     stepRepository: {
-      findBySectionIds: vi.fn(),
+      findByPageIds: vi.fn(),
     },
-    sectionRepository: {
+    pageRepository: {
       findByWorkflowId: vi.fn(),
     },
+  };
+});
+
+// RLS-11 cause 2 made `populateInitialValues` read pages and steps inside
+// `withCurrentTenant`, because on the bare pool those RLS-covered reads return
+// zero rows and every default silently fails to persist. This suite is about
+// value COERCION and deliberately runs without a database, so the real
+// implementation (which opens a transaction) cannot run here. Pass the callback
+// through with a stub tx: the repos it calls are already constructor-injected
+// mocks that ignore their `tx` argument, so behaviour under test is unchanged.
+// Everything else in the module is kept via importOriginal — RunLifecycleService
+// also imports `getCurrentTenantId`, `runWithTenantContext` and
+// `withVerifiedIdentifier` from here.
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  return {
+    ...actual,
+    withCurrentTenant: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})),
   };
 });
 
@@ -57,8 +75,8 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
   };
 });
 
-function makeSection(id: string): Section {
-  return { id } as unknown as Section;
+function makePage(id: string): Page {
+  return { id } as unknown as Page;
 }
 
 function makeStep(overrides: Partial<Step>): Step {
@@ -66,7 +84,7 @@ function makeStep(overrides: Partial<Step>): Step {
     id: overrides.id ?? 'step-id',
     alias: overrides.alias ?? null,
     type: overrides.type ?? 'short_text',
-    sectionId: 'section-1',
+    pageId: 'page-1',
     isVirtual: false,
     defaultValue: null,
     ...overrides,
@@ -76,24 +94,24 @@ function makeStep(overrides: Partial<Step>): Step {
 describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () => {
   let service: RunLifecycleService;
   let mockStepRepo: Mocked<typeof stepRepository>;
-  let mockSectionRepo: Mocked<typeof sectionRepository>;
+  let mockPageRepo: Mocked<typeof pageRepository>;
   let mockPersistence: Mocked<RunPersistenceWriter>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
     mockStepRepo = stepRepository as unknown as Mocked<typeof stepRepository>;
-    mockSectionRepo = sectionRepository as unknown as Mocked<typeof sectionRepository>;
+    mockPageRepo = pageRepository as unknown as Mocked<typeof pageRepository>;
 
     const persistenceModule = await import('../../../server/services/runs/RunPersistenceWriter');
     mockPersistence = (persistenceModule as unknown as { runPersistenceWriter: Mocked<RunPersistenceWriter> }).runPersistenceWriter;
 
-    mockSectionRepo.findByWorkflowId.mockResolvedValue([makeSection('section-1')]);
+    mockPageRepo.findByWorkflowId.mockResolvedValue([makePage('page-1')]);
 
     service = new RunLifecycleService(
       stepValueRepository as unknown as typeof stepValueRepository,
       mockStepRepo,
-      mockSectionRepo,
+      mockPageRepo,
       mockPersistence,
       {} as unknown as LogicService,
       {} as unknown as RunDataService,
@@ -101,14 +119,14 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
   });
 
   async function runWithStep(step: Step, initialValues: Record<string, unknown>) {
-    mockStepRepo.findBySectionIds.mockResolvedValue([step]);
+    mockStepRepo.findByPageIds.mockResolvedValue([step]);
     await service.populateInitialValues('run-1', 'workflow-1', { initialValues });
     const calls = mockPersistence.bulkSaveValues.mock.calls;
     return calls[calls.length - 1]?.[1] as Array<{ stepId: string; value: unknown }> | undefined;
   }
 
   it('AC1: a numeric-looking string prefilled onto a short_text step stays a string', async () => {
-    const step = makeStep({ id: 'step-ref', alias: 'ref', type: 'short_text' });
+    const step = makeStep({ id: 'step-ref', alias: 'ref', type: 'text' });
     const saved = await runWithStep(step, { ref: 12345 }); // JSON.parse("12345") -> number 12345
 
     expect(saved).toEqual([{ stepId: 'step-ref', value: '12345' }]);
@@ -152,6 +170,23 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
     expect(typeof saved?.[0]?.value).toBe('boolean');
   });
 
+  it('STB-6: a logical Boolean default is coerced to the configured storage alias', async () => {
+    const step = makeStep({
+      id: 'step-consent',
+      alias: 'consent',
+      type: 'boolean',
+      defaultValue: true,
+      config: {
+        storeAsBoolean: false,
+        trueAlias: 'consent_given',
+        falseAlias: 'consent_withheld',
+      },
+    });
+    const saved = await runWithStep(step, {});
+
+    expect(saved).toEqual([{ stepId: 'step-consent', value: 'consent_given' }]);
+  });
+
   it('AC4: an array prefilled onto a choice step is left untouched', async () => {
     const step = makeStep({ id: 'step-picks', alias: 'picks', type: 'choice' });
     const saved = await runWithStep(step, { picks: ['a', 'b'] });
@@ -159,12 +194,12 @@ describe('RUN2-20: RunLifecycleService.populateInitialValues type coercion', () 
     expect(saved).toEqual([{ stepId: 'step-picks', value: ['a', 'b'] }]);
   });
 
-  it('AC5: currency and scale (numeric-family types) are also coerced via normalizeRunnerStepType', async () => {
-    const currencyStep = makeStep({ id: 'step-price', alias: 'price', type: 'currency' });
+  it('AC5: currency and scale (numeric-family types) are also coerced via adaptLegacyStep', async () => {
+    const currencyStep = makeStep({ id: 'step-price', alias: 'price', type: 'number' });
     const savedCurrency = await runWithStep(currencyStep, { price: '19.99' });
     expect(savedCurrency).toEqual([{ stepId: 'step-price', value: 19.99 }]);
 
-    const scaleStep = makeStep({ id: 'step-rating', alias: 'rating', type: 'scale_advanced' });
+    const scaleStep = makeStep({ id: 'step-rating', alias: 'rating', type: 'scale' });
     const savedScale = await runWithStep(scaleStep, { rating: '5' });
     expect(savedScale).toEqual([{ stepId: 'step-rating', value: 5 }]);
   });

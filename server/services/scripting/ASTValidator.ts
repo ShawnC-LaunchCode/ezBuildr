@@ -7,6 +7,8 @@ import * as acorn from "acorn";
 
 import { logger } from "../../logger";
 
+import { IMPURE_HELPERS } from './HelperLibrary';
+
 // ===================================================================
 // VALIDATION RESULT TYPES
 // ===================================================================
@@ -17,6 +19,9 @@ export interface ValidationResult {
   violations?: SecurityViolation[];
   complexity?: ComplexityMetrics;
   warnings?: string[];
+  derivedInputs?: string[];
+  derivedOutputs?: string[];
+  impureHelpers?: string[];
 }
 
 export interface SecurityViolation {
@@ -159,7 +164,14 @@ export class ASTValidator {
       }
 
       // Detect forbidden patterns
-      const patternViolations = this.detectForbiddenPatterns(ast);
+      const inputs = new Set<string>();
+      const outputs = new Set<string>();
+      const impureHelpers = new Set<string>();
+      const helperBindings = new Map<string, string>([['helpers', 'helpers']]);
+      const patternViolations = this.detectForbiddenPatterns(ast, node => {
+        this.collectDerivation(node, inputs, outputs, warnings);
+        this.collectImpureHelpers(node, helperBindings, impureHelpers);
+      });
       violations.push(...patternViolations);
 
       // Check for emit() call (required for output)
@@ -194,6 +206,9 @@ export class ASTValidator {
 
       return {
         valid: true,
+        derivedInputs: [...inputs],
+        derivedOutputs: [...outputs],
+        impureHelpers: [...impureHelpers],
         violations: violations.length > 0 ? violations : undefined,
         complexity,
         warnings: warnings.length > 0 ? warnings : undefined,
@@ -392,12 +407,13 @@ export class ASTValidator {
   /**
    * Detect forbidden patterns in AST
    */
-  detectForbiddenPatterns(ast: acorn.Node): SecurityViolation[] {
+  detectForbiddenPatterns(ast: acorn.Node, visit?: (node: ASTNodeRecord) => void): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
 
 
     const traverse = (node: ASTNodeRecord): void => {
       try {
+        visit?.(node);
         this.checkForbiddenIdentifier(node, violations);
         this.checkForbiddenCall(node, violations);
         this.checkForbiddenMemberAccess(node, violations);
@@ -416,6 +432,93 @@ export class ASTValidator {
       traverse(ast as unknown as ASTNodeRecord);
     }
     return violations;
+  }
+
+  /** Collect only direct input members and literal emit keys during the security walk. */
+  private collectDerivation(
+    node: ASTNodeRecord,
+    inputs: Set<string>,
+    outputs: Set<string>,
+    warnings: string[]
+  ): void {
+    const warn = (kind: 'input' | 'output'): void => {
+      const message = `Dynamic ${kind} access: declare ${kind} keys manually; they cannot all be derived from code.`;
+      if (!warnings.includes(message)) { warnings.push(message); }
+    };
+    if (node.type === 'MemberExpression' && isASTNode(node.object) &&
+        node.object.type === 'Identifier' && node.object.name === 'input') {
+      const key = this.getPropertyName(node);
+      if (key === null) { warn('input'); }
+      else { inputs.add(key); }
+    }
+    this.collectOutputs(node, outputs, () => warn('output'));
+  }
+
+  private helperPath(node: unknown, bindings: Map<string, string>): string | undefined {
+    if (!isASTNode(node)) { return undefined; }
+    if (node.type === 'Identifier' && typeof node.name === 'string') {
+      if (bindings.has(node.name)) { return bindings.get(node.name); }
+      return Object.hasOwn(IMPURE_HELPERS, node.name) ? `helpers.${node.name}` : undefined;
+    }
+    if (node.type !== 'MemberExpression') { return undefined; }
+    const parent = this.helperPath(node.object, bindings);
+    const key = this.getPropertyName(node);
+    return parent !== undefined && key !== null ? `${parent}.${key}` : undefined;
+  }
+
+  private bindHelperPattern(pattern: unknown, path: string, bindings: Map<string, string>): void {
+    if (!isASTNode(pattern)) { return; }
+    if (pattern.type === 'Identifier' && typeof pattern.name === 'string') {
+      bindings.set(pattern.name, path);
+    } else if (pattern.type === 'ObjectPattern' && Array.isArray(pattern.properties)) {
+      for (const property of pattern.properties) {
+        if (!isASTNode(property) || property.type !== 'Property' || !isASTNode(property.key)) { continue; }
+        const key = property.computed !== true && property.key.type === 'Identifier'
+          ? property.key.name : property.key.value;
+        if (typeof key === 'string') {
+          this.bindHelperPattern(property.value, `${path}.${key}`, bindings);
+        }
+      }
+    }
+  }
+
+  /** Shares CB-5's security walk; bindings preserve helper provenance through aliases. */
+  private collectImpureHelpers(node: ASTNodeRecord, bindings: Map<string, string>, impure: Set<string>): void {
+    if (node.type === 'VariableDeclarator') {
+      const path = this.helperPath(node.init, bindings);
+      if (path !== undefined) { this.bindHelperPattern(node.id, path, bindings); }
+    }
+    if (node.type !== 'CallExpression') { return; }
+    const path = this.helperPath(node.callee, bindings);
+    for (const [name, libraryPath] of Object.entries(IMPURE_HELPERS)) {
+      if (path === `helpers.${name}` || path === `helpers.${libraryPath}`) {
+        impure.add(name);
+      }
+    }
+  }
+
+  private collectOutputs(node: ASTNodeRecord, outputs: Set<string>, warn: () => void): void {
+    if (node.type !== 'CallExpression' || node.callee?.type !== 'Identifier' || node.callee.name !== 'emit') { return; }
+    const argument: unknown = Array.isArray(node.arguments) ? node.arguments[0] : undefined;
+    if (!isASTNode(argument) || argument.type !== 'ObjectExpression') {
+      warn();
+      return;
+    }
+    if (!Array.isArray(argument.properties)) { return; }
+    for (const property of argument.properties) {
+      if (!isASTNode(property) || property.type !== 'Property' || !isASTNode(property.key)) {
+        warn();
+        continue;
+      }
+      const key = property.key;
+      if (property.computed !== true && key.type === 'Identifier' && typeof key.name === 'string') {
+        outputs.add(key.name);
+      } else if (key.type === 'Literal' && (typeof key.value === 'string' || typeof key.value === 'number')) {
+        outputs.add(String(key.value));
+      } else {
+        warn();
+      }
+    }
   }
 
   private checkForbiddenIdentifier(node: ASTNodeRecord, violations: SecurityViolation[]): void {

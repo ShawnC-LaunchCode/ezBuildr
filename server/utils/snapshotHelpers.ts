@@ -6,6 +6,7 @@
  */
 
 import type { Step } from '@shared/schema';
+import { resolveChoiceDisplay } from '@shared/types/stepConfigs';
 
 /**
  * Information about a missing or invalid snapshot value
@@ -76,21 +77,20 @@ export function findMissingValues(
     // Value exists - validate format for complex types
     const value = snapshotValues[key];
 
-    if (step.type === 'address' && typeof value !== 'object') {
-      missingValues.push({
-        stepId: step.id,
-        alias: step.alias,
-        reason: 'invalid_format',
-      });
-    // eslint-disable-next-line sonarjs/no-duplicated-branches
-    } else if (step.type === 'multi_field' && typeof value !== 'object') {
-      missingValues.push({
-        stepId: step.id,
-        alias: step.alias,
-        reason: 'invalid_format',
-      });
-    // eslint-disable-next-line sonarjs/no-duplicated-branches
-    } else if (step.type === 'multiple_choice' && !Array.isArray(value)) {
+    // All three shapes report the same finding, so they are one condition rather
+    // than three identical branches carrying duplicate-branch suppressions.
+    // Choice cardinality comes from resolveChoiceDisplay: a canonical single
+    // select stores a string, only a multi-select stores an array.
+    const isInvalidFormat =
+      (step.type === 'address' && typeof value !== 'object')
+      || (step.type === 'multi_field' && typeof value !== 'object')
+      || (
+        step.type === 'choice'
+        && resolveChoiceDisplay(step.config as never, step.type) === 'multiple'
+        && !Array.isArray(value)
+      );
+
+    if (isInvalidFormat) {
       missingValues.push({
         stepId: step.id,
         alias: step.alias,
@@ -105,10 +105,10 @@ export function findMissingValues(
 /**
  * Finds the first visible step with a missing value
  *
- * Takes into account section order and step order.
+ * Takes into account page order and step order.
  *
  * @param missingValues - Array of missing values
- * @param allSteps - All workflow steps (with sectionId and order)
+ * @param allSteps - All workflow steps (with pageId and order)
  * @returns The first missing step, or null if none
  */
 export function findFirstMissingStep(
@@ -125,10 +125,10 @@ export function findFirstMissingStep(
 
   if (missingSteps.length === 0) {return null;}
 
-  // Sort by section order, then step order
+  // Sort by page order, then step order
   missingSteps.sort((a, b) => {
-    // Note: We'd need section order here, but for now sort by step order
-    // In practice, the caller will need to provide section context
+    // Note: We'd need page order here, but for now sort by step order
+    // In practice, the caller will need to provide page context
     return a.order - b.order;
   });
 
@@ -191,8 +191,9 @@ export function isValueComplete(stepType: string, value: unknown): boolean {
     case 'multi_field':
       return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
 
-    case 'multiple_choice':
-      return Array.isArray(value) && value.length > 0;
+    case 'choice':
+      // Single-select stores a string, multi-select a string[].
+      return Array.isArray(value) ? value.length > 0 : typeof value === 'string';
 
     default:
       return true;

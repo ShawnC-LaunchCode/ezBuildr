@@ -10,7 +10,7 @@
  *    those are review-time steps, not this service's job.
  *  - `createAIServiceFromEnv(...).generateWorkflow(...)` (WorkflowGenerationService,
  *    already backing `POST /api/ai/workflows/generate`) turns a natural-
- *    language description into an `AIGeneratedWorkflow` (sections/steps).
+ *    language description into an `AIGeneratedWorkflow` (pages/steps).
  *    Before this ticket that endpoint had zero client callers; this service
  *    gives it one.
  *
@@ -23,11 +23,11 @@
  * land as exactly one step carrying its approved type and alias, whatever
  * the model actually produced.
  *
- * Logic rules and transform blocks are deliberately dropped from the
+ * Logic rules are deliberately dropped from the
  * returned payload (forced to `[]`): the only caller that persists this
  * payload (`PUT /api/workflows/:id`, `WorkflowService.replaceWorkflowContent`)
  * validates the request body through `updateWorkflowSchema`, which does not
- * accept `logicRules`/`transformBlocks` at all — see workflows.routes.ts.
+ * accept `logicRules` at all — see workflows.routes.ts.
  * Generating rules the persistence path would silently discard would just
  * mislead the review screen, and widening that route's schema is outside
  * this ticket's file scope.
@@ -37,20 +37,22 @@ import { randomUUID } from "crypto";
 import {
   AIGeneratedWorkflowSchema,
   type AIGeneratedWorkflow,
-  type AIGeneratedSection,
+  type AIGeneratedPage,
   type AIGeneratedStep,
 } from "../../../shared/types/ai";
 import { RUNNER_RENDERED_STEP_TYPES } from "../../../shared/types/runnerStepTypes";
+import { resolveTextConfig } from "../../../shared/types/stepConfigs";
 import { createLogger } from "../../logger";
 import { createAIServiceFromEnv } from "../AIService";
+import { accountService } from "../AccountService";
 import { projectService } from "../ProjectService";
 
 const logger = createLogger({ module: "document-onboarding-service" });
 
 const RUNNER_TYPE_SET = new Set<string>(RUNNER_RENDERED_STEP_TYPES);
 const MAX_VARIABLES = 200;
-const ADDITIONAL_FIELDS_SECTION_ID = "additional_fields";
-const ADDITIONAL_FIELDS_SECTION_TITLE = "Additional Fields";
+const ADDITIONAL_FIELDS_PAGE_ID = "additional_fields";
+const ADDITIONAL_FIELDS_PAGE_TITLE = "Additional Fields";
 
 export interface OnboardingVariableInput {
   /** Original variable/placeholder name as extracted from the document. */
@@ -61,6 +63,8 @@ export interface OnboardingVariableInput {
   alias: string;
   /** Optional human-readable label; falls back to a title-cased `name`. */
   label?: string;
+  /** Canonical settings for the selected step type. */
+  config?: Record<string, unknown>;
 }
 
 export interface GenerateOnboardingWorkflowInput {
@@ -119,15 +123,16 @@ export class DocumentOnboardingService {
     const placeholders = input.variables.map((v) => v.name);
 
     const aiService = createAIServiceFromEnv(tenantId);
+    const { defaultMode } = await accountService.getPreferences(userId);
     const generated = await aiService.generateWorkflow({
       description,
       projectId: input.projectId,
       placeholders,
       constraints: {
-        maxSections: 10,
-        maxStepsPerSection: Math.max(input.variables.length, 5),
+        maxPages: 10,
+        maxStepsPerPage: Math.max(input.variables.length, 5),
       },
-    });
+    }, defaultMode);
 
     const overlaid = this.overlayApprovedFields(generated, input.variables);
 
@@ -136,7 +141,7 @@ export class DocumentOnboardingService {
         userId,
         projectId: input.projectId,
         variableCount: input.variables.length,
-        sectionCount: overlaid.sections.length,
+        pageCount: overlaid.pages.length,
       },
       "Document onboarding workflow generated"
     );
@@ -152,7 +157,7 @@ export class DocumentOnboardingService {
     return (
       `Generate a document-intake workflow for the document "${input.documentName}" that collects ` +
       `the following fields extracted from it: ${fieldList}. Group related fields into logical ` +
-      `sections and use clear, professional question titles.`
+      `pages and use clear, professional question titles.`
     );
   }
 
@@ -167,41 +172,41 @@ export class DocumentOnboardingService {
     workflow: AIGeneratedWorkflow,
     variables: OnboardingVariableInput[]
   ): AIGeneratedWorkflow {
-    const sections: AIGeneratedSection[] = workflow.sections.map((s) => ({
+    const pages: AIGeneratedPage[] = workflow.pages.map((s) => ({
       ...s,
-      steps: [...s.steps],
+      steps: s.steps.map((step) => this.canonicalizeTextStep(step)),
     }));
     const remaining = new Map<string, OnboardingVariableInput>(
       variables.map((v) => [normalize(v.alias || v.name), v])
     );
 
-    for (const section of sections) {
-      for (let i = 0; i < section.steps.length; i++) {
-        const match = this.findMatch(section.steps[i], remaining);
+    for (const page of pages) {
+      for (let i = 0; i < page.steps.length; i++) {
+        const match = this.findMatch(page.steps[i], remaining);
         if (match) {
-          section.steps[i] = this.applyVariable(section.steps[i], match);
+          page.steps[i] = this.applyVariable(page.steps[i], match);
           remaining.delete(normalize(match.alias || match.name));
         }
       }
     }
 
     if (remaining.size > 0) {
-      let extra = sections.find((s) => s.id === ADDITIONAL_FIELDS_SECTION_ID);
+      let extra = pages.find((s) => s.id === ADDITIONAL_FIELDS_PAGE_ID);
       if (!extra) {
         extra = {
-          id: ADDITIONAL_FIELDS_SECTION_ID,
-          title: ADDITIONAL_FIELDS_SECTION_TITLE,
-          order: sections.length,
+          id: ADDITIONAL_FIELDS_PAGE_ID,
+          title: ADDITIONAL_FIELDS_PAGE_TITLE,
+          order: pages.length,
           steps: [],
         };
-        sections.push(extra);
+        pages.push(extra);
       }
       for (const variable of remaining.values()) {
         extra.steps.push(this.buildStep(variable));
       }
     }
 
-    return { ...workflow, sections, logicRules: [], transformBlocks: [] };
+    return { ...workflow, pages, logicRules: [] };
   }
 
   private findMatch(
@@ -225,10 +230,12 @@ export class DocumentOnboardingService {
   }
 
   private applyVariable(step: AIGeneratedStep, variable: OnboardingVariableInput): AIGeneratedStep {
+    const config = variable.type === "text" ? resolveTextConfig("text", variable.config) : variable.config;
     return {
       ...step,
       type: variable.type as AIGeneratedStep["type"],
       alias: variable.alias,
+      config,
     };
   }
 
@@ -239,6 +246,19 @@ export class DocumentOnboardingService {
       title: variable.label ?? titleCase(variable.name),
       alias: variable.alias,
       required: false,
+      config: variable.type === "text" ? resolveTextConfig("text", variable.config) : variable.config,
+    };
+  }
+
+  /** Explicit old-row/AI-output adapter; generated definitions leave this service canonical. */
+  private canonicalizeTextStep(step: AIGeneratedStep): AIGeneratedStep {
+    if (step.type !== "text") {
+      return step;
+    }
+    return {
+      ...step,
+      type: "text",
+      config: resolveTextConfig(step.type, step.config),
     };
   }
 }

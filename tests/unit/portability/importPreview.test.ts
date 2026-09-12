@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { FORMAT_VERSION } from '../../../server/services/portability/bundleFormat';
 import { db } from '../../../server/db';
 import { eq } from 'drizzle-orm';
-import { projects, workflows, datavaultTables, steps, secrets, externalConnections, transformBlocks } from '@shared/schema';
+import { projects, workflows, datavaultTables, steps, secrets, externalConnections, lifecycleHooks } from '@shared/schema';
 
 import { recomputeChecksum, previewBundle } from '../../helpers/bundleTestHelper';
 
@@ -60,11 +60,11 @@ describeWithDb('ImportService - preview', () => {
       authConfig: { token: 'secret' }
     });
 
-    const sec = await tf.createSection(workflow.id);
+    const page = await tf.createPage(workflow.id);
     await db.insert(steps).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       type: 'text',
       title: 'Test Step',
       alias: 'test_step_alias',
@@ -78,17 +78,15 @@ describeWithDb('ImportService - preview', () => {
       name: 'Test Table',
       slug: 'test_table_slug'
     });
-    
-    await db.insert(transformBlocks).values({
-      id: randomUUID(),
+
+    await db.insert(lifecycleHooks).values({
       workflowId: workflow.id,
-      sectionId: sec.id,
+      pageId: page.id,
       name: 'Test Hook',
       language: 'javascript',
       code: 'const x = "sk-1234567890123456789012345678901234567890";',
-      outputKey: 'test_output',
-      phase: 'onRunStart',
-      order: 0
+      phase: 'beforePage',
+      order: 0,
     });
 
     projectBundle = await exportService.export({ scope: 'project', id: project.id }, user.id);
@@ -207,7 +205,6 @@ describeWithDb('ImportService - preview', () => {
     // Workflow bundle
     expect(previewWorkflow.entityCounts['workflows']).toBeGreaterThan(0);
     expect(previewWorkflow.entityCounts['steps']).toBeGreaterThan(0);
-    expect(previewWorkflow.entityCounts['transform_blocks']).toBeGreaterThan(0);
   });
 
   it('reports row failing Zod schema in preview, not throwing', async () => {
@@ -259,24 +256,24 @@ describeWithDb('ImportService - preview', () => {
     // We inject a duplicate step into the workflow bundle
     const zip = new AdmZip(workflowBundle);
     // Insert two steps with the SAME alias into the same workflow bundle
-    const secId = randomUUID();
+    const pageId = randomUUID();
     const stepRow1 = { 
       id: randomUUID(), 
       workflowId: workflow.id, 
-      sectionId: secId,
+      pageId: pageId,
       title: 'Step 1',
       order: 1,
       alias: 'duplicate_alias', 
-      type: 'short_text' 
+      type: 'text' 
     };
     const stepRow2 = { 
       id: randomUUID(), 
       workflowId: workflow.id, 
-      sectionId: secId,
+      pageId: pageId,
       title: 'Step 2',
       order: 2,
       alias: 'duplicate_alias', 
-      type: 'short_text' 
+      type: 'text' 
     };
     
     // Delete existing steps.jsonl and add the tampered one
@@ -311,24 +308,24 @@ describeWithDb('ImportService - preview', () => {
   it('ignores identical step aliases across different workflows in the same bundle', async () => {
       // Simulate two different workflows in a project bundle sharing an alias 'email'
       const zip = new AdmZip(projectBundle);
-      const secId = randomUUID();
+      const pageId = randomUUID();
       const stepRow1 = { 
         id: randomUUID(), 
         workflowId: randomUUID(), // Workflow A
-        sectionId: secId,
+        pageId: pageId,
         title: 'Email Step A',
         order: 1,
         alias: 'email', 
-        type: 'short_text' 
+        type: 'text' 
       };
       const stepRow2 = { 
         id: randomUUID(), 
         workflowId: randomUUID(), // Workflow B
-        sectionId: secId,
+        pageId: pageId,
         title: 'Email Step B',
         order: 1,
         alias: 'email', 
-        type: 'short_text' 
+        type: 'text' 
       };
       
       // Since it's a project bundle, it might not have steps.jsonl yet, or we can just create/overwrite it
@@ -372,7 +369,7 @@ describeWithDb('ImportService - preview', () => {
     expect(previewOther.collisions.find(c => c.entity === 'projects')).toBeUndefined();
   });
 
-  it('sets executable-code flag when hooks or transform blocks are present', async () => {
+  it('sets executable-code flag when hooks are present', async () => {
     const preview = await previewBundle(workflowBundle, user.id);
     expect(preview.hasExecutableCode).toBe(true);
   });
@@ -390,7 +387,7 @@ describeWithDb('ImportService - preview', () => {
     const previewProject = await previewBundle(projectBundle, user.id);
     const previewWorkflow = await previewBundle(newBuffer, user.id);
     
-    // Workflow bundle naturally has a secret_scan warning from our mock transform block
+    // Workflow bundle naturally has a secret_scan warning from our hook fixture
     expect(previewWorkflow.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'secret_scan' }),

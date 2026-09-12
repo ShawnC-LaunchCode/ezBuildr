@@ -1,95 +1,83 @@
-
-import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, FolderOpen, Settings } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
 import { cn } from "@/lib/utils";
-import { type ApiSection } from "@/lib/vault-api";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-
-
+import type { ApiSection } from "@/lib/vault-api";
 
 interface SectionItemHeaderProps {
     section: ApiSection;
+    pageCount: number;
     isExpanded: boolean;
     onToggle: () => void;
-    onEditSection: () => void;
-    isFinalSection: boolean;
-    isPageConditional: boolean;
+    onEdit: () => void;
 }
 
 export function SectionItemHeader({
     section,
+    pageCount,
     isExpanded,
     onToggle,
-    onEditSection,
-    isFinalSection,
-    isPageConditional
+    onEdit,
 }: SectionItemHeaderProps) {
-    const { selection, selectSection } = useWorkflowBuilder();
-    const isSelected = selection?.type === "section" && selection.id === section.id;
+    const handleDisclosureKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+        if (event.key === "ArrowRight" && !isExpanded) {
+            event.preventDefault();
+            onToggle();
+        }
+        if (event.key === "ArrowLeft" && isExpanded) {
+            event.preventDefault();
+            onToggle();
+        }
+    };
 
     return (
-        <div
-            className={cn(
-                "flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent/50 cursor-pointer group transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
-                isSelected && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            )}
-            onClick={() => { selectSection(section.id); }}
-            tabIndex={0}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    selectSection(section.id);
-                }
-                if (e.key === 'ArrowRight' && !isExpanded) {
-                    onToggle();
-                }
-                if (e.key === 'ArrowLeft' && isExpanded) {
-                    onToggle();
-                }
-            }}
-        >
+        <div className="group grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-1 rounded-md border border-sidebar-border/60 bg-sidebar-accent/20 px-1.5 py-1 transition-colors hover:bg-sidebar-accent/45">
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-4 w-4 p-0"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggle();
-                }}
+                className="size-6 rounded-sm"
+                onClick={onToggle}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} Section ${section.title}`}
+                onKeyDown={handleDisclosureKeyDown}
             >
-                {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {isExpanded
+                    ? <ChevronDown className="size-3.5" aria-hidden="true" />
+                    : <ChevronRight className="size-3.5" aria-hidden="true" />}
             </Button>
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <span className="flex-1 text-sm truncate">{section.title}</span>
-            {isFinalSection && (
-                <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                    <FileCheck className="h-3 w-3 mr-1" />
-                    Final
-                </Badge>
-            )}
-            {isPageConditional && (
-                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
-                    Conditional
-                </Badge>
-            )}
-            <div className="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onEditSection();
-                    }}
-                    title="Page Settings"
+            <button
+                type="button"
+                className="flex min-w-0 items-center gap-1.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                onClick={onToggle}
+                onKeyDown={handleDisclosureKeyDown}
+                aria-expanded={isExpanded}
+            >
+                {isExpanded
+                    ? <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    : <Folder className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                <span className="truncate text-xs font-semibold tracking-tight">{section.title}</span>
+                <Badge
+                    variant="secondary"
+                    className="h-4 min-w-4 shrink-0 justify-center rounded-sm px-1 font-mono text-[9px] tabular-nums"
+                    aria-label={`${pageCount} ${pageCount === 1 ? "page" : "pages"}`}
                 >
-                    <Settings className="h-3 w-3 text-muted-foreground" />
-                </Button>
-            </div>
-
+                    {pageCount}
+                </Badge>
+            </button>
+            <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                    "size-6 rounded-sm text-muted-foreground transition-opacity hover:text-foreground",
+                    "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                )}
+                onClick={onEdit}
+                aria-label={`Section settings: ${section.title}`}
+            >
+                <Settings className="size-3.5" aria-hidden="true" />
+            </Button>
         </div>
     );
 }

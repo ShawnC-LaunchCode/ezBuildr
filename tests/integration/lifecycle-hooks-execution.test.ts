@@ -3,7 +3,7 @@
  *
  * Tests all 4 lifecycle hook phases with comprehensive coverage:
  * - beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
- * - Context mutation mode
+ * - Append-only hook outputs
  * - JavaScript and Python execution
  * - Timeout enforcement
  * - Error handling (non-breaking)
@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import {
   workflows,
-  sections,
+  pages,
   steps,
   workflowRuns,
   stepValues,
@@ -26,15 +26,21 @@ import {
   scriptExecutionLog
 } from '@shared/schema';
 
-import { db } from '../../server/db';
-import { createTestWorkflow, createTestSection, createTestStep, createTestWorkflowRun } from '../factories';
+import { createTestWorkflow, createTestPage, createTestStep, createTestWorkflowRun } from '../factories';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+// RLS-5 recipe step 3: `lifecycleHookService.executeHooksForPhase` is called
+// DIRECTLY here, so no middleware opens a tenant context for its scoped
+// reads of hooks and the step-alias map.
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 
 describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
 
-  let sectionId: string;
+  let pageId: string;
   let stepId: string;
 
   beforeAll(async () => {
@@ -48,11 +54,11 @@ describe('Lifecycle Hooks Execution', () => {
     workflowId = uuidv4();
     console.log('TEST SETUP: workflowId =', workflowId);
 
-    sectionId = uuidv4();
+    pageId = uuidv4();
     stepId = uuidv4();
 
-    // Create workflow with section and step for each test
-    await db.insert(workflows).values(
+    // Create workflow with page and step for each test
+    await getOwnerDb().insert(workflows).values(
       createTestWorkflow({
         id: workflowId,
         projectId: ctx.projectId,
@@ -64,21 +70,21 @@ describe('Lifecycle Hooks Execution', () => {
       })
     );
 
-    await db.insert(sections).values(
-      createTestSection({
-        id: sectionId,
+    await getOwnerDb().insert(pages).values(
+      createTestPage({
+        id: pageId,
         workflowId,
-        title: 'Test Section',
+        title: 'Test Page',
         order: 0,
       })
     );
 
-    await db.insert(steps).values(
+    await getOwnerDb().insert(steps).values(
       createTestStep({
         id: stepId,
         workflowId,
-        sectionId,
-        type: 'short_text',
+        pageId,
+        type: 'text',
         alias: 'user_name',
         title: 'Your Name',
         order: 0,
@@ -92,6 +98,7 @@ describe('Lifecycle Hooks Execution', () => {
 
   describe('Phase: beforePage', () => {
     it('should execute beforePage hook and capture console output', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create beforePage hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -101,14 +108,13 @@ describe('Lifecycle Hooks Execution', () => {
           phase: 'beforePage',
           language: 'javascript',
           code: `
-            helpers.console.log('Entering page:', context.sectionId);
+            helpers.console.log('Entering page:', context.pageId);
             helpers.console.log('User:', context.userId);
             emit({ executed: true });
           `,
           inputKeys: [],
           outputKeys: ['executed'],
           enabled: true,
-          mutationMode: false,
         });
 
       expect(createRes.status).toBe(201);
@@ -116,11 +122,11 @@ describe('Lifecycle Hooks Execution', () => {
       const _hookId = createRes.body.data.id;
 
       // Create a run and trigger beforePage phase
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({
           workflowId,
           createdBy: ctx.userId,
-          currentSectionId: sectionId,
+          currentPageId: pageId,
         })
       ).returning();
 
@@ -131,7 +137,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -146,7 +152,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(consoleLogs.some(log => String(log[0]).includes('Entering page'))).toBe(true);
 
       // Verify execution was logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -155,8 +161,10 @@ describe('Lifecycle Hooks Execution', () => {
       expect(logs[0].status).toBe('success');
     });
 
-    it('should execute beforePage hook with mutation mode enabled', async () => {
-      // Create beforePage hook with mutation mode
+    it('should append declared beforePage hook outputs', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
+      // Create beforePage hook with new output variables
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
         .set('Authorization', `Bearer ${ctx.authToken}`)
@@ -176,13 +184,12 @@ describe('Lifecycle Hooks Execution', () => {
           inputKeys: [],
           outputKeys: ['pageLoadTime', 'pageLoadDate', 'autoFilled'],
           enabled: true,
-          mutationMode: true, // Enable mutation
         });
 
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -193,19 +200,21 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
 
       expect(result.success).toBe(true);
-      // Verify mutation applied
+      // Verify new outputs were appended
       expect(result.data).toHaveProperty('pageLoadTime');
       expect(result.data).toHaveProperty('pageLoadDate');
       expect(result.data.autoFilled).toBe(true);
     });
 
     it('should handle errors gracefully without breaking workflow', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook with intentional error
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -225,7 +234,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -236,7 +245,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: { existingData: 'preserved' },
         userId: ctx.userId,
       });
@@ -252,7 +261,7 @@ describe('Lifecycle Hooks Execution', () => {
       expect(result.data.existingData).toBe('preserved');
 
       // Error logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -263,6 +272,7 @@ describe('Lifecycle Hooks Execution', () => {
 
   describe('Phase: afterPage', () => {
     it('should execute afterPage hook with user input data', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create afterPage hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -286,17 +296,16 @@ describe('Lifecycle Hooks Execution', () => {
           inputKeys: ['user_name'],
           outputKeys: ['validationPassed', 'normalizedName'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
 
       // Create run with step value
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
-      await db.insert(stepValues).values({
+      await getOwnerDb().insert(stepValues).values({
         runId: run.id,
         stepId: stepId,
         value: 'John Doe',
@@ -309,7 +318,7 @@ describe('Lifecycle Hooks Execution', () => {
         workflowId,
         runId: run.id,
         phase: 'afterPage',
-        sectionId,
+        pageId,
         data: { [stepId]: 'John Doe' }, // Simulating step values
         userId: ctx.userId,
       });
@@ -320,6 +329,8 @@ describe('Lifecycle Hooks Execution', () => {
     });
 
     it('should execute Python afterPage hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create Python hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -344,13 +355,12 @@ emit(result)
           inputKeys: ['user_name'],
           outputKeys: ['wordCount', 'charCount', 'hasMultipleWords'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -361,7 +371,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'afterPage',
-        sectionId,
+        pageId,
         data: { [stepId]: 'Jane Smith' },
         userId: ctx.userId,
       });
@@ -375,6 +385,7 @@ emit(result)
 
   describe('Phase: beforeFinalBlock', () => {
     it('should execute beforeFinalBlock hook before document generation', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create beforeFinalBlock hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -398,13 +409,12 @@ emit(result)
           inputKeys: ['user_name'],
           outputKeys: ['documentTitle', 'documentDate', 'documentReady'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -428,6 +438,7 @@ emit(result)
 
   describe('Phase: afterDocumentsGenerated', () => {
     it('should execute afterDocumentsGenerated hook for cleanup', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create afterDocumentsGenerated hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -451,13 +462,12 @@ emit(result)
           inputKeys: ['step1', 'step2'], // Allow access to test data
           outputKeys: ['documentsGenerated', 'completedAt', 'totalSteps'],
           enabled: true,
-          mutationMode: true,
         });
 
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -481,6 +491,7 @@ emit(result)
 
   describe('Timeout Enforcement', () => {
     it('should timeout hook that exceeds timeoutMs limit', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook with short timeout and infinite loop
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -505,7 +516,7 @@ emit(result)
       expect(createRes.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -516,7 +527,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -527,7 +538,7 @@ emit(result)
       expect(result.errors![0].error).toMatch(/timeout|timed out/i);
 
       // Timeout logged
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -538,6 +549,7 @@ emit(result)
 
   describe('Multiple Hooks Execution Order', () => {
     it('should execute multiple hooks in correct order', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create 3 hooks with different orders
       const hook1Res = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -554,7 +566,6 @@ emit(result)
           outputKeys: ['step'],
           enabled: true,
           order: 0,
-          mutationMode: true,
         });
 
       const hook2Res = await request(ctx.baseURL)
@@ -566,13 +577,12 @@ emit(result)
           language: 'javascript',
           code: `
             helpers.console.log('Hook 2 executed, step was:', input.step);
-            emit({ step: 2 });
+            emit({ secondStep: input.step + 1 });
           `,
           inputKeys: ['step'],
-          outputKeys: ['step'],
+          outputKeys: ['secondStep'],
           enabled: true,
           order: 1,
-          mutationMode: true,
         });
 
       const hook3Res = await request(ctx.baseURL)
@@ -583,14 +593,13 @@ emit(result)
           phase: 'beforePage',
           language: 'javascript',
           code: `
-            helpers.console.log('Hook 3 executed, step was:', input.step);
-            emit({ step: 3, final: true });
+            helpers.console.log('Hook 3 executed, step was:', input.secondStep);
+            emit({ thirdStep: input.secondStep + 1, final: true });
           `,
-          inputKeys: ['step'],
-          outputKeys: ['step', 'final'],
+          inputKeys: ['secondStep'],
+          outputKeys: ['thirdStep', 'final'],
           enabled: true,
           order: 2,
-          mutationMode: true,
         });
 
       expect(hook1Res.status).toBe(201);
@@ -598,7 +607,7 @@ emit(result)
       expect(hook3Res.status).toBe(201);
 
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -609,17 +618,19 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
 
       expect(result.success, `Hook execution failed: ${JSON.stringify(result.errors || (result as any).error || result)}`).toBe(true);
-      expect(result.data.step).toBe(3); // Final value from hook 3
+      expect(result.data.step).toBe(1);
+      expect(result.data.secondStep).toBe(2);
+      expect(result.data.thirdStep).toBe(3);
       expect(result.data.final).toBe(true);
 
       // Verify all hooks executed
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 
@@ -629,6 +640,7 @@ emit(result)
 
   describe('Hook Management API', () => {
     it('should list all hooks for a workflow', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create a hook first
       await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -654,6 +666,8 @@ emit(result)
     });
 
     it('should update a hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook first
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -686,6 +700,8 @@ emit(result)
     });
 
     it('should delete a hook', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook to delete
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -710,13 +726,15 @@ emit(result)
       expect(deleteRes.body.success).toBe(true);
 
       // Verify deleted
-      const hook = await db.query.lifecycleHooks.findFirst({
+      const hook = await getOwnerDb().query.lifecycleHooks.findFirst({
         where: eq(lifecycleHooks.id, hookId),
       });
       expect(hook).toBeUndefined();
     });
 
     it('should test a hook with sample data', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create hook
       const createRes = await request(ctx.baseURL)
         .post(`/api/workflows/${workflowId}/lifecycle-hooks`)
@@ -755,8 +773,9 @@ emit(result)
 
   describe('Script Console Logs', () => {
     it('should retrieve execution logs for a run', async () => {
+      enterTenantContextForTests(ctx.tenantId);
       // Create run with hooks that have console output
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -767,7 +786,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -783,8 +802,10 @@ emit(result)
     });
 
     it('should clear execution logs for a run', async () => {
+
+      enterTenantContextForTests(ctx.tenantId);
       // Create run
-      const [run] = await db.insert(workflowRuns).values(
+      const [run] = await getOwnerDb().insert(workflowRuns).values(
         createTestWorkflowRun({ workflowId, createdBy: ctx.userId })
       ).returning();
 
@@ -795,7 +816,7 @@ emit(result)
         workflowId,
         runId: run.id,
         phase: 'beforePage',
-        sectionId,
+        pageId,
         data: {},
         userId: ctx.userId,
       });
@@ -809,7 +830,7 @@ emit(result)
       expect(res.body.success).toBe(true);
 
       // Verify cleared
-      const logs = await db.select()
+      const logs = await getOwnerDb().select()
         .from(scriptExecutionLog)
         .where(eq(scriptExecutionLog.runId, run.id));
 

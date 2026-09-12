@@ -11,8 +11,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { refreshTokens, users } from "@shared/schema";
 
-import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 describe.sequential("Session Management Integration Tests", () => {
     let ctx: IntegrationTestContext;
     let testUser: {
@@ -47,11 +49,11 @@ describe.sequential("Session Management Integration Tests", () => {
             .expect(201);
         userId = registerRes.body.user.id;
         // Mark email as verified
-        await db.update(users)
+        await getOwnerDb().update(users)
             .set({ emailVerified: true })
             .where(eq(users.id, userId));
         // Clean up registration session (tests expect only explicit logins to create sessions)
-        await db.update(refreshTokens)
+        await getOwnerDb().update(refreshTokens)
             .set({ revoked: true })
             .where(eq(refreshTokens.userId, userId));
     });
@@ -66,7 +68,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .expect(200);
             expect(loginRes.headers['set-cookie']).toBeDefined();
             // Verify refresh token in database
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -85,7 +87,7 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: eq(refreshTokens.userId, userId),
             });
             expect(tokens.length).toBeGreaterThan(0);
@@ -120,7 +122,7 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -346,7 +348,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .post("/api/auth/register")
                 .send(user2)
                 .expect(201);
-            await db.update(users)
+            await getOwnerDb().update(users)
                 .set({ emailVerified: true })
                 .where(eq(users.id, user2Res.body.user.id));
             const user2Session = await request(ctx.baseURL)
@@ -485,7 +487,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 })
                 .expect(200);
             // Get the refresh token from database (non-revoked only)
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)
@@ -495,7 +497,7 @@ describe.sequential("Session Management Integration Tests", () => {
             // Update token to be expired
             const expiredDate = new Date();
             expiredDate.setDate(expiredDate.getDate() - 31); // 31 days ago
-            await db.update(refreshTokens)
+            await getOwnerDb().update(refreshTokens)
                 .set({ expiresAt: expiredDate })
                 .where(eq(refreshTokens.id, token.id));
             // Try to use expired token
@@ -525,7 +527,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 expect(res.status).toBe(200);
                 expect(res.body.token).toBeDefined();
             });
-            const tokens = await db.query.refreshTokens.findMany({
+            const tokens = await getOwnerDb().query.refreshTokens.findMany({
                 where: and(
                     eq(refreshTokens.userId, userId),
                     eq(refreshTokens.revoked, false)

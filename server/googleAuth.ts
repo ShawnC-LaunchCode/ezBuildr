@@ -69,21 +69,42 @@ async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown
       lastPasswordChange: null
     };
     logger.debug({ userId: userData.id, email: userData.email, tenantId: tenantId }, 'Upserting user');
-    await userRepository.upsert(userData);
-    if (userData.email && BOOTSTRAP_ADMIN_EMAILS.includes(userData.email)) {
-      const { users } = await import('@shared/schema');
-      const { eq } = await import('drizzle-orm');
-      const promoted = await db
-        .update(users)
-        .set({ role: 'admin', tenantRole: 'owner' })
-        .where(eq(users.email, userData.email))
-        .returning({ id: users.id });
-      if (promoted.length > 0) {
-        const { invalidateUserCache } = await import('./middleware/userCache');
-        invalidateUserCache(promoted[0].id);
-        logger.info({ email: userData.email }, 'Bootstrap admin promoted to admin/owner on login');
+    // RLS-5 finding: `users.tenant_id` is a direct-tenant_id RLS column, and
+    // this upsert writes a REAL (non-null) tenantId with no ambient tenant in
+    // context yet — this IS the operation that first establishes it, for a
+    // brand-new Google login. Under the restricted role that finding was
+    // measured against, that WITH CHECK can only pass if the transaction
+    // itself is scoped to the target tenant, so pin it explicitly rather than
+    // relying on an ambient context that cannot exist yet at this point.
+    //
+    // `withTenantAsUser`, not plain `withTenant`: a RETURNING user (found by
+    // email, already has some tenant_id) is visible to the UPDATE branch of
+    // `userRepository.upsert` only if their CURRENT tenant_id already matches
+    // the pinned one (RLS's USING clause gates on current state, not the
+    // written value) — pinning the self-id GUC too makes their own row
+    // visible regardless, turning what would otherwise be a silent
+    // zero-rows-updated no-op into either a correct update or a visible
+    // error. It does not, on its own, let a user's tenant actually change:
+    // WITH CHECK still requires the written tenant_id to equal the pinned
+    // one, and this path never writes a different one.
+    const { withTenantAsUser } = await import('./utils/rlsContext');
+    await withTenantAsUser(tenantId, payload.sub, async (tx) => {
+      await userRepository.upsert(userData, tx);
+      if (userData.email && BOOTSTRAP_ADMIN_EMAILS.includes(userData.email)) {
+        const { users } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const promoted = await tx
+          .update(users)
+          .set({ role: 'admin', tenantRole: 'owner' })
+          .where(eq(users.email, userData.email))
+          .returning({ id: users.id });
+        if (promoted.length > 0) {
+          const { invalidateUserCache } = await import('./middleware/userCache');
+          invalidateUserCache(promoted[0].id);
+          logger.info({ email: userData.email }, 'Bootstrap admin promoted to admin/owner on login');
+        }
       }
-    }
+    });
     return userData;
   } catch (error) {
     logger.error({ err: error, userId: payload.sub }, 'Failed to upsert user during authentication');
@@ -163,9 +184,18 @@ export async function setupAuth(app: Express): Promise<void> {
       }
       // Verify and Upsert
       const payload = await verifyGoogleToken(googleToken);
+      // RLS-5: these are pre-tenant identity lookups — nothing is
+      // authenticated yet, so `users`' ordinary policy hides any user who
+      // already has a real tenant and OAuth sign-in silently behaves as if
+      // every returning user were brand new. Note this case is STRONGER than
+      // password login's: `verifyGoogleToken` has already checked Google's
+      // signature, so `payload.email` is a verified claim rather than
+      // caller-typed input — it is `withVerifiedIdentifier`'s contract being
+      // met, using the `withLoginEmail` GUC (migration 0032).
+      const { withLoginEmail, withCurrentUserId } = await import('./utils/rlsContext');
       const existingUser = payload.email
-        ? await userRepository.findByEmail(payload.email)
-        : await userRepository.findById(payload.sub);
+        ? await withLoginEmail(payload.email, (tx) => userRepository.findByEmail(payload.email!, tx))
+        : await withCurrentUserId(payload.sub, (tx) => userRepository.findById(payload.sub, tx));
       if (!existingUser && !isPublicSignupEnabled(process.env)) {
         return res.status(403).json({
           message: SIGNUP_CLOSED_MESSAGE,
@@ -174,7 +204,10 @@ export async function setupAuth(app: Express): Promise<void> {
       }
       await upsertUser(payload);
 
-      const dbUser = payload.email ? await userRepository.findByEmail(payload.email) : await userRepository.findById(payload.sub);
+      // RLS-5: same pre-tenant lookup as above, re-read after the upsert.
+      const dbUser = payload.email
+        ? await withLoginEmail(payload.email, (tx) => userRepository.findByEmail(payload.email!, tx))
+        : await withCurrentUserId(payload.sub, (tx) => userRepository.findById(payload.sub, tx));
       if (!dbUser) { throw new Error('User not found after upsert'); }
 
       // CHECK ACTIVE STATUS

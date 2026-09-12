@@ -1,6 +1,15 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
 import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
-import { StepConfig, TextAdvancedConfig, isNumberConfig, ListConfig, ListItem, ListValue } from "../types/stepConfigs";
+import {
+    getBooleanStorageValue,
+    StepConfig,
+    ListConfig,
+    ListItem,
+    ListValue,
+    resolveBooleanConfig,
+    resolveNumberConfig,
+    resolveTextConfig,
+} from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
@@ -16,15 +25,6 @@ export interface StepLike {
 /**
  * Type guard helpers for config validation
  */
-interface SimpleTextConfig {
-    minLength?: number;
-    maxLength?: number;
-}
-
-interface SimpleNumberConfig {
-    min?: number;
-    max?: number;
-}
 
 interface SimpleChoiceConfig {
     min?: number;
@@ -33,13 +33,6 @@ interface SimpleChoiceConfig {
     maxSelections?: number;
 }
 
-function hasTextConstraints(config: unknown): config is SimpleTextConfig {
-    return typeof config === 'object' && config !== null;
-}
-
-function hasNumberConstraints(config: unknown): config is SimpleNumberConfig {
-    return typeof config === 'object' && config !== null;
-}
 
 function hasChoiceConstraints(config: unknown): config is SimpleChoiceConfig {
     return typeof config === 'object' && config !== null;
@@ -66,11 +59,19 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
         return { rules, required: isRequired };
     }
 
+    const booleanConfig = step.type === "boolean" ? resolveBooleanConfig(config) : undefined;
+    const requiredValue = isRequired && booleanConfig?.displayStyle === "checkbox"
+        ? getBooleanStorageValue(true, booleanConfig)
+        : undefined;
+
     // Type-specific rules
     switch (step.type) {
-        case "text": {
-            // Advanced text
-            const c = config as TextAdvancedConfig;
+        case "text":
+        case "short_text":
+        case "long_text": {
+            // The aliases are read compatibility for pre-STB-19 rows. Both
+            // root-level and nested legacy constraints resolve canonically.
+            const c = resolveTextConfig(step.type, config);
             if (c.validation) {
                 if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
                 if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
@@ -85,43 +86,29 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
             break;
         }
 
-        case "short_text":
-        case "long_text": {
-            // Check for nested validation object (new style)
-            const c = config as TextAdvancedConfig;
-            if (c?.validation) {
-                if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
-                if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
-                if (c.validation.pattern) {
-                    rules.push({
-                        type: "pattern",
-                        regex: c.validation.pattern,
-                        message: c.validation.patternMessage
-                    });
-                }
-            }
-            // Legacy/Simple style (root props)
-            else if (hasTextConstraints(config)) {
-                if (config.minLength) { rules.push({ type: "minLength", value: config.minLength }); }
-                if (config.maxLength) { rules.push({ type: "maxLength", value: config.maxLength }); }
-            }
-            break;
-        }
-
         case "number":
+        case "number_advanced":
         case "currency": {
-            if (isNumberConfig(config)) {
-                // Check if it is advanced config (has validation object)
-                if ('validation' in config && config.validation) {
-                    const adv = config;
-                    if (adv.validation?.min !== undefined) { rules.push({ type: "minValue", value: adv.validation.min }); }
-                    if (adv.validation?.max !== undefined) { rules.push({ type: "maxValue", value: adv.validation.max }); }
-                } else if (hasNumberConstraints(config)) {
-                    // Simple config (min/max at root)
-                    if (config.min !== undefined) { rules.push({ type: "minValue", value: config.min }); }
-                    if (config.max !== undefined) { rules.push({ type: "maxValue", value: config.max }); }
-                }
+            // One resolver for every stored number dialect, so the rules the
+            // client enforces cannot drift from the config the runner reads.
+            const c = resolveNumberConfig(step.type, config);
+            if (c.validation?.min !== undefined) { rules.push({ type: "minValue", value: c.validation.min }); }
+            if (c.validation?.max !== undefined) { rules.push({ type: "maxValue", value: c.validation.max }); }
+            if (c.mode === "currency_whole") {
+                rules.push({
+                    type: "maxDecimalPlaces",
+                    value: 0,
+                    message: "Enter a whole currency amount",
+                });
             }
+            // `precision` is deliberately NOT a rule here: it is a display
+            // constraint, not a storage one (Decision 13). Legal work routinely
+            // mixes values rounded to the dollar with values to the cent, so the
+            // platform collects and stores exactly what the respondent entered
+            // and leaves rounding to the author's formulas. Constraining storage
+            // here would silently corrupt the base of every downstream calculation.
+            // Whole-currency mode is different: integer units are the mode's
+            // answer contract, not an author-selected display precision.
             break;
         }
 
@@ -171,7 +158,8 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
     return {
         rules,
-        required: isRequired
+        required: isRequired,
+        ...(requiredValue !== undefined ? { requiredValue } : {}),
     };
 }
 
@@ -276,7 +264,7 @@ function validateListItemFields(
         }
 
         // LIST2-2: run the same type-level validation (email format, number
-        // min/max, pattern, length, ...) a top-level section step gets via
+        // min/max, pattern, length, ...) a top-level page step gets via
         // `getValidationSchema`. `required: false` is passed deliberately —
         // the explicit required check above already owns the
         // field-titled required message, and letting the schema also carry

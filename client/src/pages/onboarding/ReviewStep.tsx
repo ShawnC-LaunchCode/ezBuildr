@@ -13,7 +13,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-import { ONBOARDING_STEP_TYPE_OPTIONS } from "./stepTypeOptions";
+import {
+  ONBOARDING_STEP_TYPE_OPTIONS,
+  onboardingStepTypeValue,
+  selectOnboardingStepType,
+} from "./stepTypeOptions";
 
 import type { OnboardingVariable } from "./onboardingTypes";
 
@@ -104,8 +108,8 @@ export function ReviewStep({
                     Question type for {variable.label}
                   </Label>
                   <Select
-                    value={variable.type}
-                    onValueChange={(value) => updateVariable(index, { type: value })}
+                    value={onboardingStepTypeValue(variable)}
+                    onValueChange={(value) => updateVariable(index, selectOnboardingStepType(value))}
                   >
                     <SelectTrigger id={`onboarding-type-${index}`} className="w-44">
                       <SelectValue />

@@ -2,7 +2,7 @@
 
 ## Live modules
 
-### `validation.ts` — page/section validation engine
+### `validation.ts` — page validation engine
 
 `validatePage()` validates all fields on a page against the run's submitted
 values, respecting visibility (`visibleStepIds`) and virtual steps. It builds
@@ -23,7 +23,7 @@ Imported by `server/services/runs/RunExecutionCoordinator.ts`.
 
 ## Condition evaluation lives elsewhere
 
-Workflow visibility conditions (`steps.visible_if`, `sections.visible_if`)
+Workflow visibility conditions (`steps.visible_if`, `pages.visible_if`)
 are **not** evaluated in this directory. The live condition model —
 `ConditionExpression`, nested AND/OR groups, and the full comparison-operator
 set — is defined in `shared/types/conditions.ts` and evaluated by

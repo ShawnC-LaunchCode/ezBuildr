@@ -3,7 +3,7 @@
  */
 
 // Re-export types for convenience
-export type { ApiStep, ApiSection, ApiProject, ApiWorkflow, ApiBlock, ApiTransformBlock, ApiRun } from "./vault-api";
+export type { ApiStep, ApiPage, ApiSection, ApiProject, ApiWorkflow, ApiBlock, ApiRun } from "./vault-api";
 
 // ============================================================================
 // Query Keys
@@ -22,8 +22,9 @@ export * from "../hooks/api/useVersions";
 export * from "../hooks/api/useSnapshots";
 export * from "../hooks/api/useVariables";
 // ============================================================================
-// Sections
+// Pages
 // ============================================================================
+export * from "../hooks/api/usePages";
 export * from "../hooks/api/useSections";
 // ============================================================================
 // Steps
@@ -34,10 +35,6 @@ export * from "../hooks/api/useSteps";
 // Blocks
 // ============================================================================
 export * from "../hooks/api/useBlocks";
-// ============================================================================
-// Transform Blocks
-// ============================================================================
-export * from "../hooks/api/useTransformBlocks";
 // ============================================================================
 // Logic Rules
 // ============================================================================

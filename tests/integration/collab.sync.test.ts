@@ -6,7 +6,6 @@ import WebSocket from 'ws';
 import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
 
-import { db } from '../../server/db';
 import { getRoomStats, shutdown } from '../../server/realtime/collabServer';
 import { authService } from '../../server/services/AuthService';
 import {
@@ -17,6 +16,9 @@ import {
 
 import { collabDocs, collabUpdates, users, workflowAccess } from '@shared/schema';
 import { and, eq } from 'drizzle-orm';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 /**
  * DEBT-3b: real-time collaboration sync had no test at all.
@@ -149,7 +151,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     // ctx.authToken is minted at registration, before the harness assigns the
     // tenant, so its tenantId claim is null and the collab server rejects it as
     // a cross-tenant attempt. Re-mint from the persisted user row.
-    const [user] = await db.select().from(users).where(eq(users.id, ctx.userId)).limit(1);
+    const [user] = await getOwnerDb().select().from(users).where(eq(users.id, ctx.userId)).limit(1);
     collabToken = authService.createToken(user);
 
     // No initCollabServer() call here on purpose: registerRoutes already wires
@@ -175,7 +177,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
 
   it('creates a room and tracks two authorized active users', async () => {
     const builder = await createTestUser(ctx, 'builder');
-    await db.insert(workflowAccess).values({
+    await getOwnerDb().insert(workflowAccess).values({
       workflowId,
       principalType: 'user',
       principalId: builder.userId,
@@ -224,14 +226,14 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
     const client = await connectClient(url());
     clients.push(client);
 
-    const [collabDoc] = await db
+    const [collabDoc] = await getOwnerDb()
       .select({ id: collabDocs.id })
       .from(collabDocs)
       .where(and(eq(collabDocs.workflowId, workflowId), eq(collabDocs.tenantId, ctx.tenantId)))
       .limit(1);
     expect(collabDoc).toBeDefined();
 
-    const before = await db
+    const before = await getOwnerDb()
       .select({ id: collabUpdates.id })
       .from(collabUpdates)
       .where(eq(collabUpdates.docId, collabDoc.id));
@@ -242,7 +244,7 @@ describe.sequential('Collaboration sync (DEBT-3b)', () => {
 
     let persistedCount = before.length;
     await waitForCondition(async () => {
-      const rows = await db
+      const rows = await getOwnerDb()
         .select({ id: collabUpdates.id })
         .from(collabUpdates)
         .where(eq(collabUpdates.docId, collabDoc.id));

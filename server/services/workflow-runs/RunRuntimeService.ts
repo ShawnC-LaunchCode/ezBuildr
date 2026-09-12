@@ -15,7 +15,7 @@ export interface RunRuntimeDefinition {
   contractVersion: 1;
   run: Pick<
     WorkflowRun,
-    "id" | "workflowId" | "workflowVersionId" | "currentSectionId" | "completed" | "generationStatus"
+    "id" | "workflowId" | "workflowVersionId" | "currentPageId" | "visitedPageIds" | "completed" | "generationStatus"
   >;
   workflow: {
     id: string;
@@ -30,6 +30,15 @@ export interface RunRuntimeDefinition {
     workflowId: string;
     title: string;
     description: string | null;
+    visibleIf?: unknown;
+    createdAt: Date;
+  }>;
+  pages: Array<{
+    id: string;
+    workflowId: string;
+    sectionId: string | null;
+    title: string;
+    description: string | null;
     order: number;
     visibleIf?: unknown;
     config?: unknown;
@@ -38,7 +47,7 @@ export interface RunRuntimeDefinition {
   steps: Array<{
     id: string;
     workflowId: string;
-    sectionId: string;
+    pageId: string;
     type: Step["type"];
     title: string;
     description: string | null;
@@ -108,7 +117,8 @@ export class RunRuntimeService {
         id: run.id,
         workflowId: run.workflowId,
         workflowVersionId: run.workflowVersionId,
-        currentSectionId: run.currentSectionId,
+        currentPageId: run.currentPageId,
+        visitedPageIds: run.visitedPageIds,
         completed: run.completed,
         generationStatus: run.generationStatus,
       },
@@ -121,6 +131,7 @@ export class RunRuntimeService {
         settings: graph.settings,
       },
       sections: definition.sections,
+      pages: definition.pages,
       steps: definition.steps,
       logicRules: definition.logicRules,
       values,

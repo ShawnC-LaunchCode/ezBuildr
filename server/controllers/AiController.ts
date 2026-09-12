@@ -9,6 +9,7 @@ import {
 } from "../../shared/types/ai";
 import { createLogger } from "../logger";
 import { createAIServiceFromEnv } from "../services/AIService";
+import { accountService } from "../services/AccountService";
 import { geminiService } from "../services/geminiService";
 import { variableService } from "../services/VariableService";
 import { workflowService } from "../services/WorkflowService";
@@ -84,7 +85,7 @@ export class AiController {
 
             res.json({
                 available: hasApiKey,
-                model: hasApiKey ? (process.env.GEMINI_MODEL ?? "gemini-2.0-flash") : null,
+                model: hasApiKey ? (process.env.GEMINI_MODEL ?? "gemini-2.5-flash") : null,
                 features: hasApiKey ? [
                     "workflow_generation",
                     "sentiment_analysis",
@@ -147,8 +148,13 @@ export class AiController {
         const userId = authReq.userId;
 
         try {
+            if (!userId) {
+                res.status(401).json({ message: 'Authentication required' });
+                return;
+            }
             // Validate request body
             const requestData = AIWorkflowGenerationRequestSchema.parse(req.body);
+            const { defaultMode } = await accountService.getPreferences(userId);
 
             aiLogger.info({
                 userId,
@@ -161,7 +167,7 @@ export class AiController {
             const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate workflow
-            const generatedWorkflow = await aiService.generateWorkflow(requestData);
+            const generatedWorkflow = await aiService.generateWorkflow(requestData, defaultMode);
 
             const duration = Date.now() - startTime;
 
@@ -169,9 +175,8 @@ export class AiController {
                 userId,
                 projectId: requestData.projectId,
                 duration,
-                sectionsCount: generatedWorkflow.sections.length,
+                pagesCount: generatedWorkflow.pages.length,
                 rulesCount: generatedWorkflow.logicRules.length,
-                blocksCount: generatedWorkflow.transformBlocks.length,
             }, 'AI workflow generation succeeded');
 
             // Extract quality score (attached by AIService)
@@ -183,9 +188,8 @@ export class AiController {
                 workflow: generatedWorkflow,
                 metadata: {
                     duration,
-                    sectionsGenerated: generatedWorkflow.sections.length,
+                    pagesGenerated: generatedWorkflow.pages.length,
                     logicRulesGenerated: generatedWorkflow.logicRules.length,
-                    transformBlocksGenerated: generatedWorkflow.transformBlocks.length,
                 },
                 quality: qualityScore ? {
                     score: qualityScore.overall,
@@ -249,9 +253,8 @@ export class AiController {
             const suggestions = await aiService.suggestWorkflowImprovements(
                 requestData,
                 {
-                    sections: workflow.sections ?? [],
+                    pages: workflow.pages ?? [],
                     logicRules: workflow.logicRules ?? [],
-                    transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks ?? [],
                 }
             );
 
@@ -261,9 +264,8 @@ export class AiController {
                 userId,
                 workflowId,
                 duration,
-                newSectionsCount: suggestions.newSections.length,
+                newPagesCount: suggestions.newPages.length,
                 newRulesCount: suggestions.newLogicRules.length,
-                newBlocksCount: suggestions.newTransformBlocks.length,
                 modificationsCount: suggestions.modifications.length,
             }, 'AI workflow suggestion succeeded');
 
@@ -272,9 +274,8 @@ export class AiController {
                 suggestions,
                 metadata: {
                     duration,
-                    newSectionsCount: suggestions.newSections.length,
+                    newPagesCount: suggestions.newPages.length,
                     newLogicRulesCount: suggestions.newLogicRules.length,
-                    newTransformBlocksCount: suggestions.newTransformBlocks.length,
                     modificationsCount: suggestions.modifications.length,
                 },
             });

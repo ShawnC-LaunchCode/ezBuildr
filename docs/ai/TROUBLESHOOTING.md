@@ -154,8 +154,8 @@ AI_API_KEY=sk-...
 | Generic aliases (`field1`, `q1`) | Use descriptive names (`customerEmail`, `feedbackRating`) |
 | Missing aliases | Ensure every step has an alias |
 | Wrong field types | Match type to content (email → `email`, phone → `phone`) |
-| Empty sections | Add at least one step per section |
-| Too many steps in section | Break into multiple sections (max 15/section recommended) |
+| Empty pages | Add at least one step per page |
+| Too many steps in page | Break into multiple pages (max 15/page recommended) |
 
 **Use Quality Loop:**
 ```typescript
@@ -206,7 +206,7 @@ console.log('Stop reason:', result.improvement.stoppedReason);
 **Solutions:**
 
 1. **Reduce complexity:**
-   - Fewer sections/steps
+   - Fewer pages/steps
    - Simpler logic rules
    - Shorter descriptions
 

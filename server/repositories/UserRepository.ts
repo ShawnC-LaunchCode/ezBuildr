@@ -2,14 +2,14 @@ import { eq, sql, count, inArray } from "drizzle-orm";
 
 import { users, workflows, type User, type UpsertUser } from "@shared/schema";
 
-import { db } from "../db";
+import { db, type DrizzleDB } from "../db";
 import { logger } from "../logger";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
-type AdminUserListRow = Pick<User, "id" | "tenantId" | "firstName" | "lastName" | "email" | "role" | "isActive" | "createdAt" | "updatedAt" | "mfaEnabled">;
+export type AdminUserListRow = Pick<User, "id" | "tenantId" | "firstName" | "lastName" | "email" | "role" | "isActive" | "createdAt" | "updatedAt" | "mfaEnabled">;
 
-type AdminUserWorkflowCountsRow = AdminUserListRow & {
+export type AdminUserWorkflowCountsRow = AdminUserListRow & {
   workflowCount: number;
   personalWorkflowCount: number;
   orgWorkflowCount: number;
@@ -27,8 +27,19 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Find user by email address
    */
-  async findByEmail(email: string, tx?: DbTransaction): Promise<User | undefined> {
-    const database = this.getDb(tx);
+  /**
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed explicitly by `AdminAccessService` (the only module allowed to
+   * import it). Added per-method rather than to `BaseRepository.getDb` on
+   * purpose — a bypass hook on every repository method is the opposite of the
+   * containment RLS-6 exists to create.
+   */
+  async findByEmail(
+    email: string,
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
+  ): Promise<User | undefined> {
+    const database = adminDbOverride ?? this.getDb(tx);
     const [user] = await database
       .select()
       .from(users)
@@ -146,6 +157,25 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Find multiple users by IDs (batch fetch)
    */
+  /**
+   * `findById` for the admin console's cross-tenant path.
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed by `AdminAccessService` (the only module allowed to import it).
+   * A separate method rather than an extra parameter on `BaseRepository
+   * .findById`, because a bypass hook on every repository method is the
+   * opposite of the containment RLS-6 exists to create. With no override it
+   * degrades to the ordinary scoped read.
+   */
+  async findByIdForAdmin(
+    id: string,
+    adminDbOverride?: DrizzleDB
+  ): Promise<User | undefined> {
+    if (!adminDbOverride) { return this.findById(id); }
+    const [row] = await adminDbOverride.select().from(users).where(eq(users.id, id)).limit(1);
+    return row;
+  }
+
   async findByIds(ids: string[], tx?: DbTransaction): Promise<User[]> {
     if (ids.length === 0) {return [];}
     const database = this.getDb(tx);
@@ -154,9 +184,16 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
   /**
    * Get all users (admin only)
+   *
+   * RLS-6: `adminDbOverride` is `server/db/adminDb.ts`'s BYPASSRLS instance,
+   * passed explicitly by `AdminAccessService` — never wired in globally. Once
+   * RLS-4 sets FORCE ROW LEVEL SECURITY, the normal `db`/`tx` path can only
+   * see the caller's own tenant (no platform-admin policy clause exists, by
+   * design — see RLS-6), so a genuinely cross-tenant admin read must pass
+   * `adminDbOverride` instead of `tx`.
    */
-  async findAllUsers(tx?: DbTransaction): Promise<AdminUserListRow[]> {
-    const database = this.getDb(tx);
+  async findAllUsers(tx?: DbTransaction, adminDbOverride?: DrizzleDB): Promise<AdminUserListRow[]> {
+    const database = adminDbOverride ?? this.getDb(tx);
     return database
       .select({
         id: users.id,
@@ -177,9 +214,12 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Get all users with their workflow count (admin only)
    * Optimized to use a single query with LEFT JOIN instead of fetching all workflows
+   *
+   * RLS-6: see `findAllUsers`'s doc comment — `adminDbOverride` is the same
+   * BYPASSRLS escape hatch, passed explicitly, never a global switch.
    */
-  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<AdminUserWorkflowCountsRow[]> {
-    const database = this.getDb(tx);
+  async findAllUsersWithWorkflowCounts(tx?: DbTransaction, adminDbOverride?: DrizzleDB): Promise<AdminUserWorkflowCountsRow[]> {
+    const database = adminDbOverride ?? this.getDb(tx);
 
     // Select specific safe columns plus the count of workflows
     const rows = await database

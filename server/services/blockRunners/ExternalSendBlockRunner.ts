@@ -5,6 +5,7 @@
 
 import { externalSendRunner } from "../../lib/external/ExternalSendRunner";
 import { logger } from "../../logger";
+import { withVerifiedIdentifier } from "../../utils/rlsContext";
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
@@ -38,6 +39,7 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
 
       return {
         success: result.success,
+        ...(result.simulated ? { simulated: true, notices: ['Preview: external send simulated; no request sent.'] } : {}),
         errors: result.error ? [result.error] : undefined,
 
         data: result.responseBody ? { [config.destinationId]: result.responseBody } : undefined
@@ -65,7 +67,18 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
       const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
-      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
+      // RLS-5: resolving a workflow's tenant means reading `workflows`,
+      // `projects` and `users` — all RLS-covered — with no tenant known yet,
+      // which is the whole point of the call. Pin the workflow id as
+      // `app.current_workflow_id` (migration 0030) for the lookup, exactly as
+      // `runTokenAuth` does. The id came from the block's run context, not
+      // from request input. Without this the resolver returns null under
+      // enforcement and the block fails with "Failed to resolve tenantId".
+      return await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+      );
     } catch (error: unknown) {
       logger.error({ error, workflowId }, "Error fetching tenantId from workflow");
       return null;

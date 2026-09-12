@@ -18,15 +18,15 @@ const WORKFLOW_ID = '33333333-3333-4333-8333-333333333333';
 
 const MANIFEST = {
   scope: 'workflow',
-  entityCounts: { workflows: 1, sections: 3, steps: 12, templates: 1 },
+  entityCounts: { workflows: 1, pages: 3, steps: 12, templates: 1 },
   blobCount: 2,
   warnings: [
     {
       type: 'secret_scan',
-      entity: 'transform_blocks',
+      entity: 'lifecycle_hooks',
       column: 'code',
       line: 7,
-      message: 'Possible secret found in transform_blocks.code at line 7. Please review before sharing.',
+      message: 'Possible secret found in lifecycle_hooks.code at line 7. Please review before sharing.',
     },
   ],
   requiresReentry: [
@@ -109,7 +109,7 @@ describe('ExportWorkflowDialog', () => {
     renderDialog();
 
     await screen.findByText('A possible credential was found in your code');
-    expect(screen.getByText('transform_blocks.code — line 7')).toBeInTheDocument();
+    expect(screen.getByText('lifecycle_hooks.code — line 7')).toBeInTheDocument();
   });
 
   it('IEX3-10: reports what could not travel, not only secret-scan hits', async () => {
@@ -147,7 +147,7 @@ describe('ExportWorkflowDialog', () => {
     expect(screen.getByText(/Shared Clients/)).toBeInTheDocument();
     expect(screen.getByText(/templates\/gone\.docx/)).toBeInTheDocument();
     // The secret-scan callout is unaffected.
-    expect(screen.getByText('transform_blocks.code — line 7')).toBeInTheDocument();
+    expect(screen.getByText('lifecycle_hooks.code — line 7')).toBeInTheDocument();
   });
 
   it('IEX3-10: counts knock-on row drops instead of reciting them', async () => {

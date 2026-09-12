@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiting";
 import { requestIdMiddleware } from "./middleware/requestId";
+import { rlsContext } from "./middleware/rlsContext";
 import { requestTimeout } from "./middleware/timeout";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -56,6 +57,17 @@ app.use('/api', globalLimiter);
 app.use('/intake', globalLimiter);
 app.use('/public', globalLimiter);
 app.use('/oauth', globalLimiter);
+// =====================================================================
+// 8️⃣ RLS TENANT CONTEXT (SEC-051)
+// =====================================================================
+// Must run before route registration below: ezBuildr resolves auth per-route
+// (hybridAuth/optionalHybridAuth are declared inline on each route, not as a
+// single global middleware run before dispatch), so there is no point in the
+// request lifecycle where req.tenantId is already known for every request.
+// This opens the AsyncLocalStorage context early; server/middleware/auth.ts
+// writes the tenant id into it once a route's own auth middleware resolves
+// it. See server/middleware/rlsContext.ts for the full explanation.
+app.use(rlsContext);
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
   try {
@@ -73,6 +85,17 @@ app.use('/oauth', globalLimiter);
     // Using dynamic import to avoid DB connection side-effects before key check
     const { dbInitPromise } = await import("./db.js");
     await dbInitPromise;
+    // RLS-6: the admin console's second, BYPASSRLS-role pool. Optional —
+    // unset (isAdminDbConfigured() false) until an environment actually
+    // provisions ADMIN_DATABASE_URL, which is not expected before RLS-4
+    // lands. AdminAccessService falls back to the normal pool when this was
+    // never initialized, so skipping it here is safe, not a gap.
+    const { initializeAdminDb, isAdminDbConfigured } = await import('./db/adminDb.js');
+    if (isAdminDbConfigured()) {
+      logger.info('Initializing admin DB (RLS-6)...');
+      await initializeAdminDb();
+      logger.info('Admin DB initialized.');
+    }
     const { initializeEsignProviders } = await import('./services/esign/index.js');
     initializeEsignProviders();
     // Initialize routes and collaboration server

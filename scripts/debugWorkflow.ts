@@ -4,7 +4,7 @@
 
 import { eq } from 'drizzle-orm';
 
-import { workflowRuns, sections, workflows, templates } from '@shared/schema';
+import { workflowRuns, pages, workflows, templates } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -28,7 +28,7 @@ async function debugWorkflow() {
     id: run[0].id,
     workflowId,
     completed: run[0].completed,
-    currentSectionId: run[0].currentSectionId,
+    currentPageId: run[0].currentPageId,
   });
 
   // Get workflow details
@@ -39,16 +39,16 @@ async function debugWorkflow() {
     status: workflow[0].status,
   });
 
-  // Get sections
-  const sectionList = await db.select().from(sections).where(eq(sections.workflowId, workflowId));
-  console.log('\nSections:', sectionList.length);
+  // Get pages
+  const pageList = await db.select().from(pages).where(eq(pages.workflowId, workflowId));
+  console.log('\nPages:', pageList.length);
 
-  for (const section of sectionList) {
-    const config = section.config as Record<string, unknown>;
+  for (const page of pageList) {
+    const config = page.config as Record<string, unknown>;
     const isFinalDocs = config?.finalBlock === true;
 
-    console.log(`  - ${section.title} (order: ${section.order})`);
-    console.log(`    ID: ${section.id}`);
+    console.log(`  - ${page.title} (order: ${page.order})`);
+    console.log(`    ID: ${page.id}`);
     console.log(`    Final Docs: ${isFinalDocs}`);
 
     if (isFinalDocs) {

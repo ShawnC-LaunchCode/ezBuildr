@@ -19,12 +19,12 @@ export function useTemplatePlaceholders(templateId: string | undefined): UseQuer
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useActiveTemplateVariables(projectId: string | undefined, sectionConfig: any): { requiredVariables: string[]; isLoading: boolean; isError: boolean } {
+export function useActiveTemplateVariables(projectId: string | undefined, pageConfig: any): { requiredVariables: string[]; isLoading: boolean; isError: boolean } {
     // Extract template IDs from config
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const templateIds: string[] = Array.isArray(sectionConfig?.templates)
+    const templateIds: string[] = Array.isArray(pageConfig?.templates)
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        ? sectionConfig.templates
+        ? pageConfig.templates
         : [];
     const queries = useQueries({
         queries: templateIds.map((id) => ({

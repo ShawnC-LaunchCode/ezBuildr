@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 import type { ChoiceAdvancedConfig } from '@shared/types/stepConfigs';
 
-import { db } from '../../server/db';
+import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import {
   datavaultColumnsService,
@@ -16,9 +16,14 @@ import {
 } from '../../server/services';
 import { authService } from '../../server/services/AuthService';
 import { hashToken } from '../../server/utils/encryption';
+import { runWithTenantContext } from '../../server/utils/rlsContext';
 import { TestFactory } from '../helpers/testFactory';
 
 import type { Server } from 'http';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { expectCrossTenantDenied } from '../helpers/expectDenied';
 
 interface OptionsResponse {
   options: Array<{ value: string; label: string }>;
@@ -58,6 +63,11 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
   beforeAll(async () => {
     const app = express();
     app.use(express.json());
+    // RLS-2b: mount BEFORE registerDatavaultRoutes, mirroring server/index.ts
+    // — DataVault services now open a service-boundary tenant transaction
+    // that reads from this context (see integrationTestHelper.ts for the
+    // same fix applied to the shared harness).
+    app.use(rlsContext);
     registerDatavaultRoutes(app);
     await new Promise<void>((resolve) => {
       server = app.listen(0, resolve);
@@ -81,7 +91,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     });
     otherTenantId = other.tenant.id;
 
-    const [sameTenantReader] = await db.insert(schema.users).values({
+    const [sameTenantReader] = await getOwnerDb().insert(schema.users).values({
       id: randomUUID(),
       tenantId,
       email: `dynamic-options-viewer-${randomUUID()}@example.com`,
@@ -91,54 +101,59 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     }).returning();
     sameTenantReaderToken = authService.createToken(sameTenantReader);
 
-    const table = await datavaultTablesService.createTable({
-      tenantId,
-      ownerUserId: userId,
-      name: 'Interview choices',
-      slug: `interview-choices-${randomUUID()}`,
+    // RLS-2b: these DataVault service calls open their own tenant transaction
+    // via the request's async context, and this is direct seeding (no HTTP
+    // request), so open that context explicitly — same reasoning as
+    // transferOwnership.test.ts and integrationTestHelper.ts.
+    await runWithTenantContext(tenantId, async () => {
+      const table = await datavaultTablesService.createTable({
+        tenantId,
+        ownerUserId: userId,
+        name: 'Interview choices',
+        slug: `interview-choices-${randomUUID()}`,
+      });
+      tableId = table.id;
+
+      const valueColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Choice code',
+        type: 'text',
+      }, tenantId);
+      valueColumnId = valueColumn.id;
+      const labelColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Choice label',
+        type: 'text',
+      }, tenantId);
+      labelColumnId = labelColumn.id;
+      const secretColumn = await datavaultColumnsService.createColumn({
+        tableId,
+        name: 'Internal note',
+        type: 'text',
+      }, tenantId);
+      secretColumnId = secretColumn.id;
+
+      const visibleRow = await datavaultRowsService.createRow(tableId, tenantId, {
+        [valueColumnId]: 'alpha',
+        [labelColumnId]: 'Alpha label',
+        [secretColumnId]: 'must-not-leak',
+      }, userId);
+      visibleRowId = visibleRow.row.id;
+      const archivedRow = await datavaultRowsService.createRow(tableId, tenantId, {
+        [valueColumnId]: 'archived',
+        [labelColumnId]: 'Archived label',
+        [secretColumnId]: 'archived-secret',
+      }, userId);
+      archivedRowId = archivedRow.row.id;
+      await datavaultRowsService.archiveRow(tenantId, archivedRowId);
     });
-    tableId = table.id;
-
-    const valueColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Choice code',
-      type: 'text',
-    }, tenantId);
-    valueColumnId = valueColumn.id;
-    const labelColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Choice label',
-      type: 'text',
-    }, tenantId);
-    labelColumnId = labelColumn.id;
-    const secretColumn = await datavaultColumnsService.createColumn({
-      tableId,
-      name: 'Internal note',
-      type: 'text',
-    }, tenantId);
-    secretColumnId = secretColumn.id;
-
-    const visibleRow = await datavaultRowsService.createRow(tableId, tenantId, {
-      [valueColumnId]: 'alpha',
-      [labelColumnId]: 'Alpha label',
-      [secretColumnId]: 'must-not-leak',
-    }, userId);
-    visibleRowId = visibleRow.row.id;
-    const archivedRow = await datavaultRowsService.createRow(tableId, tenantId, {
-      [valueColumnId]: 'archived',
-      [labelColumnId]: 'Archived label',
-      [secretColumnId]: 'archived-secret',
-    }, userId);
-    archivedRowId = archivedRow.row.id;
-    await datavaultRowsService.archiveRow(tenantId, archivedRowId);
 
     const { workflow } = await factory.createWorkflow(primary.project.id, userId, {
       workflow: { ownerType: 'user', ownerUuid: userId },
     });
-    const section = await factory.createSection(workflow.id);
+    const page = await factory.createPage(workflow.id);
     const choiceConfig: ChoiceAdvancedConfig = {
       display: 'dropdown',
-      allowMultiple: false,
       options: {
         type: 'table_column',
         dataSourceId: 'native',
@@ -148,7 +163,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
         limit: 25,
       },
     };
-    const choiceStep = await factory.createStep(section.id, {
+    const choiceStep = await factory.createStep(page.id, {
       type: 'choice',
       title: 'Choose a record',
       config: choiceConfig,
@@ -156,7 +171,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     choiceStepId = choiceStep.id;
 
     runToken = `dynamic-options-${randomUUID()}`;
-    await db.insert(schema.workflowRuns).values({
+    await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: workflow.id,
       runToken: hashToken(runToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
@@ -169,7 +184,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
       { workflow: { ownerType: 'user', ownerUuid: other.user.id } }
     );
     otherTenantRunToken = `dynamic-options-other-${randomUUID()}`;
-    await db.insert(schema.workflowRuns).values({
+    await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: otherWorkflow.id,
       runToken: hashToken(otherTenantRunToken),
       tokenExpiresAt: new Date(Date.now() + 60_000),
@@ -182,15 +197,15 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
     if (otherTenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
     }
     if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
   });
 
   it('stores the table-column binding on the workflow choice step', async () => {
-    const [storedStep] = await db
+    const [storedStep] = await getOwnerDb()
       .select({ config: schema.steps.config })
       .from(schema.steps)
       .where(eq(schema.steps.id, choiceStepId));
@@ -246,7 +261,7 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     expect((await getOptions(userToken, { columnId: valueColumnId }, randomUUID())).status).toBe(404);
   });
 
-  it('allows a same-tenant run token and denies a different-tenant run token with 403', async () => {
+  it('allows a same-tenant run token and denies a different-tenant run token', async () => {
     const allowed = await getOptions(runToken, { columnId: valueColumnId, labelColumnId });
     expect(allowed.status).toBe(200);
     expect(await allowed.json() as OptionsResponse).toEqual({
@@ -254,6 +269,6 @@ describe.sequential('DataVault-backed dynamic choice options', () => {
     });
 
     const denied = await getOptions(otherTenantRunToken, { columnId: valueColumnId, labelColumnId });
-    expect(denied.status).toBe(403);
+    expectCrossTenantDenied(denied.status);
   });
 });

@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { withCurrentTenant } from '../../utils/rlsContext';
 import {
   projects, workflows, datavaultDatabases, datavaultTables, datavaultColumns,
   workflowTemplates, workflowVersions, workflowDataSources, workflowQueries,
@@ -10,6 +10,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
 import { BundleManifest, RequiresReentry, ExportWarning, FORMAT_VERSION, ExportRowLimitError } from './bundleFormat';
+import { getMigrationHead } from './migrationHead';
 import { applyRedaction, scanForSecrets } from './redaction';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
@@ -83,24 +84,6 @@ export class ExportService {
     return pkg.version;
   }
 
-  private getMigrationHead(): string | null {
-    const journalPath = path.resolve(process.cwd(), 'migrations/meta/_journal.json');
-    if (!fs.existsSync(journalPath)) {
-      throw new Error(`Migration journal not found at ${journalPath}`);
-    }
-    const content = fs.readFileSync(journalPath, 'utf8');
-    const journal = JSON.parse(content) as Record<string, unknown>;
-    const entries = journal.entries;
-    if (Array.isArray(entries) && entries.length > 0) {
-      const lastEntry = entries[entries.length - 1] as Record<string, unknown>;
-      if (typeof lastEntry.tag !== 'string') {
-        throw new Error('Migration journal contains invalid entry tag');
-      }
-      return lastEntry.tag;
-    }
-    return null;
-  }
-
   async exportToFile(root: RootParams, userId: string): Promise<{ tmpPath: string; manifest: BundleManifest; tenantId: string }> {
     const tenantId = await this.verifyAccessAndGetTenant(root, userId);
 
@@ -133,7 +116,7 @@ export class ExportService {
       const manifest: BundleManifest = {
         formatVersion: FORMAT_VERSION,
         appVersion: this.getAppVersion(),
-        migrationHead: this.getMigrationHead(),
+        migrationHead: getMigrationHead(),
         scope: root.scope,
         rootIds: [root.id],
         sourceSystem: 'ezBuildr',
@@ -207,57 +190,89 @@ export class ExportService {
   }
 
   private async verifyAccessAndGetTenant(root: RootParams, userId: string): Promise<string> {
-    if (root.scope === 'project') {
-      const [project] = await db.select().from(projects).where(eq(projects.id, root.id)).limit(1);
-      if (project == null) {
+    // RLS-5: `projects`/`workflows`/`datavault_databases` are all RLS-covered,
+    // and these reads ran on the bare pool — so under a non-owner role they
+    // returned zero rows and every export 404'd as "not found" for a project
+    // the caller plainly owns.
+    //
+    // The ACL checks get their OWN transaction rather than sharing this one.
+    // Both ACL services already thread `tx` all the way down, so they need a
+    // tenant scope of their own (their reads hit `projects`/`workflows` too,
+    // and unscoped they deny access to resources the caller owns — a 403 where
+    // the unscoped row read gave a 404). They must NOT run inside the read
+    // transaction below: a second query issued while that transaction holds
+    // the only connection is the `SystemStats` deadlock, and against the max:1
+    // test pool it HANGS rather than failing. Measured here, not theorised.
+    const found = await withCurrentTenant(async (tx) => {
+      if (root.scope === 'project') {
+        const [project] = await tx.select().from(projects).where(eq(projects.id, root.id)).limit(1);
+        return { kind: 'project' as const, project };
+      }
+      if (root.scope === 'workflow') {
+        const [workflow] = await tx.select().from(workflows).where(eq(workflows.id, root.id)).limit(1);
+        if (workflow == null) {
+          return { kind: 'workflow' as const, workflow: undefined, project: undefined };
+        }
+        if (workflow.projectId == null) {
+          return { kind: 'workflow' as const, workflow, project: undefined };
+        }
+        const [project] = await tx.select().from(projects).where(eq(projects.id, workflow.projectId)).limit(1);
+        return { kind: 'workflow' as const, workflow, project };
+      }
+      if (root.scope === 'database') {
+        const [database] = await tx.select().from(datavaultDatabases).where(eq(datavaultDatabases.id, root.id)).limit(1);
+        return { kind: 'database' as const, database };
+      }
+      return { kind: 'invalid' as const };
+    });
+
+    if (found.kind === 'project') {
+      if (found.project == null) {
         throw new Error('Project not found');
       }
-      
-      const canEdit = await aclService.hasProjectRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        aclService.hasProjectRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
+      return requireTenant(found.project.tenantId, 'project', root.id);
+    }
 
-      return requireTenant(project.tenantId, 'project', root.id);
-    } else if (root.scope === 'workflow') {
-      const [workflow] = await db.select().from(workflows).where(eq(workflows.id, root.id)).limit(1);
-      if (workflow == null) {
+    if (found.kind === 'workflow') {
+      if (found.workflow == null) {
         throw new Error('Workflow not found');
       }
-
       // `workflows.project_id` is nullable in the schema, so an orphan workflow
       // is representable. Say that, rather than looking up `projects.id = NULL`
       // and reporting "Project not found" for a workflow that plainly exists.
-      if (workflow.projectId == null) {
+      if (found.workflow.projectId == null) {
         throw new Error(
           `Cannot export workflow ${root.id}: it is not attached to a project, so no tenant can be resolved for it.`
         );
       }
-
-      const [project] = await db.select().from(projects).where(eq(projects.id, workflow.projectId)).limit(1);
-      if (project == null) {
+      if (found.project == null) {
         throw new Error('Project not found');
       }
-
-      const canEdit = await aclService.hasWorkflowRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        aclService.hasWorkflowRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this workflow');
       }
+      return requireTenant(found.project.tenantId, 'project', found.project.id);
+    }
 
-      return requireTenant(project.tenantId, 'project', project.id);
-    } else if (root.scope === 'database') {
-      const [database] = await db.select().from(datavaultDatabases).where(eq(datavaultDatabases.id, root.id)).limit(1);
-      if (database == null) {
+    if (found.kind === 'database') {
+      if (found.database == null) {
         throw new Error('Database not found');
       }
-
-      const canEdit = await datavaultAclService.hasDatabaseRole(userId, root.id, 'edit');
+      const canEdit = await withCurrentTenant((tx) =>
+        datavaultAclService.hasDatabaseRole(userId, root.id, 'edit', tx));
       if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this database');
       }
-      
-      return database.tenantId;
+      return found.database.tenantId;
     }
+
     throw new Error('Invalid export scope');
   }
 
@@ -283,11 +298,14 @@ export class ExportService {
    * and have always exported without one.
    */
   private async collectWorkflowRefs(workflowId: string, userId: string, state: ExportState): Promise<void> {
-    const templateRows = await db
+    // `workflow_versions` is not RLS-covered but this join reaches it through
+    // `workflow_templates`; scoped for consistency with the database read
+    // below, which IS covered and was returning nothing.
+    const templateRows = await withCurrentTenant((tx) => tx
       .select({ templateId: workflowTemplates.templateId })
       .from(workflowTemplates)
       .innerJoin(workflowVersions, eq(workflowTemplates.workflowVersionId, workflowVersions.id))
-      .where(eq(workflowVersions.workflowId, workflowId));
+      .where(eq(workflowVersions.workflowId, workflowId)));
     for (const row of templateRows) {
       state.workflowRefs.templateIds.add(row.templateId);
     }
@@ -297,7 +315,12 @@ export class ExportService {
       return;
     }
 
-    const candidates = await db
+    // `datavault_databases` is RLS-covered. Unscoped this came back EMPTY, so
+    // every referenced database was silently dropped from the bundle — an
+    // export that succeeds and quietly omits data, which is worse than a
+    // failure. It also skipped the warning below, because a database that is
+    // invisible is not a database the caller "cannot export".
+    const candidates = await withCurrentTenant((tx) => tx
       .select({
         id: datavaultDatabases.id,
         name: datavaultDatabases.name,
@@ -305,13 +328,19 @@ export class ExportService {
         scopeId: datavaultDatabases.scopeId
       })
       .from(datavaultDatabases)
-      .where(inArray(datavaultDatabases.id, Array.from(candidateDatabaseIds)));
+      .where(inArray(datavaultDatabases.id, Array.from(candidateDatabaseIds))));
 
     for (const candidate of candidates) {
       if (candidate.scopeType === 'workflow' && candidate.scopeId === workflowId) {
         continue; // already selected by the ownership predicate
       }
-      const canExport = await datavaultAclService.hasDatabaseRole(userId, candidate.id, 'edit');
+      // Scoped: this resolves the role by reading the database row itself, so
+      // unscoped it saw nothing, returned "none", and quietly demoted a
+      // database the caller owns into the "cannot export" warning below. Each
+      // check gets its own transaction — the candidates read above has already
+      // completed, so this nests nothing.
+      const canExport = await withCurrentTenant((tx) =>
+        datavaultAclService.hasDatabaseRole(userId, candidate.id, 'edit', tx));
       if (canExport) {
         state.workflowRefs.allowedDatabaseIds.add(candidate.id);
       } else {
@@ -345,9 +374,15 @@ export class ExportService {
    * column without naming its database, so both are resolved upward.
    */
   private async collectConfigDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [stepRows, blockRows] = await Promise.all([
-      db.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, workflowId)),
-      db.select({ config: blocks.config }).from(blocks).where(eq(blocks.workflowId, workflowId))
+    // RLS-5: `steps` is RLS-covered (ownership-derived), so on the bare pool
+    // this returned nothing and the export silently omitted every DataVault
+    // reference — a bundle that imports "successfully" and is missing data.
+    // Sequential inside ONE transaction, not Promise.all: concurrent queries
+    // on a single connection are the deadlock shape against the max:1 test
+    // pool, and two transactions would not see a consistent snapshot anyway.
+    const [stepRows, blockRows] = await withCurrentTenant(async (tx) => [
+      await tx.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, workflowId)),
+      await tx.select({ config: blocks.config }).from(blocks).where(eq(blocks.workflowId, workflowId)),
     ]);
 
     const databaseIds = new Set<string>();
@@ -366,17 +401,17 @@ export class ExportService {
     }
 
     if (columnIds.size > 0) {
-      const cols = await db.select({ tableId: datavaultColumns.tableId })
+      const cols = await withCurrentTenant((tx) => tx.select({ tableId: datavaultColumns.tableId })
         .from(datavaultColumns)
-        .where(inArray(datavaultColumns.id, Array.from(columnIds)));
+        .where(inArray(datavaultColumns.id, Array.from(columnIds))));
       for (const col of cols) {
         tableIds.add(col.tableId);
       }
     }
     if (tableIds.size > 0) {
-      const tables = await db.select({ databaseId: datavaultTables.databaseId })
+      const tables = await withCurrentTenant((tx) => tx.select({ databaseId: datavaultTables.databaseId })
         .from(datavaultTables)
-        .where(inArray(datavaultTables.id, Array.from(tableIds)));
+        .where(inArray(datavaultTables.id, Array.from(tableIds))));
       for (const table of tables) {
         // `datavault_tables.database_id` is nullable in the schema, so a
         // parentless table is representable and simply reaches no database.
@@ -393,21 +428,26 @@ export class ExportService {
 
   /** Every DataVault database this workflow reaches, by any of its routes. */
   private async collectReferencedDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [fromDataSources, fromQueries, fromQueryTables, fromConfig] = await Promise.all([
-      db.select({ id: workflowDataSources.dataSourceId })
+    // RLS-5: same treatment as collectConfigDatabaseIds — one transaction,
+    // sequential. `collectConfigDatabaseIds` opens its own transaction, so it
+    // is deliberately awaited OUTSIDE this one rather than nested inside it,
+    // which would be a query issued while this transaction holds the only
+    // connection (the deadlock shape).
+    const [fromDataSources, fromQueries, fromQueryTables] = await withCurrentTenant(async (tx) => [
+      await tx.select({ id: workflowDataSources.dataSourceId })
         .from(workflowDataSources)
         .where(eq(workflowDataSources.workflowId, workflowId)),
-      db.select({ id: workflowQueries.dataSourceId })
+      await tx.select({ id: workflowQueries.dataSourceId })
         .from(workflowQueries)
         .where(eq(workflowQueries.workflowId, workflowId)),
       // A query's tableId can belong to a different database than its
       // dataSourceId claims; take both so neither can dangle.
-      db.select({ id: datavaultTables.databaseId })
+      await tx.select({ id: datavaultTables.databaseId })
         .from(workflowQueries)
         .innerJoin(datavaultTables, eq(workflowQueries.tableId, datavaultTables.id))
         .where(eq(workflowQueries.workflowId, workflowId)),
-      this.collectConfigDatabaseIds(workflowId)
     ]);
+    const fromConfig = await this.collectConfigDatabaseIds(workflowId);
 
     const ids = new Set<string>(fromConfig);
     for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables]) {
@@ -504,11 +544,15 @@ export class ExportService {
         pageConditions.push(gt(idCol, lastId));
       }
 
-      rows = await db.select(selection)
+      // RLS-5: the actual row-fetch for every exported entity. Unscoped this
+      // returns zero rows for RLS-covered tables, so the bundle is written
+      // EMPTY and the import later fails with "Bundle roots not found" — the
+      // export itself reporting success throughout.
+      rows = await withCurrentTenant((tx) => tx.select(selection)
         .from(descriptor.table)
         .where(pageConditions.length > 0 ? and(...pageConditions) : undefined)
         .orderBy(idCol)
-        .limit(this.batchSize);
+        .limit(this.batchSize));
 
       if (rows.length > 0) {
         nextLastId = (rows[rows.length - 1] as Record<string, unknown>).id as string;
@@ -519,12 +563,13 @@ export class ExportService {
         ? [tableCols['createdAt'], ...descriptorCols]
         : descriptorCols;
 
-      rows = await db.select(selection)
+      // RLS-5: same as the keyset branch above.
+      rows = await withCurrentTenant((tx) => tx.select(selection)
         .from(descriptor.table)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(...orderCols)
         .limit(this.batchSize)
-        .offset(offset);
+        .offset(offset));
         
       nextOffset = offset + this.batchSize;
     }

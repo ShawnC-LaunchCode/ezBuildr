@@ -1,8 +1,10 @@
-import { eq, and, or, desc, inArray, count, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, count, sql, isNull, lte, gt } from "drizzle-orm";
 
 import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
+import { stepValues, codeBlockRuns, scriptExecutionLog, runGeneratedDocuments,
+  runCompletionJobs, runResumeLinks, workflowRunEvents, workflowRunMetrics } from '@shared/schema';
 
-import { db } from "../db";
+import { db, type DrizzleDB } from "../db";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
 
@@ -29,13 +31,14 @@ export class WorkflowRunRepository extends BaseRepository<
   async findByWorkflowId(
     workflowId: string,
     options?: { limit?: number; offset?: number },
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<WorkflowRun[]> {
-    const database = this.getDb(tx);
+    const database = adminDbOverride ?? this.getDb(tx);
     let query = database
       .select()
       .from(workflowRuns)
-      .where(eq(workflowRuns.workflowId, workflowId))
+      .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.executionMode, 'live')))
       .orderBy(desc(workflowRuns.createdAt))
       .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
@@ -58,7 +61,7 @@ export class WorkflowRunRepository extends BaseRepository<
     let query = database
       .select()
       .from(workflowRuns)
-      .where(inArray(workflowRuns.workflowId, workflowIds))
+      .where(and(inArray(workflowRuns.workflowId, workflowIds), eq(workflowRuns.executionMode, 'live')))
       .orderBy(desc(workflowRuns.createdAt))
       .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
@@ -72,19 +75,20 @@ export class WorkflowRunRepository extends BaseRepository<
    */
   async countByWorkflowIds(
     workflowIds: string[],
-    tx?: DbTransaction
+    tx?: DbTransaction,
+    adminDbOverride?: DrizzleDB
   ): Promise<Map<string, number>> {
     if (workflowIds.length === 0) {
       return new Map();
     }
-    const database = this.getDb(tx);
+    const database = adminDbOverride ?? this.getDb(tx);
     const rows = await database
       .select({
         workflowId: workflowRuns.workflowId,
         runCount: count(workflowRuns.id),
       })
       .from(workflowRuns)
-      .where(inArray(workflowRuns.workflowId, workflowIds))
+      .where(and(inArray(workflowRuns.workflowId, workflowIds), eq(workflowRuns.executionMode, 'live')))
       .groupBy(workflowRuns.workflowId);
     return new Map(rows.map((row) => [row.workflowId, Number(row.runCount)]));
   }
@@ -101,7 +105,7 @@ export class WorkflowRunRepository extends BaseRepository<
     let query = database
       .select()
       .from(workflowRuns)
-      .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.completed, true)))
+      .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.completed, true), eq(workflowRuns.executionMode, 'live')))
       .orderBy(desc(workflowRuns.completedAt))
       .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
@@ -127,7 +131,7 @@ export class WorkflowRunRepository extends BaseRepository<
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(predicate)
+      .where(and(predicate, eq(workflowRuns.executionMode, 'live')))
       .limit(1);
     return run ?? null;
   }
@@ -156,7 +160,7 @@ export class WorkflowRunRepository extends BaseRepository<
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(eq(workflowRuns.shareTokenHash, hashed))
+      .where(and(eq(workflowRuns.shareTokenHash, hashed), eq(workflowRuns.executionMode, 'live')))
       .limit(1);
     return run ?? null;
   }
@@ -233,6 +237,78 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Advance the persisted cursor and reached-page history in one conditional
+   * update. The UUID array is an insertion-ordered set: a destination is
+   * appended only when it is non-null and absent. Keeping this expression in
+   * PostgreSQL avoids duplicate/lost entries under concurrent requests.
+   */
+  async advanceIfIncomplete(
+    runId: string,
+    currentPageId: string | null,
+    progress?: number,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const visitedPageIds = currentPageId === null
+      ? workflowRuns.visitedPageIds
+      : sql<string[]>`CASE
+          WHEN ${currentPageId}::uuid = ANY(${workflowRuns.visitedPageIds})
+            THEN ${workflowRuns.visitedPageIds}
+          ELSE array_append(${workflowRuns.visitedPageIds}, ${currentPageId}::uuid)
+        END`;
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({
+        currentPageId,
+        visitedPageIds,
+        ...(progress === undefined ? {} : { progress }),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) { return updated; }
+
+    const existing = await this.findById(runId, tx);
+    if (existing) { throw createError.runCompleted(); }
+    throw createError.notFound('Run', runId);
+  }
+
+  /**
+   * Rotate a resumed run's bearer token and idempotently repair its reached
+   * history from the cursor in the same update/transaction. Referencing the
+   * row's current_page_id inside the expression avoids racing a concurrent
+   * navigation update with a stale value read in application code.
+   */
+  async resumeIfIncomplete(
+    runId: string,
+    runToken: string,
+    tokenExpiresAt: Date,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({
+        runToken,
+        tokenExpiresAt,
+        visitedPageIds: sql<string[]>`CASE
+          WHEN ${workflowRuns.currentPageId} IS NULL
+            OR ${workflowRuns.currentPageId} = ANY(${workflowRuns.visitedPageIds})
+            THEN ${workflowRuns.visitedPageIds}
+          ELSE array_append(${workflowRuns.visitedPageIds}, ${workflowRuns.currentPageId})
+        END`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) { return updated; }
+
+    const existing = await this.findById(runId, tx);
+    if (existing) { throw createError.runCompleted(); }
+    throw createError.notFound('Run', runId);
+  }
+
+  /**
    * Update the generation status of a run.
    *
    * generation_status is varchar(50); a long `failed:<reason>` must not make
@@ -282,7 +358,7 @@ export class WorkflowRunRepository extends BaseRepository<
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(eq(workflowRuns.portalAccessKey, key))
+      .where(and(eq(workflowRuns.portalAccessKey, key), eq(workflowRuns.executionMode, 'live')))
       .limit(1);
     return run ?? null;
   }
@@ -299,13 +375,66 @@ export class WorkflowRunRepository extends BaseRepository<
         completed: sql<number>`sum(case when ${workflowRuns.completed} = true then 1 else 0 end)`,
         inProgress: sql<number>`sum(case when ${workflowRuns.completed} = false then 1 else 0 end)`,
       })
-      .from(workflowRuns);
+      .from(workflowRuns).where(eq(workflowRuns.executionMode, 'live'));
 
     return {
       total: Number(stats?.total ?? 0),
       completed: Number(stats?.completed ?? 0),
       inProgress: Number(stats?.inProgress ?? 0),
     };
+  }
+  async claimPreview(runId: string, owner: string, expiresAt: Date): Promise<WorkflowRun | undefined> {
+    const [run] = await this.getDb().update(workflowRuns).set({
+      previewLeaseOwner: owner, previewLeaseExpiresAt: expiresAt,
+    }).where(and(
+      eq(workflowRuns.id, runId), eq(workflowRuns.executionMode, 'preview'),
+      isNull(workflowRuns.previewRetiredAt), gt(workflowRuns.previewExpiresAt, new Date()),
+      or(isNull(workflowRuns.previewLeaseOwner), lte(workflowRuns.previewLeaseExpiresAt, new Date())),
+    )).returning();
+    return run;
+  }
+
+  async releasePreview(runId: string, owner: string): Promise<void> {
+    await this.getDb().update(workflowRuns).set({ previewLeaseOwner: null, previewLeaseExpiresAt: null })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.executionMode, 'preview'), eq(workflowRuns.previewLeaseOwner, owner)));
+  }
+
+  async retirePreview(runId: string): Promise<void> {
+    await this.getDb().update(workflowRuns).set({ previewRetiredAt: new Date(), tokenExpiresAt: new Date(0) })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.executionMode, 'preview'), isNull(workflowRuns.previewRetiredAt)));
+  }
+
+  async registerPreviewArtifact(runId: string, key: string): Promise<void> {
+    const [run] = await this.getDb().update(workflowRuns).set({
+      previewArtifacts: sql`array_append(${workflowRuns.previewArtifacts}, ${key})`,
+    }).where(and(eq(workflowRuns.id, runId), eq(workflowRuns.executionMode, 'preview'),
+      isNull(workflowRuns.previewRetiredAt), gt(workflowRuns.previewExpiresAt, new Date())))
+      .returning({ id: workflowRuns.id });
+    if (run === undefined) { throw new Error('Run not found'); }
+  }
+
+  async findRetirablePreviews(limit = 20): Promise<WorkflowRun[]> {
+    return this.getDb().select().from(workflowRuns).where(and(
+      eq(workflowRuns.executionMode, 'preview'),
+      or(sql`${workflowRuns.previewRetiredAt} IS NOT NULL`, lte(workflowRuns.previewExpiresAt, new Date())),
+    )).orderBy(workflowRuns.updatedAt).limit(limit);
+  }
+
+  async clearRetiredPreviewData(runId: string, tx: DbTransaction): Promise<void> {
+      const [run] = await tx.select().from(workflowRuns).where(and(
+        eq(workflowRuns.id, runId), eq(workflowRuns.executionMode, 'preview'),
+      )).for('update');
+      if (!run?.previewRetiredAt || (run.previewLeaseExpiresAt && run.previewLeaseExpiresAt > new Date())) {
+        return;
+      }
+      for (const table of [stepValues, codeBlockRuns, scriptExecutionLog,
+        runGeneratedDocuments, runCompletionJobs, runResumeLinks, workflowRunEvents, workflowRunMetrics]) {
+        await tx.delete(table).where(eq(table.runId, runId));
+      }
+      // Keep a tombstone and the ownership manifest for reconciliation of late uploads.
+      await tx.update(workflowRuns).set({ metadata: null, currentPageId: null, visitedPageIds: [],
+        previewLeaseOwner: null, previewLeaseExpiresAt: null, updatedAt: new Date(),
+      }).where(eq(workflowRuns.id, runId));
   }
 }
 

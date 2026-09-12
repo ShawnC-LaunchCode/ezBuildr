@@ -127,7 +127,7 @@ Comprehensive end-to-end tests for VaultLogic authentication flows using Playwri
 - ✓ Cross-run access prevention
 - ✓ Unique token generation
 - ✓ Bulk value save
-- ✓ Section navigation
+- ✓ Page navigation
 - ✓ Rate limiting
 - ✓ Invalid slug handling
 - ✓ SQL injection protection

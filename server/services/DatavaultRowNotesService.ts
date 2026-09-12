@@ -10,9 +10,13 @@ import {
   type DbTransaction,
 } from "../repositories";
 import { logger } from "../logger";
+import { withCurrentTenant, getCurrentTenantId } from "../utils/rlsContext";
 /**
  * Service layer for DataVault row notes business logic
  * Handles row-level comments/notes with tenant verification and sanitization
+ *
+ * RLS-2b: copies the service-boundary tenant transaction pattern from
+ * CollectionService (RLS-2a) — see docs/architecture/TENANT_ISOLATION_RLS.md §2b.
  */
 export class DatavaultRowNotesService {
   private notesRepo: typeof datavaultRowNotesRepository;
@@ -26,6 +30,26 @@ export class DatavaultRowNotesService {
     this.notesRepo = notesRepo ?? datavaultRowNotesRepository;
     this.rowsRepo = rowsRepo ?? datavaultRowsRepository;
     this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
+  }
+
+  /** See CollectionService.withTx (RLS-2a) — identical shape, copied per RLS-2b. */
+  private async withTx<T>(
+    expectedTenantId: string,
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    const ambientTenantId = getCurrentTenantId();
+    if (ambientTenantId !== undefined && ambientTenantId !== expectedTenantId) {
+      throw new Error(
+        `RLS: tenant mismatch — operation requested for tenant "${expectedTenantId}" but the ` +
+        `request's async context is tenant "${ambientTenantId}". Refusing to run rather than ` +
+        `silently scoping to the wrong tenant.`
+      );
+    }
+    return withCurrentTenant(fn);
   }
   /**
    * Verify row belongs to tenant
@@ -68,10 +92,12 @@ export class DatavaultRowNotesService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultRowNote[]> {
-    // Verify row belongs to tenant
-    await this.verifyRowOwnership(rowId, tenantId, tx);
-    // Get notes
-    return this.notesRepo.findByRowIdAndTenant(rowId, tenantId, tx);
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify row belongs to tenant
+      await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      // Get notes
+      return this.notesRepo.findByRowIdAndTenant(rowId, tenantId, scopedTx);
+    });
   }
   /**
    * Create a new note
@@ -83,25 +109,27 @@ export class DatavaultRowNotesService {
     text: string,
     tx?: DbTransaction
   ): Promise<DatavaultRowNote> {
-    // Verify row belongs to tenant
-    await this.verifyRowOwnership(rowId, tenantId, tx);
-    // Sanitize text
-    const sanitizedText = this.sanitizeText(text);
-    if (!sanitizedText || sanitizedText.trim().length === 0) {
-      throw new Error("Note text cannot be empty");
-    }
-    const note = await this.notesRepo.createNote(
-      {
-        rowId,
-        tenantId,
-        userId,
-        text: sanitizedText,
-      },
-      tx
-    );
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify row belongs to tenant
+      await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      // Sanitize text
+      const sanitizedText = this.sanitizeText(text);
+      if (!sanitizedText || sanitizedText.trim().length === 0) {
+        throw new Error("Note text cannot be empty");
+      }
+      const note = await this.notesRepo.createNote(
+        {
+          rowId,
+          tenantId,
+          userId,
+          text: sanitizedText,
+        },
+        scopedTx
+      );
 
-    logger.debug({ noteId: note.id, tenantId: note.tenantId, userId: note.userId }, "Created note");
-    return note;
+      logger.debug({ noteId: note.id, tenantId: note.tenantId, userId: note.userId }, "Created note");
+      return note;
+    });
   }
   /**
    * Delete a note
@@ -113,25 +141,27 @@ export class DatavaultRowNotesService {
     userId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Find note with tenant verification
-    const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, tx);
-    if (!note) {
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Find note with tenant verification
+      const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, scopedTx);
+      if (!note) {
 
-      logger.warn({ noteId, tenantId }, "Delete note failed: note not found");
-      throw new Error("Note not found");
-    }
-    // Verify row belongs to tenant (for table owner check)
-    const tableId = await this.verifyRowOwnership(note.rowId, tenantId, tx);
-    // Check if user is the note owner
-    const isNoteOwner = note.userId === userId;
-    // Check if user is the table owner
-    const table = await this.tablesRepo.findById(tableId, tx);
-    const isTableOwner = table?.ownerUserId === userId;
-    if (!isNoteOwner && !isTableOwner) {
-      throw new Error("Access denied - only note owner or table owner can delete");
-    }
-    // Delete note
-    await this.notesRepo.deleteNote(noteId, tx);
+        logger.warn({ noteId, tenantId }, "Delete note failed: note not found");
+        throw new Error("Note not found");
+      }
+      // Verify row belongs to tenant (for table owner check)
+      const tableId = await this.verifyRowOwnership(note.rowId, tenantId, scopedTx);
+      // Check if user is the note owner
+      const isNoteOwner = note.userId === userId;
+      // Check if user is the table owner
+      const table = await this.tablesRepo.findById(tableId, scopedTx);
+      const isTableOwner = table?.ownerUserId === userId;
+      if (!isNoteOwner && !isTableOwner) {
+        throw new Error("Access denied - only note owner or table owner can delete");
+      }
+      // Delete note
+      await this.notesRepo.deleteNote(noteId, scopedTx);
+    });
   }
   /**
    * Get a single note by ID with tenant verification
@@ -141,13 +171,15 @@ export class DatavaultRowNotesService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultRowNote | null> {
-    const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, tx);
-    if (!note) {
-      return null;
-    }
-    // Verify the row still belongs to this tenant
-    await this.verifyRowOwnership(note.rowId, tenantId, tx);
-    return note;
+    return this.withTx(tenantId, tx, async (scopedTx) => {
+      const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, scopedTx);
+      if (!note) {
+        return null;
+      }
+      // Verify the row still belongs to this tenant
+      await this.verifyRowOwnership(note.rowId, tenantId, scopedTx);
+      return note;
+    });
   }
   /**
    * Delete all notes for a row
@@ -158,10 +190,12 @@ export class DatavaultRowNotesService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Verify row belongs to tenant
-    await this.verifyRowOwnership(rowId, tenantId, tx);
-    // Delete all notes
-    await this.notesRepo.deleteByRowId(rowId, tx);
+    await this.withTx(tenantId, tx, async (scopedTx) => {
+      // Verify row belongs to tenant
+      await this.verifyRowOwnership(rowId, tenantId, scopedTx);
+      // Delete all notes
+      await this.notesRepo.deleteByRowId(rowId, scopedTx);
+    });
   }
 }
 // Singleton instance

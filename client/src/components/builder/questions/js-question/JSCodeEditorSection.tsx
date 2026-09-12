@@ -1,137 +1,117 @@
+/**
+ * The Code Block's face inside the step card.
+ *
+ * Authoring moved into `CodeBlockEditorModal` (CB-8): a step card is 320px of
+ * a scrolling canvas, which is enough room to *state* a block's contract and
+ * nowhere near enough to write one in. So this is a summary — what it reads,
+ * what it writes, when it fires — plus the door.
+ *
+ * The textarea that used to live here is gone rather than hidden. Two editors
+ * over one config is how a draft gets silently overwritten by a stale copy.
+ */
+import { Code2 } from "lucide-react";
+import { useState } from "react";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState, useRef } from "react";
-
-import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
-import { JSQuestionConfig } from "./types";
+import { CodeBlockEditorModal } from "./CodeBlockEditorModal";
+import type { JSQuestionConfig } from "./types";
+
+const TRIGGER_LABELS: Record<string, string> = {
+    everySubmit: 'every submit',
+    atPage: 'from a page onward',
+    runStart: 'run start',
+    runComplete: 'run complete',
+};
+
+const LANGUAGE_LABELS: Record<string, string> = {
+    javascript: 'JavaScript',
+    python: 'Python',
+};
+
+const REPEAT_LABELS: Record<string, string> = {
+    onChange: 'on change',
+    once: 'once',
+    always: 'always',
+};
 
 interface JSCodeEditorSectionProps {
     config: JSQuestionConfig;
-    onChange: (updates: Partial<JSQuestionConfig>) => void;
     elementId: string;
+    pageId?: string;
     workflowId?: string;
+    title?: string;
 }
 
-export function JSCodeEditorSection({ config, onChange, elementId, workflowId }: JSCodeEditorSectionProps) {
-    const [showVariables, setShowVariables] = useState(false);
-    const codeTextareaRef = useRef<HTMLTextAreaElement>(null);
+function KeyList({ label, keys, empty }: { label: string; keys: string[]; empty: string }): JSX.Element {
+    return (
+        <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{label}</p>
+            {keys.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{empty}</p>
+            ) : (
+                <div className="flex flex-wrap gap-1">
+                    {keys.map(key => (
+                        <Badge key={key} variant="secondary" className="font-mono text-[11px] font-normal">{key}</Badge>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
-    const handleInputKeysChange = (value: string) => {
-        const keys = value.split(',').map(k => k.trim()).filter(k => k.length > 0);
-        onChange({ inputKeys: keys });
-    };
-
-    // Insert variable path into code editor at cursor position
-    const handleInsertVariable = (path: string) => {
-        if (!codeTextareaRef.current) { return; }
-
-        const textarea = codeTextareaRef.current;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const currentCode = config.code;
-
-        // Insert the variable path with "input." prefix
-        const insertText = `input.${path}`;
-        const newCode = currentCode.substring(0, start) + insertText + currentCode.substring(end);
-
-        onChange({ code: newCode });
-
-        // Set cursor position after inserted text
-        setTimeout(() => {
-            textarea.focus();
-            const newPosition = start + insertText.length;
-            textarea.setSelectionRange(newPosition, newPosition);
-        }, 0);
-    };
+export function JSCodeEditorSection({
+    config, elementId, pageId, workflowId, title = 'Code Block',
+}: JSCodeEditorSectionProps): JSX.Element {
+    const [open, setOpen] = useState(false);
+    const lineCount = config.code === '' ? 0 : config.code.split('\n').length;
+    const trigger = TRIGGER_LABELS[config.trigger ?? 'everySubmit'] ?? 'every submit';
+    const repeat = REPEAT_LABELS[config.repeat ?? 'onChange'] ?? 'on change';
+    const languageLabel = LANGUAGE_LABELS[config.language ?? 'javascript'] ?? 'JavaScript';
 
     return (
-        <div className="space-y-4">
-            {/* Output Key */}
-            <div className="space-y-1.5">
-                <Label htmlFor={`frame-js-output-${elementId}`} className="text-xs text-muted-foreground">
-                    Output Variable
-                </Label>
-                <Input
-                    id={`frame-js-output-${elementId}`}
-                    value={config.outputKey}
-                    onChange={(e) => onChange({ outputKey: e.target.value })}
-                    placeholder="e.g., computed_value, full_name"
-                    className="h-9 text-sm font-mono"
+        <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+                <KeyList
+                    label="Reads"
+                    keys={config.inputs.map(input => input.key).filter(key => key !== '')}
+                    empty="Nothing yet."
                 />
-                <p className="text-xs text-muted-foreground pl-1">
-                    Where to store the computed result
-                </p>
+                <KeyList
+                    label="Writes"
+                    keys={config.outputs.map(output => output.key).filter(key => key !== '')}
+                    empty="Nothing yet."
+                />
             </div>
 
-            {/* Input Keys */}
-            <div className="space-y-1.5">
-                <Label htmlFor={`frame-js-inputs-${elementId}`} className="text-xs text-muted-foreground">
-                    Input Variables (comma-separated)
-                </Label>
-                <Input
-                    id={`frame-js-inputs-${elementId}`}
-                    value={config.inputKeys.join(', ')}
-                    onChange={(e) => handleInputKeysChange(e.target.value)}
-                    placeholder="e.g., first_name, last_name, age"
-                    className="h-9 text-sm font-mono"
-                />
-                <p className="text-xs text-muted-foreground pl-1">
-                    Variables from other questions to use as inputs
-                </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+                Fires <span className="text-foreground">{trigger}</span>, repeating{' '}
+                <span className="text-foreground">{repeat}</span> ·{' '}
+                <span className="tabular-nums">{lineCount}</span> {lineCount === 1 ? 'line' : 'lines'} of {languageLabel}
+            </p>
 
-            {/* Code Editor */}
-            <div className="space-y-1.5">
-                <Label htmlFor={`frame-js-code-${elementId}`} className="text-xs text-muted-foreground">
-                    JavaScript Code
-                </Label>
-                <Textarea
-                    ref={codeTextareaRef}
-                    id={`frame-js-code-${elementId}`}
-                    value={config.code}
-                    onChange={(e) => onChange({ code: e.target.value })}
-                    placeholder="return input.first_name + ' ' + input.last_name;"
-                    rows={6}
-                    className="text-sm font-mono resize-none"
-                />
-                <p className="text-xs text-muted-foreground pl-1">
-                    Function body. Use <code className="font-mono">input</code> to access input variables. Return the result.
-                </p>
-            </div>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                id={`frame-js-open-${elementId}`}
+                onClick={() => { setOpen(true); }}
+            >
+                <Code2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                Open code editor
+            </Button>
 
-            {/* Variable Picker (if workflowId provided) */}
-            {workflowId && (
-                <Collapsible open={showVariables} onOpenChange={setShowVariables}>
-                    <CollapsibleTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-between text-xs"
-                        >
-                            <span>Available Variables</span>
-                            {showVariables ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2">
-                        <div className="border rounded-md max-h-64 overflow-hidden">
-                            <EnhancedVariablePicker
-                                workflowId={workflowId}
-                                onInsert={handleInsertVariable}
-                                showListProperties={true}
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 pl-1">
-                            Click any variable to insert it into your code at the cursor position.
-                        </p>
-                    </CollapsibleContent>
-                </Collapsible>
-            )}
+            <CodeBlockEditorModal
+                open={open}
+                onOpenChange={setOpen}
+                stepId={elementId}
+                pageId={pageId}
+                workflowId={workflowId}
+                title={title}
+                config={config}
+            />
         </div>
     );
 }

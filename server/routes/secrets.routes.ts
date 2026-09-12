@@ -22,6 +22,7 @@ import {
   type UpdateSecretInput,
 } from '../services/secrets';
 import { asyncHandler } from "../utils/asyncHandler";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { Express, Request, Response } from 'express';
 
@@ -68,7 +69,7 @@ export function registerSecretsRoutes(app: Express): void {
       const { projectId } = req.params;
 
       // Defense-in-depth: Explicit ACL check for edit access (Dec 2025 - Security fix)
-      const hasAccess = await aclService.hasProjectRole(userId, projectId, 'edit');
+      const hasAccess = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'edit', aclTx));
       if (!hasAccess) {
         logger.warn({ userId, projectId }, 'User denied access to project secrets');
         return res.status(403).json({ message: 'Forbidden - insufficient permissions for this project' });

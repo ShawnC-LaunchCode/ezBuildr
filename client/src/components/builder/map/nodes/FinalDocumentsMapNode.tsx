@@ -1,15 +1,15 @@
 /**
  * A map node for a `final_documents` step (D-2: an *additional* node
- * downstream of its owning section, not a replacement for it). MAP-4 AC3:
- * visually distinct from a section node by shape cue (pill, not a card),
+ * downstream of its owning page, not a replacement for it). MAP-4 AC3:
+ * visually distinct from a page node by shape cue (pill, not a card),
  * icon and an explicit "Final Documents" label — not by color alone.
  *
  * MAP-5 (GH-153 AC2/AC4): activation navigates with the underlying step's
- * id (`stepId`, not `sectionId`) — per D-2 a `final_documents` node's own id
- * *is* the step id. See `SectionMapNode` for why the interactive surface is
+ * id (`stepId`, not `pageId`) — per D-2 a `final_documents` node's own id
+ * *is* the step id. See `PageMapNode` for why the interactive surface is
  * a nested `<button>` rather than the outer `role="group"` card itself.
  *
- * MAP-8: see `SectionMapNode`'s doc comment for the dim/highlight treatment —
+ * MAP-8: see `PageMapNode`'s doc comment for the dim/highlight treatment —
  * identical discipline here (className + visually-hidden note, `aria-label`
  * untouched).
  */

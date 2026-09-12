@@ -4,8 +4,8 @@
  *
  * This is the ONE implementation for every path that copies jsonb carrying
  * embedded ids — `WorkflowClonerService` (clone a whole asset),
- * `ImportService` (clone-mode import), and `SectionService` (duplicate a
- * section). All three run it over the same column, `logic_rules.when`,
+ * `ImportService` (clone-mode import), and `PageService` (duplicate a
+ * page). All three run it over the same column, `logic_rules.when`,
  * which is why it must not be forked again: three copies of one walker would
  * drift, and a fix to one would silently miss the others (DEBT-12).
  *

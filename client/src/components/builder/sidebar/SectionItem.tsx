@@ -1,75 +1,41 @@
+import type { ReactNode } from "react";
 
-import { type Mode } from "@/lib/mode";
+import type { ApiSection } from "@/lib/vault-api";
 
-import { ApiBlock, ApiSection } from "@/lib/vault-api";
-import { useSteps } from "@/lib/vault-hooks";
-
-import { BlockTreeItem } from "./BlockTreeItem";
 import { SectionItemHeader } from "./SectionItemHeader";
-import { StepItem } from "./StepItem";
 
 interface SectionItemProps {
     section: ApiSection;
-    workflowId: string;
+    pageCount: number;
     isExpanded: boolean;
     onToggle: () => void;
-    mode: Mode;
-    blocks: ApiBlock[];
-    onEditBlock: (block: ApiBlock) => void;
-    onEditSection: () => void;
+    onEdit: () => void;
+    children: ReactNode;
 }
 
 export function SectionItem({
     section,
-    workflowId,
+    pageCount,
     isExpanded,
     onToggle,
-    mode,
-    blocks,
-    onEditBlock,
-    onEditSection,
+    onEdit,
+    children,
 }: SectionItemProps) {
-    const { data: steps } = useSteps(section.id);
-    // Check if this is a Final Documents section
-    const isFinalSection = (section.config as Record<string, unknown> | undefined)?.finalBlock === true;
-    // Don't show page-level required pill based on questions - only show if page is conditional
-    const isPageConditional = !!section.visibleIf;
-
-    // Blocks have phases. 
-    // onSectionEnter -> Top
-    // onSectionSubmit -> Bottom
-    const topBlocks = blocks.filter(b => b.phase === 'onSectionEnter' || b.phase === 'onRunStart');
-    const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
-
     return (
-        <div className="mb-1">
+        <section className="mb-1" aria-label={`Section ${section.title}`}>
             <SectionItemHeader
                 section={section}
+                pageCount={pageCount}
                 isExpanded={isExpanded}
                 onToggle={onToggle}
-                onEditSection={onEditSection}
-                isFinalSection={isFinalSection}
-                isPageConditional={isPageConditional}
+                onEdit={onEdit}
             />
             {isExpanded && (
-                <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
-                    {/* Top Blocks (Prefill/Enter) */}
-                    {topBlocks.map((block) => (
-                        <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
-                    ))}
-                    {/* Steps */}
-                    {steps && steps.length > 0 &&
-                        steps
-                            .filter((step) => step.type !== 'final_documents' && !isFinalSection)
-                            .map((step) => (
-                                <StepItem key={step.id} step={step} sectionId={section.id} />
-                            ))}
-                    {/* Bottom Blocks (Submit/Next) */}
-                    {bottomBlocks.map((block) => (
-                        <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
-                    ))}
+                <div className="ml-3 grid grid-cols-[1px_minmax(0,1fr)] gap-x-1.5 pt-1">
+                    <div className="bg-sidebar-border" aria-hidden="true" />
+                    <div className="min-w-0 space-y-0.5">{children}</div>
                 </div>
             )}
-        </div>
+        </section>
     );
 }

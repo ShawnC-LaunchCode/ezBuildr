@@ -6,7 +6,11 @@
  */
 
 import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
-import type { ListConfig } from "@shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanConfig,
+  type ListConfig,
+} from "@shared/types/stepConfigs";
 import {
   getValidationSchema,
   validateListValue,
@@ -44,7 +48,7 @@ export interface ValidationError {
  * Minimal step shape `validatePage` needs. A live DB row (`Step` from
  * `@shared/schema`) and a run's pinned-definition snapshot (`RunStep` in
  * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) both
- * satisfy this -- RVP-3 made `RunExecutionCoordinator.submitSection` source
+ * satisfy this -- RVP-3 made `RunExecutionCoordinator.submitPage` source
  * steps from the run's definition provider (pinned graph or live tables)
  * instead of always reading the live `steps` table directly, so this can no
  * longer be pinned to the exact DB-inferred `Step` type. Mirrors the
@@ -85,7 +89,10 @@ function partitionFieldErrors(
     return [];
   }
 
-  const isRequiredFailure = step.required === true && isEmpty(value);
+  const booleanConfig = step.type === 'boolean' ? resolveBooleanConfig(step.config) : undefined;
+  const isUncheckedConsent = booleanConfig?.displayStyle === 'checkbox'
+    && value !== getBooleanStorageValue(true, booleanConfig);
+  const isRequiredFailure = step.required === true && (isEmpty(value) || isUncheckedConsent);
   if (isRequiredFailure || enforce) {
     return errors;
   }
@@ -106,7 +113,7 @@ function isListConfig(config: unknown): config is ListConfig {
 /**
  * `step.config` is jsonb, so persisted or snapshot data can be malformed even
  * though authoring normally writes a ListConfig. Keep that bad data inside the
- * validation result instead of allowing it to crash section submission.
+ * validation result instead of allowing it to crash page submission.
  */
 function safelyValidateListValue(
   value: unknown,

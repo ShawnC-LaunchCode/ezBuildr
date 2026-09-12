@@ -9,7 +9,7 @@ export type DefaultValueType = string | boolean | number | null | Record<string,
 
 interface DefaultValueFieldProps {
     stepId: string;
-    sectionId: string;
+    pageId: string;
     defaultValue: DefaultValueType;
     type: string;
     mode?: 'easy' | 'advanced';
@@ -17,7 +17,7 @@ interface DefaultValueFieldProps {
 
 export function DefaultValueField({
     stepId,
-    sectionId,
+    pageId,
     defaultValue,
     type,
     mode = 'easy'
@@ -35,7 +35,7 @@ export function DefaultValueField({
 
         updateStepMutation.mutate({
             id: stepId,
-            sectionId,
+            pageId,
             defaultValue: parsedValue
         });
     };

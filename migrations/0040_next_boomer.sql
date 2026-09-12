@@ -1,0 +1,1 @@
+ALTER TABLE "workflow_runs" ADD COLUMN "visited_page_ids" uuid[] DEFAULT '{}'::uuid[] NOT NULL;

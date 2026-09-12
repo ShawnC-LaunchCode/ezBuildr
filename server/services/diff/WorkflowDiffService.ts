@@ -1,6 +1,8 @@
 
 import { WorkflowJSON, WorkflowBlock } from "@shared/types/workflow";
 
+import { diffWorkflows, type StructuredWorkflowDiff } from "./diffWorkflows";
+
 export type DiffChangeType = 'added' | 'removed' | 'modified';
 export type DiffItemType = 'block' | 'variable' | 'logic' | 'other';
 export type Severity = "safe" | "soft_breaking" | "hard_breaking";
@@ -13,22 +15,23 @@ export interface DiffItem {
     // details?: { old?: any; new?: any };
 }
 
-export interface WorkflowDiff {
+export interface WorkflowDiff extends StructuredWorkflowDiff {
     added: DiffItem[];
     removed: DiffItem[];
     modified: DiffItem[];
     severity: Severity;
 }
 
+type LegacyWorkflowDiff = Pick<WorkflowDiff, 'added' | 'removed' | 'modified' | 'severity'>;
+
 type WorkflowData = {
-    pages?: { blocks?: WorkflowBlock[] }[];
-    sections?: { steps?: WorkflowBlock[] }[];
+    pages?: { blocks?: WorkflowBlock[]; steps?: WorkflowBlock[] }[];
 };
 
 export class WorkflowDiffService {
 
     public diff(oldVersion: WorkflowJSON, newVersion: WorkflowJSON): WorkflowDiff {
-        const diff: WorkflowDiff = {
+        const legacyDiff: LegacyWorkflowDiff = {
             added: [],
             removed: [],
             modified: [],
@@ -43,7 +46,7 @@ export class WorkflowDiffService {
             const newBlock = newBlocks.get(id);
             if (!newBlock) {
                 // Removed
-                diff.removed.push({
+                legacyDiff.removed.push({
                     id,
                     type: this.getDiffItemType(oldBlock),
                     changeType: 'removed',
@@ -55,7 +58,7 @@ export class WorkflowDiffService {
                 // Optimize: Exclude position/order changes if not relevant? 
                 // For now, strict equality.
                 if (isModified) {
-                    diff.modified.push({
+                    legacyDiff.modified.push({
                         id,
                         type: this.getDiffItemType(newBlock),
                         changeType: 'modified',
@@ -68,7 +71,7 @@ export class WorkflowDiffService {
         // 2. Identify Added
         for (const [id, newBlock] of newBlocks) {
             if (!oldBlocks.has(id)) {
-                diff.added.push({
+                legacyDiff.added.push({
                     id,
                     type: this.getDiffItemType(newBlock),
                     changeType: 'added',
@@ -78,23 +81,20 @@ export class WorkflowDiffService {
         }
 
         // 3. Calculate Severity
-        diff.severity = this.calculateSeverity(diff, oldBlocks, newBlocks);
+        legacyDiff.severity = this.calculateSeverity(legacyDiff, oldBlocks, newBlocks);
 
-        return diff;
+        const structured = diffWorkflows(oldVersion, newVersion);
+        return { ...legacyDiff, ...structured };
     }
 
     private flattenBlocks(workflow: WorkflowData): Map<string, WorkflowBlock> {
         const map = new Map<string, WorkflowBlock>();
         if (workflow.pages) {
-            workflow.pages.forEach((p) => {
-                p.blocks?.forEach((b) => {
+            workflow.pages.forEach((page) => {
+                page.blocks?.forEach((b) => {
                     map.set(b.id, b);
                 });
-            });
-        }
-        if (workflow.sections) {
-            workflow.sections.forEach((s) => {
-                s.steps?.forEach((b) => {
+                page.steps?.forEach((b) => {
                     map.set(b.id, b);
                 });
             });
@@ -116,7 +116,7 @@ export class WorkflowDiffService {
     }
 
 
-    private calculateSeverity(diff: WorkflowDiff, oldBlocks: Map<string, WorkflowBlock>, newBlocks: Map<string, WorkflowBlock>): Severity {
+    private calculateSeverity(diff: LegacyWorkflowDiff, oldBlocks: Map<string, WorkflowBlock>, newBlocks: Map<string, WorkflowBlock>): Severity {
         // Reuse logic from ChangeAnalyzer essentially.
         let severity: Severity = "safe";
 

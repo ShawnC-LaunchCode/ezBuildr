@@ -26,8 +26,50 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
         ].filter((part): part is string => part !== null).join(" and ") || "metadata"}`,
       };
 
+    case "page.create":
+      return { type: "add", entity: "page", explanation: `Add page "${op.title}"` };
+    case "page.update":
+      return {
+        type: "update",
+        entity: "page",
+        explanation: `Update page ${label(op.title, op.id ?? op.tempId ?? "(unknown)")}`,
+      };
+    case "page.delete":
+      return {
+        type: "remove",
+        entity: "page",
+        explanation: `Delete page ${op.id ?? op.tempId ?? "(unknown)"}`,
+      };
+    case "page.reorder":
+      return {
+        type: "move",
+        entity: "page",
+        explanation: `Reorder ${op.pageIds.length} pages`,
+      };
+    case "page.setVisibleIf":
+      return {
+        type: "update",
+        entity: "page",
+        explanation: op.visibleIf === null
+          ? `Always show page ${op.id ?? op.tempId ?? "(unknown)"}`
+          : `Make page ${op.id ?? op.tempId ?? "(unknown)"} conditional`,
+      };
+
+    case "page.setSection":
+      return {
+        type: "move",
+        entity: "page",
+        explanation: op.sectionId === null
+          ? `Remove page ${op.id ?? op.tempId ?? "(unknown)"} from its section`
+          : `Move page ${op.id ?? op.tempId ?? "(unknown)"} into a section`,
+      };
+
     case "section.create":
-      return { type: "add", entity: "section", explanation: `Add section "${op.title}"` };
+      return {
+        type: "add",
+        entity: "section",
+        explanation: `Add section "${op.title}" over ${op.pageIds.length} page(s)`,
+      };
     case "section.update":
       return {
         type: "update",
@@ -38,13 +80,7 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
       return {
         type: "remove",
         entity: "section",
-        explanation: `Delete section ${op.id ?? op.tempId ?? "(unknown)"}`,
-      };
-    case "section.reorder":
-      return {
-        type: "move",
-        entity: "section",
-        explanation: `Reorder ${op.sectionIds.length} sections`,
+        explanation: `Delete section ${op.id ?? op.tempId ?? "(unknown)"} (its pages are kept, ungrouped)`,
       };
     case "section.setVisibleIf":
       return {
@@ -77,7 +113,7 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
       return {
         type: "move",
         entity: "step",
-        explanation: `Move question ${op.id ?? op.tempId ?? "(unknown)"} to another section`,
+        explanation: `Move question ${op.id ?? op.tempId ?? "(unknown)"} to another page`,
       };
     case "step.setVisibleIf":
       return {
@@ -91,7 +127,7 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
       return {
         type: "move",
         entity: "step",
-        explanation: `Reorder ${op.stepIds.length} questions in a section`,
+        explanation: `Reorder ${op.stepIds.length} questions in a page`,
       };
     case "step.setRequired":
       return {

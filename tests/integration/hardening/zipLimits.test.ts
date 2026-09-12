@@ -9,12 +9,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../../server/db';
 import { MAX_ZIP_UNCOMPRESSED_BYTES } from '../../../server/utils/zipLimits';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 const { scanAndFix } = vi.hoisted(() => ({
   scanAndFix: vi.fn(),
@@ -111,7 +113,7 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    const [template] = await db.insert(schema.templates).values({
+    const [template] = await getOwnerDb().insert(schema.templates).values({
       projectId: ctx.projectId!,
       name: 'Existing template',
       fileRef: 'existing.docx',
@@ -155,7 +157,7 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
     async ({ createBuffer, expectedMessage }) => {
       const projectId = ctx.projectId!;
       const hostile = createBuffer();
-      const rowsBeforePost = await db.select({ id: schema.templates.id })
+      const rowsBeforePost = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, projectId));
 
@@ -168,12 +170,12 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
       expect(postResponse.status).toBe(400);
       expect(responseMessage(postResponse.body)).toMatch(expectedMessage);
       expect(await leakedCopiesOf(hostile)).toEqual([]);
-      const rowsAfterPost = await db.select({ id: schema.templates.id })
+      const rowsAfterPost = await getOwnerDb().select({ id: schema.templates.id })
         .from(schema.templates)
         .where(eq(schema.templates.projectId, projectId));
       expect(rowsAfterPost).toEqual(rowsBeforePost);
 
-      const templateBeforePatch = await db.query.templates.findFirst({
+      const templateBeforePatch = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
 
@@ -186,7 +188,7 @@ describe.sequential('Hardening: DOCX ZIP limits', () => {
       expect(patchResponse.status).toBe(400);
       expect(responseMessage(patchResponse.body)).toMatch(expectedMessage);
       expect(await leakedCopiesOf(hostile)).toEqual([]);
-      const templateAfterPatch = await db.query.templates.findFirst({
+      const templateAfterPatch = await getOwnerDb().query.templates.findFirst({
         where: eq(schema.templates.id, templateId),
       });
       expect(templateAfterPatch).toEqual(templateBeforePatch);

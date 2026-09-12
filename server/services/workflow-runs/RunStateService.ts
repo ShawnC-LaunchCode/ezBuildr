@@ -3,7 +3,7 @@
  *
  * Handles workflow run state transitions and management.
  * Responsibilities:
- * - Update current section
+ * - Update current page
  * - Update progress percentage
  * - Mark run as completed
  * - Manage run status transitions
@@ -26,6 +26,7 @@ import {
 } from "../../repositories";
 
 import { hashToken } from "../../utils/encryption";
+import { withCurrentTenant, withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 import type { WorkflowContentData } from "../WorkflowContentIngestService";
 import type { ShareTokenResult, SharedRunDetails } from "./types";
 
@@ -37,24 +38,15 @@ export class RunStateService {
   ) {}
 
   /**
-   * Update run current section and progress
+   * Update run current page and progress
    */
   async updateProgress(
     runId: string,
-    currentSectionId: string | null,
+    currentPageId: string | null,
     progress?: number
-  ): Promise<void> {
-    const updates: Partial<WorkflowRun> = {
-      currentSectionId,
-    };
-
-    if (progress !== undefined) {
-      updates.progress = progress;
-    }
-
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
-    await this.runRepo.updateIfIncomplete(runId, updates as any);
+  ): Promise<WorkflowRun> {
+    return withCurrentTenant((tx) =>
+      this.runRepo.advanceIfIncomplete(runId, currentPageId, progress, tx));
   }
 
   /**
@@ -133,9 +125,34 @@ export class RunStateService {
     // 1. Get run by token (validates expiration)
     const run = await this.getRunByShareToken(token);
 
-    // Get workflow to get access settings
+    // Get workflow to get access settings.
+    //
+    // RLS-5: this route (`GET /api/shared/runs/:token`) mounts NO auth
+    // middleware — a share link is the credential — so nothing has put a
+    // tenant in the async context. `workflows` and `steps` are both covered,
+    // and the failure would have been silent rather than loud: an unscoped
+    // read returns no workflow, `accessSettings` falls back to its defaults,
+    // and the shared page renders with `allow_portal: false` as though the
+    // owner had configured it that way.
+    //
+    // The share token was already validated above, so `run.workflowId` is a
+    // legitimately-established value — pin it as `app.current_workflow_id`
+    // (migration 0030) for the resolution, exactly as `runTokenAuth` does,
+    // then run the reads scoped to the tenant it yields.
+    const tenantId = await withVerifiedIdentifier(
+      'app.current_workflow_id',
+      run.workflowId,
+      async (tx) => {
+        const { workflowTenantResolver } = await import('../WorkflowTenantResolver');
+        return workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx);
+      }
+    );
+    if (!tenantId) {
+      throw new Error("Run not found");
+    }
     const { workflowRepository } = await import('../../repositories');
-    const workflow = await workflowRepository.findById(run.workflowId);
+    const workflow = await withTenant(tenantId, (tx) =>
+      workflowRepository.findById(run.workflowId, tx));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
     const accessSettings = (workflow as any)?.accessSettings || {
@@ -153,7 +170,7 @@ export class RunStateService {
 
     if (run.workflowVersionId) {
       // Fetch the pinned version's serialized content. VersionService.serializeWorkflow
-      // emits `sections[].steps[]` (there is no `nodes[]` graph shape anymore — the
+      // emits `pages[].steps[]` (there is no `nodes[]` graph shape anymore — the
       // graph builder was removed), so find the first Final Block step in there,
       // mirroring RunLifecycleService.generateDocuments' 'final'/'final_documents' handling.
       const [version] = await db
@@ -164,9 +181,9 @@ export class RunStateService {
 
       if (version?.graphJson) {
         const content = version.graphJson as WorkflowContentData;
-        const finalStep = (content.sections ?? [])
-          .flatMap(section => section.steps ?? [])
-          .find(step => step.type === 'final' || step.type === 'final_documents');
+        const finalStep = (content.pages ?? [])
+          .flatMap(page => page.steps ?? [])
+          .find(step => step.type === 'final_documents');
         if (finalStep?.config) {
           finalBlockConfig = finalStep.config;
         }
@@ -174,8 +191,10 @@ export class RunStateService {
     } else {
       // Draft run - fetch from steps table
       const { stepRepository } = await import('../../repositories');
-      const allSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
-      const finalStep = allSteps.find(s => s.type === 'final');
+      const allSteps = await withTenant(tenantId, (tx) =>
+        stepRepository.findByWorkflowIdWithAliases(run.workflowId, tx));
+      // Was the retired 'final' alias until STB-21; see RunShareService.
+      const finalStep = allSteps.find(s => s.type === 'final_documents');
 
       if (finalStep?.config) {
         finalBlockConfig = finalStep.config;

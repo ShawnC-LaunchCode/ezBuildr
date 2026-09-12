@@ -7,7 +7,7 @@ const logger = createLogger({ module: "auto-revert-middleware" });
 
 /**
  * Middleware to automatically revert workflows to draft when structural edits are made
- * Applies to: sections, steps, logic rules, transform blocks
+ * Applies to: pages, steps, logic rules, transform blocks
  * Does NOT apply to: workflow settings/metadata
  */
 export async function autoRevertToDraft(
@@ -29,7 +29,7 @@ export async function autoRevertToDraft(
     }
 
     // Extract workflowId from route params
-    // Could be in params.workflowId or we might need to look it up from section/step ID
+    // Could be in params.workflowId or we might need to look it up from page/step ID
     const { workflowId } = req.params;
 
     if (!workflowId) {

@@ -12,6 +12,7 @@ import type { DatavaultColumn } from "@shared/schema";
 import { db } from "../../db";
 import { logger } from "../../logger";
 import { stepValueRepository, datavaultColumnsRepository } from "../../repositories";
+import { runWithTenantContext, withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
@@ -179,10 +180,19 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       // Import services dynamically to avoid circular dependencies
       const { datavaultTablesService } = await import('../DatavaultTablesService');
 
-      // Verify table exists and belongs to tenant
+      // Verify table exists and belongs to tenant.
+      // RLS-2b: DatavaultTablesService now opens a service-boundary tenant
+      // transaction that reads the tenant from the request's async context.
+      // Block execution can run from an HTTP request (context already
+      // populated by RLS-1) OR a background job (no ambient context at all —
+      // run completion, scheduled workflows, etc.). This runner already
+      // resolves its own authoritative `tenantId` from the workflow above,
+      // independent of HTTP auth, so open the context explicitly with it
+      // rather than depending on an ambient value that may not exist.
       let table;
       try {
-        table = await datavaultTablesService.verifyTenantOwnership(tableConfig.tableId, tenantId);
+        table = await runWithTenantContext(tenantId, () =>
+          datavaultTablesService.verifyTenantOwnership(tableConfig.tableId, tenantId));
       } catch (error: unknown) {
         return {
           success: false,
@@ -190,8 +200,13 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         };
       }
 
-      // Get table columns for metadata
-      const allColumns = await datavaultColumnsRepository.findByTableId(tableConfig.tableId);
+      // Get table columns for metadata. `datavault_columns` is RLS-covered
+      // (migration 0011, derived through its table's tenant), and this runner
+      // can be reached with no ambient tenant — from a run-token submission or
+      // the background completion worker — so scope it to the tenant this
+      // runner already resolved, the same way the ownership check above does.
+      const allColumns = await withTenant(tenantId, (tx) =>
+        datavaultColumnsRepository.findByTableId(tableConfig.tableId, tx));
       const columnMap = new Map(allColumns.map(c => [c.id, c]));
 
       // Determine selected columns for output
@@ -230,6 +245,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       // Query rows with filters
       const limit = tableConfig.limit ?? 100;
       const rows = await this.queryTableRows({
+        tenantId,
         tableId: tableConfig.tableId,
         filters: filterConditions,
         sort: tableConfig.sort,
@@ -313,6 +329,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
    * Internal helper method for read_table block
    */
   private async queryTableRows(params: {
+    tenantId: string;
     tableId: string;
     filters: ReadTableQueryFilter[];
     sort?: { columnId: string; direction: "asc" | "desc" };
@@ -361,25 +378,25 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
     if (params.sort && sortColumn && /^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
       const sortValue = alias(datavaultValues, 'read_sort_value');
       const direction = params.sort.direction === 'desc' ? desc : asc;
-      selectedRows = await db
+      selectedRows = await withTenant(params.tenantId, (tx) => tx
         .select({ id: datavaultRows.id })
         .from(datavaultRows)
         .leftJoin(sortValue, and(
           eq(sortValue.rowId, datavaultRows.id),
-          eq(sortValue.columnId, params.sort.columnId)
+          eq(sortValue.columnId, params.sort!.columnId)
         ))
         .where(and(...whereConditions))
         .orderBy(direction(sortExpression(sortValue.value, sortColumn)))
-        .limit(params.limit);
+        .limit(params.limit));
     } else {
       if (params.sort && !/^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
         logger.warn({ columnId: params.sort.columnId }, 'Invalid sort columnId detected - skipping sort');
       }
-      selectedRows = await db
+      selectedRows = await withTenant(params.tenantId, (tx) => tx
         .select({ id: datavaultRows.id })
         .from(datavaultRows)
         .where(and(...whereConditions))
-        .limit(params.limit);
+        .limit(params.limit));
     }
 
     if (selectedRows.length === 0) {
@@ -392,14 +409,21 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       valuesConditions.push(inArray(datavaultValues.columnId, params.selectedColumnIds));
     }
 
-    const values = await db
+    // `datavault_rows` and `datavault_values` are both RLS-covered, and this
+    // whole method ran on the bare pool until 2026-08-22 — so under enforcement
+    // every Read Table block returned an EMPTY list rather than an error, which
+    // in a workflow reads as "the table has no matching rows". The scanner could
+    // not see it: `await db` sits on its own line, which its single-line
+    // `db.select(` pattern missed. The `exists(...)` subqueries above need no
+    // scoping of their own — they are inlined into these outer queries.
+    const values = await withTenant(params.tenantId, (tx) => tx
       .select({
         rowId: datavaultValues.rowId,
         columnId: datavaultValues.columnId,
         value: datavaultValues.value,
       })
       .from(datavaultValues)
-      .where(and(...valuesConditions));
+      .where(and(...valuesConditions)));
     const valuesByRow = new Map<string, Record<string, unknown>>();
     for (const value of values) {
       const rowValues = valuesByRow.get(value.rowId) ?? {};
@@ -427,7 +451,18 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
       const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
-      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
+      // RLS-5: resolving a workflow's tenant means reading `workflows`,
+      // `projects` and `users` — all RLS-covered — with no tenant known yet,
+      // which is the whole point of the call. Pin the workflow id as
+      // `app.current_workflow_id` (migration 0030) for the lookup, exactly as
+      // `runTokenAuth` does. The id came from the block's run context, not
+      // from request input. Without this the resolver returns null under
+      // enforcement and the block fails with "Failed to resolve tenantId".
+      return await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+      );
     } catch (error: unknown) {
       logger.error({ error, workflowId }, "Error fetching tenantId from workflow");
       return null;

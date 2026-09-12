@@ -1,0 +1,75 @@
+{
+  "title": "Mutual Non-Disclosure Agreement — Intake",
+  "description": "Collect both parties’ legal names, the effective date, confidentiality term and governing law, then generate a signature-ready mutual NDA. Pronouns are optional and default to they/them.",
+  "settings": {
+    "businessDayCalendar": "weekends-only"
+  },
+  "pages": [
+    {
+      "title": "Parties",
+      "steps": [
+        {
+          "alias": "disclosing_party",
+          "type": "text",
+          "title": "Disclosing Party — legal name",
+          "required": true,
+          "config": { "variant": "short" }
+        },
+        {
+          "alias": "receiving_party",
+          "type": "text",
+          "title": "Receiving Party — legal name",
+          "required": true,
+          "config": { "variant": "short" }
+        },
+        {
+          "alias": "receiving_party_signer_pronoun",
+          "type": "choice",
+          "title": "Receiving Party signer's pronouns (optional — leave blank to use they/them)",
+          "required": false,
+          "config": {
+            "options": [
+              { "id": "they", "label": "They / them", "alias": "they/them" },
+              { "id": "she", "label": "She / her", "alias": "she/her" },
+              { "id": "he", "label": "He / him", "alias": "he/him" }
+            ],
+            "display": "radio"
+          }
+        },
+        {
+          "alias": "bound_individual_count",
+          "type": "number",
+          "title": "How many individuals at the Receiving Party will have access to Confidential Information?",
+          "required": true,
+          "config": { "mode": "number" }
+        }
+      ]
+    },
+    {
+      "title": "Terms",
+      "steps": [
+        {
+          "alias": "effective_date",
+          "type": "date_time",
+          "title": "Effective Date",
+          "required": true,
+          "config": { "kind": "date" }
+        },
+        {
+          "alias": "term_years",
+          "type": "number",
+          "title": "Confidentiality term (years)",
+          "required": true,
+          "config": { "mode": "number" }
+        },
+        {
+          "alias": "governing_law_state",
+          "type": "text",
+          "title": "Governing law — state",
+          "required": true,
+          "config": { "variant": "short" }
+        }
+      ]
+    }
+  ]
+}

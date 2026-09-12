@@ -18,7 +18,7 @@ describeWithDb('DocumentDelivery DB', () => {
   let testTenantId: string;
   let testWorkflowId: string;
   let testRunId: string;
-  let testSectionId: string;
+  let testPageId: string;
 
   beforeEach(async () => {
     await db.transaction(async (tx: unknown) => {
@@ -32,8 +32,8 @@ describeWithDb('DocumentDelivery DB', () => {
         },
       });
       testWorkflowId = workflow.id;
-      const section = await txFactory.createSection(workflow.id);
-      testSectionId = section.id;
+      const page = await txFactory.createPage(workflow.id);
+      testPageId = page.id;
 
       const [run] = await (tx as DbTransaction)
         .insert(schema.workflowRuns)
@@ -86,7 +86,7 @@ describeWithDb('DocumentDelivery DB', () => {
   it('encrypts final-document credentials at the step persistence boundary', async () => {
     const step = await stepRepository.create({
       workflowId: testWorkflowId,
-      sectionId: testSectionId,
+      pageId: testPageId,
       type: 'final_documents',
       title: 'Deliver documents',
       order: 1,

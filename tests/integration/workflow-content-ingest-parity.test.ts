@@ -6,14 +6,17 @@ import { AIGeneratedWorkflowSchema } from '@shared/types/ai';
 import { evaluateRules, type EvaluableLogicRule } from '@shared/workflowLogic';
 
 import { AliasResolver } from '../../server/services/AliasResolver';
-import { db } from '../../server/db';
 import {
   workflowContentIngestService,
   type WorkflowContentData,
 } from '../../server/services/WorkflowContentIngestService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 interface PersistedStepShape {
   title: string;
@@ -24,7 +27,7 @@ interface PersistedStepShape {
   config: unknown;
 }
 
-interface PersistedSectionShape {
+interface PersistedPageShape {
   title: string;
   description: string | null;
   order: number;
@@ -42,16 +45,16 @@ interface PersistedRuleShape {
 }
 
 interface PersistedWorkflowShape {
-  sections: PersistedSectionShape[];
+  pages: PersistedPageShape[];
   logicRules: PersistedRuleShape[];
 }
 
 const parityFixture: WorkflowContentData = {
   title: 'Parity Fixture',
   description: 'Fixture shared by AI and manual ingest paths',
-  sections: [
+  pages: [
     {
-      id: 'applicant-section',
+      id: 'applicant-page',
       title: 'Applicant',
       description: 'Basic applicant details',
       order: 0,
@@ -59,26 +62,26 @@ const parityFixture: WorkflowContentData = {
       steps: [
         {
           id: 'applicant-name',
-          type: 'short_text',
+          type: 'text',
           title: 'Applicant name',
           alias: 'applicantName',
           required: true,
-          config: { placeholder: 'Full legal name' },
+          config: { variant: 'short', placeholder: 'Full legal name' },
           order: 0,
         },
         {
           id: 'contact-preference',
-          type: 'radio',
+          type: 'choice',
           title: 'Preferred contact method',
           alias: 'contactPreference',
           required: true,
-          options: ['Email', 'Phone'],
+          config: { display: 'radio', options: ['Email', 'Phone'] },
           order: 1,
         },
       ],
     },
     {
-      id: 'eligibility-section',
+      id: 'eligibility-page',
       title: 'Eligibility',
       description: 'Eligibility details',
       order: 1,
@@ -98,11 +101,11 @@ const parityFixture: WorkflowContentData = {
         },
         {
           id: 'eligibility-notes',
-          type: 'long_text',
+          type: 'text',
           title: 'Eligibility notes',
           alias: 'eligibilityNotes',
           required: false,
-          config: { maxLength: 500, rows: 4 },
+          config: { variant: 'long', validation: { maxLength: 500 } },
           order: 1,
         },
       ],
@@ -145,25 +148,25 @@ function stableJson(value: unknown): unknown {
 }
 
 async function readPersistedShape(workflowId: string): Promise<PersistedWorkflowShape> {
-  const [dbSections, dbSteps, dbRules] = await Promise.all([
-    db.select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId)),
-    db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId)),
-    db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId)),
+  const [dbPages, dbSteps, dbRules] = await Promise.all([
+    getOwnerDb().select().from(schema.pages).where(eq(schema.pages.workflowId, workflowId)),
+    getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId)),
+    getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId)),
   ]);
 
-  const sectionById = new Map(dbSections.map((section) => [section.id, section]));
+  const pageById = new Map(dbPages.map((page) => [page.id, page]));
   const stepById = new Map(dbSteps.map((step) => [step.id, step]));
 
-  const sections = [...dbSections]
+  const pages = [...dbPages]
     .sort((a, b) => a.order - b.order)
-    .map((section) => ({
-      title: section.title,
-      description: section.description,
-      order: section.order,
-      config: stableJson(section.config),
-      visibleIf: stableJson(section.visibleIf),
+    .map((page) => ({
+      title: page.title,
+      description: page.description,
+      order: page.order,
+      config: stableJson(page.config),
+      visibleIf: stableJson(page.visibleIf),
       steps: dbSteps
-        .filter((step) => step.sectionId === section.id)
+        .filter((step) => step.pageId === page.id)
         .sort((a, b) => a.order - b.order)
         .map((step) => ({
           title: step.title,
@@ -180,7 +183,7 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
       const conditionStepAlias = stepById.get(rule.conditionStepId)?.alias ?? null;
       const targetAlias = rule.targetType === 'step'
         ? stepById.get(rule.targetStepId ?? '')?.alias ?? null
-        : sectionById.get(rule.targetSectionId ?? '')?.title ?? null;
+        : pageById.get(rule.targetPageId ?? '')?.title ?? null;
 
       return {
         conditionStepAlias,
@@ -192,7 +195,7 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
     })
     .sort((a, b) => `${a.targetType}:${a.targetAlias}`.localeCompare(`${b.targetType}:${b.targetAlias}`));
 
-  return { sections, logicRules };
+  return { pages, logicRules };
 }
 
 describe.sequential('WorkflowContentIngestService source parity', () => {
@@ -204,17 +207,27 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
       tenantName: 'Ingest Parity Tenant',
       createProject: true,
     });
-    factory = new TestFactory(db);
+    // Fixture rows go through the observer connection, not the app pool.
+    factory = new TestFactory(getOwnerDb());
   });
 
   afterAll(async () => {
     await ctx.cleanup();
   });
 
+  /**
+   * RLS-5: this suite calls `workflowContentIngestService.apply` DIRECTLY
+   * rather than over HTTP, so no middleware ever opens a tenant context and
+   * the service's `withCurrentTenant` has nothing to read. `beforeAll` and
+   * `beforeEach` both fail to propagate through AsyncLocalStorage (measured),
+   * so the context has to be entered inside each test body — which is what
+   * `createWorkflow` does here, since every test starts by calling it.
+   */
   async function createWorkflow(title: string): Promise<string> {
     if (ctx.projectId === undefined) {
       throw new Error('Integration test project was not created');
     }
+    enterTenantContextForTests(ctx.tenantId);
 
     const { workflow } = await factory.createWorkflow(ctx.projectId, ctx.userId, {
       workflow: { title },
@@ -222,7 +235,24 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     return workflow.id;
   }
 
-  it('persists identical sections, steps, config, aliases, and logic rules for AI and manual sources', async () => {
+  it('ignores legacy transform content while retaining the supported workflow definition', async () => {
+    const legacyId = await createWorkflow('Legacy transform payload');
+    const currentId = await createWorkflow('Current payload');
+    const legacy = {
+      ...parityFixture,
+      transformBlocks: [{ name: 'Retired', code: 'throw new Error("must not execute")' }],
+    };
+    await workflowContentIngestService.apply(legacyId, legacy, { source: 'manual' });
+    await workflowContentIngestService.apply(currentId, parityFixture, { source: 'manual' });
+    const legacyDetails = await workflowService.getWorkflowWithDetails(legacyId, ctx.userId);
+    const currentDetails = await workflowService.getWorkflowWithDetails(currentId, ctx.userId);
+    expect(legacyDetails).not.toHaveProperty('transformBlocks');
+    expect(legacyDetails.pages.map(page => page.steps.map(step => step.alias)))
+      .toEqual(currentDetails.pages.map(page => page.steps.map(step => step.alias)));
+    expect(legacyDetails.logicRules).toHaveLength(currentDetails.logicRules.length);
+  });
+
+  it('persists identical pages, steps, config, aliases, and logic rules for AI and manual sources', async () => {
     const aiWorkflowId = await createWorkflow('AI source workflow');
     const manualWorkflowId = await createWorkflow('Manual source workflow');
 
@@ -238,7 +268,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     const baseWorkflowId = await createWorkflow('Base parity workflow');
     const mutatedWorkflowId = await createWorkflow('Mutated parity workflow');
     const mutatedFixture = cloneFixture();
-    const booleanStep = mutatedFixture.sections?.[1]?.steps?.[0];
+    const booleanStep = mutatedFixture.pages?.[1]?.steps?.[0];
     if (booleanStep === undefined) {
       throw new Error('Expected boolean step fixture to exist');
     }
@@ -261,8 +291,8 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     const fixture = cloneFixture();
     // Only mutate aliases NOT referenced by the fixture's logic rule
     // (contactPreference / eligibilityNotes must stay resolvable).
-    const applicantStep = fixture.sections?.[0]?.steps?.[0];
-    const veteranStep = fixture.sections?.[1]?.steps?.[0];
+    const applicantStep = fixture.pages?.[0]?.steps?.[0];
+    const veteranStep = fixture.pages?.[1]?.steps?.[0];
     if (applicantStep === undefined || veteranStep === undefined) {
       throw new Error('Expected fixture steps to exist');
     }
@@ -271,7 +301,7 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
 
     await workflowContentIngestService.apply(workflowId, fixture, { source: 'ai' });
 
-    const stored = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const stored = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const aliases = stored.map((step) => step.alias);
     expect(aliases).toContain('applicantname');
     expect(aliases).toContain('_1stchoice');
@@ -282,13 +312,51 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     }
   });
 
+  it('rejects an unknown nested config key and rolls back earlier content in the ingest transaction', async () => {
+    const workflowId = await createWorkflow('Strict ingest rollback workflow');
+    const payload = cloneFixture();
+    const invalidStep = payload.pages?.[1]?.steps?.[0];
+    if (invalidStep === undefined) {
+      throw new Error('Expected later fixture step to exist');
+    }
+    invalidStep.config = {
+      trueLabel: 'Veteran',
+      falseLabel: 'Civilian',
+      displayStyle: 'toggle',
+      validation: { invented: true },
+    };
+
+    await expect(
+      workflowContentIngestService.apply(workflowId, payload, { source: 'manual' })
+    ).rejects.toThrow(/config\.validation/i);
+
+    expect(await readPersistedShape(workflowId)).toEqual({ pages: [], logicRules: [] });
+  });
+
+  it('rejects a retired step type without normalizing it and commits no content', async () => {
+    const workflowId = await createWorkflow('Retired ingest type workflow');
+    const payload = cloneFixture();
+    const retiredStep = payload.pages?.[1]?.steps?.[0];
+    if (retiredStep === undefined) {
+      throw new Error('Expected later fixture step to exist');
+    }
+    retiredStep.type = 'short_text';
+    retiredStep.config = { placeholder: 'Legacy' };
+
+    await expect(
+      workflowContentIngestService.apply(workflowId, payload, { source: 'ai' })
+    ).rejects.toThrow(/type/i);
+
+    expect(await readPersistedShape(workflowId)).toEqual({ pages: [], logicRules: [] });
+  });
+
   it('rolls back metadata and audit log when content sync fails mid-transaction (ICW-3)', async () => {
     const workflowId = await createWorkflow('Original Title');
 
     // An invalid logic-rule action passes in-memory validation
     // (validateWorkflowStructure only checks alias references) but violates
     // the conditionalActionEnum DURING the logic-rule insert — i.e. after the
-    // workflow-metadata UPDATE and the section/step inserts have executed
+    // workflow-metadata UPDATE and the page/step inserts have executed
     // inside the same replaceWorkflowContent transaction. This is the
     // torn-write scenario ICW-3 fixed.
     const badFixture = cloneFixture({ title: 'Torn Title' });
@@ -302,13 +370,13 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
       workflowService.replaceWorkflowContent(workflowId, ctx.userId, badFixture)
     ).rejects.toThrow();
 
-    const [wf] = await db
+    const [wf] = await getOwnerDb()
       .select()
       .from(schema.workflows)
       .where(eq(schema.workflows.id, workflowId));
     expect(wf?.title).toBe('Original Title');
 
-    const audits = await db
+    const audits = await getOwnerDb()
       .select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, workflowId));
@@ -318,13 +386,13 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     // content + audit all land when nothing fails).
     await workflowService.replaceWorkflowContent(workflowId, ctx.userId, cloneFixture({ title: 'Replaced Title' }));
 
-    const [wfAfter] = await db
+    const [wfAfter] = await getOwnerDb()
       .select()
       .from(schema.workflows)
       .where(eq(schema.workflows.id, workflowId));
     expect(wfAfter?.title).toBe('Replaced Title');
 
-    const auditsAfter = await db
+    const auditsAfter = await getOwnerDb()
       .select()
       .from(schema.auditLogs)
       .where(eq(schema.auditLogs.entityId, workflowId));
@@ -339,14 +407,20 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     // speaks ConditionExpression, not the retired flat shape.
     const parsed = AIGeneratedWorkflowSchema.parse({
       title: 'Pet Intake',
-      sections: [
+      pages: [
         {
-          id: 'section_1',
-          title: 'Section 1',
+          id: 'page_1',
+          title: 'Page 1',
           order: 0,
           steps: [
-            { id: 'step_1', type: 'yes_no', title: 'Do you have pets?', alias: 'has_pets', required: false },
-            { id: 'step_2', type: 'short_text', title: 'Pet name', alias: 'pet_name', required: false },
+            {
+              id: 'step_1', type: 'boolean', title: 'Do you have pets?', alias: 'has_pets', required: false,
+              config: { trueLabel: 'Yes', falseLabel: 'No', displayStyle: 'buttons' },
+            },
+            {
+              id: 'step_2', type: 'text', title: 'Pet name', alias: 'pet_name', required: false,
+              config: { variant: 'short' },
+            },
           ],
         },
       ],
@@ -366,18 +440,17 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
           action: 'show',
         },
       ],
-      transformBlocks: [],
     });
 
     await workflowContentIngestService.apply(workflowId, parsed as unknown as WorkflowContentData, { source: 'ai' });
 
-    const storedSteps = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const storedSteps = await getOwnerDb().select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
     const controller = storedSteps.find((step) => step.alias === 'has_pets');
     const target = storedSteps.find((step) => step.alias === 'pet_name');
     expect(controller).toBeDefined();
     expect(target).toBeDefined();
 
-    const storedRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    const storedRules = await getOwnerDb().select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
     expect(storedRules).toHaveLength(1);
     const [rule] = storedRules;
     expect(rule.action).toBe('show');
@@ -396,5 +469,105 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
 
     const shownResult = evaluateRules([rule as EvaluableLogicRule], { [controller!.id]: true }, resolveAlias);
     expect(shownResult.visibleSteps.has(target!.id)).toBe(true);
+  });
+
+  describe('Section ingestion (SECT-B4)', () => {
+    // Before this, `sections` and `pages[].sectionId` were accepted by the type
+    // and then dropped on the floor — a generated workflow could describe its
+    // grouping and land completely flat, with no error anywhere.
+    function grouped(): Parameters<typeof workflowContentIngestService.apply>[1] {
+      return {
+        title: 'Estate intake',
+        sections: [
+          { id: 'sec-assets', title: 'Assets' },
+          { id: 'sec-debts', title: 'Debts' },
+        ],
+        pages: [
+          { id: 'pg-1', title: 'Real property', order: 0, sectionId: 'sec-assets', steps: [] },
+          { id: 'pg-2', title: 'Accounts', order: 1, sectionId: 'sec-assets', steps: [] },
+          { id: 'pg-3', title: 'Loans', order: 2, sectionId: 'sec-debts', steps: [] },
+          { id: 'pg-4', title: 'Declarations', order: 3, steps: [] },
+        ],
+      };
+    }
+
+    async function readLayout(workflowId: string): Promise<Array<{ title: string; section: string | null }>> {
+      const persistedSections = await getOwnerDb()
+        .select()
+        .from(schema.sections)
+        .where(eq(schema.sections.workflowId, workflowId));
+      const titleById = new Map(persistedSections.map((section) => [section.id, section.title]));
+
+      const persistedPages = await getOwnerDb()
+        .select()
+        .from(schema.pages)
+        .where(eq(schema.pages.workflowId, workflowId));
+
+      return persistedPages
+        .filter((page) => page.deletedAt === null)
+        .sort((left, right) => left.order - right.order)
+        .map((page) => ({
+          title: page.title,
+          section: page.sectionId === null ? null : titleById.get(page.sectionId) ?? '(dangling)',
+        }));
+    }
+
+    it('creates Sections and points each page at the right one', async () => {
+      const workflowId = await createWorkflow('Grouped intake');
+
+      await workflowContentIngestService.apply(workflowId, grouped(), { source: 'ai' });
+
+      expect(await readLayout(workflowId)).toEqual([
+        { title: 'Real property', section: 'Assets' },
+        { title: 'Accounts', section: 'Assets' },
+        { title: 'Loans', section: 'Debts' },
+        { title: 'Declarations', section: null },
+      ]);
+    });
+
+    it('rejects a payload whose Sections interleave, committing nothing', async () => {
+      const workflowId = await createWorkflow('Interleaved intake');
+      const payload = grouped();
+      // Assets now covers orders 0 and 2 with a Debts page wedged between them,
+      // which is precisely the layout no Section may have.
+      payload.pages![1].sectionId = 'sec-debts';
+      payload.pages![2].sectionId = 'sec-assets';
+
+      await expect(
+        workflowContentIngestService.apply(workflowId, payload, { source: 'ai' })
+      ).rejects.toThrow(/contiguous/i);
+
+      // Whole transaction rolled back: not even the pages landed.
+      expect(await readLayout(workflowId)).toEqual([]);
+    });
+
+    it('drops a Section the payload no longer mentions and ungroups its pages', async () => {
+      const workflowId = await createWorkflow('Shrinking intake');
+      await workflowContentIngestService.apply(workflowId, grouped(), { source: 'ai' });
+
+      const flattened = grouped();
+      flattened.sections = [{ id: 'sec-assets', title: 'Assets' }];
+      flattened.pages![2].sectionId = undefined;
+
+      await workflowContentIngestService.apply(workflowId, flattened, { source: 'ai' });
+
+      expect(await readLayout(workflowId)).toEqual([
+        { title: 'Real property', section: 'Assets' },
+        { title: 'Accounts', section: 'Assets' },
+        { title: 'Loans', section: null },
+        { title: 'Declarations', section: null },
+      ]);
+    });
+
+    it('ungroups a page whose sectionId matches no Section in the payload', async () => {
+      const workflowId = await createWorkflow('Dangling reference intake');
+      const payload = grouped();
+      payload.pages![3].sectionId = 'sec-does-not-exist';
+
+      await workflowContentIngestService.apply(workflowId, payload, { source: 'ai' });
+
+      const layout = await readLayout(workflowId);
+      expect(layout[3]).toEqual({ title: 'Declarations', section: null });
+    });
   });
 });

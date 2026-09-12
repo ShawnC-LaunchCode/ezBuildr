@@ -49,7 +49,7 @@ erDiagram
     steps ||--o{ stepValues : stores
     steps {
         uuid id PK
-        uuid sectionId FK
+        uuid pageId FK
         string type
         string alias
         boolean required
@@ -129,7 +129,7 @@ erDiagram
     lifecycle_hooks {
         uuid id PK
         uuid workflowId FK
-        uuid sectionId FK
+        uuid pageId FK
         string name
         string phase
         string language

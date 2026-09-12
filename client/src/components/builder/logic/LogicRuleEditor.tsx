@@ -2,9 +2,9 @@
  * LogicRuleEditor - create/edit form for a single workflow rule (LU-6b).
  *
  * A rule is push-model ("when this condition fires, act on that target"),
- * unlike a step/section's own `visibleIf` (pull-model, "show me when...").
+ * unlike a step/page's own `visibleIf` (pull-model, "show me when...").
  * The trigger condition (`when`) is still authored with the shared
- * `LogicBuilder` - the same editor steps/sections use - wrapped with target
+ * `LogicBuilder` - the same editor steps/pages use - wrapped with target
  * and action pickers, per the ticket's "do not build a second condition
  * editor" instruction.
  */
@@ -17,22 +17,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiLogicRule, ApiSection, ApiStep, LogicRuleAction, LogicRuleInput, LogicRuleTargetType } from "@/lib/vault-api";
+import type { ApiLogicRule, ApiPage, ApiStep, LogicRuleAction, LogicRuleInput, LogicRuleTargetType } from "@/lib/vault-api";
 
 import { hasValidConditions } from "@shared/types/conditions";
 import type { ConditionExpression } from "@shared/types/conditions";
 
 /**
  * Actions `evaluateRules` (shared/workflowLogic.ts) applies per target type.
- * Mirrors `SECTION_ACTIONS`/`STEP_ACTIONS` in server/services/LogicRuleService.ts
- * exactly - `skip_to` only makes sense as a navigation target (a section),
+ * Mirrors `PAGE_ACTIONS`/`STEP_ACTIONS` in server/services/LogicRuleService.ts
+ * exactly - `skip_to` only makes sense as a navigation target (a page),
  * and `require`/`make_optional` only make sense against a step's own
  * requiredness. Kept here (not imported) because this is presentation
  * copy for the picker, not the enforcement - the server independently
  * rejects any mismatch.
  */
 const ACTIONS_BY_TARGET: Record<LogicRuleTargetType, Array<{ value: LogicRuleAction; label: string }>> = {
-    section: [
+    page: [
         { value: "show", label: "Show" },
         { value: "hide", label: "Hide" },
         { value: "skip_to", label: "Skip to" },
@@ -48,7 +48,7 @@ const ACTIONS_BY_TARGET: Record<LogicRuleTargetType, Array<{ value: LogicRuleAct
 interface LogicRuleEditorProps {
     workflowId: string;
     steps: ApiStep[];
-    sections: ApiSection[];
+    pages: ApiPage[];
     /** Undefined = creating a new rule. */
     rule?: ApiLogicRule;
     isSaving: boolean;
@@ -56,20 +56,20 @@ interface LogicRuleEditorProps {
     onCancel: () => void;
 }
 
-export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, onSave, onCancel }: LogicRuleEditorProps) {
+export function LogicRuleEditor({ workflowId, steps, pages, rule, isSaving, onSave, onCancel }: LogicRuleEditorProps) {
     const { toast } = useToast();
-    const [targetType, setTargetType] = useState<LogicRuleTargetType>(rule?.targetType ?? "section");
-    const [targetId, setTargetId] = useState<string>((rule?.targetType === "section" ? rule.targetSectionId : rule?.targetStepId) ?? "");
+    const [targetType, setTargetType] = useState<LogicRuleTargetType>(rule?.targetType ?? "page");
+    const [targetId, setTargetId] = useState<string>((rule?.targetType === "page" ? rule.targetPageId : rule?.targetStepId) ?? "");
     const [action, setAction] = useState<LogicRuleAction>(rule?.action ?? "show");
     const [when, setWhen] = useState<ConditionExpression>(rule?.when ?? null);
 
     const availableActions = ACTIONS_BY_TARGET[targetType];
 
     const targetOptions = useMemo(
-        () => (targetType === "section"
-            ? sections.map((s) => ({ id: s.id, label: s.title }))
+        () => (targetType === "page"
+            ? pages.map((s) => ({ id: s.id, label: s.title }))
             : steps.map((s) => ({ id: s.id, label: s.alias ? `${s.title} (${s.alias})` : s.title }))),
-        [targetType, sections, steps]
+        [targetType, pages, steps]
     );
 
     const handleTargetTypeChange = (value: LogicRuleTargetType) => {
@@ -82,7 +82,7 @@ export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, o
 
     const handleSave = () => {
         if (!targetId) {
-            toast({ title: "Choose a target", description: "Pick which section or question this rule affects.", variant: "destructive" });
+            toast({ title: "Choose a target", description: "Pick which page or question this rule affects.", variant: "destructive" });
             return;
         }
         if (!hasValidConditions(when)) {
@@ -94,7 +94,7 @@ export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, o
             when,
             targetType,
             action,
-            targetSectionId: targetType === "section" ? targetId : null,
+            targetPageId: targetType === "page" ? targetId : null,
             targetStepId: targetType === "step" ? targetId : null,
             order: rule?.order,
         };
@@ -111,7 +111,7 @@ export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, o
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="section">Section</SelectItem>
+                            <SelectItem value="page">Page</SelectItem>
                             <SelectItem value="step">Question</SelectItem>
                         </SelectContent>
                     </Select>
@@ -133,19 +133,19 @@ export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, o
 
             <div className="space-y-1.5">
                 <Label htmlFor="rule-target" className="text-xs">
-                    {targetType === "section" ? "Target section" : "Target question"}
+                    {targetType === "page" ? "Target page" : "Target question"}
                     {action === "skip_to" ? " (skip destination)" : ""}
                 </Label>
                 {targetOptions.length === 0 ? (
                     <Alert>
                         <AlertDescription>
-                            {targetType === "section" ? "This workflow has no other sections yet." : "This workflow has no questions yet."}
+                            {targetType === "page" ? "This workflow has no other pages yet." : "This workflow has no questions yet."}
                         </AlertDescription>
                     </Alert>
                 ) : (
                     <Select value={targetId} onValueChange={setTargetId}>
                         <SelectTrigger id="rule-target" className="h-8 text-sm">
-                            <SelectValue placeholder={`Choose a ${targetType === "section" ? "section" : "question"}...`} />
+                            <SelectValue placeholder={`Choose a ${targetType === "page" ? "page" : "question"}...`} />
                         </SelectTrigger>
                         <SelectContent>
                             {targetOptions.map((opt) => (
@@ -162,7 +162,7 @@ export function LogicRuleEditor({ workflowId, steps, sections, rule, isSaving, o
                 <Label className="text-xs">Trigger condition</Label>
                 <LogicBuilder
                     workflowId={workflowId}
-                    elementType={targetType === "section" ? "section" : "step"}
+                    elementType={targetType === "page" ? "page" : "step"}
                     value={when}
                     onChange={setWhen}
                 />

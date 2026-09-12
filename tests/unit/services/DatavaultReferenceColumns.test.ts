@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 import type { DatavaultColumn, DatavaultTable, DatavaultRow } from '@shared/schema';
-import type { DatavaultColumnsRepository, DatavaultTablesRepository, DatavaultRowsRepository } from '../../../server/repositories';
+import type { DatavaultColumnsRepository, DatavaultTablesRepository, DatavaultRowsRepository, DbTransaction } from '../../../server/repositories';
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 import * as repositories from '../../../server/repositories';
+
+// RLS-2b: every public method on these services now opens a tenant-scoped
+// transaction at the service boundary when no `tx` is supplied, which
+// requires a tenant in the request's async context (RLS-1) — unavailable to
+// a plain unit test. Pass an explicit fake `tx` to take the "caller already
+// has a transaction" branch, matching CollectionService.test.ts (RLS-2a).
+const mockTx = { __fakeTx: true } as unknown as DbTransaction;
 
 // Mock db module
 vi.mock('../../../server/db', () => ({
@@ -72,7 +79,8 @@ describe('DataVault Reference Columns', () => {
             type: 'reference',
             required: false,
           },
-          tenantId
+          tenantId,
+          mockTx
         )
       ).rejects.toThrow('Reference columns require referenceTableId');
     });
@@ -119,7 +127,8 @@ describe('DataVault Reference Columns', () => {
             referenceTableId: refTableId,
             required: false,
           },
-          tenantId
+          tenantId,
+          mockTx
         )
       ).rejects.toThrow('Referenced table not found');
     });
@@ -182,7 +191,8 @@ describe('DataVault Reference Columns', () => {
             referenceTableId: refTableId,
             required: false,
           },
-          tenantId
+          tenantId,
+          mockTx
         )
       ).rejects.toThrow('Referenced table must belong to the same tenant');
     });
@@ -249,7 +259,8 @@ describe('DataVault Reference Columns', () => {
             referenceDisplayColumnSlug: 'nonexistent',
             required: false,
           },
-          tenantId
+          tenantId,
+          mockTx
         )
       ).rejects.toThrow("Display column 'nonexistent' not found in referenced table");
     });
@@ -288,7 +299,8 @@ describe('DataVault Reference Columns', () => {
           referenceDisplayColumnSlug: 'should-be-cleared',
           required: false,
         },
-        tenantId
+        tenantId,
+        mockTx
       );
 
       // Verify create was called with cleared reference fields
@@ -297,7 +309,7 @@ describe('DataVault Reference Columns', () => {
           referenceTableId: null,
           referenceDisplayColumnSlug: null,
         }),
-        undefined
+        mockTx
       );
     });
   });
@@ -359,7 +371,9 @@ describe('DataVault Reference Columns', () => {
           tenantId,
           {
             'col-1': 'not-a-valid-uuid',
-          }
+          },
+          undefined,
+          mockTx
         )
       ).rejects.toThrow('must be a valid UUID reference');
     });
@@ -407,7 +421,9 @@ describe('DataVault Reference Columns', () => {
           tenantId,
           {
             'col-1': refRowId,
-          }
+          },
+          undefined,
+          mockTx
         )
       ).rejects.toThrow('references a non-existent row');
     });
@@ -462,7 +478,9 @@ describe('DataVault Reference Columns', () => {
           tenantId,
           {
             'col-1': refRowId,
-          }
+          },
+          undefined,
+          mockTx
         )
       ).rejects.toThrow('references a row from the wrong table');
     });
@@ -510,7 +528,9 @@ describe('DataVault Reference Columns', () => {
         tenantId,
         {
           'col-1': null,
-        }
+        },
+        undefined,
+        mockTx
       );
 
       expect(result.values['col-1']).toBeNull();
@@ -552,7 +572,9 @@ describe('DataVault Reference Columns', () => {
         rowsService.createRow(
           tableId,
           tenantId,
-          {}
+          {},
+          undefined,
+          mockTx
         )
       ).rejects.toThrow("Required column 'Reference Column' is missing");
     });

@@ -19,7 +19,7 @@ export interface ScriptExecutionContext {
   workflowId: string;
   runId: string;
   phase: string;
-  sectionId?: string;
+  pageId?: string;
   userId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -47,7 +47,7 @@ export type LifecycleHookPhase =
 export interface LifecycleHook {
   id: string;
   workflowId: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   name: string;
   phase: LifecycleHookPhase;
   language: ScriptLanguage;
@@ -58,14 +58,13 @@ export interface LifecycleHook {
   enabled: boolean;
   order: number;
   timeoutMs: number;
-  mutationMode: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateLifecycleHookInput {
   workflowId: string;
-  sectionId?: string | null;
+  pageId?: string | null;
   name: string;
   phase: LifecycleHookPhase;
   language: ScriptLanguage;
@@ -75,7 +74,6 @@ export interface CreateLifecycleHookInput {
   enabled?: boolean;
   order?: number;
   timeoutMs?: number;
-  mutationMode?: boolean;
 }
 
 export interface UpdateLifecycleHookInput {
@@ -88,7 +86,6 @@ export interface UpdateLifecycleHookInput {
   enabled?: boolean;
   order?: number;
   timeoutMs?: number;
-  mutationMode?: boolean;
 }
 
 export interface LifecycleHookExecutionResult {
@@ -306,9 +303,10 @@ export interface ScriptContextAPI {
   };
   run: {
     id: string;
+    mode?: 'live' | 'preview';
   };
   phase: string;
-  section?: {
+  page?: {
     id: string;
   };
   user?: {
@@ -345,6 +343,8 @@ export interface ValidateScriptParams {
 }
 
 export interface ValidateScriptResult {
+  derivedInputs?: string[];
+  derivedOutputs?: string[];
   valid: boolean;
   error?: string;
   warnings?: string[];

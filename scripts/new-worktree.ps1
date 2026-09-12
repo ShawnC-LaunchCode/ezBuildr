@@ -13,7 +13,7 @@
       ESLint work, so it looks healthy, but every Vitest project fails to run
       with "Vitest failed to find the runner". An agent turned in two
       submissions from a worktree in that state, having never run a test.
-    - A worktree is not guaranteed to branch from current main; agents have
+    - A worktree is not guaranteed to branch from the branch you expect; agents have
       been dispatched onto bases two weeks stale.
     - Nothing defines TEST_DATABASE_URL, and tests/setup.ts falls back to port
       5432 while the Docker test container publishes 5434 — so integration and
@@ -78,8 +78,16 @@
 param(
   [string]$Name,
 
-  # Branch to base the worktree on.
-  [string]$BaseBranch = 'main',
+  # Branch to base the worktree on. Defaults to 'dev', the working branch.
+  #
+  # This used to default to 'main', and that cost two full review rounds on
+  # 2026-08-30: `main` trailed `dev` by 217 commits, so every worktree was born
+  # without the initiative in it. Worse, the verification below then CERTIFIED
+  # the stale base -- '[ok] base commit matches main' asserts the wrong
+  # invariant, and the test-count proof printed 3198 against a dev baseline of
+  # 3653 without comparing them. A dev handed that tree saw two green stamps and
+  # had no signal at all. Base from the branch work actually lands on.
+  [string]$BaseBranch = 'dev',
 
   # Skip the test-suite proof (fast, but you are then trusting the tree).
   [switch]$SkipVerify,

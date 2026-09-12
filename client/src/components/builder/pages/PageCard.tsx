@@ -1,15 +1,16 @@
 /**
  * Page Card Component
- * Displays one page (section) with its questions and logic blocks
+ * Displays one page (page) with its questions and logic blocks
  * Includes toolbars for adding questions and logic
  */
 import { CSS } from "@dnd-kit/utilities";
 
-import { SectionLogicSheet } from "@/components/logic";
+import { PageLogicSheet } from "@/components/logic";
 import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Card } from "@/components/ui/card";
+import { sortableTransition } from "@/lib/dnd";
 import { cn } from "@/lib/utils";
-import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
+import type { ApiPage, ApiBlock, ApiStep } from "@/lib/vault-api";
 
 import { PageCardHeader } from "./PageCard.Header";
 import { usePageCardLogic } from "./PageCard.hooks";
@@ -17,7 +18,7 @@ import { PageContent } from "./PageContent";
 
 interface PageCardProps {
   workflowId: string;
-  page: ApiSection;
+  page: ApiPage;
   blocks: ApiBlock[];
   allSteps: ApiStep[];
   index?: number;
@@ -47,7 +48,7 @@ export function PageCard({
     autoFocusStepId,
     setAutoFocusStepId,
     items,
-    isFinalDocumentsSection,
+    isFinalDocumentsPage,
     attributes,
     listeners,
     setNodeRef,
@@ -67,8 +68,8 @@ export function PageCard({
     setIsDeleteImpactOpen,
     pendingDeleteImpact,
     confirmDestructiveDelete,
-    isDeleteSectionPending,
-    selectSection,
+    isDeletePagePending,
+    selectPage,
     selectBlock,
     selectStep,
     handleToggleExpand,
@@ -79,7 +80,7 @@ export function PageCard({
   const style = {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: sortableTransition(transition),
   };
 
   return (
@@ -90,7 +91,7 @@ export function PageCard({
           mode={mode}
           index={index}
           total={total}
-          isFinalDocumentsSection={isFinalDocumentsSection}
+          isFinalDocumentsPage={isFinalDocumentsPage}
           isCollapsed={isCollapsed}
           attributes={attributes}
           listeners={listeners}
@@ -104,8 +105,8 @@ export function PageCard({
           onDescriptionChange={handleDescriptionChange}
           flushDescription={flushDescription}
           localDescription={localDescription}
-          onSelectSection={() => {
-            void selectSection(page.id);
+          onSelectPage={() => {
+            void selectPage(page.id);
           }}
           onOpenLogicSheet={() => {
             void setIsLogicSheetOpen(true);
@@ -123,7 +124,7 @@ export function PageCard({
             page={page}
             workflowId={workflowId}
             mode={mode}
-            isFinalDocumentsSection={isFinalDocumentsSection}
+            isFinalDocumentsPage={isFinalDocumentsPage}
             items={items}
             expandedStepIds={expandedStepIds}
             expandedBlockIds={expandedBlockIds}
@@ -140,10 +141,10 @@ export function PageCard({
         )}
       </Card>
 
-      <SectionLogicSheet
+      <PageLogicSheet
         open={isLogicSheetOpen}
         onOpenChange={setIsLogicSheetOpen}
-        section={page}
+        page={page}
         workflowId={workflowId}
       />
 
@@ -153,7 +154,7 @@ export function PageCard({
         impact={pendingDeleteImpact}
         itemLabel="page"
         onConfirm={confirmDestructiveDelete}
-        isPending={isDeleteSectionPending}
+        isPending={isDeletePagePending}
       />
     </div>
   );

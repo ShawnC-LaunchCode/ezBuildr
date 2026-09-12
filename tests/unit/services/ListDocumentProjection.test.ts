@@ -157,7 +157,6 @@ const ownersConfig: ListConfig = {
 function dynamicListChoiceConfig(listVariable: string): ChoiceAdvancedConfig {
   return {
     display: 'dropdown',
-    allowMultiple: false,
     options: {
       type: 'list',
       listVariable,
@@ -224,7 +223,7 @@ describe('List-bound choice values in document templates (LIST2-6)', () => {
   it('resolves every selected id for a multi-select list-bound choice (AC4)', async () => {
     const multiSelectStep: ListStepConfigSource = {
       ...favoriteOwnerStep,
-      config: { ...dynamicListChoiceConfig('owners'), display: 'multiple', allowMultiple: true },
+      config: { ...dynamicListChoiceConfig('owners'), display: 'multiple' },
     };
 
     const data = normalizeVariables(
@@ -245,7 +244,6 @@ describe('List-bound choice values in document templates (LIST2-6)', () => {
       type: 'choice',
       config: {
         display: 'dropdown',
-        allowMultiple: false,
         options: { type: 'static', options: [{ id: 'basic', alias: 'basic', label: 'Basic' }] },
       } satisfies ChoiceAdvancedConfig,
     };

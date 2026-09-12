@@ -161,7 +161,16 @@ export function registerBrandingRoutes(app: Express): void {
           verificationInstructions: `Create a DNS TXT record at "${challenge.host}" with value "${challenge.value}", then POST to the verify endpoint.`,
         });
       } catch (error: unknown) {
-        if (error instanceof Error && error.message === 'Domain already exists') {
+        // `isDomainAvailable` above is a tenant-scoped advisory check, so the
+        // authoritative "taken by another tenant" answer arrives here as the
+        // global unique constraint firing. Drizzle wraps pg errors, so the
+        // SQLSTATE lives on `.cause`, not on the thrown error itself — reading
+        // `error.code` finds undefined and would 500 on a plain conflict.
+        const pgCode = (error as { cause?: { code?: string } })?.cause?.code;
+        if (
+          pgCode === '23505'
+          || (error instanceof Error && error.message === 'Domain already exists')
+        ) {
           res.status(409).json({
             message: 'Domain already exists',
             error: 'domain_exists',

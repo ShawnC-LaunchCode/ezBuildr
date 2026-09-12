@@ -2,6 +2,36 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 
+// RLS-5: the run/document path now opens tenant-scoped transactions via
+// `withCurrentTenant` (server/utils/rlsContext.ts), which calls the real
+// `db.transaction`. This suite calls those services directly rather than
+// through HTTP, so `db` must be mocked or the chain throws "Database not
+// initialized". The stub `tx` needs a working `execute` — that is what
+// `applyTenantToTransaction` uses to set the GUC.
+// CB-3: the run path now sweeps eligible Code Blocks from submitPage, next,
+// runStart, resume and the completion pass. This suite has no database, and
+// CodeBlockService is not the unit under test here -- stub the sweep so these
+// tests keep exercising what they were written for.
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+  codeBlockService: {
+    execute: vi.fn().mockResolvedValue({ success: true }),
+    evaluateAll: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+vi.mock("../../../server/db", () => {
+  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  return {
+    db: {
+      ...tx,
+      transaction: vi.fn(async (callback: (t: unknown) => Promise<unknown>) => callback(tx)),
+    },
+    getDb: vi.fn(() => ({ ...tx })),
+    initializeDatabase: vi.fn(),
+  };
+});
+
+
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
 const PROJECT_ID = '33333333-3333-4333-8333-333333333333';
@@ -36,13 +66,23 @@ vi.mock('../../../server/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    debug: vi.fn(),
   },
+  // RLS-5: RunLifecycleService now imports WorkflowTenantResolver (to bootstrap
+  // a tenant on the background-job path), and that module builds its own logger
+  // via `createLogger` — absent from this mock, the whole file failed to load.
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock('../../../server/repositories', () => ({
   stepValueRepository: {},
   stepRepository: {},
-  sectionRepository: {},
+  pageRepository: {},
   documentTemplateRepository: {},
   workflowRunRepository: {
     findById: mocks.findRun,
@@ -119,11 +159,11 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
     mocks.findWorkflow.mockResolvedValue({ id: WORKFLOW_ID, projectId: PROJECT_ID });
     mocks.findProject.mockResolvedValue({ id: PROJECT_ID, tenantId: 'tenant-1' });
     mocks.getDefinition.mockResolvedValue({
-      sections: [],
+      pages: [],
       logicRules: [],
       steps: [{
         id: 'final-step',
-        type: 'final',
+        type: 'final_documents',
         config: {
           markdownHeader: '',
           documents: [{ id: 'document-1', documentId: 'template-1', alias: 'contract' }],

@@ -9,11 +9,11 @@ export function MapLegend() {
   return (
     <div
       aria-label="Map legend"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-[var(--map-section-bg)] px-4 py-2 text-xs text-muted-foreground"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-[var(--map-page-bg)] px-4 py-2 text-xs text-muted-foreground"
     >
       <span className="inline-flex items-center gap-1.5">
         <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-        Section
+        Page
       </span>
       <span className="inline-flex items-center gap-1.5">
         <GitBranch className="h-3.5 w-3.5 text-[var(--map-conditional-accent)]" aria-hidden="true" />

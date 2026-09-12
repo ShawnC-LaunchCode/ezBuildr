@@ -43,9 +43,9 @@ export function useSnipImport({ workflowId, onClose }: UseSnipImportProps): UseS
                 aliasMappings,
             });
 
-            // Invalidate workflow queries to refresh sections/steps
+            // Invalidate workflow queries to refresh pages/steps
             await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
-            await queryClient.invalidateQueries({ queryKey: ["sections", workflowId] });
+            await queryClient.invalidateQueries({ queryKey: ["pages", workflowId] });
             await queryClient.invalidateQueries({ queryKey: ["workflow-all-steps", workflowId] });
 
             // Enhanced feedback based on collision status

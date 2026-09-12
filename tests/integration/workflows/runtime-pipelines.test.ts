@@ -15,7 +15,7 @@ import {
   users,
   projects,
   workflows,
-  sections,
+  pages,
   steps,
   workflowRuns,
   templates,
@@ -23,10 +23,12 @@ import {
 } from '@shared/schema';
 import type { FinalBlockConfig } from '@shared/types/stepConfigs';
 
-import { db } from '../../../server/db';
 import { stepValueRepository } from '../../../server/repositories';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { storageProvider } from '../../../server/services/storage/index';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../../helpers/ownerDb";
 
 // ---------------------------------------------------------------------------
 // Real-docx fixture helpers, copied from tests/integration/docs.autogeneration.test.ts
@@ -90,7 +92,7 @@ describe('Runtime Pipelines Integration Tests', () => {
   let phoneStepId: string;
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
+    const [tenant] = await getOwnerDb()
       .insert(tenants)
       .values({
         name: 'Test Tenant - Runtime Pipelines',
@@ -98,7 +100,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     testTenantId = tenant.id;
     // Create test user
-    const [_user] = await db.insert(users).values({
+    const [_user] = await getOwnerDb().insert(users).values({
       id: testUserId,
       email: 'test-pipeline-user@example.com',
       tenantId: testTenantId,
@@ -106,7 +108,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       tenantRole: 'owner',
     } as any).returning(); // Cast to any to avoid partial type issues if necessary
     // Create test project
-    const [project] = await db
+    const [project] = await getOwnerDb()
       .insert(projects)
       .values({
         title: 'Test Project',
@@ -119,7 +121,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     testProjectId = project.id;
     // Create test workflow
-    const [workflow] = await db
+    const [workflow] = await getOwnerDb()
       .insert(workflows)
       .values({
         projectId: testProjectId,
@@ -130,9 +132,9 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testWorkflowId = workflow.id;
-    // Create test section
-    const [section] = await db
-      .insert(sections)
+    // Create test page
+    const [page] = await getOwnerDb()
+      .insert(pages)
       .values({
         workflowId: testWorkflowId,
         title: 'Contact Info',
@@ -140,11 +142,11 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     // Create test steps
-    const [emailStep] = await db
+    const [emailStep] = await getOwnerDb()
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'email',
         title: 'Email Address',
         alias: 'email',
@@ -153,11 +155,11 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     emailStepId = emailStep.id;
-    const [phoneStep] = await db
+    const [phoneStep] = await getOwnerDb()
       .insert(steps)
       .values({
         workflowId: testWorkflowId,
-        sectionId: section.id,
+        pageId: page.id,
         type: 'phone',
         title: 'Phone Number',
         alias: 'phone',
@@ -167,7 +169,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     phoneStepId = phoneStep.id;
     // Create workflow run
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .insert(workflowRuns)
       .values({
         workflowId: testWorkflowId,
@@ -192,20 +194,20 @@ describe('Runtime Pipelines Integration Tests', () => {
   });
   afterAll(async () => {
     // Cleanup in reverse order of creation
-    if (testRunId) {await db.delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
+    if (testRunId) {await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
     if (testWorkflowId) {
-      await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
-      await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+      await getOwnerDb().delete(pages).where(eq(pages.workflowId, testWorkflowId));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, testWorkflowId));
     }
-    if (testProjectId) {await db.delete(projects).where(eq(projects.id, testProjectId));}
+    if (testProjectId) {await getOwnerDb().delete(projects).where(eq(projects.id, testProjectId));}
     // User and tenant cleanup
-    await db.delete(users).where(eq(users.id, testUserId));
-    if (testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
+    await getOwnerDb().delete(users).where(eq(users.id, testUserId));
+    if (testTenantId) {await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));}
   });
   describe('Document Generation Pipeline', () => {
     let testTemplateId: string;
     let testTemplateFileRef: string;
-    let testFinalSectionId: string;
+    let testFinalPageId: string;
     // Runs created by tests in this block, so cleanup can scope the shared
     // run_generated_documents table to rows this suite actually created
     // instead of a table-wide delete (see afterAll below).
@@ -224,7 +226,7 @@ describe('Runtime Pipelines Integration Tests', () => {
         createDocxBuffer('Document for {{email}}')
       );
 
-      const [template] = await db
+      const [template] = await getOwnerDb()
         .insert(templates)
         .values({
           projectId: testProjectId,
@@ -240,21 +242,21 @@ describe('Runtime Pipelines Integration Tests', () => {
       // the visibleIf expression as that document's `conditions` -- the
       // shape RunLifecycleService/EnhancedDocumentEngine actually evaluate
       // (LU-5: ConditionExpression, the same nested AND/OR-group language
-      // steps.visible_if / sections.visible_if use -- not the old flat
+      // steps.visible_if / pages.visible_if use -- not the old flat
       // LogicExpression `{ operator, conditions: [{ key, op, value }] }`
       // this superseded). The old fixture put an equivalent-looking but
       // incompatible nested ConditionGroup on `template.metadata.visibleIf`
       // and never attached the template to any step at all, so it was
       // orphaned twice over.
-      const [finalSection] = await db
-        .insert(sections)
+      const [finalPage] = await getOwnerDb()
+        .insert(pages)
         .values({
           workflowId: testWorkflowId,
           title: 'Final Documents',
           order: 2,
         })
         .returning();
-      testFinalSectionId = finalSection.id;
+      testFinalPageId = finalPage.id;
 
       const finalBlockConfig: FinalBlockConfig = {
         markdownHeader: '',
@@ -274,10 +276,10 @@ describe('Runtime Pipelines Integration Tests', () => {
           },
         ],
       };
-      await db.insert(steps).values({
+      await getOwnerDb().insert(steps).values({
         workflowId: testWorkflowId,
-        sectionId: testFinalSectionId,
-        type: 'final',
+        pageId: testFinalPageId,
+        type: 'final_documents',
         title: 'Final documents',
         order: 3,
         config: finalBlockConfig,
@@ -287,13 +289,13 @@ describe('Runtime Pipelines Integration Tests', () => {
       // Scoped to the runs this suite created -- never a table-wide delete
       // (the shared test DB has other suites' rows in this table too).
       if (docGenRunIds.length > 0) {
-        await db.delete(runGeneratedDocuments).where(inArray(runGeneratedDocuments.runId, docGenRunIds));
+        await getOwnerDb().delete(runGeneratedDocuments).where(inArray(runGeneratedDocuments.runId, docGenRunIds));
       }
-      if (testFinalSectionId) {
-        await db.delete(steps).where(eq(steps.sectionId, testFinalSectionId));
-        await db.delete(sections).where(eq(sections.id, testFinalSectionId));
+      if (testFinalPageId) {
+        await getOwnerDb().delete(steps).where(eq(steps.pageId, testFinalPageId));
+        await getOwnerDb().delete(pages).where(eq(pages.id, testFinalPageId));
       }
-      await db.delete(templates).where(sql`id = ${testTemplateId}`);
+      await getOwnerDb().delete(templates).where(sql`id = ${testTemplateId}`);
       if (testTemplateFileRef) {
         await fs.unlink(path.join(FILES_DIR, testTemplateFileRef)).catch(() => { });
       }
@@ -301,7 +303,7 @@ describe('Runtime Pipelines Integration Tests', () => {
 
     it('should skip document generation when visibleIf condition is false', async () => {
       // Create run with email that does NOT contain 'show'
-      const [hiddenRun] = await db
+      const [hiddenRun] = await getOwnerDb()
         .insert(workflowRuns)
         .values({
           workflowId: testWorkflowId,
@@ -323,19 +325,19 @@ describe('Runtime Pipelines Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(result.documentsGenerated).toBe(0);
 
-      const records = await db
+      const records = await getOwnerDb()
         .select()
         .from(runGeneratedDocuments)
         .where(eq(runGeneratedDocuments.runId, hiddenRun.id));
       expect(records).toHaveLength(0);
 
       // Cleanup (cascades run_generated_documents, none expected anyway)
-      await db.delete(workflowRuns).where(sql`id = ${hiddenRun.id}`);
+      await getOwnerDb().delete(workflowRuns).where(sql`id = ${hiddenRun.id}`);
     });
 
     it('should generate document when visibleIf condition is true', async () => {
       // Create run with email that DOES contain 'show'
-      const [visibleRun] = await db
+      const [visibleRun] = await getOwnerDb()
         .insert(workflowRuns)
         .values({
           workflowId: testWorkflowId,
@@ -362,7 +364,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(result.documentsGenerated).toBe(1);
 
-      const records = await db.select().from(runGeneratedDocuments).where(eq(runGeneratedDocuments.runId, visibleRun.id));
+      const records = await getOwnerDb().select().from(runGeneratedDocuments).where(eq(runGeneratedDocuments.runId, visibleRun.id));
       expect(records).toHaveLength(1);
 
       const buffer = await getGeneratedFileBuffer(records[0].storageKey);
@@ -370,7 +372,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       expect(text).toContain('Document for show@example.com');
 
       // Cleanup
-      await db.delete(workflowRuns).where(sql`id = ${visibleRun.id}`);
+      await getOwnerDb().delete(workflowRuns).where(sql`id = ${visibleRun.id}`);
     });
   });
 });

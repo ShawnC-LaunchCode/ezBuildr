@@ -47,18 +47,43 @@ export function ActivateToggle({
       // Route through fetchAPI so an expired access token is transparently
       // refreshed and the request retried (a raw fetch here surfaced a
       // confusing generic 401 error after the token aged out mid-session).
-      await fetchAPI(`/api/workflows/${workflowId}/status`, {
+      const updated = await fetchAPI<{ publicUrl?: string }>(`/api/workflows/${workflowId}/status`, {
         method: "PUT",
         body: JSON.stringify({ status: newStatus }),
       });
 
       onStatusChange?.(newStatus);
 
+      // Activating turns on public access and mints the participant link, so
+      // copy it here for the same reason the Review tab does — this toggle is
+      // the other way a workflow gets published. Clipboard writes fail in
+      // insecure contexts and when permission is denied, so the URL is shown
+      // in the toast either way.
+      const publicUrl = isActive ? undefined : updated.publicUrl;
+      let copied = false;
+      if (publicUrl) {
+        try {
+          await navigator.clipboard.writeText(publicUrl);
+          copied = true;
+        } catch {
+          copied = false;
+        }
+      }
+
       toast({
-        title: isActive ? "Workflow deactivated" : "Workflow activated",
+        title: isActive
+          ? "Workflow deactivated"
+          : copied ? "Activated — link copied" : "Workflow activated",
         description: isActive
           ? "Workflow is now in Draft mode."
-          : "Workflow is now Active and accessible.",
+          : publicUrl
+            ? (
+              <span className="block">
+                Share this participant link:{" "}
+                <span className="font-mono break-all">{publicUrl}</span>
+              </span>
+            )
+            : "Workflow is now Active and accessible.",
       });
     } catch (error) {
       console.error("Error updating workflow status:", error);

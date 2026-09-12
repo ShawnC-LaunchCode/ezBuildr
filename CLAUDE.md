@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 64 page files (58 routes) | 65 API route files | 213 service files | 106 DB tables | 37 step types | 40+ script helpers
+**Scale:** 64 page files (58 routes) | 66 API route files | 219 service files | 108 DB tables | 37 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -40,7 +40,7 @@ ezBuildr/
 │   ├── Router.tsx           # Wouter route table (source of truth for pages)
 │   ├── components/
 │   │   ├── builder/         # Workflow builder (7-tab nav, canvas, inspector)
-│   │   ├── runner/          # Run-time rendering (blocks/, sections/)
+│   │   ├── runner/          # Run-time rendering (blocks/, pages/)
 │   │   ├── preview/         # In-memory preview shell (PreviewRunner, DevToolbar)
 │   │   ├── blocks/          # Block editors
 │   │   ├── collab/          # Real-time presence/cursors
@@ -51,16 +51,16 @@ ezBuildr/
 │   ├── lib/                 # API clients, blockRegistry, utilities
 │   └── hooks/               # React hooks
 ├── server/
-│   ├── routes/              # API handlers (65 *.routes.ts incl. ai/, datavault/)
-│   ├── services/            # Business logic (213 files incl. subdirs)
-│   ├── repositories/        # Data access (BaseRepository pattern, 48 files)
+│   ├── routes/              # API handlers (66 *.routes.ts incl. ai/, datavault/)
+│   ├── services/            # Business logic (219 files incl. subdirs)
+│   ├── repositories/        # Data access (BaseRepository pattern, 50 files)
 │   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
-│   ├── schema/              # Drizzle schema, one file per domain (106 tables)
+│   ├── schema/              # Drizzle schema, one file per domain (108 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
 │   ├── conditionEvaluator.ts # Logic engine
 │   └── workflowLogic.ts     # Workflow execution logic
-├── migrations/              # 0000_init_baseline.sql + follow-ons through 0023 (24 files)
+├── migrations/              # 0000_init_baseline.sql + follow-ons through 0040 (41 files)
 ├── scripts/                 # Utility scripts (tsx)
 └── tests/                   # unit-fast / unit-db / integration (see run-tests skill)
 ```
@@ -69,8 +69,8 @@ ezBuildr/
 
 ### Workflow Hierarchy
 ```
-Projects → Workflows → Sections (Pages) → Steps (Questions/Actions)
-                    → Logic Rules, Transform Blocks, Lifecycle Hooks
+Projects → Workflows → Pages → Steps (Questions/Actions)
+                    → Logic Rules, Code Blocks, Lifecycle Hooks
                     → Workflow Runs → Step Values, Execution Trace
 ```
 
@@ -85,7 +85,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | Table | Purpose |
 |-------|---------|
 | `workflows` | Workflow definitions |
-| `sections` | Pages/sections with order, skipLogic, visibleIf |
+| `pages` | Physical storage for workflow pages with order and visibleIf |
 | `steps` | Individual steps with type, alias, config, visibleIf |
 | `workflow_runs` / `run_resume_links` / `step_values` | Execution instances, expiring resume credentials, and run data (the only run model — graph run tables were dropped) |
 | `datavault_databases` / `datavault_tables` / `datavault_rows` | DataVault (all `datavault_`-prefixed) |
@@ -94,16 +94,20 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | `users` / `tenants` / `organizations` / `workspaces` | Auth & tenancy |
 
 ### Step Types
-37 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question with runner drill-in navigation; both List initiatives closed 2026-08-02 — parked follow-ups are in `tickets/BACKLOG.md`). There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
+**18 canonical values** in `stepTypeEnum` (`shared/schema/workflow.ts`) — `text`, `boolean`, `phone`, `date_time`, `choice`, `email`, `number`, `scale`, `website`, `address`, `multi_field`, `display`, `file_upload`, `list`, `js_question`, `computed`, `final_documents`, `signature_block`. STB-21 (migration `0042`) cut it from 37 after the STB-19/20 backfill audited clean. Easy-mode names (Short Text, Yes/No, Currency, ...) are **preset ids**, not stored types, and `*_advanced` was an exposure level, never a separate identity. The 19 retired names stay **readable** via `LEGACY_STEP_ADAPTERS` (`shared/types/stepConfigs.ts`) so old export bundles still import, but the enum and `validateCanonicalStepConfig` both refuse to store them. `list` is the nestable repeating question with runner drill-in navigation; both List initiatives closed 2026-08-02 — parked follow-ups are in `tickets/BACKLOG.md`. There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
 
 ### Logic Operators & Actions
-- **One condition language.** `logic_rules.when` and `steps.visible_if` / `sections.visible_if` all
+- **One condition language.** `logic_rules.when` and `steps.visibleIf` / `pages.visibleIf` all
   store the same `ConditionExpression` (28-value `ComparisonOperator` union in
   `shared/types/conditions.ts`: starts_with, date diffs, includes_all, ...), evaluated by
   `shared/conditionEvaluator.ts`. The flat 9-value `conditionOperatorEnum` DB enum
   (`equals`/`not_equals`/`contains`/.../`is_not_empty`) that `logic_rules` used before LU-6a/LU-6c
   is gone — nothing produces or reads it anymore.
 - **Actions** (`conditionalActionEnum`): show, hide, require, make_optional, skip_to
+
+**Vocabulary boundary:** a workflow's navigable units are now always **pages** in
+TypeScript, APIs, JSON, and product copy. The group layer introduced later in
+Phase 1 uses **sections** as a new, distinct container for one or more pages.
 
 ## Environment Variables
 
@@ -114,15 +118,19 @@ PORT=5000
 BASE_URL=http://localhost:5000
 DATABASE_URL=postgresql://user:pass@host/db
 GOOGLE_CLIENT_ID=<server-id>
-GOOGLE_CLIENT_SECRET=<server-secret>
 VITE_GOOGLE_CLIENT_ID=<client-id>
 SESSION_SECRET=<32-char-secret>
-JWT_SECRET=<secret>
+JWT_SECRET=<secret>  # required in production; dev/test fall back to an insecure default (server/config/env.ts)
 VL_MASTER_KEY=<base64-32-byte-key>  # NEVER regenerate on a machine with stored secrets
 ALLOWED_ORIGIN=localhost,127.0.0.1
 ```
 
-**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`, and the `DOCUSIGN_*` JWT/Connect values documented in `.env.example`
+Login verifies the Google ID token with `new OAuth2Client(GOOGLE_CLIENT_ID)` only
+(`server/googleAuth.ts`) — `GOOGLE_CLIENT_SECRET` is declared in the env schema but
+never consumed anywhere in `server/` or `client/src/`; do not chase it down as a
+login blocker.
+
+**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`, `GOOGLE_CLIENT_SECRET`, and the `DOCUSIGN_*` JWT/Connect values documented in `.env.example`
 **Tests:** `TEST_DATABASE_URL` overrides `DATABASE_URL` for unit-db/integration tests (Docker PG on port 5434 via `npm run test:docker:up`)
 
 ## Common Commands
@@ -132,12 +140,13 @@ npm run dev              # Start development (port 5000)
 npm run kill-server      # Kill server on port 5000
 npm run build            # Build for production
 npm run type-check       # tsc --noEmit (build gate)
-npm run lint             # ESLint, zero-error policy
+npm run lint             # ESLint, zero-error policy (cached: ~4s warm, ~190s cold)
 
 npm run test:fast        # unit-fast (~13s, no DB) — default sanity check
 npm run test:unit        # unit-fast + unit-db (needs DB)
-npm run test:integration # integration project (needs DB, slow)
-npm test                 # everything, single-fork + coverage (what CI uses)
+npm run test:integration # integration project (needs DB, ~5 min)
+npm test                 # everything, parallel + coverage (what CI uses)
+npm run test:serial      # same, pinned to one worker — only to bisect a flake
 npm run test:e2e         # Playwright
 npm run test:docker:up   # Postgres 16 for tests on port 5434 (tmpfs)
 
@@ -150,7 +159,6 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 | Issue | Fix |
 |-------|-----|
 | "column/relation does not exist" | Load the `db-schema-change` skill — do not guess; usually `npm run db:push` or a missing migration |
-| Transform block output fails | `tsx scripts/migrateTransformBlockVirtualSteps.ts` |
 | "Code did not call emit()" | Ensure code calls `emit(value)` exactly once |
 | Google OAuth fails | Check `GOOGLE_CLIENT_ID`, origins, CORS; local auth workaround is in the `verify` skill |
 | Test fails only locally | Check known-failure list in the `run-tests` skill (vm2/isolated-vm, excluded integration tests) |
@@ -160,7 +168,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 ### Quick Reference (Claude-optimized — update these when you change what they document)
 | Document | Contents |
 |----------|----------|
-| [Schema Reference](./docs/claude/SCHEMA.md) | All 106 database tables by domain file + enums |
+| [Schema Reference](./docs/claude/SCHEMA.md) | All 108 database tables by domain file + enums |
 | [API Endpoints](./docs/claude/API_ENDPOINTS.md) | API domains → route files + verified endpoints |
 | [Services Reference](./docs/claude/SERVICES.md) | Service classes by domain |
 | [Frontend Pages](./docs/claude/PAGES.md) | All client routes from Router.tsx |
@@ -178,7 +186,6 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 |----------|----------|
 | [API Reference](./docs/api/API.md) | Complete workflow API endpoints |
 | [Block Framework](./docs/api/BLOCKS.md) | Block types and examples |
-| [Transform Blocks](./docs/api/TRANSFORM_BLOCKS.md) | JS/Python code blocks |
 
 ### Custom Scripting System
 | Document | Contents |
@@ -254,14 +261,30 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 
 Three branches, in one direction:
 
-| Branch | Role |
-|--------|------|
-| `dev` | Where work lands. Commit here by default. |
-| `test` | What CI has proven. Promoted from `dev` by merge once dev's build is green. |
-| `main` | What is **live**. Railway auto-deploys it to www.ezbuildr.com with no staging step. |
+| Branch | Railway environment | Role |
+|--------|--------------------|------|
+| `dev` | `dev` → ezbuildr-prod-dev.up.railway.app | Where work lands. Commit here by default. |
+| `test` | `test` → ezbuildr-prod-test.up.railway.app | What CI has proven. Promoted from `dev` by merge once dev's build is green. |
+| `main` | `production` → www.ezbuildr.com | What is **live**. Railway auto-deploys it with no staging step. |
 
-- **Commit to `dev`.** If a task starts on `main` or `test`, branch to `dev` (or a
-  feature branch off it) first.
+Each Railway environment has its **own Neon database, S3 bucket and secrets** — they
+are not sharing production's. Verify the branch → environment mapping in the Railway
+UI rather than assuming it: until 2026-08-15 **all three environments were connected
+to the `test` branch**, so a `git push origin dev:test` deployed straight to
+www.ezbuildr.com. The Railway API does not expose the connected branch, and
+`railway status` reports only the *linked* environment, so neither can confirm this —
+the service's Settings → Source pane is the only source of truth.
+
+**`Wait for CI` is OFF on all three environments.** Railway deploys the moment GitHub
+receives the push, without waiting for Actions, so a red build still ships. Turning it
+on for `production` is the single highest-value control still available.
+
+- **Commit to `dev`, and push it.** If a task starts on `main` or `test`, branch to
+  `dev` (or a feature branch off it) first. **`dev` is the playground: Claude pushes
+  verified work to it without asking**, and says so in its report. A verified commit
+  sitting unpushed is invisible to the owner's second IDE and to CI, which is worse
+  than the risk of pushing it. `test` and `main` are the opposite — **they need the
+  owner's explicit approval every single time**, because they deploy.
 - **`dev` → `test`: merge and push**, once CI is green on `dev`.
 - **`test` → `main`: pull request only.** This is the hop that reaches production,
   so it gets the diff, the CI run before the merge, and the strict-zones summary
@@ -293,9 +316,43 @@ Say so plainly in the response when you use it.
 The guard resolves the real target (`HEAD:main`, `dev:main`, `--all`, and a bare
 `git push` while `main` is checked out all count), so it cannot be sidestepped by
 phrasing. It stops *forgetful* pushes, not determined ones — the assistant can type
-the override itself. The hard boundary is **GitHub branch protection on `main`,
-which is currently OFF**; turning it on is the repo owner's call and is the only
-thing that makes the `test` → `main` PR a real gate rather than a formality.
+the override itself.
+
+### The real boundary: rulesets, not the legacy API
+
+`main` is genuinely protected, by a **repository ruleset** — not by the classic
+branch-protection API, which returns *"Branch protection has been disabled on this
+repository"* (404) and made several audits conclude protection was off. **It is not.**
+Check `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`, never
+`…/branches/main/protection`.
+
+| Ruleset | Branch | Rules |
+|---------|--------|-------|
+| `main-protection` | `main` | deletion, non-fast-forward, PR required (0 approvals), required checks |
+| `test-snapshot-protection` | `test` | deletion, non-fast-forward |
+| `dev-protection` | `dev` | deletion, non-fast-forward |
+
+Required checks on `main` are **Quality Gates, Validate Strict Zones, Tests (24.x),
+Security Scan, RLS Enforcement Gate**. Tests and Security Scan were added 2026-08-15;
+before that only the first two were required, so a PR whose test suite or dependency
+audit was red could still merge — which is exactly what both outages of that week were.
+The RLS gate was added 2026-09-11, after it sat red and advisory for 35 and then 23
+consecutive pushes (RLS-11). `dev` has no required checks and pushes use the bypass, so
+on `dev` the protection is different: a failing gate on a push **posts to Slack**
+(`scripts/ci/post-slack-gate-failure.js`).
+
+All three rulesets carry `RepositoryRole → bypass: always`, so the owner is never
+locked out. That bypass is also why the `deletion` rule did **not** save `test`: the
+repo had `delete_branch_on_merge=true`, and merging the `test` → `main` PR deleted the
+branch through the bypass, leaving Railway's test environment reporting *"Connected
+branch does not exist"*. **`delete_branch_on_merge` is now `false` and must stay that
+way** — with a promotion-branch model, every promotion PR would otherwise delete the
+branch it came from.
+
+Do **not** add a "require linear history" rule. It forces squash/rebase merges, which
+rewrite SHAs and make `test` and `main` diverge in content, breaking the fast-forward
+promotions this model depends on. Promotion PRs merge with a merge commit; afterwards,
+fast-forward `dev` and `test` back up to `main` so all three realign.
 
 ## Parallel work: use git worktrees
 
@@ -323,10 +380,10 @@ devs in one shared tree (2026-07-25) produced, in a single session:
 pwsh scripts/new-worktree.ps1 -Name <ticket-id>
 ```
 
-It creates the worktree from current `main`, **copies** `node_modules`, copies
+It creates the worktree from current `dev`, **copies** `node_modules`, copies
 `.env`, **creates a per-worktree test database**, and then *proves* the result:
 `node_modules` is a real directory with `@types`/`typescript`/`vitest` resolving,
-base commit matches `main`, the test DB is reachable, and `test:fast` actually
+base commit matches `dev`, the test DB is reachable, and `test:fast` actually
 reports passing tests. It fails loudly rather than handing you a tree that looks
 fine.
 

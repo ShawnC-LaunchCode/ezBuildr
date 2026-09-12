@@ -11,7 +11,7 @@ async function run(isApply: boolean = false) {
   const allStepsResult = await db.execute(sql`
     SELECT "id", "workflow_id" as "workflowId", "type", "config" 
     FROM "steps" 
-    WHERE "type" IN ('choice', 'radio', 'multiple_choice')
+    WHERE "type" = 'choice'
   `);
   
   const steps = allStepsResult.rows as any[];

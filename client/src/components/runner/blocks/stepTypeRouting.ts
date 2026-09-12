@@ -15,7 +15,6 @@ export {
   RUNNER_RENDERED_STEP_TYPES,
   RUNNER_HIDDEN_STEP_TYPES,
   RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES,
-  normalizeRunnerStepType,
   getRunnerStepTypeStatus,
   isRunnerRequirableStepType,
 } from "@shared/types/runnerStepTypes";

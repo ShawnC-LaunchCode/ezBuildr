@@ -8,14 +8,12 @@ import {
 } from "@/lib/runner/offlineBuffer";
 
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
-import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 
 interface UseRunValuesProps {
-  mode: 'preview' | 'production';
   actualRunId: string | null;
   run: { values?: { stepId: string; value: StepValue; updatedAt?: string | Date }[] } | null | undefined;
-  previewState: PreviewRunState | null;
-  previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
+  initialValues?: Record<string, StepValue>;
+  serverPreview?: boolean;
 }
 
 export interface UseRunValuesReturn {
@@ -27,13 +25,7 @@ export interface UseRunValuesReturn {
   hasUnsavedChanges: boolean;
   saveNow: () => Promise<void>;
   isOnline: boolean;
-}
-
-interface RunValueAdapter {
-  values: Record<string, StepValue>;
-  updateValue: (stepId: string, value: StepValue) => void;
-  hydrateFromSavedRun: boolean;
-  autosaveEnabled: boolean;
+  applySubmittedValues: (values: Record<string, StepValue>, submittedValues: Record<string, StepValue>) => void;
 }
 
 // A `keepalive: true` fetch is rejected outright once its body exceeds 64 KiB
@@ -49,15 +41,27 @@ interface BulkSaveResponse {
   conflicts?: Array<{ stepId: string; serverValue: unknown; serverUpdatedAt: string }>;
 }
 
+function reconcileDrafts(drafts: Record<string, StepValue>, submitted: Record<string, StepValue>, values: Record<string, StepValue>): Record<string, StepValue> {
+  const merged = { ...values };
+  for (const [stepId, value] of Object.entries(drafts)) {
+    // Preserve typing that happened after this submission took its snapshot.
+    if (value !== submitted[stepId]) { merged[stepId] = value; }
+  }
+  return merged;
+}
+
 export function useRunValues({
-  mode,
   actualRunId,
   run,
-  previewState,
-  previewEnvironment
+  initialValues,
+  serverPreview = false,
 }: UseRunValuesProps): UseRunValuesReturn {
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
-  const isProductionMode = mode === 'production';
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   // Granular per-step edit timestamps so modifying one field does not timestamp stale fields
   const stepEditTimestampsRef = useRef<Record<string, number>>({});
@@ -72,39 +76,14 @@ export function useRunValues({
     setFormValues(prev => ({ ...prev, [stepId]: value }));
   }, []);
 
-  const updatePreviewValue = useCallback((stepId: string, value: StepValue) => {
-    previewEnvironment?.setValue(stepId, value);
-  }, [previewEnvironment]);
+  const effectiveValues = useMemo(() => serverPreview
+    ? { ...Object.fromEntries((run?.values ?? []).map((entry) => [entry.stepId, entry.value])), ...formValues }
+    : formValues, [formValues, serverPreview, run?.values]);
 
-  const valueAdapter = useMemo<RunValueAdapter>(() => {
-    if (isProductionMode) {
-      return {
-        values: formValues,
-        updateValue: updateProductionValue,
-        hydrateFromSavedRun: true,
-        autosaveEnabled: Boolean(actualRunId),
-      };
-    }
-
-    return {
-      values: previewState?.values ?? {},
-      updateValue: updatePreviewValue,
-      hydrateFromSavedRun: false,
-      autosaveEnabled: false,
-    };
-  }, [isProductionMode, formValues, updateProductionValue, actualRunId, previewState?.values, updatePreviewValue]);
-
-  const {
-    values: effectiveValues,
-    updateValue,
-    hydrateFromSavedRun,
-    autosaveEnabled,
-  } = valueAdapter;
-
-  // Initialize form values from run.values and merge any pending offline buffer (production mode only).
+  // Initialize form values from run.values and merge any pending offline buffer.
   const hydratedRunIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!hydrateFromSavedRun || !run?.values || !actualRunId) {
+    if (!run?.values || !actualRunId) {
       return;
     }
     if (hydratedRunIdRef.current === actualRunId) {
@@ -128,7 +107,7 @@ export function useRunValues({
       setFormValues(initial);
     } else {
       stepEditTimestampsRef.current = { ...initialTimestamps, ...stepEditTimestampsRef.current };
-      setFormValues((prev) => ({ ...initial, ...prev }));
+      setFormValues((prev) => ({ ...(serverPreview ? {} : initial), ...initialValues, ...prev }));
     }
 
     // Check if there are offline buffered values that haven't synced yet.
@@ -173,11 +152,15 @@ export function useRunValues({
     return () => {
       cancelled = true;
     };
-  }, [run, hydrateFromSavedRun, actualRunId]);
+  }, [run, actualRunId, initialValues, serverPreview]);
+
+  const applySubmittedValues = useCallback((values: Record<string, StepValue>, submittedValues: Record<string, StepValue>) => {
+    setFormValues((drafts) => reconcileDrafts(drafts, submittedValues, serverPreview ? {} : values));
+  }, [serverPreview]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
-    updateValue(stepId, value);
-  }, [updateValue]);
+    updateProductionValue(stepId, value);
+  }, [updateProductionValue]);
 
   // Safely reconcile server conflicts: verify if the local field was edited after the in-flight submission
   const applyConflictReconciliation = useCallback((conflicts: Array<{ stepId: string; serverValue: unknown; serverUpdatedAt: string }>) => {
@@ -230,7 +213,7 @@ export function useRunValues({
 
   // Resilient autosave logic with per-step timestamp versioning and in-flight conflict protection
   const performSave = useCallback(async (dataToSave: Record<string, StepValue>) => {
-    if (!actualRunId) {
+    if (!actualRunId || (serverPreview && !mounted.current)) {
       return;
     }
 
@@ -271,7 +254,7 @@ export function useRunValues({
       applyConflictReconciliation(response.conflicts);
       await removeBufferedStepValues(actualRunId, Array.from(conflictStepIds));
     }
-  }, [actualRunId, applyConflictReconciliation]);
+  }, [actualRunId, applyConflictReconciliation, serverPreview]);
 
   // Reconnect flush: automatically flush buffered answers to server on reconnection
   const handleReconnect = useCallback(async () => {
@@ -324,7 +307,7 @@ export function useRunValues({
     onOfflineSave: performOfflineSave,
     onReconnect: handleReconnect,
     delay: 1500, // 1.5s debounce
-    enabled: autosaveEnabled,
+    enabled: Boolean(actualRunId),
   });
 
   return {
@@ -336,5 +319,6 @@ export function useRunValues({
     hasUnsavedChanges,
     saveNow,
     isOnline,
+    applySubmittedValues,
   };
 }

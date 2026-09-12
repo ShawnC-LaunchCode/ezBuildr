@@ -132,7 +132,7 @@ function CopyWorkflowDialog({
         <DialogHeader>
           <DialogTitle>Copy to your account</DialogTitle>
           <DialogDescription>
-            Copies the workflow, its sections, steps, logic and linked DataVault structure into
+            Copies the workflow, its pages, steps, logic and linked DataVault structure into
             your own account. The original is left untouched, and responses (runs) are never copied.
           </DialogDescription>
         </DialogHeader>
@@ -203,7 +203,7 @@ function DeleteWorkflowDialog({
           <DialogTitle>Delete workflow</DialogTitle>
           <DialogDescription>
             Permanently delete <span className="font-medium text-foreground">{workflow === null ? '' : getWorkflowTitle(workflow)}</span>
-            {runClause}. Sections, steps, logic and documents go with it. This cannot be undone.
+            {runClause}. Pages, steps, logic and documents go with it. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         {workflow?.ownerType === 'org' && (

@@ -25,7 +25,7 @@ export class SchemaManager {
     // don't have ai_usage and would fail every AI-budget test.
     //
     // Bumped to _v8 for ICW2-B1: 0005_lying_amphibian adds `deleted_at` to
-    // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
+    // `pages`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
     // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
     // and the new unique-index shape.
     //
@@ -67,9 +67,178 @@ export class SchemaManager {
     // orphaned `condition_operator` Postgres enum type (nothing has
     // referenced it since 0021 dropped the column it backed).
     // Bumped to _v26 for MAP-2 (0023_condemned_hannibal_king), which drops
-    // the dead `sections.skip_if` column — a stale _v25 schema still has it.
+    // the dead `pages.skip_if` column — a stale _v25 schema still has it.
+    // Bumped to _v27 for RLS-3 (0024_repair_rls_coverage), which adds the 24
+    // direct-tenant_id policies plus the workflows/pages/steps
+    // ownership-derived policies that 0001/0004 defined but never actually
+    // applied in a real database (their `to_regclass` guard ran before those
+    // tables existed) — a stale _v26 schema still has only the 9 policies
+    // 0011/0012/0015/0019 managed to apply for real, and the new coverage
+    // test would fail against it for a reason that has nothing to do with
+    // the migration under test.
+    // Bumped to _v28 for RLS-6 (0025_admin_access_log), which adds the
+    // `admin_access_log` table. A stale _v27 schema does not have it, so the
+    // RLS-6 suite would fail with "relation does not exist" — a failure that
+    // reads like a broken migration and is really a cached schema.
+    //
+    // Reconciliation note: RLS-3 and RLS-6 were worked concurrently in
+    // isolated worktrees, so both independently generated an `0024` AND both
+    // bumped this token to `_v27` — neither could see the other's journal.
+    // RLS-3 merged first and its 0024 was already applied to the dev
+    // database, freezing its number; RLS-6 was therefore regenerated as 0025
+    // and takes _v28. If you are adding a migration while another board is in
+    // flight, expect this and renumber at merge rather than hand-editing the
+    // journal.
+    // Bumped to _v29 for RLS-4's blocking fix (0026_rls_nullif_guc_cast),
+    // which recreates the 26 direct-tenant_id policies with the GUC cast
+    // wrapped in NULLIF. A stale _v28 schema still has the unguarded cast, so
+    // rls4-forceEnforcement.test.ts's "no tenant pinned" case would still
+    // raise instead of filtering — the exact defect this migration fixes.
+    // Bumped to _v30 for RLS-5 (0027_rls_null_tenant_isolation), found by
+    // actually running the suite as a non-owner role: `NULL = NULL` is NULL
+    // in SQL, so a legitimately-NULL `tenant_id` (e.g. a just-registered user
+    // before tenant assignment) could never satisfy `tenant_id = NULLIF(...)
+    // ::uuid`, blocking registration entirely. A stale _v29 schema still has
+    // the `=` predicate and registration would fail the same way under
+    // RLS_RESTRICTED.
+    // Bumped to _v31 for RLS-5 (0028_rls_users_self_identification): the
+    // largest RLS-5 finding — `hybridAuth`'s own identity re-hydration
+    // (`getUserById`) runs before any tenant is known, so it was blocked by
+    // `users`' ordinary policy for any user with a real tenant, breaking
+    // every authenticated route. Adds a narrow, read-only self-row clause
+    // keyed on `app.current_user_id`, set only after the JWT/session is
+    // verified. A stale _v30 schema lacks the clause and every authenticated
+    // request past registration would fail the same way under
+    // RLS_RESTRICTED.
+    // Bumped to _v32 for RLS-4 precondition 2 (0029_rls_signature_requests_
+    // self_identification): the same self-identification pattern applied to
+    // `signature_requests`, keyed on the hashed signing token instead of a
+    // primary key. A stale _v31 schema lacks the clause and the public
+    // signing portal's token lookup would still be blocked with no tenant
+    // pinned.
+    // Bumped to _v33 for RLS-4 precondition 2 part 2
+    // (0030_rls_workflows_self_identification): `RunFileUploadService`/
+    // `runTokenAuth`'s bootstrap read of `workflows` (needed to resolve a
+    // run's tenant) is blocked the same way — fixed with a self-id clause
+    // keyed on `app.current_workflow_id`, pinned only after the workflow id
+    // was legitimately obtained from a verified run-token match. A stale
+    // _v32 schema lacks the clause and the run-token/file-upload path would
+    // still be blocked with no tenant pinned.
+    // Bumped to _v34 for RLS-4 precondition 2 part 3
+    // (0031_rls_public_workflow_visibility): a DIFFERENT gap found once
+    // parts 1/2 landed — `RunAuthResolver.verifyCreateAccess`'s public
+    // slug/link lookup has no prior verification to key a self-id GUC on,
+    // so the fix is a declared-visibility clause (`is_public = true AND
+    // status = 'active'`) on workflows/pages/steps instead. A stale _v33
+    // schema lacks it and every public-link anonymous run would still 404.
+    // Bumped to _v35 for RLS-5 (0032_rls_login_email_bootstrap): the
+    // authentication front door looks a user up BY EMAIL — login, the
+    // registration duplicate check, password reset, the Google OAuth upsert —
+    // with neither a tenant nor a user id known, so `users`' policy hid every
+    // user who already had a real tenant and EVERY password login failed as
+    // "Invalid credentials". A stale _v34 schema lacks the clause and login
+    // stays broken under the restricted role.
+    // Bumped to _v36 for RLS-5 (0033_rls_bootstrap_project_org_lookup):
+    // `WorkflowTenantResolver` could not derive a tenant at all under
+    // enforcement — 0030 makes the workflow readable but the tables its tenant
+    // is DERIVED from (`projects`, `organizations`) are RLS-covered too, and
+    // `app_owner_tenant()` is plain SQL, not SECURITY DEFINER. A stale _v35
+    // schema lacks both clauses, so a filed workflow silently falls through to
+    // its creator's tenant instead of its project's.
+    // Bumped to _v37 for the fingerprint mechanism below — see the block
+    // comment on `migrationsFingerprint`. The bump forces one clean rebuild so
+    // every schema starts fingerprinted; from here on the token is a
+    // human-readable generation marker, NOT the correctness mechanism.
+    // Bumped to _v39 for SECT-3 migration 0039, which adds the new sections
+    // table, pages.section_id, its foreign key/index, and RLS policy.
+    // Bumped to _v40 for SECT-8A migration 0040, which adds the ordered-set
+    // workflow_runs.visited_page_ids history.
+    // Bumped to _v41 for migration 0041, which re-asserts ENABLE + FORCE ROW
+    // LEVEL SECURITY on every policy-bearing table. A stale _v40 schema can
+    // hold policies that are DEFINED BUT INERT (relrowsecurity = false), which
+    // is precisely the condition 0041 exists to end — and the shape that made
+    // the dev branch report 37 policies while enforcing exactly one of them.
+    // Bumped to _v42 for STB-21 migration 0042, which recreates the step_type
+    // enum with only the 18 canonical values. A stale _v41 schema still holds
+    // the 37-value type, so inserts of retired names would keep succeeding
+    // there and the tests that prove they are rejected would pass vacuously.
+    // Bumped to _v43 for CB-9a-1/9a-2 migrations 0045-0048: preview run identity
+    // columns and their guard triggers, plus the run_submissions idempotency
+    // table. A stale _v42 schema has none of them, so every preview test would
+    // fail on a missing column rather than on its own assertion — and the
+    // replay tests would have no table to be idempotent against.
+    // Bumped to _v44 for CB-10d2 migration 0049, which DROPs the retired
+    // `transform_blocks` / `transform_block_runs` tables and their two
+    // orphaned enum types. A stale _v43 schema still has both tables, so the
+    // catalog assertions in pages-contract.test.ts that prove they are gone
+    // would fail against it — and any test that accidentally still wrote to
+    // them would keep succeeding there.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v26`;
+        return `test_schema_w${this.workerId}_v44`;
+    }
+
+    /**
+     * A content hash of the whole migrations directory.
+     *
+     * WHY THIS EXISTS — measured 2026-08-21, after it cost two sessions.
+     *
+     * Schema reuse was gated on "does this schema have any tables?" That check
+     * cannot see a **policy-only** migration, and every migration from `0024`
+     * onward is policy-only: they create no tables, they rewrite RLS policies.
+     * Combined with `applyManualMigrations` swallowing its own failures, a
+     * chain that died at `0027` left a schema with all its tables, no further
+     * migrations, and a name claiming to be current. It was then reused
+     * forever.
+     *
+     * The damage was not a broken test — it was a LYING one. **11 of 124
+     * `_v36` schemas were still carrying the ORIGINAL `0001` policies**, so
+     * roughly 9% of workers ran the whole app against August 19's rules. Every
+     * failure they produced was an artifact, and one of them ("registration
+     * violates RLS under the restricted role") was written up as an unexplained
+     * production defect and nearly investigated as one.
+     *
+     * So: the schema records the fingerprint of the migration set that built
+     * it, written ONLY after a fully successful apply. A mismatch rebuilds from
+     * scratch. The `_vN` token stays as documentation of intent, but nothing
+     * depends on a human remembering to bump it.
+     */
+    static async migrationsFingerprint(): Promise<string> {
+        const fs = await import('fs');
+        const path = await import('path');
+        const dir = path.join(process.cwd(), 'migrations');
+        if (!fs.existsSync(dir)) { return 'no-migrations-dir'; }
+        const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+        const hash = _crypto.createHash('sha256');
+        for (const file of files) {
+            hash.update(file);
+            hash.update('\0');
+            hash.update(fs.readFileSync(path.join(dir, file)));
+            hash.update('\0');
+        }
+        return `${files.length}:${hash.digest('hex').slice(0, 32)}`;
+    }
+
+    /**
+     * Read the fingerprint a schema was built with, or null if it has none
+     * (which is also the answer for every schema built before this existed).
+     */
+    static async readSchemaFingerprint(connectionString: string, schemaName: string): Promise<string | null> {
+        const client = new Client({ connectionString });
+        try {
+            await client.connect();
+            const exists = await client.query(
+                `SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = $1 AND table_name = '__schema_fingerprint'`,
+                [schemaName],
+            );
+            if (exists.rowCount === 0) { return null; }
+            const row = await client.query(`SELECT fingerprint FROM "${schemaName}".__schema_fingerprint LIMIT 1`);
+            return row.rowCount === 0 ? null : String(row.rows[0].fingerprint);
+        } catch {
+            return null;
+        } finally {
+            await client.end();
+        }
     }
 
     /**

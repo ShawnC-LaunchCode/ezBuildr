@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import request from 'supertest';
@@ -8,6 +8,9 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { DatavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
+// RLS-5: fixture writes and verification reads are the OBSERVER, not the
+// application under test — see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 import {
   createTestUser,
   setupIntegrationTest,
@@ -81,7 +84,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(unarchiveRes.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify row 1 remains archived in the database
-    const [row1InDb] = await db
+    const [row1InDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, row1Id));
@@ -127,21 +130,21 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(bulkUnarchiveRes.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify row A is not restored live
-    const [rowAInDb] = await db
+    const [rowAInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowAId));
     expect(rowAInDb?.deletedAt).not.toBeNull();
 
     // Verify row B is ALSO not restored live (whole-batch all-or-nothing rollback)
-    const [rowBInDb] = await db
+    const [rowBInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowBId));
     expect(rowBInDb?.deletedAt).not.toBeNull();
 
     // Verify no keys were added for rowB
-    const keysB = await db.execute(sql`
+    const keysB = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE row_id = ${rowBId}::uuid
     `);
     expect(keysB.rows.length).toBe(0);
@@ -162,7 +165,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(archiveRes.status).toBe(200);
 
-    const keysArchived = await db.execute(sql`
+    const keysArchived = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE row_id = ${rowId}::uuid
     `);
     expect(keysArchived.rows.length).toBe(0);
@@ -173,14 +176,14 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(unarchiveRes.status).toBe(200);
 
-    const [rowInDb] = await db
+    const [rowInDb] = await getOwnerDb()
       .select({ deletedAt: schema.datavaultRows.deletedAt })
       .from(schema.datavaultRows)
       .where(eq(schema.datavaultRows.id, rowId));
     expect(rowInDb?.deletedAt).toBeNull();
 
     // Verify key in datavault_unique_keys is restored
-    const keysRestored = await db.execute(sql`
+    const keysRestored = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE row_id = ${rowId}::uuid AND column_id = ${uniqueColumnId}::uuid
     `);
     expect(keysRestored.rows.length).toBe(1);
@@ -209,7 +212,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(loser.body.message).toContain(`A row with this column '${uniqueColumnName}' already exists`);
 
     // Verify exactly one active row exists in the database
-    const matchingRows = await db
+    const matchingRows = await getOwnerDb()
       .select({ id: schema.datavaultValues.rowId })
       .from(schema.datavaultValues)
       .innerJoin(schema.datavaultRows, eq(schema.datavaultValues.rowId, schema.datavaultRows.id))
@@ -259,8 +262,19 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       const raceUniqueVal = 'EMP-RACE-CLIENTS-001';
 
       // Race both inserts concurrently
+      // These are raw clients, so nothing has opened a tenant-scoped
+      // transaction for them the way `withCurrentTenant` does for the app.
+      // Under a non-owner role both inserts would fail the WITH CHECK on
+      // `datavault_rows`/`datavault_values`/`datavault_unique_keys` and the
+      // race would prove nothing — zero winners rather than one. Pin the GUC
+      // transaction-locally, exactly as the application does, so the only
+      // thing deciding this race is still the unique constraint.
+      const pinTenant = (tx: { execute: (q: SQL) => Promise<unknown> }) =>
+        tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
+
       const racePromises = [
         db1.transaction(async (tx1) => {
+          await pinTenant(tx1);
           return repo1.createRowWithValues(
             { tableId, createdBy: userId, updatedBy: userId },
             [{ columnId: uniqueColumnId, value: raceUniqueVal }],
@@ -268,6 +282,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
           );
         }),
         db2.transaction(async (tx2) => {
+          await pinTenant(tx2);
           return repo2.createRowWithValues(
             { tableId, createdBy: userId, updatedBy: userId },
             [{ columnId: uniqueColumnId, value: raceUniqueVal }],
@@ -425,7 +440,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(updateColRes.body.message).toContain('duplicate values');
 
     // 4. Verify no partial keys were inserted into datavault_unique_keys
-    const keysInDb = await db.execute(sql`
+    const keysInDb = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${dupColId}::uuid
     `);
     expect(keysInDb.rows.length).toBe(0);
@@ -462,7 +477,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(turnOffRes.status).toBe(200);
 
     // Keys for this column should be deleted
-    const keysAfterOff = await db.execute(sql`
+    const keysAfterOff = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${toggleColId}::uuid
     `);
     expect(keysAfterOff.rows.length).toBe(0);
@@ -492,7 +507,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(rowRes.status).toBe(201);
     const rowId = rowRes.body.row.id as string;
 
-    const keysBeforeRowDelete = await db.execute(sql`
+    const keysBeforeRowDelete = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE row_id = ${rowId}::uuid
     `);
     expect(keysBeforeRowDelete.rows.length).toBeGreaterThan(0);
@@ -503,7 +518,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(delRowRes.status).toBe(204);
 
-    const keysAfterRowDelete = await db.execute(sql`
+    const keysAfterRowDelete = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE row_id = ${rowId}::uuid
     `);
     expect(keysAfterRowDelete.rows.length).toBe(0);
@@ -522,7 +537,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .send({ values: { [uniqueColumnId]: 'EMP-DEL-COL-1', [colId]: 'COL-DEL-VAL' } });
     expect(rowForColRes.status).toBe(201);
 
-    const keysBeforeColDelete = await db.execute(sql`
+    const keysBeforeColDelete = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${colId}::uuid
     `);
     expect(keysBeforeColDelete.rows.length).toBe(1);
@@ -533,7 +548,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(delColRes.status).toBe(204);
 
-    const keysAfterColDelete = await db.execute(sql`
+    const keysAfterColDelete = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${colId}::uuid
     `);
     expect(keysAfterColDelete.rows.length).toBe(0);
@@ -593,7 +608,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(setPkWithDupRes.body.message).toContain('duplicate values');
 
     // Verify 0 keys were backfilled
-    const keysAfterFailedPk = await db.execute(sql`
+    const keysAfterFailedPk = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${pkColId}::uuid
     `);
     expect(keysAfterFailedPk.rows.length).toBe(0);
@@ -614,7 +629,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(setPkCleanRes.body.isPrimaryKey).toBe(true);
     expect(setPkCleanRes.body.isUnique).toBe(true);
 
-    const keysAfterPkOn = await db.execute(sql`
+    const keysAfterPkOn = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${pkColId}::uuid
     `);
     expect(keysAfterPkOn.rows.length).toBe(2);
@@ -643,7 +658,7 @@ describe('DataVault Unique Keys & Concurrency (DVH-2)', () => {
     expect(demotePkRes.body.isPrimaryKey).toBe(false);
     expect(demotePkRes.body.isUnique).toBe(false);
 
-    const keysAfterDemote = await db.execute(sql`
+    const keysAfterDemote = await getOwnerDb().execute(sql`
       SELECT * FROM datavault_unique_keys WHERE column_id = ${pkColId}::uuid
     `);
     expect(keysAfterDemote.rows.length).toBe(0);

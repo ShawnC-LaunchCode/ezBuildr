@@ -35,8 +35,8 @@ Additionally, most endpoints require the `builder` role (enforced by `requireBui
 | Limit | Value |
 |-------|-------|
 | Requests per minute | 100 per user |
-| Max sections per workflow | 50 |
-| Max steps per section | 50 |
+| Max pages per workflow | 50 |
+| Max steps per page | 50 |
 | Max JSON payload | 5MB |
 
 Rate limit headers are included in responses:
@@ -62,8 +62,8 @@ POST /api/ai/workflows/generate
   "projectId": "uuid",
   "description": "A customer feedback form that collects ratings and comments",
   "constraints": {
-    "maxSections": 10,
-    "maxStepsPerSection": 10
+    "maxPages": 10,
+    "maxStepsPerPage": 10
   },
   "placeholders": ["customerName", "orderNumber"]
 }
@@ -73,8 +73,8 @@ POST /api/ai/workflows/generate
 |-------|------|----------|-------------|
 | `projectId` | string | Yes | Project to create workflow in |
 | `description` | string | Yes | Natural language description |
-| `constraints.maxSections` | number | No | Max sections (default: 10) |
-| `constraints.maxStepsPerSection` | number | No | Max steps per section (default: 10) |
+| `constraints.maxPages` | number | No | Max pages (default: 10) |
+| `constraints.maxStepsPerPage` | number | No | Max steps per page (default: 10) |
 | `placeholders` | string[] | No | Pre-defined variable names to use |
 
 **Response (200 OK):**
@@ -84,9 +84,9 @@ POST /api/ai/workflows/generate
   "workflow": {
     "title": "Customer Feedback Form",
     "description": "Collects customer ratings and feedback",
-    "sections": [
+    "pages": [
       {
-        "id": "section-1",
+        "id": "page-1",
         "title": "Rating",
         "order": 0,
         "steps": [
@@ -106,7 +106,7 @@ POST /api/ai/workflows/generate
   },
   "metadata": {
     "duration": 2340,
-    "sectionsGenerated": 3,
+    "pagesGenerated": 3,
     "stepsGenerated": 8,
     "logicRulesGenerated": 2
   },
@@ -144,11 +144,11 @@ POST /api/ai/workflows/revise
   "workflowId": "uuid",
   "currentWorkflow": {
     "title": "My Workflow",
-    "sections": [...],
+    "pages": [...],
     "logicRules": [],
     "transformBlocks": []
   },
-  "userInstruction": "Add a section for contact information with email and phone fields",
+  "userInstruction": "Add a page for contact information with email and phone fields",
   "conversationHistory": [
     { "role": "user", "content": "Create a feedback form" },
     { "role": "assistant", "content": "I've created a basic feedback form..." }
@@ -193,7 +193,7 @@ GET /api/ai/workflows/revise/{jobId}
   "result": {
     "updatedWorkflow": {
       "title": "My Workflow",
-      "sections": [...],
+      "pages": [...],
       "logicRules": [],
       "transformBlocks": []
     },
@@ -201,14 +201,14 @@ GET /api/ai/workflows/revise/{jobId}
       "changes": [
         {
           "type": "add",
-          "target": "sections[2]",
+          "target": "pages[2]",
           "after": { "title": "Contact Information", ... },
-          "explanation": "Added contact information section"
+          "explanation": "Added contact information page"
         }
       ]
     },
     "explanation": [
-      "Added a new 'Contact Information' section",
+      "Added a new 'Contact Information' page",
       "Included email and phone fields with validation"
     ],
     "suggestions": [
@@ -242,7 +242,7 @@ POST /api/ai/workflows/{workflowId}/suggest
   "suggestions": [
     {
       "type": "structure",
-      "description": "Break long sections into smaller pages",
+      "description": "Break long pages into smaller pages",
       "impact": "high",
       "changes": [...]
     }
@@ -269,8 +269,8 @@ POST /api/ai/workflows/generate-logic
     { "id": "step-1", "alias": "hasInsurance", "type": "yes_no", "title": "Do you have insurance?" },
     { "id": "step-2", "alias": "insuranceProvider", "type": "short_text", "title": "Insurance Provider" }
   ],
-  "sections": [
-    { "id": "section-1", "title": "Insurance Details" }
+  "pages": [
+    { "id": "page-1", "title": "Insurance Details" }
   ],
   "instruction": "Only show the insurance provider question if they have insurance"
 }
@@ -334,7 +334,7 @@ POST /api/ai/workflows/debug-logic
 {
   "workflowId": "uuid",
   "steps": [...],
-  "sections": [...],
+  "pages": [...],
   "logicRules": [...]
 }
 ```
@@ -419,7 +419,7 @@ Every generated or revised workflow includes a quality assessment:
 |----------|--------|-------------|
 | `aliases` | 25% | Descriptive, camelCase, unique names |
 | `types` | 20% | Appropriate field types for content |
-| `structure` | 15% | Logical sections, reasonable sizes |
+| `structure` | 15% | Logical pages, reasonable sizes |
 | `ux` | 15% | Clear questions, good formatting |
 | `completeness` | 15% | All required fields present |
 | `validation` | 10% | Proper required markers, options |
@@ -450,7 +450,7 @@ Every generated or revised workflow includes a quality assessment:
     "code": "VALIDATION_ERROR",
     "message": "AI response does not match expected schema",
     "details": {
-      "path": "sections[0].steps[0].alias",
+      "path": "pages[0].steps[0].alias",
       "expected": "string",
       "received": "null"
     }

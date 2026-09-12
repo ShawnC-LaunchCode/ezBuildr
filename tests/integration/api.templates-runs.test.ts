@@ -6,10 +6,12 @@ import PizZip from "pizzip";
 import request from "supertest";
 import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
-import { sections, steps } from "@shared/schema";
+import { pages, steps } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 // The upload route performs real placeholder extraction after the scanner mock,
 // so this fixture must be a valid OOXML package rather than only a ZIP container.
@@ -101,20 +103,20 @@ describe("Templates API Integration Tests", () => {
     workflowId = workflowResponse.body.id;
 
     // RUN2-9: publishing runs a structural gate, so the workflow needs at least
-    // one section and one real question. This used to publish an empty workflow
+    // one page and one real question. This used to publish an empty workflow
     // with a vestigial `graphJson: { pages: [] }` body (publishVersion
     // serializes from the database and ignores that field entirely), which the
     // gate now correctly refuses — an interview with no questions cannot be
     // completed by any respondent.
-    const [section] = await db
-      .insert(sections)
+    const [page] = await getOwnerDb()
+      .insert(pages)
       .values({ workflowId, title: "Page 1", order: 0 })
       .returning();
-    await db.insert(steps).values({
+    await getOwnerDb().insert(steps).values({
       workflowId,
-      sectionId: section.id,
+      pageId: page.id,
       title: "Your name",
-      type: "short_text",
+      type: "text",
       alias: "name",
       order: 0,
     });

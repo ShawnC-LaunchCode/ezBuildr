@@ -4,7 +4,7 @@ Map of API domains → route files (verified August 2026). **Source of truth is 
 
 New endpoints follow the 3-tier pattern in the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`).
 
-## Workflows & Structure — `workflows.routes.ts`, `sections.routes.ts`, `steps.routes.ts`
+## Workflows & Structure — `workflows.routes.ts`, `sections.routes.ts`, `pages.routes.ts`, `steps.routes.ts`
 
 ```
 GET/POST    /api/workflows                        # List / create
@@ -22,9 +22,12 @@ GET/PUT/DEL /api/workflows/:workflowId/access     # Workflow ACL
 PUT         /api/workflows/:workflowId/owner
 POST        /api/workflows/:workflowId/transfer
 POST        /api/workflows/:workflowId/templates/:templateId/test
+GET/POST    /api/workflows/:workflowId/sections   # List/create Sections; create requires a non-empty contiguous pageIds span
+PUT/DEL     /api/sections/:sectionId              # Update/delete Section metadata; delete leaves pages in place and ungrouped
+PUT         /api/workflows/:workflowId/pages/reorder # Full ordered page layout with explicit nullable sectionId per page
 ```
 
-Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
+Pages and steps CRUD live in `pages.routes.ts` / `steps.routes.ts`. Generic page create/update cannot set `sectionId`; membership changes atomically through Section creation or page reorder. Reorder accepts the full active-page layout plus `deleteEmptySectionIds` (default `[]`) and rejects split, missing, duplicate, foreign, or stale layouts. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
 
 ## Workflow Runs — `runs.routes.ts`
 
@@ -33,18 +36,18 @@ POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public sta
 POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
 GET         /api/workflows/:workflowId/runs               # List runs for workflow
 GET         /api/runs/:runId                              # Creator session OR run token
-GET         /api/runs/:runId/runtime                      # Sanitized pinned definition + cursor + values
+GET         /api/runs/:runId/runtime                      # Sanitized pinned Sections/Pages/Steps + cursor + values
 POST        /api/runs/:runId/revoke-token
 POST        /api/runs/:runId/resume-links                # Queue respondent email; run token or creator auth
 POST        /api/runs/:runId/resume                      # Redeem one-time link; rotates run token
 POST        /api/runs/:runId/handoff                     # Staff-only reassignment to tenant user/client email
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk
-POST        /api/runs/:runId/sections/:sectionId/submit
+POST        /api/runs/:runId/pages/:pageId/submit
 POST        /api/runs/:runId/steps/:stepId/files           # Multipart respondent upload (run token or creator)
 GET         /api/runs/:runId/steps/:stepId/files/url       # Refresh signed storage URL
 DELETE      /api/runs/:runId/steps/:stepId/files           # Remove upload
-POST        /api/runs/:runId/next                         # Navigate to next section
+POST        /api/runs/:runId/next                         # Navigate to next page
 PUT         /api/runs/:runId/complete                     # Complete (triggers transforms)
 GET/POST/DEL /api/runs/:runId/documents                   # Run documents (+ generate-documents)
 POST        /api/runs/:runId/share                        # Create share token
@@ -52,20 +55,36 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 ```
 
 > The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
+> Runtime Sections and each page's nullable `sectionId` come from the pinned workflow version. Legacy pinned graphs remain valid and return `sections: []` with null page membership.
 > Resume/handoff credentials are stored only as SHA-256 hashes in `run_resume_links`. A successful one-time redemption rotates the ordinary run bearer token before the pinned runtime restores its saved values and cursor.
 >
-> **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active section. This is an intentional out-of-section write allowance, supporting scenarios like computed fields or external integrations writing ahead.
+> **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active page. This is an intentional out-of-page write allowance, supporting scenarios like computed fields or external integrations writing ahead.
 
-## Blocks & Transform Blocks — `blocks.routes.ts`, `transformBlocks.routes.ts`
+## Blocks — `blocks.routes.ts`
 
 ```
 GET/POST    /api/workflows/:id/blocks             # Block CRUD (prefill/validate/branch/records/...)
 PUT/DELETE  /api/blocks/:blockId
 PUT         /api/workflows/:id/blocks/reorder
-GET/POST    /api/workflows/:id/transform-blocks
-PUT/DELETE  /api/transform-blocks/:blockId
-POST        /api/transform-blocks/:blockId/test   # Test with sample data (blocks have NO /test)
 ```
+
+Transform blocks and their `/api/transform-blocks` routes were retired in CB-10
+(tables dropped in migration `0049`); Code Blocks replace them.
+
+## Code Blocks — `codeBlocks.routes.ts`
+
+```
+POST        /api/steps/:stepId/code-block/test    # hybridAuth + testLimiter (10/min)
+```
+
+Body `{ code?, testData? }`. `code` overrides the saved script so the editor can
+test an unsaved edit; **omitting `testData` validates without executing**, which is
+how the editor collects CB-5's derived input/output keys and dynamic-access
+warnings. With `testData` the real `ScriptEngine` runs the block in the same
+`isolated-vm` sandbox the run engine uses. Authorization (`verifyAccess`, edit) runs
+to completion *before* any sandbox work, so a step in another tenant is refused
+without executing a line. Returns `{ success, executed, output?, error?, warnings,
+derivedInputs, derivedOutputs, consoleLogs?, durationMs? }`.
 
 ## Lifecycle & Document Hooks — `lifecycleHooks`/`documentHooks` routers (mounted at `/api`)
 
@@ -84,7 +103,8 @@ GET/DELETE  /api/runs/:runId/script-console       # Script execution logs
 ```
 GET/POST    /api/datavault/databases              # NOT project-scoped
 GET/PATCH/DEL /api/datavault/databases/:id
-GET/POST    /api/datavault/databases/:id/tables
+GET         /api/datavault/databases/:id/tables
+GET/POST    /api/datavault/tables                # POST takes databaseId in the body, not nested
 GET/PATCH/DEL /api/datavault/tables/:tableId
 GET/POST    /api/datavault/tables/:tableId/rows   # Infinite scroll pagination
 GET         /api/datavault/tables/:tableId/options # Bound value/label pairs; user or run-token auth
@@ -106,7 +126,7 @@ POST        /api/auth/register | login | refresh-token | logout  # registration 
 POST        /api/auth/forgot-password | reset-password | verify-email
 GET         /api/auth/me | csrf-token | token
 POST/GET    /api/auth/mfa/*                       # setup, verify, verify-login, status
-GET/PUT     /api/account
+GET/PUT     /api/account/preferences
 GET/PUT     /api/preferences
 ```
 
@@ -114,9 +134,10 @@ GET/PUT     /api/preferences
 
 ```
 POST        /api/ai/workflows/generate            # Generate workflow from description
-POST        /api/ai/workflows/generate-logic | debug-logic | visualize-logic | revise
-POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22)
-POST        /api/ai/transform/*                   # Transform code generation
+POST        /api/ai/workflows/:id/suggest | generate-logic | visualize-logic
+POST        /api/ai/templates/:templateId/bindings
+POST        /api/ai/suggest-values
+POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22); supersedes a "revise" endpoint
 POST        /api/ai/doc/*                         # AI document features
 POST        /api/ai/personalize/*                 # Personalization
 POST        /api/ai/workflows/optimize/*          # Optimization wizard backend
@@ -128,10 +149,17 @@ Admin AI settings: `admin.aiSettings.routes.ts` → `/api/admin/ai-settings`.
 
 ## Templates & Marketplace — `marketplace.ts` (mounted at `/api`), `workflowTemplates.routes.ts`, `api.templates.routes.ts`
 
+Two distinct systems share the word "templates": the curated marketplace catalog, and per-project DOCX document templates. `marketplace.ts` is registered first so its `GET /templates/:id` can `next('route')` past any UUID-shaped id, letting `templates.routes.ts`'s document-template handler answer those:
+
 ```
-GET/POST    /api/templates                        # There is NO /api/marketplace prefix
-GET         /api/templates/:id
-POST        /api/templates/:id/install
+GET         /api/templates                        # Marketplace catalog; there is NO /api/marketplace prefix
+GET         /api/templates/:id                     # Curated slug (marketplace) or UUID (document template)
+POST        /api/templates/:id/install              # Marketplace install
+POST        /api/market/publish
+
+POST        /api/projects/:projectId/templates      # Upload a DOCX document template
+GET         /api/projects/:projectId/templates
+PATCH/DEL   /api/templates/:id                       # Document template CRUD (`api.templates.routes.ts`)
 ```
 
 ## Documents & E-Signature — `documents.routes.ts`, `finalBlock.routes.ts`, `esign.routes.ts`
@@ -162,7 +190,7 @@ alias for the webhook URL.
 
 > There are **no `/api/reviews` routes** — the review-gates route layer was removed in the dead-code sweep; `ReviewTaskService`/`review_tasks` still exist but are orphaned.
 
-## Connections, Secrets, Webhooks — `connections.v2.routes.ts`, `secrets.routes.ts`, mounted routers
+## Connections, Secrets, Webhooks — `connections-v2.routes.ts`, `secrets.routes.ts`, mounted routers
 
 ```
 GET/POST    /api/projects/:projectId/connections
@@ -193,7 +221,15 @@ project metadata before acknowledging an event.
 
 ## Analytics & Export — `workflowAnalytics.routes.ts`, `workflowExports.routes.ts`
 
-Funnel/trends/heatmap/branching analytics and JSON/CSV/PDF export per workflow.
+```
+GET         /api/workflow-analytics/overview | timeseries | sli
+POST        /api/workflow-analytics/sli-config
+PUT         /api/workflow-analytics/sli-config/:id
+POST        /api/workflow-analytics/events
+GET         /api/workflow-analytics/:workflowId/dropoff | branching | health
+GET         /api/workflow-analytics/:workflowId/heatmap
+GET         /api/workflows/:workflowId/export?format=json|csv   # No PDF export exists on this route
+```
 
 ## Admin — `admin.routes.ts` (hybridAuth + isAdmin)
 
@@ -227,6 +263,6 @@ deleting the account.
 | Versions & Snapshots | `versions.routes.ts`, `snapshots.routes.ts` |
 | Blueprints | `blueprint.routes.ts` |
 | Collections (legacy) | `collections.routes.ts` |
-| Intake / Preview / Dashboard | `intake.routes.ts`, `preview.routes.ts`, `dashboard.routes.ts` |
-| Files | `files.routes.ts` |
+| Intake / Preview / Dashboard | `workflows.routes.ts` (`/intake-config`), `preview.routes.ts`, `dashboard.routes.ts` |
+| Files | `storage.routes.ts` (signed-URL file serving, GH-169B) |
 | Health / Metrics / Docs | `health.ts`, `metrics.ts`, `docs.routes.ts` |

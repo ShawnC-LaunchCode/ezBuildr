@@ -1,3 +1,5 @@
+import { sql } from 'drizzle-orm';
+
 import type { Workflow, WorkflowRun } from '@shared/schema';
 
 import { createLogger } from '../logger';
@@ -10,6 +12,68 @@ import {
 } from '../repositories';
 
 const logger = createLogger({ module: 'workflow-tenant-resolver' });
+
+/**
+ * RLS-5: read one user row during tenant BOOTSTRAP.
+ *
+ * This resolver answers "given a workflow, which tenant owns it?" — a question
+ * that by definition must be answerable BEFORE a tenant is known, so no tenant
+ * GUC is pinned while it runs. Migration `0030` makes the *workflow* readable
+ * that way, but deriving its tenant then needs `users` (and `projects`, and
+ * `organizations`), which are RLS-covered in their own right — so resolution
+ * found the workflow and still returned null, and every caller treated that as
+ * "deny". Measured: `RunLifecycleService` failed 8/8 document generations with
+ * "Workflow not found" on workflows that plainly existed, and `runTokenAuth`
+ * has the same hole but swallows it as best-effort, so no test ever showed it.
+ *
+ * The user ids reached here (`ownerUuid`, `creatorId`, `ownerId`) all come off
+ * a workflow row that was itself legitimately read, so pinning one is the same
+ * verified-foreign-key shape `0030` already uses — and `users`' existing
+ * self-identification clause (`0028`) is what makes it visible. No new
+ * migration is needed for this path.
+ *
+ * The GUC is transaction-local. When the caller supplied a `tx` it stays set
+ * for the remainder of THAT transaction, which is deliberate and bounded: the
+ * clause is read-only and exposes exactly the one row already being read.
+ */
+async function readUserForBootstrap(
+  userId: string,
+  tx?: DbTransaction
+): Promise<{ tenantId: string | null } | undefined> {
+  if (tx) {
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${userId}, true)`);
+    return userRepository.findById(userId, tx);
+  }
+  const { withCurrentUserId } = await import('../utils/rlsContext');
+  return withCurrentUserId(userId, (scopedTx) => userRepository.findById(userId, scopedTx));
+}
+
+/**
+ * The same bootstrap read for `projects` / `organizations` (migration 0033).
+ *
+ * These two are why the user-only fix was not enough. `resolveForWorkflow`
+ * tries the PROJECT tenant FIRST, so with only `users` reachable a filed
+ * workflow did not fail — it fell through to the creator and resolved THAT
+ * person's tenant, which is usually the same one and silently is not after a
+ * project transfer. Resolving confidently wrong is worse than resolving
+ * nothing, so this closes the fall-through rather than relying on it.
+ *
+ * `gucName` is a literal chosen here, never derived from input, and the id is
+ * always one read off an already-legitimately-read workflow row.
+ */
+async function readOwnerTableForBootstrap<T>(
+  gucName: 'app.current_project_id' | 'app.current_org_id',
+  id: string,
+  read: (tx?: DbTransaction) => Promise<T>,
+  tx?: DbTransaction
+): Promise<T> {
+  if (tx) {
+    await tx.execute(sql`SELECT set_config(${gucName}, ${id}, true)`);
+    return read(tx);
+  }
+  const { withVerifiedIdentifier } = await import('../utils/rlsContext');
+  return withVerifiedIdentifier(gucName, id, (scopedTx) => read(scopedTx));
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -92,12 +156,17 @@ export class WorkflowTenantResolver {
     }
 
     if (ownerType === 'user') {
-      const user = await userRepository.findById(ownerUuid, tx);
+      const user = await readUserForBootstrap(ownerUuid, tx);
       return isValidUuid(user?.tenantId) ? user!.tenantId : null;
     }
 
     if (ownerType === 'org') {
-      const organization = await organizationRepository.findById(ownerUuid, tx);
+      const organization = await readOwnerTableForBootstrap(
+        'app.current_org_id',
+        ownerUuid,
+        (scopedTx) => organizationRepository.findById(ownerUuid, scopedTx),
+        tx
+      );
       return isValidUuid(organization?.tenantId) ? organization!.tenantId : null;
     }
 
@@ -138,7 +207,13 @@ export class WorkflowTenantResolver {
   ): Promise<TenantResolution> {
     // 2. Project tenant.
     if (workflow?.projectId) {
-      const project = await projectRepository.findById(workflow.projectId, tx);
+      const projectId = workflow.projectId;
+      const project = await readOwnerTableForBootstrap(
+        'app.current_project_id',
+        projectId,
+        (scopedTx) => projectRepository.findById(projectId, scopedTx),
+        tx
+      );
       if (isValidUuid(project?.tenantId)) {
         return { tenantId: project!.tenantId, source: 'project' };
       }
@@ -157,7 +232,7 @@ export class WorkflowTenantResolver {
     // 4. Legacy creator/owner user columns.
     const userId = workflow?.creatorId ?? workflow?.ownerId;
     if (userId) {
-      const user = await userRepository.findById(userId, tx);
+      const user = await readUserForBootstrap(userId, tx);
       if (isValidUuid(user?.tenantId)) {
         return { tenantId: user!.tenantId, source: 'workflow-creator' };
       }

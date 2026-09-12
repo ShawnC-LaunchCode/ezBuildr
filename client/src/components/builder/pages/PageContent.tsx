@@ -4,20 +4,20 @@ import { FileText } from "lucide-react";
 import { CardContent } from "@/components/ui/card";
 import { PageItem } from "@/lib/dnd";
 import { UI_LABELS } from "@/lib/labels";
-import { ApiSection } from "@/lib/vault-api";
+import { ApiPage } from "@/lib/vault-api";
 
 import { StepCard } from "../cards/StepCard";
-import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
+import { FinalDocumentsPageEditor } from "../final/FinalDocumentsPageEditor";
 
 import { BlockCard } from "./BlockCard";
 import { LogicAddMenu } from "./LogicAddMenu";
 import { QuestionAddMenu } from "./QuestionAddMenu";
 
 interface PageContentProps {
-    page: ApiSection;
+    page: ApiPage;
     workflowId: string;
     mode: string;
-    isFinalDocumentsSection: boolean;
+    isFinalDocumentsPage: boolean;
     items: PageItem[];
     expandedStepIds: Set<string>;
     expandedBlockIds: Set<string>;
@@ -36,7 +36,7 @@ export function PageContent({
     page,
     workflowId,
     mode,
-    isFinalDocumentsSection,
+    isFinalDocumentsPage,
     items,
     expandedStepIds,
     expandedBlockIds,
@@ -52,8 +52,8 @@ export function PageContent({
 }: PageContentProps) {
     return (
         <CardContent className="pt-0 space-y-3">
-            {isFinalDocumentsSection ? (
-                <FinalDocumentsSectionEditor section={page} workflowId={workflowId} />
+            {isFinalDocumentsPage ? (
+                <FinalDocumentsPageEditor page={page} workflowId={workflowId} />
             ) : items.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
                     {mode === "easy" ? (
@@ -103,7 +103,7 @@ export function PageContent({
                                     <StepCard
                                         key={item.id}
                                         step={item.data}
-                                        sectionId={page.id}
+                                        pageId={page.id}
                                         workflowId={workflowId}
                                         isExpanded={expandedStepIds.has(item.id)}
                                         autoFocus={autoFocusStepId === item.id}
@@ -117,7 +117,7 @@ export function PageContent({
                                         key={item.id}
                                         item={item}
                                         workflowId={workflowId}
-                                        sectionId={page.id}
+                                        pageId={page.id}
                                         isExpanded={expandedBlockIds.has(item.id)}
                                         onToggleExpand={() => onToggleBlockExpand(item.id)}
                                         onEnterNext={handleEnterNext}
@@ -130,8 +130,8 @@ export function PageContent({
                 </SortableContext>
             )}
 
-            {/* Add buttons at the bottom - hidden for Final Documents sections */}
-            {!isFinalDocumentsSection && (
+            {/* Add buttons at the bottom - hidden for Final Documents pages */}
+            {!isFinalDocumentsPage && (
                 <div className="space-y-2">
                     {mode === "easy" && items.length > 0 && (
                         <div className="flex items-center gap-2 px-1 pb-1 animate-in fade-in slide-in-from-top-1">
@@ -142,13 +142,13 @@ export function PageContent({
                     )}
                     <div className="flex items-center gap-2 pt-2">
                         <QuestionAddMenu
-                            sectionId={page.id}
+                            pageId={page.id}
                             nextOrder={nextOrder}
                             workflowId={workflowId}
                         />
                         <LogicAddMenu
                             workflowId={workflowId}
-                            sectionId={page.id}
+                            pageId={page.id}
                             nextOrder={nextOrder}
                         />
                     </div>

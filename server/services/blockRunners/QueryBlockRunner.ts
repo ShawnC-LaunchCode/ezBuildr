@@ -4,6 +4,7 @@
  */
 
 import { queryRunner } from "../../lib/queries/QueryRunner";
+import { withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
 import { logger } from "../../logger";
 import { workflowQueriesRepository, stepValueRepository } from "../../repositories";
 
@@ -42,8 +43,13 @@ export class QueryBlockRunner extends BaseBlockRunner {
         };
       }
 
-      // Execute query with current context data
-      const listVariable = await queryRunner.executeQuery(query, context.data, tenantId);
+      // Execute query with current context data, inside a tenant-scoped
+      // transaction: the DataVault tables it reads are RLS-covered and a block
+      // runner is reachable with no ambient tenant (run token, or the
+      // background completion worker), so the tenant resolved above is pinned
+      // explicitly here — at the service boundary, not inside the lib.
+      const listVariable = await withTenant(tenantId, (tx) =>
+        queryRunner.executeQuery(query, context.data, tenantId, tx));
 
       // Persist to virtual step if runId is present
       if (context.runId && block.virtualStepId) {
@@ -92,7 +98,18 @@ export class QueryBlockRunner extends BaseBlockRunner {
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
       const { workflowTenantResolver } = await import("../WorkflowTenantResolver");
-      return await workflowTenantResolver.resolveForWorkflowId(workflowId);
+      // RLS-5: resolving a workflow's tenant means reading `workflows`,
+      // `projects` and `users` — all RLS-covered — with no tenant known yet,
+      // which is the whole point of the call. Pin the workflow id as
+      // `app.current_workflow_id` (migration 0030) for the lookup, exactly as
+      // `runTokenAuth` does. The id came from the block's run context, not
+      // from request input. Without this the resolver returns null under
+      // enforcement and the block fails with "Failed to resolve tenantId".
+      return await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+      );
     } catch (error: unknown) {
       logger.error({ error, workflowId }, "Error fetching tenantId from workflow");
       return null;

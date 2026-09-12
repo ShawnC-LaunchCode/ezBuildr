@@ -212,6 +212,89 @@ reasonable-sounding but false description that would justify shipping red
 indefinitely. **A gate that requires interpretation is not a gate.** Fix the
 mock's setup/teardown so it is order-independent.
 
+**AISL-B12 — "AI Auto-Fill" is not AI, and its values are type-shaped but not
+semantically shaped.** `product-decision`, unsized. **Owner request, filed
+2026-09-03; parked for thinking, no approach chosen.**
+Asked for: preview auto-fill should answer the question it is actually looking at —
+a question labelled "Client full name" should get `Jane Doe`, not `banana cherry`;
+"Employer" should get a company; "Matter description" should get a sentence about a
+matter. Today it gets a word salad drawn from a fixed 20-word list.
+
+Two separate facts underlie the request, and both need to be understood before
+anyone estimates this:
+
+1. **The AI path is inert.** `isAIRandomAvailable()`
+   (`client/src/lib/randomizer/aiRandomFill.ts`) is `return false;` with the
+   comment *"For now, we'll return false as AI integration is optional"*, so
+   `generateAIRandomValues` always takes its synthetic branch. The endpoint the
+   other branch would call, `POST /api/ai/random-fill`, **does not exist** —
+   `grep -rn "random-fill" server/` is empty. `FeatureFlag.AI_AUTOFILL`
+   (`client/src/lib/featureFlags/definitions.ts`) is defined, defaulted `false`,
+   and **read by nothing**. The Preview toolbar's menu is nevertheless labelled
+   *"AI Randomizer"* with a *"Generating…"* spinner state
+   (`client/src/components/preview/DevToolbar.tsx`). So `requestAIRandomValues`
+   and `sanitizeAIValue` are ~200 lines of unreachable code, and the visible
+   feature is 100% `generateRandomValueForBlock`
+   (`client/src/lib/randomizer/randomFill.ts`).
+
+2. **The synthetic generator dispatches on `step.type` only — never on the
+   label.** `generateTextValue` reads `config.variant` to pick short vs long and
+   then returns `randomShortText()`, which joins 1–3 words from a hardcoded list
+   (`'apple', 'banana', 'cherry', …`). `step.title` is passed nowhere. The one
+   place a name is produced today is `generateMultiFieldValue`'s
+   `layout === 'first_last'` branch, and that is keyed off config, not language.
+   Note the sibling module `client/src/lib/sampleData.ts` (template preview) has
+   the *same* limitation and its fallback is ``` `Sample ${label}` ``` — it at least
+   echoes the label.
+
+**No approach chosen — this is a thinking item.** Owner was explicit
+(2026-09-03) that nothing is committed to yet. The options below are recorded so
+the thinking starts from a real menu, **not** as a recommendation, and none has
+been costed.
+
+- **A — pre-generated value pool (owner's current thinking).** Make a handful of
+  model calls *once*, offline, to produce a list of realistic values per semantic
+  class, commit that list, and have fill-time just draw from it. No runtime model
+  call, no latency, no per-fill spend, nothing to wire through the AI service
+  layer. Essentially: use AI to *author the fixture data*, not to serve it.
+- **B — label classification over synthetic generators.** Match
+  `step.title`/`alias` against an ordered pattern table (name, company, city,
+  description, …) and pick a generator per class, falling back to today's
+  behavior. Deterministic and offline, but the mapping is hand-maintained.
+- **C — live batched model call.** One call per page over the
+  `{alias, type, label, config}` list — which the dead `AIRandomRequest` payload
+  already describes correctly. Most flexible, most expensive, and it **must** go
+  through the AI service layer (`callLLM`/`TaskType`/`ai_usage`) rather than a
+  bespoke route, or it re-creates the second AI stack AISL-1..12 spent an
+  initiative deleting.
+
+A and B are not exclusive — a pool still needs *something* to decide which class
+a given question belongs to, so A likely contains a smaller version of B's
+matching problem. Questions worth resolving before picking, all open:
+
+- What keys the pool — the label text, an inferred class, or the step type?
+- Is the list authored once and shipped static, or generated per workflow at
+  author time and stored?
+- What happens when a question is reworded after the pool is built?
+- Does the same value need to recur across a whole fill (the same client name in
+  six questions), or is per-question independence fine?
+
+**Stale-evidence warnings for whoever promotes this.**
+`sanitizeAIValue`'s `switch` and `generateRandomValueForBlock`'s if-chain still
+branch on **retired** step types — `short_text`, `long_text`, `yes_no`,
+`true_false`, `radio`, `multiple_choice`, `time`, `date`, `currency` — which
+STB-21 (migration `0042`) removed from `stepTypeEnum`. Those branches are dead for
+stored steps. Meanwhile the canonical types `list`, `file_upload`,
+`signature_block`, `multi_field` (in `sanitizeAIValue`) and `computed` fall through
+to `randomShortText()` / `undefined`. Any work here should re-derive the type table
+from `shared/schema/workflow.ts` rather than editing what is there.
+
+**Next step:** owner thinks it through and picks a direction — no ruling yet, and
+nothing here is dispatchable until there is one. Whatever is chosen, delete or
+honestly relabel the inert AI branch, the unused `AI_AUTOFILL` flag and the
+"AI Randomizer" menu label in the same change — a feature that names a capability
+it does not have is worse than one that does not claim it.
+
 ---
 
 ## Lessons that cost the most to learn

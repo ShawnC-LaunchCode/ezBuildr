@@ -1,25 +1,29 @@
 import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
 import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+import { isJsQuestionConfig, resolveFiringPolicy, type JsQuestionConfig } from "@shared/types/steps";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { remapJsonIds } from "../utils/remapJsonIds";
-import { stepRepository, sectionRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
-import { db } from "../db";
+import { stepRepository, pageRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import { aliasRenameService } from "./AliasRenameService";
+import { codeBlockService } from "./codeBlocks/CodeBlockService";
 import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
+import { astValidator } from './scripting/ASTValidator';
 
 
 
 
-const SECTION_NOT_FOUND = "Section not found";
+const PAGE_NOT_FOUND = "Page not found";
 const STEP_NOT_FOUND = "Step not found";
 
 
-type CreateStepData = Omit<InsertStep, 'sectionId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
+type CreateStepData = Omit<InsertStep, 'pageId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
 export { generateAliasFromLabel, generateUniqueAliasFromTaken };
 
 /**
@@ -69,28 +73,121 @@ function diffChoiceOptionAliases(oldConfig: unknown, newConfig: unknown): Map<st
 
 export class StepService {
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
   private stepValueRepo: typeof stepValueRepository;
+  private codeBlockSvc = codeBlockService;
 
   constructor(
     stepRepo?: typeof stepRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     workflowSvc?: typeof workflowService,
     stepValueRepo?: typeof stepValueRepository
   ) {
     this.stepRepo = stepRepo ?? stepRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
     this.stepValueRepo = stepValueRepo ?? stepValueRepository;
   }
 
+  /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-5). Uses a savepoint in a caller-supplied `tx` if given;
+   * otherwise opens exactly one via `withCurrentTenant`.
+   *
+   * Same reason `PageService` needed this: `steps` is RLS-covered through
+   * the OWNERSHIP-derived policy on its parent workflow, so this service
+   * never mentions `tenantId` and the RLS-2 rollout's "services referencing
+   * tenantId" scoping missed it entirely. Ambient-only variant (§2c).
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    try {
+      return await (tx ? tx.transaction(fn) : withCurrentTenant(fn));
+    } catch (error: unknown) {
+      return this.rethrowAliasCollision(error, tx);
+    }
+  }
 
+  /** The transaction/savepoint has rolled back, so owner lookup can safely query again. */
+  private async rethrowAliasCollision(error: unknown, tx?: DbTransaction): Promise<never> {
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (typeof cause !== 'object' || cause === null || !('code' in cause) ||
+        cause.code !== '23505' || !('constraint' in cause) ||
+        cause.constraint !== 'steps_workflow_alias_unique') {
+      throw error;
+    }
+
+    // RLS-11 cause 3: `detail` is NOT guaranteed to be present, and requiring
+    // it made this whole translation dead under enforcement.
+    //
+    // Postgres omits a unique violation's DETAIL ("Key (workflow_id, alias)=
+    // (…, total) already exists.") when the role is subject to RLS on the
+    // table, because that string quotes column values the role may not be
+    // allowed to read. Measured as the restricted role: `code` is '23505' and
+    // `constraint` is `steps_workflow_alias_unique` exactly as expected, and
+    // `detail` is `undefined`. So on the branch that matters — production, once
+    // it connects as a non-owner — every alias collision that reached the index
+    // escaped as a raw `DrizzleQueryError` instead of the 400 this exists to
+    // produce. It passed in owner mode, where the detail IS present, which is
+    // why it read as correct for so long.
+    //
+    // The constraint name alone already proves what happened, so the identity
+    // of the alias is an enrichment, not a precondition. Parse the detail when
+    // it is there, and still answer 400 when it is not.
+    const detail = 'detail' in cause && typeof cause.detail === 'string' ? cause.detail : undefined;
+    const match = detail ? /=\(([^,]+), (.*)\) already exists\.$/.exec(detail) : null;
+    if (!match) { throw this.aliasCollisionError(undefined, undefined); }
+
+    const [, workflowId, alias] = match;
+    const siblings = tx
+      ? await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx)
+      : await withCurrentTenant(scopedTx => this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx));
+    const owner = siblings.find(step => step.alias?.toLowerCase() === alias.toLowerCase());
+    throw this.aliasCollisionError(alias, owner);
+  }
+
+  private aliasCollisionError(alias: string | undefined, owner?: Step): Error & { statusCode: number } {
+    const description = owner
+      ? `${owner.isVirtual ? 'output' : 'step'} "${owner.title}" (${owner.id})`
+      : 'another step in this workflow';
+    // `alias` is unknown only when Postgres withheld the violation's DETAIL
+    // under RLS (see rethrowAliasCollision). Still a 400, still actionable.
+    const subject = alias === undefined ? 'That alias' : `Alias "${alias}"`;
+    return Object.assign(new Error(`${subject} is already in use by ${description}. Please choose a unique alias.`),
+      { statusCode: 400 });
+  }
+
+  /** Own virtual outputs may be retained; every other active alias has a different writer. */
+  private async validateOutputAliases(
+    workflowId: string,
+    config: JsQuestionConfig,
+    alias: string | null | undefined,
+    previous: Step | undefined,
+    tx: DbTransaction
+  ): Promise<void> {
+    const siblings = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx);
+    const previousKeys = new Set(isJsQuestionConfig(previous?.config)
+      ? previous.config.outputs.map(output => output.key.toLowerCase()) : []);
+    for (const output of config.outputs) {
+      const key = output.key.toLowerCase();
+      const owner = siblings.find(candidate => candidate.id !== previous?.id && candidate.alias?.toLowerCase() === key &&
+        !(candidate.isVirtual && candidate.type === 'computed' &&
+          candidate.pageId === previous?.pageId && previousKeys.has(key)));
+      if (owner) { throw this.aliasCollisionError(output.key, owner); }
+      if (alias?.toLowerCase() === key) {
+        throw Object.assign(new Error(`Output alias "${output.key}" is already in use by this block's own step alias.`),
+          { statusCode: 400 });
+      }
+    }
+  }
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
   private async getWorkflowAliases(workflowId: string, tx?: DbTransaction): Promise<Set<string>> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
-    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id), tx, true);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+    const allSteps = await this.stepRepo.findByPageIds(pages.map((s) => s.id), tx, true);
     return new Set(
       allSteps
         .map((s) => s.alias?.toLowerCase())
@@ -112,6 +209,43 @@ export class StepService {
    * label's auto-generated name, regenerate it when the label changes.
    * A customized alias is never touched. Returns the new alias or null.
    */
+  /**
+   * CB-4 AC 3: reject a save that would make the Code Block graph cyclic.
+   *
+   * Checked at SAVE time, in the editor, against the whole workflow -- a cycle
+   * is a property of the graph, never of one block in isolation, so the block
+   * being saved is merged into its siblings before the check. The runtime has
+   * no fixpoint iteration and no cycle-breaking heuristic and does not need
+   * one, because this is what keeps a saved workflow acyclic by construction.
+   */
+  private async assertNoCodeBlockCycle(
+    workflowId: string,
+    config: JsQuestionConfig,
+    stepId: string | undefined,
+    order: number,
+    tx?: DbTransaction
+  ): Promise<void> {
+    const siblings = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, tx);
+    const blocks: Array<{ id: string; order: number | null; config: JsQuestionConfig }> = [];
+    for (const sibling of siblings) {
+      if (sibling.id === stepId) { continue; }
+      const adapted = adaptLegacyStep({ type: sibling.type, config: sibling.config });
+      if (adapted.type !== 'js_question' || !isJsQuestionConfig(adapted.config)) { continue; }
+      blocks.push({ id: sibling.id, order: sibling.order, config: adapted.config });
+    }
+    blocks.push({ id: stepId ?? '__pending__', order, config });
+    this.codeBlockSvc.assertNoCycle(blocks);
+  }
+
+  private assertImpureRepeatPolicy(config: JsQuestionConfig): void {
+    if (resolveFiringPolicy(config).repeat !== 'onChange') { return; }
+    const { impureHelpers = [] } = astValidator.validateJavaScript(config.code);
+    if (impureHelpers.length === 0) { return; }
+    throw Object.assign(new Error(
+      `Code Block calls impure helper(s): ${impureHelpers.join(', ')}. Choose repeat 'once' (compute and freeze) or 'always' (recompute every evaluation); 'onChange' cannot track these changes.`
+    ), { statusCode: 400 });
+  }
+
   private async maybeRegenerateAlias(
     workflowId: string,
     step: Step,
@@ -148,12 +282,12 @@ export class StepService {
       return;
     }
 
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
-    const sectionIds = sections.map(s => s.id);
+    // Get all pages for the workflow
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+    const pageIds = pages.map(s => s.id);
 
-    // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds, tx, true);
+    // Get all steps for these pages
+    const allSteps = await this.stepRepo.findByPageIds(pageIds, tx, true);
 
     // Check if alias is already used by another step
     const conflictingStep = allSteps.find(
@@ -161,14 +295,7 @@ export class StepService {
     );
 
     if (conflictingStep) {
-      // Duplicate alias is a client input error (400), not a server fault:
-      // classifyRouteError honors statusCode and preserves this message.
-      throw Object.assign(
-        new Error(
-          `Alias "${alias}" is already in use by another step in this workflow. Please choose a unique alias.`
-        ),
-        { statusCode: 400 }
-      );
+      throw this.aliasCollisionError(alias, conflictingStep);
     }
   }
 
@@ -177,30 +304,32 @@ export class StepService {
    */
   async createStep(
     workflowId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
-    data: CreateStepData
+    data: CreateStepData,
+    tx?: DbTransaction
   ): Promise<Step> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    const currentCount = await this.stepRepo.countByWorkflowId(workflowId);
-    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
-      );
-    }
+      const currentCount = await this.stepRepo.countByWorkflowId(workflowId, scopedTx);
+      if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+        throw new LimitExceededError(
+          `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+        );
+      }
 
-    let finalConfig = data.config;
-    if (finalConfig) {
+      let finalConfig: StepConfig;
       try {
-        // Enforce strict validation
-        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as StepConfig, { strict: true });
+        // Validate the type/config pair even when config is omitted: a retired
+        // type name must never bypass the canonical boundary via `undefined`.
+        finalConfig = validateAndNormalizeConfig(data.type, data.config as StepConfig, { strict: true });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         logger.warn(
@@ -209,87 +338,99 @@ export class StepService {
         );
         throw new Error(`Validation error: ${message}`);
       }
-    }
+      if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.codeBlockSvc.validateForSave(finalConfig);
+        this.assertImpureRepeatPolicy(finalConfig);
+        await this.assertNoCodeBlockCycle(workflowId, finalConfig, undefined, data.order ?? 0, scopedTx);
+      }
 
-    // Validate alias if provided; otherwise auto-generate one from the
-    // question label so the step's answer is available to documents
-    // (steps without an alias are excluded from document data entirely)
-    let alias = data.alias;
-    if (alias) {
-      validateAliasFormat(alias);
-      await this.validateAliasUniqueness(workflowId, alias);
-    } else if (data.title) {
-      alias = await this.generateUniqueAlias(workflowId, data.title);
-    }
+      // Validate alias if provided; otherwise auto-generate one from the
+      // question label so the step's answer is available to documents
+      // (steps without an alias are excluded from document data entirely)
+      let alias = data.alias;
+      if (alias) {
+        validateAliasFormat(alias);
+        await this.validateAliasUniqueness(workflowId, alias, undefined, scopedTx);
+      } else if (data.title) {
+        alias = await this.generateUniqueAlias(workflowId, data.title, scopedTx);
+      }
+      if (data.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.validateOutputAliases(workflowId, finalConfig, alias, undefined, scopedTx);
+      }
 
-    // Get current steps to determine next order
-    const existingSteps = await this.stepRepo.findBySectionId(sectionId);
-    const nextOrder = existingSteps.length > 0
-      ? Math.max(...existingSteps.map((s) => s.order)) + 1
-      : 1;
+      // Get current steps to determine next order
+      const existingSteps = await this.stepRepo.findByPageId(pageId, scopedTx);
+      const nextOrder = existingSteps.length > 0
+        ? Math.max(...existingSteps.map((s) => s.order)) + 1
+        : 1;
 
-    // Strip client-controlled identity fields before the spread: `id` would
-    // let a client pick the primary key, and `isVirtual` is owned by the
-    // transform-block machinery (which creates virtual steps via the repo
-    // directly, never through this public create path).
-    const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
-    return this.stepRepo.create({
-      ...safeData,
-      config: finalConfig,
-      alias,
-      workflowId,
-      sectionId,
-      order: data.order ?? nextOrder,
-      // Server-controlled: never let a client-supplied value mark a
-      // freshly created step as already soft-deleted (ICW2-B1).
-      deletedAt: null,
+      // Strip client-controlled identity fields before the spread: `id` would
+      // let a client pick the primary key, and `isVirtual` is owned by the
+      // transform-block machinery (which creates virtual steps via the repo
+      // directly, never through this public create path).
+      const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
+      const created = await this.stepRepo.create({
+        ...safeData,
+        config: finalConfig,
+        alias,
+        workflowId,
+        pageId,
+        order: data.order ?? nextOrder,
+        // Server-controlled: never let a client-supplied value mark a
+        // freshly created step as already soft-deleted (ICW2-B1).
+        deletedAt: null,
+      }, scopedTx);
+      if (created.type === 'js_question' && isJsQuestionConfig(finalConfig)) {
+        await this.codeBlockSvc.syncVirtualSteps(created, undefined, finalConfig, scopedTx);
+      }
+      return created;
     });
   }
 
   /**
-   * Duplicate a single step into the same section, immediately after the
-   * source (later siblings in the section shift by one to make room;
+   * Duplicate a single step into the same page, immediately after the
+   * source (later siblings in the page shift by one to make room;
    * ICW2-B5). Mints a fresh unique alias (`<alias>_copy`, `_copy2`, ...)
    * rather than copying verbatim — unlike the whole-workflow cloner, this
    * targets the *same* workflow, so a verbatim alias would collide with the
    * `(workflowId, lower(alias))` unique index.
    */
-  async duplicateStep(stepId: string, userId: string): Promise<Step> {
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async duplicateStep(stepId: string, userId: string, callerTx?: DbTransaction): Promise<Step> {
+    return this.withTx(callerTx, async (tx) => {
+      const step = await this.stepRepo.findById(stepId, tx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      const page = await this.pageRepo.findById(step.pageId, tx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+      await this.workflowSvc.verifyAccess(page.workflowId, userId, 'edit', tx);
 
-    const currentCount = await this.stepRepo.countByWorkflowId(section.workflowId);
-    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
-      throw new LimitExceededError(
-        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
-      );
-    }
+      const currentCount = await this.stepRepo.countByWorkflowId(page.workflowId, tx);
+      if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+        throw new LimitExceededError(
+          `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+        );
+      }
 
-    const taken = await this.getWorkflowAliases(section.workflowId);
-    const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
+      const taken = await this.getWorkflowAliases(page.workflowId, tx);
+      const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
 
-    return db.transaction(async (tx) => {
       // Shift every later sibling (including virtual/computed steps, so their
       // order never collides with the inserted copy) down by one.
-      const siblings = await this.stepRepo.findBySectionId(step.sectionId, tx, true);
+      const siblings = await this.stepRepo.findByPageId(step.pageId, tx, true);
       const toShift = siblings.filter((s) => s.order > step.order);
       for (const sibling of toShift) {
-        await this.stepRepo.updateOrder(sibling.id, step.sectionId, sibling.order + 1, tx);
+        await this.stepRepo.updateOrder(sibling.id, step.pageId, sibling.order + 1, tx);
       }
 
       return this.stepRepo.create(
         {
-          workflowId: section.workflowId,
-          sectionId: step.sectionId,
+          workflowId: page.workflowId,
+          pageId: step.pageId,
           type: step.type,
           title: step.title,
           description: step.description,
@@ -307,10 +448,10 @@ export class StepService {
   }
 
   /**
-   * Resolve append order for cross-section move
+   * Resolve append order for cross-page move
    */
-  private async resolveCrossSectionOrder(sectionId: string, tx?: DbTransaction): Promise<number> {
-    const destSteps = await this.stepRepo.findBySectionId(sectionId, tx);
+  private async resolveCrossPageOrder(pageId: string, tx?: DbTransaction): Promise<number> {
+    const destSteps = await this.stepRepo.findByPageId(pageId, tx);
     return destSteps.length > 0 ? Math.max(...destSteps.map((s) => s.order)) + 1 : 1;
   }
 
@@ -343,6 +484,66 @@ export class StepService {
     }
   }
 
+  private async preparePageMove(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>,
+    tx: DbTransaction
+  ): Promise<void> {
+    if (!data.pageId || data.pageId === step.pageId) { return; }
+    const newPage = await this.pageRepo.findById(data.pageId, tx);
+    if (!newPage || newPage.workflowId !== workflowId) {
+      throw new Error("Cannot move step to a page in a different workflow");
+    }
+    if (data.order === undefined) {
+      data.order = await this.resolveCrossPageOrder(data.pageId, tx);
+    }
+  }
+
+  private async validateAliasChange(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>,
+    tx: DbTransaction
+  ): Promise<void> {
+    if (data.alias === undefined || data.alias === step.alias) { return; }
+    if (data.alias) {
+      validateAliasFormat(data.alias);
+    }
+    await this.validateAliasUniqueness(workflowId, data.alias, step.id, tx);
+  }
+
+  private buildValidatedStepUpdates(
+    step: Step,
+    workflowId: string,
+    data: Partial<InsertStep>
+  ): { updates: Partial<InsertStep>; aliasChanges: Map<string, string> } {
+    const updates = { ...data };
+    delete updates.workflowId;
+    delete updates.id;
+    delete updates.isVirtual;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+    delete updates.deletedAt;
+
+    if (data.type !== undefined && data.type !== step.type && data.config === undefined) {
+      throw new Error(
+        `Validation error: Invalid config for step type '${data.type}': config: replacement config is required when changing type`
+      );
+    }
+
+    let aliasChanges = new Map<string, string>();
+    if (data.config !== undefined || data.type !== undefined) {
+      const typeToValidate = data.type ?? step.type;
+      const configToValidate = data.config ?? step.config;
+      updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, configToValidate);
+      if (CHOICE_STEP_TYPES.has(typeToValidate)) {
+        aliasChanges = diffChoiceOptionAliases(step.config, updates.config);
+      }
+    }
+    return { updates, aliasChanges };
+  }
+
   /**
    * Update step
    */
@@ -350,72 +551,54 @@ export class StepService {
     stepId: string,
     workflowId: string,
     userId: string,
-    data: Partial<InsertStep>
+    data: Partial<InsertStep>,
+    callerTx?: DbTransaction
   ): Promise<Step & { warnings?: string[] }> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    // Run the entire update in one tenant-scoped transaction.
+    return this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
 
-    // Run the entire update in a transaction
-    return db.transaction(async (tx) => {
       const step = await this.stepRepo.findById(stepId, tx);
       if (!step) {
         throw new Error(STEP_NOT_FOUND);
       }
 
-      // Verify step's section belongs to workflow
-      const section = await this.sectionRepo.findById(step.sectionId, tx);
-      if (!section || section.workflowId !== workflowId) {
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, tx);
+      if (!page || page.workflowId !== workflowId) {
         throw new Error("Step not found in this workflow");
       }
 
-      // If sectionId is being changed, validate new section belongs to same workflow
-      if (data.sectionId && data.sectionId !== step.sectionId) {
-        const newSection = await this.sectionRepo.findById(data.sectionId, tx);
-        if (!newSection || newSection.workflowId !== workflowId) {
-          throw new Error("Cannot move step to a section in a different workflow");
-        }
+      await this.preparePageMove(step, workflowId, data, tx);
+      // Existing aliases are grandfathered until edited.
+      await this.validateAliasChange(step, workflowId, data, tx);
+      const { updates, aliasChanges } = this.buildValidatedStepUpdates(step, workflowId, data);
 
-        // If moving across sections and no explicit order provided, append to end of new section
-        if (data.order === undefined) {
-          data.order = await this.resolveCrossSectionOrder(data.sectionId, tx);
-        }
-      }
-
-      // Validate alias format + uniqueness if alias is being changed
-      // (existing aliases are grandfathered until edited)
-      if (data.alias !== undefined && data.alias !== step.alias) {
-        if (data.alias) {
-          validateAliasFormat(data.alias);
-        }
-        await this.validateAliasUniqueness(workflowId, data.alias, stepId, tx);
-      }
-
-      const updates = { ...data };
-      delete updates.workflowId;
-      delete updates.id;
-      delete updates.isVirtual;
-      delete updates.createdAt;
-      delete updates.updatedAt;
-      delete updates.deletedAt;
-
-      const finalConfig = data.config;
-      let aliasChanges = new Map<string, string>();
-
-      if (finalConfig) {
-        const typeToValidate = data.type ?? step.type;
-        updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, finalConfig);
-
-        // If step is a choice type, compute alias diff for logic rules
-        if (CHOICE_STEP_TYPES.has(typeToValidate)) {
-          aliasChanges = diffChoiceOptionAliases(step.config, updates.config);
-        }
+      const nextType = updates.type ?? step.type;
+      const adaptedNext = adaptLegacyStep({ type: nextType, config: updates.config ?? step.config });
+      const nextCodeBlockConfig = adaptedNext.type === 'js_question' && isJsQuestionConfig(adaptedNext.config)
+        ? adaptedNext.config
+        : undefined;
+      if (nextCodeBlockConfig) {
+        await this.codeBlockSvc.validateForSave(nextCodeBlockConfig);
+        this.assertImpureRepeatPolicy(nextCodeBlockConfig);
+        await this.assertNoCodeBlockCycle(workflowId, nextCodeBlockConfig, step.id, step.order ?? 0, tx);
       }
 
       const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
       if (regenerated !== null) {
         updates.alias = regenerated;
       }
+      if (nextCodeBlockConfig) {
+        await this.validateOutputAliases(workflowId, nextCodeBlockConfig, updates.alias ?? step.alias, step, tx);
+      }
 
       const updated = await this.stepRepo.update(stepId, updates, tx);
+      const shouldSyncCodeBlock = (step.type === 'js_question' && isJsQuestionConfig(step.config)) ||
+        (nextType === 'js_question' && data.config !== undefined);
+      if (shouldSyncCodeBlock) {
+        await this.codeBlockSvc.syncVirtualSteps(updated, step.config, nextCodeBlockConfig, tx);
+      }
 
       // Propagate choice option alias changes
       let warnings: string[] = [];
@@ -435,21 +618,26 @@ export class StepService {
    * hard `DELETE`, so the `step_values.step_id` cascade never fires and
    * respondent answers survive. See `restoreStep` to undo.
    */
-  async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+  async deleteStep(stepId: string, workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Verify step's section belongs to workflow
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== workflowId) {
-      throw new Error("Step not found in this workflow");
-    }
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page || page.workflowId !== workflowId) {
+        throw new Error("Step not found in this workflow");
+      }
 
-    await this.stepRepo.softDelete(stepId);
+      if (step.type === 'js_question' && isJsQuestionConfig(step.config)) {
+        await this.codeBlockSvc.syncVirtualSteps(step, step.config, undefined, scopedTx);
+      }
+      await this.stepRepo.softDelete(stepId, scopedTx);
+    });
   }
 
   /**
@@ -457,19 +645,43 @@ export class StepService {
    * step's `deletedAt` is set, so the filtered `findById` cannot see it.
    * Restore UI is deferred — this is server-side only.
    */
-  async restoreStep(stepId: string, userId: string): Promise<Step> {
-    const step = await this.stepRepo.findByIdIncludingDeleted(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async restoreStep(stepId: string, userId: string, tx?: DbTransaction): Promise<Step> {
+    return this.withTx(tx, async (scopedTx) => {
+      const step = await this.stepRepo.findByIdIncludingDeleted(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit');
+      await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit', scopedTx);
 
-    const restored = await this.stepRepo.restore(stepId);
-    if (!restored) {
-      throw new Error(STEP_NOT_FOUND);
-    }
-    return restored;
+      // RLS-11 cause 3: check the alias BEFORE writing, like every other write
+      // path here does (see validateOutputAliases). Restoring is the one route
+      // that reached the unique index with no preflight, relying on
+      // `rethrowAliasCollision` to turn the failure into a useful message —
+      // which under RLS it cannot do richly, because Postgres withholds the
+      // violation's DETAIL from a role the policy applies to. Asking first
+      // needs no error forensics, behaves identically in both modes, names the
+      // conflicting owner, and never issues a statement that would poison the
+      // caller's transaction.
+      // `candidate.id !== stepId` is load-bearing: restore is idempotent, and a
+      // step that is ALREADY restored appears in this list holding its own
+      // alias. Without the exclusion it collides with itself and a no-op
+      // restore answers 400 instead of 200 — caught by
+      // soft-delete-steps-pages.test.ts (ICW2-B1 AC4), not by the CB-7 suite
+      // this preflight was written for.
+      if (step.alias) {
+        const siblings = await this.stepRepo.findByWorkflowIdWithAliases(step.workflowId, scopedTx);
+        const owner = siblings.find(candidate => candidate.id !== stepId &&
+          candidate.alias?.toLowerCase() === step.alias?.toLowerCase());
+        if (owner) { throw this.aliasCollisionError(step.alias, owner); }
+      }
+
+      const restored = await this.stepRepo.restore(stepId, scopedTx);
+      if (!restored) {
+        throw new Error(STEP_NOT_FOUND);
+      }
+      return restored;
+    });
   }
 
   /**
@@ -478,160 +690,184 @@ export class StepService {
    * the client's destructive-confirm dialog (ICW2-13). The counting logic
    * lives in StepValueRepository so ICW2-B1 (soft-delete) can reuse it.
    */
-  async getStepDeleteImpact(stepId: string, workflowId: string, userId: string): Promise<DeleteImpact> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+  async getStepDeleteImpact(stepId: string, workflowId: string, userId: string, tx?: DbTransaction): Promise<DeleteImpact> {
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', scopedTx);
 
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Verify step's section belongs to workflow
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== workflowId) {
-      throw new Error("Step not found in this workflow");
-    }
+      // Verify step's page belongs to workflow
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page || page.workflowId !== workflowId) {
+        throw new Error("Step not found in this workflow");
+      }
 
-    return this.stepValueRepo.countImpactForSteps([stepId]);
+      return this.stepValueRepo.countImpactForSteps([stepId], scopedTx);
+    });
   }
 
   /**
    * Impact of deleting a step (workflow looked up automatically).
    */
-  async getStepDeleteImpactById(stepId: string, userId: string): Promise<DeleteImpact> {
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async getStepDeleteImpactById(stepId: string, userId: string, tx?: DbTransaction): Promise<DeleteImpact> {
+    return this.withTx(tx, async (scopedTx) => {
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    return this.getStepDeleteImpact(stepId, section.workflowId, userId);
+      return this.getStepDeleteImpact(stepId, page.workflowId, userId, scopedTx);
+    });
   }
 
   /**
-   * Reorder steps within a section
+   * Reorder steps within a page
    */
   async reorderSteps(
     workflowId: string,
-    sectionId: string,
+    pageId: string,
     userId: string,
-    stepOrders: Array<{ id: string; order: number }>
+    stepOrders: Array<{ id: string; order: number }>,
+    callerTx?: DbTransaction
   ): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+    await this.withTx(callerTx, async (tx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'edit', tx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, tx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Update each step's order
-    await db.transaction(async (tx) => {
+      // Update each step's order
       for (const { id, order } of stepOrders) {
-        await this.stepRepo.updateOrder(id, sectionId, order, tx);
+        await this.stepRepo.updateOrder(id, pageId, order, tx);
       }
     });
   }
 
   /**
-   * Get steps for a section
+   * Get steps for a page
    */
-  async getSteps(workflowId: string, sectionId: string, userId: string): Promise<Step[]> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+  async getSteps(workflowId: string, pageId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
 
-    // Verify section belongs to workflow
-    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Verify page belongs to workflow
+      const page = await this.pageRepo.findByIdAndWorkflow(pageId, workflowId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    return this.stepRepo.findBySectionId(sectionId);
+      const steps = await this.stepRepo.findByPageId(pageId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
+    });
   }
 
-  async verifyWorkflowAccess(workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId, 'view');
+  async verifyWorkflowAccess(workflowId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
+    });
   }
 
-  async getWorkflowSteps(workflowId: string): Promise<Step[]> {
-    return this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+  async getWorkflowSteps(workflowId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      const steps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
+    });
   }
 
   // ===================================================================
-  // SIMPLIFIED METHODS (automatically look up workflowId from section/step)
+  // SIMPLIFIED METHODS (automatically look up workflowId from page/step)
   // ===================================================================
 
   /**
-   * Get steps for a section (workflow looked up automatically)
+   * Get steps for a page (workflow looked up automatically)
    */
-  async getStepsBySectionId(sectionId: string, userId: string): Promise<Step[]> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+  async getStepsByPageId(pageId: string, userId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.getSteps(section.workflowId, sectionId, userId);
+      // Use the existing method with the workflowId
+      return this.getSteps(page.workflowId, pageId, userId, scopedTx);
+    });
   }
 
   /**
-   * Get steps for a section without ownership check
+   * Get steps for a page without ownership check
    * Used for preview/run token authentication
-   * Validates that the section belongs to the expected workflow
+   * Validates that the page belongs to the expected workflow
    */
-  async getStepsBySectionIdNoAuth(sectionId: string, expectedWorkflowId: string): Promise<Step[]> {
-    // Look up the section
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+  async getStepsByPageIdNoAuth(pageId: string, expectedWorkflowId: string, tx?: DbTransaction): Promise<Step[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the page
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Verify the section belongs to the expected workflow
-    if (section.workflowId !== expectedWorkflowId) {
-      throw new Error("Section does not belong to the specified workflow");
-    }
+      // Verify the page belongs to the expected workflow
+      if (page.workflowId !== expectedWorkflowId) {
+        throw new Error("Page does not belong to the specified workflow");
+      }
 
-    return this.stepRepo.findBySectionId(sectionId);
+      const steps = await this.stepRepo.findByPageId(pageId, scopedTx);
+      return steps.map(step => adaptLegacyStep(step));
+    });
   }
 
   /**
    * Create a new step (workflow looked up automatically)
    */
-  async createStepBySectionId(
-    sectionId: string,
+  async createStepByPageId(
+    pageId: string,
     userId: string,
-    data: CreateStepData
+    data: CreateStepData,
+    tx?: DbTransaction
   ): Promise<Step> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.createStep(section.workflowId, sectionId, userId, data);
+      // Use the existing method with the workflowId
+      return this.createStep(page.workflowId, pageId, userId, data, scopedTx);
+    });
   }
 
   /**
    * Reorder steps (workflow looked up automatically)
    */
-  async reorderStepsBySectionId(
-    sectionId: string,
+  async reorderStepsByPageId(
+    pageId: string,
     userId: string,
-    stepOrders: Array<{ id: string; order: number }>
+    stepOrders: Array<{ id: string; order: number }>,
+    tx?: DbTransaction
   ): Promise<void> {
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+    await this.withTx(tx, async (scopedTx) => {
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    await this.reorderSteps(section.workflowId, sectionId, userId, stepOrders);
+      // Use the existing method with the workflowId
+      await this.reorderSteps(page.workflowId, pageId, userId, stepOrders, scopedTx);
+    });
   }
 
   /**
@@ -640,22 +876,25 @@ export class StepService {
   async updateStepById(
     stepId: string,
     userId: string,
-    data: Partial<InsertStep>
+    data: Partial<InsertStep>,
+    tx?: DbTransaction
   ): Promise<Step & { warnings?: string[] }> {
-    // Look up the step to get its section
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the step to get its page
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    return this.updateStep(stepId, section.workflowId, userId, data);
+      // Use the existing method with the workflowId
+      return this.updateStep(stepId, page.workflowId, userId, data, scopedTx);
+    });
   }
 
   public async propagateChoiceOptionRenames(stepId: string, workflowId: string, aliasChanges: Map<string, string>, tx: DbTransaction): Promise<string[]> {
@@ -681,9 +920,9 @@ export class StepService {
       }
     }
 
-    // 2. Scan visibleIf across all steps and sections for warnings
+    // 2. Scan visibleIf across all steps and pages for warnings
     const steps = await this.stepRepo.findByWorkflowId(workflowId, tx);
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+    const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
 
     const checkVisibleIf = (visibleIf: unknown, sourceName: string): void => {
       if (!visibleIf) {return;}
@@ -698,8 +937,8 @@ export class StepService {
     for (const s of steps) {
       if (s.id !== stepId) {checkVisibleIf(s.visibleIf, `Step "${s.title}"`);}
     }
-    for (const s of sections) {
-      checkVisibleIf(s.visibleIf, `Section "${s.title}"`);
+    for (const s of pages) {
+      checkVisibleIf(s.visibleIf, `Page "${s.title}"`);
     }
 
     return warnings;
@@ -708,43 +947,47 @@ export class StepService {
   /**
    * Delete a step (workflow looked up automatically)
    */
-  async deleteStepById(stepId: string, userId: string): Promise<void> {
-    // Look up the step to get its section
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async deleteStepById(stepId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    await this.withTx(tx, async (scopedTx) => {
+      // Look up the step to get its page
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Use the existing method with the workflowId
-    await this.deleteStep(stepId, section.workflowId, userId);
+      // Use the existing method with the workflowId
+      await this.deleteStep(stepId, page.workflowId, userId, scopedTx);
+    });
   }
 
   /**
    * Get a step by ID (workflow looked up automatically)
    */
-  async getStepById(stepId: string, userId: string): Promise<Step> {
-    // Look up the step
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
+  async getStepById(stepId: string, userId: string, tx?: DbTransaction): Promise<Step> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Look up the step
+      const step = await this.stepRepo.findById(stepId, scopedTx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
+      }
 
-    // Look up the section to get its workflowId
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section) {
-      throw new Error(SECTION_NOT_FOUND);
-    }
+      // Look up the page to get its workflowId
+      const page = await this.pageRepo.findById(step.pageId, scopedTx);
+      if (!page) {
+        throw new Error(PAGE_NOT_FOUND);
+      }
 
-    // Verify ownership
-    await this.workflowSvc.verifyAccess(section.workflowId, userId);
+      // Verify ownership
+      await this.workflowSvc.verifyAccess(page.workflowId, userId, 'view', scopedTx);
 
-    return step;
+      return adaptLegacyStep(step);
+    });
   }
 }
 

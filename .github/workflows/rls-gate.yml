@@ -1,0 +1,157 @@
+name: RLS Enforcement Gate
+
+# RLS-5. Runs the integration suite against a genuine NON-OWNER Postgres role,
+# which is the only way to find out whether tenant isolation actually holds.
+#
+# This is a SEPARATE workflow rather than another step in ci.yml's test job on
+# purpose. The two runs answer different questions — "do the tests pass?" and
+# "do they still pass when the app cannot see other tenants' rows?" — and a red
+# RLS gate needs to be legible as its own thing rather than one more failure
+# inside a job that was already red for an unrelated reason.
+#
+# Same branch coverage as ci.yml: the whole promotion chain, not just main.
+# Gating main alone means a break sits undetected on dev and test and only
+# announces itself on the branch that deploys.
+on:
+  push:
+    branches: [ "main", "test", "dev" ]
+  pull_request:
+    branches: [ "main", "test" ]
+
+jobs:
+  rls-gate:
+    name: RLS Enforcement Gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespw
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      # The integration suite reaches document generation on run completion, so
+      # without this several unrelated suites fail with a bare
+      # "expected 500 to be 200" and look like code defects. See the run-tests
+      # skill — this cost real time once already.
+      gotenberg:
+        image: gotenberg/gotenberg:8
+        ports:
+          - 3009:3000
+        options: >-
+          --health-cmd "curl --fail http://localhost:3000/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install system dependencies (qpdf)
+      run: sudo apt-get update && sudo apt-get install -y qpdf
+
+    - name: Use Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    # tests/setup.ts builds its own per-worker schema and replays the migration
+    # chain itself, including the RLS policies and the restricted/bypass roles.
+    # No separate db:migrate step is needed or wanted here — the point is to
+    # exercise exactly the path the local restricted run uses.
+    # Output is tee'd so a failure alert can quote the gate's own verdict.
+    # pipefail is required: without it the step would report tee's exit code
+    # (always 0) and the gate could never fail.
+    - name: Run the RLS gate
+      run: |
+        set -o pipefail
+        npx tsx scripts/rls-gate.ts 2>&1 | tee rls-gate-output.txt
+      env:
+        NODE_ENV: test
+        DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        TEST_DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        PDF_CONVERTER_API_URL: "http://localhost:3009"
+        SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"
+        JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
+        VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: rls-gate-results
+        path: |
+          rls-gate-results.json
+          rls-gate-output.txt
+        if-no-files-found: warn
+
+    # RLS-11 AC 4. This gate sat red for 35 consecutive pushes, then 23 more,
+    # because a failure here reached no one: ci.yml posts to Slack, this did
+    # not. It is also a required check on `main`, but `dev` has no required
+    # checks and pushes use the owner bypass, so the alert is what actually
+    # makes a red gate visible within the day. Push events only: a PR shows
+    # its own red check. continue-on-error so a Slack outage can never change
+    # what this job reports.
+    - name: Alert Slack on failure
+      if: failure() && github.event_name == 'push'
+      continue-on-error: true
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      run: node scripts/ci/post-slack-gate-failure.js --gate "RLS Enforcement Gate" --details rls-gate-output.txt
+
+  # ---------------------------------------------------------------------------
+  # RLS-9 — the static half of the same question.
+  #
+  # Deliberately a SEPARATE job with no database and no service containers. The
+  # integration gate above answers "do the tests still pass when the app cannot
+  # see other tenants' rows", which it can only answer for paths some test
+  # actually drives — and an RLS read failure is SILENT, returning empty rather
+  # than throwing. This job answers the complementary question, "did anyone add
+  # a query that never sets a tenant at all", for every call site whether a test
+  # exercises it or not. It finishes in seconds, so a static regression is not
+  # buried behind a 15-minute suite.
+  # ---------------------------------------------------------------------------
+  rls-surface-audit:
+    name: RLS Surface Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    # Two-way ratchet against .rls-surface-allowlist.json: fails on a new or
+    # worsened unscoped call site, AND on an entry that improved or no longer
+    # reproduces (which must then be tightened or deleted). A one-way list rots
+    # into decoration that certifies nothing.
+    - name: Run the RLS surface gate
+      run: |
+        set -o pipefail
+        npx tsx scripts/audit-rls-surface.ts 2>&1 | tee rls-surface-output.txt
+
+    - name: Alert Slack on failure
+      if: failure() && github.event_name == 'push'
+      continue-on-error: true
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      run: node scripts/ci/post-slack-gate-failure.js --gate "RLS Surface Audit" --details rls-surface-output.txt

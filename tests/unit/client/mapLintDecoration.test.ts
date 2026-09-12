@@ -3,75 +3,75 @@ import { describe, expect, it } from "vitest";
 import { decorateMapFindings, summarizeMapFindings } from "@/components/builder/map/mapLintDecoration";
 import type { WorkflowLintIssue } from "@shared/types/workflowLint";
 
-function issue(overrides: Partial<WorkflowLintIssue> & { sectionId?: string }): WorkflowLintIssue {
-  const { sectionId, ...rest } = overrides;
+function issue(overrides: Partial<WorkflowLintIssue> & { pageId?: string }): WorkflowLintIssue {
+  const { pageId, ...rest } = overrides;
   return {
     type: "error",
     category: "logic",
     message: "A finding.",
-    target: { tab: "map", sectionId },
+    target: { tab: "map", pageId },
     ...rest,
   };
 }
 
 describe("decorateMapFindings (MAP-6)", () => {
-  it("groups findings by their target.sectionId when it matches a node on the map", () => {
-    const nodeIds = new Set(["section-a", "section-b"]);
-    const errorOnA = issue({ sectionId: "section-a", type: "error", message: "Section A is unreachable." });
-    const warningOnB = issue({ sectionId: "section-b", type: "warning", message: "Backward skip." });
+  it("groups findings by their target.pageId when it matches a node on the map", () => {
+    const nodeIds = new Set(["page-a", "page-b"]);
+    const errorOnA = issue({ pageId: "page-a", type: "error", message: "Page A is unreachable." });
+    const warningOnB = issue({ pageId: "page-b", type: "warning", message: "Backward skip." });
 
     const decoration = decorateMapFindings([errorOnA, warningOnB], nodeIds);
 
-    expect(decoration.bySection.get("section-a")).toEqual([errorOnA]);
-    expect(decoration.bySection.get("section-b")).toEqual([warningOnB]);
+    expect(decoration.byPage.get("page-a")).toEqual([errorOnA]);
+    expect(decoration.byPage.get("page-b")).toEqual([warningOnB]);
     expect(decoration.unmatched).toEqual([]);
   });
 
   it("collects multiple findings for the same node rather than overwriting", () => {
-    const nodeIds = new Set(["section-a"]);
-    const first = issue({ sectionId: "section-a", message: "First." });
-    const second = issue({ sectionId: "section-a", message: "Second." });
+    const nodeIds = new Set(["page-a"]);
+    const first = issue({ pageId: "page-a", message: "First." });
+    const second = issue({ pageId: "page-a", message: "Second." });
 
     const decoration = decorateMapFindings([first, second], nodeIds);
 
-    expect(decoration.bySection.get("section-a")).toEqual([first, second]);
+    expect(decoration.byPage.get("page-a")).toEqual([first, second]);
   });
 
-  it("puts a finding whose target.sectionId matches no node into `unmatched`, not the section map (AC5)", () => {
-    const nodeIds = new Set(["section-a"]);
-    const ghost = issue({ sectionId: "section-ghost", message: "Stale reference." });
+  it("puts a finding whose target.pageId matches no node into `unmatched`, not the page map (AC5)", () => {
+    const nodeIds = new Set(["page-a"]);
+    const ghost = issue({ pageId: "page-ghost", message: "Stale reference." });
 
     const decoration = decorateMapFindings([ghost], nodeIds);
 
-    expect(decoration.bySection.size).toBe(0);
+    expect(decoration.byPage.size).toBe(0);
     expect(decoration.unmatched).toEqual([ghost]);
   });
 
-  it("excludes findings with no target.sectionId at all — they aren't map-relevant", () => {
-    const nodeIds = new Set(["section-a"]);
-    const documentFinding = issue({ sectionId: undefined, message: "Missing template." });
+  it("excludes findings with no target.pageId at all — they aren't map-relevant", () => {
+    const nodeIds = new Set(["page-a"]);
+    const documentFinding = issue({ pageId: undefined, message: "Missing template." });
 
     const decoration = decorateMapFindings([documentFinding], nodeIds);
 
-    expect(decoration.bySection.size).toBe(0);
+    expect(decoration.byPage.size).toBe(0);
     expect(decoration.unmatched).toEqual([]);
   });
 
   it("is a pure function — an empty issue list yields an empty decoration", () => {
-    const decoration = decorateMapFindings([], new Set(["section-a"]));
-    expect(decoration.bySection.size).toBe(0);
+    const decoration = decorateMapFindings([], new Set(["page-a"]));
+    expect(decoration.byPage.size).toBe(0);
     expect(decoration.unmatched).toEqual([]);
   });
 });
 
 describe("summarizeMapFindings (MAP-6)", () => {
   it("counts errors and warnings across both matched and unmatched findings", () => {
-    const nodeIds = new Set(["section-a"]);
+    const nodeIds = new Set(["page-a"]);
     const decoration = decorateMapFindings(
       [
-        issue({ sectionId: "section-a", type: "error" }),
-        issue({ sectionId: "section-a", type: "warning" }),
-        issue({ sectionId: "section-ghost", type: "warning" }),
+        issue({ pageId: "page-a", type: "error" }),
+        issue({ pageId: "page-a", type: "warning" }),
+        issue({ pageId: "page-ghost", type: "warning" }),
       ],
       nodeIds
     );

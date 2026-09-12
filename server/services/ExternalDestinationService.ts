@@ -10,6 +10,8 @@ import {
 import { db } from "../db";
 import { logger } from "../logger";
 import { encrypt, decrypt } from "../utils/encryption";
+import { withCurrentTenant } from "../utils/rlsContext";
+import type { DbTransaction } from "../repositories/BaseRepository";
 
 const SENSITIVE_KEYS = ['password', 'token', 'secret', 'key', 'apikey', 'apisecret', 'clientsecret', 'authorization'];
 
@@ -65,6 +67,27 @@ export class ExternalDestinationService {
     constructor(private database = db) { }
 
     /**
+     * Run `fn` inside a tenant-scoped transaction (RLS-7).
+     *
+     * `external_destinations` is RLS-covered and every method here reached it
+     * through `this.database` — a bare `db` held in a constructor-default
+     * FIELD, which is why `scripts/audit-rls-surface.ts` never saw this file
+     * (it matches `db.select(`, not `this.database.select(`; the same alias
+     * blind spot that hid `DataSourceService`). Unscoped under enforcement,
+     * `getDestination` returned undefined and every external-send block failed
+     * with "Destination not found" for a destination that exists.
+     *
+     * The injected `database` is honoured when a caller supplied one (tests
+     * pass an explicit instance); only the default singleton gets scoped.
+     */
+    private async withTx<T>(fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
+        if (this.database !== db) {
+            return fn(this.database as unknown as DbTransaction);
+        }
+        return withCurrentTenant(fn);
+    }
+
+    /**
      * Create a new external destination
      */
     async createDestination(data: InsertExternalDestination): Promise<ExternalDestination> {
@@ -77,10 +100,10 @@ export class ExternalDestinationService {
 
         const encryptedData = { ...data, config: encryptConfig(data.config) };
 
-        const [destination] = await this.database
+        const [destination] = await this.withTx((tx) => tx
             .insert(externalDestinations)
             .values(encryptedData)
-            .returning();
+            .returning());
 
         destination.config = decryptConfig(destination.config);
         return destination;
@@ -90,10 +113,10 @@ export class ExternalDestinationService {
      * Get all destinations for a tenant
      */
     async getDestinations(tenantId: string): Promise<ExternalDestination[]> {
-        const dests = await this.database
+        const dests = await this.withTx((tx) => tx
             .select()
             .from(externalDestinations)
-            .where(eq(externalDestinations.tenantId, tenantId));
+            .where(eq(externalDestinations.tenantId, tenantId)));
             
         return dests.map(d => ({ ...d, config: decryptConfig(d.config) }));
     }
@@ -102,13 +125,13 @@ export class ExternalDestinationService {
      * Get a single destination by ID
      */
     async getDestination(id: string, tenantId: string): Promise<ExternalDestination | undefined> {
-        const destinations = await this.database
+        const destinations = await this.withTx((tx) => tx
             .select()
             .from(externalDestinations)
             .where(and(
                 eq(externalDestinations.id, id),
                 eq(externalDestinations.tenantId, tenantId)
-            ));
+            )));
         const destination = firstDestination(destinations);
 
         if (destination !== undefined) {
@@ -132,14 +155,14 @@ export class ExternalDestinationService {
             encryptedUpdates.config = encryptConfig(updates.config);
         }
 
-        const updatedRows = await this.database
+        const updatedRows = await this.withTx((tx) => tx
             .update(externalDestinations)
             .set({ ...encryptedUpdates, updatedAt: new Date() })
             .where(and(
                 eq(externalDestinations.id, id),
                 eq(externalDestinations.tenantId, tenantId)
             ))
-            .returning();
+            .returning());
         const updated = firstDestination(updatedRows);
 
         if (updated !== undefined) {
@@ -154,12 +177,12 @@ export class ExternalDestinationService {
     async deleteDestination(id: string, tenantId: string): Promise<void> {
         logger.info({ id, tenantId }, "Deleting external destination");
 
-        await this.database
+        await this.withTx((tx) => tx
             .delete(externalDestinations)
             .where(and(
                 eq(externalDestinations.id, id),
                 eq(externalDestinations.tenantId, tenantId)
-            ));
+            )));
     }
 }
 

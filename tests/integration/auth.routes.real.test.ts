@@ -4,7 +4,8 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest";
 
 import { users, loginAttempts } from "@shared/schema";
 
-import { db } from "../../server/db";
+// RLS-5: verification reads are the OBSERVER - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 import { createTestApp ,
 } from "../helpers/testApp";
 import { // Keeping import if needed for heavy reset, but favoring specific
@@ -60,7 +61,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect((response.body).user.email).toBe(email);
       expect((response.body).user.emailVerified).toBe(false);
       // Verify user was created in database
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       expect(user).toBeDefined();
@@ -96,7 +97,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       await request(app)
         .post("/api/auth/register")
         .send({ email, password, firstName: "First" });
-      const user = await db.query.users.findFirst({
+      const user = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
       if (user) {trackUser(user.id);}
@@ -189,7 +190,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
           password: "WrongPassword",
         });
       // Check that failed attempt was recorded
-      const attempts = await db.query.loginAttempts.findMany({
+      const attempts = await getOwnerDb().query.loginAttempts.findMany({
         where: eq(loginAttempts.email, email),
       });
       expect(attempts.length).toBeGreaterThan(0);

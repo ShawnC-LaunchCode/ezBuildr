@@ -9,12 +9,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { storageProvider } from '../../server/services/storage';
 import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 
@@ -73,14 +75,14 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
       userRole: 'admin',
       tenantRole: 'owner',
     });
-    factory = new TestFactory(db);
+    factory = new TestFactory();
     await fs.mkdir(FILES_DIR, { recursive: true });
   });
 
   beforeEach(async () => {
     // The real completion worker claims a global queue within this test schema.
     // Keep each case responsible only for the job it just enqueued.
-    await db.delete(schema.runCompletionJobs);
+    await getOwnerDb().delete(schema.runCompletionJobs);
   });
 
   afterAll(async () => {
@@ -115,7 +117,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
       name: `${prefix} template`,
       fileRef: currentFileRef,
     });
-    const [version] = await db.insert(schema.templateVersions).values({
+    const [version] = await getOwnerDb().insert(schema.templateVersions).values({
       id: randomUUID(),
       templateId: template.id,
       versionNumber: 1,
@@ -171,9 +173,9 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
     alias: string
   ): Promise<{ runId: string; workflowId: string; finalStepId: string }> {
     const { workflow } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const section = await factory.createSection(workflow.id);
-    const finalStep = await factory.createStep(section.id, {
-      type: 'final',
+    const page = await factory.createPage(workflow.id);
+    const finalStep = await factory.createStep(page.id, {
+      type: 'final_documents',
       title: 'Final documents',
       config: {
         markdownHeader: '',
@@ -186,7 +188,7 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
         }],
       },
     });
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: workflow.id,
       runToken: `g171-2-${randomUUID()}`,
       createdBy: `creator:${ctx1.userId}`,
@@ -204,11 +206,11 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
     const processed = await runCompletionJobWorker.processBatch(`g171-2-${runId}`, 1);
     expect(processed).toBe(1);
 
-    const [run] = await db
+    const [run] = await getOwnerDb()
       .select({ generationStatus: schema.workflowRuns.generationStatus })
       .from(schema.workflowRuns)
       .where(eq(schema.workflowRuns.id, runId));
-    const documents = await db
+    const documents = await getOwnerDb()
       .select()
       .from(schema.runGeneratedDocuments)
       .where(eq(schema.runGeneratedDocuments.runId, runId));
@@ -221,14 +223,14 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
   it('rejects a pinned version belonging to a different tenant/project in preview', async () => {
     const { version: versionB } = await createTemplateVersion(ctx2, 'preview-foreign', 'FOREIGN PREVIEW');
     const { workflow: workflowA } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const sectionA = await factory.createSection(workflowA.id);
+    const pageA = await factory.createPage(workflowA.id);
     const { template: templateA } = await factory.createTemplate(ctx1.projectId!, ctx1.userId, {
       fileRef: await createTemplateFile('preview-foreign-target', 'AUTHORIZED TARGET'),
     });
 
     const response = await previewPinnedVersion(
       workflowA.id,
-      sectionA.id,
+      pageA.id,
       templateA.id,
       versionB.id,
       'doc_a'
@@ -240,14 +242,14 @@ describe.sequential('GH-171 Follow-up: Template Version Pinning Security', () =>
   it('rejects a pinned version belonging to a different template in the same project in preview', async () => {
     const { version: versionA1 } = await createTemplateVersion(ctx1, 'preview-wrong-template', 'WRONG PREVIEW');
     const { workflow: workflowA } = await factory.createWorkflow(ctx1.projectId!, ctx1.userId);
-    const sectionA = await factory.createSection(workflowA.id);
+    const pageA = await factory.createPage(workflowA.id);
     const { template: templateA2 } = await factory.createTemplate(ctx1.projectId!, ctx1.userId, {
       fileRef: await createTemplateFile('preview-wrong-target', 'AUTHORIZED TARGET'),
     });
 
     const response = await previewPinnedVersion(
       workflowA.id,
-      sectionA.id,
+      pageA.id,
       templateA2.id,
       versionA1.id,
       'doc_a2'

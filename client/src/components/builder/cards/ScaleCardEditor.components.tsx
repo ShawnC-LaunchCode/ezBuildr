@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 
-import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
+import type { ScaleConfig } from "@shared/types/stepConfigs";
 
 import { TextField, NumberField, SectionHeader, SwitchField } from "./common/EditorField";
 
@@ -162,13 +162,12 @@ function validateScaleCardState(config: ScaleCardState): string[] {
     return errs;
 }
 
-function toScaleCardState(config: ScaleAdvancedConfig | undefined): ScaleCardState {
+function toScaleCardState(config: ScaleConfig | undefined): ScaleCardState {
     return {
         min: config?.min ?? 1,
         max: config?.max ?? 10,
         step: config?.step ?? 1,
-        display: (config?.display ?? "slider") as "slider" | "stars",
-        stars: config?.stars,
+        display: config?.display ?? "slider",
         showValue: config?.showValue ?? true,
         minLabel: config?.minLabel ?? "",
         maxLabel: config?.maxLabel ?? "",
@@ -179,6 +178,7 @@ function toScaleCardState(config: ScaleAdvancedConfig | undefined): ScaleCardSta
  * Presentational, save-free Scale settings panel (LIST2-7). Composes
  * `DisplayModeSection` + `RangeSection` + the "Show Current Value" toggle +
  * validation errors, and calls `onChange` with a complete `ScaleAdvancedConfig`
+ * validation errors, and calls `onChange` with a complete `ScaleConfig`
  * on every valid edit — no `useUpdateStep` call, so it works identically as a
  * standalone step's settings body or embedded in a List field's drilled
  * settings (`ListFieldSettings`).
@@ -187,8 +187,8 @@ export function ScaleSettingsSection({
     config,
     onChange,
 }: {
-    config: ScaleAdvancedConfig | undefined;
-    onChange: (config: ScaleAdvancedConfig) => void;
+    config: ScaleConfig | undefined;
+    onChange: (config: ScaleConfig) => void;
 }): JSX.Element {
     const [localConfig, setLocalConfig] = useState<ScaleCardState>(() => toScaleCardState(config));
     const [errors, setErrors] = useState<string[]>([]);
@@ -208,7 +208,7 @@ export function ScaleSettingsSection({
             return; // Don't save if invalid
         }
 
-        const configToSave: ScaleAdvancedConfig = {
+        const configToSave: ScaleConfig = {
             min: newConfig.min,
             max: newConfig.max,
             step: newConfig.step,
@@ -221,9 +221,6 @@ export function ScaleSettingsSection({
         }
         if (newConfig.maxLabel?.trim()) {
             configToSave.maxLabel = newConfig.maxLabel;
-        }
-        if (newConfig.display === "stars" && newConfig.stars) {
-            configToSave.stars = newConfig.stars;
         }
 
         onChange(configToSave);

@@ -8,10 +8,10 @@ import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { enterTenantContextForTests } from '../../server/utils/rlsContext';
 import {
   users,
   organizations,
@@ -23,6 +23,9 @@ import {
   tenants,
   auditLogs,
 } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 
 describe('Organization Audit Fixes', () => {
@@ -31,15 +34,26 @@ describe('Organization Audit Fixes', () => {
   const user2Id = uuidv4();
   let testOrgId: string;
 
+  // RLS-2d: organizationService/projectService calls below go straight to the
+  // service with no HTTP request, so there's no rlsContext middleware to
+  // populate the async tenant context. testTenantId is a fixed constant known
+  // up front, so `enterTenantContextForTests(testTenantId)` covers this
+  // beforeAll's own createOrganization call, and is repeated at the top of
+  // every `it` body that touches organizationService/projectService — a
+  // hook's binding does not propagate into the test body (measured, not
+  // assumed — AsyncLocalStorage.enterWith is scoped per vitest hook/test
+  // execution). workflowService is untouched by RLS-2d (Workflow/template
+  // cluster, converted separately), so its calls below need no such call.
   beforeAll(async () => {
+    enterTenantContextForTests(testTenantId);
     // Create test tenant
-    await db.insert(tenants).values({
+    await getOwnerDb().insert(tenants).values({
       id: testTenantId,
       name: 'Test Tenant Audit',
     }).onConflictDoNothing();
 
     // Create test users
-    await db.insert(users).values([
+    await getOwnerDb().insert(users).values([
       {
         id: user1Id,
         email: 'audit-user1@test.com',
@@ -64,7 +78,7 @@ describe('Organization Audit Fixes', () => {
     // Create a dummy workspace with ID = testTenantId to satisfy OrganizationService's
     // incorrect assumption that tenantId can be logged as workspaceId in audit logs.
     const { workspaces } = await import('../../shared/schema');
-    await db.insert(workspaces).values({
+    await getOwnerDb().insert(workspaces).values({
       id: testTenantId, // Force ID to match tenantId
       organizationId: testOrgId,
       name: 'Default Workspace',
@@ -76,9 +90,9 @@ describe('Organization Audit Fixes', () => {
     // Cleanup
     try {
       if (testOrgId) {
-        await db.delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
-        await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
-        await db.delete(organizations).where(eq(organizations.id, testOrgId));
+        await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.orgId, testOrgId));
+        await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
+        await getOwnerDb().delete(organizations).where(eq(organizations.id, testOrgId));
       }
 
       // Cleanup assets created by users to prevents FK violations
@@ -91,17 +105,17 @@ describe('Organization Audit Fixes', () => {
 
       for (const uid of testUserIds) {
         // Runs
-        await db.delete(workflowRuns).where(eq(workflowRuns.createdBy, uid));
+        await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.createdBy, uid));
         // Workflows
-        await db.delete(workflows).where(eq(workflows.creatorId, uid));
+        await getOwnerDb().delete(workflows).where(eq(workflows.creatorId, uid));
         // Projects
-        await db.delete(projects).where(eq(projects.creatorId, uid));
+        await getOwnerDb().delete(projects).where(eq(projects.creatorId, uid));
         // Audit Logs (fix FK violation)
-        await db.delete(auditLogs).where(eq(auditLogs.userId, uid));
+        await getOwnerDb().delete(auditLogs).where(eq(auditLogs.userId, uid));
       }
 
-      await db.delete(users).where(eq(users.tenantId, testTenantId));
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      await getOwnerDb().delete(users).where(eq(users.tenantId, testTenantId));
+      await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
     } catch (error) {
       console.error('Cleanup error:', error);
     }
@@ -109,6 +123,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #1: Project transfer cascades runs ownership', () => {
     it('should cascade ownership to workflow runs when project is transferred', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create project with workflow
       const project = await projectService.createProject(
         {
@@ -132,7 +147,7 @@ describe('Organization Audit Fixes', () => {
       );
 
       // Create a run
-      const [run] = await db.insert(workflowRuns).values({
+      const [run] = await getOwnerDb().insert(workflowRuns).values({
         workflowId: workflow.id,
         runToken: uuidv4(),
         createdBy: user1Id,
@@ -144,7 +159,7 @@ describe('Organization Audit Fixes', () => {
       await projectService.transferOwnership(project.id, user1Id, 'org', testOrgId);
 
       // Verify run ownership changed
-      const updatedRun = await db.query.workflowRuns.findFirst({
+      const updatedRun = await getOwnerDb().query.workflowRuns.findFirst({
         where: eq(workflowRuns.id, run.id),
       });
 
@@ -152,14 +167,15 @@ describe('Organization Audit Fixes', () => {
       expect(updatedRun?.ownerUuid).toBe(testOrgId);
 
       // Cleanup
-      await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
-      await db.delete(projects).where(eq(projects.id, project.id));
+      await getOwnerDb().delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(projects).where(eq(projects.id, project.id));
     });
   });
 
   describe('FIX #2: Invite acceptance race condition', () => {
     it('makes re-accepting an invite idempotent instead of creating a second membership', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create invite for user2's email
       const invite = await organizationService.createInvite(
         testOrgId,
@@ -180,7 +196,7 @@ describe('Organization Audit Fixes', () => {
       const second = await organizationService.acceptInvite(invite.token, user2Id);
       expect(second).toEqual(first);
 
-      const memberships = await db
+      const memberships = await getOwnerDb()
         .select()
         .from(organizationMemberships)
         .where(
@@ -192,7 +208,7 @@ describe('Organization Audit Fixes', () => {
       expect(memberships).toHaveLength(1);
 
       // Cleanup
-      await db.delete(organizationMemberships).where(
+      await getOwnerDb().delete(organizationMemberships).where(
         and(
           eq(organizationMemberships.orgId, testOrgId),
           eq(organizationMemberships.userId, user2Id)
@@ -203,6 +219,7 @@ describe('Organization Audit Fixes', () => {
 
   describe('FIX #3: Invite email failure rollback', () => {
     it('should not create invite if email fails', async () => {
+      enterTenantContextForTests(testTenantId);
       // Note: This test would require mocking SendGrid to actually test the rollback
       // For now, we verify the invite was created successfully
       const invite = await organizationService.createInvite(
@@ -211,7 +228,7 @@ describe('Organization Audit Fixes', () => {
         user1Id
       );
 
-      const dbInvite = await db.query.organizationInvites.findFirst({
+      const dbInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite.inviteId),
       });
 
@@ -219,19 +236,20 @@ describe('Organization Audit Fixes', () => {
       expect(dbInvite?.status).toBe('pending');
 
       // Cleanup
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
     });
   });
 
   describe('FIX #5: Expired invites', () => {
     it('should allow re-invite after invite expires', async () => {
+      enterTenantContextForTests(testTenantId);
       const email = 'expired-test@example.com';
 
       // Create invite
       const invite1 = await organizationService.createInvite(testOrgId, email, user1Id);
 
       // Manually expire it
-      await db
+      await getOwnerDb()
         .update(organizationInvites)
         .set({ expiresAt: new Date(Date.now() - 1000) }) // 1 second ago
         .where(eq(organizationInvites.id, invite1.inviteId));
@@ -243,19 +261,20 @@ describe('Organization Audit Fixes', () => {
       expect(invite2.inviteId).not.toBe(invite1.inviteId);
 
       // Verify first invite was marked expired
-      const expiredInvite = await db.query.organizationInvites.findFirst({
+      const expiredInvite = await getOwnerDb().query.organizationInvites.findFirst({
         where: eq(organizationInvites.id, invite1.inviteId),
       });
       expect(expiredInvite?.status).toBe('expired');
 
       // Cleanup
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite1.inviteId));
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite2.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite1.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite2.inviteId));
     });
   });
 
   describe('FIX #7: Delete organization', () => {
     it('should allow last admin to delete empty organization', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create new org
       const org = await organizationService.createOrganization(
         { name: 'Delete Test Org' },
@@ -266,7 +285,7 @@ describe('Organization Audit Fixes', () => {
       await organizationService.deleteOrganization(org.id, user1Id);
 
       // Verify deleted
-      const deleted = await db.query.organizations.findFirst({
+      const deleted = await getOwnerDb().query.organizations.findFirst({
         where: eq(organizations.id, org.id),
       });
 
@@ -274,6 +293,7 @@ describe('Organization Audit Fixes', () => {
     });
 
     it('should prevent deletion if org owns assets', async () => {
+      enterTenantContextForTests(testTenantId);
       // Create org with workflow
       const org = await organizationService.createOrganization(
         { name: 'Has Assets Org' },
@@ -297,21 +317,22 @@ describe('Organization Audit Fixes', () => {
       ).rejects.toThrow(/owns workflows/i);
 
       // Cleanup
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
-      await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, org.id));
-      await db.delete(organizations).where(eq(organizations.id, org.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(organizationMemberships).where(eq(organizationMemberships.orgId, org.id));
+      await getOwnerDb().delete(organizations).where(eq(organizations.id, org.id));
     });
   });
 
   describe('FIX #8: Placeholder user cleanup', () => {
     it('should cleanup placeholder user when invite is revoked', async () => {
+      enterTenantContextForTests(testTenantId);
       const email = 'placeholder-test@example.com';
 
       // Create invite (creates placeholder user)
       const invite = await organizationService.createInvite(testOrgId, email, user1Id);
 
       // Get placeholder user
-      const placeholderUser = await db.query.users.findFirst({
+      const placeholderUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
 
@@ -324,14 +345,14 @@ describe('Organization Audit Fixes', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Verify placeholder user was cleaned up
-      const cleanedUser = await db.query.users.findFirst({
+      const cleanedUser = await getOwnerDb().query.users.findFirst({
         where: eq(users.email, email),
       });
 
       expect(cleanedUser).toBeUndefined();
 
       // Cleanup invite
-      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
+      await getOwnerDb().delete(organizationInvites).where(eq(organizationInvites.id, invite.inviteId));
     });
   });
 
@@ -359,7 +380,7 @@ describe('Organization Audit Fixes', () => {
       expect(duration).toBeLessThan(500);
 
       // Cleanup
-      await db.delete(workflows).where(eq(workflows.id, workflow.id));
+      await getOwnerDb().delete(workflows).where(eq(workflows.id, workflow.id));
     });
   });
 });

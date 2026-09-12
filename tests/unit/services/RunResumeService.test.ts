@@ -1,11 +1,45 @@
 import { describe, expect, it, vi } from 'vitest';
 
+// RLS-5: the resume/handoff writes now open tenant-scoped transactions via
+// `rlsContext`, and the anonymous redemption path resolves a tenant through the
+// shared `WorkflowTenantResolver` singleton. Both reach a real pool, which a
+// unit test with injected fakes does not have. The transaction behaviour is
+// proven against a real database in
+// tests/integration/api.runs.resume-handoff.test.ts; these tests are about the
+// authorization and link logic, so the wrappers become pass-throughs handing
+// the callback a fake tx the injected repositories simply ignore.
+// CB-3: the run path now sweeps eligible Code Blocks from submitPage, next,
+// runStart, resume and the completion pass. This suite has no database, and
+// CodeBlockService is not the unit under test here -- stub the sweep so these
+// tests keep exercising what they were written for.
+vi.mock('../../../server/services/codeBlocks/CodeBlockService', () => ({
+  codeBlockService: {
+    execute: vi.fn().mockResolvedValue({ success: true }),
+    evaluateAll: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+vi.mock('../../../server/utils/rlsContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/rlsContext')>();
+  const tx = { execute: vi.fn().mockResolvedValue({ rows: [] }) };
+  return {
+    ...actual,
+    withCurrentTenant: <T,>(fn: (t: unknown) => Promise<T>) => fn(tx),
+    withTenant: <T,>(_tenantId: string, fn: (t: unknown) => Promise<T>) => fn(tx),
+    withVerifiedIdentifier: <T,>(_g: string, _v: string, fn: (t: unknown) => Promise<T>) => fn(tx),
+  };
+});
+
+vi.mock('../../../server/services/WorkflowTenantResolver', () => ({
+  workflowTenantResolver: { resolveForWorkflowId: vi.fn().mockResolvedValue('tenant-1') },
+}));
+
 import { RunResumeService } from '../../../server/services/runs/RunResumeService';
 import { hashToken } from '../../../server/utils/encryption';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 const tenantId = '22222222-2222-4222-8222-222222222222';
-const sectionId = '33333333-3333-4333-8333-333333333333';
+const pageId = '33333333-3333-4333-8333-333333333333';
 const fixedNow = new Date('2026-08-06T12:00:00.000Z');
 const resumeToken = 'a'.repeat(64);
 const rotatedRunToken = '44444444-4444-4444-8444-444444444444';
@@ -14,7 +48,8 @@ function makeRun(overrides: Record<string, unknown> = {}) {
   return {
     id: runId,
     workflowId: '55555555-5555-4555-8555-555555555555',
-    currentSectionId: sectionId,
+    currentPageId: pageId,
+    visitedPageIds: [pageId],
     completed: false,
     assignedToUserId: null,
     clientEmail: null,
@@ -32,6 +67,7 @@ function makeService(options: {
   const runRepo = {
     findById: vi.fn().mockResolvedValue(run),
     updateIfIncomplete: vi.fn().mockImplementation(async (_id: string, updates: Record<string, unknown>) => ({ ...run, ...updates })),
+    resumeIfIncomplete: vi.fn().mockImplementation(async () => run),
     revokeToken: vi.fn().mockResolvedValue(undefined),
   };
   const resumeRepo = {
@@ -120,7 +156,7 @@ describe('RunResumeService', () => {
     await expect(service.redeemResumeLink({ runId, token: resumeToken }))
       .rejects.toMatchObject({ statusCode: 401, message: 'Resume link is invalid or expired' });
 
-    expect(runRepo.updateIfIncomplete).not.toHaveBeenCalled();
+    expect(runRepo.resumeIfIncomplete).not.toHaveBeenCalled();
     expect(auditService.logRunEvent).not.toHaveBeenCalled();
   });
 
@@ -135,12 +171,18 @@ describe('RunResumeService', () => {
       fixedNow,
       expect.anything(),
     );
-    expect(runRepo.updateIfIncomplete).toHaveBeenCalledWith(
+    expect(runRepo.resumeIfIncomplete).toHaveBeenCalledWith(
       runId,
-      expect.objectContaining({ runToken: hashToken(rotatedRunToken) }),
+      hashToken(rotatedRunToken),
+      expect.any(Date),
       expect.anything(),
     );
-    expect(result).toMatchObject({ runId, runToken: rotatedRunToken, currentSectionId: sectionId });
+    expect(result).toMatchObject({
+      runId,
+      runToken: rotatedRunToken,
+      currentPageId: pageId,
+      visitedPageIds: [pageId],
+    });
     expect(auditService.logRunEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'run_resume_link_accessed' }),
       expect.anything(),

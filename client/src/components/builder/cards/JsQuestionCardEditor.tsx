@@ -7,12 +7,14 @@
  * (ICW-B1).
  */
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep, useWorkflowMode } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+import { isJsQuestionConfig } from "@shared/types/steps";
 
 import { JSQuestionEditor, type JSQuestionConfig } from "../questions/JSQuestionEditor";
 
@@ -24,38 +26,33 @@ import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { VisibilityField } from "./common/VisibilityField";
 
 const DEFAULT_JS_CONFIG: JSQuestionConfig = {
-    display: "hidden",
-    code: "return input;",
-    inputKeys: [],
-    outputKey: "computed_value",
+    code: "emit({ computed_value: null });",
+    inputs: [],
+    outputs: [{ key: "computed_value", type: "string" }],
     timeoutMs: 1000,
-    helpText: "",
 };
 
-export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
+function resolveEditorConfig(config: unknown): JSQuestionConfig {
+    const adapted = adaptLegacyStep({ type: 'js_question', config }).config;
+    return isJsQuestionConfig(adapted) ? adapted : DEFAULT_JS_CONFIG;
+}
+
+export function JsQuestionCardEditor({ stepId, pageId, workflowId, step }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? "easy";
 
-    const [localConfig, setLocalConfig] = useState<JSQuestionConfig>(
-        step.config ? (step.config as JSQuestionConfig) : DEFAULT_JS_CONFIG
-    );
-
-    useEffect(() => {
-        setLocalConfig(step.config ? (step.config as JSQuestionConfig) : DEFAULT_JS_CONFIG);
-    }, [step.config]);
-
-    const handleConfigChange = (config: JSQuestionConfig) => {
-        setLocalConfig(config);
-        updateStepMutation.mutate({ id: stepId, sectionId, config });
-    };
+    // Since CB-8 the Code Block config is saved by the editor modal itself, so
+    // the card only ever READS it. Mirroring it into local state here would be
+    // a second copy of server state with nothing to keep it honest.
+    const config = useMemo(() => resolveEditorConfig(step.config), [step.config]);
 
     const handleAliasChange = (alias: string | null) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, alias });
+        updateStepMutation.mutate({ id: stepId, pageId, alias });
     };
 
     const handleRequiredChange = (required: boolean) => {
-        updateStepMutation.mutate({ id: stepId, sectionId, required });
+        updateStepMutation.mutate({ id: stepId, pageId, required });
     };
 
     return (
@@ -67,22 +64,23 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             <RequiredToggle checked={step.required} onChange={handleRequiredChange} />
 
             {/* Description / Help Text */}
-            <DescriptionField stepId={stepId} sectionId={sectionId} description={step.description} />
+            <DescriptionField stepId={stepId} pageId={pageId} description={step.description} />
 
             <Separator />
 
             {/* JS Configuration */}
             <JSQuestionEditor
-                config={localConfig}
-                onChange={handleConfigChange}
+                config={config}
                 elementId={stepId}
+                pageId={pageId}
                 workflowId={workflowId}
+                title={step.title}
             />
 
             {/* Default Value */}
             <DefaultValueField
                 stepId={stepId}
-                sectionId={sectionId}
+                pageId={pageId}
                 defaultValue={step.defaultValue as DefaultValueType}
                 type={step.type}
                 mode={mode}
@@ -92,7 +90,7 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             {workflowId && (
                 <VisibilityField
                     stepId={stepId}
-                    sectionId={sectionId}
+                    pageId={pageId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
                 />

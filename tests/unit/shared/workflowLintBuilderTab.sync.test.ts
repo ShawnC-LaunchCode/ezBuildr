@@ -21,7 +21,7 @@ describe("WorkflowLintBuilderTab stays in sync with BuilderTab (MAP-B3)", () => 
     // itself fails to type-check (extra/missing member) before the runtime
     // assertion below even runs.
     const lintTabs: WorkflowLintBuilderTab[] = [
-      "sections",
+      "pages",
       "templates",
       "data-sources",
       "settings",

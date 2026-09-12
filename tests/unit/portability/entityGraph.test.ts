@@ -2,6 +2,28 @@ import { describe, it, expect } from 'vitest';
 import { ENTITY_GRAPH, EXCLUDED_TABLES } from '../../../server/services/portability/entityGraph';
 
 describe('Entity Graph Portability', () => {
+  it('exports Sections before Pages and treats page membership as a nullable ref', () => {
+    const sectionIndex = ENTITY_GRAPH.findIndex(entity => entity.name === 'sections');
+    const pageIndex = ENTITY_GRAPH.findIndex(entity => entity.name === 'pages');
+    const section = ENTITY_GRAPH[sectionIndex];
+    const page = ENTITY_GRAPH[pageIndex];
+
+    expect(sectionIndex).toBeGreaterThanOrEqual(0);
+    expect(sectionIndex).toBeLessThan(pageIndex);
+    expect(section).toMatchObject({
+      parent: { name: 'workflows', fk: 'workflowId' },
+      fields: ['id', 'workflowId', 'title', 'description', 'visibleIf'],
+      refs: ['workflowId'],
+      jsonRefs: ['visibleIf'],
+    });
+    expect(page.fields).toContain('sectionId');
+    expect(page.refs).toContain('sectionId');
+    expect(page.dropIfUnresolved ?? []).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ column: 'sectionId' })])
+    );
+    expect(EXCLUDED_TABLES).not.toHaveProperty('sections');
+  });
+
   it('templates and template_versions declare fileRef as blobRefs', () => {
     const templates = ENTITY_GRAPH.find(e => e.name === 'templates');
     const templateVersions = ENTITY_GRAPH.find(e => e.name === 'template_versions');
@@ -56,7 +78,7 @@ describe('Entity Graph Portability', () => {
   // IEX-13: `scopes` and the parent walk are two independent mechanisms deciding
   // what lands in a bundle, and when they disagree the export silently omits
   // whole subtrees (a project bundle used to carry workflow rows but none of
-  // their sections/steps/logic/hooks). Reachability from a scope's root is the
+  // their pages/steps/logic/hooks). Reachability from a scope's root is the
   // source of truth; `scopes` must agree with it in both directions.
   describe('scopes agree with parent-chain reachability', () => {
     const ROOT_OF_SCOPE: Record<string, string> = {

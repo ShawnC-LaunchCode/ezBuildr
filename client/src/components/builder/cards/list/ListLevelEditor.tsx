@@ -33,10 +33,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getBlockByType } from "@/lib/blockRegistry";
+import { getQuestionTypePresentation } from "@/lib/blockRegistry";
 
 import { LIST_VALIDATION_MAX_DEPTH } from "@shared/validation/BlockValidation";
-import type { ListConfig, ListField, ListFieldQuestionType } from "@shared/types/stepConfigs";
+import { type ListConfig, type ListField } from "@shared/types/stepConfigs";
 
 import { ListFieldSettings } from "./ListFieldSettings";
 import { ListFieldTypeMenu } from "./ListFieldTypeMenu";
@@ -52,6 +52,7 @@ import {
   reorderFields,
   replaceField,
   validateFieldAliasFormat,
+  type ListFieldTypeSelection,
 } from "./listEditorHelpers";
 import { ListSettingsPanel } from "./ListSettingsPanel";
 
@@ -154,6 +155,10 @@ interface ListFieldRowProps {
   onRemove: () => void;
 }
 
+function getListFieldTypeLabel(field: Extract<ListField, { kind: "question" }>): string {
+  return getQuestionTypePresentation(field.type, field.config)?.label ?? field.type;
+}
+
 function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, siblingFields, onChange, onRemove }: ListFieldRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const [isExpanded, setIsExpanded] = useState(true);
@@ -162,9 +167,10 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, siblingF
   const style = { transform: CSS.Transform.toString(transform), transition };
   const aliasError = validateFieldAliasFormat(field.alias) ?? (isDuplicateAlias ? "Duplicate alias at this level" : null);
   const currentTypeIconType = field.kind === "list" ? "list" : field.type;
-  const currentTypeLabel = field.kind === "list" ? "Nested List" : getBlockByType(field.type)?.label ?? field.type;
+  const currentTypeIconConfig = field.kind === "question" ? field.config : undefined;
+  const currentTypeLabel = field.kind === "list" ? "Nested List" : getListFieldTypeLabel(field);
 
-  const handleTypeChange = (type: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE) => {
+  const handleTypeChange = (type: ListFieldTypeSelection) => {
     onChange(changeFieldType(field, type));
   };
 
@@ -228,7 +234,7 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, siblingF
                   className="flex h-8 flex-1 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
                   <span className="flex min-w-0 items-center gap-1.5 truncate">
-                    <QuestionTypeIcon type={currentTypeIconType} size="sm" />
+                    <QuestionTypeIcon type={currentTypeIconType} config={currentTypeIconConfig} size="sm" />
                     <span className="truncate">{currentTypeLabel}</span>
                   </span>
                   <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />

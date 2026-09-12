@@ -226,7 +226,7 @@ const orgStatsQuery = sql`
           END AS org_id,
           wr.created_at,
           wr.completed
-        FROM workflow_runs wr
+        FROM (SELECT * FROM workflow_runs WHERE execution_mode = 'live') wr
         JOIN workflows w ON w.id = wr.workflow_id
         LEFT JOIN projects p ON p.id = w.project_id
         WHERE
@@ -364,8 +364,19 @@ const orgStatsQuery = sql`
 export class AdminOrgStatsRepository {
   constructor(private readonly database: typeof db = db) {}
 
-  async listOrgStats(): Promise<AdminOrgStatsQueryRow[]> {
-    const result = await this.database.execute(orgStatsQuery);
+  /**
+   * `adminDbOverride` threads RLS-6's BYPASSRLS pool in, matching
+   * `UserRepository.findAllUsers` / `WorkflowRepository.findAttributedToUser`.
+   *
+   * This query is cross-tenant **by definition** — one row per organization
+   * across every tenant — so once RLS-4 sets `FORCE ROW LEVEL SECURITY` the
+   * normal pool would return only the acting admin's own tenant's
+   * organizations: no error, just a short list that looks correct. Callers must
+   * go through `AdminAccessService`, which supplies the admin pool and records
+   * the access.
+   */
+  async listOrgStats(adminDbOverride?: typeof db): Promise<AdminOrgStatsQueryRow[]> {
+    const result = await (adminDbOverride ?? this.database).execute(orgStatsQuery);
 
     return rowsFromResult<AdminOrgStatsQueryRow>(result);
   }

@@ -32,6 +32,7 @@ import {
 } from "../errors/AuthErrors";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
+import { withLoginEmail } from "../utils/rlsContext";
 
 import { accountLockoutService } from "./AccountLockoutService";
 import { sendPasswordResetEmail, sendVerificationEmail, sendSystemInviteEmail } from "./emailService";
@@ -506,9 +507,16 @@ export class AuthService {
     // =================================================================
 
     async generatePasswordResetToken(email: string): Promise<string | null> {
-        const user = await this.db.query.users.findFirst({
+        // RLS-5: a BY-EMAIL lookup with neither a tenant nor a user id known —
+        // migration 0032's case exactly. Unscoped, this returns nothing for any
+        // user who has a tenant, and password reset then fails silently: the
+        // route's anti-enumeration response ("if an account exists…") is
+        // identical either way, so nobody would ever see an error. See
+        // `withLoginEmail` for why this variant is the weakest of the four and
+        // what keeps it narrow.
+        const user = await withLoginEmail(email, (tx) => tx.query.users.findFirst({
             where: eq(users.email, email)
-        });
+        }));
 
         if (!user) { return null; }
 
@@ -538,9 +546,10 @@ export class AuthService {
         role: string,
         returnTo?: string
     ): Promise<string | null> {
-        const user = await this.db.query.users.findFirst({
+        // RLS-5: same by-email bootstrap as password reset above (0032).
+        const user = await withLoginEmail(email, (tx) => tx.query.users.findFirst({
             where: eq(users.email, email)
-        });
+        }));
 
         if (!user) { return null; }
 

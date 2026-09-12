@@ -10,6 +10,7 @@ import {
 } from '../../repositories/RunCompletionJobRepository';
 
 import { runLifecycleService, type RunLifecycleService } from './RunLifecycleService';
+import { runPreviewPolicyService } from './RunPreviewPolicyService';
 
 const logger = createLogger({ module: 'run-completion-job-worker' });
 const DEFAULT_BATCH_SIZE = 10;
@@ -78,6 +79,7 @@ export class RunCompletionJobWorker {
     if (this.polling) {return;}
     this.polling = true;
     try {
+      await runPreviewPolicyService.cleanupBatch();
       await this.processBatch();
     } catch (error: unknown) {
       logger.error({ error, workerId: this.workerId }, 'Run completion worker poll failed');

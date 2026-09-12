@@ -6,8 +6,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { createTestUser, setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential("Asset Copy API Integration Tests", () => {
   let ctx: IntegrationTestContext;
@@ -22,7 +24,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       tenantRole: "owner",
     });
     member = await createTestUser(ctx, "builder");
-    await db.insert(schema.organizationMemberships).values({
+    await getOwnerDb().insert(schema.organizationMemberships).values({
       orgId: ctx.orgId,
       userId: member.userId,
       role: "member",
@@ -58,13 +60,13 @@ describe.sequential("Asset Copy API Integration Tests", () => {
     expect(response.body.data.copiedRows).toBe(1);
 
     const copiedWorkflowId = response.body.data.workflows[0].id as string;
-    const copiedSections = await db
+    const copiedPages = await getOwnerDb()
       .select()
-      .from(schema.sections)
-      .where(eq(schema.sections.workflowId, copiedWorkflowId));
-    expect(copiedSections).toHaveLength(1);
+      .from(schema.pages)
+      .where(eq(schema.pages.workflowId, copiedWorkflowId));
+    expect(copiedPages).toHaveLength(1);
 
-    const copiedTables = await db
+    const copiedTables = await getOwnerDb()
       .select()
       .from(schema.datavaultTables)
       .where(eq(schema.datavaultTables.ownerUuid, member.userId));
@@ -105,7 +107,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
   });
 
   async function createOrgProjectWithWorkflow(userId: string): Promise<{ projectId: string; workflowId: string }> {
-    const [project] = await db
+    const [project] = await getOwnerDb()
       .insert(schema.projects)
       .values({
         id: randomUUID(),
@@ -122,7 +124,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [workflow] = await db
+    const [workflow] = await getOwnerDb()
       .insert(schema.workflows)
       .values({
         id: randomUUID(),
@@ -144,7 +146,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.workflowVersions).values({
+    await getOwnerDb().insert(schema.workflowVersions).values({
       id: randomUUID(),
       workflowId: workflow.id,
       versionNumber: 1,
@@ -154,8 +156,8 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       published: true,
     });
 
-    const [section] = await db
-      .insert(schema.sections)
+    const [page] = await getOwnerDb()
+      .insert(schema.pages)
       .values({
         id: randomUUID(),
         workflowId: workflow.id,
@@ -164,17 +166,17 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.steps).values({
+    await getOwnerDb().insert(schema.steps).values({
       id: randomUUID(),
       workflowId: workflow.id,
-      sectionId: section.id,
-      type: "short_text",
+      pageId: page.id,
+      type: "text",
       title: "Name",
       alias: "name",
       order: 1,
     });
 
-    const [database] = await db
+    const [database] = await getOwnerDb()
       .insert(schema.datavaultDatabases)
       .values({
         id: randomUUID(),
@@ -187,7 +189,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [table] = await db
+    const [table] = await getOwnerDb()
       .insert(schema.datavaultTables)
       .values({
         id: randomUUID(),
@@ -201,7 +203,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [column] = await db
+    const [column] = await getOwnerDb()
       .insert(schema.datavaultColumns)
       .values({
         id: randomUUID(),
@@ -213,7 +215,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    const [row] = await db
+    const [row] = await getOwnerDb()
       .insert(schema.datavaultRows)
       .values({
         id: randomUUID(),
@@ -223,14 +225,14 @@ describe.sequential("Asset Copy API Integration Tests", () => {
       })
       .returning();
 
-    await db.insert(schema.datavaultValues).values({
+    await getOwnerDb().insert(schema.datavaultValues).values({
       id: randomUUID(),
       rowId: row.id,
       columnId: column.id,
       value: "Ada Lovelace",
     });
 
-    await db.insert(schema.workflowDataSources).values({
+    await getOwnerDb().insert(schema.workflowDataSources).values({
       workflowId: workflow.id,
       dataSourceId: database.id,
     });

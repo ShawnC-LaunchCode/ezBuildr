@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { runPreviewPolicyService } from './RunPreviewPolicyService';
 
 import { eq } from "drizzle-orm";
 
@@ -39,6 +40,7 @@ export class RunShareService {
         authContext: any
     ): Promise<{ shareToken: string; expiresAt: Date | null }> {
         // Check auth
+        await runPreviewPolicyService.requireLive(runId);
         if (authType === 'creator') {
             if (!userId) { throw new Error("Unauthorized"); }
             const { run, access } = await this.authResolver.resolveRun(runId, userId);
@@ -129,9 +131,12 @@ export class RunShareService {
             }
         } else {
             // Draft run - fetch from steps table
-            // We look for a step of type 'final' in the current workflow definition
+            // Look for the final-documents step in the current workflow definition.
+            // This searched for the retired 'final' alias until STB-21; after the
+            // canonicalization backfill that type no longer exists, so the draft-run
+            // path found nothing at all.
             const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(run.workflowId);
-            const finalStep = allSteps.find(s => s.type === 'final');
+            const finalStep = allSteps.find(s => s.type === 'final_documents');
 
             if (finalStep?.config) {
                 finalBlockConfig = finalStep.config;

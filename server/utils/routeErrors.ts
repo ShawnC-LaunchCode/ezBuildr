@@ -34,6 +34,22 @@ export function classifyRouteError(
   if (raw.includes('not found')) {
     return { status: 404, message: raw };
   }
+  // RLS-2e: a caller with no tenant in the async context is an AUTHORIZATION
+  // outcome, not a server fault. `withCurrentTenant` fails closed and throws
+  // "RLS: no tenant in context." — correct — but before the RLS-2 rollout the
+  // same request reached the service's own tenancy check and returned a clean
+  // 403. Without this rule it became a 500, and it is reachable in normal use:
+  // every route using `hybridAuth` WITHOUT `requireTenant` admits an
+  // authenticated user whose `tenantId` is still null (a freshly registered
+  // account is exactly that), so this affects all 21 converted services rather
+  // than one route. Caught by api.workflows.test.ts's "reject move of workflow
+  // user does not own", which expected 403 and got 500.
+  //
+  // Placed before the generic rule so the client message stays specific while
+  // the status matches what a tenancy check would have returned.
+  if (raw.includes('RLS: no tenant in context')) {
+    return { status: 403, message: 'Access denied - no tenant context for this request' };
+  }
   // "Only the ..." covers owner-only operations, e.g. "Only the project owner
   // can grant owner access to others" (ProjectService / WorkflowService).
   if (raw.includes('Access denied') || raw.includes('Unauthorized') || raw.includes('Only the')) {

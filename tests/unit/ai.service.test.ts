@@ -100,31 +100,32 @@ describe('AIService', () => {
       const mockWorkflow = {
         title: 'Test Workflow',
         description: 'A test workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Personal Information',
             order: 0,
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'First Name',
                 alias: 'firstName',
                 required: true,
+                config: { variant: 'short' },
               },
               {
                 id: 'step_2',
-                type: 'short_text',
+                type: 'text',
                 title: 'Last Name',
                 alias: 'lastName',
                 required: true,
+                config: { variant: 'short' },
               },
             ],
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -135,33 +136,32 @@ describe('AIService', () => {
       const result = await openaiService.generateWorkflow({
         description: 'Create a form to collect personal information',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
-      expect(result.sections).toHaveLength(1);
-      expect(result.sections[0].steps).toHaveLength(2);
+      expect(result.pages).toHaveLength(1);
+      expect(result.pages[0].steps).toHaveLength(2);
     });
 
-    it('should validate unique section IDs', async () => {
+    it('should validate unique page IDs', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [],
           },
           {
-            id: 'section_1', // Duplicate ID
-            title: 'Section 2',
+            id: 'page_1', // Duplicate ID
+            title: 'Page 2',
             order: 1,
             steps: [],
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -172,36 +172,37 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
-      ).rejects.toThrow('Duplicate section IDs');
+        }, 'advanced')
+      ).rejects.toThrow('Duplicate page IDs');
     });
 
     it('should validate unique step IDs', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 1',
                 alias: 'step1',
+                config: { variant: 'short' },
               },
               {
                 id: 'step_1', // Duplicate ID
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 2',
                 alias: 'step2',
+                config: { variant: 'short' },
               },
             ],
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -212,24 +213,25 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
+        }, 'advanced')
       ).rejects.toThrow('Duplicate step ID');
     });
 
     it('should validate logic rules reference existing steps', async () => {
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
-            title: 'Section 1',
+            id: 'page_1',
+            title: 'Page 1',
             order: 0,
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'Step 1',
                 alias: 'step1',
+                config: { variant: 'short' },
               },
             ],
           },
@@ -243,7 +245,6 @@ describe('AIService', () => {
             action: 'show',
           },
         ],
-        transformBlocks: [],
       };
 
       const mockProvider = createMockProvider('openai', JSON.stringify(mockWorkflow));
@@ -254,7 +255,7 @@ describe('AIService', () => {
         openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        })
+        }, 'advanced')
       ).rejects.toThrow('references non-existent step alias');
     });
 
@@ -275,7 +276,7 @@ describe('AIService', () => {
         await openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        });
+        }, 'advanced');
         expect.fail('Should have thrown rate limit error');
       } catch (error: unknown) {
         // The service wraps/re-throws rate limit errors
@@ -294,7 +295,7 @@ describe('AIService', () => {
         await openaiService.generateWorkflow({
           description: 'Test',
           projectId: 'test-project-id',
-        });
+        }, 'advanced');
         expect.fail('Should have thrown parsing error');
       } catch (error: unknown) {
         expect((error as { code: string }).code).toBe('INVALID_RESPONSE');
@@ -320,24 +321,24 @@ describe('AIService', () => {
       const mockWorkflow = {
         title: 'Test Workflow',
         description: 'A test workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Personal Information',
             order: 0,
             steps: [
               {
                 id: 'step_1',
-                type: 'short_text',
+                type: 'text',
                 title: 'First Name',
                 alias: 'firstName',
                 required: true,
+                config: { variant: 'short' },
               },
             ],
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
 
@@ -347,27 +348,26 @@ describe('AIService', () => {
       const result = await anthropicService.generateWorkflow({
         description: 'Create a form to collect personal information',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');
-      expect(result.sections).toHaveLength(1);
+      expect(result.pages).toHaveLength(1);
     });
 
     it('should strip markdown code blocks from Anthropic responses', async () => {
       // Logic for stripping markdown is inside callLLM, so we just return markdown string from provider
       const mockWorkflow = {
         title: 'Test Workflow',
-        sections: [
+        pages: [
           {
-            id: 'section_1',
+            id: 'page_1',
             title: 'Test',
             order: 0,
             steps: [],
           },
         ],
         logicRules: [],
-        transformBlocks: [],
       };
 
       const markdown = `\`\`\`json\n${JSON.stringify(mockWorkflow)}\n\`\`\``;
@@ -379,7 +379,7 @@ describe('AIService', () => {
       const result = await anthropicService.generateWorkflow({
         description: 'Test',
         projectId: 'test-project-id',
-      });
+      }, 'advanced');
 
       expect(result).toBeDefined();
       expect(result.title).toBe('Test Workflow');

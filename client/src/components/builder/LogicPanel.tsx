@@ -1,5 +1,5 @@
 /**
- * LogicPanel - Panel for editing visibility conditions on sections and steps
+ * LogicPanel - Panel for editing visibility conditions on pages and steps
  *
  * This component wraps the LogicBuilder and handles API calls to persist changes.
  */
@@ -10,7 +10,7 @@ import { useMemo } from "react";
 import { LogicBuilder } from "@/components/logic";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useSections, useUpdateSection, useStep, useUpdateStep } from "@/lib/vault-hooks";
+import { usePages, useUpdatePage, useStep, useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
@@ -18,7 +18,7 @@ import type { ConditionExpression } from "@shared/types/conditions";
 interface LogicPanelProps {
   workflowId: string;
   selection: {
-    type: "step" | "section" | "block" | "workflow";
+    type: "step" | "page" | "block" | "workflow";
     id: string;
   } | null;
 }
@@ -26,14 +26,14 @@ interface LogicPanelProps {
 export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
   const { toast } = useToast();
 
-  // Fetch all sections (usually already cached)
-  const { data: sections, isLoading: sectionsLoading } = useSections(workflowId);
+  // Fetch all pages (usually already cached)
+  const { data: pages, isLoading: pagesLoading } = usePages(workflowId);
 
-  // Find the selected section from the cached list
-  const section = useMemo(() => {
-    if (selection?.type !== "section" || !sections) {return null;}
-    return sections.find((s) => s.id === selection.id) ?? null;
-  }, [selection, sections]);
+  // Find the selected page from the cached list
+  const page = useMemo(() => {
+    if (selection?.type !== "page" || !pages) {return null;}
+    return pages.find((s) => s.id === selection.id) ?? null;
+  }, [selection, pages]);
 
   // Fetch step data when selection is a step
   const { data: step, isLoading: stepLoading } = useStep(
@@ -41,7 +41,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
   );
 
   // Update mutations
-  const updateSectionMutation = useUpdateSection();
+  const updatePageMutation = useUpdatePage();
   const updateStepMutation = useUpdateStep();
 
   // Handle no selection
@@ -51,7 +51,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Select a section or question to configure its visibility conditions.
+            Select a page or question to configure its visibility conditions.
           </AlertDescription>
         </Alert>
       </div>
@@ -65,17 +65,17 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Visibility conditions can only be set on sections and questions.
-            Select a section or question to configure visibility.
+            Visibility conditions can only be set on pages and questions.
+            Select a page or question to configure visibility.
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  // Handle section selection
-  if (selection.type === "section") {
-    if (sectionsLoading || !section) {
+  // Handle page selection
+  if (selection.type === "page") {
+    if (pagesLoading || !page) {
       return (
         <div className="p-4">
           <div className="animate-pulse space-y-3">
@@ -86,18 +86,18 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
       );
     }
 
-    const handleSectionLogicChange = (expression: ConditionExpression) => {
-      updateSectionMutation.mutate(
+    const handlePageLogicChange = (expression: ConditionExpression) => {
+      updatePageMutation.mutate(
         {
-          id: section.id,
-          workflowId: section.workflowId,
+          id: page.id,
+          workflowId: page.workflowId,
           visibleIf: expression,
         },
         {
           onSuccess: () => {
             toast({
               title: "Visibility updated",
-              description: "Section visibility conditions have been saved.",
+              description: "Page visibility conditions have been saved.",
             });
           },
           onError: (error) => {
@@ -114,18 +114,18 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold">Section: {section.title}</h3>
+          <h3 className="text-sm font-semibold">Page: {page.title}</h3>
           <p className="text-xs text-muted-foreground">
-            Configure when this section should be visible
+            Configure when this page should be visible
           </p>
         </div>
         <LogicBuilder
           workflowId={workflowId}
-          elementId={section.id}
-          elementType="section"
-          value={(section.visibleIf as ConditionExpression) ?? null}
-          onChange={handleSectionLogicChange}
-          isSaving={updateSectionMutation.isPending}
+          elementId={page.id}
+          elementType="page"
+          value={(page.visibleIf as ConditionExpression) ?? null}
+          onChange={handlePageLogicChange}
+          isSaving={updatePageMutation.isPending}
         />
       </div>
     );
@@ -148,7 +148,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
       updateStepMutation.mutate(
         {
           id: step.id,
-          sectionId: step.sectionId,
+          pageId: step.pageId,
           visibleIf: expression,
         },
         {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { scanForSecrets } from '../../../server/services/portability/redaction';
 
-const scan = (code: string) => scanForSecrets('transform_blocks', { code }, ['code']);
+const scan = (code: string) => scanForSecrets('lifecycle_hooks', { code }, ['code']);
 const flags = (code: string) => scan(code).length > 0;
 
 describe('scanForSecrets', () => {
@@ -43,7 +43,7 @@ describe('scanForSecrets', () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({
       type: 'secret_scan',
-      entity: 'transform_blocks',
+      entity: 'lifecycle_hooks',
       column: 'code',
       line: 3,
     });

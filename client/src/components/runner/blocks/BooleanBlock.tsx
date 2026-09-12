@@ -17,11 +17,20 @@
 import React from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import type { Step } from "@/types";
 
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
+import {
+  getBooleanStorageValue,
+  resolveBooleanConfig,
+  resolveBooleanLogicalValue,
+  type ResolvedBooleanConfig,
+  type TrueFalseConfig,
+} from "@shared/types/stepConfigs";
 
 export interface BooleanBlockProps {
   step: Step;
@@ -34,11 +43,20 @@ export interface BooleanBlockProps {
   hasError?: boolean;
 }
 
-interface NormalizedBooleanConfig {
+type BooleanFieldA11y = Pick<
+  React.AriaAttributes,
+  "aria-describedby" | "aria-required" | "aria-invalid"
+>;
+
+interface BooleanControlProps {
+  step: Step;
   trueLabel: string;
   falseLabel: string;
-  storeAsBoolean: boolean;
-  displayStyle: "toggle" | "radio" | "checkbox" | "buttons";
+  isTrue: boolean;
+  isDefined: boolean;
+  onSelect: (value: boolean) => void;
+  readOnly?: boolean;
+  fieldA11y: BooleanFieldA11y;
 }
 
 function getConfigString(config: unknown, key: string): string | undefined {
@@ -49,11 +67,17 @@ function getConfigString(config: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function getBooleanConfig(step: Step): NormalizedBooleanConfig {
+function getBooleanConfig(step: Step): ResolvedBooleanConfig {
   if (step.type === "yes_no") {
     return {
-      trueLabel: getConfigString(step.config, "yesLabel") ?? "Yes",
-      falseLabel: getConfigString(step.config, "noLabel") ?? "No",
+      trueLabel: getConfigString(step.config, "yesLabel")
+        ?? getConfigString(step.config, "trueLabel")
+        ?? "Yes",
+      falseLabel: getConfigString(step.config, "noLabel")
+        ?? getConfigString(step.config, "falseLabel")
+        ?? "No",
+      trueAlias: "true",
+      falseAlias: "false",
       storeAsBoolean: true,
       displayStyle: "buttons",
     };
@@ -64,93 +88,130 @@ function getBooleanConfig(step: Step): NormalizedBooleanConfig {
     return {
       trueLabel: config?.trueLabel ?? "True",
       falseLabel: config?.falseLabel ?? "False",
+      trueAlias: "true",
+      falseAlias: "false",
       storeAsBoolean: true,
       displayStyle: "buttons",
     };
   }
 
   if (step.type === "boolean") {
-    const config = step.config as BooleanAdvancedConfig;
-    return {
-      trueLabel: config?.trueLabel ?? "Yes",
-      falseLabel: config?.falseLabel ?? "No",
-      storeAsBoolean: config?.storeAsBoolean ?? true,
-      displayStyle: config?.displayStyle ?? "buttons",
-    };
+    return resolveBooleanConfig(step.config);
   }
 
   return {
     trueLabel: "Yes",
     falseLabel: "No",
+    trueAlias: "true",
+    falseAlias: "false",
     storeAsBoolean: true,
     displayStyle: "buttons",
   };
 }
 
-export function BooleanBlockRenderer({
+function BooleanButtons({
   step,
-  value,
-  onChange,
+  trueLabel,
+  falseLabel,
+  isTrue,
+  isDefined,
+  onSelect,
   readOnly,
-  ariaDescribedBy,
-  required,
-  hasError,
-}: BooleanBlockProps) {
-  const { trueLabel, falseLabel, storeAsBoolean, displayStyle } = getBooleanConfig(step);
+  fieldA11y,
+}: BooleanControlProps): JSX.Element {
+  return (
+    <div className="flex gap-2" role="group" aria-label={step.title}>
+      <Button
+        type="button"
+        variant={isTrue && isDefined ? "default" : "outline"}
+        onClick={() => { onSelect(true); }}
+        disabled={readOnly}
+        className="flex-1"
+        aria-pressed={isTrue && isDefined}
+        {...fieldA11y}
+      >
+        {trueLabel}
+      </Button>
+      <Button
+        type="button"
+        variant={!isTrue && isDefined ? "default" : "outline"}
+        onClick={() => { onSelect(false); }}
+        disabled={readOnly}
+        className="flex-1"
+        aria-pressed={!isTrue && isDefined}
+        {...fieldA11y}
+      >
+        {falseLabel}
+      </Button>
+    </div>
+  );
+}
 
-  // Determine current value
-  const isTrue = storeAsBoolean ? value === true : value === trueLabel;
-  const isDefined = value !== undefined && value !== null;
-  const fieldA11y = {
-    "aria-describedby": ariaDescribedBy,
-    "aria-required": required === true ? true : undefined,
-    "aria-invalid": hasError === true ? true : undefined,
-  };
+function getValueState(isDefined: boolean, isTrue: boolean): "unset" | "true" | "false" {
+  if (!isDefined) { return "unset"; }
+  return isTrue ? "true" : "false";
+}
 
-  // Handle change
-  const handleChange = (newValue: boolean) => {
-    if (storeAsBoolean) {
-      onChange(newValue);
-    } else {
-      onChange(newValue ? trueLabel : falseLabel);
-    }
-  };
+function BooleanToggle({
+  step,
+  trueLabel,
+  falseLabel,
+  isTrue,
+  isDefined,
+  onSelect,
+  readOnly,
+  fieldA11y,
+}: BooleanControlProps): JSX.Element {
+  return (
+    <div
+      className="flex items-center gap-3"
+      role="group"
+      aria-label={step.title}
+      data-value-state={getValueState(isDefined, isTrue)}
+    >
+      <span className={cn(
+        "text-sm transition-colors",
+        isDefined && !isTrue ? "font-medium text-foreground" : "text-muted-foreground",
+      )}>
+        {falseLabel}
+      </span>
+      <Switch
+        checked={isDefined && isTrue}
+        onCheckedChange={onSelect}
+        disabled={readOnly}
+        aria-label={`${step.title}: ${trueLabel}`}
+        {...fieldA11y}
+      />
+      <span className={cn(
+        "text-sm transition-colors",
+        isDefined && isTrue ? "font-medium text-foreground" : "text-muted-foreground",
+      )}>
+        {trueLabel}
+      </span>
+      <span className="sr-only" aria-live="polite">
+        {getValueState(isDefined, isTrue) === "unset"
+          ? "Not answered"
+          : isTrue ? trueLabel : falseLabel}
+      </span>
+    </div>
+  );
+}
 
-  // Render as two-button selector (recommended)
-  if (displayStyle === "buttons") {
-    return (
-      <div className="flex gap-2" role="group" aria-label={step.title}>
-        <Button
-          type="button"
-          variant={isTrue && isDefined ? "default" : "outline"}
-          onClick={() => !readOnly && handleChange(true)}
-          disabled={readOnly}
-          className="flex-1"
-          aria-pressed={isTrue && isDefined}
-          {...fieldA11y}
-        >
-          {trueLabel}
-        </Button>
-        <Button
-          type="button"
-          variant={!isTrue && isDefined ? "default" : "outline"}
-          onClick={() => !readOnly && handleChange(false)}
-          disabled={readOnly}
-          className="flex-1"
-          aria-pressed={!isTrue && isDefined}
-          {...fieldA11y}
-        >
-          {falseLabel}
-        </Button>
-      </div>
-    );
-  }
-
-  // Render as radio group (alternative)
+function BooleanRadios({
+  step,
+  trueLabel,
+  falseLabel,
+  isTrue,
+  isDefined,
+  onSelect,
+  readOnly,
+  fieldA11y,
+}: BooleanControlProps): JSX.Element {
   return (
     <RadioGroup
-      value={isDefined ? (isTrue ? "true" : "false") : undefined}
-      onValueChange={(v) => !readOnly && handleChange(v === "true")}
+      aria-label={step.title}
+      value={isDefined ? (isTrue ? "true" : "false") : ""}
+      onValueChange={(value) => { onSelect(value === "true"); }}
       disabled={readOnly}
       {...fieldA11y}
     >
@@ -164,4 +225,74 @@ export function BooleanBlockRenderer({
       </div>
     </RadioGroup>
   );
+}
+
+function BooleanConsentCheckbox({
+  step,
+  trueLabel,
+  isTrue,
+  onSelect,
+  readOnly,
+  fieldA11y,
+}: BooleanControlProps): JSX.Element {
+  const checkboxId = `${step.id}-consent`;
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        id={checkboxId}
+        checked={isTrue}
+        onCheckedChange={(checked) => { onSelect(checked === true); }}
+        disabled={readOnly}
+        className="mt-0.5"
+        {...fieldA11y}
+      />
+      <Label htmlFor={checkboxId} className="cursor-pointer text-sm leading-5">
+        {trueLabel}
+      </Label>
+    </div>
+  );
+}
+
+export function BooleanBlockRenderer({
+  step,
+  value,
+  onChange,
+  readOnly,
+  ariaDescribedBy,
+  required,
+  hasError,
+}: BooleanBlockProps) {
+  const config = getBooleanConfig(step);
+  const { trueLabel, falseLabel, displayStyle } = config;
+
+  // Determine current value
+  const logicalValue = resolveBooleanLogicalValue(value, config);
+  const isTrue = logicalValue === true;
+  const isDefined = logicalValue !== undefined;
+  const fieldA11y: BooleanFieldA11y = {
+    "aria-describedby": ariaDescribedBy,
+    "aria-required": required === true ? true : undefined,
+    "aria-invalid": hasError === true ? true : undefined,
+  };
+
+  // Handle change
+  const handleChange = (newValue: boolean): void => {
+    onChange(getBooleanStorageValue(newValue, config));
+  };
+
+  const controlProps: BooleanControlProps = {
+    step,
+    trueLabel,
+    falseLabel,
+    isTrue,
+    isDefined,
+    onSelect: handleChange,
+    readOnly,
+    fieldA11y,
+  };
+
+  if (displayStyle === "buttons") { return <BooleanButtons {...controlProps} />; }
+  if (displayStyle === "toggle") { return <BooleanToggle {...controlProps} />; }
+  if (displayStyle === "checkbox") { return <BooleanConsentCheckbox {...controlProps} />; }
+  return <BooleanRadios {...controlProps} />;
 }

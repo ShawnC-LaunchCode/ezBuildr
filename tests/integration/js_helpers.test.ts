@@ -4,11 +4,15 @@ import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, vi } from "vitest";
 
-import { tenants, users, workflows, sections, steps, stepValues } from "@shared/schema";
+import { tenants, users, workflows, pages, steps, stepValues } from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupAuth } from "../../server/googleAuth";
 import { registerRoutes } from "../../server/routes";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { setCurrentTenantId } from "../../server/utils/rlsContext";
+import { createBareTestApp } from "../helpers/testApp";
 // Hoisted state for auth
 const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
 // Mock auth middleware to allow bypassing Google auth
@@ -47,6 +51,8 @@ vi.mock("../../server/middleware/auth", async (importOriginal) => {
             if (req.user) {
                 req.tenantId = req.user.tenantId;
                 req.userId = req.user.id;
+                // What the real hybridAuth does — see tests/helpers/testApp.ts.
+                setCurrentTenantId(req.user.tenantId);
                 return next();
             }
             console.log("JS_HELPERS MOCK AUTH: No req.user found!");
@@ -58,6 +64,8 @@ vi.mock("../../server/middleware/auth", async (importOriginal) => {
                 // (e.g. POST /api/workflows/:id/runs) read req.userId
                 req.tenantId = req.user.tenantId;
                 req.userId = req.user.id;
+                // What the real hybridAuth does — see tests/helpers/testApp.ts.
+                setCurrentTenantId(req.user.tenantId);
                 return next();
             }
             return actual.optionalHybridAuth(req, res, next);
@@ -71,20 +79,19 @@ describe("Detailed Verification: JS Helper Availability", () => {
     let userId: string;
     let workflowId: string;
     beforeAll(async () => {
-        app = express();
-        app.use(express.json());
+        app = createBareTestApp();
         app.use(express.urlencoded({ extended: false }));
         setupAuth(app); // Call setupAuth to attach the middleware
         await registerRoutes(app);
         agent = request.agent(app);
         // Setup Tenant
-        const [tenant] = await db.insert(tenants).values({
+        const [tenant] = await getOwnerDb().insert(tenants).values({
             name: "Helper Test Tenant",
             plan: "pro"
         } as any).returning();
         tenantId = tenant.id;
         // Setup User
-        const [user] = await db.insert(users).values({
+        const [user] = await getOwnerDb().insert(users).values({
             email: `test-${nanoid()}@example.com`,
             tenantId,
             role: "admin",
@@ -102,7 +109,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         };
         await agent.post("/api/auth/mock-login").send({ user: userWithClaims });
         // Create Workflow
-        const [workflow] = await db.insert(workflows).values({
+        const [workflow] = await getOwnerDb().insert(workflows).values({
             tenantId,
             ownerId: userId,
             creatorId: userId,
@@ -115,10 +122,10 @@ describe("Detailed Verification: JS Helper Availability", () => {
         workflowId = workflow.id;
     });
     it("should execute a JS block that uses helper functions", async () => {
-        // 1. Create a Section with a JS Question
-        const [section] = await db.insert(sections).values({
+        // 1. Create a Page with a JS Question
+        const [page] = await getOwnerDb().insert(pages).values({
             workflowId,
-            title: "JS Section",
+            title: "JS Page",
             order: 1
         } as any).returning();
         // 2. Create JS Step using helpers
@@ -133,9 +140,9 @@ describe("Detailed Verification: JS Helper Availability", () => {
             greeting: upper
         };
     `;
-        const [step] = await db.insert(steps).values({
+        const [step] = await getOwnerDb().insert(steps).values({
             workflowId,
-            sectionId: section.id,
+            pageId: page.id,
             title: "Helper Test Step",
             type: "js_question",
             order: 1,
@@ -151,8 +158,8 @@ describe("Detailed Verification: JS Helper Availability", () => {
         const runRes = await agent.post(`/api/workflows/${workflowId}/runs`).send({});
         expect(runRes.status).toBe(201); // 201 Created
         const runId = runRes.body.data.runId;
-        // 4. Submit the section (triggering execution)
-        const submitRes = await agent.post(`/api/runs/${runId}/sections/${section.id}/submit`).send({
+        // 4. Submit the page (triggering execution)
+        const submitRes = await agent.post(`/api/runs/${runId}/pages/${page.id}/submit`).send({
             values: []
         });
         if (submitRes.status !== 200) {
@@ -160,7 +167,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         }
         expect(submitRes.status).toBe(200);
         // 5. Verify the value in DB
-        const [savedValue] = await db.select().from(stepValues).where(
+        const [savedValue] = await getOwnerDb().select().from(stepValues).where(
             and(
                 eq(stepValues.runId, runId),
                 eq(stepValues.stepId, step.id)

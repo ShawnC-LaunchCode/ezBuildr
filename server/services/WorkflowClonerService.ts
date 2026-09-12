@@ -21,11 +21,10 @@ import {
   organizations,
   projectAccess,
   projects,
-  sections,
+  pages,
   steps,
   templateVersions,
   templates,
-  transformBlocks,
   users,
   workflowDataSources,
   workflowQueries,
@@ -41,6 +40,7 @@ import { datavaultRowsRepository, projectRepository, workflowRepository, type Db
 import { canManageOrg } from "../utils/ownershipAccess";
 import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 import { remapJsonIds } from "../utils/remapJsonIds";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import { aclService } from "./AclService";
 import { datavaultAclService } from "./DatavaultAclService";
@@ -147,129 +147,171 @@ function mergeMaps(...maps: Array<Map<string, string>>): Map<string, string> {
   return merged;
 }
 
+/**
+ * RLS-2e: neither `copyProject` nor `copyWorkflow` take a `tenantId`
+ * argument to cross-check (Variant 1 from §2c — the target tenant is
+ * resolved from the acting user's own row / ACL, same shape as
+ * `WorkflowService`), so `withTx` is the reuse-or-open-ambient form only.
+ * No repository layer for most of this file's own reads (`resolveTargetOwner`,
+ * `getUserOrThrow`, ...) — those bare `db.*` calls become `tx.*`, following
+ * `OrganizationService`'s treatment (§2d). The ~30 private copy helpers
+ * below already threaded an explicit `tx` through every call before this
+ * ticket (pre-existing, not RLS-2e's doing) — this conversion's job was
+ * getting the two PUBLIC entry points to open that `tx` as a real
+ * tenant-scoped transaction instead of a bare `db.transaction()`.
+ *
+ * `copyWorkflowAsAdmin` is NOT converted — see its own comment below.
+ */
 export class WorkflowClonerService {
-  async copyProject(projectId: string, userId: string, options: CopyAssetOptions = {}): Promise<CopyAssetResult> {
+  /**
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary. Reuses a caller-supplied `tx` if given (never nests);
+   * otherwise opens exactly one via `withCurrentTenant`.
+   */
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
+    }
+    return withCurrentTenant(fn);
+  }
+
+  async copyProject(
+    projectId: string,
+    userId: string,
+    options: CopyAssetOptions = {},
+    tx?: DbTransaction
+  ): Promise<CopyAssetResult> {
     logger.info({ projectId, userId }, "Copying project");
 
-    const sourceProject = await projectRepository.findById(projectId);
+    return this.withTx(tx, async (tx) => {
+    const sourceProject = await projectRepository.findById(projectId, tx);
     if (!sourceProject) {
       throw new Error("Project not found");
     }
 
-    const canViewProject = await aclService.hasProjectRole(userId, projectId, "view");
+    const canViewProject = await aclService.hasProjectRole(userId, projectId, "view", tx);
     if (!canViewProject) {
       throw new Error("Access denied - insufficient permissions for this project");
     }
 
-    const targetOwner = await this.resolveTargetOwner(userId, options);
+    const targetOwner = await this.resolveTargetOwner(userId, options, tx);
     const clearAccess = options.clearAccess ?? true;
     const includeRelatedDatavault = options.includeRelatedDatavault ?? true;
     const includeData = includeRelatedDatavault && (options.includeDatavaultData ?? false);
 
-    return db.transaction(async (tx) => {
-      const title = await this.ensureUniqueProjectTitle(
-        tx,
-        targetOwner.ownerType,
-        targetOwner.ownerUuid,
-        options.name ?? prefixedName(sourceProject.title)
-      );
+    const title = await this.ensureUniqueProjectTitle(
+      tx,
+      targetOwner.ownerType,
+      targetOwner.ownerUuid,
+      options.name ?? prefixedName(sourceProject.title)
+    );
 
-      const [newProject] = await tx
-        .insert(projects)
-        .values({
-          title,
-          name: title,
-          description: sourceProject.description,
-          creatorId: userId,
-          tenantId: targetOwner.tenantId,
-          createdBy: userId,
-          ownerId: userId,
-          ownerType: targetOwner.ownerType,
-          ownerUuid: targetOwner.ownerUuid,
-          status: "active",
-          archived: false,
-        })
-        .returning();
+    const [newProject] = await tx
+      .insert(projects)
+      .values({
+        title,
+        name: title,
+        description: sourceProject.description,
+        creatorId: userId,
+        tenantId: targetOwner.tenantId,
+        createdBy: userId,
+        ownerId: userId,
+        ownerType: targetOwner.ownerType,
+        ownerUuid: targetOwner.ownerUuid,
+        status: "active",
+        archived: false,
+      })
+      .returning();
 
-      if (newProject === undefined) {
-        throw new Error("Failed to copy project");
+    if (newProject === undefined) {
+      throw new Error("Failed to copy project");
+    }
+
+    const idMap = new Map<string, string>([[sourceProject.id, newProject.id]]);
+    const sourceWorkflows = await tx
+      .select()
+      .from(workflows)
+      .where(eq(workflows.projectId, projectId))
+      .orderBy(asc(workflows.createdAt));
+
+    const workflowCopies: WorkflowCopyResult[] = [];
+    for (const sourceWorkflow of sourceWorkflows) {
+      const workflowCopy = await this.copyWorkflowCore(tx, sourceWorkflow, userId, {
+        targetProjectId: newProject.id,
+        targetOwner,
+        clearAccess,
+        requestedTitle: prefixedName(sourceWorkflow.title),
+      });
+      workflowCopies.push(workflowCopy);
+      for (const [oldId, newId] of workflowCopy.idMap.entries()) {
+        idMap.set(oldId, newId);
       }
+    }
 
-      const idMap = new Map<string, string>([[sourceProject.id, newProject.id]]);
-      const sourceWorkflows = await tx
-        .select()
-        .from(workflows)
-        .where(eq(workflows.projectId, projectId))
-        .orderBy(asc(workflows.createdAt));
+    await this.copyProjectTemplates(tx, projectId, newProject.id, userId, workflowCopies, idMap);
 
-      const workflowCopies: WorkflowCopyResult[] = [];
-      for (const sourceWorkflow of sourceWorkflows) {
-        const workflowCopy = await this.copyWorkflowCore(tx, sourceWorkflow, userId, {
-          targetProjectId: newProject.id,
-          targetOwner,
-          clearAccess,
-          requestedTitle: prefixedName(sourceWorkflow.title),
-        });
-        workflowCopies.push(workflowCopy);
-        for (const [oldId, newId] of workflowCopy.idMap.entries()) {
-          idMap.set(oldId, newId);
-        }
+    let datavaultResult = this.emptyDatavaultCopyResult();
+    if (includeRelatedDatavault) {
+      datavaultResult = await this.copyRelatedDatavault(tx, {
+        scope: "project",
+        sourceProjectId: projectId,
+        targetProjectId: newProject.id,
+        sourceWorkflowIds: sourceWorkflows.map((workflow) => workflow.id),
+        workflowIdMap: this.combineWorkflowIdMaps(workflowCopies),
+        targetOwner,
+        copiedByUserId: userId,
+        includeData,
+        clearAccess,
+      });
+      for (const [oldId, newId] of datavaultResult.idMap.entries()) {
+        idMap.set(oldId, newId);
       }
+    }
 
-      await this.copyProjectTemplates(tx, projectId, newProject.id, userId, workflowCopies, idMap);
+    if (!clearAccess) {
+      await this.copyProjectAccess(tx, projectId, newProject.id);
+    }
 
-      let datavaultResult = this.emptyDatavaultCopyResult();
-      if (includeRelatedDatavault) {
-        datavaultResult = await this.copyRelatedDatavault(tx, {
-          scope: "project",
-          sourceProjectId: projectId,
-          targetProjectId: newProject.id,
-          sourceWorkflowIds: sourceWorkflows.map((workflow) => workflow.id),
-          workflowIdMap: this.combineWorkflowIdMaps(workflowCopies),
-          targetOwner,
-          copiedByUserId: userId,
-          includeData,
-          clearAccess,
-        });
-        for (const [oldId, newId] of datavaultResult.idMap.entries()) {
-          idMap.set(oldId, newId);
-        }
-      }
+    await this.remapCopiedWorkflowReferences(
+      tx,
+      workflowCopies.map((copy) => copy.workflow.id),
+      idMap
+    );
 
-      if (!clearAccess) {
-        await this.copyProjectAccess(tx, projectId, newProject.id);
-      }
-
-      await this.remapCopiedWorkflowReferences(
-        tx,
-        workflowCopies.map((copy) => copy.workflow.id),
-        idMap
-      );
-
-      return {
-        project: newProject,
-        workflows: workflowCopies.map((copy) => copy.workflow),
-        copiedDatabases: datavaultResult.copiedDatabases,
-        copiedTables: datavaultResult.copiedTables,
-        copiedRows: datavaultResult.copiedRows,
-      };
+    return {
+      project: newProject,
+      workflows: workflowCopies.map((copy) => copy.workflow),
+      copiedDatabases: datavaultResult.copiedDatabases,
+      copiedTables: datavaultResult.copiedTables,
+      copiedRows: datavaultResult.copiedRows,
+    };
     });
   }
 
-  async copyWorkflow(workflowId: string, userId: string, options: CopyAssetOptions = {}): Promise<CopyAssetResult> {
+  async copyWorkflow(
+    workflowId: string,
+    userId: string,
+    options: CopyAssetOptions = {},
+    tx?: DbTransaction
+  ): Promise<CopyAssetResult> {
     logger.info({ workflowId, userId }, "Copying workflow");
 
-    const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId);
+    return this.withTx(tx, async (tx) => {
+    const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId, tx);
     if (!sourceWorkflow) {
       throw new Error("Workflow not found");
     }
 
-    const canViewWorkflow = await aclService.hasWorkflowRole(userId, sourceWorkflow.id, "view");
+    const canViewWorkflow = await aclService.hasWorkflowRole(userId, sourceWorkflow.id, "view", tx);
     if (!canViewWorkflow) {
       throw new Error("Access denied - insufficient permissions for this workflow");
     }
 
-    return this.performWorkflowCopy(sourceWorkflow, userId, options);
+    return this.performWorkflowCopy(sourceWorkflow, userId, options, tx);
+    });
   }
 
   /**
@@ -282,6 +324,25 @@ export class WorkflowClonerService {
    * already gated by the `isAdmin` middleware. The target side is still
    * validated normally — resolveTargetOwnerForWorkflowCopy confines the copy
    * to the admin themselves or an org they administer.
+   *
+   * RLS-7: scoped to the AMBIENT tenant, like everything else. An earlier
+   * revision of this comment argued the opposite — that this is a genuine
+   * cross-tenant operation and must not be scoped. That over-read what the
+   * feature does. It reaches across OWNERSHIP (an admin has no ACL grant on
+   * another user's workflow), not across tenants: the route exists so an
+   * admin can salvage a departing colleague's work before deleting the
+   * account, and colleagues share a tenant. Both sides of the copy are
+   * therefore in the admin's own tenant, and one scoped transaction serves
+   * them correctly. Left unscoped it did exactly what that comment predicted
+   * — 404 "Workflow not found" on every admin copy under enforcement.
+   *
+   * The residual limitation is real and deliberate: a PLATFORM admin copying
+   * out of a tenant they are not a member of still fails, because a single
+   * transaction cannot see two tenants and RLS is what guarantees that. The
+   * bypass pool is not the answer either — it is read-only by decision
+   * (RLS-7), so it could fetch the source but never write the copy. Such a
+   * copy would need an explicit two-phase read-then-write design, and there
+   * is no caller asking for one. It fails closed; it does not leak.
    */
   async copyWorkflowAsAdmin(
     workflowId: string,
@@ -290,57 +351,64 @@ export class WorkflowClonerService {
   ): Promise<CopyAssetResult> {
     logger.warn({ workflowId, adminUserId }, "Admin copying workflow, bypassing source ACL");
 
-    const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId);
-    if (!sourceWorkflow) {
-      throw new Error("Workflow not found");
-    }
-
-    return this.performWorkflowCopy(sourceWorkflow, adminUserId, options);
+    return withCurrentTenant(async (tx) => {
+      const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId, tx);
+      if (!sourceWorkflow) {
+        throw new Error("Workflow not found");
+      }
+      return this.performWorkflowCopy(sourceWorkflow, adminUserId, options, tx);
+    });
   }
 
+  /**
+   * Shared copy core for `copyWorkflow` (tenant-scoped `tx` from `withTx`)
+   * and `copyWorkflowAsAdmin` (a plain, un-scoped `tx` from `db.transaction`
+   * — see that method's comment). Takes `tx` as a REQUIRED parameter rather
+   * than opening its own, so the caller — not this shared method — decides
+   * the transaction's tenant scoping.
+   */
   private async performWorkflowCopy(
     sourceWorkflow: Workflow,
     userId: string,
-    options: CopyAssetOptions
+    options: CopyAssetOptions,
+    tx: DbTransaction
   ): Promise<CopyAssetResult> {
-    const targetOwner = await this.resolveTargetOwnerForWorkflowCopy(userId, options);
+    const targetOwner = await this.resolveTargetOwnerForWorkflowCopy(userId, options, tx);
     const clearAccess = options.clearAccess ?? true;
     const includeRelatedDatavault = options.includeRelatedDatavault ?? true;
     const includeData = includeRelatedDatavault && (options.includeDatavaultData ?? false);
 
-    return db.transaction(async (tx) => {
-      const workflowCopy = await this.copyWorkflowCore(tx, sourceWorkflow, userId, {
-        targetProjectId: options.targetProjectId ?? null,
-        targetOwner,
-        clearAccess,
-        requestedTitle: options.name ?? prefixedName(sourceWorkflow.title),
-      });
-
-      let datavaultResult = this.emptyDatavaultCopyResult();
-      if (includeRelatedDatavault) {
-        datavaultResult = await this.copyRelatedDatavault(tx, {
-          scope: "workflow",
-          sourceProjectId: sourceWorkflow.projectId ?? undefined,
-          targetProjectId: options.targetProjectId ?? undefined,
-          sourceWorkflowIds: [sourceWorkflow.id],
-          workflowIdMap: workflowCopy.workflowIdMap,
-          targetOwner,
-          copiedByUserId: userId,
-          includeData,
-          clearAccess,
-        });
-      }
-
-      const idMap = mergeMaps(workflowCopy.idMap, datavaultResult.idMap);
-      await this.remapCopiedWorkflowReferences(tx, [workflowCopy.workflow.id], idMap);
-
-      return {
-        workflow: workflowCopy.workflow,
-        copiedDatabases: datavaultResult.copiedDatabases,
-        copiedTables: datavaultResult.copiedTables,
-        copiedRows: datavaultResult.copiedRows,
-      };
+    const workflowCopy = await this.copyWorkflowCore(tx, sourceWorkflow, userId, {
+      targetProjectId: options.targetProjectId ?? null,
+      targetOwner,
+      clearAccess,
+      requestedTitle: options.name ?? prefixedName(sourceWorkflow.title),
     });
+
+    let datavaultResult = this.emptyDatavaultCopyResult();
+    if (includeRelatedDatavault) {
+      datavaultResult = await this.copyRelatedDatavault(tx, {
+        scope: "workflow",
+        sourceProjectId: sourceWorkflow.projectId ?? undefined,
+        targetProjectId: options.targetProjectId ?? undefined,
+        sourceWorkflowIds: [sourceWorkflow.id],
+        workflowIdMap: workflowCopy.workflowIdMap,
+        targetOwner,
+        copiedByUserId: userId,
+        includeData,
+        clearAccess,
+      });
+    }
+
+    const idMap = mergeMaps(workflowCopy.idMap, datavaultResult.idMap);
+    await this.remapCopiedWorkflowReferences(tx, [workflowCopy.workflow.id], idMap);
+
+    return {
+      workflow: workflowCopy.workflow,
+      copiedDatabases: datavaultResult.copiedDatabases,
+      copiedTables: datavaultResult.copiedTables,
+      copiedRows: datavaultResult.copiedRows,
+    };
   }
 
   /**
@@ -364,8 +432,8 @@ export class WorkflowClonerService {
     return result.workflow;
   }
 
-  private async resolveTargetOwner(userId: string, options: CopyAssetOptions): Promise<TargetOwner> {
-    const user = await this.getUserOrThrow(userId);
+  private async resolveTargetOwner(userId: string, options: CopyAssetOptions, tx?: DbTransaction): Promise<TargetOwner> {
+    const user = await this.getUserOrThrow(userId, tx);
     if (!user.tenantId) {
       throw new Error("User does not have a tenant assigned");
     }
@@ -380,7 +448,7 @@ export class WorkflowClonerService {
       return { ownerType, ownerUuid, tenantId: user.tenantId };
     }
 
-    const [org] = await db
+    const [org] = await (tx ?? db)
       .select()
       .from(organizations)
       .where(eq(organizations.id, ownerUuid))
@@ -394,7 +462,7 @@ export class WorkflowClonerService {
       throw new Error("Access denied - target organization belongs to different tenant");
     }
 
-    const canManageTargetOrg = await canManageOrg(userId, ownerUuid);
+    const canManageTargetOrg = await canManageOrg(userId, ownerUuid, tx);
     if (!canManageTargetOrg) {
       throw new Error("Access denied: Organization admin role required to copy into this organization");
     }
@@ -402,23 +470,23 @@ export class WorkflowClonerService {
     return { ownerType, ownerUuid, tenantId: user.tenantId };
   }
 
-  private async resolveTargetOwnerForWorkflowCopy(userId: string, options: CopyAssetOptions): Promise<TargetOwner> {
+  private async resolveTargetOwnerForWorkflowCopy(userId: string, options: CopyAssetOptions, tx?: DbTransaction): Promise<TargetOwner> {
     if (options.targetProjectId) {
-      const project = await projectRepository.findById(options.targetProjectId);
+      const project = await projectRepository.findById(options.targetProjectId, tx);
       if (!project) {
         throw new Error("Target project not found");
       }
 
-      const hasProjectEdit = await aclService.hasProjectRole(userId, options.targetProjectId, "edit");
+      const hasProjectEdit = await aclService.hasProjectRole(userId, options.targetProjectId, "edit", tx);
       if (!hasProjectEdit) {
         throw new Error("Access denied - insufficient permissions for target project");
       }
 
-      if (project.ownerType === "org" && project.ownerUuid && !(await canManageOrg(userId, project.ownerUuid))) {
+      if (project.ownerType === "org" && project.ownerUuid && !(await canManageOrg(userId, project.ownerUuid, tx))) {
         throw new Error("Access denied: Organization admin role required to copy into this organization project");
       }
 
-      const user = await this.getUserOrThrow(userId);
+      const user = await this.getUserOrThrow(userId, tx);
       if (!user.tenantId) {
         throw new Error("User does not have a tenant assigned");
       }
@@ -430,11 +498,11 @@ export class WorkflowClonerService {
       };
     }
 
-    return this.resolveTargetOwner(userId, options);
+    return this.resolveTargetOwner(userId, options, tx);
   }
 
-  private async getUserOrThrow(userId: string): Promise<User> {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  private async getUserOrThrow(userId: string, tx?: DbTransaction): Promise<User> {
+    const [user] = await (tx ?? db).select().from(users).where(eq(users.id, userId)).limit(1);
     if (user === undefined) {
       throw new Error("User not found");
     }
@@ -495,10 +563,9 @@ export class WorkflowClonerService {
     idMap.set(sourceWorkflow.id, newWorkflow.id);
     workflowIdMap.set(sourceWorkflow.id, newWorkflow.id);
 
-    await this.copySectionsAndSteps(tx, sourceWorkflow.id, newWorkflow.id, idMap);
+    await this.copyPagesAndSteps(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyLogicRules(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
-    await this.copyTransformBlocks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyLifecycleHooks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyDocumentHooks(tx, sourceWorkflow.id, newWorkflow.id, idMap);
     await this.copyWorkflowVersions(tx, sourceWorkflow, newWorkflow, userId, idMap, versionIdMap);
@@ -510,41 +577,41 @@ export class WorkflowClonerService {
     return { workflow: newWorkflow, workflowIdMap, versionIdMap, idMap };
   }
 
-  private async copySectionsAndSteps(
+  private async copyPagesAndSteps(
     tx: DbTransaction,
     sourceWorkflowId: string,
     targetWorkflowId: string,
     idMap: Map<string, string>
   ): Promise<void> {
-    const sourceSections = await tx
+    const sourcePages = await tx
       .select()
-      .from(sections)
-      .where(eq(sections.workflowId, sourceWorkflowId))
-      .orderBy(asc(sections.order));
+      .from(pages)
+      .where(eq(pages.workflowId, sourceWorkflowId))
+      .orderBy(asc(pages.order));
 
-    for (const sourceSection of sourceSections) {
-      const [newSection] = await tx
-        .insert(sections)
+    for (const sourcePage of sourcePages) {
+      const [newPage] = await tx
+        .insert(pages)
         .values({
           workflowId: targetWorkflowId,
-          title: sourceSection.title,
-          description: sourceSection.description,
-          order: sourceSection.order,
-          config: sourceSection.config,
-          visibleIf: sourceSection.visibleIf,
+          title: sourcePage.title,
+          description: sourcePage.description,
+          order: sourcePage.order,
+          config: sourcePage.config,
+          visibleIf: sourcePage.visibleIf,
         })
         .returning();
 
-      if (newSection === undefined) {
-        throw new Error("Failed to copy section");
+      if (newPage === undefined) {
+        throw new Error("Failed to copy page");
       }
 
-      idMap.set(sourceSection.id, newSection.id);
+      idMap.set(sourcePage.id, newPage.id);
 
       const sourceSteps = await tx
         .select()
         .from(steps)
-        .where(eq(steps.sectionId, sourceSection.id))
+        .where(eq(steps.pageId, sourcePage.id))
         .orderBy(asc(steps.order));
 
       for (const sourceStep of sourceSteps) {
@@ -552,12 +619,12 @@ export class WorkflowClonerService {
           .insert(steps)
           .values({
             workflowId: targetWorkflowId,
-            sectionId: newSection.id,
+            pageId: newPage.id,
             type: sourceStep.type,
             title: sourceStep.title,
             description: sourceStep.description,
             required: sourceStep.required,
-            config: sourceStep.type === 'final_documents' || sourceStep.type === 'final'
+            config: sourceStep.type === 'final_documents'
               ? protectFinalBlockDeliverySecrets(sourceStep.config)
               : sourceStep.config,
             alias: sourceStep.alias,
@@ -605,7 +672,7 @@ export class WorkflowClonerService {
           when: remapJsonIds(rule.when, idMap),
           targetType: rule.targetType,
           targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
-          targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
+          targetPageId: rule.targetPageId ? idMap.get(rule.targetPageId) ?? null : null,
           action: rule.action,
           order: rule.order,
           };
@@ -633,50 +700,13 @@ export class WorkflowClonerService {
         .insert(blocks)
         .values({
           workflowId: targetWorkflowId,
-          sectionId: block.sectionId ? idMap.get(block.sectionId) ?? null : null,
+          pageId: block.pageId ? idMap.get(block.pageId) ?? null : null,
           type: block.type,
           phase: block.phase,
           config: remapJsonIds(block.config, idMap),
           virtualStepId: block.virtualStepId ? idMap.get(block.virtualStepId) ?? null : null,
           enabled: block.enabled,
           order: block.order,
-        })
-        .returning();
-
-      if (newBlock !== undefined) {
-        idMap.set(block.id, newBlock.id);
-      }
-    }
-  }
-
-  private async copyTransformBlocks(
-    tx: DbTransaction,
-    sourceWorkflowId: string,
-    targetWorkflowId: string,
-    idMap: Map<string, string>
-  ): Promise<void> {
-    const sourceBlocks = await tx
-      .select()
-      .from(transformBlocks)
-      .where(eq(transformBlocks.workflowId, sourceWorkflowId))
-      .orderBy(asc(transformBlocks.order));
-
-    for (const block of sourceBlocks) {
-      const [newBlock] = await tx
-        .insert(transformBlocks)
-        .values({
-          workflowId: targetWorkflowId,
-          sectionId: block.sectionId ? idMap.get(block.sectionId) ?? null : null,
-          name: block.name,
-          language: block.language,
-          code: block.code,
-          inputKeys: block.inputKeys,
-          outputKey: block.outputKey,
-          virtualStepId: block.virtualStepId ? idMap.get(block.virtualStepId) ?? null : null,
-          phase: block.phase,
-          enabled: block.enabled,
-          order: block.order,
-          timeoutMs: block.timeoutMs,
         })
         .returning();
 
@@ -703,7 +733,7 @@ export class WorkflowClonerService {
         .insert(lifecycleHooks)
         .values({
           workflowId: targetWorkflowId,
-          sectionId: hook.sectionId ? idMap.get(hook.sectionId) ?? null : null,
+          pageId: hook.pageId ? idMap.get(hook.pageId) ?? null : null,
           name: hook.name,
           phase: hook.phase,
           language: hook.language,
@@ -714,7 +744,6 @@ export class WorkflowClonerService {
           enabled: hook.enabled,
           order: hook.order,
           timeoutMs: hook.timeoutMs,
-          mutationMode: hook.mutationMode,
         })
         .returning();
 
@@ -1163,30 +1192,26 @@ export class WorkflowClonerService {
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
-    const [workflowRows, sectionRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
+    const [workflowRows, pageRows, stepRows, blockRows, versionRows] = await Promise.all([
       tx.select().from(workflows).where(inArray(workflows.id, workflowIds)),
-      tx.select().from(sections).where(inArray(sections.workflowId, workflowIds)),
+      tx.select().from(pages).where(inArray(pages.workflowId, workflowIds)),
       tx
         .select()
         .from(steps)
-        .innerJoin(sections, eq(steps.sectionId, sections.id))
-        .where(inArray(sections.workflowId, workflowIds)),
+        .innerJoin(pages, eq(steps.pageId, pages.id))
+        .where(inArray(pages.workflowId, workflowIds)),
       tx.select().from(blocks).where(inArray(blocks.workflowId, workflowIds)),
-      tx.select().from(transformBlocks).where(inArray(transformBlocks.workflowId, workflowIds)),
       tx.select().from(workflowVersions).where(inArray(workflowVersions.workflowId, workflowIds)),
     ]);
 
     const inspectValues: unknown[] = [
       ...workflowRows.map((workflow) => workflow.intakeConfig),
-      ...sectionRows.flatMap((section) => [section.config, section.visibleIf]),
+      ...pageRows.flatMap((page) => [page.config, page.visibleIf]),
       ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf]),
       ...blockRows.map((block) => block.config),
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
     ];
 
-    for (const transform of transformRows) {
-      inspectValues.push(transform.inputKeys, transform.outputKey);
-    }
 
     for (const value of inspectValues) {
       this.collectKnownIds(value, knownDatabaseIds, databaseIds);
@@ -1555,22 +1580,22 @@ export class WorkflowClonerService {
         .where(eq(workflows.id, workflow.id));
     }
 
-    const copiedSections = await tx.select().from(sections).where(inArray(sections.workflowId, workflowIds));
-    for (const section of copiedSections) {
+    const copiedPages = await tx.select().from(pages).where(inArray(pages.workflowId, workflowIds));
+    for (const page of copiedPages) {
       await tx
-        .update(sections)
+        .update(pages)
         .set({
-          config: remapJsonIds(section.config, idMap),
-          visibleIf: remapJsonIds(section.visibleIf, idMap),
+          config: remapJsonIds(page.config, idMap),
+          visibleIf: remapJsonIds(page.visibleIf, idMap),
         })
-        .where(eq(sections.id, section.id));
+        .where(eq(pages.id, page.id));
     }
 
-    if (copiedSections.length > 0) {
+    if (copiedPages.length > 0) {
       const copiedSteps = await tx
         .select()
         .from(steps)
-        .where(inArray(steps.sectionId, copiedSections.map((section) => section.id)));
+        .where(inArray(steps.pageId, copiedPages.map((page) => page.id)));
       for (const step of copiedSteps) {
         await tx
           .update(steps)

@@ -6,14 +6,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import * as schema from "@shared/schema";
 
-import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 
 /**
  * Workflow Move API Integration Tests
  *
- * Covers PUT /api/workflows/:id/move (section workflow relocation between
+ * Covers PUT /api/workflows/:id/move (page workflow relocation between
  * projects / Main Folder, with ownership and access checks).
  *
  * Uses describe.sequential because tests share project/tenant setup.
@@ -93,7 +95,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
         .expect(200);
 
       // Confirm the workflow is now filed under the target project.
-      const [filedWorkflow] = await db
+      const [filedWorkflow] = await getOwnerDb()
         .select()
         .from(schema.workflows)
         .where(eq(schema.workflows.id, workflowId));
@@ -102,7 +104,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       // Simulate a run created while the workflow was org-owned (an owner
       // distinct from the acting user) so the reset to the personal/user model
       // on unfile is observable on the run.
-      const [run] = await db.insert(schema.workflowRuns).values({
+      const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
         workflowId,
         runToken: nanoid(),
         createdBy: ctx.userId,
@@ -135,7 +137,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(verifyResponse.body.ownerUuid).toBe(ctx.userId);
 
       // ICW2-17 AC2: the run's owner fields were propagated in the same transaction.
-      const [updatedRun] = await db
+      const [updatedRun] = await getOwnerDb()
         .select()
         .from(schema.workflowRuns)
         .where(eq(schema.workflowRuns.id, run.id));
@@ -182,6 +184,18 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       }
 
       const authToken2 = registerResponse2.body.token;
+
+      // `POST /api/auth/register` deliberately leaves `tenant_id` NULL — the
+      // `tenantId` sent in the body above is ignored. That left user 2
+      // TENANTLESS, which under RLS sees nothing at all, so this asserted a
+      // cross-tenant-style 404 while claiming to test in-tenant ownership.
+      // Put user 2 in the same tenant, which is what the case has always
+      // meant: the workflow IS visible to them, and the ACL is what refuses.
+      // A genuine 403, not the 404 contract change (RLS_HANDOFF.md §0b).
+      await getOwnerDb()
+        .update(schema.users)
+        .set({ tenantId: ctx.tenantId, tenantRole: "builder" })
+        .where(eq(schema.users.id, registerResponse2.body.user.id));
 
       // Try to move the first user's workflow as the second user
       const response = await request(ctx.baseURL)
@@ -233,7 +247,7 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       const _authToken2 = registerResponse2.body.token;
       const user2Id = registerResponse2.body.user?.id;
 
-      await db.update(schema.users)
+      await getOwnerDb().update(schema.users)
         .set({
           tenantId: ctx.tenantId,
           tenantRole: "owner",

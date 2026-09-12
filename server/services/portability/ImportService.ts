@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { BundleReader } from './bundleReader';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { ExportWarning, RequiresReentry, BundleManifest } from './bundleFormat';
-import { db } from '../../db';
+import { runWithTenantContext, withCurrentTenant, withCurrentUserId, withTenant } from '../../utils/rlsContext';
 import { projects, workflows, datavaultTables, steps, users, organizations } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
@@ -15,6 +15,7 @@ import { projectRepository, type DbTransaction } from '../../repositories';
 import { canManageOrg } from '../../utils/ownershipAccess';
 import { remapJsonIds } from '../../utils/remapJsonIds';
 import { collectConfigEntityRefs } from '@shared/types/stepConfigRefs';
+import { validateCanonicalStepConfig, getCanonicalConfigSchema } from '@shared/validation/stepConfigSchemas';
 import { storageProvider } from '../storage';
 import { storageQuotaService } from '../StorageQuotaService';
 import { virusScanner } from '../security/VirusScanner';
@@ -185,30 +186,42 @@ export class ImportService {
   }
 
   private async getTargetOwnerForPreview(userId: string, targetProjectId?: string): Promise<TargetOwner | null> {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    // The caller's own row, read before any tenant is established — that read
+    // is what establishes it. Self-identification clause (migration 0028).
+    const user = await withCurrentUserId(userId, async (tx) => {
+      const [row] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+      return row;
+    });
     if (user?.tenantId == null) {
       return null;
     }
+    const tenantId = user.tenantId;
 
     if (targetProjectId !== undefined) {
-      const [project] = await db.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
-      if (project === undefined) {
-        throw new Error('Project not found');
-      }
-      const canView = await aclService.hasProjectRole(userId, targetProjectId, 'view');
+      // `projects` is RLS-covered, and reading one outside the caller's tenant
+      // must stay impossible — so the tenant just resolved above is pinned for
+      // the read, and the ACL check shares the transaction rather than issuing
+      // pool queries from inside it (the SystemStats deadlock shape).
+      const { project, canView } = await withTenant(tenantId, async (tx) => {
+        const [row] = await tx.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
+        if (row === undefined) {
+          throw new Error('Project not found');
+        }
+        return { project: row, canView: await aclService.hasProjectRole(userId, targetProjectId, 'view', tx) };
+      });
       if (!canView) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
       return {
         ownerType: project.ownerType ?? 'user',
         ownerUuid: project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId ?? userId,
-        tenantId: project.tenantId ?? user.tenantId
+        tenantId: project.tenantId ?? tenantId
       };
     }
     return {
       ownerType: 'user',
       ownerUuid: userId,
-      tenantId: user.tenantId
+      tenantId
     };
   }
 
@@ -219,12 +232,17 @@ export class ImportService {
     result: ImportPreview
   ): Promise<void> {
     if (extracted.projects.size > 0) {
-      const existingProjects = await db.select({ name: projects.title })
+      // projects / workflows / datavault_tables are all RLS-covered; each of
+      // these three reads gets the target tenant pinned. They are separate
+      // transactions rather than one because they are independent checks
+      // guarded by different conditions — nothing here depends on them being
+      // atomic.
+      const existingProjects = await withTenant(targetOwner.tenantId, (tx) => tx.select({ name: projects.title })
         .from(projects)
         .where(and(
           eq(projects.ownerType, targetOwner.ownerType),
           eq(projects.ownerUuid, targetOwner.ownerUuid)
-        ));
+        )));
       const existingNames = new Set(existingProjects.map(p => p.name).filter(Boolean));
       for (const name of extracted.projects) {
         if (existingNames.has(name)) {
@@ -235,13 +253,13 @@ export class ImportService {
 
     if (extracted.workflows.size > 0 && extracted.projects.size === 0) {
       const projectCondition = targetProjectId ? eq(workflows.projectId, targetProjectId) : isNull(workflows.projectId);
-      const existingWorkflows = await db.select({ title: workflows.title })
+      const existingWorkflows = await withTenant(targetOwner.tenantId, (tx) => tx.select({ title: workflows.title })
         .from(workflows)
         .where(and(
           eq(workflows.ownerType, targetOwner.ownerType),
           eq(workflows.ownerUuid, targetOwner.ownerUuid),
           projectCondition
-        ));
+        )));
         
       const existingNames = new Set(existingWorkflows.map(w => w.title).filter(Boolean));
       for (const title of extracted.workflows) {
@@ -252,9 +270,9 @@ export class ImportService {
     }
 
     if (extracted.tableSlugs.size > 0) {
-      const existingTables = await db.select({ slug: datavaultTables.slug })
+      const existingTables = await withTenant(targetOwner.tenantId, (tx) => tx.select({ slug: datavaultTables.slug })
         .from(datavaultTables)
-        .where(eq(datavaultTables.tenantId, targetOwner.tenantId));
+        .where(eq(datavaultTables.tenantId, targetOwner.tenantId)));
       const existingSlugs = new Set(existingTables.map(t => t.slug).filter(Boolean));
       for (const slug of extracted.tableSlugs) {
         if (existingSlugs.has(slug)) {
@@ -396,6 +414,33 @@ export class ImportService {
     return warnings;
   }
 
+
+  /**
+   * The portability write boundary for `steps` (STB-18): reuses STB-17's
+   * `validateCanonicalStepConfig` rather than a second validation engine.
+   * A retired type name is always rejected, regardless of whether a config
+   * was carried. An absent config is otherwise left alone -- the
+   * stored-artifact backfill that would make every *existing* row
+   * canonical-shaped is STB-19/20's, still open -- but a config that IS
+   * present in the bundle must be a canonical, fully-recognised shape for
+   * its type, matching Decision 5 (strict final boundaries).
+   */
+  private validateCanonicalStepEntity(data: Record<string, unknown>): string | null {
+    const type = typeof data['type'] === 'string' ? data['type'] : undefined;
+    if (type === undefined) { return null; }
+    const rawConfig = data['config'];
+    if (rawConfig === null || rawConfig === undefined) {
+      return getCanonicalConfigSchema(type) === undefined
+        ? `Step type "${type}" is retired or is not canonical`
+        : null;
+    }
+    const result = validateCanonicalStepConfig(type, rawConfig);
+    if (result.success) { return null; }
+    return result.error!.issues
+      .map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('; ');
+  }
+
   private checkDanglingReferences(desc: EntityDescriptor, data: Record<string, unknown>, bundleIds: Set<string>, result: ImportPreview): void {
     for (const colName of desc.refs ?? []) {
       const val = data[colName];
@@ -427,6 +472,47 @@ export class ImportService {
     }
   }
 
+  /**
+   * The per-entity-type side effects `processEntityStream` needs beyond the
+   * generic schema/dangling-reference/config-ref checks every row gets:
+   * name extraction for collision detection, the steps alias collision
+   * check, and (STB-18) the canonical `steps.type`/`config` write boundary.
+   * Split out purely to keep `processEntityStream` under the complexity
+   * budget -- one more `if (desc.name === 'steps')` branch there tipped it
+   * over.
+   */
+  private applyEntitySpecificPreviewChecks(
+    desc: EntityDescriptor,
+    data: Record<string, unknown>,
+    extracted: { projects: Set<string>; workflows: Set<string>; tableSlugs: Set<string>; stepAliases: Set<string> },
+    result: ImportPreview
+  ): void {
+    if (desc.name === 'workflows' && typeof data['title'] === 'string' && data['title'] !== '') {
+      extracted.workflows.add(data['title']);
+    }
+    if (desc.name === 'projects' && typeof data['name'] === 'string' && data['name'] !== '') {
+      extracted.projects.add(data['name']);
+    }
+    if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
+      extracted.tableSlugs.add(data['slug']);
+    }
+    if (desc.name !== 'steps') { return; }
+
+    if (typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
+      const scopeKey = `${data['workflowId']}::${data['alias']}`;
+      if (extracted.stepAliases.has(scopeKey)) {
+        result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
+      } else {
+        extracted.stepAliases.add(scopeKey);
+      }
+    }
+    const stepError = this.validateCanonicalStepEntity(data);
+    if (stepError !== null) {
+      result.errors.push(`Validation failed in steps: ${stepError}`);
+      result.canProceed = false;
+    }
+  }
+
   private async processEntityStream(
     reader: BundleReader,
     desc: EntityDescriptor,
@@ -437,7 +523,7 @@ export class ImportService {
     let count = 0;
     const schema = this.getZodSchema(desc);
     const stream = reader.readEntityStream(desc.name);
-    
+
     for await (const row of stream) {
       const parsed = schema.safeParse(row);
       if (!parsed.success) {
@@ -446,35 +532,19 @@ export class ImportService {
         continue;
       }
 
-      if (['transform_blocks', 'lifecycle_hooks', 'document_hooks'].includes(desc.name)) {
+      if (['lifecycle_hooks', 'document_hooks'].includes(desc.name)) {
         result.hasExecutableCode = true;
       }
 
       const data = parsed.data as Record<string, unknown>;
-      if (desc.name === 'workflows' && typeof data['title'] === 'string' && data['title'] !== '') {
-        extracted.workflows.add(data['title']);
-      }
-      if (desc.name === 'projects' && typeof data['name'] === 'string' && data['name'] !== '') {
-        extracted.projects.add(data['name']);
-      }
-      if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
-        extracted.tableSlugs.add(data['slug']);
-      }
-      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
-        const scopeKey = `${data['workflowId']}::${data['alias']}`;
-        if (extracted.stepAliases.has(scopeKey)) {
-          result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
-        } else {
-          extracted.stepAliases.add(scopeKey);
-        }
-      }
+      this.applyEntitySpecificPreviewChecks(desc, data, extracted, result);
 
       this.checkDanglingReferences(desc, data, bundleIds, result);
       result.warnings.push(...this.collectConfigRefWarnings(desc, data, bundleIds));
 
       count++;
     }
-    
+
     if (count > 0) {
       result.entityCounts[desc.name] = count;
     }
@@ -555,10 +625,16 @@ export class ImportService {
   }
   
   private async resolveTargetOwnerForProject(userId: string, tenantId: string, targetProjectId: string): Promise<TargetOwner> {
-    const project = await projectRepository.findById(targetProjectId);
+    // RLS-5: the caller's tenant IS known by now (resolveTargetOwner resolved
+    // it just above), so this is ordinary tenant-scoped work rather than a
+    // bootstrap — pin the real tenant instead of reaching for 0033's
+    // project-id clause, which exists for the case where no tenant is known.
+    // Reading a project outside the caller's tenant must stay impossible here.
+    const project = await runWithTenantContext(tenantId, () =>
+      withCurrentTenant((tx) => projectRepository.findById(targetProjectId, tx)));
     if (project === undefined) { throw new Error('Target project not found'); }
 
-    const hasProjectEdit = await aclService.hasProjectRole(userId, targetProjectId, 'edit');
+    const hasProjectEdit = await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, targetProjectId, 'edit', aclTx));
     if (!hasProjectEdit) { throw new Error('Access denied - insufficient permissions for target project'); }
 
     if (project.ownerType === 'org' && project.ownerUuid !== null && !(await canManageOrg(userId, project.ownerUuid))) {
@@ -573,7 +649,13 @@ export class ImportService {
   }
 
   private async resolveTargetOwner(userId: string, options: ImportApplyOptions): Promise<TargetOwner> {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    // RLS-5: pure bootstrap — this read exists to DISCOVER the tenant, so
+    // there is none to pin yet. `users`' self-identification clause
+    // (migration 0028) is what makes the caller's own row visible; without
+    // this the import fails as "User not found or missing tenant" for every
+    // user who has a tenant, which is all of them.
+    const [user] = await withCurrentUserId(userId, (tx) =>
+      tx.select().from(users).where(eq(users.id, userId)).limit(1));
     const tenantId = user?.tenantId;
     if (tenantId === undefined || tenantId === null) {
       throw new Error('User not found or missing tenant');
@@ -591,7 +673,13 @@ export class ImportService {
     }
 
     if (ownerType === 'org') {
-      const [org] = await db.select().from(organizations).where(eq(organizations.id, ownerUuid)).limit(1);
+      // `organizations` is RLS-covered. The tenant is already known here, so
+      // this is ordinary scoped work — 0033's org-id bootstrap clause is for
+      // the case where it is not.
+      const org = await withTenant(tenantId, async (tx) => {
+        const [row] = await tx.select().from(organizations).where(eq(organizations.id, ownerUuid)).limit(1);
+        return row;
+      });
       if (org === undefined) { throw new Error('Target organization not found'); }
       if (org.tenantId !== tenantId) { throw new Error('Access denied - target organization belongs to different tenant'); }
       
@@ -925,9 +1013,10 @@ export class ImportService {
     // No explicit target. Keeping the bundle's own project is only acceptable
     // when it really is the caller's to write to — same tenant, edit rights.
     for (const projectId of unmapped) {
-      const project = await projectRepository.findById(projectId);
+      const project = await withTenant(targetOwner.tenantId, (tx) =>
+        projectRepository.findById(projectId, tx));
       const sameTenant = project !== undefined && project.tenantId === targetOwner.tenantId;
-      const canEdit = sameTenant && await aclService.hasProjectRole(userId, projectId, 'edit');
+      const canEdit = sameTenant && await withCurrentTenant((aclTx) => aclService.hasProjectRole(userId, projectId, 'edit', aclTx));
       if (!canEdit) {
         adjustments.push(
           `Imported workflow was left without a project: the bundle referenced project ${projectId}, ` +
@@ -1071,8 +1160,14 @@ export class ImportService {
       }
       
       const data = parsed.data as Record<string, unknown>;
+      if (ctx.desc.name === 'steps') {
+        const stepError = this.validateCanonicalStepEntity(data);
+        if (stepError !== null) {
+          throw new Error(`Validation failed in steps: ${stepError}`);
+        }
+      }
       const oldId = typeof data['id'] === 'string' ? data['id'] : undefined;
-      
+
       const { rootId, skipped } = await this.processSingleEntity(ctx, data, oldId);
       if (skipped) {
         continue;
@@ -1152,8 +1247,16 @@ export class ImportService {
         const observedEntityCounts: Record<string, number> = {};
         const skippedOldIds = new Set<string>();
 
-        // Pass 2: Remap foreign keys and insert rows
-        await db.transaction(async (tx: DbTransaction) => {
+        // Pass 2: Remap foreign keys and insert rows.
+        // RLS-5: every row written here carries `targetOwner.tenantId` (see
+        // `applyFieldDefaults`, which stamps it onto any entity whose shape has
+        // a tenantId). A raw `db.transaction` sets no GUC, so the policy reads
+        // `tenant_id IS NOT DISTINCT FROM NULL` and WITH CHECK rejects the very
+        // rows the import exists to create. Pin the tenant the import is
+        // targeting — the same value the rows are stamped with, so WITH CHECK
+        // can only ever accept rows belonging to it and an import cannot write
+        // into a tenant it did not resolve.
+        await withTenant(targetOwner.tenantId, async (tx: DbTransaction) => {
           for (const desc of ENTITY_GRAPH) {
             if (this.shouldSkipEntity(desc)) {continue;}
             

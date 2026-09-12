@@ -25,7 +25,7 @@ describe('Branding API Routes', () => {
     registerBrandingRoutes(app);
     // Create test tenant and user
     // This would typically be done in a test setup file
-    // const [tenant] = await db.insert(tenants).values({
+    // const [tenant] = await getOwnerDb().insert(tenants).values({
     //   name: 'Test Tenant',
     //   plan: 'free',
     // }).returning();
@@ -33,11 +33,11 @@ describe('Branding API Routes', () => {
   });
   afterAll(async () => {
     // Cleanup test data
-    // await db.delete(tenants).where(eq(tenants.id, testTenantId));
+    // await getOwnerDb().delete(tenants).where(eq(tenants.id, testTenantId));
   });
   beforeEach(async () => {
     // Reset branding before each test
-    // await db.update(tenants)
+    // await getOwnerDb().update(tenants)
     //   .set({ branding: null })
     //   .where(eq(tenants.id, testTenantId));
   });
@@ -65,7 +65,7 @@ describe('Branding API Routes', () => {
         emailSenderAddress: 'noreply@acme.com',
       };
       // Setup: Update tenant with branding
-      // await db.update(tenants)
+      // await getOwnerDb().update(tenants)
       //   .set({ branding: mockBranding })
       //   .where(eq(tenants.id, testTenantId));
       // const response = await request(app)
@@ -114,7 +114,7 @@ describe('Branding API Routes', () => {
         primaryColor: '#FF5733',
         intakeHeaderText: 'Original Header',
       };
-      // await db.update(tenants)
+      // await getOwnerDb().update(tenants)
       //   .set({ branding: initialBranding })
       //   .where(eq(tenants.id, testTenantId));
       // Update only primary color
@@ -192,7 +192,7 @@ describe('Branding API Routes', () => {
       // ];
       //
       // for (const domain of domains) {
-      //   await db.insert(tenantDomains).values(domain);
+      //   await getOwnerDb().insert(tenantDomains).values(domain);
       // }
       // const response = await request(app)
       //   .get(`/api/tenants/${testTenantId}/domains`)
@@ -242,7 +242,7 @@ describe('Branding API Routes', () => {
     it('should reject duplicate domain', async () => {
       const _domain = { domain: 'existing.com' };
       // Setup: Add domain first
-      // await db.insert(tenantDomains).values({
+      // await getOwnerDb().insert(tenantDomains).values({
       //   tenantId: testTenantId,
       //   domain: 'existing.com',
       // });
@@ -281,7 +281,7 @@ describe('Branding API Routes', () => {
   describe('DELETE /api/tenants/:tenantId/domains/:domainId', () => {
     it('should delete a domain', async () => {
       // Setup: Add domain
-      // const [domain] = await db.insert(tenantDomains).values({
+      // const [domain] = await getOwnerDb().insert(tenantDomains).values({
       //   tenantId: testTenantId,
       //   domain: 'to-delete.com',
       // }).returning();
@@ -292,7 +292,7 @@ describe('Branding API Routes', () => {
       //
       // expect(response.body.message).toBe('Domain removed successfully');
       // Verify deletion
-      // const domains = await db.select()
+      // const domains = await getOwnerDb().select()
       //   .from(tenantDomains)
       //   .where(eq(tenantDomains.id, domain.id));
       //
@@ -310,12 +310,12 @@ describe('Branding API Routes', () => {
     });
     it('should return 403 when trying to delete domain from different tenant', async () => {
       // Setup: Create another tenant and domain
-      // const [otherTenant] = await db.insert(tenants).values({
+      // const [otherTenant] = await getOwnerDb().insert(tenants).values({
       //   name: 'Other Tenant',
       //   plan: 'free',
       // }).returning();
       //
-      // const [domain] = await db.insert(tenantDomains).values({
+      // const [domain] = await getOwnerDb().insert(tenantDomains).values({
       //   tenantId: otherTenant.id,
       //   domain: 'other-tenant.com',
       // }).returning();

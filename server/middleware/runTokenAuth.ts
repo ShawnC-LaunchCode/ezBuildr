@@ -1,5 +1,7 @@
 import { logger } from "../logger";
 import { workflowRunRepository } from "../repositories/WorkflowRunRepository";
+import { workflowTenantResolver } from "../services/WorkflowTenantResolver";
+import { setCurrentTenantId, withVerifiedIdentifier } from "../utils/rlsContext";
 
 import type { Request, Response, NextFunction } from "express";
 
@@ -78,6 +80,74 @@ export async function runTokenAuth(
       workflowId: run.workflowId,
       runToken: token,
     };
+
+    // RLS-2e (reviewer fix): a run token is NOT a tenant JWT, so neither
+    // `attachUserToRequest` nor `cookieStrategy` runs for it and nothing
+    // populates the async tenant context. Every service the RLS-2 rollout
+    // converted throws "RLS: no tenant in context." when reached this way —
+    // which is every public link and every anonymous run, i.e. the
+    // customer-facing path. `workflow_runs` carries no tenant_id, so the tenant
+    // is resolved from the workflow, which is exactly what
+    // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
+    // alone"). Mirrors what RLS-1 did for `hybridAuth`.
+    //
+    // RLS-4 precondition 2 (closed): that resolution itself reads `workflows`
+    // — RLS-covered, ownership-derived — with no tenant known yet, which is
+    // exactly what it's trying to determine. `run.workflowId` just came from
+    // a verified token match on `workflow_runs` (unprotected), so it is a
+    // legitimately-established value; pin it as `app.current_workflow_id`
+    // (migration 0030's self-identification clause on `workflows`) for the
+    // duration of this one lookup so it can actually see the row, instead of
+    // being silently blocked the same way the bootstrap read always was
+    // before FORCE was ever considered.
+    //
+    // Best-effort by design: if resolution fails we leave the context empty and
+    // let the downstream service fail closed, rather than inventing a tenant.
+    try {
+      const runTenantId = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        run.workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+      );
+      if (runTenantId) {
+        setCurrentTenantId(runTenantId);
+        // RLS-11 cause 1: stamp the REQUEST too, not just the async context.
+        //
+        // `setCurrentTenantId` writes into the AsyncLocalStorage store opened
+        // by the app-level `rlsContext`. Any route that runs multer loses that
+        // store — multer resumes the middleware chain from its own stream
+        // callback, outside the frame — so those routes re-mount `rlsContext`
+        // afterwards to reopen one. That re-mount re-seeds ONLY from
+        // `req.tenantId` (server/middleware/rlsContext.ts), which `hybridAuth`
+        // sets and this middleware did not. Net effect on every multipart
+        // run-token request: a tenant was resolved here, correctly, and then
+        // silently dropped, leaving every downstream read unscoped.
+        //
+        // Unscoped does not mean unfiltered — it means EMPTY. `workflows`
+        // returned no row, so uploading to a run whose token had just
+        // authenticated failed as `404 Workflow for run not found`; `pages`
+        // and `steps` returned nothing, so the definition came back with no
+        // questions at all. That is the RLS failure mode this initiative is
+        // about: a blocked read is indistinguishable from missing data.
+        //
+        // Fixing it here covers every such route at once and gives downstream
+        // reads the REAL tenant — strictly better than bootstrapping
+        // `app.current_workflow_id` at each layer, which `pages`/`steps` do
+        // not even honour (their policies key on tenant-ownership or
+        // `is_public`, never on that GUC).
+        //
+        // Safe for a run token specifically: nothing treats the presence of
+        // `req.tenantId` as proof of an authenticated user. `requireTenant`
+        // and `checkTenantAccess` are only ever mounted alongside `hybridAuth`;
+        // the remaining readers use it to key rate limits.
+        (req as Request & { tenantId?: string }).tenantId = runTenantId;
+      } else {
+        logger.warn({ runId: run.id, workflowId: run.workflowId },
+          "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
+      }
+    } catch (e) {
+      logger.warn({ err: e, runId: run.id }, "Tenant resolution failed for run token");
+    }
 
     next();
   } catch (error) {
@@ -168,6 +238,47 @@ async function creatorOrRunTokenAuthLogic(
       workflowId: run.workflowId,
       runToken: token,
     };
+
+    // RLS-2e (reviewer fix): a run token is NOT a tenant JWT, so neither
+    // `attachUserToRequest` nor `cookieStrategy` runs for it and nothing
+    // populates the async tenant context. Every service the RLS-2 rollout
+    // converted throws "RLS: no tenant in context." when reached this way —
+    // which is every public link and every anonymous run, i.e. the
+    // customer-facing path. `workflow_runs` carries no tenant_id, so the tenant
+    // is resolved from the workflow, which is exactly what
+    // `WorkflowTenantResolver` exists for ("anything keyed on a workflow id
+    // alone"). Mirrors what RLS-1 did for `hybridAuth`.
+    //
+    // RLS-4 precondition 2 (closed): that resolution itself reads `workflows`
+    // — RLS-covered, ownership-derived — with no tenant known yet, which is
+    // exactly what it's trying to determine. `run.workflowId` just came from
+    // a verified token match on `workflow_runs` (unprotected), so it is a
+    // legitimately-established value; pin it as `app.current_workflow_id`
+    // (migration 0030's self-identification clause on `workflows`) for the
+    // duration of this one lookup so it can actually see the row, instead of
+    // being silently blocked the same way the bootstrap read always was
+    // before FORCE was ever considered.
+    //
+    // Best-effort by design: if resolution fails we leave the context empty and
+    // let the downstream service fail closed, rather than inventing a tenant.
+    try {
+      const runTenantId = await withVerifiedIdentifier(
+        'app.current_workflow_id',
+        run.workflowId,
+        (tx) => workflowTenantResolver.resolveForWorkflowId(run.workflowId, tx)
+      );
+      if (runTenantId) {
+        setCurrentTenantId(runTenantId);
+        // Same as `runTokenAuth` above, and this is the path the multipart
+        // upload routes actually take — see the full reasoning there.
+        (req as Request & { tenantId?: string }).tenantId = runTenantId;
+      } else {
+        logger.warn({ runId: run.id, workflowId: run.workflowId },
+          "Run token accepted but tenant could not be resolved; downstream RLS-scoped calls will fail closed");
+      }
+    } catch (e) {
+      logger.warn({ err: e, runId: run.id }, "Tenant resolution failed for run token");
+    }
 
     next();
   } catch (error) {

@@ -19,6 +19,7 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 
 import { setupIntegrationTest, type IntegrationTestContext } from '../../helpers/integrationTestHelper';
+import { expectCrossTenantDenied } from '../../helpers/expectDenied';
 
 const generateWorkflowMock = vi.fn();
 
@@ -75,7 +76,7 @@ const createMinimalDocx = (): Buffer => {
  * ("notes") has nothing to do with any approved variable (proves unrelated
  * AI content survives untouched), and "signing_date" is entirely absent
  * (proves an unmatched approved variable gets appended, never dropped).
- * logicRules/transformBlocks are non-empty here specifically to prove the
+ * logicRules are non-empty here specifically to prove the
  * service drops them (the persistence path can't carry them - see
  * DocumentOnboardingService's header comment).
  */
@@ -83,30 +84,45 @@ function mockGeneratedWorkflow() {
   return {
     title: 'Client Intake',
     description: 'Generated from an uploaded document',
-    sections: [
+    pages: [
       {
         id: 'sec1',
         title: 'Details',
         order: 0,
         steps: [
-          { id: 'step1', type: 'long_text', title: 'Client Name', alias: 'client_name', required: true },
-          { id: 'step2', type: 'short_text', title: 'Notes', alias: 'notes', required: false },
+          {
+            id: 'step1', type: 'text', title: 'Client Name', alias: 'client_name', required: true,
+            config: { variant: 'short' },
+          },
+          {
+            id: 'step2', type: 'text', title: 'Notes', alias: 'notes', required: false,
+            config: { variant: 'short' },
+          },
         ],
       },
     ],
     logicRules: [
       { id: 'r1', when: { type: 'group', logic: 'and', conditions: [] }, targetType: 'step', targetAlias: 'notes', action: 'hide' },
     ],
-    transformBlocks: [
-      { id: 'tb1', name: 'x', language: 'javascript', code: 'return 1;', inputKeys: [], outputKey: 'y' },
-    ],
     notes: null,
   };
 }
 
 const APPROVED_VARIABLES = [
-  { name: 'client_name', type: 'short_text', alias: 'clientName', label: 'Client Name' },
-  { name: 'signing_date', type: 'date', alias: 'signingDate', label: 'Signing Date' },
+  {
+    name: 'client_name',
+    type: 'text',
+    alias: 'clientName',
+    label: 'Client Name',
+    config: { variant: 'long' },
+  },
+  {
+    name: 'signing_date',
+    type: 'date_time',
+    alias: 'signingDate',
+    label: 'Signing Date',
+    config: { kind: 'date' },
+  },
 ];
 
 describe.sequential('Document onboarding orchestration (GH-167)', () => {
@@ -137,7 +153,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     generateWorkflowMock.mockClear();
   });
 
-  it('overlays approved type/alias onto the generated steps, drops logic/transform blocks, and never drops an approved variable', async () => {
+  it('overlays approved type/alias onto the generated steps, drops logic rules, and never drops an approved variable', async () => {
     generateWorkflowMock.mockResolvedValueOnce(mockGeneratedWorkflow());
 
     const response = await request(ctx.baseURL)
@@ -152,28 +168,30 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
 
     const generated = response.body.data;
     expect(generated.logicRules).toEqual([]);
-    expect(generated.transformBlocks).toEqual([]);
 
-    const allSteps = generated.sections.flatMap((s: { steps: unknown[] }) => s.steps) as Array<{
+    const allSteps = generated.pages.flatMap((s: { steps: unknown[] }) => s.steps) as Array<{
       alias: string;
       type: string;
       title: string;
+      config?: Record<string, unknown>;
     }>;
 
     // The matched-and-corrected step.
     const clientNameStep = allSteps.find((s) => s.alias === 'clientName');
     expect(clientNameStep).toBeDefined();
-    expect(clientNameStep?.type).toBe('short_text');
+    expect(clientNameStep?.type).toBe('text');
+    expect(clientNameStep?.config).toEqual({ variant: 'long' });
 
-    // The unmatched AI step survives untouched.
+    // Unmatched canonical AI content survives unchanged.
     const notesStep = allSteps.find((s) => s.alias === 'notes');
     expect(notesStep).toBeDefined();
-    expect(notesStep?.type).toBe('short_text');
+    expect(notesStep?.type).toBe('text');
+    expect(notesStep?.config).toEqual({ variant: 'short' });
 
     // The variable the LLM never produced a step for was appended, not dropped.
     const signingDateStep = allSteps.find((s) => s.alias === 'signingDate');
     expect(signingDateStep).toBeDefined();
-    expect(signingDateStep?.type).toBe('date');
+    expect(signingDateStep?.type).toBe('date_time');
 
     expect(allSteps).toHaveLength(3);
   });
@@ -204,7 +222,7 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
     await request(ctx.baseURL)
       .put(`/api/workflows/${workflowId}`)
       .set('Authorization', `Bearer ${ctx.authToken}`)
-      .send({ title: generated.title, sections: generated.sections })
+      .send({ title: generated.title, pages: generated.pages })
       .expect(200);
 
     // 3. The workflow is left unpublished (Decision, Senior 2026-08-08).
@@ -214,10 +232,15 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
       .expect(200);
     expect(workflowResponse.body.status).toBe('draft');
 
-    const persistedSteps = (workflowResponse.body.sections as Array<{ steps: Array<{ alias: string; type: string }> }>)
+    const persistedSteps = (workflowResponse.body.pages as Array<{
+      steps: Array<{ alias: string; type: string; config?: Record<string, unknown> }>;
+    }>)
       .flatMap((s) => s.steps);
-    expect(persistedSteps.find((s) => s.alias === 'clientName')?.type).toBe('short_text');
-    expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date');
+    expect(persistedSteps.find((s) => s.alias === 'clientName')).toMatchObject({
+      type: 'text',
+      config: { variant: 'long' },
+    });
+    expect(persistedSteps.find((s) => s.alias === 'signingDate')?.type).toBe('date_time');
 
     // 4. Attach the original document as a template.
     const templateResponse = await request(ctx.baseURL)
@@ -254,10 +277,10 @@ describe.sequential('Document onboarding orchestration (GH-167)', () => {
         projectId: ctx.projectId,
         documentName: 'Intake.docx',
         variables: APPROVED_VARIABLES,
-      })
-      .expect(403);
+      });
 
-    expect(String(response.body.error)).toMatch(/access denied/i);
+    expectCrossTenantDenied(response.status);
+    // The assertion that actually matters: the model was never reached.
     expect(generateWorkflowMock).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,7 @@ import { ChoiceCardEditor } from './cards/ChoiceCardEditor';
 import { DateTimeCardEditor } from './cards/DateTimeCardEditor';
 import { DisplayCardEditor } from './cards/DisplayCardEditor';
 import { EmailCardEditor } from './cards/EmailCardEditor';
+import { FileUploadCardEditor } from './cards/FileUploadCardEditor';
 import { GenericStepEditor } from './cards/GenericStepEditor';
 import { JsQuestionCardEditor } from './cards/JsQuestionCardEditor';
 import { ListCardEditor } from './cards/ListCardEditor';
@@ -17,10 +18,10 @@ import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
 import type { StepEditorCommonProps } from './cards/common/stepEditorProps';
 
 // eslint-disable-next-line complexity
-export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEditorCommonProps, 'stepId'>) {
+export function StepEditorRouter({ step, pageId, workflowId }: Omit<StepEditorCommonProps, 'stepId'>) {
     const commonProps: StepEditorCommonProps = {
         stepId: step.id,
-        sectionId,
+        pageId,
         workflowId,
         step,
     };
@@ -30,8 +31,8 @@ export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEdito
         return <DisplayCardEditor {...commonProps} />;
     }
 
-    // Text Steps
-    if (step.type === 'short_text' || step.type === 'long_text' || step.type === 'text') {
+    // Canonical text plus read compatibility for rows awaiting STB-19.
+    if (step.type === 'text' || step.type === 'short_text' || step.type === 'long_text') {
         return <TextCardEditor {...commonProps} />;
     }
 
@@ -104,6 +105,11 @@ export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEdito
     // List Steps (structural, nestable)
     if (step.type === 'list') {
         return <ListCardEditor {...commonProps} />;
+    }
+
+    // File Upload Steps
+    if (step.type === 'file_upload') {
+        return <FileUploadCardEditor {...commonProps} />;
     }
 
     // Fallback for legacy / imported enum types with no dedicated editor

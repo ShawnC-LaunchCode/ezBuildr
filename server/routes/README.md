@@ -20,7 +20,7 @@ VaultLogic uses a **dual routing pattern** that separates legacy routes from mod
 - Function-based route registration: `registerXxxRoutes(app: Express)`
 - Routes registered directly in route files
 - Typically uses services and repositories directly
-- Examples: surveys, pages, questions, responses, workflows, sections, steps
+- Examples: surveys, pages, questions, responses, workflows, pages, steps
 
 **Example:**
 ```typescript
@@ -100,7 +100,7 @@ export function registerApiProjectRoutes(app: Express) {
 ### Legacy Pattern Routes (35 files)
 Located in `server/routes/*.routes.ts`:
 - Survey system: surveys, pages, questions, responses, analytics, export
-- Workflow builder: workflows, sections, steps, blocks, transformBlocks
+- Workflow builder: workflows, pages, steps, blocks, transformBlocks
 - File management: files, templates, templateSharing
 - Team management: teams, tenant
 - User management: account, userPreferences, auth

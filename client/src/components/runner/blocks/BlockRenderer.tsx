@@ -15,14 +15,15 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
-import type { ListValue, MultiFieldValue } from "@shared/types/stepConfigs";
+import {
+  type ListValue,
+  type MultiFieldValue,
+} from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
 import { BooleanBlockRenderer } from "./BooleanBlock";
 import { ChoiceBlockRenderer } from "./ChoiceBlock";
-import { CurrencyBlockRenderer } from "./CurrencyBlock";
-import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
@@ -33,9 +34,10 @@ import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
 import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
-import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRouting";
+import { getRunnerStepTypeStatus } from "./stepTypeRouting";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
+
 import { TextBlockRenderer } from "./TextBlock";
-import { TimeBlockRenderer } from "./TimeBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
 import {
   interpolateRunnerText,
@@ -105,6 +107,16 @@ function isListValue(value: unknown): value is ListValue {
   return typeof value === "object" && value !== null && Array.isArray((value as { items?: unknown }).items);
 }
 
+/**
+ * Retired step types, and how to read them as their canonical family.
+ *
+ * A family ticket registers its adapter here and nothing else in this file
+ * changes — the switch below always receives an already-canonical step. These
+ * exist only for rows written before STB-19 backfills them; nothing new is
+ * ever authored with these types.
+ */
+
+
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
   // Honest, not apologetic: the runner has no control for this step type, so
   // it is not required and will not block the respondent from finishing
@@ -130,10 +142,10 @@ function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "uns
 // ============================================================================
 
 export function BlockRenderer(props: BlockRendererProps) {
-  const { step, value, onChange, required, error, readOnly, showValidation } = props;
-  const normalizedType = normalizeRunnerStepType(step.type);
+  const { step: rawStep, value, onChange, required, error, readOnly, showValidation } = props;
+  const step = adaptLegacyStep(rawStep);
   const typeStatus = getRunnerStepTypeStatus(step.type);
-  const renderedStep = normalizedType === "display" ? step : {
+  const renderedStep = step.type === "display" ? step : {
     ...step,
     title: interpolateRunnerText(
       step.title,
@@ -180,12 +192,9 @@ export function BlockRenderer(props: BlockRendererProps) {
       return <ExplicitRunnerTypeNotice type={step.type} status={typeStatus} />;
     }
 
-    switch (normalizedType) {
+    switch (step.type) {
       // Text blocks
-      case "short_text":
-      case "long_text":
       case "text":
-
         return <TextBlockRenderer step={renderedStep} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
@@ -203,12 +212,6 @@ export function BlockRenderer(props: BlockRendererProps) {
         return <WebsiteBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
-      case "date":
-        return <DateBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
-      case "time":
-        return <TimeBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
       case "date_time":
         return <DateTimeBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
@@ -216,15 +219,12 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "number":
         return <NumberBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
-      case "currency":
-        return <CurrencyBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
-
       case "scale":
         return <ScaleBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Choice inputs
       case "choice":
-        return <ChoiceBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} />;
+        return <ChoiceBlockRenderer step={renderedStep} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} aliasMap={props.aliasMap} runId={props.runId} />;
 
       // Complex blocks
       case "address":
@@ -267,7 +267,7 @@ export function BlockRenderer(props: BlockRendererProps) {
   // Render block with label and error
   // -------------------------------------------------------------------------
   // Display blocks, final blocks, and signature blocks don't have labels
-  if (normalizedType === "display" || normalizedType === "final_documents" || normalizedType === "signature_block") {
+  if (step.type === "display" || step.type === "final_documents" || step.type === "signature_block") {
     return renderBlockInput();
   }
 

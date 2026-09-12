@@ -15,7 +15,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { PhoneConfig } from "@shared/types/stepConfigs";
+import { resolvePhoneConfig } from "@shared/types/stepConfigs";
 
 export interface PhoneBlockProps {
   step: Step;
@@ -29,7 +29,7 @@ export interface PhoneBlockProps {
 }
 
 export function PhoneBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: PhoneBlockProps) {
-  const config = step.config as PhoneConfig;
+  const config = resolvePhoneConfig(step.config);
   const format = config?.format ?? "US";
 
   // Format phone number for display

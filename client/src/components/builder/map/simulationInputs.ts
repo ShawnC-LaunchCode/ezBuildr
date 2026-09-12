@@ -7,10 +7,9 @@
  * **AC1: only steps some condition actually references.** Listing every step
  * in the workflow would be unusable. The reference set comes from the same
  * extraction the lint pipeline uses (`extractConditionReferences` in
- * `shared/conditionGraph.ts`), applied to every section's `visibleIf`, every
- * step's `visibleIf`, and every rule's `when` — the three places a
- * `ConditionExpression` can live (see `shared/workflowMap.ts`'s module doc
- * comment for why those are the only three).
+ * `shared/conditionGraph.ts`), applied to every Section's `visibleIf`, every
+ * page's `visibleIf`, every step's `visibleIf`, and every rule's `when` — the
+ * four places a `ConditionExpression` can live.
  *
  * A reference can name a step by **alias or id** (`Condition.variable`, see
  * `shared/types/conditions.ts`), so each raw reference is resolved against
@@ -21,7 +20,7 @@
  * **AC2's easiest way to get silently wrong** (per the ticket): the answer
  * object handed to `simulateWorkflowPath` must be keyed by step **id**, with
  * alias resolution supplied separately. `buildStepAliasResolver` below is
- * `useSectionVisibility.ts`'s exact resolver
+ * `usePageVisibility.ts`'s exact resolver
  * (`allSteps.find(s => s.alias === variableName)?.id`), not a reimplementation.
  */
 import type { ApiStep } from "@/lib/vault-api";
@@ -57,22 +56,26 @@ interface AliasableStep {
 }
 
 /**
- * Every step id that some `visibleIf` (section or step) or rule `when`
+ * Every step id that some `visibleIf` (page or step) or rule `when`
  * expression references, resolved from raw alias-or-id operands to real step
  * ids. An operand that resolves to nothing (dangling reference, or one of
  * this map's own steps missing) is dropped rather than invented.
  */
 export function getReferencedStepIds(
-  sections: ReferenceSource[],
+  pages: ReferenceSource[],
   steps: AliasableStep[],
-  rules: RuleReferenceSource[]
+  rules: RuleReferenceSource[],
+  sections: ReferenceSource[] = []
 ): Set<string> {
   const rawRefs = new Set<string>();
-  for (const section of sections) {
-    for (const ref of extractConditionReferences(section.visibleIf)) { rawRefs.add(ref); }
+  for (const page of pages) {
+    for (const ref of extractConditionReferences(page.visibleIf)) { rawRefs.add(ref); }
   }
   for (const step of steps) {
     for (const ref of extractConditionReferences((step as ReferenceSource).visibleIf)) { rawRefs.add(ref); }
+  }
+  for (const section of sections) {
+    for (const ref of extractConditionReferences(section.visibleIf)) { rawRefs.add(ref); }
   }
   for (const rule of rules) {
     for (const ref of extractConditionReferences(rule.when)) { rawRefs.add(ref); }
@@ -91,17 +94,18 @@ export function getReferencedStepIds(
  * own step order (never re-sorted) — AC1.
  */
 export function getReferencedSteps(
-  sections: ReferenceSource[],
+  pages: ReferenceSource[],
   steps: ApiStep[],
-  rules: RuleReferenceSource[]
+  rules: RuleReferenceSource[],
+  sections: ReferenceSource[] = []
 ): ApiStep[] {
-  const ids = getReferencedStepIds(sections, steps, rules);
+  const ids = getReferencedStepIds(pages, steps, rules, sections);
   return steps.filter((step) => ids.has(step.id));
 }
 
 /**
  * Resolves a step alias referenced by a condition to its step id — built the
- * exact way `useSectionVisibility.ts` does, so the panel's answers key
+ * exact way `usePageVisibility.ts` does, so the panel's answers key
  * identically to how the runner itself resolves aliases (AC2).
  */
 export function buildStepAliasResolver(steps: AliasableStep[]): (variableName: string) => string | undefined {
@@ -121,15 +125,15 @@ export function buildStepAliasResolver(steps: AliasableStep[]): (variableName: s
  * behaviour differs from the rest of the condition system.
  */
 const CONDITION_STEP_TYPE_ALIASES: Record<string, ConditionSupportedStepType> = {
-  short_text: "short_text",
-  text: "short_text",
-  long_text: "long_text",
-  multiple_choice: "multiple_choice",
-  choice: "multiple_choice",
-  radio: "radio",
-  yes_no: "yes_no",
-  boolean: "yes_no",
-  true_false: "yes_no",
+  short_text: "text",
+  text: "text",
+  long_text: "text",
+  multiple_choice: "choice",
+  choice: "choice",
+  radio: "choice",
+  yes_no: "boolean",
+  boolean: "boolean",
+  true_false: "boolean",
   computed: "computed",
   date: "date_time",
   date_time: "date_time",
@@ -139,13 +143,16 @@ const CONDITION_STEP_TYPE_ALIASES: Record<string, ConditionSupportedStepType> = 
   file_upload: "file_upload",
   js_question: "js_question",
   list: "list",
+  number: "number",
+  currency: "number",
+  number_advanced: "number",
 };
 
 export function toConditionStepType(type: string): ConditionSupportedStepType {
-  return CONDITION_STEP_TYPE_ALIASES[type] ?? "short_text";
+  return CONDITION_STEP_TYPE_ALIASES[type] ?? "text";
 }
 
-const CHOICE_STEP_TYPES = new Set<string>(["radio", "multiple_choice"]);
+const CHOICE_STEP_TYPES = new Set<string>(["choice"]);
 
 /** A step type is walking distance from Yes/No is a fine answer even though every visible-if operator for it needs none (is_true/is_false/is_empty/is_not_empty). */
 const YES_NO_ANSWER_CHOICES: ChoiceOptionDescriptor[] = [
@@ -172,7 +179,7 @@ function buildOperatorConfig(
   stepType: ConditionSupportedStepType,
   legacyChoices: ChoiceOptionDescriptor[] | undefined
 ): { operatorConfig: OperatorConfig; choices?: ChoiceOptionDescriptor[] } {
-  if (stepType === "yes_no") {
+  if (stepType === "boolean") {
     return {
       operatorConfig: { value: "is_true", label: "answer", needsValue: true, valueType: "choices" },
       choices: YES_NO_ANSWER_CHOICES,
@@ -195,11 +202,11 @@ function buildOperatorConfig(
 /** Builds one `SimulationField` per referenced step, preserving the caller's order. */
 export function buildSimulationFields(
   referencedSteps: ApiStep[],
-  sectionTitleById: ReadonlyMap<string, string>
+  pageTitleById: ReadonlyMap<string, string>
 ): SimulationField[] {
   return referencedSteps.map((step) => {
     const stepType = toConditionStepType(step.type);
-    const legacyChoices = CHOICE_STEP_TYPES.has(step.type) ? getLegacyChoiceOptions(step.config) : undefined;
+    const legacyChoices = CHOICE_STEP_TYPES.has(stepType) ? getLegacyChoiceOptions(step.config) : undefined;
     const { operatorConfig, choices } = buildOperatorConfig(stepType, legacyChoices);
 
     const variable: VariableInfo = {
@@ -208,8 +215,8 @@ export function buildSimulationFields(
       label: step.alias ?? step.title,
       title: step.title,
       type: stepType,
-      sectionId: step.sectionId,
-      sectionTitle: sectionTitleById.get(step.sectionId) ?? "",
+      pageId: step.pageId,
+      pageTitle: pageTitleById.get(step.pageId) ?? "",
       choices,
     };
 

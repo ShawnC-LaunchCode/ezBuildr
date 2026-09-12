@@ -44,9 +44,9 @@ export function useUpdateWorkflow(): UseMutationResult<ApiWorkflow, unknown, Par
         mutationFn: ({ id, ...data }: Partial<ApiWorkflow> & { id: string }) =>
             workflowAPI.update(id, data),
         onSuccess: async (_, variables) => {
-            // Invalidate the specific workflow and all its sub-resources (sections, steps, blocks, etc.)
+            // Invalidate the specific workflow and all its sub-resources (pages, steps, blocks, etc.)
             await queryClient.invalidateQueries({ queryKey: ["workflows", variables.id] });
-            await queryClient.invalidateQueries({ queryKey: ["sections", variables.id] });
+            await queryClient.invalidateQueries({ queryKey: ["pages", variables.id] });
             await queryClient.invalidateQueries({ queryKey: ["steps"] }); // Steps often have weird keys, safer to nuke 'em
             await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
             DevPanelBus.emitWorkflowUpdate();

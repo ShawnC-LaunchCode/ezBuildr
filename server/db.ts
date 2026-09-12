@@ -11,7 +11,10 @@ import type { NeonDatabase } from 'drizzle-orm/neon-serverless';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool, PoolClient } from 'pg';
 
-type DrizzleDB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
+// Exported so server/db/adminDb.ts (RLS-6's second, BYPASSRLS-role pool) can
+// type its own Drizzle instance identically without importing this module's
+// runtime state — the two pools are deliberately independent connections.
+export type DrizzleDB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
 let pool: Pool | NeonPool | null = null;
 let _db: DrizzleDB | null = null;  // Internal db reference

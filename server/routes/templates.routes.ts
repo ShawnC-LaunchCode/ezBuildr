@@ -23,6 +23,7 @@ import { db } from '../db';
 import { logger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
 import { uploadLimiter } from '../middleware/rateLimiter';
+import { rlsContext } from '../middleware/rlsContext';
 import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
 import { pdfService } from '../services/document/PdfService';
@@ -45,6 +46,7 @@ import {
 } from '../services/templates';
 import { templateVersionService } from '../services/TemplateVersionService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { withCurrentTenant } from "../utils/rlsContext";
 import { isProcessingTimeoutError, withTimeout } from '../utils/concurrency';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
@@ -71,10 +73,10 @@ async function getWorkflowNormalizationOptions(
     return undefined;
   }
 
-  const workflow = await db.query.workflows.findFirst({
+  const workflow = await withCurrentTenant((tx) => tx.query.workflows.findFirst({
     where: eq(schema.workflows.id, workflowId),
     with: { project: true },
-  });
+  }));
   if (!workflow) {
     throw createError.notFound('Workflow', workflowId);
   }
@@ -173,15 +175,15 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         logger.error({ templateId: params.id }, 'Template not found');
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         logger.error({ tenantId, templateId: template.id }, ACCESS_DENIED_MSG);
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
@@ -228,12 +230,12 @@ router.get(
       const params = projectIdParamsSchema.parse(req.params);
       const query = listTemplatesQuerySchema.parse(req.query);
       const { cursor, limit } = query;
-      const project = await db.query.projects.findFirst({
+      const project = await withCurrentTenant((tx) => tx.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
-      });
+      }));
       if (!project) {
         throw createError.notFound('Project', params.projectId);
       }
@@ -244,11 +246,11 @@ router.get(
           whereConditions.push(lt(schema.templates.createdAt, new Date(decoded.timestamp)));
         }
       }
-      const templates = await db.query.templates.findMany({
+      const templates = await withCurrentTenant((tplTx) => tplTx.query.templates.findMany({
         where: and(...whereConditions),
         orderBy: [desc(schema.templates.createdAt)],
         limit: limit + 1,
-      });
+      }));
       const response = createPaginatedResponse(templates, limit);
       res.json(response);
     } catch (error) {
@@ -264,11 +266,40 @@ router.get(
  */
 router.post(
   '/projects/:projectId/templates',
+  // RLS-5: `hybridAuth` MUST come before `upload.single`, and this route was
+  // the only one in the file with the opposite order (its PATCH sibling below
+  // already authenticated first).
+  //
+  // Multer consumes the multipart body from the request stream and calls
+  // `next()` from a stream callback. `hybridAuth` running after that lands
+  // outside the async-context store `rlsContext` opened, where
+  // `setCurrentTenantId` is a documented NO-OP — so the ambient tenant was
+  // never populated, `withCurrentTenant` below ran with no tenant, and the
+  // project lookup returned nothing. The route answered **404 for a project
+  // the caller owns**, and only for uploads.
+  //
+  // Authenticating first is also the right order on its own terms: an
+  // unauthenticated request should not get a multipart parse and a temp file
+  // written to disk before it is rejected.
   uploadLimiter,
-  upload.single('file'),
   hybridAuth,
   requireTenant,
   requirePermission(PERMISSION_CREATE),
+  upload.single('file'),
+  // RLS-5: `rlsContext` AGAIN, after multer. Multer consumes the request
+  // stream and resumes the chain from a stream callback, which lands OUTSIDE
+  // the AsyncLocalStorage store the app-level `rlsContext` opened — so
+  // `getCurrentTenantId()` reads undefined in the handler even though
+  // `hybridAuth` set the tenant correctly a moment earlier (verified by
+  // logging both). Every `withCurrentTenant` below then ran unscoped and the
+  // project lookup returned nothing: **404 for a project the caller owns**,
+  // and only on multipart routes.
+  //
+  // Re-mounting the same middleware is the whole fix: it opens a fresh store
+  // and seeds it from `req.tenantId`, which auth has already resolved onto the
+  // request object — the "mounted after tenant resolution" case its own
+  // comment describes.
+  rlsContext,
   // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- inherently complex file upload with security checks
   asyncHandler(async (req: Request, res: Response) => {
     let fileRef: string | undefined;
@@ -276,12 +307,12 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = projectIdParamsSchema.parse(req.params);
-      const project = await db.query.projects.findFirst({
+      const project = await withCurrentTenant((tx) => tx.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
-      });
+      }));
       if (!project) {
         await cleanupFile(req.file?.path);
         throw createError.notFound('Project', params.projectId);
@@ -444,14 +475,14 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       res.json(template);
@@ -473,6 +504,8 @@ router.patch(
   requirePermission(PERMISSION_EDIT),
   uploadLimiter,
   upload.single('file'),
+  // Same multer/async-context fix as the upload route above.
+  rlsContext,
   // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- inherently complex file replacement with security checks
   asyncHandler(async (req: Request, res: Response) => {
     let newFileRef: string | undefined;
@@ -480,14 +513,14 @@ router.patch(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const data = updateTemplateSchema.parse(req.body);
@@ -662,14 +695,14 @@ router.delete(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       await deleteTemplateFile(template.fileRef);
@@ -696,14 +729,14 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const placeholders = await extractPlaceholders(template.fileRef);
@@ -771,14 +804,14 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const previewSchema = z.object({
@@ -827,6 +860,30 @@ router.post(
  * POST /templates/:id/test-mapping
  * Test field mapping with sample data (validation only, no generation)
  */
+/**
+ * ⚠️ Every `db.query.templates.findFirst({ with: { project: true } })` in this
+ * file runs inside `withCurrentTenant` — 14 of them — and it is the JOIN that
+ * makes it necessary, not the base table.
+ *
+ * `templates` carries no RLS policy, so a naive reading says these reads are
+ * fine. But the relational `with: { project: true }` pulls `projects`, which IS
+ * covered: unscoped, `project` comes back NULL, and the very next line
+ * (`template.project.tenantId !== tenantId`) throws a TypeError. The route
+ * returns **500**, not 403 — an authorization check turning into a crash.
+ *
+ * That shape is invisible to every scanner in scripts/audit-rls-surface.ts:
+ * the table named at the call site is uncovered, and the covered one appears
+ * only as a relation key.
+ *
+ * Scoping the read fixes the SAME-tenant case, and that is only half of it.
+ * For a genuinely cross-tenant caller the project is invisible even when the
+ * transaction IS scoped — correctly so, that is the isolation working — and
+ * `template.project` is null again. So every one of these checks also has to
+ * treat a null project as "not mine" rather than dereferencing it. Without
+ * that, the DENIAL path is the one that crashes: the 403 these routes are
+ * supposed to return becomes a 500, and only on the cross-tenant attempt,
+ * which is exactly the case least likely to be exercised by hand.
+ */
 router.post(
   '/templates/:id/test-mapping',
   hybridAuth,
@@ -837,14 +894,14 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const body = req.body as Record<string, unknown>;
@@ -887,14 +944,14 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { templateVersionService } = await import('../services/TemplateVersionService');
@@ -925,14 +982,14 @@ router.get(
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { templateVersionService } = await import('../services/TemplateVersionService');
@@ -963,14 +1020,14 @@ router.post(
         throw createError.unauthorized('User ID required to create version');
       }
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const body = req.body as Record<string, unknown>;
@@ -1008,14 +1065,14 @@ router.post(
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const body = req.body as Record<string, unknown>;
@@ -1049,14 +1106,14 @@ router.get(
       if (isNaN(from) || isNaN(to)) {
         throw createError.validation('Invalid version numbers');
       }
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { templateVersionService } = await import('../services/TemplateVersionService');
@@ -1083,14 +1140,14 @@ router.get(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const params = templateParamsSchema.parse(req.params);
-      const template = await db.query.templates.findFirst({
+      const template = await withCurrentTenant((tplTx) => tplTx.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
         with: { project: true },
-      });
+      }));
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-      if (template.project.tenantId !== tenantId) {
+      if (template.project == null || template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { templateAnalytics } = await import('../services/TemplateAnalyticsService');

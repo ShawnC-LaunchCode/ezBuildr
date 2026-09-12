@@ -31,7 +31,19 @@ import { join } from "path";
 import { sql } from "drizzle-orm";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 
-import { db } from "../../server/db";
+/**
+ * ⚠️ OWNER connection, deliberately — and it does NOT weaken this suite.
+ *
+ * `ownerDb`'s warning against `rls-*` suites protects suites that assert what
+ * the APP's restricted pool can see. This suite does not work that way: it
+ * creates its own non-owner role and asserts visibility under `SET LOCAL ROLE`
+ * inside a transaction, which is a stronger and self-contained mechanism. Both
+ * halves REQUIRE ownership — creating a role, applying a migration, and
+ * `SET LOCAL ROLE` itself are all owner operations, so under RLS_RESTRICTED
+ * this suite failed at setup with `must be owner of table ...` and every test
+ * was skipped.
+ */
+import { getOwnerDb } from "../helpers/ownerDb";
 
 const MIGRATION_SQL = readFileSync(
   join(process.cwd(), "migrations", "0011_datavault_rls_phase4.sql"),
@@ -89,9 +101,9 @@ function rows(result: unknown): Array<Record<string, unknown>> {
  */
 async function asTenant<T>(
   tenant: string | null,
-  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+  fn: (tx: Parameters<Parameters<ReturnType<typeof getOwnerDb>['transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
+  return getOwnerDb().transaction(async (tx) => {
     await tx.execute(sql.raw(`SET LOCAL ROLE "${TEST_ROLE}"`));
     // SET ROLE drops the login role's search_path (rls_tester defaults to
     // "$user",public), so pin it back to the test schema for this transaction.
@@ -113,12 +125,12 @@ beforeAll(async () => {
   TEST_ROLE = `rls_tester_${schema}`;
 
   // 1. Apply the DVH-3 migration (idempotent) into the current schema.
-  await db.execute(sql.raw(MIGRATION_SQL));
+  await getOwnerDb().execute(sql.raw(MIGRATION_SQL));
 
   // 2. A non-owner, non-superuser role so RLS is actually enforced for it.
   //    (Same role rls-phase4-workflows.test.ts creates — CREATE ROLE IF NOT
   //    EXISTS makes this safe whichever test file runs first.)
-  await db.execute(sql.raw(`
+  await getOwnerDb().execute(sql.raw(`
     DO $$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${TEST_ROLE}') THEN
@@ -126,8 +138,8 @@ beforeAll(async () => {
       END IF;
     END $$;
   `));
-  await db.execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
-  await db.execute(sql.raw(
+  await getOwnerDb().execute(sql.raw(`GRANT USAGE ON SCHEMA "${schema}" TO "${TEST_ROLE}"`));
+  await getOwnerDb().execute(sql.raw(
     `GRANT SELECT, INSERT ON `
     + `"${schema}".datavault_databases, "${schema}".datavault_tables, `
     + `"${schema}".datavault_columns, "${schema}".datavault_rows, `
@@ -139,32 +151,32 @@ beforeAll(async () => {
 
   // 3. Seed two tenants, each with a database/table/column/row/value and one
   //    permission/access row per access table (as superuser, bypassing RLS).
-  await db.execute(sql`INSERT INTO tenants (id, name) VALUES (${tenantA}, ${tenantAName}), (${tenantB}, ${tenantBName})`);
-  await db.execute(sql`INSERT INTO users (id, email, tenant_id) VALUES (${userA}, ${emailA}, ${tenantA}), (${userB}, ${emailB}, ${tenantB})`);
+  await getOwnerDb().execute(sql`INSERT INTO tenants (id, name) VALUES (${tenantA}, ${tenantAName}), (${tenantB}, ${tenantBName})`);
+  await getOwnerDb().execute(sql`INSERT INTO users (id, email, tenant_id) VALUES (${userA}, ${emailA}, ${tenantA}), (${userB}, ${emailB}, ${tenantB})`);
 
-  await db.execute(sql`INSERT INTO datavault_databases (id, tenant_id, name) VALUES (${dbA}, ${tenantA}, 'DVH-3 DB A'), (${dbB}, ${tenantB}, 'DVH-3 DB B')`);
-  await db.execute(sql`INSERT INTO datavault_tables (id, tenant_id, database_id, name, slug) VALUES (${tableA}, ${tenantA}, ${dbA}, 'Table A', ${tableASlug}), (${tableB}, ${tenantB}, ${dbB}, 'Table B', ${tableBSlug})`);
-  await db.execute(sql`INSERT INTO datavault_columns (id, table_id, name, slug, type) VALUES (${columnA}, ${tableA}, 'Col A', 'col-a', 'text'), (${columnB}, ${tableB}, 'Col B', 'col-b', 'text')`);
-  await db.execute(sql`INSERT INTO datavault_rows (id, table_id) VALUES (${rowA}, ${tableA}), (${rowB}, ${tableB})`);
-  await db.execute(sql`INSERT INTO datavault_values (id, row_id, column_id, value) VALUES (${valueA}, ${rowA}, ${columnA}, ${'"value A"'}::jsonb), (${valueB}, ${rowB}, ${columnB}, ${'"value B"'}::jsonb)`);
-  await db.execute(sql`INSERT INTO datavault_table_permissions (id, table_id, user_id, role) VALUES (${tablePermA}, ${tableA}, ${userA}, 'owner'), (${tablePermB}, ${tableB}, ${userB}, 'owner')`);
-  await db.execute(sql`INSERT INTO datavault_database_access (id, database_id, principal_type, principal_id, role) VALUES (${dbAccessA}, ${dbA}, 'user', ${userA}, 'owner'), (${dbAccessB}, ${dbB}, 'user', ${userB}, 'owner')`);
-  await db.execute(sql`INSERT INTO datavault_table_access (id, table_id, principal_type, principal_id, role) VALUES (${tableAccessA}, ${tableA}, 'user', ${userA}, 'owner'), (${tableAccessB}, ${tableB}, 'user', ${userB}, 'owner')`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_databases (id, tenant_id, name) VALUES (${dbA}, ${tenantA}, 'DVH-3 DB A'), (${dbB}, ${tenantB}, 'DVH-3 DB B')`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_tables (id, tenant_id, database_id, name, slug) VALUES (${tableA}, ${tenantA}, ${dbA}, 'Table A', ${tableASlug}), (${tableB}, ${tenantB}, ${dbB}, 'Table B', ${tableBSlug})`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_columns (id, table_id, name, slug, type) VALUES (${columnA}, ${tableA}, 'Col A', 'col-a', 'text'), (${columnB}, ${tableB}, 'Col B', 'col-b', 'text')`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_rows (id, table_id) VALUES (${rowA}, ${tableA}), (${rowB}, ${tableB})`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_values (id, row_id, column_id, value) VALUES (${valueA}, ${rowA}, ${columnA}, ${'"value A"'}::jsonb), (${valueB}, ${rowB}, ${columnB}, ${'"value B"'}::jsonb)`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_table_permissions (id, table_id, user_id, role) VALUES (${tablePermA}, ${tableA}, ${userA}, 'owner'), (${tablePermB}, ${tableB}, ${userB}, 'owner')`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_database_access (id, database_id, principal_type, principal_id, role) VALUES (${dbAccessA}, ${dbA}, 'user', ${userA}, 'owner'), (${dbAccessB}, ${dbB}, 'user', ${userB}, 'owner')`);
+  await getOwnerDb().execute(sql`INSERT INTO datavault_table_access (id, table_id, principal_type, principal_id, role) VALUES (${tableAccessA}, ${tableA}, 'user', ${userA}, 'owner'), (${tableAccessB}, ${tableB}, 'user', ${userB}, 'owner')`);
 });
 
 afterAll(async () => {
   // Clean up seeded rows (as superuser; ignore if already gone).
   try {
-    await db.execute(sql`DELETE FROM datavault_table_access WHERE id IN (${tableAccessA}, ${tableAccessB})`);
-    await db.execute(sql`DELETE FROM datavault_database_access WHERE id IN (${dbAccessA}, ${dbAccessB})`);
-    await db.execute(sql`DELETE FROM datavault_table_permissions WHERE id IN (${tablePermA}, ${tablePermB})`);
-    await db.execute(sql`DELETE FROM datavault_values WHERE id IN (${valueA}, ${valueB})`);
-    await db.execute(sql`DELETE FROM datavault_rows WHERE id IN (${rowA}, ${rowB})`);
-    await db.execute(sql`DELETE FROM datavault_columns WHERE id IN (${columnA}, ${columnB})`);
-    await db.execute(sql`DELETE FROM datavault_tables WHERE id IN (${tableA}, ${tableB})`);
-    await db.execute(sql`DELETE FROM datavault_databases WHERE id IN (${dbA}, ${dbB})`);
-    await db.execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
-    await db.execute(sql`DELETE FROM tenants WHERE id IN (${tenantA}, ${tenantB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_table_access WHERE id IN (${tableAccessA}, ${tableAccessB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_database_access WHERE id IN (${dbAccessA}, ${dbAccessB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_table_permissions WHERE id IN (${tablePermA}, ${tablePermB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_values WHERE id IN (${valueA}, ${valueB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_rows WHERE id IN (${rowA}, ${rowB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_columns WHERE id IN (${columnA}, ${columnB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_tables WHERE id IN (${tableA}, ${tableB})`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_databases WHERE id IN (${dbA}, ${dbB})`);
+    await getOwnerDb().execute(sql`DELETE FROM users WHERE id IN (${userA}, ${userB})`);
+    await getOwnerDb().execute(sql`DELETE FROM tenants WHERE id IN (${tenantA}, ${tenantB})`);
   } catch {
     /* best-effort cleanup */
   }
@@ -185,8 +197,8 @@ describe("DVH-3: assertions genuinely run as a non-owner role", () => {
   });
 
   test("the test role is not the owner of datavault_rows (the connecting pool user is)", async () => {
-    const outsideConnectionUser = rows(await db.execute(sql`SELECT current_user AS cu`))[0].cu;
-    const tableOwner = rows(await db.execute(
+    const outsideConnectionUser = rows(await getOwnerDb().execute(sql`SELECT current_user AS cu`))[0].cu;
+    const tableOwner = rows(await getOwnerDb().execute(
       sql`SELECT pg_get_userbyid(c.relowner) AS owner FROM pg_class c WHERE c.relname = 'datavault_rows'`,
     ))[0].owner;
     // The pool's own connection (superuser/owner, used for seeding) owns the
@@ -198,7 +210,7 @@ describe("DVH-3: assertions genuinely run as a non-owner role", () => {
 
 describe("DVH-3: policies exist for all six tables (criterion 1)", () => {
   test("pg_policies has a tenant_isolation policy for each of the six tables", async () => {
-    const result = rows(await db.execute(sql`
+    const result = rows(await getOwnerDb().execute(sql`
       SELECT tablename FROM pg_policies
       WHERE schemaname = ${schema}
         AND policyname = 'tenant_isolation'
@@ -318,8 +330,8 @@ describe("DVH-3: WITH CHECK blocks a cross-tenant write", () => {
     await asTenant(tenantA, async (tx) => {
       await tx.execute(sql`INSERT INTO datavault_rows (id, table_id) VALUES (${okId}, ${tableA})`);
     });
-    const seen = rows(await db.execute(sql`SELECT id FROM datavault_rows WHERE id = ${okId}`));
+    const seen = rows(await getOwnerDb().execute(sql`SELECT id FROM datavault_rows WHERE id = ${okId}`));
     expect(seen).toHaveLength(1);
-    await db.execute(sql`DELETE FROM datavault_rows WHERE id = ${okId}`);
+    await getOwnerDb().execute(sql`DELETE FROM datavault_rows WHERE id = ${okId}`);
   });
 });

@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { applyAiSuggestions, AiSuggestion } from "@/lib/ai-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { useCreateSection, useCreateStep } from "@/lib/vault-hooks";
+import { useCreatePage, useCreateStep } from "@/lib/vault-hooks";
 interface AiAssistantDialogProps {
     workflowId: string;
     open: boolean;
@@ -29,7 +29,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
     const { toast } = useToast();
     const scrollRef = useRef<HTMLDivElement>(null);
     // Hooks for mutations
-    const createSection = useCreateSection();
+    const createPage = useCreatePage();
     const createStep = useCreateStep();
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -39,7 +39,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
     }, [messages]);
     const handleApply = async (suggestions: AiSuggestion) => {
         const success = await applyAiSuggestions(workflowId, suggestions, {
-            createSection,
+            createPage,
             createStep
         });
         if (success) {

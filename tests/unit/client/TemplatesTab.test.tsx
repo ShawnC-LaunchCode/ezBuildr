@@ -70,8 +70,8 @@ function makeVariable(alias: string): ApiWorkflowVariable {
     alias,
     label: alias.replaceAll('_', ' '),
     type: 'text',
-    sectionId: 'section-1',
-    sectionTitle: 'Details',
+    pageId: 'page-1',
+    pageTitle: 'Details',
     stepId: `step-${alias}`,
   };
 }

@@ -6,13 +6,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import {
   createTestUser,
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 
 describe.sequential('document delivery tenant isolation', () => {
   let ctx: IntegrationTestContext;
@@ -35,7 +37,7 @@ describe.sequential('document delivery tenant isolation', () => {
       },
     });
 
-    const [run] = await db.insert(schema.workflowRuns).values({
+    const [run] = await getOwnerDb().insert(schema.workflowRuns).values({
       workflowId: workflow.id,
       runToken: `delivery-${randomUUID()}`,
       createdBy: `creator:${ctx.userId}`,
@@ -44,7 +46,7 @@ describe.sequential('document delivery tenant isolation', () => {
     }).returning();
     runId = run.id;
 
-    const [delivery] = await db.insert(schema.runDocumentDeliveries).values({
+    const [delivery] = await getOwnerDb().insert(schema.runDocumentDeliveries).values({
       runId,
       workflowId: workflow.id,
       tenantId: ctx.tenantId,
@@ -60,7 +62,7 @@ describe.sequential('document delivery tenant isolation', () => {
     }).returning();
     deliveryId = delivery.id;
 
-    const [otherTenant] = await db.insert(schema.tenants).values({
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `Other delivery tenant ${randomUUID()}`,
       plan: 'pro',
     }).returning();
@@ -72,7 +74,7 @@ describe.sequential('document delivery tenant isolation', () => {
 
   afterAll(async () => {
     if (otherTenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+      await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
     }
     await ctx.cleanup();
   });

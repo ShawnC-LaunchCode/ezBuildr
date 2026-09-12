@@ -7,6 +7,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __BASE_DB_URL__: string;
   // eslint-disable-next-line no-var
+  var __OWNER_DB_URL__: string;
+  // eslint-disable-next-line no-var
   var __TEST_SCHEMA__: string;
 }
 // Load environment variables immediately
@@ -136,6 +138,111 @@ const shouldConnectToDb = () => {
   // If we are in unit tests generally (inferred), try to avoid heavy DB unless forced
   return !!process.env.DATABASE_URL;
 };
+// RLS-5: run the integration suite against a genuinely restricted, non-owner
+// role instead of the schema owner, so the suite proves what RLS actually
+// enforces rather than what the policies merely say (the owner bypasses RLS
+// unless FORCE is set — see RLS-4 — but a non-owner role is bound by policy
+// with no FORCE required, which is what makes this a meaningful gate before
+// RLS-4 ships). Off by default; every existing run is byte-identical.
+//
+// `server/db.ts`'s pool is a singleton created at `initializeDatabase()` time
+// from `process.env.DATABASE_URL`, read once. Migrations need owner/DDL
+// privilege the restricted role deliberately does not have (least privilege —
+// matches `tests/integration/rls4-forceEnforcement.test.ts`'s role), so they
+// must run BEFORE `DATABASE_URL` is repointed, through a separate raw `pg`
+// client that stays on the owner's credentials throughout. Only after that
+// client provisions the restricted role and disconnects do we swap
+// `DATABASE_URL` and import `server/db` — so the app's pool never sees owner
+// credentials in this mode.
+const RLS_RESTRICTED = process.env.RLS_RESTRICTED === "true";
+const RLS5_ROLE = "rls5_app_role";
+const RLS5_PASSWORD = "rls5_app_role_pw";
+// RLS-6/RLS-7: the admin console's cross-tenant read path connects as a
+// SEPARATE role holding BYPASSRLS (`server/db/adminDb.ts`). Production sets
+// `ADMIN_DATABASE_URL` to it; without one, `AdminAccessService` falls back to
+// the normal pool, which under a non-owner role gives every `/api/admin` route
+// a tenant-scoped view — five 404s in `api.admin-user-workflows.test.ts` for
+// resources that plainly exist. Provisioning it here means the restricted run
+// exercises the path production actually uses instead of a fallback that only
+// works while nothing enforces RLS.
+const RLS_ADMIN_ROLE = "rls6_admin_bypass_role";
+const RLS_ADMIN_PASSWORD = "rls6_admin_bypass_pw";
+
+function toRestrictedUrl(base: string, user: string, password: string): string {
+  const url = new URL(base);
+  url.username = user;
+  url.password = password;
+  return url.toString();
+}
+
+async function provisionRestrictedRole(
+  ownerClient: { query: (sql: string) => Promise<unknown> },
+  schema: string
+): Promise<void> {
+  // Postgres roles are cluster-level and outlive the test database (a prior
+  // run, or a different worktree, may have already created this one) — so
+  // this must be idempotent rather than assume a clean cluster.
+  await ownerClient.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${RLS5_ROLE}') THEN
+        CREATE ROLE "${RLS5_ROLE}" LOGIN;
+      END IF;
+    END $$;
+  `);
+  // Re-asserted every run rather than trusted: a role left over from a prior
+  // cluster state should still end up NOBYPASSRLS/NOSUPERUSER with the
+  // password this run expects, not whatever it was left as.
+  await ownerClient.query(
+    `ALTER ROLE "${RLS5_ROLE}" WITH PASSWORD '${RLS5_PASSWORD}' NOBYPASSRLS NOSUPERUSER`
+  );
+  await ownerClient.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${RLS5_ROLE}"`);
+  await ownerClient.query(
+    `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${schema}" TO "${RLS5_ROLE}"`
+  );
+  await ownerClient.query(
+    `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS5_ROLE}"`
+  );
+}
+
+async function provisionAdminBypassRole(
+  ownerClient: { query: (sql: string) => Promise<unknown> },
+  schema: string
+): Promise<void> {
+  // Same idempotency reasoning as the restricted role: cluster-level, outlives
+  // the database. BYPASSRLS is re-asserted every run rather than trusted.
+  await ownerClient.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${RLS_ADMIN_ROLE}') THEN
+        CREATE ROLE "${RLS_ADMIN_ROLE}" LOGIN;
+      END IF;
+    END $$;
+  `);
+  await ownerClient.query(
+    `ALTER ROLE "${RLS_ADMIN_ROLE}" WITH PASSWORD '${RLS_ADMIN_PASSWORD}' BYPASSRLS NOSUPERUSER`
+  );
+  await ownerClient.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`);
+  // SELECT ONLY — this is RLS-7 AC 2b, enforced by the database rather than by
+  // review. The ruling is that the BYPASSRLS pool is a READ path: it resolves
+  // which tenant owns a target, and the write then happens on the normal pool
+  // inside `withTenant`. Granting this role write access in tests would let a
+  // regression route a write through the bypass connection and still go green,
+  // which is exactly the property the AC refuses to take on trust.
+  //
+  // A violation therefore surfaces as `permission denied for table …` naming
+  // the bypass role — loud, and pointing straight at the offending write.
+  await ownerClient.query(
+    `GRANT SELECT ON ALL TABLES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
+  );
+  await ownerClient.query(
+    `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA "${schema}" FROM "${RLS_ADMIN_ROLE}"`
+  );
+  await ownerClient.query(
+    `GRANT SELECT ON ALL SEQUENCES IN SCHEMA "${schema}" TO "${RLS_ADMIN_ROLE}"`
+  );
+}
+
 // Global test hooks
 beforeAll(async () => {
   // Conditionally load jest-dom for UI tests (JSDOM environment)
@@ -155,40 +262,121 @@ beforeAll(async () => {
       // We must do this BEFORE importing server/db so that the pool connects to the correct schema
       // PARALLELISM: Create isolated schema for this worker
       // We must do this BEFORE importing server/db so that the pool connects to the correct schema
-      // Default to isolation if we are connecting to DB
-      // eslint-disable-next-line sonarjs/no-gratuitous-expressions, no-constant-condition
-      if (true) {
-        // Save original URL for teardown
-        (global as any).__BASE_DB_URL__ = process.env.DATABASE_URL;
-        const { schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!);
-        process.env.DATABASE_URL = connectionString;
-        // Set TEST_SCHEMA in both global and env so db.ts can configure the pool correctly
-        (global as any).__TEST_SCHEMA__ = schemaName;
-        process.env.TEST_SCHEMA = schemaName;
-        console.log(`🔒 Test Schema Isolated: ${schemaName} (Reused: ${existed})`);
-        // Check if we need to run migrations
-        // If schema exists, verify it has tables before skipping migrations
-        if (existed) {
-          try {
-            const { Client } = await import('pg');
-            const checkClient = new Client({ connectionString: process.env.DATABASE_URL });
-            await checkClient.connect();
-            const tableCheck = await checkClient.query(
-              `SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
-              [schemaName]
-            );
-            await checkClient.end();
-            const hasTable = parseInt(tableCheck.rows[0].cnt) > 0;
-            (global as any).__SKIP_MIGRATIONS__ = hasTable;
-            console.log(`📊 Schema ${schemaName} has ${tableCheck.rows[0].cnt} tables - ${hasTable ? 'skipping' : 'running'} migrations`);
-          } catch (e) {
-            console.warn(`⚠️ Could not check table count, will run migrations:`, e);
-            (global as any).__SKIP_MIGRATIONS__ = false;
-          }
+      // Save original URL for teardown
+      (global as any).__BASE_DB_URL__ = process.env.DATABASE_URL;
+      let { schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!);
+
+      // Decide whether this schema may be reused, by CONTENT rather than by
+      // table count (2026-08-21). The old check — "does it have any tables?" —
+      // is blind to policy-only migrations, and every migration since 0024 is
+      // policy-only. It left 11 of 124 `_v36` schemas frozen on the original
+      // 0001 RLS policies while carrying a current-looking name, so ~9% of
+      // workers ran the app against three-week-old rules and produced failures
+      // that read exactly like production defects. See the block comment on
+      // `SchemaManager.migrationsFingerprint`.
+      const expectedFingerprint = await SchemaManager.migrationsFingerprint();
+      (global as any).__MIGRATIONS_FINGERPRINT__ = expectedFingerprint;
+
+      if (existed) {
+        const actual = await SchemaManager.readSchemaFingerprint(connectionString, schemaName);
+        if (actual === expectedFingerprint) {
+          (global as any).__SKIP_MIGRATIONS__ = true;
+          console.log(`📊 Schema ${schemaName} matches the migration fingerprint - skipping migrations`);
         } else {
+          console.warn(
+            `♻️ Schema ${schemaName} was built from a DIFFERENT migration set `
+            + `(had ${actual ?? 'no fingerprint'}, need ${expectedFingerprint}) - rebuilding from scratch`
+          );
+          await SchemaManager.dropTestSchema(process.env.DATABASE_URL!, schemaName);
+          ({ schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!));
           (global as any).__SKIP_MIGRATIONS__ = false;
         }
+      } else {
+        (global as any).__SKIP_MIGRATIONS__ = false;
       }
+
+      // Set TEST_SCHEMA in both global and env so db.ts can configure the pool correctly
+      (global as any).__TEST_SCHEMA__ = schemaName;
+      process.env.TEST_SCHEMA = schemaName;
+      console.log(`🔒 Test Schema Isolated: ${schemaName} (Reused: ${existed})`);
+
+      if (RLS_RESTRICTED) {
+        // Everything below needs owner/DDL privilege, so it runs through a
+        // raw client that stays on the owner's credentials — DATABASE_URL is
+        // not repointed until this client is done and closed.
+        const { Client } = await import('pg');
+        const ownerClient = new Client({ connectionString });
+        await ownerClient.connect();
+        await ownerClient.query(`SET search_path TO "${schemaName}", public`);
+        try {
+          await ownerClient.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public`);
+        } catch (e: any) {
+          console.warn(`⚠️ Could not ensure pgcrypto extension: ${e?.message}`);
+        }
+        try {
+          await ownerClient.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`);
+          try {
+            await ownerClient.query(`ALTER EXTENSION pg_trgm SET SCHEMA public`);
+          } catch {
+            // benign if already in public
+          }
+        } catch (e: any) {
+          console.warn(`⚠️ Could not ensure pg_trgm extension: ${e?.message}`);
+        }
+        await applyManualMigrations({ execute: (sql: string) => ownerClient.query(sql) });
+        if ((global as any).__SKIP_MIGRATIONS__) {
+          try {
+            await ownerClient.query(`
+              DO $$ DECLARE r RECORD;
+              BEGIN
+                FOR r IN (SELECT tablename FROM pg_tables
+                          WHERE schemaname = current_schema()
+                          AND tablename NOT LIKE '__drizzle%')
+                LOOP
+                  EXECUTE format('TRUNCATE TABLE %I.%I CASCADE', current_schema(), r.tablename);
+                END LOOP;
+              END $$;
+            `);
+            console.log('🧹 Truncated stale data from reused schema (owner connection)');
+          } catch (truncErr: any) {
+            console.warn(`⚠️ Failed to truncate stale data: ${truncErr.message}`);
+          }
+        }
+        // The restricted role needs to exist AND be granted against a schema
+        // that already has every table migrations will ever create in this
+        // run — hence provisioning last, after migrations, not before.
+        await provisionRestrictedRole(ownerClient, schemaName);
+        await provisionAdminBypassRole(ownerClient, schemaName);
+        await ownerClient.end();
+
+        process.env.DATABASE_URL = toRestrictedUrl(connectionString, RLS5_ROLE, RLS5_PASSWORD);
+        process.env.ADMIN_DATABASE_URL = toRestrictedUrl(
+          connectionString, RLS_ADMIN_ROLE, RLS_ADMIN_PASSWORD
+        );
+        // The admin pool is normally opened by server/index.ts (or
+        // production.ts) at boot; integration suites never run either, so it
+        // has to be opened here or `adminDb` throws "not initialized" the first
+        // time an admin route touches it. Must come AFTER `__TEST_SCHEMA__` is
+        // set — adminDb reads it to pin `search_path` per connection.
+        const { initializeAdminDb } = await import('../server/db/adminDb');
+        await initializeAdminDb();
+        (global as any).__RLS_RESTRICTED_ROLE__ = RLS5_ROLE;
+        console.log(`🔐 RLS-5: running as restricted role "${RLS5_ROLE}" (not the schema owner)`);
+      } else {
+        process.env.DATABASE_URL = connectionString;
+      }
+      // RLS-5: the OWNER connection string, kept for the test observer.
+      //
+      // Under RLS_RESTRICTED the app's pool is the restricted role, which is
+      // the whole point — but a test's own fixture setup and its verification
+      // reads are NOT the application. They are an external observer building
+      // and inspecting state, and forcing them through the app's tenant rules
+      // makes a suite assert things about its harness rather than about the
+      // code under test. `tests/helpers/ownerDb.ts` reads this to offer that
+      // observer connection. In normal mode it is the same string the app
+      // uses, so nothing changes.
+      (global as any).__OWNER_DB_URL__ = connectionString;
+
       // Dynamically import server/db to ensure it picks up the mutated env vars
       const dbModule = await import("../server/db");
       // Check if the module is valid (not a partial mock missing exports)
@@ -214,44 +402,51 @@ beforeAll(async () => {
           // search_path on every connection checkout, guaranteeing fork isolation.
           console.log(`✅ Enforced search_path: ${schema}, public`);
         }
-        // pgcrypto provides digest() (used by portal token hashing and some
-        // migrations). Create it in public — which is on the search_path — before
-        // migrations run so digest() resolves in the isolated test schemas.
-        try {
-          await db.execute(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public`);
-        } catch (e: any) {
-          console.warn(`⚠️ Could not ensure pgcrypto extension: ${e?.message}`);
-        }
-        try {
-          await db.execute(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`);
+        if (!RLS_RESTRICTED) {
+          // In RLS_RESTRICTED mode all of this already ran through the
+          // owner client above — the restricted role has neither the
+          // privilege for it (extensions, migrations) nor, deliberately,
+          // TRUNCATE (least privilege — see `provisionRestrictedRole`).
+          //
+          // pgcrypto provides digest() (used by portal token hashing and some
+          // migrations). Create it in public — which is on the search_path — before
+          // migrations run so digest() resolves in the isolated test schemas.
           try {
-            await db.execute(`ALTER EXTENSION pg_trgm SET SCHEMA public`);
-          } catch {
-            // benign if already in public
+            await db.execute(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public`);
+          } catch (e: any) {
+            console.warn(`⚠️ Could not ensure pgcrypto extension: ${e?.message}`);
           }
-        } catch (e: any) {
-          console.warn(`⚠️ Could not ensure pg_trgm extension: ${e?.message}`);
-        }
-        // Run database migrations for test DB
-        await applyManualMigrations(db);
-        // CLEAN DATA when reusing schemas to prevent stale FK violations
-        // (Schema structure is preserved, only data is cleared)
-        if ((global as any).__SKIP_MIGRATIONS__) {
           try {
-            await db.execute(`
-              DO $$ DECLARE r RECORD;
-              BEGIN
-                FOR r IN (SELECT tablename FROM pg_tables
-                          WHERE schemaname = current_schema()
-                          AND tablename NOT LIKE '__drizzle%')
-                LOOP
-                  EXECUTE format('TRUNCATE TABLE %I.%I CASCADE', current_schema(), r.tablename);
-                END LOOP;
-              END $$;
-            `);
-            console.log('🧹 Truncated stale data from reused schema');
-          } catch (truncErr: any) {
-            console.warn(`⚠️ Failed to truncate stale data: ${truncErr.message}`);
+            await db.execute(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`);
+            try {
+              await db.execute(`ALTER EXTENSION pg_trgm SET SCHEMA public`);
+            } catch {
+              // benign if already in public
+            }
+          } catch (e: any) {
+            console.warn(`⚠️ Could not ensure pg_trgm extension: ${e?.message}`);
+          }
+          // Run database migrations for test DB
+          await applyManualMigrations(db);
+          // CLEAN DATA when reusing schemas to prevent stale FK violations
+          // (Schema structure is preserved, only data is cleared)
+          if ((global as any).__SKIP_MIGRATIONS__) {
+            try {
+              await db.execute(`
+                DO $$ DECLARE r RECORD;
+                BEGIN
+                  FOR r IN (SELECT tablename FROM pg_tables
+                            WHERE schemaname = current_schema()
+                            AND tablename NOT LIKE '__drizzle%')
+                  LOOP
+                    EXECUTE format('TRUNCATE TABLE %I.%I CASCADE', current_schema(), r.tablename);
+                  END LOOP;
+                END $$;
+              `);
+              console.log('🧹 Truncated stale data from reused schema');
+            } catch (truncErr: any) {
+              console.warn(`⚠️ Failed to truncate stale data: ${truncErr.message}`);
+            }
           }
         }
         // NOTE: The former "failsafe" ADD COLUMN block and ensureDbFunctions()
@@ -264,7 +459,21 @@ beforeAll(async () => {
         console.log("⚠️ DB module loaded but appears to be a mock. Skipping real DB setup.");
       }
     } catch (error) {
-      console.warn("⚠️ Database initialization failed (ignoring for unit tests or mock scenarios):", error);
+      // FATAL as of 2026-08-21. This used to warn and continue — and since the
+      // whole block is already gated on `shouldConnectToDb()`, "ignoring for
+      // unit tests or mock scenarios" had stopped being true: what it actually
+      // ignored was a failed schema build in a DB-backed run, letting the suite
+      // proceed against a schema that is not the one the migrations describe.
+      //
+      // That is how 11 worker schemas ended up frozen on the original 0001 RLS
+      // policies while carrying a current-looking name. Every failure they
+      // produced read like an application defect; one was written up as one.
+      //
+      // One loud failure here is strictly better than eighty mystery failures
+      // downstream — and it is the same lesson as "check the container first"
+      // when a whole integration run goes red.
+      console.error("❌ Test database setup failed — refusing to run against an unknown schema:", error);
+      throw error;
     }
   }
 });
@@ -285,9 +494,23 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   vi.restoreAllMocks();
+  // RLS-5: drop any ambient tenant a test bound with
+  // `enterTenantContextForTests`. That helper uses `enterWith`, which has no
+  // scope to exit, so without this the binding survives into the NEXT FILE —
+  // every integration file shares one process under single-fork. A leaked
+  // tenant makes `POST /api/auth/register` (which writes `tenant_id = NULL`)
+  // violate `users`' WITH CHECK, so an unrelated suite dies in setup with
+  // "Registration failed". Whichever file that lands on depends on scheduling,
+  // so it moves as the suite list changes. Caught by the RLS gate on its first
+  // full run, having passed in isolation and in every subset tried.
+  const { clearTenantContextForTests } = await import('../server/utils/rlsContext');
+  clearTenantContextForTests();
 });
-// Helper to apply manual migrations
-async function applyManualMigrations(db: any) {
+// Helper to apply manual migrations. Accepts either the real drizzle `db`
+// (the normal path) or a thin `{ execute }` adapter over a raw owner `pg`
+// client (RLS_RESTRICTED mode, where migrations must run before DATABASE_URL
+// is repointed to the restricted role) — both only need `.execute(sql)`.
+async function applyManualMigrations(db: { execute: (sql: string) => Promise<unknown> }) {
   // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
   try {
     if ((global as any).__SKIP_MIGRATIONS__) {
@@ -367,10 +590,36 @@ async function applyManualMigrations(db: any) {
           }
         }
         console.log(`✅ Applied ${files.length} migration files.`);
+
+        // Record what built this schema — ONLY after the whole chain applied.
+        // A partial chain must leave no fingerprint, so the next run rebuilds
+        // instead of caching the half-migrated state forever (which is exactly
+        // what happened to 11 schemas before this existed).
+        const fingerprint = (global as any).__MIGRATIONS_FINGERPRINT__;
+        const schema = (global as any).__TEST_SCHEMA__;
+        if (typeof fingerprint === 'string' && typeof schema === 'string') {
+          await db.execute(
+            `CREATE TABLE IF NOT EXISTS "${schema}".__schema_fingerprint (`
+            + `fingerprint text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`
+          );
+          await db.execute(`DELETE FROM "${schema}".__schema_fingerprint`);
+          await db.execute(
+            `INSERT INTO "${schema}".__schema_fingerprint (fingerprint) VALUES ('${fingerprint}')`
+          );
+          console.log(`🔏 Recorded migration fingerprint ${fingerprint} on ${schema}`);
+        }
       }
     }
   } catch (error: any) {
-    console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
+    // Deliberately FATAL as of 2026-08-21. This used to warn and continue
+    // ("non-fatal if DB exists"), which is how a chain that died at 0027 left a
+    // schema with every table and none of the later policies — and, because the
+    // fingerprint is only written on success, that schema now rebuilds next run
+    // rather than being cached. Continuing into a suite whose schema is not the
+    // one the migrations describe produces results that are worse than a
+    // failure: they look like application defects. Fail here instead.
+    console.error("❌ Migrations failed — refusing to run against a half-built schema:", error);
+    throw error;
   }
 }
 
@@ -412,7 +661,7 @@ vi.mock("@google/generative-ai", () => {
         generateContent: vi.fn().mockResolvedValue({
           response: {
             text: () => JSON.stringify({
-              updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
+              updatedWorkflow: { title: "Mocked AI Workflow", pages: [] },
               explanation: ["Mocked explanation"],
               diff: { changes: [] },
               suggestions: [],

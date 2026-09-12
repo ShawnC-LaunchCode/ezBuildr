@@ -39,9 +39,9 @@ export function mockWorkflowRepository(overrides = {}) {
 }
 
 /**
- * Mock Section Repository
+ * Mock Page Repository
  */
-export function mockSectionRepository(overrides = {}) {
+export function mockPageRepository(overrides = {}) {
   return {
     create: vi.fn(),
     findById: vi.fn(),
@@ -60,7 +60,7 @@ export function mockStepRepository(overrides = {}) {
   return {
     create: vi.fn(),
     findById: vi.fn(),
-    findBySectionId: vi.fn().mockResolvedValue([]),
+    findByPageId: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     delete: vi.fn(),
     reorder: vi.fn(),

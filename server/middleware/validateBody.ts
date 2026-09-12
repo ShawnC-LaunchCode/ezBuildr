@@ -9,7 +9,7 @@ import { createError } from "../utils/errors";
  * On failure, calls next() with a VALIDATION_ERROR ApiError.
  *
  * @example
- * app.post('/api/sections', hybridAuth, validateBody(insertSectionSchema), asyncHandler(handler));
+ * app.post('/api/pages', hybridAuth, validateBody(insertPageSchema), asyncHandler(handler));
  */
 export function validateBody<T>(schema: ZodSchema<T>) {
   return (req: Request, _res: Response, next: NextFunction): void => {

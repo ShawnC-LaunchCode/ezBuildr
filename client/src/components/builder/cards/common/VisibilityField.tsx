@@ -11,12 +11,12 @@ import type { ConditionExpression } from "@shared/types/conditions";
 
 interface VisibilityFieldProps {
     stepId: string;
-    sectionId: string;
+    pageId: string;
     workflowId: string;
     visibleIf?: ConditionExpression | null;
 }
 
-export function VisibilityField({ stepId, sectionId, workflowId, visibleIf }: VisibilityFieldProps) {
+export function VisibilityField({ stepId, pageId, workflowId, visibleIf }: VisibilityFieldProps) {
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
@@ -25,7 +25,7 @@ export function VisibilityField({ stepId, sectionId, workflowId, visibleIf }: Vi
         updateStepMutation.mutate(
             {
                 id: stepId,
-                sectionId,
+                pageId,
                 visibleIf: expression,
             },
             {

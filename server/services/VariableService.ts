@@ -1,7 +1,9 @@
 import { getLegacyChoiceOptions } from "@shared/choiceOptions";
 import type { WorkflowVariable } from "@shared/schema";
+import { resolveBooleanConfig } from "@shared/types/stepConfigs";
 
-import { sectionRepository, stepRepository } from "../repositories";
+import { type DbTransaction, pageRepository, stepRepository } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import { workflowService } from "./WorkflowService";
 
@@ -17,64 +19,96 @@ const CHOICE_STEP_TYPES = new Set<string>(["radio", "multiple_choice"]);
 
 export class VariableService {
   private stepRepo: typeof stepRepository;
-  private sectionRepo: typeof sectionRepository;
+  private pageRepo: typeof pageRepository;
   private workflowSvc: typeof workflowService;
 
   constructor(
     stepRepo?: typeof stepRepository,
-    sectionRepo?: typeof sectionRepository,
+    pageRepo?: typeof pageRepository,
     workflowSvc?: typeof workflowService
   ) {
     this.stepRepo = stepRepo ?? stepRepository;
-    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.pageRepo = pageRepo ?? pageRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
   }
 
   /**
-   * Get all variables (steps) for a workflow
-   * Returns steps ordered by section.order, then step.order
+   * Run `fn` inside a tenant-scoped transaction opened at this service
+   * boundary (RLS-4 precondition 5). If the caller already handed us a
+   * transaction, reuse it — never open a nested one, which would deadlock
+   * the size-1 test pool while the caller's own transaction still holds the
+   * only connection (this is the same class of bug `TemplateValidationService
+   * .validate` already opens its own transaction around, and used to call
+   * `listVariables` from inside without threading it through — see the
+   * comment that used to sit at that call site). Otherwise open exactly one
+   * via `withCurrentTenant`, which reads the tenant from the request's async
+   * context and sets the transaction-local `app.current_tenant_id` GUC for
+   * the `pages`/`steps` reads inside `fn` — both are RLS-covered via
+   * their workflow's ownership.
    */
-  async listVariables(workflowId: string, userId: string): Promise<WorkflowVariable[]> {
-    // Verify ownership
-    await this.workflowSvc.verifyAccess(workflowId, userId);
-
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-
-    if (sections.length === 0) {
-      return [];
+  private async withTx<T>(
+    tx: DbTransaction | undefined,
+    fn: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    if (tx) {
+      return fn(tx);
     }
+    return withCurrentTenant(fn);
+  }
 
-    // Get all steps for these sections
-    const sectionIds = sections.map(s => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
+  /**
+   * Get all variables (steps) for a workflow
+   * Returns steps ordered by page.order, then step.order
+   */
+  async listVariables(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowVariable[]> {
+    return this.withTx(tx, async (scopedTx) => {
+      // Verify ownership
+      await this.workflowSvc.verifyAccess(workflowId, userId, 'view', scopedTx);
 
-    // Create a map of section ID to section for quick lookup
-    const sectionMap = new Map(sections.map(s => [s.id, s]));
+      // Get all pages for the workflow
+      const pages = await this.pageRepo.findByWorkflowId(workflowId, scopedTx);
 
-    // Build variables array
-    const variables: WorkflowVariable[] = steps.map(step => {
-      const section = sectionMap.get(step.sectionId);
-      // O-2: options travel with the variable. The condition editor used to
-      // fetch every step separately just to read them; only legacy
-      // radio/multiple_choice configs carry any, so `choices` is omitted for
-      // every other type rather than sent as an empty array.
-      const choices = CHOICE_STEP_TYPES.has(step.type)
-        ? getLegacyChoiceOptions(step.config)
-        : undefined;
-      return {
-        key: step.id,
-        alias: step.alias,
-        label: step.title,
-        type: step.type,
-        sectionId: step.sectionId,
-        sectionTitle: section?.title ?? 'Unknown Section',
-        stepId: step.id,
-        ...(choices && choices.length > 0 ? { choices } : {}),
-      };
+      if (pages.length === 0) {
+        return [];
+      }
+
+      // Get all steps for these pages
+      const pageIds = pages.map(s => s.id);
+      const steps = await this.stepRepo.findByPageIds(pageIds, scopedTx);
+
+      // Create a map of page ID to page for quick lookup
+      const pageMap = new Map(pages.map(s => [s.id, s]));
+
+      // Build variables array
+      const variables: WorkflowVariable[] = steps.map(step => {
+        const page = pageMap.get(step.pageId);
+        const booleanConfig = step.type === 'boolean' ? resolveBooleanConfig(step.config) : undefined;
+        // O-2: options travel with the variable. The condition editor used to
+        // fetch every step separately just to read them; only legacy
+        // radio/multiple_choice configs carry any, so `choices` is omitted for
+        // every other type rather than sent as an empty array.
+        const choices = booleanConfig?.storeAsBoolean === false
+          ? [
+              { value: booleanConfig.trueAlias, label: booleanConfig.trueLabel },
+              { value: booleanConfig.falseAlias, label: booleanConfig.falseLabel },
+            ]
+          : CHOICE_STEP_TYPES.has(step.type)
+          ? getLegacyChoiceOptions(step.config)
+          : undefined;
+        return {
+          key: step.id,
+          alias: step.alias,
+          label: step.title,
+          type: booleanConfig?.storeAsBoolean === false ? 'radio' : booleanConfig ? 'yes_no' : step.type,
+          pageId: step.pageId,
+          pageTitle: page?.title ?? 'Unknown Page',
+          stepId: step.id,
+          ...(choices && choices.length > 0 ? { choices } : {}),
+        };
+      });
+
+      return variables;
     });
-
-    return variables;
   }
 
   /**
@@ -84,9 +118,10 @@ export class VariableService {
   async isAliasUnique(
     workflowId: string,
     alias: string,
-    excludeStepId?: string
+    excludeStepId?: string,
+    tx?: DbTransaction
   ): Promise<boolean> {
-    const variables = await this.listVariables(workflowId, 'system');
+    const variables = await this.listVariables(workflowId, 'system', tx);
 
     // Check if alias is already used by another step
     const existingVariable = variables.find(

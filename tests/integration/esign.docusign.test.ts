@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../../server/db';
 import { signatureRequestRepository } from '../../server/repositories/SignatureRequestRepository';
 import {
   DocusignProvider,
@@ -21,6 +20,10 @@ import {
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
+import { withTenant } from '../../server/utils/rlsContext';
 
 describe('DocuSign production lifecycle', () => {
   let ctx: IntegrationTestContext;
@@ -43,7 +46,7 @@ describe('DocuSign production lifecycle', () => {
     const { workflow } = await factory.createWorkflow(ctx.projectId, ctx.userId, {
       workflow: { status: 'active', isPublic: true },
     });
-    const section = await factory.createSection(workflow.id);
+    const page = await factory.createPage(workflow.id);
     templateStorageKey = `tests/esign/${randomUUID()}.docx`;
     await storageProvider.uploadFile(
       templateStorageKey,
@@ -54,7 +57,7 @@ describe('DocuSign production lifecycle', () => {
       fileRef: templateStorageKey,
       name: 'Engagement Agreement.docx',
     });
-    const step = await factory.createStep(section.id, {
+    const step = await factory.createStep(page.id, {
       type: 'signature_block',
       title: 'Sign agreement',
       config: {
@@ -73,16 +76,16 @@ describe('DocuSign production lifecycle', () => {
     stepId = step.id;
     runId = randomUUID();
     runToken = `run-token-${randomUUID()}`;
-    await db.insert(schema.workflowRuns).values({
+    await getOwnerDb().insert(schema.workflowRuns).values({
       id: runId,
       workflowId: workflow.id,
       runToken: hashToken(runToken),
       createdBy: 'anon',
       tokenExpiresAt: new Date(Date.now() + 3_600_000),
     });
-    await db.insert(schema.stepValues).values([
-      { runId, stepId: (await factory.createStep(section.id, { alias: 'clientName', order: 2 })).id, value: 'Ava Client' },
-      { runId, stepId: (await factory.createStep(section.id, { alias: 'clientEmail', order: 3 })).id, value: 'ava@example.com' },
+    await getOwnerDb().insert(schema.stepValues).values([
+      { runId, stepId: (await factory.createStep(page.id, { alias: 'clientName', order: 2 })).id, value: 'Ava Client' },
+      { runId, stepId: (await factory.createStep(page.id, { alias: 'clientEmail', order: 3 })).id, value: 'ava@example.com' },
     ]);
 
     const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -111,7 +114,7 @@ describe('DocuSign production lifecycle', () => {
       webhookSecret,
     }, httpRequest));
 
-    const [otherTenant] = await db.insert(schema.tenants).values({
+    const [otherTenant] = await getOwnerDb().insert(schema.tenants).values({
       name: `Other Tenant ${randomUUID()}`,
       plan: 'pro',
     }).returning();
@@ -122,12 +125,12 @@ describe('DocuSign production lifecycle', () => {
   });
 
   afterAll(async () => {
-    const documents = await db.select().from(schema.runGeneratedDocuments).where(eq(schema.runGeneratedDocuments.runId, runId));
+    const documents = await getOwnerDb().select().from(schema.runGeneratedDocuments).where(eq(schema.runGeneratedDocuments.runId, runId));
     signedStorageKeys.push(...documents.map((document) => document.storageKey));
     await Promise.all([templateStorageKey, ...signedStorageKeys].map((key) => storageProvider.deleteFile(key)));
     await ctx.cleanup();
-    await db.delete(schema.auditLogs).where(eq(schema.auditLogs.userId, otherTenantUserId));
-    await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
+    await getOwnerDb().delete(schema.auditLogs).where(eq(schema.auditLogs.userId, otherTenantUserId));
+    await getOwnerDb().delete(schema.tenants).where(eq(schema.tenants.id, otherTenantId));
   });
 
   async function sendWebhook(payload: Record<string, unknown>, signatureOverride?: string) {
@@ -154,7 +157,8 @@ describe('DocuSign production lifecycle', () => {
       signingUrl: 'https://demo.docusign.net/Signing/integration',
       provider: 'docusign',
     });
-    const stored = await signatureRequestRepository.findByProviderRequestId('env-completed');
+    const stored = await withTenant(ctx.tenantId, (tx) =>
+      signatureRequestRepository.findByProviderRequestId('env-completed', tx));
     expect(stored).toMatchObject({
       runId,
       nodeId: stepId,
@@ -185,12 +189,14 @@ describe('DocuSign production lifecycle', () => {
     });
     expect(response.status).toBe(200);
 
-    const stored = await signatureRequestRepository.findByProviderRequestId('env-completed');
+    const stored = await withTenant(ctx.tenantId, (tx) =>
+      signatureRequestRepository.findByProviderRequestId('env-completed', tx));
     expect(stored?.status).toBe('signed');
     expect(stored?.documentUrl).toContain(`runs/${runId}/signatures/`);
-    const events = await signatureRequestRepository.getEvents(stored?.id ?? '');
+    const events = await withTenant(ctx.tenantId, (tx) =>
+      signatureRequestRepository.getEvents(stored?.id ?? '', tx));
     expect(events.map((event) => event.type)).toContain('completed');
-    const documents = await db.select().from(schema.runGeneratedDocuments).where(eq(schema.runGeneratedDocuments.runId, runId));
+    const documents = await getOwnerDb().select().from(schema.runGeneratedDocuments).where(eq(schema.runGeneratedDocuments.runId, runId));
     expect(documents).toHaveLength(1);
     expect(await storageProvider.getFile(documents[0].storageKey)).toEqual(Buffer.from('%PDF-signed-integration'));
   });
@@ -199,9 +205,11 @@ describe('DocuSign production lifecycle', () => {
     ['envelope-declined', 'env-declined', 'declined'],
     ['envelope-voided', 'env-voided', 'voided'],
   ] as const)('persists %s webhook lifecycle events', async (event, envelopeId, status) => {
-    await signatureRequestRepository.create({
+    const [runRow] = await getOwnerDb().select().from(schema.workflowRuns)
+      .where(eq(schema.workflowRuns.id, runId));
+    await withTenant(ctx.tenantId, (tx) => signatureRequestRepository.create({
       runId,
-      workflowId: (await db.select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId)))[0].workflowId,
+      workflowId: runRow.workflowId,
       nodeId: stepId,
       tenantId: ctx.tenantId,
       projectId: ctx.projectId ?? '',
@@ -212,13 +220,15 @@ describe('DocuSign production lifecycle', () => {
       providerRequestId: envelopeId,
       token: hashToken(randomUUID()),
       expiresAt: new Date(Date.now() + 3_600_000),
-    });
+    }, tx));
 
     const response = await sendWebhook({ event, data: { envelopeId } });
     expect(response.status).toBe(200);
-    const stored = await signatureRequestRepository.findByProviderRequestId(envelopeId);
+    const stored = await withTenant(ctx.tenantId, (tx) =>
+      signatureRequestRepository.findByProviderRequestId(envelopeId, tx));
     expect(stored?.status).toBe(status);
-    const events = await signatureRequestRepository.getEvents(stored?.id ?? '');
+    const events = await withTenant(ctx.tenantId, (tx) =>
+      signatureRequestRepository.getEvents(stored?.id ?? '', tx));
     expect(events.map((item) => item.type)).toContain(status);
   });
 });

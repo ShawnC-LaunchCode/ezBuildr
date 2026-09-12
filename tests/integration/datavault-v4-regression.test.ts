@@ -7,10 +7,13 @@ import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
-import { db } from '../../server/db';
 import { setupAuth, _testOnly_setGoogleClient } from '../../server/googleAuth';
+import { rlsContext } from '../../server/middleware/rlsContext';
 import { registerRoutes } from '../../server/routes';
 import { datavaultTables, datavaultRows, datavaultRowNotes, datavaultApiTokens, datavaultTablePermissions, tenants, datavaultDatabases, users } from '../../shared/schema';
+// RLS-5: fixture setup and verification reads are the OBSERVER, not the
+// application under test - see tests/helpers/ownerDb.ts.
+import { getOwnerDb } from "../helpers/ownerDb";
 // Mock userRepository.upsert to prevent overwriting tenantId during login
 vi.mock('../../server/repositories', async (importOriginal) => {
   const actual = await importOriginal<any>();
@@ -68,16 +71,23 @@ describe('DataVault v4 Regression Tests', () => {
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     setupAuth(app);
+    // RLS-2b: this suite builds its own app instead of using
+    // `setupIntegrationTest`, so it does not inherit the harness's middleware.
+    // `registerRoutes` does not mount `rlsContext` — only the entrypoints and
+    // the shared harness do — so without this every converted service throws
+    // "RLS: no tenant in context" and the routes answer 500. Mount it before
+    // the routes, mirroring server/index.ts and server/production.ts.
+    app.use(rlsContext);
     await registerRoutes(app);
     // Create test tenant
-    const [tenant] = await db.insert(tenants).values({
+    const [tenant] = await getOwnerDb().insert(tenants).values({
       name: 'Test Tenant',
       slug: `test-tenant-${Date.now()}`,
     } as any).returning();
     testTenantId = tenant.id;
     // Create test user manually with correct tenant and admin role
     testUserId = 'google-user-id';
-    await db.insert(users).values({
+    await getOwnerDb().insert(users).values({
       id: testUserId,
       email: 'testuser@example.com',
       tenantId: testTenantId,
@@ -94,7 +104,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
     // SQL setup handled by global setup.ts and migrations
     // Create a second user for permission tests
-    await db.insert(users).values({
+    await getOwnerDb().insert(users).values({
       id: 'other-user-id',
       email: 'other@example.com',
       tenantId: testTenantId,
@@ -134,12 +144,12 @@ describe('DataVault v4 Regression Tests', () => {
   afterAll(async () => {
     // Cleanup test data
     if (testTableId) {
-      await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
+      await getOwnerDb().delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
     }
   });
   beforeEach(async () => {
     // Ensure test user exists (in case other tests deleted it)
-    await db.insert(users).values({
+    await getOwnerDb().insert(users).values({
       id: testUserId,
       email: 'testuser@example.com',
       tenantId: testTenantId,
@@ -156,13 +166,13 @@ describe('DataVault v4 Regression Tests', () => {
     });
     // Create test database, table, and column for each test
     const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const [database] = await db.insert(datavaultDatabases).values({
+    const [database] = await getOwnerDb().insert(datavaultDatabases).values({
       name: 'Test Database',
       // slug: 'test-database-' + uniqueSuffix, // Not in schema
       tenantId: testTenantId,
     } as any).returning();
     testDatabaseId = database.id;
-    const [table] = await db.insert(datavaultTables).values({
+    const [table] = await getOwnerDb().insert(datavaultTables).values({
       name: 'Test Table',
       slug: `test-table-${uniqueSuffix}`,
       ownerUserId: testUserId, // Correct column name
@@ -174,7 +184,7 @@ describe('DataVault v4 Regression Tests', () => {
   afterEach(async () => {
     // Clean up test database (cascade deletes tables, rows, columns, etc.)
     if (testDatabaseId) {
-      await db.delete(datavaultDatabases).where(eq(datavaultDatabases.id, testDatabaseId));
+      await getOwnerDb().delete(datavaultDatabases).where(eq(datavaultDatabases.id, testDatabaseId));
       testDatabaseId = '';
       testTableId = '';
     }
@@ -356,7 +366,7 @@ describe('DataVault v4 Regression Tests', () => {
   describe('Row Notes', () => {
     beforeEach(async () => {
       // Create a row for testing notes
-      const [row] = await db.insert(datavaultRows).values({
+      const [row] = await getOwnerDb().insert(datavaultRows).values({
         tableId: testTableId,
         values: {},
         createdBy: testUserId,
@@ -411,7 +421,7 @@ describe('DataVault v4 Regression Tests', () => {
         .set('Authorization', `Bearer ${authToken}`);
       expect(deleteResponse.status).toBe(200);
       // Verify note is deleted
-      const notes = await db
+      const notes = await getOwnerDb()
         .select()
         .from(datavaultRowNotes)
         .where(eq(datavaultRowNotes.id, noteId));
@@ -486,7 +496,7 @@ describe('DataVault v4 Regression Tests', () => {
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
       // Verify token is deleted
-      const tokens = await db
+      const tokens = await getOwnerDb()
         .select()
         .from(datavaultApiTokens)
         .where(eq(datavaultApiTokens.id, tokenId));
@@ -585,7 +595,7 @@ describe('DataVault v4 Regression Tests', () => {
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
       // Verify permission is deleted
-      const permissions = await db
+      const permissions = await getOwnerDb()
         .select()
         .from(datavaultTablePermissions)
         .where(eq(datavaultTablePermissions.id, permissionId));
@@ -610,7 +620,7 @@ describe('DataVault v4 Regression Tests', () => {
       const rowPromises = [];
       for (let i = 0; i < 100; i++) {
         rowPromises.push(
-          db.insert(datavaultRows).values({
+          getOwnerDb().insert(datavaultRows).values({
             tableId: testTableId,
             values: {},
             createdBy: testUserId,

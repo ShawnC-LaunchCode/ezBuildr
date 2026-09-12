@@ -1,10 +1,18 @@
 /**
  * Formats a collected answer value for read-only display. Shared by
- * ReviewSection.tsx (top-level step answers) and ListAnswerView.tsx (field
+ * ReviewPage.tsx (top-level step answers) and ListAnswerView.tsx (field
  * values inside a List item) so the two surfaces can't grow independent
  * formatting rules.
  */
-import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
+
+import {
+  resolveBooleanConfig,
+  resolveBooleanLogicalValue,
+  resolveNumberConfig,
+  adaptLegacyStep,
+} from "@shared/types/stepConfigs";
+
+import { formatCurrencyForDisplay } from "../components/runner/blocks/numberFormat";
 
 export interface AnswerFormatContext {
   type?: string | null;
@@ -103,17 +111,37 @@ function formatAddressValue(value: unknown, config: unknown): string {
     .join(", ");
 }
 
+function formatBooleanValue(value: unknown, config: unknown): string | undefined {
+  const logicalValue = resolveBooleanLogicalValue(value, config);
+  if (logicalValue === undefined) { return undefined; }
+  const resolvedConfig = resolveBooleanConfig(config);
+  return logicalValue ? resolvedConfig.trueLabel : resolvedConfig.falseLabel;
+}
+
 export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {}): string {
   if (val === null || val === undefined || val === "") {
     return "Not answered";
   }
 
-  const normalizedType = context.type ? normalizeRunnerStepType(context.type) : undefined;
-  if (normalizedType === "choice") {
-    return formatChoiceValue(val, context.config);
+  const adapted = context.type ? adaptLegacyStep({ type: context.type, config: context.config }) : { type: undefined, config: undefined };
+  const type = adapted.type;
+  if (type === "choice") {
+    return formatChoiceValue(val, adapted.config);
   }
-  if (normalizedType === "address") {
-    return formatAddressValue(val, context.config);
+  if (type === "address") {
+    return formatAddressValue(val, adapted.config);
+  }
+  if (type === "boolean") {
+    return formatBooleanValue(val, adapted.config) ?? String(val);
+  }
+  if (type === "number" && typeof val === "number") {
+    const config = resolveNumberConfig("number", adapted.config);
+    if (config.mode !== "number") {
+      return formatCurrencyForDisplay(val, {
+        mode: config.mode,
+        currency: config.currency ?? "USD",
+      });
+    }
   }
 
   if (typeof val === "boolean") {
