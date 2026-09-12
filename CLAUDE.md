@@ -275,9 +275,12 @@ www.ezbuildr.com. The Railway API does not expose the connected branch, and
 `railway status` reports only the *linked* environment, so neither can confirm this —
 the service's Settings → Source pane is the only source of truth.
 
-**`Wait for CI` is OFF on all three environments.** Railway deploys the moment GitHub
-receives the push, without waiting for Actions, so a red build still ships. Turning it
-on for `production` is the single highest-value control still available.
+**`Wait for CI` is ON for `production` and OFF for `dev` and `test`.** Observed on the
+2026-09-12 promotion (PR #185): production's deploy sat in `WAITING` until `main`'s CI
+went green (about 13 minutes), then built. `dev` and `test` deploys of the same commit,
+created 20 seconds later, built immediately. So a red `main` build no longer ships to
+www.ezbuildr.com, but a red `dev` or `test` build still deploys to its environment.
+This was inferred from deploy timing; the service's Settings pane is the source of truth.
 
 - **Commit to `dev`, and push it.** If a task starts on `main` or `test`, branch to
   `dev` (or a feature branch off it) first. **`dev` is the playground: Claude pushes

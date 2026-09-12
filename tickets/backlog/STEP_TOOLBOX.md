@@ -153,15 +153,44 @@ entries added to green a build is precisely how that gate rots.
 
 ---
 
+## STB-B14 — the canonicalizer audit cannot see `sections[]`-shaped version graphs · `needs-initiative`
+
+*Filed 2026-09-12, found during the production canonicalization.* `canonicalizeGraphJson` converts only the
+`pages[].steps[]` shape. Its "unconverted" counter counts only top-level `blocks[]` entries. A graph in any
+other shape is reported under "Artifacts in an unrecognized graph shape" but **does not fail `--audit`**.
+
+Measured on production after promotion: **57 of 58 `workflow_versions` use the pre-rename `sections[]`
+shape**, and **56 of them still contain legacy step type names** (`yes_no`, `short_text`, …) inside
+`graph_json`. `test` and `dev` carry the same rows, cloned from production in August. So "Audit passed. Zero
+legacy definitions found." is true of steps and false of pinned versions.
+
+Not a migration risk, because `graph_json` is jsonb and `0042` never reads it. The open question is runtime:
+does anything still load a `sections[]`-shaped pinned version (`RunDefinitionProvider`, version restore,
+diff), and if so, does it adapt legacy names through `LEGACY_STEP_ADAPTERS` or reject them?
+
+**Next step:** Trace every reader of `workflow_versions.graph_json` for `sections` handling. Then either
+extend the converter to `sections[].steps[]` (and make an unrecognized shape fail the audit), or confirm those
+versions are unreachable and record why.
+
+---
+
 ## Operational state at retirement
 
-- **`dev` and `test` Neon branches are backfilled and audited clean.** Production is **not**. Migration `0042`
-  recreates the `step_type` enum with an `ALTER … USING` cast that **fails on any unconverted row**, and Railway
-  runs `db:migrate` as a pre-deploy command — so production needs snapshot → `--apply --database-url` →
-  `--audit` *before* the promotion carrying `0042` reaches it.
-- Neon restore points retained: `backup-dev-pre-canonicalize-2026-09-03` (`br-silent-math-ahw5fz1u`) and
-  `backup-test-pre-canonicalize-2026-09-03` (`br-plain-fire-ahl47pjw`). Delete once production is done and both
-  environments have been exercised.
+- **All three environments are canonicalized and on `0042`.** `dev`/`test` were backfilled 2026-09-03.
+  **Production was canonicalized 2026-09-12**: 294 rows, 281 of them type conversions, 0 failures, audit
+  passed. It was promoted the same day (PR #185, merge `0d31887d`) and now runs at 50 migrations.
+  - The documented order ("canonicalize, then promote") **could not run on production as written.** Production
+    was at `0023`, before `0038` renamed `steps.section_id` → `page_id`, and the script's bare `select()` asked
+    for `page_id`. Fixed in `c998d67b` by projecting only the columns it converts.
+  - The whole sequence was rehearsed first on a Neon branch cloned from production: canonicalize, then the
+    real migrator `0023 → 0049`.
+- Neon restore points: `backup-dev-pre-canonicalize-2026-09-03` (`br-silent-math-ahw5fz1u`) and
+  `backup-test-pre-canonicalize-2026-09-03` (`br-plain-fire-ahl47pjw`). Production is done, so both are
+  **eligible for deletion** (the owner decides). `backup-prod-pre-canonicalize-2026-09-11`
+  (`br-plain-math-ahtllxh4`) is kept until production has run cleanly for a while.
+- ⚠️ **Only `--apply` takes `--database-url`.** Dry-run and `--audit` connect via the ambient `DATABASE_URL`,
+  and the local `.env` points at **dev**. So an unqualified `--audit` "passes" against dev whatever
+  production's state. Export the target's `DATABASE_URL` into the process for all three runs.
 - The converter is `scripts/canonicalizeStepTypes.ts`. Dry-run is the default; `--apply` **requires** an
   explicit `--database-url` and refuses ambient `DATABASE_URL`. **Point it at the owner/migration role, never
   the app's restricted role** — under RLS the restricted role sees almost nothing and the script reports a clean
