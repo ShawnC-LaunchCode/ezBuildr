@@ -296,9 +296,17 @@ async function run() {
     console.log(`Scoping to workflow ID: ${workflowIdScope}`);
   }
 
+  // Project only what canonicalization reads. A bare `select()` expands to
+  // every column in the CURRENT schema, but this script has to run against an
+  // environment whose chain predates 0038, where `steps.page_id` is still
+  // `section_id`. That is exactly production's state when it must run: before
+  // 0042, which ships in the same deploy as 0038. Found 2026-09-12, when the
+  // production dry run died on this SELECT with `column "page_id" does not
+  // exist`.
+  const stepColumns = { id: steps.id, workflowId: steps.workflowId, type: steps.type, config: steps.config };
   const allSteps = workflowIdScope
-    ? await db.select().from(steps).where(eq(steps.workflowId, workflowIdScope))
-    : await db.select().from(steps);
+    ? await db.select(stepColumns).from(steps).where(eq(steps.workflowId, workflowIdScope))
+    : await db.select(stepColumns).from(steps);
   const allVersions = workflowIdScope
     ? await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, workflowIdScope))
     : await db.select().from(workflowVersions);
