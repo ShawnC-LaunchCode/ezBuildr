@@ -333,9 +333,13 @@ Check `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets`, never
 | `dev-protection` | `dev` | deletion, non-fast-forward |
 
 Required checks on `main` are **Quality Gates, Validate Strict Zones, Tests (24.x),
-Security Scan**. The last two were added 2026-08-15; before that only the first two
-were required, so a PR whose test suite or dependency audit was red could still merge —
-which is exactly what both outages of that week were.
+Security Scan, RLS Enforcement Gate**. Tests and Security Scan were added 2026-08-15;
+before that only the first two were required, so a PR whose test suite or dependency
+audit was red could still merge — which is exactly what both outages of that week were.
+The RLS gate was added 2026-09-11, after it sat red and advisory for 35 and then 23
+consecutive pushes (RLS-11). `dev` has no required checks and pushes use the bypass, so
+on `dev` the protection is different: a failing gate on a push **posts to Slack**
+(`scripts/ci/post-slack-gate-failure.js`).
 
 All three rulesets carry `RepositoryRole → bypass: always`, so the owner is never
 locked out. That bypass is also why the `deletion` rule did **not** save `test`: the

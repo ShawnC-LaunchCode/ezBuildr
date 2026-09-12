@@ -102,7 +102,7 @@ IDs are stable, heading anchors are not.
 | Entry | Why | One line | Detail |
 |---|---|---|---|
 | RUN-P1 | `triage` | **`onPageEnter` blocks NEVER EXECUTE** — but MEASURED 2026-09-10: the `blocks` table is EMPTY in production and on dev, so nothing is broken *today*. No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
-| AI-P1 | ⚠️ `production` | **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
+| AI-P1 | `mitigated` | **Mitigated, not verified end-to-end (2026-09-11):** production's `GEMINI_MODEL` now reads `gemini-2.5-flash` and the service restarted ~2026-09-10 09:25Z; the code default moved in `6ec92be9` and reaches prod on promotion. Prod's build predates the `/health` AI probe, so no live proof. Original: **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
 | LIST-B15 | `ready` | A `list` question cannot be a List Tools source. **Investigated 2026-09-10 — the original framing was partly wrong**: the broken configuration is ALREADY reachable via the Choice editor's convert-to-List-Tools action, and the envelope→rows conversion already exists twice. Recommendation: adapt at the runner's input boundary, ~half a day | Inline below: `LIST-B15` |
@@ -336,6 +336,14 @@ Do not fix blind. The interesting possibility is that the phase was designed and
 never wired, in which case the seed is the bug and the phase should go.
 
 ## Production's configured Gemini model is retired (AI-P1) — filed 2026-09-09
+
+> **Status 2026-09-11: mitigated, not verified.** Railway `production` now has
+> `GEMINI_MODEL=gemini-2.5-flash` (read directly), and the process uptime puts its last
+> restart at ~2026-09-10 09:25Z, consistent with the variable change being deployed. The
+> hardcoded default moved to `gemini-2.5-flash` in `6ec92be9`, which reaches production
+> only on the next promotion. Production's build predates the `/health` `aiProvider`
+> probe (`cf673f30`), so nothing live confirms AI calls succeed there yet — after the
+> promotion, `curl https://www.ezbuildr.com/health` should show `aiProvider.available: true`.
 
 **Tag:** ⚠️ `production`. **This is almost certainly a live outage of two features.**
 Found by CB-10c's live proof and entirely unrelated to CB-10c.
@@ -783,8 +791,9 @@ SECT-9 leaked a tenant row that way.
 **⚠️ Still open: `RLS-4` for PRODUCTION**, on the live board at
 [`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md). ENV-1..4 and
 RLS-1, 2a–2f, 3, 5, 6, 7 all shipped. RLS enforcement is live on dev and test;
-production still connects as `neondb_owner` (BYPASSRLS) and is 12 migrations
-behind, so it is gated on a `test` → `main` promotion, not on RLS work.
+production still connects as `neondb_owner` (BYPASSRLS) and is 26 migrations
+behind (0024–0049, measured 2026-09-11), so it is gated on a `test` → `main`
+promotion, not on RLS work.
 
 The detail file's **Withdrawn findings** table is the important part: five claims
 from earlier audits were disproved, and two of them ("branch protection is off",
@@ -794,7 +803,10 @@ from earlier audits were disproved, and two of them ("branch protection is off",
   ~2 files per full run die in setup with `Registration failed`, different files each
   time. Three causes eliminated (async-context leak, session GUC, leaked transaction);
   same-connection instrumentation left in `auth.routes.ts` to catch the next occurrence.
-  **This is why the RLS gate is advisory rather than a required check.**
+  This was the reason the RLS gate stayed advisory. **Re-measured 2026-09-11: zero
+  occurrences in all 29 gate runs since 2026-09-08** (single-fork), so the gate is now a
+  required check on `main`. Keep the instrumentation; lifting the single-fork pin is
+  RLS-11 cause 5.
 - **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
   above); this initiative only adds that it now carries an RLS policy. Recorded here so the
   next audit does not file it a third time — it has already been filed twice.

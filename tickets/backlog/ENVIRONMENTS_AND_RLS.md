@@ -172,8 +172,11 @@ request), a session-level GUC (every `set_config` in the repo passes
 no assigned xid, across 196 registrations).
 
 Same-connection instrumentation is left in `server/routes/auth.routes.ts` to
-capture it next time it fires. **This is why the RLS gate is advisory rather
-than a required check** (RLS-5 AC3).
+capture it next time it fires. This was why the RLS gate stayed advisory rather
+than a required check (RLS-5 AC3). **Re-measured 2026-09-11: zero occurrences in all 29
+gate runs since 2026-09-08** (single-fork), so the gate is now a required check on
+`main`, and a failing push alerts Slack. Keep the instrumentation — it has not fired, which
+is not the same as the cause being found.
 
 **Next step:** read the `RLS-5: registration insert rejected` log the next time
 a full restricted run goes red; it prints the schema, role and GUC on the

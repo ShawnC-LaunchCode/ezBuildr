@@ -70,8 +70,13 @@ jobs:
     # chain itself, including the RLS policies and the restricted/bypass roles.
     # No separate db:migrate step is needed or wanted here — the point is to
     # exercise exactly the path the local restricted run uses.
+    # Output is tee'd so a failure alert can quote the gate's own verdict.
+    # pipefail is required: without it the step would report tee's exit code
+    # (always 0) and the gate could never fail.
     - name: Run the RLS gate
-      run: npx tsx scripts/rls-gate.ts
+      run: |
+        set -o pipefail
+        npx tsx scripts/rls-gate.ts 2>&1 | tee rls-gate-output.txt
       env:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
@@ -86,8 +91,25 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: rls-gate-results
-        path: rls-gate-results.json
+        path: |
+          rls-gate-results.json
+          rls-gate-output.txt
         if-no-files-found: warn
+
+    # RLS-11 AC 4. This gate sat red for 35 consecutive pushes, then 23 more,
+    # because a failure here reached no one: ci.yml posts to Slack, this did
+    # not. It is also a required check on `main`, but `dev` has no required
+    # checks and pushes use the owner bypass, so the alert is what actually
+    # makes a red gate visible within the day. Push events only: a PR shows
+    # its own red check. continue-on-error so a Slack outage can never change
+    # what this job reports.
+    - name: Alert Slack on failure
+      if: failure() && github.event_name == 'push'
+      continue-on-error: true
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      run: node scripts/ci/post-slack-gate-failure.js --gate "RLS Enforcement Gate" --details rls-gate-output.txt
 
   # ---------------------------------------------------------------------------
   # RLS-9 — the static half of the same question.
@@ -122,4 +144,14 @@ jobs:
     # reproduces (which must then be tightened or deleted). A one-way list rots
     # into decoration that certifies nothing.
     - name: Run the RLS surface gate
-      run: npx tsx scripts/audit-rls-surface.ts
+      run: |
+        set -o pipefail
+        npx tsx scripts/audit-rls-surface.ts 2>&1 | tee rls-surface-output.txt
+
+    - name: Alert Slack on failure
+      if: failure() && github.event_name == 'push'
+      continue-on-error: true
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      run: node scripts/ci/post-slack-gate-failure.js --gate "RLS Surface Audit" --details rls-surface-output.txt

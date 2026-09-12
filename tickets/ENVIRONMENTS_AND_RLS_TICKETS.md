@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** four open — **RLS-11** (P0, gate red 9 days), **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-06
+**Status:** four open — **RLS-11** (P2 — gate green and required on `main`; only cause 5, the single-fork pin, remains), **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-11
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -582,9 +582,9 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 fixed; 5 & 6 open
+## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 & 6 fixed, AC 4 met; cause 5 open
 
-**Priority: P0** · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
+**Priority: P2** (was P0; re-prioritized 2026-09-11 — the gate is green, required on `main`, and alerts Slack; what remains is cause 5, which costs ~5 minutes on a job off the critical path and threatens nothing user-facing) · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
 `server/services/workflow-runs/RunLifecycleService.ts` — remaining:
 `tests/integration/api.runs.file-upload.test.ts`,
 `tests/integration/runFileUpload.test.ts`, `tests/integration/text-canonicalization.test.ts`,
@@ -592,6 +592,21 @@ makes this worth writing at all.
 `tests/integration/codeBlocks.multiOutput.test.ts` — plus whatever server code the
 triage below lands on
 
+
+### Status — 2026-09-11
+
+- **Gate green** since `f57bf806` (2026-09-11), on `dev` and `test`; allowlist empty.
+- **It went red again in between** — 23 consecutive runs, 2026-09-07 → 09-11, 1–3
+  files each, with nobody forced to look. That is precisely the failure AC 4 names.
+  The last of it was cause 6's preview suites, fixed as backlog `RLS-B1` (`760353b6`).
+- **AC 4 met.** `RLS Enforcement Gate` is a **required check on `main-protection`**
+  (2026-09-11), and a failing gate on a push **posts to Slack**
+  (`scripts/ci/post-slack-gate-failure.js`, both jobs in `rls-gate.yml`). Not made
+  required on `dev`: `dev-protection` has no required checks and pushes use the owner
+  bypass, so it would change nothing there.
+- **The flake cited for keeping it advisory has not recurred**: zero
+  `Registration failed` lines across all 29 gate runs since 2026-09-08 (all single-fork).
+- **Open: cause 5 only** — the second half of AC 3 (green with the single-fork pin removed).
 ### Finding
 
 `.github/workflows/rls-gate.yml` has failed on **every push since 2026-08-28** —
@@ -732,7 +747,7 @@ for — `multiOutput` asserts no step was written, `testEndpoint` asserts the
 executor was never called. **In-tenant RBAC denials still assert a plain 403**
 and were not touched.
 
-### Cause 6, found 2026-09-07 — the CB-9a preview work is landing red, NOT triaged here
+### Cause 6, found 2026-09-07 — the CB-9a preview work is landing red ✅ fixed 2026-09-11 (backlog `RLS-B1`, `760353b6`; the CI collection break by `faaa7e68`)
 
 With causes 1–4 fixed the gate is down to **two** files, and both are new:
 `preview.isolation.test.ts` (CB-9a-1) and `preview.execution.test.ts`
@@ -811,12 +826,16 @@ with a rotating false member is worse than a slow gate: it pushes someone to
    and — cause 5 — green with the single-fork pin REMOVED from
    `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
    harness bug. Removing the pin without fixing worker-safety is not a pass.
+   ⚠️ **First half met 2026-09-11** (green, allowlist empty); the pin-removed half is
+   cause 5 and still open.
    Adding an entry to close this ticket is an automatic fail: the gate's own
    header says an unexplained entry is how it rots.
 4. Something makes a red gate visible within a day rather than 35 runs. Cheapest
    credible option: make `RLS Enforcement Gate` a required check on `dev` in the
    `dev-protection` ruleset. If the "Registration failed" flake in
    RLS_HANDOFF §4 still makes that unsafe, say so and propose the alternative.
+   ✅ **Met 2026-09-11** — required on `main-protection` rather than `dev` (where the
+   owner bypass makes a required check a no-op), plus a Slack alert on any failing push.
 
 ### Ties
 
@@ -849,12 +868,11 @@ with a rotating false member is worse than a slow gate: it pushes someone to
       suite (`api.admin-user-workflows` green under `RLS_RESTRICTED=true` with a real
       BYPASSRLS pool, and `rls7-adminDb-readonly` proves that pool cannot write).
       **Not yet exercised against the live dev environment**, which is the remaining half
-- [ ] Full integration green as the restricted role in CI — **NO LONGER TRUE.
-      🔴 Red since 2026-08-28, 35 consecutive runs; 5 files fail, allowlist still
-      empty. See RLS-11.** The 124/124 that used to be recorded here was measured
-      2026-08-22 and went stale silently, which is exactly what being advisory
-      buys you: NOT required by branch protection, deliberately, until the
-      "Registration failed" flake in RLS_HANDOFF §4 is understood (see RLS-5)
+- [x] Full integration green as the restricted role in CI — **green again since
+      `f57bf806` (2026-09-11), allowlist empty, and now a required check on `main`.**
+      It was red 2026-08-28 → 09-06 and again 09-07 → 09-11 while advisory — see
+      RLS-11. The "Registration failed" flake (RLS_HANDOFF §4) has not recurred in 29
+      runs since 2026-09-08, all single-fork
 - [~] `docs/architecture/TENANT_ISOLATION_RLS.md` covers §2a–§2g and the admin
       `BYPASSRLS` path. **Needs a pass for what 2026-08-22 changed**: the multer
       async-context hazard, `forEachTenant` for background jobs, and the fact that in
