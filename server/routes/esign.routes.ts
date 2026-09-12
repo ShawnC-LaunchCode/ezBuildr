@@ -13,6 +13,7 @@ import { SignatureBlockService } from '../services/esign/SignatureBlockService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { classifyRouteError } from '../utils/routeErrors';
+import { withCurrentTenant } from '../utils/rlsContext';
 
 const router = Router();
 
@@ -58,7 +59,9 @@ async function authorizeRun(
   // The service checks the workflow row; this route only supplies the run's
   // workflow ID for creator authorization when a request already exists.
   if (request) {
-    const signatureRun = await workflowRunRepository.findById(request.runId);
+    // RLS-B5: tenant-scoped, mirroring SignatureBlockService.executeSignatureBlock —
+    // a bare-pool read here is the shape RLS-B1 fixed in EnvelopeBuilder.
+    const signatureRun = await withCurrentTenant((tx) => workflowRunRepository.findById(request.runId, tx));
     if (!signatureRun) {
       res.status(404).json({ error: 'Run not found' });
       return false;
@@ -67,7 +70,7 @@ async function authorizeRun(
     return true;
   }
 
-  const run = await workflowRunRepository.findById(runId);
+  const run = await withCurrentTenant((tx) => workflowRunRepository.findById(runId, tx));
   if (!run) {
     res.status(404).json({ error: 'Run not found' });
     return false;

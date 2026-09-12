@@ -445,7 +445,11 @@ export const JsQuestionConfigSchema = z.object({
       seen.add(normalized);
     }
   }),
-  timeoutMs: z.number().int().min(100).max(30000).optional(),
+  // CB-B2: matches enhancedSandboxExecutor.ts's MAX_TIMEOUT_MS. A value above
+  // this used to be silently clamped at execution time with no author-visible
+  // error; this makes it a validation error at save time instead. Raising the
+  // executor's ceiling itself stays an owner decision.
+  timeoutMs: z.number().int().min(100).max(3000).optional(),
   // CB-3: firing is trigger x repeat, two independent choices (Decisions 3).
   // Both are optional so every Code Block stored before CB-3 stays valid and
   // reads as the documented defaults ('everySubmit' x 'onChange').

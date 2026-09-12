@@ -32,7 +32,7 @@ named symbol. Line numbers are advisory.**
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | 🔄 dispatched 2026-09-12 (`cln-1`) |
+| CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | ✅ 2026-09-12 |
 | CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔄 dispatched 2026-09-12 (`cln-2`) |
 | CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | 🔄 dispatched 2026-09-12 (`cln-3`) |
 | CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | 🔄 dispatched 2026-09-12 (`cln-4`) |
@@ -44,7 +44,26 @@ because both change `package.json` and `package-lock.json`.
 
 ---
 
-## CLN-1 — Small cleanups bundle 🔲
+## CLN-1 — Small cleanups bundle ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete.** Seven files. Type-check 0, scoped lint
+> clean. `test:fast` 339/3894, which is 338 + 1 new file and 3890 + 4 new tests. Integration:
+> `portability.export` 19/19, `codeBlocks.inspector` 6/6, `esign.docusign` 5/5. `stepConfigSchemas`
+> 89/89.
+>
+> **Reviewer red-runs, each restored and the files re-diffed afterwards:**
+> - **D.** `applyAdvanceNavigation` changed to `currentPageIndex + 1` → the new RUN-B1 test fails
+>   (expected index 2, got 1), and the 11 existing tests stay green.
+> - **E1.** Tenant guard removed → the CB-B8 tenant test fails.
+> - **E2.** `verifyAccess` removed → the CB-B8 access test fails.
+> - **C.** `fs.promises.rm(tmpPath)` skipped in `ExportService` → the portability test fails on this
+>   request's own `export_workflow_<id>_*.ezb`.
+>
+> The prefix was checked against `ExportService.exportToFile`'s real naming, and against the
+> `/manifest` → `computeManifest` → `exportToFile` path.
+>
+> **Noted, not blocking.** `authorizeRun`'s first branch (`GET /status/:envelopeId` with a signature request
+> on file) has no integration test. It has the same tenant-scoped shape as the covered branch.
 
 **Priority: P2** · Size: S · Bundles backlog `RLS-B5`, `CB-B2`, `RUN-B1`, `CB-B8` and the portability flake.
 
