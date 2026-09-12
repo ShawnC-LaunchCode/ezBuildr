@@ -261,8 +261,11 @@ export class RunService {
       targetVersionId ?? undefined,
       { accessMode: options?.accessMode }
     );
-    // Execute onRunStart blocks
-    await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
+    // Execute onRunStart blocks, then the first page's onPageEnter (RUN-P1) --
+    // `startPageId` above is already the resolved starting page.
+    await this.lifecycleService.executeOnRunStart(
+      run.id, workflowId, targetVersionId ?? undefined, 'live', startPageId ?? undefined
+    );
     // Return the plaintext token to the caller; the DB only holds its hash.
     // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.
@@ -299,7 +302,9 @@ export class RunService {
       await this.lifecycleService.populateInitialValues(run.id, workflowId, {});
       const currentPageId = await this.resolveInitialPageId(run.id, workflowId);
       await this.stateService.updateProgress(run.id, currentPageId);
-      const initialization = await this.lifecycleService.executeOnRunStart(run.id, workflowId, workflowVersionId, 'preview');
+      const initialization = await this.lifecycleService.executeOnRunStart(
+        run.id, workflowId, workflowVersionId, 'preview', currentPageId ?? undefined
+      );
       await this.runRepo.update(run.id, { metadata: { previewNotices: [...(initialization.notices ?? []), ...(initialization.errors ?? [])] } });
     });
     return this.getRun(run.id, userId);
@@ -641,8 +646,10 @@ export class RunService {
       targetVersionId,
       { accessMode: 'anonymous' }
     );
-    // Execute onRunStart blocks
-    await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
+    // Execute onRunStart blocks, then the first page's onPageEnter (RUN-P1).
+    await this.lifecycleService.executeOnRunStart(
+      run.id, workflow.id, targetVersionId, 'live', initialPageId ?? undefined
+    );
     // Return the plaintext token to the caller; the DB only holds its hash.
     // currentPageId reflects the resolved starting page (see above), not
     // the pre-update in-memory value from the initial insert.

@@ -33,7 +33,7 @@ named symbol. Line numbers are advisory.**
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
 | CLN-1 | Small cleanups bundle (RLS-B5, CB-B2, RUN-B1, CB-B8, portability flake) | P2 | S | ✅ 2026-09-12 |
-| CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | 🔄 dispatched 2026-09-12 (`cln-2`) |
+| CLN-2 | `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) | P1 | M | ✅ 2026-09-12 |
 | CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | ✅ 2026-09-12 |
 | CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | ✅ 2026-09-12 (code; the env runs are still owed) |
 | CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
@@ -159,7 +159,32 @@ defence in depth that nothing proves.
 
 ---
 
-## CLN-2 — `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) 🔲
+## CLN-2 — `onPageEnter` blocks and `beforePage` hooks never run (RUN-P1) ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete.** The page-entry phase now fires at the two
+> places a run arrives on a page:
+> - **Navigation.** In `RunExecutionCoordinator.runNext`, after the cursor is persisted,
+>   `runPhase({ phase: "onPageEnter", pageId: navigation.nextPageId, mode, … })` runs, guarded by
+>   `nextPageId !== currentPageId`.
+> - **Run creation.** `RunLifecycleService.executeOnRunStart` gains an optional `pageId`, fired after
+>   `onRunStart` and the Code Block sweep. All three creation paths in `RunService` (`createRun`,
+>   `createPreview`, `createAnonymousRun`) pass their already-resolved start page.
+>
+> The result is discarded exactly as `onNext`'s is: blocks and hooks persist their own output. The
+> `beforePage` lifecycle hooks now fire through `runPhase`'s existing map.
+>
+> **Semantics.** There is no server "back" endpoint; back is client-side only. So re-arrival is observed as
+> a `next` whose starting page differs from the cursor, and the guard handles it. GETs and refreshes never
+> reach `runNext`.
+>
+> **Gates, re-run by the reviewer.** Type-check 0, scoped lint clean. Unit 36/36 (`RunService.versioning`,
+> whose two `executeOnRunStart` assertions were updated for the new trailing args, plus both
+> `RunExecutionCoordinator` files). Integration: `runs.pageEnter` 5/5, `api.runs.first-next` 3/3, and
+> **`codeBlocks.firing` 7/7**, which asserts exact sandbox counts per firing point and so proves Code Blocks
+> are not evaluated an extra time. `test:fast` 3890, unchanged (dev run).
+>
+> **Reviewer red-run.** Both call sites neutralized: **4 of 5 new tests fail**. The cross-tenant denial
+> test correctly still passes, because it is a negative assertion. Restored clean.
 
 **Priority: P1 (latent bug)** · Size: M · Starting point: `server/services/runs/RunExecutionCoordinator.ts`
 
