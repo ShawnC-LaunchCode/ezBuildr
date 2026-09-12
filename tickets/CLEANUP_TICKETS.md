@@ -37,7 +37,7 @@ named symbol. Line numbers are advisory.**
 | CLN-3 | A `list` question as a List Tools source (LIST-B15) | ENH | M | ✅ 2026-09-12 |
 | CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | ✅ 2026-09-12 (code; the env runs are still owed) |
 | CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
-| CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | 🔲 |
+| CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | ✅ 2026-09-12 |
 
 **Sequencing.** CLN-1 to CLN-5 have disjoint footprints and can run in parallel. **CLN-6 runs after CLN-5**,
 because both change `package.json` and `package-lock.json`.
@@ -512,7 +512,28 @@ its size.
 
 ---
 
-## CLN-6 — Dependabot triage and retarget to `dev` 🔲
+## CLN-6 — Dependabot triage and retarget to `dev` ✅
+
+> **Verification pass, 2026-09-12 (reviewer). Code complete.**
+>
+> **What changed.** `.github/dependabot.yml` now sets `target-branch: "dev"` for both npm and
+> github-actions, so future PRs enter the promotion chain at `dev`. Three bumps were applied on top of CLN-5:
+> - docxtemplater `^3.67.4 → ^3.69.3`
+> - `@radix-ui/react-navigation-menu` `^1.2.6 → ^1.2.22`
+> - `@types/google.maps` `^3.58.1 → ^3.65.4`
+>
+> Tailwind is untouched; see `DEP-B2`.
+>
+> **Lockfile, audited package by package.** 19 entries changed: the 3 targets, plus 16 private
+> `@radix-ui/*` copies nested under the navigation menu. **0 outside those.** `audit-check` passes
+> (0 allowlisted, 0 blocking), so the new versions add no advisories.
+>
+> **Gates, re-run by the reviewer.** Type-check 0. The docxtemplater-sensitive document suites pass:
+> `docSamples` + `RenderCore.expressions` 132/132, and `docs.autogeneration` 9/9 against real
+> Gotenberg. `test:fast` 3890, unchanged (dev run).
+>
+> **Dependabot PRs.** #178, #180 and #181 are superseded by this commit, and #177 by CLN-5. The reviewer
+> closes them. #179 (tailwind 4) is closed with a pointer to `DEP-B2`.
 
 **Priority: P2** · Size: S · **Runs after CLN-5.** Starting point: `.github/dependabot.yml`
 
