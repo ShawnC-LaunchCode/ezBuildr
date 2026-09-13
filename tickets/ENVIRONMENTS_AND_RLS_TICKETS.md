@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** four open — **RLS-11** (P2 — gate green and required on `main`; only cause 5, the single-fork pin, remains), **RLS-4** (production — promoted 2026-09-12; only the role swap remains, rehearsed on a clone), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-11
+**Status:** three open — **RLS-4** (production — promoted 2026-09-12; only the role swap remains, rehearsed on a clone), **RLS-8**, **RLS-10** · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-12
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -615,7 +615,7 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 & 6 fixed, AC 4 met; cause 5 open
+## RLS-11 — The enforcement gate has been red for 9 days ✅ DONE 2026-09-12
 
 **Priority: P2** (was P0; re-prioritized 2026-09-11 — the gate is green, required on `main`, and alerts Slack; what remains is cause 5, which costs ~5 minutes on a job off the critical path and threatens nothing user-facing) · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
 `server/services/workflow-runs/RunLifecycleService.ts` — remaining:
@@ -639,7 +639,8 @@ triage below lands on
   bypass, so it would change nothing there.
 - **The flake cited for keeping it advisory has not recurred**: zero
   `Registration failed` lines across all 29 gate runs since 2026-09-08 (all single-fork).
-- **Open: cause 5 only** — the second half of AC 3 (green with the single-fork pin removed).
+- ✅ **Cause 5 fixed 2026-09-12** — concurrent `ALTER ROLE` in per-worker setup; the gate runs
+  parallel again. All four ACs are met and the ticket is closed.
 ### Finding
 
 `.github/workflows/rls-gate.yml` has failed on **every push since 2026-08-28** —
@@ -829,7 +830,33 @@ while it was red** — CB-8 added `codeBlocks.testEndpoint`, CB-9a has now added
 two more. That is the cost the gate's own header predicted, and it is what
 AC 4 (make a red gate visible within a day) exists to stop.
 
-### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
+### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe ✅ fixed 2026-09-12
+
+**Root cause, found 2026-09-12 — test setup, not tenant state.** Every worker's setup
+re-asserts the two cluster-level test roles (`rls5_app_role`, `rls6_admin_bypass_role`) with
+`ALTER ROLE … WITH PASSWORD`. Two workers doing it at the same instant write the same
+`pg_authid` row, and Postgres rejects the loser with `tuple concurrently updated` (XX000). That
+fails the worker's setup and takes down whichever test file it was starting — a different one
+each run. Stack-confirmed on a failing parallel run (2 files, both `tuple concurrently updated` at
+`provisionRestrictedRole`, `tests/setup.ts:196`), and reproduced in isolation: 8 clients × 40
+re-assertions of one role → **275 of 320 failed without a lock, 0 of 320 with one**.
+
+The guesses written below — the shared role's *policies*, per-connection GUC pinning — were
+wrong. It was concurrent catalog DDL in test setup, which is why it appeared only in parallel runs
+and never touched application code.
+
+**Fix.** `provisionSharedRoles` in `tests/setup.ts` runs both provisioning functions inside one
+transaction holding `pg_advisory_xact_lock`, which serializes every worker on the database, plus a
+bounded retry on the concurrent-role-write codes for the cross-database case (advisory locks are
+per-database; roles are cluster-wide). `scripts/rls-gate.ts` no longer pins single-fork.
+
+**Evidence:** three consecutive unpinned gate runs — 151/151 files each, 0 `tuple concurrently
+updated`, 0 `Registration failed` — in **412 s, 358 s and 399 s** locally, against ~1,066 s
+single-fork on the same machine.
+
+---
+
+*Original write-up, 2026-09-06:*
 
 Separate from the four above, and found by accident while making the suite
 parallel. Run with more than one worker under `RLS_RESTRICTED`, three
@@ -859,8 +886,8 @@ with a rotating false member is worse than a slow gate: it pushes someone to
    and — cause 5 — green with the single-fork pin REMOVED from
    `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
    harness bug. Removing the pin without fixing worker-safety is not a pass.
-   ⚠️ **First half met 2026-09-11** (green, allowlist empty); the pin-removed half is
-   cause 5 and still open.
+   ✅ **Met 2026-09-12** — green with the allowlist empty, and green with the single-fork
+   pin removed: three consecutive parallel runs, 151/151 files each.
    Adding an entry to close this ticket is an automatic fail: the gate's own
    header says an unexplained entry is how it rots.
 4. Something makes a red gate visible within a day rather than 35 runs. Cheapest

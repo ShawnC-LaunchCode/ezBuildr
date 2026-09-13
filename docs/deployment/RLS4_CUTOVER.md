@@ -309,3 +309,9 @@ left in `auth.routes.ts` to catch it. It has never been observed outside the
 test harness. **It is not a reason to delay dev**, but get it understood before
 production — a registration path that fails one time in N is not something to
 discover from customer reports.
+
+**Status 2026-09-12:** not reproduced in 133 CI gate runs (2026-08-22 → 09-11), nor in
+any local restricted run since, and the instrumentation never fired. Its cause is still
+**unidentified**, so this precondition is not *met* in the sense written above — whether
+133 silent runs with the instrumentation still in place is enough is the owner's call.
+See `RLS_HANDOFF.md` §4.
