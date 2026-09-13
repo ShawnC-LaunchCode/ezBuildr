@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** two open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
+**Status:** two open — **RLS-4** (production CUT OVER 2026-09-13 15:33 UTC and **enforcing** — it connects as `ezbuildr_app`; only the owner's app-level checks remain), **RLS-8** (34 sites, measured 2026-09-13) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -22,6 +22,11 @@
 | How the scope was bounded (retired plan) | [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md) |
 
 ## Where enforcement actually stands
+
+> ✅ **UPDATE 2026-09-13 — production is enforcing.** All three environments now connect as
+> the non-owner `ezbuildr_app` with `RLS_ENFORCED=true`, against 38 policy tables that are
+> enabled AND forced. The table below is the 2026-08-25 correction, kept for its lesson; for
+> production's cutover record see RLS-4.
 
 > 🔴 **CORRECTED 2026-08-25. The previous version of this table said dev and
 > test were enforcing. They were not, and neither was anything else.**
@@ -153,7 +158,7 @@ Check that table before filing anything against this area.
 
 ---
 
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test DONE; production: promoted 2026-09-12, role swap remains (rehearsed)
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test + production CUT OVER (production 2026-09-13); owner's app-level checks pending
 
 ### Progress — 2026-08-22 · **dev is cut over and enforcing**
 
@@ -311,10 +316,34 @@ non-`public` schema.
 So RLS-10's per-table isolation proof applies to production's current definitions. The
 policies are correct; they are simply not enforced there until the role swap.
 
-**What remains is owner-only:** create the role on production with a password you
+**Was owner-only — done 2026-09-13, see the cutover record below:** create the role on production with a password you
 generate (owner decision 2026-08-25), then set the four Railway variables in one change and
 redeploy (runbook §3). The runbook's own precondition — §6, understand the intermittent
 "Registration failed" before production — is still open.
+
+**✅ CUT OVER 2026-09-13, 15:33 UTC.** The owner ran the cutover script from their own
+terminal (runbook §2–§3 automated; it stops at the first failed check and never prints a
+secret — Claude's auto-mode classifier blocks production writes, so it could not):
+
+| step | result |
+|---|---|
+| role | `ezbuildr_app` created: `rolsuper=f`, `rolbypassrls=f`, 0 memberships |
+| pre-flight | 38 / 38 / 38 |
+| isolation, connected AS `ezbuildr_app` | no tenant → 0 projects; tenant pinned → its 4 projects, 0 from the other tenant |
+| variables, one change | `DATABASE_URL`=`ezbuildr_app`; `ADMIN_DATABASE_URL` and `MIGRATION_DATABASE_URL`=`neondb_owner`; `RLS_ENFORCED=true` |
+| deploy `a5e1e15f` (`681f8f76`) | migrations ran `using MIGRATION_DATABASE_URL`; boot log `Admin DB: initialized.`; `/health` healthy; no 5xx |
+| live connections | `ezbuildr_app` ×3 (app pool), `neondb_owner` ×4 (admin + migrations) |
+
+**Still owed — needs the owner's login:** the admin console must list **both** tenants (a short
+but plausible list means `ADMIN_DATABASE_URL` is not in effect), and one interview must run end
+to end with a generated document. The §6 "Registration failed" precondition was **accepted** by the
+owner on 2026-09-13 on the evidence in runbook §6 (133 silent CI runs), not closed. **Rollback** is
+unchanged: point `DATABASE_URL` back at the `ADMIN_DATABASE_URL` value, set `RLS_ENFORCED=false`,
+redeploy.
+
+**What this changes for everyone:** a query on a tenant table that runs outside a tenant
+transaction now returns **zero rows in production** instead of everything — the failure looks like
+missing data, not an error.
 
 **Priority: P0** · Size: S · **UNBLOCKED** — RLS-2, RLS-3, RLS-6 and RLS-7 all closed
 2026-08-22, and the admin-access path called out below was built. Gated now only on a

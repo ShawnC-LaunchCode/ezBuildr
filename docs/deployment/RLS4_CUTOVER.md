@@ -181,7 +181,8 @@ everything, the role bypasses RLS and nothing below is safe to do.
 >
 > It took **two** deploys. The first FAILED on
 > `CREATE SCHEMA IF NOT EXISTS "drizzle"` — see §3 step 2 on
-> `MIGRATION_DATABASE_URL`. `test` and `production` are untouched.
+> `MIGRATION_DATABASE_URL`. `test` followed on 2026-08-23, and **`production` was cut over
+> on 2026-09-13** — results in RLS-4 of `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`.
 
 
 Do **dev** end to end and live on it before touching `test`, then `production`.
