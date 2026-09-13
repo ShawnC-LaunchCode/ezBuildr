@@ -17,6 +17,17 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > **As of 2026-09-11 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
 > (ENV-1/ENV-3 remainders + RLS-1..5).**
 >
+> **The post-promotion cleanup board (CLN-1..7) closed and retired into `backlog/CLEANUP.md` on
+> 2026-09-13.** Six planned tickets and one found at review all landed on `dev` on 2026-09-12:
+> - the OpenTelemetry advisory upgrade
+> - RLS-B5, CB-B2's silent clamp, RUN-B1, CB-B8
+> - LIST-B15, RUN-P1, and STB-B14's code
+> - Dependabot retargeted to `dev`
+> - **CLN-7**, block CRUD failing under RLS
+>
+> It parks one entry, `CLN-B1`, and files `RLS-B6` and `DEP-B2` below. ⚠️ STB-B14's per-environment
+> `--apply` run is still owed.
+>
 > **The Code Blocks board (CB-1..11, 20 units) closed and retired into
 > `backlog/CODE_BLOCKS.md` on 2026-09-11.** All four phase gates were signed, and
 > it discharged `STB-B8`. It parks nine entries, `CB-B1..B9`, and seven standing
@@ -109,6 +120,7 @@ IDs are stable, heading anchors are not.
 | ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
 | ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
 | ~~RUN-B1~~ | ✅ fixed 2026-09-12 (CLN-1; mutation-verified) | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
+| CLN-B1 | `enhancement` | `scripts/test-captcha.mjs` imports `node-fetch`, which is not in `package.json`; it resolves only via `google-auth-library` → `gaxios`. Switch the script to the global `fetch`, or declare the package. One line | `backlog/CLEANUP.md` |
 | DEP-B2 | `needs-initiative` | **Tailwind 3 → 4 is a migration, not a bump** (Dependabot #179, `3.4.19 → 4.3.3`, closed 2026-09-12). v4 replaces `tailwind.config` with CSS-first `@theme` config, changes the PostCSS plugin, and renames or removes utilities. It will interact with `SECT-B11` (the `--primary` `/opacity` bug). Needs a visual pass over the whole client, so load the **design** skill | Inline: this row |
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
