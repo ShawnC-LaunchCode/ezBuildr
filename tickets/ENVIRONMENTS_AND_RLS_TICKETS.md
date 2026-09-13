@@ -73,7 +73,7 @@
 |---|---|---|---|
 | dev | `ezbuildr_app` | ✅ **2026-08-25** | 42 migrations, 37/37/37 after 0041. Verified live: register + create project + read back on the restricted role |
 | test | `ezbuildr_app` | ⚠️ **enforcing, no FORCE** | 37 migrations, 36/36 enabled. Was enforcing all along; 0041 adds FORCE via a `dev` → `test` promotion |
-| **production** | `neondb_owner` | ❌ **not enforcing** | 50 migrations since PR #185 (2026-09-12); 38 policy tables, all enabled and forced (measured 2026-09-13). No `ezbuildr_app` role exists yet, and the app connects as `neondb_owner` (BYPASSRLS), so nothing is enforced until the RLS-4 role swap |
+| **production** | `ezbuildr_app` | ✅ **2026-09-13 15:33 UTC** | 50 migrations since PR #185; 38 policy tables, all enabled and forced. Cut over by the owner (RLS-4 cutover record). Re-measured 15:45Z: app pool `ezbuildr_app` ×3 (`rolsuper=f`, `rolbypassrls=f`, 0 memberships), deploy `a5e1e15f` healthy with no 5xx and no error-level logs |
 
 **What this changes.** Production is still the bulk of the remaining work, but
 the cutover procedure now needs a catalog check *before* the role swap (§4.0 of
@@ -313,8 +313,8 @@ non-`public` schema.
 | `tenant_isolation` policies | table, command, permissive, roles, and hashes of `USING` and `WITH CHECK` | **38 / 38 identical** |
 | RLS helper functions (`app_current_tenant`, `app_owner_tenant`, `app_datavault_{database,table,row}_tenant`) | volatility, `SECURITY DEFINER`, and a hash of the full definition | **5 / 5 identical** |
 
-So RLS-10's per-table isolation proof applies to production's current definitions. The
-policies are correct; they are simply not enforced there until the role swap.
+So RLS-10's per-table isolation proof applies to production's current definitions, which
+have been enforced there since the 15:33 UTC cutover the same day.
 
 **Was owner-only — done 2026-09-13, see the cutover record below:** create the role on production with a password you
 generate (owner decision 2026-08-25), then set the four Railway variables in one change and
