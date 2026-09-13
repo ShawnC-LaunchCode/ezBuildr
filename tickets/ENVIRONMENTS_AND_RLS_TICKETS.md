@@ -298,6 +298,19 @@ What the rehearsal deliberately does NOT prove — do not read more into it:
   tested over the MCP connection. It is not part of §2 and must not be run on production —
   see the runbook's §2 note on proving enforcement.
 
+**Pre-swap drift check, 2026-09-13 — production matches the migration chain exactly.**
+Compared read-only against a schema freshly built from migrations (local Postgres 16.12,
+production 17.10). Schema prefixes were stripped, because Postgres prints them for a
+non-`public` schema.
+
+| object | compared on | result |
+|---|---|---|
+| `tenant_isolation` policies | table, command, permissive, roles, and hashes of `USING` and `WITH CHECK` | **38 / 38 identical** |
+| RLS helper functions (`app_current_tenant`, `app_owner_tenant`, `app_datavault_{database,table,row}_tenant`) | volatility, `SECURITY DEFINER`, and a hash of the full definition | **5 / 5 identical** |
+
+So RLS-10's per-table isolation proof applies to production's current definitions. The
+policies are correct; they are simply not enforced there until the role swap.
+
 **What remains is owner-only:** create the role on production with a password you
 generate (owner decision 2026-08-25), then set the four Railway variables in one change and
 redeploy (runbook §3). The runbook's own precondition — §6, understand the intermittent
@@ -612,8 +625,9 @@ set throws rather than passing vacuously.
 
 **What it does not prove:** like `rls-coverage.test.ts`, it runs against a schema freshly built
 from the migration chain. It says nothing about whether a long-lived environment's policy
-*definitions* have drifted from that chain, which is the shape of the 2026-08-25 defect. Before
-the RLS-4 swap, diff production's `pg_policies` against a migration-built schema.
+*definitions* have drifted from that chain, which is the shape of the 2026-08-25 defect. **Done for
+production 2026-09-13:** all 38 policies and all 5 RLS helper functions are identical to a
+migration-built schema. See RLS-4's pre-swap drift check.
 
 **Observation (not a ticket):** `TestFactory.createTable` omits `tenantId`, although
 `datavault_tables.tenant_id` is NOT NULL, so every caller has to pass `{ tenantId }` in
