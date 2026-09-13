@@ -808,8 +808,10 @@ from earlier audits were disproved, and two of them ("branch protection is off",
   same-connection instrumentation left in `auth.routes.ts` to catch the next occurrence.
   This was the reason the RLS gate stayed advisory. **Re-measured 2026-09-11: zero
   occurrences in all 29 gate runs since 2026-09-08** (single-fork), so the gate is now a
-  required check on `main`. Keep the instrumentation; lifting the single-fork pin is
-  RLS-11 cause 5.
+  required check on `main`. Keep the instrumentation. The gate runs **parallel** again
+  since 2026-09-12: its only reproducible nondeterminism was concurrent `ALTER ROLE` in
+  per-worker setup (RLS-11 cause 5, `b909c73c`), now serialized — a different thing from
+  this entry, whose cause is still unidentified.
 - **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
   above); this initiative only adds that it now carries an RLS policy. Recorded here so the
   next audit does not file it a third time — it has already been filed twice.
