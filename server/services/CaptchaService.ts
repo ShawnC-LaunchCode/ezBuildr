@@ -48,7 +48,11 @@ export class CaptchaService {
     // question text, which is why reCAPTCHA is enforced in production — see
     // validateCaptcha.)
     const answerHash = this.hashAnswer((num1 + num2).toString(), expiresAt);
-    const payload = Buffer.from(JSON.stringify({ answerHash, expiresAt })).toString("base64url");
+    // `nonce`: without it the token is a pure function of (sum, expiry ms), so
+    // two challenges issued in the same millisecond whose sums match (~1 in 40)
+    // got byte-identical tokens. Validation never reads it.
+    const nonce = crypto.randomBytes(12).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({ answerHash, expiresAt, nonce })).toString("base64url");
     const signature = crypto.createHmac("sha256", getCaptchaSecret()).update(payload).digest("hex");
     const token = `${payload}.${signature}`;
 
