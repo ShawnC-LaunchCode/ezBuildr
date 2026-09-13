@@ -96,7 +96,12 @@ not worth blocking on.
 > | rows from other tenants | **0** |
 >
 > That is tenant isolation actually enforced by Postgres rather than by
-> application predicates. `test` and `production` still need the same treatment.
+> application predicates. `test` got the same treatment on 2026-08-22.
+>
+> **`production`: rehearsed 2026-09-12 on a clone of production** (Neon branch
+> `rehearsal-rls4-cutover-2026-09-12`), after the promotion put 0024–0049 on it. Every
+> check below passed on production's own data — results in RLS-4 of
+> `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`. **Not yet run on production itself.**
 
 
 Neon branches copy roles from the parent at branch time, so a role created on
@@ -137,7 +142,15 @@ SELECT g.rolname FROM pg_auth_members m
 -- MUST be EMPTY. Any row here — especially neon_superuser — means it bypasses RLS.
 ```
 
-Then prove it actually enforces, rather than assuming:
+Then prove it actually enforces, rather than assuming.
+
+> ⚠️ **`SET ROLE` below fails as written on Postgres 16+ (Neon is 17)** with
+> `permission denied to set role "ezbuildr_app"`. Creating a role no longer lets its
+> creator switch into it. Measured 2026-09-12. Prefer what `dev` did: **connect directly as
+> `ezbuildr_app`** with its own connection string and run the counts there. The
+> rehearsal worked around it with `GRANT ezbuildr_app TO neondb_owner` — acceptable on a
+> throwaway clone, but **do not do that on production**. It leaves the owner a member of
+> the app role for no reason anyone will remember.
 
 ```sql
 SET ROLE ezbuildr_app;
