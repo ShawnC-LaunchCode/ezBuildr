@@ -699,11 +699,25 @@ else in the blocks route that reads RLS-covered tables. The route mounts `hybrid
 
 ## Gate
 
-- [ ] All seven tickets ✅ with dated verification notes
-- [ ] Repo-wide: `npm run lint`, `npm run type-check`, `npm run check:strict-zones` clean
-- [ ] `test:fast`, `test:integration` and the RLS gate green, with counts reconciled against the baseline
-- [ ] CI green on `dev`
-- [ ] Reviewer has committed each passed ticket and updated `tickets/BACKLOG.md`
+> **Gate passed 2026-09-13 (reviewer).** The evidence is for `6325414e`, the board's last commit.
+
+- [x] All seven tickets ✅ with dated verification notes. CLN-7 was found and fixed at review.
+- [x] Repo-wide: `npm run lint` clean, `npm run type-check` 0 errors, and `npm run check:strict-zones` all
+      passed. Run on `d77e5976`, the combined tree for CLN-1..6. CLN-7's files passed type-check, strict-zones and
+      ESLint through the pre-commit hook.
+- [x] `test:fast` **340 files / 3906 tests**. That is 3890 + 16 new unit tests (+4 CLN-1, +7 CLN-3, +5 CLN-4),
+      and 338 + 2 new unit files.
+- [x] `test:integration` (owner role) **151 files, 1395 passed + 3 skipped**. That is 1383 + 12 new
+      (+5 CLN-2, +2 CLN-3, +5 CLN-7), and 148 + 3 new files.
+- [x] RLS gate (non-owner role) **151/151 files, 1398/1398 tests, 0 failing, allowlist empty**.
+      - Before CLN-7 it failed exactly one file, `listTools.listSource`, both in CI (from `4767cf4d`) and
+        locally on `d77e5976`.
+      - One local run on `6325414e` failed 7 unrelated files in setup with `tuple concurrently updated`. That is
+        the shared-role catalog race RLS-11 cause 5 describes, fixed in `b909c73c`.
+      - The re-run on `f10539d0`, which includes that fix, is the 151/151 above.
+- [x] CI green on `6325414e`: TypeScript Strict, Deployment Safety and the RLS Enforcement Gate all succeeded.
+- [x] Reviewer committed each passed ticket and updated `tickets/BACKLOG.md`: RLS-B5, RUN-B1, CB-B8, CB-B2
+      (half), LIST-B15, RUN-P1 and STB-B14 (code) marked; RLS-B6 and DEP-B2 filed.
 
 ## Notes found during review (not tickets)
 
