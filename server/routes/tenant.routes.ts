@@ -10,7 +10,7 @@ import { requireOwner, requirePermission } from "../middleware/rbac";
 import { requireTenant, validateTenantParam } from "../middleware/tenant";
 import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories";
-import { withCurrentTenant, withTenantAsUser } from "../utils/rlsContext";
+import { withCurrentTenant, withTenant, withTenantAsUser } from "../utils/rlsContext";
 import { authService } from "../services/AuthService";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -354,7 +354,12 @@ export function registerTenantRoutes(app: Express): void {
       // that actually belong to their tenant. Previously the update matched on id alone and
       // only checked tenantId AFTER writing — letting an owner of tenant A mutate a user in
       // tenant B (the write persisted even though a 403 was returned).
-      const [updatedUser] = await db
+      //
+      // RLS-8: pinned to the URL's tenant, which `validateTenantParam` has
+      // already proved is the caller's own. On the bare pool the UPDATE could not
+      // see any row belonging to a tenant, so under enforcement every member-role
+      // change answered 404 "User not found in this tenant".
+      const [updatedUser] = await withTenant(tenantId, (tx) => tx
         .update(users)
         .set({
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
@@ -362,7 +367,7 @@ export function registerTenantRoutes(app: Express): void {
           updatedAt: new Date(),
         })
         .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
-        .returning();
+        .returning());
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!updatedUser) {

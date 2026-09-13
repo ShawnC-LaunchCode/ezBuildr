@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** two open — **RLS-4** (production CUT OVER 2026-09-13 15:33 UTC and **enforcing** — it connects as `ezbuildr_app`; only the owner's app-level checks remain), **RLS-8** (34 sites, measured 2026-09-13) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
+**Status:** one open — **RLS-4** (production CUT OVER 2026-09-13 15:33 UTC and **enforcing** — it connects as `ezbuildr_app`; only the owner's app-level checks remain) · RLS-8 ✅ (2026-09-13: 34 → 17 sites, all triaged) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -497,10 +497,48 @@ take the product down, and the blast radius is "every query returns zero rows".
 
 ---
 
-## RLS-8 — Close the 32 call sites that bypass tenant scoping 🔲 open
+## RLS-8 — Close the 32 call sites that bypass tenant scoping ✅ DONE 2026-09-13
 
 **Priority: P1** · Size: M · Files: see the audit output — run
 `npx tsx scripts/audit-rls-surface.ts`
+
+### ✅ What shipped — 2026-09-13
+
+Production began enforcing RLS the same day (RLS-4), which turned this from
+hygiene into live defects: an unscoped read of a covered table returns **zero
+rows, not an error**, so every one of these answered normally while doing
+nothing. The audit went from 34 sites to **17, every one triaged** in
+`.rls-surface-allowlist.json` as DELIBERATE or a verified FALSE POSITIVE.
+
+Real defects fixed, each with a test that fails on the old code under the RLS
+gate and passes on the new (`tests/integration/rls8-scopedPaths.test.ts`, the
+RLS-8 block of `rls6-adminAccess.test.ts`, `tests/unit/services/alerts.batchEvaluate.test.ts`):
+
+| Path | Was, under enforcement | Fix |
+|---|---|---|
+| Admin activate / deactivate / role change | "User not found" for any user in a tenant | `AdminAccessService.setUserActive/setUserRole`: resolve the target's tenant on the admin pool, write pinned to it |
+| Admin all-workflows list | public + active workflows only | `AdminAccessService.listAllWorkflows` on the admin pool |
+| Admin stats | ~0 users and workflows | `getPlatformStats` passes the admin handle to both counts |
+| SLI job (`computeAndSaveSLIs`) and alert batch | threw "no tenant in context" per row, swallowed | each row runs in `runWithTenantContext(row.tenant_id)` |
+| `/api/workflow-analytics/timeseries`, `/sli` | empty series, 0 runs, empty history | reads wrapped in `withCurrentTenant` |
+| Snapshot save-from-run / validate | saved `{}`; every snapshot "safe" | step joins wrapped in `withCurrentTenant` |
+| Tenant member-role change | 404 "User not found in this tenant" | UPDATE pinned to the URL's (validated) tenant |
+| Email verification | 200, but the flag never persisted for a user with a tenant | self-identification write (`findSelfUser`/`updateSelfUser`) |
+
+Also: `DatavaultDatabasesRepository` and `ReadTableBlockRunner` built their
+inlined subqueries on the pool (harmless, but unreadable to the audit and to
+people) — now on the caller's connection and a connection-less `QueryBuilder`;
+`BlockRunner.runPhaseWithTransaction` was dead code and is deleted.
+
+Found by the new tests, not by the audit: `SystemStatsRepository.getOrInitialize`
+raced itself — the stats endpoint initializes from two parallel reads, both
+inserted row 1, and the dashboard 500ed on any database with no stats row yet.
+Now `ON CONFLICT DO NOTHING`.
+
+**Follow-up, not done here:** the admin handlers the audit does not flag
+because they delegate to other services (`adminUserService.deleteUser`,
+`accountLockoutService`, `mfaService.adminResetMfa`, `workflowClonerService`)
+were not walked end to end under enforcement.
 
 ### Finding
 

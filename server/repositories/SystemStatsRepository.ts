@@ -29,13 +29,17 @@ export class SystemStatsRepository {
     let stats = await conn.select().from(systemStats).where(eq(systemStats.id, 1)).limit(1);
 
     if (stats.length === 0) {
-      // Initialize stats row
+      // Initialize stats row. `ON CONFLICT DO NOTHING`: concurrent first readers
+      // are routine, not an edge case — the admin stats endpoint reads users and
+      // workflows in parallel and each read initializes. Both saw no row, both
+      // inserted id 1, and one failed on the primary key, so the dashboard 500ed
+      // on any database that had never recorded a stat (found by RLS-8's tests).
       await conn.insert(systemStats).values({
         id: 1,
         totalUsersCreated: 0,
         totalWorkflowsCreated: 0,
         updatedAt: new Date(),
-      });
+      }).onConflictDoNothing({ target: systemStats.id });
 
       stats = await conn.select().from(systemStats).where(eq(systemStats.id, 1)).limit(1);
     }

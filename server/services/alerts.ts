@@ -9,6 +9,7 @@ import logger from '../logger';
 
 import sli from './sli';
 import { forEachTenant } from '../utils/forEachTenant';
+import { runWithTenantContext } from '../utils/rlsContext';
 
 interface AlertConfig {
   webhookUrl?: string;
@@ -322,21 +323,30 @@ export async function batchEvaluateAlerts(): Promise<void> {
     // tenant, so unscoped it found no targets and evaluated no alerts — the
     // alerting path failing exactly the way alerting must never fail, by going
     // quiet. Iterate tenants explicitly; see forEachTenant.
-    const { results: perTenantRows } = await forEachTenant('batchEvaluateAlerts', async (_tenantId, tx) => {
+    const { results: perTenantRows } = await forEachTenant('batchEvaluateAlerts', async (tenantId, tx) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment -- SLI query results are dynamically typed.
       const res = await tx.execute({ sql: query, args: [] } as any) as any;
+      // Tag each row with the tenant it came from: evaluating it needs that
+      // tenant's context (RLS-8, below), and the query does not select it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- SLI query results are dynamically typed.
-      return res.rows as any[];
+      return (res.rows as any[]).map((row) => ({ ...row, tenant_id: tenantId }));
     });
 
     for (const row of perTenantRows.flat()) {
       try {
-        await evaluateAndAlert({
+        // RLS-8: `evaluateAndAlert` -> `computeSLI` reads through
+        // `withCurrentTenant`; with no ambient tenant in this batch job it threw
+        // for every row under enforcement, so no alert was ever evaluated.
+        await runWithTenantContext(
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
-          projectId: row.project_id as string,
+          row.tenant_id as string,
+          () => evaluateAndAlert({
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
-          workflowId: row.workflow_id as string | undefined,
-        });
+            projectId: row.project_id as string,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
+            workflowId: row.workflow_id as string | undefined,
+          }),
+        );
       } catch (error: unknown) {
         logger.error({
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.

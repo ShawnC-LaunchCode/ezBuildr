@@ -33,6 +33,7 @@ import {
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
 import { withLoginEmail } from "../utils/rlsContext";
+import { findSelfUser, updateSelfUser } from "../utils/selfUser";
 
 import { accountLockoutService } from "./AccountLockoutService";
 import { sendPasswordResetEmail, sendVerificationEmail, sendSystemInviteEmail } from "./emailService";
@@ -628,9 +629,16 @@ export class AuthService {
 
         if (!storedToken) { return false; }
 
-        await this.db.update(users)
-            .set({ emailVerified: true })
-            .where(eq(users.id, storedToken.userId));
+        // RLS-8: `users` is covered, and a verification link arrives with no
+        // tenant and no session. On the bare pool this UPDATE could only see a
+        // row whose tenant_id is NULL, so a user who already belonged to a
+        // tenant (an invited user, say) was never verified — no error, and login
+        // then refused them as unverified. The token match above IS the proof of
+        // identity, so take the self-identification path: pin this user's own id
+        // to see the row, and its own tenant so the write is permitted.
+        const user = await findSelfUser(storedToken.userId);
+        if (!user) { return false; }
+        await updateSelfUser(storedToken.userId, user.tenantId, { emailVerified: true });
 
         await this.db.delete(emailVerificationTokens)
             .where(eq(emailVerificationTokens.id, storedToken.id));

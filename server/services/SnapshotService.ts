@@ -4,6 +4,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { workflowSnapshots, workflowRuns, stepValues, steps, pages } from "@shared/schema";
 
 import { db } from "../db";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import type { InferSelectModel } from 'drizzle-orm';
 
@@ -86,7 +87,9 @@ export class SnapshotService {
     await runPreviewPolicyService.authorize(run, userId);
 
     // 2. Fetch step values with step info
-    const values = await db
+    // RLS-8: `steps` is covered (`step_values` is not). On the bare pool the
+    // join matched no steps under enforcement, so the snapshot saved EMPTY.
+    const values = await withCurrentTenant((tx) => tx
       .select({
         value: stepValues.value,
         stepAlias: steps.alias,
@@ -94,7 +97,7 @@ export class SnapshotService {
       })
       .from(stepValues)
       .innerJoin(steps, eq(stepValues.stepId, steps.id))
-      .where(eq(stepValues.runId, runId));
+      .where(eq(stepValues.runId, runId)));
 
     // 3. Construct input map (prefer alias, fallback to ID if needed)
     const inputMap: Record<string, unknown> = {};
@@ -146,7 +149,9 @@ export class SnapshotService {
     const values = (snapshot.values as Record<string, unknown>) ?? {};
 
     // Find current steps for the workflow
-    const workflowSteps = await db
+    // RLS-8: `steps` and `pages` are covered. On the bare pool this found no
+    // steps under enforcement, so every snapshot validated as "safe".
+    const workflowSteps = await withCurrentTenant((tx) => tx
       .select({
         id: steps.id,
         alias: steps.alias,
@@ -161,7 +166,7 @@ export class SnapshotService {
           eq(pages.workflowId, snapshot.workflowId),
           eq(steps.isVirtual, false)
         )
-      );
+      ));
 
     const reasons: string[] = [];
     let severity: "safe" | "soft_breaking" | "hard_breaking" = "safe";

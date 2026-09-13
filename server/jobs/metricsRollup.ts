@@ -10,6 +10,7 @@ import { type InsertMetricsRollup } from '../../shared/schema';
 import logger from '../logger';
 import sli from '../services/sli';
 import { forEachTenant } from '../utils/forEachTenant';
+import { runWithTenantContext } from '../utils/rlsContext';
 export type BucketSize = '1m' | '5m' | '1h' | '1d';
 interface RollupParams {
   bucketSize: BucketSize;
@@ -218,16 +219,23 @@ export async function computeAndSaveSLIs(): Promise<void> {
   const targetRows = perTenantRows.flat();
   for (const row of targetRows) {
     try {
-      const sliResult = await sli.computeSLI({
-        projectId: row.project_id,
-        workflowId: row.workflow_id ?? undefined,
-        window: '7d',
-      });
-      await sli.saveSLIWindow({
-        tenantId: row.tenant_id,
-        projectId: row.project_id,
-        workflowId: row.workflow_id ?? undefined,
-        sli: sliResult,
+      // RLS-8: `computeSLI` reads `sli_configs` and `metrics_rollups` through
+      // `withCurrentTenant`, and a job has no request. With no ambient tenant it
+      // threw "RLS: no tenant in context." for every row under enforcement, the
+      // catch below logged it, and no SLI window was saved. Run each row inside
+      // its own tenant's context.
+      await runWithTenantContext(row.tenant_id, async () => {
+        const sliResult = await sli.computeSLI({
+          projectId: row.project_id,
+          workflowId: row.workflow_id ?? undefined,
+          window: '7d',
+        });
+        await sli.saveSLIWindow({
+          tenantId: row.tenant_id,
+          projectId: row.project_id,
+          workflowId: row.workflow_id ?? undefined,
+          sli: sliResult,
+        });
       });
     } catch (error) {
       logger.error({

@@ -9,7 +9,6 @@
 import { eq, and, gte, lte, isNull, desc } from 'drizzle-orm';
 
 import { sliConfigs, sliWindows, metricsRollups, projects, type InsertSliConfig, type InsertSliWindow, type SliConfig } from '../../shared/schema';
-import { db } from '../db';
 import logger from '../logger';
 import { withCurrentTenant, withTenant } from '../utils/rlsContext';
 export interface SliResult {
@@ -252,11 +251,13 @@ async function getRollupsForWindow(params: {
   if (params.workflowId) {
     conditions.push(eq(metricsRollups.workflowId, params.workflowId));
   }
-  return db
+  // RLS-8: `metrics_rollups` is covered. On the bare pool this returned nothing
+  // under enforcement, so every SLI was computed from zero runs.
+  return withCurrentTenant((tx) => tx
     .select()
     .from(metricsRollups)
     .where(and(...conditions))
-    .orderBy(metricsRollups.bucketStart);
+    .orderBy(metricsRollups.bucketStart));
 }
 /**
  * Get recent SLI windows
@@ -270,12 +271,13 @@ export async function getRecentWindows(params: {
   if (params.workflowId) {
     conditions.push(eq(sliWindows.workflowId, params.workflowId));
   }
-  return db
+  // RLS-8: `sli_windows` is covered — same bare-pool empty read as above.
+  return withCurrentTenant((tx) => tx
     .select()
     .from(sliWindows)
     .where(and(...conditions))
     .orderBy(desc(sliWindows.windowEnd))
-    .limit(params.limit ?? 10);
+    .limit(params.limit ?? 10));
 }
 /**
  * Parse window string to milliseconds

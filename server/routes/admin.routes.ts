@@ -6,7 +6,6 @@ import { hybridAuth } from "../middleware/auth";
 import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories/UserRepository";
 import { authService } from "../services/AuthService";
-import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
@@ -40,7 +39,6 @@ const adminCopyWorkflowBodySchema = z.object({
  */
 // eslint-disable-next-line max-lines-per-function
 export function registerAdminRoutes(app: Express): void {
-  const workflowRepository = new WorkflowRepository();
   const workflowRunRepository = new WorkflowRunRepository();
 
   // ============================================================================
@@ -95,7 +93,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(400).json({ message: "You cannot deactivate your own account" });
       }
 
-      const updatedUser = await userRepository.updateIsActive(userId, isActive);
+      const updatedUser = await adminAccessService.setUserActive(req.adminUser.id, userId, isActive, req.id);
       invalidateUserCache(userId);
       
       if (!isActive) {
@@ -194,7 +192,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const updatedUser = await userRepository.updateRole(userId, role);
+      const updatedUser = await adminAccessService.setUserRole(req.adminUser.id, userId, role, req.id);
 
       // SECURITY: apply the system-role change immediately — drop the cached user (so JWT auth
       // re-hydrates the new role at once) and revoke refresh tokens (so the session cannot be
@@ -427,6 +425,9 @@ export function registerAdminRoutes(app: Express): void {
       const { v4: uuidv4 } = await import('uuid');
       const userId = uuidv4();
       
+      // RLS-8, deliberate: a placeholder user is inserted with NO tenant, and
+      // `users`' WITH CHECK is NULL-safe, so this insert is permitted on the
+      // normal pool with nothing pinned. Pinning a tenant here would reject it.
       const user = await userRepository.create({
         id: userId,
         email,
@@ -531,7 +532,7 @@ export function registerAdminRoutes(app: Express): void {
       const userMap = new Map(users.map(u => [u.id, u]));
 
       // Get all workflows directly
-      const allWorkflows = await workflowRepository.findAll();
+      const allWorkflows = await adminAccessService.listAllWorkflows(req.adminUser.id, req.id);
 
       const workflowsWithCreators = allWorkflows.map((workflow) => {
         const user = workflow.creatorId ? userMap.get(workflow.creatorId) : null;
@@ -745,9 +746,9 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // Fetch stats in parallel for better performance
-      const [userStats, workflowStats, runStats] = await Promise.all([
-        userRepository.getUserStats(),
-        workflowRepository.getWorkflowStats(),
+      const [{ userStats, workflowStats }, runStats] = await Promise.all([
+        adminAccessService.getPlatformStats(req.adminUser.id, req.id),
+        // `workflow_runs` carries no RLS policy, so this read is correct on the normal pool.
         workflowRunRepository.getRunStats()
       ]);
 

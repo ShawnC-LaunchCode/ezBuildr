@@ -7,6 +7,7 @@ import { type InferSelectModel } from "drizzle-orm";
 import { PASSWORD_CONFIG } from "../../../server/config/auth";
 import { db } from "../../../server/db";
 import { AuthService } from "../../../server/services/AuthService";
+import { findSelfUser, updateSelfUser } from "../../../server/utils/selfUser";
 
 import {
   refreshTokens,
@@ -26,6 +27,14 @@ type EmailVerificationToken = InferSelectModel<typeof emailVerificationTokens>;
 // mock needs `transaction`, and the stub tx needs both `execute` and the same
 // relational `query` surface the pooled handle exposes.
 const { mockUsersFindFirst } = vi.hoisted(() => ({ mockUsersFindFirst: vi.fn() }));
+
+// RLS-8: verifyEmail writes the user's own row through the self-identification
+// helpers (a verification link carries no tenant). Mocked so this suite needs
+// no database; tests/integration/rls8-scopedPaths.test.ts proves the real path.
+vi.mock("../../../server/utils/selfUser", () => ({
+  findSelfUser: vi.fn(),
+  updateSelfUser: vi.fn(),
+}));
 
 vi.mock("../../../server/db", () => ({
   db: {
@@ -109,6 +118,9 @@ describe("AuthService", () => {
 
     process.env = { ...originalEnv, JWT_SECRET: "test-secret-key-for-testing-only-32chars", JWT_EXPIRY: "15m" };
     vi.clearAllMocks();
+    // verifyEmail resolves the token's user through the self-id path (RLS-8).
+    vi.mocked(findSelfUser).mockResolvedValue({ id: "user-123", tenantId: null } as unknown as User);
+    vi.mocked(updateSelfUser).mockResolvedValue(undefined as never);
   });
 
   afterEach(() => {
@@ -824,7 +836,7 @@ describe("AuthService", () => {
     });
 
     describe("verifyEmail()", () => {
-      it("should verify email with valid token", async () => {
+      it("should verify email with valid token, writing the user's own row in its own tenant", async () => {
         const plainToken = "a".repeat(64);
         const userId = "user-123";
 
@@ -834,10 +846,29 @@ describe("AuthService", () => {
           token: "hashed",
           expiresAt: new Date(Date.now() + 3600000)
         } as unknown as EmailVerificationToken);
+        vi.mocked(findSelfUser).mockResolvedValue({ id: userId, tenantId: "tenant-9" } as unknown as User);
+        vi.mocked(updateSelfUser).mockClear();
 
         const result = await authService.verifyEmail(plainToken);
         expect(result).toBe(true);
-        expect(db.update).toHaveBeenCalled();
+        // The user's OWN tenant, not "no tenant": a bare-pool UPDATE could only
+        // reach a tenant-less row, which is exactly the RLS-8 defect.
+        expect(updateSelfUser).toHaveBeenCalledWith(userId, "tenant-9", { emailVerified: true });
+      });
+
+      it("should return false when the token's user no longer exists", async () => {
+        vi.mocked(db.query.emailVerificationTokens.findFirst).mockResolvedValue({
+          id: "token-123",
+          userId: "gone-user",
+          token: "hashed",
+          expiresAt: new Date(Date.now() + 3600000)
+        } as unknown as EmailVerificationToken);
+        vi.mocked(findSelfUser).mockResolvedValue(undefined);
+        vi.mocked(updateSelfUser).mockClear();
+
+        const result = await authService.verifyEmail("a".repeat(64));
+        expect(result).toBe(false);
+        expect(updateSelfUser).not.toHaveBeenCalled();
       });
 
       it("should return false for invalid token", async () => {

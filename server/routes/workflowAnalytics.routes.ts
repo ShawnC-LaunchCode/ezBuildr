@@ -225,11 +225,13 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       conditions.push(eq(metricsRollups.workflowId, query.workflowId));
     }
-    const rollups = await db
+    // RLS-8: `metrics_rollups` is covered. On the bare pool this returned no
+    // rows under enforcement, so every timeseries chart came back empty.
+    const rollups = await withCurrentTenant((tx) => tx
       .select()
       .from(metricsRollups)
       .where(and(...conditions))
-      .orderBy(metricsRollups.bucketStart);
+      .orderBy(metricsRollups.bucketStart));
     const timeseries = rollups.map((rollup) => ({
       timestamp: rollup.bucketStart,
       runsCount: rollup.runsCount,
