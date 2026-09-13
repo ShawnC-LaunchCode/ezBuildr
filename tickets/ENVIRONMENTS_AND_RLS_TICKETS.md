@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** three open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13), **RLS-10** (🔄 dispatched 2026-09-13) · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
+**Status:** two open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -568,10 +568,56 @@ in the same commit as each fix.
 
 ---
 
-## RLS-10 — Data-driven proof that every policy actually isolates 🔄 in progress (dispatched 2026-09-13)
+## RLS-10 — Data-driven proof that every policy actually isolates ✅ DONE 2026-09-13
 
 **Priority: P2** (the cheap check to run before the RLS-4 production role swap) · Size: M · Files: **new**
 `tests/integration/rls10-policyIsolation.test.ts` only. No server code, no migrations.
+
+### ✅ Verified 2026-09-13 (reviewer)
+
+**Shipped:** one suite, 44 tests.
+- It enumerates **38 policy tables** from `pg_policies` and seeds all 38, so `SKIPPED = {}`.
+- Each table runs the five-condition matrix.
+- Two more tests cover coverage: every table must have a seeder, and `SKIPPED` must stay empty.
+- An in-suite probe proves the check is non-vacuous. The three rulings are pinned.
+
+**No isolation defect was found** in any of the 38 policies.
+
+**Reviewer mutations against real tables** (the gate's own probe is not enough on its own):
+
+| mutation | result |
+|---|---|
+| `collections` policy → `USING (true)` | 🔴 no-GUC visibility and a cross-tenant leak, both directions |
+| `datavault_values` policy dropped (derived table) | 🔴 each tenant loses its own rows |
+| `code_block_runs` keeps the parent join, loses the tenant check | 🔴 leak |
+| `teams` + `OR current_setting('app.current_tenant_id', true) IS NULL` | 🟢 **passed the dev's version** → fixed at review, now 🔴 |
+
+**Fixed at review (reviewer-fix path):** the "no tenant GUC" condition reused one restricted
+connection. Once a transaction has touched the GUC, Postgres reads it back as `''`, not unset.
+So after the first table, "unset" was a second copy of the empty-string check, and a policy
+that opened only when the setting was truly unset passed (row 4 above). Condition 1 and the
+two ruling tests now use a fresh connection. The reviewer also added a guard so an empty seeded
+set throws rather than passing vacuously.
+
+**Gates:**
+
+| gate | result |
+|---|---|
+| file, normal mode | 44/44 |
+| file, `RLS_RESTRICTED=true` | 44/44 |
+| `npm run test:rls-gate` | 152/152 files, 1442 tests, 0 failing, allowlist empty |
+| `test:fast` | 340 / 3906 (unchanged) |
+| `tsc` | 0 errors |
+| scoped eslint | clean |
+
+**What it does not prove:** like `rls-coverage.test.ts`, it runs against a schema freshly built
+from the migration chain. It says nothing about whether a long-lived environment's policy
+*definitions* have drifted from that chain, which is the shape of the 2026-08-25 defect. Before
+the RLS-4 swap, diff production's `pg_policies` against a migration-built schema.
+
+**Observation (not a ticket):** `TestFactory.createTable` omits `tenantId`, although
+`datavault_tables.tenant_id` is NOT NULL, so every caller has to pass `{ tenantId }` in
+`overrides`. The fix is one line in `tests/helpers/testFactory.ts`.
 
 ### Finding
 
@@ -1042,7 +1088,7 @@ RLS-5     gate: full integration as the restricted role
 added 2026-08-25, after 0041 found the policies were defined but inert:
 RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
 RLS-9  ✅ surface audit into CI, two-way ratchet  ─┘ done 2026-08-25
-RLS-10    data-driven per-table isolation proof     (independent of both)
+RLS-10 ✅ data-driven per-table isolation proof     done 2026-09-13
 
 added 2026-09-06, after the gate was found red for 9 days:
 RLS-11    repair the enforcement gate               (P0 — two causes look live in dev)
