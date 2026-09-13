@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** three open — **RLS-4** (production — promoted 2026-09-12; only the role swap remains, rehearsed on a clone), **RLS-8**, **RLS-10** · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-12
+**Status:** three open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13), **RLS-10** (no suite yet) · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -68,7 +68,7 @@
 |---|---|---|---|
 | dev | `ezbuildr_app` | ✅ **2026-08-25** | 42 migrations, 37/37/37 after 0041. Verified live: register + create project + read back on the restricted role |
 | test | `ezbuildr_app` | ⚠️ **enforcing, no FORCE** | 37 migrations, 36/36 enabled. Was enforcing all along; 0041 adds FORCE via a `dev` → `test` promotion |
-| **production** | `neondb_owner` | ❌ **not enforcing** | 24 migrations, 9 RLS tables — needs a `test` → `main` PR first |
+| **production** | `neondb_owner` | ❌ **not enforcing** | 50 migrations since PR #185 (2026-09-12); 38 policy tables, all enabled and forced (measured 2026-09-13). No `ezbuildr_app` role exists yet, and the app connects as `neondb_owner` (BYPASSRLS), so nothing is enforced until the RLS-4 role swap |
 
 **What this changes.** Production is still the bulk of the remaining work, but
 the cutover procedure now needs a catalog check *before* the role swap (§4.0 of

@@ -28,13 +28,12 @@ works on v3. If `google-auth-library` ever drops the dependency, the script brea
 
 **Next step:** Switch the script to the global `fetch` (Node ≥ 18), or declare `node-fetch`. One line.
 
-## Operational leftover — run the canonicalizer against each environment · see `STB-B14`
+## ✅ Operational leftover — canonicalizer data run · done 2026-09-13, see `STB-B14`
 
-CLN-4 fixed the code: `canonicalizeGraphJson` now converts legacy `sections[].steps[]` version graphs, and the
-audit fails on anything left unconverted. The **data** is fixed only when the script is run with `--apply`,
-then `--audit`, against each environment. On production 57 of 58 `workflow_versions` carry the legacy shape,
-and dev and test carry the same rows. Production writes need the owner at a terminal, because the auto-mode
-classifier blocks Claude from writing to production. Tracked on `STB-B14` so it is not filed twice.
+CLN-4 fixed the code. The data run (`--apply`, then `--audit`) was done on dev, test and production on
+2026-09-13; production was run by the owner at a terminal, because the auto-mode classifier blocks Claude from
+writing to production. All 57 legacy `sections[]` version graphs per environment are now `pages[]`, verified
+read-only. The board itself reached production in PR #186 (merge `681f8f76`).
 
 ---
 
@@ -45,7 +44,7 @@ classifier blocks Claude from writing to production. Tracked on `STB-B14` so it 
 | CLN-5 | OpenTelemetry upgraded to one patched set; both allowlisted advisories removed, beating their 2026-10-11 expiry. Mutation-proven: the old lockfile fails the same audit gate | `59fd99ed` |
 | CLN-1 | RLS-B5 (esign `authorizeRun` tenant-scoped), CB-B2 silent-clamp half (timeout capped at 3000 in the schema and UI), RUN-B1 and CB-B8 test gaps closed, portability temp-file flake fixed | `b59af8f6` |
 | CLN-3 | LIST-B15: a `list` question can be a List Tools source; one shared envelope→rows conversion, normalized only at the runner boundary | `4767cf4d` |
-| CLN-4 | STB-B14 code: the canonicalizer converts `sections[]` version graphs, proven against a real production graph. The data run is still owed, see above | `d1a5da89` |
+| CLN-4 | STB-B14 code: the canonicalizer converts `sections[]` version graphs, proven against a real production graph. Data run done on all three environments 2026-09-13 | `d1a5da89` |
 | CLN-2 | RUN-P1: `onPageEnter` blocks and `beforePage` hooks run on page arrival (navigation and run start) | `1eefc61b` |
 | CLN-6 | Dependabot targets `dev`; docxtemplater, the Radix navigation menu and `@types/google.maps` bumped; #177–#181 closed | `d77e5976` |
 | CLN-7 | Found at review: block CRUD read `pages`/`steps` on the bare pool, so creating any data block failed under RLS. Four services tenant-scoped, with a new `blocks.rls` suite that passes under `RLS_RESTRICTED=true` | `6325414e` |

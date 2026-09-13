@@ -25,8 +25,8 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > - Dependabot retargeted to `dev`
 > - **CLN-7**, block CRUD failing under RLS
 >
-> It parks one entry, `CLN-B1`, and files `RLS-B6` and `DEP-B2` below. ⚠️ STB-B14's per-environment
-> `--apply` run is still owed.
+> It parks one entry, `CLN-B1`, and files `RLS-B6` and `DEP-B2` below. STB-B14's per-environment
+> `--apply` run is done on all three environments (2026-09-13), and the board reached production in PR #186.
 >
 > **The Code Blocks board (CB-1..11, 20 units) closed and retired into
 > `backlog/CODE_BLOCKS.md` on 2026-09-11.** All four phase gates were signed, and
@@ -136,7 +136,7 @@ IDs are stable, heading anchors are not.
 | CB-B1 | `informational` | `js_question` `display: "visible"` never had a renderer; the field was deleted by CB-1. A visible computed display would be a new feature | `backlog/CODE_BLOCKS.md` |
 | CB-B4 | `informational` | `emit()` may be called only once, by design (one object, many keys). **Do not "fix" into multi-emit** | `backlog/CODE_BLOCKS.md` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
-| ~~STB-B14~~ | ✅ code fixed 2026-09-12 (CLN-4); **the per-environment `--apply` run is still owed** | **The canonicalizer audit is blind to `sections[]`-shaped version graphs.** 57/58 production `workflow_versions` use that shape, and 56 still hold legacy type names, yet `--audit` passes. Not a migration risk; whether anything still *loads* them is unverified | `backlog/STEP_TOOLBOX.md` |
+| ~~STB-B14~~ | ✅ **closed 2026-09-13** — code fixed 2026-09-12 (CLN-4), data applied and audited on dev, test and production 2026-09-13 | **The canonicalizer audit was blind to `sections[]`-shaped version graphs.** 57/58 production `workflow_versions` used that shape; all 57 are now `pages[]` with 0 legacy type names (verified read-only). The 58th is an empty `{}` graph | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
 | ~~STB-B8~~ | ✅ **discharged 2026-09-11** | Sandboxed JS/Python transforms. Shipped as the **Code Blocks (CB)** initiative, now retired into `backlog/CODE_BLOCKS.md`. ⚠️ **`server/services/scripting/` is still dormant, not dead — do not delete it**; Code Blocks build on it | `backlog/STEP_TOOLBOX.md` |
 | STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |

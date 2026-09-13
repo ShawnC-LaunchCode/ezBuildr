@@ -153,7 +153,20 @@ entries added to green a build is precisely how that gate rots.
 
 ---
 
-## STB-B14 — the canonicalizer audit cannot see `sections[]`-shaped version graphs · `needs-initiative`
+## STB-B14 — the canonicalizer audit cannot see `sections[]`-shaped version graphs · ✅ closed 2026-09-13
+
+> **Resolved.** CLN-4 (`d1a5da89`) taught `canonicalizeGraphJson` to rename legacy `sections[].steps[]` graphs to
+> `pages[]` and convert their step types, and made the audit fail on anything left over. The data run was applied
+> and audited on all three environments on 2026-09-13:
+>
+> | env | versions | converted | failures | read-only check afterwards |
+> |---|---|---|---|---|
+> | dev | 60 | 59 | 0 | 0 legacy shape, 0 legacy type names |
+> | test | 58 | 57 | 0 | 0 legacy shape, 0 legacy type names |
+> | production | 58 | 57 (116 step definitions, 109 sections → pages) | 0 | 0 legacy shape, 0 legacy type names |
+>
+> The remaining version in each environment is an empty `{}` graph. Production was run by the owner from their
+> terminal. The original finding follows.
 
 *Filed 2026-09-12, found during the production canonicalization.* `canonicalizeGraphJson` converts only the
 `pages[].steps[]` shape. Its "unconverted" counter counts only top-level `blocks[]` entries. A graph in any
@@ -184,10 +197,8 @@ versions are unreachable and record why.
     for `page_id`. Fixed in `c998d67b` by projecting only the columns it converts.
   - The whole sequence was rehearsed first on a Neon branch cloned from production: canonicalize, then the
     real migrator `0023 → 0049`.
-- Neon restore points: `backup-dev-pre-canonicalize-2026-09-03` (`br-silent-math-ahw5fz1u`) and
-  `backup-test-pre-canonicalize-2026-09-03` (`br-plain-fire-ahl47pjw`). Production is done, so both are
-  **eligible for deletion** (the owner decides). `backup-prod-pre-canonicalize-2026-09-11`
-  (`br-plain-math-ahtllxh4`) is kept until production has run cleanly for a while.
+- Neon restore points: all three `backup-*-pre-canonicalize-*` branches were **deleted 2026-09-12** by owner
+  ruling. The environments hold test data only, so the extra copies were not worth paying to store.
 - ⚠️ **Only `--apply` takes `--database-url`.** Dry-run and `--audit` connect via the ambient `DATABASE_URL`,
   and the local `.env` points at **dev**. So an unqualified `--audit` "passes" against dev whatever
   production's state. Export the target's `DATABASE_URL` into the process for all three runs.
