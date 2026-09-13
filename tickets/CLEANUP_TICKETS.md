@@ -38,6 +38,7 @@ named symbol. Line numbers are advisory.**
 | CLN-4 | Canonicalizer: convert and audit `sections[]` version graphs (STB-B14) | P2 | S–M | ✅ 2026-09-12 (code; the env runs are still owed) |
 | CLN-5 | OpenTelemetry major upgrade; drop the two allowlisted advisories | P1 | M | ✅ 2026-09-12 |
 | CLN-6 | Dependabot triage and retarget to `dev` | P2 | S | ✅ 2026-09-12 |
+| CLN-7 | Block services read and write on the bare pool; block CRUD fails under RLS (found at review) | P0 | S–M | ✅ 2026-09-12 (reviewer-fix) |
 
 **Sequencing.** CLN-1 to CLN-5 have disjoint footprints and can run in parallel. **CLN-6 runs after CLN-5**,
 because both change `package.json` and `package-lock.json`.
@@ -573,9 +574,132 @@ backlog.
 
 ---
 
+## CLN-7 — Block services read and write on the bare pool; block CRUD fails under RLS ✅
+
+> **Verification pass, 2026-09-12 (reviewer-fix, worked in `cln-7`). Code complete.**
+>
+> **Reproduced first.** Under `RLS_RESTRICTED=true`, `POST /api/workflows/:id/blocks` threw **"Cannot create
+> list tools block: workflow has no pages."** and returned 500, so `listTools.listSource` failed in `beforeAll`
+> with both tests skipped. That is exactly CI's signature on `4767cf4d`.
+>
+> **Fix.** Four services now run every `pages`/`steps`/`blocks` repository call in one `withCurrentTenant(tx)`,
+> sequentially:
+> - `ListToolsBlockService`, `ReadTableBlockService`, `QueryBlockService`: create and update. Read Table's
+>   `Promise.all` became sequential, because concurrent queries on one transaction deadlock.
+> - `BlockService`: create, get, list, update, delete and reorder. `verifyPageBelongsToWorkflow` takes the
+>   transaction.
+>
+> `verifyAccess` stays outside every transaction, to avoid the nested-transaction deadlock.
+> `getBlocksForPhase` is deliberately untouched: it reads only `blocks`, which has no policy, and the run
+> engine reaches it without a request tenant.
+>
+> **Gates.** Type-check 0, scoped lint clean. The new `tests/integration/blocks.rls.test.ts` (5 tests:
+> create ×3 with aliased virtual steps, the rename that used to no-op silently, page-scoped generic
+> create/list/get/reorder/delete, the `create-list-tools` route, and cross-tenant denial with no rows
+> changed) plus `listTools.listSource` pass **7/7 as the owner role and 7/7 under `RLS_RESTRICTED=true`**.
+>
+> **Red-run.** With the four original services restored from git, **all 5 new tests fail** under the
+> restricted role. Restored clean.
+>
+> **Deliberately not done.** `blocks` has no RLS policy at all; filed as `RLS-B6`.
+
+**Priority: P0 (bug)** · Size: S–M · Found at review, 2026-09-12. Pre-existing; CLN-3's test exposed it.
+Worked as a reviewer-fix in `cln-7`.
+
+### Finding
+
+CI's RLS Enforcement Gate on `4767cf4d` (CLN-3) failed one file, `tests/integration/listTools.listSource.test.ts`:
+0 tests failed, 2 skipped. That means its `beforeAll` threw. The one setup step that goes through the app, not
+`getOwnerDb()`, is `POST /api/workflows/:id/blocks` with `type: 'list_tools'`.
+
+`ListToolsBlockService.createBlock` does all its work on the bare pool, with no transaction and so no tenant
+GUC:
+
+```ts
+const pages = await this.pageRepo.findByWorkflowId(workflowId);
+...
+const virtualStep = await this.stepRepo.create({ workflowId, pageId: targetPageId, type: 'computed', ... });
+const block = await this.blockRepo.create({ workflowId, type: 'list_tools', ... });
+```
+
+**Measured coverage.** `steps` carries a `tenant_isolation` policy (migrations 0001, 0024 and 0031). `pages`
+carries one too: it was `sections` until 0038 renamed it, and the rename kept its policies. **`blocks` has no
+policy anywhere in the chain.**
+
+So under enforcement:
+- The `pages` lookup returns zero rows, and **creating any workflow-scoped List Tools, Read Table or Query block
+  throws "workflow has no pages"**.
+- The virtual-step insert fails the `steps` policy.
+- `updateBlock`'s virtual-step rename is an RLS-filtered `UPDATE` that matches **zero rows and fails
+  silently**: the output variable's alias change is simply lost.
+- `BlockService.verifyPageBelongsToWorkflow` can't see the page, so creating or updating a **page-scoped** block
+  throws "Page not found".
+- `ReadTableBlockService`'s `stepRepo.findByPageId` sees no steps, so the new block's order is miscomputed.
+
+It is the same class of bug as RLS-B1. **Block execution is unaffected**, because `BlockRunner` reads only
+`blocks`, which has no policy. That is why `preview.isolation`'s block tests pass under the gate.
+
+The same shape is in:
+- `ReadTableBlockService.createBlock` and `updateBlock`, which also read with `stepRepo.findByPageId` and
+  `blockRepo.findByPagePhase`
+- `QueryBlockService.createBlock` and `updateBlock`
+- `ListToolsBlockService.updateBlock`
+- `BlockService`'s `createBlock`, `getBlock`, `listBlocks`, `updateBlock` and `deleteBlock`, plus
+  `verifyPageBelongsToWorkflow`
+
+Under enforcement `listBlocks` **silently returns an empty list**.
+
+**Why no one saw it.** No RLS-gated suite ever created a block through the route. `dataBlocks.test.ts` builds
+`Block` objects in memory and calls `ReadTableBlockRunner.execute()` directly, and `preview.isolation` inserts
+blocks through `getOwnerDb()`. Production's `blocks` table is empty.
+
+### Preferred fix
+
+Mirror `SignatureBlockService.executeSignatureBlock` and the RLS-B1 fix:
+- Keep `workflowSvc.verifyAccess(...)` **outside** the transaction, as today. A transaction opened inside
+  another deadlocks the size-1 test pool (the SystemStats class).
+- Run every repository read and write in one `withCurrentTenant(async (tx) => …)`, passing `tx` to each call.
+  Sequential, not `Promise.all`: concurrent queries on one transaction handle deadlock too.
+
+Cover all four services, including every method that touches the DB (`reorderBlocks` too), and derive anything
+else in the blocks route that reads RLS-covered tables. The route mounts `hybridAuth`, so a tenant is in context.
+
+### Ties
+
+- `add-api-endpoint` (the tenancy conventions) and `run-tests` (running under `RLS_RESTRICTED`).
+- Collides with nothing still open. CLN-3's integration test is the regression proof.
+
+### Vertical proof
+
+- **Path:**
+  - `POST /api/workflows/:id/blocks` for `read_table`, `query` and `list_tools`, plus `POST …/create-list-tools`
+  - then `GET` the list, `PUT` update, and `DELETE`, all through the real routes
+  - each block's virtual step exists with its alias
+- **Real, not mocked:** the DB, under `RLS_RESTRICTED=true` (a genuine non-owner role). A normal owner-role run
+  cannot see this bug.
+- **Cross-tenant denial:** another tenant's user gets 403 or 404 on create, update, delete and get, and no
+  row is written.
+- **Suites:** `listTools.listSource.test.ts` plus a new `tests/integration/blocks.rls.test.ts`, both run with
+  `RLS_RESTRICTED=true`, and again normally.
+
+### Acceptance criteria
+
+1. Under `RLS_RESTRICTED=true`, `listTools.listSource.test.ts` passes 2/2. It fails before the fix (red run
+   shown).
+2. The new block CRUD suite passes under `RLS_RESTRICTED=true` and under the owner role, including the list and
+   cross-tenant denial. Reverting the service change turns it red.
+3. No block service method issues a repository call on the bare pool. Every read and write runs inside the tenant
+   transaction.
+4. The existing block-related unit tests pass. Any `rlsContext` mocking follows the repo's established pass-through
+   pattern.
+5. The full RLS gate is green: 0 failing files, allowlist empty.
+6. Type-check 0, strict-zones pass, scoped lint clean.
+
+---
+
 ## Gate
 
-- [ ] All six tickets ✅ with dated verification notes
+- [ ] All seven tickets ✅ with dated verification notes
 - [ ] Repo-wide: `npm run lint`, `npm run type-check`, `npm run check:strict-zones` clean
 - [ ] `test:fast`, `test:integration` and the RLS gate green, with counts reconciled against the baseline
 - [ ] CI green on `dev`

@@ -8,6 +8,7 @@ import {
   stepRepository,
   pageRepository,
 } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 import { workflowService } from "./WorkflowService";
 
@@ -50,69 +51,74 @@ export class ReadTableBlockService {
       phase: "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
     }
   ): Promise<Block> {
-    // Verify ownership
+    // Verify ownership. Deliberately outside the transaction below: a
+    // transaction opened inside another deadlocks the size-1 test pool.
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
-    // Determine target page
-    let targetPageId = data.pageId;
+    // CLN-7: `pages` and `steps` are RLS-covered. On the bare pool a non-owner
+    // role sees no pages, sees no steps (so the order below was miscomputed),
+    // and fails the virtual-step insert, so every read and write shares one
+    // tenant transaction. Sequential, not Promise.all: concurrent queries on
+    // one transaction handle deadlock.
+    const { block, virtualStepId } = await withCurrentTenant(async (tx) => {
+      // Determine target page
+      let targetPageId = data.pageId;
 
-    if (!targetPageId) {
-      // For workflow-scoped blocks, attach valid step to first page
-      const pages = await this.pageRepo.findByWorkflowId(workflowId);
-      if (pages.length === 0) {
-        throw new Error("Cannot create read table block: workflow has no pages.");
+      if (!targetPageId) {
+        // For workflow-scoped blocks, attach valid step to first page
+        const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+        if (pages.length === 0) {
+          throw new Error("Cannot create read table block: workflow has no pages.");
+        }
+        targetPageId = pages[0].id;
       }
-      targetPageId = pages[0].id;
-    }
 
-    // Calculate order: put at the end of the page
-    // Get max order from both steps and blocks in the page
-    const [pageSteps, pageBlocks] = await Promise.all([
-      this.stepRepo.findByPageId(targetPageId),
-      // We want all blocks in this page to determine the next order index
-      // Using 'onPageSubmit' as a proxy effectively, but ideally we check all phases that render in the main list
-      // For now, finding all blocks in the page is safer if we want to be at the very bottom
-      this.blockRepo.findByPagePhase(targetPageId, data.phase)
-    ]);
+      // Calculate order: put at the end of the page, after every step and
+      // every block in it.
+      const pageSteps = await this.stepRepo.findByPageId(targetPageId, tx);
+      const pageBlocks = await this.blockRepo.findByPagePhase(targetPageId, data.phase, tx);
 
-    let maxOrder = -1;
-    for (const step of pageSteps) {
-      if (step.order > maxOrder) {maxOrder = step.order;}
-    }
-    for (const b of pageBlocks) {
-      if (b.order > maxOrder) {maxOrder = b.order;}
-    }
+      let maxOrder = -1;
+      for (const step of pageSteps) {
+        if (step.order > maxOrder) {maxOrder = step.order;}
+      }
+      for (const b of pageBlocks) {
+        if (b.order > maxOrder) {maxOrder = b.order;}
+      }
 
-    const newOrder = maxOrder + 1;
+      const newOrder = maxOrder + 1;
 
-    // Create virtual step for persistence
-    const virtualStep = await this.stepRepo.create({
-      workflowId,
-      pageId: targetPageId,
-      type: 'computed',
-      title: `Read Table: ${data.name}`,
-      description: `Virtual step for read table block: ${data.name}`,
-      alias: data.config.outputKey,
-      required: false,
-      order: newOrder,
-      isVirtual: true,
-    });
+      // Create virtual step for persistence
+      const virtualStep = await this.stepRepo.create({
+        workflowId,
+        pageId: targetPageId,
+        type: 'computed',
+        title: `Read Table: ${data.name}`,
+        description: `Virtual step for read table block: ${data.name}`,
+        alias: data.config.outputKey,
+        required: false,
+        order: newOrder,
+        isVirtual: true,
+      }, tx);
 
-    // Create the block
-    const block = await this.blockRepo.create({
-      workflowId,
-      type: 'read_table',
-      phase: data.phase,
-      pageId: data.pageId ?? null,
-      config: data.config,
-      order: newOrder,
-      virtualStepId: virtualStep.id,
-      enabled: true,
+      // Create the block
+      const created = await this.blockRepo.create({
+        workflowId,
+        type: 'read_table',
+        phase: data.phase,
+        pageId: data.pageId ?? null,
+        config: data.config,
+        order: newOrder,
+        virtualStepId: virtualStep.id,
+        enabled: true,
+      }, tx);
+
+      return { block: created, virtualStepId: virtualStep.id };
     });
 
     logger.info({
       blockId: block.id,
-      virtualStepId: virtualStep.id,
+      virtualStepId,
       outputVar: data.config.outputKey
     }, "Created read table block with virtual step");
 
@@ -132,7 +138,7 @@ export class ReadTableBlockService {
       enabled?: boolean;
     }
   ): Promise<Block> {
-    const block = await this.blockRepo.findById(blockId);
+    const block = await withCurrentTenant((tx) => this.blockRepo.findById(blockId, tx));
     if (!block) {throw new Error("Block not found");}
 
     await this.workflowSvc.verifyAccess(block.workflowId, userId);
@@ -145,26 +151,31 @@ export class ReadTableBlockService {
     // Merge configs - note: null values in data.config will override existing values
     const newConfig = { ...currentConfig, ...data.config };
 
-    // Update virtual step if output key changes
-    if (
-      data.config?.outputKey &&
-      data.config.outputKey !== currentConfig.outputKey &&
-      block.virtualStepId
-    ) {
-      await this.stepRepo.update(block.virtualStepId, {
-        alias: data.config.outputKey,
-        title: `Read Table: ${data.name ?? 'Updated Read Table'}`
-      });
-    } else if (data.name && block.virtualStepId) {
-      // Update title if only name changed
-      await this.stepRepo.update(block.virtualStepId, {
-        title: `Read Table: ${data.name}`
-      });
-    }
+    // CLN-7: an RLS-filtered UPDATE on the bare pool matches zero rows and
+    // fails silently, so the virtual step's rename runs in the tenant
+    // transaction along with the block update.
+    return withCurrentTenant(async (tx) => {
+      // Update virtual step if output key changes
+      if (
+        data.config?.outputKey &&
+        data.config.outputKey !== currentConfig.outputKey &&
+        block.virtualStepId
+      ) {
+        await this.stepRepo.update(block.virtualStepId, {
+          alias: data.config.outputKey,
+          title: `Read Table: ${data.name ?? 'Updated Read Table'}`
+        }, tx);
+      } else if (data.name && block.virtualStepId) {
+        // Update title if only name changed
+        await this.stepRepo.update(block.virtualStepId, {
+          title: `Read Table: ${data.name}`
+        }, tx);
+      }
 
-    return this.blockRepo.update(blockId, {
-      config: newConfig,
-      enabled: data.enabled
+      return this.blockRepo.update(blockId, {
+        config: newConfig,
+        enabled: data.enabled
+      }, tx);
     });
   }
 }
