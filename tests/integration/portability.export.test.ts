@@ -677,8 +677,20 @@ describe.sequential("Portability Export API Integration Tests", () => {
         const { workflowId } = await seedWorkflow({ projectId, userId });
         await seedTemplate({ projectId, userId, attachToWorkflowId: workflowId });
 
-        const before = (await fs.promises.readdir(os.tmpdir()))
-          .filter((f) => f.startsWith("export_")).length;
+        // CLN-1 (the portability flake): ExportService names its temp file
+        // `export_${scope}_${id}_${uuid}.ezb` (server/services/portability/ExportService.ts).
+        // Counting every `export_*` file in the shared os.tmpdir() failed under
+        // parallel workers -- a concurrent worker creating or cleaning its own
+        // export file between the two reads flips the count out from under
+        // this test (observed 2026-09-11: 1 -> 0 mid-test). Matching on this
+        // request's own workflow id makes the assertion about this request's
+        // artifacts only; no other worker can produce a file with this prefix.
+        const filePrefix = `export_workflow_${workflowId}_`;
+        const listOwnTempFiles = () => fs.promises.readdir(os.tmpdir())
+          .then((files) => files.filter((f) => f.startsWith(filePrefix)));
+
+        const before = await listOwnTempFiles();
+        expect(before).toEqual([]);
 
         const response = await request(baseURL)
           .get(`/api/portability/export/workflow/${workflowId}/manifest`)
@@ -694,9 +706,8 @@ describe.sequential("Portability Export API Integration Tests", () => {
 
         // The whole point of the route: it does the real work and keeps none
         // of the bytes.
-        const after = (await fs.promises.readdir(os.tmpdir()))
-          .filter((f) => f.startsWith("export_")).length;
-        expect(after).toBe(before);
+        const after = await listOwnTempFiles();
+        expect(after).toEqual([]);
       });
     });
 

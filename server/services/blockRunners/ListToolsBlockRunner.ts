@@ -3,7 +3,7 @@
  * Applies comprehensive list operations: filter, sort, offset/limit, select, dedupe
  */
 
-import { transformList, isListVariable, arrayToListVariable } from "../../../shared/listPipeline";
+import { transformList, isListVariable, arrayToListVariable, isListValue, listValueToListVariable } from "../../../shared/listPipeline";
 import { logger } from "../../logger";
 import { stepValueRepository } from "../../repositories";
 
@@ -51,10 +51,16 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
         };
       }
 
-      // Normalize input - handle both ListVariable and plain arrays
+      // Normalize input - handle ListVariable, a `list` question's ListValue
+      // envelope, and plain arrays. This is the ONLY place a ListValue is
+      // projected into rows (LIST-B15) — block context itself (`context.data`)
+      // is never touched, so conditional logic, document list loops, choice
+      // labels and Code Blocks still see the raw ListValue untouched.
       let workingList: ListVariable;
       if (isListVariable(inputData)) {
         workingList = inputData;
+      } else if (isListValue(inputData)) {
+        workingList = listValueToListVariable(inputData);
       } else if (Array.isArray(inputData)) {
         // Convert plain array to ListVariable
         workingList = arrayToListVariable(inputData);

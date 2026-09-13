@@ -338,7 +338,18 @@ each test body**; `beforeAll` and `beforeEach` both fail to propagate through
 
 ## 4. Traps that have each cost real time
 
-**⚠️ OPEN BLOCKER — the restricted suite is NOT deterministic.** Roughly two
+> **Update 2026-09-12 — no longer reproduces; cause still unidentified.** Across
+> every CI gate run from 2026-08-22 to 2026-09-11 (133 runs, all single-fork) the
+> string "Registration failed" appears **zero** times, and the same-connection
+> instrumentation in `auth.routes.ts` never fired. None of the local restricted
+> runs on 2026-09-12 — parallel, before and after the fix below — show it either.
+> The only restricted-suite nondeterminism that DID reproduce was a different
+> thing: concurrent `ALTER ROLE` in per-worker setup failing with `tuple
+> concurrently updated`, fixed in `tests/setup.ts` (RLS-11 cause 5). It was never
+> shown to be related. Keep the instrumentation — silence is evidence, not a
+> diagnosis.
+
+**⚠️ (HISTORICAL, 2026-08-22) OPEN BLOCKER — the restricted suite is NOT deterministic.** Roughly two
 files per full run die in `setupIntegrationTest` with a bare **"Registration
 failed"**, and *which* files differ every run. Measured across three
 consecutive gate runs on the same commit:
@@ -378,7 +389,9 @@ run the full gate, and read what the connection actually carries. Then find the
 un-awaited `db.transaction(...)`.
 
 **This blocks RLS-5 becoming a merge gate** — an intermittently red gate is
-worse than none, because people learn to re-run it. The gate itself is correct
+worse than none, because people learn to re-run it. *(Superseded 2026-09-11: with
+no recurrence in 29 runs it was made a required check on `main`, and a failing
+push alerts Slack.)* The gate itself is correct
 and should stay; it is what made the nondeterminism visible at all, after
 months of the suite looking green under the owner role, which bypasses RLS
 entirely and so can never surface this.

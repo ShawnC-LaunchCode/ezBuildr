@@ -134,7 +134,11 @@ describe("RunService version pinning", () => {
       "version-pinned",
       expect.anything()
     );
-    expect(lifecycleService.executeOnRunStart).toHaveBeenCalledWith("run-1", "wf-1", "version-pinned");
+    // RUN-P1: createRun now also threads the resolved starting page through as
+    // a 5th arg so executeOnRunStart can fire that page's onPageEnter phase.
+    // logicSvc.evaluateNavigation above resolves to `nextPageId: null` (no
+    // pages configured on this mock), so the starting page is undefined here.
+    expect(lifecycleService.executeOnRunStart).toHaveBeenCalledWith("run-1", "wf-1", "version-pinned", "live", undefined);
   });
 
   it("rejects public-link anonymous runs with no published version", async () => {
@@ -167,7 +171,9 @@ describe("RunService version pinning", () => {
       workflowId: "wf-1",
       workflowVersionId: "version-current",
     }));
-    expect(lifecycleService.executeOnRunStart).toHaveBeenCalledWith("run-1", "wf-1", "version-current");
+    // RUN-P1: see the equivalent comment above -- createAnonymousRun also
+    // threads its resolved starting page through as a 5th arg.
+    expect(lifecycleService.executeOnRunStart).toHaveBeenCalledWith("run-1", "wf-1", "version-current", "live", undefined);
   });
 });
 

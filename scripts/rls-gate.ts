@@ -101,27 +101,15 @@ function runSuite(): void {
     {
       stdio: 'inherit',
       shell: true,
-      // Single-fork ON PURPOSE, and only here. The rest of the suite went
-      // parallel on 2026-09-06 (identical verdicts, 3.45x faster) — but this
-      // gate is the one place that must not follow, and trying it proved why.
-      //
-      // Run parallel under RLS_RESTRICTED, three consecutive CI runs reported
-      // a stable core of 5 failing files PLUS a rotating extra that differed
-      // every time: {datavault.routes, lifecycle-hooks-execution}, then
-      // {creation-limits-reorder}, then {api.workflows}. Single-fork runs, in
-      // CI and locally, report the core and nothing else. So something in the
-      // restricted-role harness is not worker-safe — plausibly the shared
-      // non-owner role or per-connection GUC pinning, unlike the per-worker
-      // schemas that make normal parallel runs isolated.
-      //
-      // That matters more here than the ~5 minutes it costs. This gate's whole
-      // value is a verdict precise enough to compare against an allowlist, and
-      // a rotating false member would push someone to "fix" a file that was
-      // never broken, or to allowlist it — the exact rot the header warns
-      // about. It is a separate workflow off the critical path, so slow is
-      // cheap and wrong is not. The non-worker-safety is itself a real finding:
-      // see RLS-11 in tickets/ENVIRONMENTS_AND_RLS_TICKETS.md.
-      env: { ...process.env, RLS_RESTRICTED: 'true', VITEST_SINGLE_FORK: 'true' },
+      // Parallel since 2026-09-12 (RLS-11 cause 5). This gate was pinned
+      // single-fork on 2026-09-06 because parallel runs failed a DIFFERENT
+      // extra file every time. The cause was every worker re-asserting the same
+      // cluster-level test roles with `ALTER ROLE` at once — Postgres rejects
+      // the loser with `tuple concurrently updated` — now serialized by an
+      // advisory lock in tests/setup.ts (`provisionSharedRoles`). To bisect a
+      // suspected parallelism flake, set VITEST_SINGLE_FORK=true in the
+      // environment; it is read straight through from process.env.
+      env: { ...process.env, RLS_RESTRICTED: 'true' },
     }
   );
 

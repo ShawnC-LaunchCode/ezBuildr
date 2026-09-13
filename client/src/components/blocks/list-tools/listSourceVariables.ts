@@ -11,14 +11,15 @@ import type { ApiStep } from "@/lib/vault-api";
  * too, and `ListToolsBlockRunner` normalizes a plain array via
  * `arrayToListVariable`, so they are offered as well.
  *
- * Deliberately NOT included: `list` questions. Their stored value is
- * `{ items: [...] }` (`ListValue`) and nothing projects it into a row array
- * before blocks run — `RunDataService.buildForRun` hands the raw step value
- * straight to the runner, which rejects it as "not a valid list or array".
- * Offering them would put a guaranteed-broken option in the dropdown. Making
- * them work is a real gap, tracked as `LIST-B15` in `tickets/BACKLOG.md`.
+ * `list` questions are included too (LIST-B15). Their stored value is
+ * `{ items: [...] }` (`ListValue`), not row-shaped, but `ListToolsBlockRunner`
+ * now normalizes it at its own input boundary via `listValueToListVariable`
+ * (`shared/listPipeline.ts`) before rejecting non-list/array input — the same
+ * envelope→rows conversion `choice-utils.ts` uses for list-bound Choice
+ * options. Nothing upstream of the runner (block context, `RunDataService`)
+ * projects the value, so every other consumer still sees the raw `ListValue`.
  */
-const LIST_SOURCE_STEP_TYPES = new Set<string>(["computed"]);
+const LIST_SOURCE_STEP_TYPES = new Set<string>(["computed", "list"]);
 
 /**
  * The list-valued variables a List Tools block may read from.

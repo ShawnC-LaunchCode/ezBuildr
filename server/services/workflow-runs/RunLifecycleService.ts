@@ -132,7 +132,8 @@ export class RunLifecycleService {
     runId: string,
     workflowId: string,
     versionId?: string,
-    mode: 'live' | 'preview' = 'live'
+    mode: 'live' | 'preview' = 'live',
+    pageId?: string
   ): Promise<{ success: boolean; errors?: string[]; notices?: string[] }> {
     try {
       const values = await this.persistence.getRunValues(runId);
@@ -155,6 +156,25 @@ export class RunLifecycleService {
       // this is the only point with inbound/prefill data and no page context.
       // Failures are the block's own (Decisions 5) and never fail run creation.
       await codeBlockService.evaluateAll(runId, workflowId, 'runStart', values);
+
+      // RUN-P1: creating a run is the other arrival that never goes through
+      // `next` navigation, so without this the first page's `onPageEnter`
+      // phase (and its `beforePage` hooks) could never fire either. `pageId`
+      // is the caller's already-resolved starting page (RunService has always
+      // computed and persisted it by the time it calls this method) -- there
+      // is nothing to fire when a workflow has no visible pages at all.
+      // Handled exactly like the `onRunStart` result above: discarded here,
+      // any durable output left to whatever the block/hook already persists.
+      if (pageId) {
+        await blockRunner.runPhase({
+          workflowId,
+          runId,
+          phase: "onPageEnter",
+          pageId,
+          mode,
+          data: blockResult.data ?? values,
+        });
+      }
 
       return { success: true, ...(blockResult.notices ? { notices: blockResult.notices } : {}) };
     } catch (error) {

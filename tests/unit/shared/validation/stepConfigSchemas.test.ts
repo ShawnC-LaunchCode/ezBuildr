@@ -120,6 +120,22 @@ describe('Step Config Schemas', () => {
             expect(validateCanonicalStepConfig(stepType, config).success).toBe(true);
         });
 
+        it('rejects a js_question timeoutMs above the executor\'s 3000ms ceiling, and accepts 3000 (CB-B2)', () => {
+            // CB-B2: the schema used to allow up to 30000ms while
+            // enhancedSandboxExecutor.ts's MAX_TIMEOUT_MS silently clamped to
+            // 3000 -- an author saving 10000 got 3000 with no error. The schema
+            // ceiling now matches the executor's, so the mismatch is a loud
+            // validation error at save time instead of a silent clamp at run time.
+            const base = { code: 'emit({ result: 1 })', inputs: [], outputs: [{ key: 'result' as const, type: 'number' as const }] };
+
+            const tooHigh = validateCanonicalStepConfig('js_question', { ...base, timeoutMs: 3001 });
+            expect(tooHigh.success).toBe(false);
+            expect(tooHigh.error?.issues[0]).toMatchObject({ path: ['timeoutMs'] });
+
+            const atCeiling = validateCanonicalStepConfig('js_question', { ...base, timeoutMs: 3000 });
+            expect(atCeiling.success).toBe(true);
+        });
+
         it.each([
             'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no',
             'true_false', 'date', 'time', 'datetime', 'currency', 'final',

@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** four open — **RLS-11** (P2 — gate green and required on `main`; only cause 5, the single-fork pin, remains), **RLS-4** (production), **RLS-8**, **RLS-10** · RLS-9 ✅ · **Updated:** 2026-09-11
+**Status:** three open — **RLS-4** (production — promoted 2026-09-12; only the role swap remains, rehearsed on a clone), **RLS-8**, **RLS-10** · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-12
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -153,7 +153,7 @@ Check that table before filing anything against this area.
 
 ---
 
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test DONE; production remains
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test DONE; production: promoted 2026-09-12, role swap remains (rehearsed)
 
 ### Progress — 2026-08-22 · **dev is cut over and enforcing**
 
@@ -239,10 +239,11 @@ generated at that time and rotated by the owner before it is trusted.
 
 Run in this order — the first two are not RLS work:
 
-1. **`test` → `main` pull request.** `origin/test` is 138 commits ahead of
-   `origin/main`, 0 behind. Required by the `main-protection` ruleset.
-2. **Merge deploys and runs `db:migrate`**, taking production 24 → 37 migrations
-   and 9 → 36 RLS tables. This is what creates the policies.
+1. ✅ **`test` → `main` pull request** — PR #185, merged 2026-09-12 (`0d31887d`),
+   the first promotion gated by the required `RLS Enforcement Gate` check.
+2. ✅ **Merge deploys and runs `db:migrate`** — production went 24 → **50**
+   migrations and 9 → **38** RLS tables (§4.0 pre-flight 38 / 38 / 38, measured
+   2026-09-12). The policies exist; steps 3–6 are now safe to run.
 3. **Create and verify `ezbuildr_app`** (§2), connecting as `neondb_owner`. Use
    SQL, never the Neon Console/API/CLI — a console-created role inherits
    `neon_superuser` and silently bypasses RLS. Assert `rolsuper`/`rolbypassrls`
@@ -269,6 +270,38 @@ the four Railway variables and the redeploy remain.
 Running the migrations against test out of band would work, but it would put the
 schema ahead of the code it is meant to be a snapshot of, which is the one thing
 the promotion model exists to prevent.
+
+**Rehearsed 2026-09-12 on a production clone** — Neon branch
+`rehearsal-rls4-cutover-2026-09-12` (`br-weathered-heart-ahyygddn`), branched from
+production after the promotion. The runbook's §2 SQL ran clean, and every check passed
+against production's own schema and data:
+
+| check | result |
+|---|---|
+| §4.0 pre-flight — policy tables / enabled / forced | **38 / 38 / 38** |
+| `ezbuildr_app` `rolsuper` / `rolbypassrls` | `f` / `f` |
+| `ezbuildr_app` role memberships | **0** |
+| as `ezbuildr_app`, no tenant set — projects / users | **0 / 0** |
+| same — workflows visible | 46 of 86: exactly the public + active ones, **0 private** |
+| tenant pinned (owns 4 of the 5 projects) — projects visible | **4**, and **0** rows from the other tenant |
+| GUC the policies read | `app.current_tenant_id` (from `app_current_tenant()`'s definition) |
+
+Production holds **2 tenants, 5 projects, 86 workflows and 3 users**, so a bad cutover
+has a small blast radius, and rollback (runbook §5) is a variable change plus a redeploy.
+
+What the rehearsal deliberately does NOT prove — do not read more into it:
+
+- **Nothing about the app's code paths.** That is what the RLS gate measures and what
+  three weeks of enforcement on `dev` have exercised. RLS-8's surface audit still reports
+  **34 unscoped call sites** (all allowlisted, 2026-09-12).
+- `GRANT ezbuildr_app TO neondb_owner` was run on the clone **only** so `SET ROLE` could be
+  tested over the MCP connection. It is not part of §2 and must not be run on production —
+  see the runbook's §2 note on proving enforcement.
+
+**What remains is owner-only:** create the role on production with a password you
+generate (owner decision 2026-08-25), then set the four Railway variables in one change and
+redeploy (runbook §3). The runbook's own precondition — §6, understand the intermittent
+"Registration failed" before production — is still open.
 
 **Priority: P0** · Size: S · **UNBLOCKED** — RLS-2, RLS-3, RLS-6 and RLS-7 all closed
 2026-08-22, and the admin-access path called out below was built. Gated now only on a
@@ -582,7 +615,7 @@ makes this worth writing at all.
 
 ---
 
-## RLS-11 — The enforcement gate has been red for 9 days 🔄 causes 1–4 & 6 fixed, AC 4 met; cause 5 open
+## RLS-11 — The enforcement gate has been red for 9 days ✅ DONE 2026-09-12
 
 **Priority: P2** (was P0; re-prioritized 2026-09-11 — the gate is green, required on `main`, and alerts Slack; what remains is cause 5, which costs ~5 minutes on a job off the critical path and threatens nothing user-facing) · Size: M · Files (causes 1 & 2 done): `server/middleware/runTokenAuth.ts`,
 `server/services/workflow-runs/RunLifecycleService.ts` — remaining:
@@ -606,7 +639,8 @@ triage below lands on
   bypass, so it would change nothing there.
 - **The flake cited for keeping it advisory has not recurred**: zero
   `Registration failed` lines across all 29 gate runs since 2026-09-08 (all single-fork).
-- **Open: cause 5 only** — the second half of AC 3 (green with the single-fork pin removed).
+- ✅ **Cause 5 fixed 2026-09-12** — concurrent `ALTER ROLE` in per-worker setup; the gate runs
+  parallel again. All four ACs are met and the ticket is closed.
 ### Finding
 
 `.github/workflows/rls-gate.yml` has failed on **every push since 2026-08-28** —
@@ -796,7 +830,33 @@ while it was red** — CB-8 added `codeBlocks.testEndpoint`, CB-9a has now added
 two more. That is the cost the gate's own header predicted, and it is what
 AC 4 (make a red gate visible within a day) exists to stop.
 
-### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe
+### Cause 5, found 2026-09-06 — the restricted-role harness is not worker-safe ✅ fixed 2026-09-12
+
+**Root cause, found 2026-09-12 — test setup, not tenant state.** Every worker's setup
+re-asserts the two cluster-level test roles (`rls5_app_role`, `rls6_admin_bypass_role`) with
+`ALTER ROLE … WITH PASSWORD`. Two workers doing it at the same instant write the same
+`pg_authid` row, and Postgres rejects the loser with `tuple concurrently updated` (XX000). That
+fails the worker's setup and takes down whichever test file it was starting — a different one
+each run. Stack-confirmed on a failing parallel run (2 files, both `tuple concurrently updated` at
+`provisionRestrictedRole`, `tests/setup.ts:196`), and reproduced in isolation: 8 clients × 40
+re-assertions of one role → **275 of 320 failed without a lock, 0 of 320 with one**.
+
+The guesses written below — the shared role's *policies*, per-connection GUC pinning — were
+wrong. It was concurrent catalog DDL in test setup, which is why it appeared only in parallel runs
+and never touched application code.
+
+**Fix.** `provisionSharedRoles` in `tests/setup.ts` runs both provisioning functions inside one
+transaction holding `pg_advisory_xact_lock`, which serializes every worker on the database, plus a
+bounded retry on the concurrent-role-write codes for the cross-database case (advisory locks are
+per-database; roles are cluster-wide). `scripts/rls-gate.ts` no longer pins single-fork.
+
+**Evidence:** three consecutive unpinned gate runs — 151/151 files each, 0 `tuple concurrently
+updated`, 0 `Registration failed` — in **412 s, 358 s and 399 s** locally, against ~1,066 s
+single-fork on the same machine.
+
+---
+
+*Original write-up, 2026-09-06:*
 
 Separate from the four above, and found by accident while making the suite
 parallel. Run with more than one worker under `RLS_RESTRICTED`, three
@@ -826,8 +886,8 @@ with a rotating false member is worse than a slow gate: it pushes someone to
    and — cause 5 — green with the single-fork pin REMOVED from
    `scripts/rls-gate.ts`, so the gate is no longer paying ~5 minutes to hide a
    harness bug. Removing the pin without fixing worker-safety is not a pass.
-   ⚠️ **First half met 2026-09-11** (green, allowlist empty); the pin-removed half is
-   cause 5 and still open.
+   ✅ **Met 2026-09-12** — green with the allowlist empty, and green with the single-fork
+   pin removed: three consecutive parallel runs, 151/151 files each.
    Adding an entry to close this ticket is an automatic fail: the gate's own
    header says an unexplained entry is how it rots.
 4. Something makes a red gate visible within a day rather than 35 runs. Cheapest

@@ -6,6 +6,7 @@ import { stepRepository , pageRepository ,
     blockRepository,
     workflowRepository,
 } from "../repositories";
+import { withCurrentTenant } from "../utils/rlsContext";
 
 
 import { workflowService } from "./WorkflowService";
@@ -49,49 +50,58 @@ export class QueryBlockService {
             phase: "onRunStart" | "onPageEnter" | "onPageSubmit" | "onNext" | "onRunComplete";
         }
     ): Promise<Block> {
-        // Verify ownership
+        // Verify ownership. Deliberately outside the transaction below: a
+        // transaction opened inside another deadlocks the size-1 test pool.
         await this.workflowSvc.verifyAccess(workflowId, userId);
 
-        // Determine target page
-        let targetPageId = data.pageId;
+        // CLN-7: `pages` and `steps` are RLS-covered. On the bare pool a
+        // non-owner role sees no pages ("workflow has no pages") and the
+        // virtual-step insert fails its policy, so every read and write shares
+        // one tenant transaction.
+        const { block, virtualStepId } = await withCurrentTenant(async (tx) => {
+            // Determine target page
+            let targetPageId = data.pageId;
 
-        if (!targetPageId) {
-            // For workflow-scoped blocks, attach valid step to first page
-            const pages = await this.pageRepo.findByWorkflowId(workflowId);
-            if (pages.length === 0) {
-                throw new Error("Cannot create query block: workflow has no pages.");
+            if (!targetPageId) {
+                // For workflow-scoped blocks, attach valid step to first page
+                const pages = await this.pageRepo.findByWorkflowId(workflowId, tx);
+                if (pages.length === 0) {
+                    throw new Error("Cannot create query block: workflow has no pages.");
+                }
+                targetPageId = pages[0].id;
             }
-            targetPageId = pages[0].id;
-        }
 
-        // Create virtual step for persistence
-        const virtualStep = await this.stepRepo.create({
-            workflowId,
-            pageId: targetPageId,
-            type: 'computed',
-            title: `Query: ${data.name}`,
-            description: `Virtual step for query block: ${data.name}`,
-            alias: data.config.outputVariableName,
-            required: false,
-            order: -1,
-            isVirtual: true,
-        });
+            // Create virtual step for persistence
+            const virtualStep = await this.stepRepo.create({
+                workflowId,
+                pageId: targetPageId,
+                type: 'computed',
+                title: `Query: ${data.name}`,
+                description: `Virtual step for query block: ${data.name}`,
+                alias: data.config.outputVariableName,
+                required: false,
+                order: -1,
+                isVirtual: true,
+            }, tx);
 
-        // Create the block
-        const block = await this.blockRepo.create({
-            workflowId,
-            type: 'query',
-            phase: data.phase,
-            pageId: data.pageId ?? null,
-            config: data.config,
-            order: 0, // Should be calculated or app logic handles reordering
-            virtualStepId: virtualStep.id,
-            enabled: true,
+            // Create the block
+            const created = await this.blockRepo.create({
+                workflowId,
+                type: 'query',
+                phase: data.phase,
+                pageId: data.pageId ?? null,
+                config: data.config,
+                order: 0, // Should be calculated or app logic handles reordering
+                virtualStepId: virtualStep.id,
+                enabled: true,
+            }, tx);
+
+            return { block: created, virtualStepId: virtualStep.id };
         });
 
         logger.info({
             blockId: block.id,
-            virtualStepId: virtualStep.id,
+            virtualStepId,
             outputVar: data.config.outputVariableName
         }, "Created query block with virtual step");
 
@@ -111,7 +121,7 @@ export class QueryBlockService {
             enabled?: boolean;
         }
     ): Promise<Block> {
-        const block = await this.blockRepo.findById(blockId);
+        const block = await withCurrentTenant((tx) => this.blockRepo.findById(blockId, tx));
         if (!block) {throw new Error("Block not found");}
 
         await this.workflowSvc.verifyAccess(block.workflowId, userId);
@@ -123,35 +133,40 @@ export class QueryBlockService {
         const currentConfig = block.config as QueryBlockConfig;
         const newConfig = { ...currentConfig, ...data.config };
 
-        // Update virtual step if output variable name changes
-        if (
-            data.config?.outputVariableName &&
-            data.config.outputVariableName !== currentConfig.outputVariableName &&
-            block.virtualStepId
-        ) {
-            await this.stepRepo.update(block.virtualStepId, {
-                alias: data.config.outputVariableName,
-                title: `Query: ${data.name ?? 'Updated Query'}`
-            });
-        } else if (data.name && block.virtualStepId) {
-            // Update title if only name changed
-            await this.stepRepo.update(block.virtualStepId, {
-                title: `Query: ${data.name}`
-            });
-        }
+        // CLN-7: an RLS-filtered UPDATE on the bare pool matches zero rows and
+        // fails silently, so the virtual step's rename runs in the tenant
+        // transaction along with the block update.
+        return withCurrentTenant(async (tx) => {
+            // Update virtual step if output variable name changes
+            if (
+                data.config?.outputVariableName &&
+                data.config.outputVariableName !== currentConfig.outputVariableName &&
+                block.virtualStepId
+            ) {
+                await this.stepRepo.update(block.virtualStepId, {
+                    alias: data.config.outputVariableName,
+                    title: `Query: ${data.name ?? 'Updated Query'}`
+                }, tx);
+            } else if (data.name && block.virtualStepId) {
+                // Update title if only name changed
+                await this.stepRepo.update(block.virtualStepId, {
+                    title: `Query: ${data.name}`
+                }, tx);
+            }
 
-        return this.blockRepo.update(blockId, {
-            config: newConfig,
-            enabled: data.enabled
+            return this.blockRepo.update(blockId, {
+                config: newConfig,
+                enabled: data.enabled
+            }, tx);
         });
     }
 
     /**
      * Execute a single query block logic (runtime execution)
-     * Note: BlockRunner calls this, or calls QueryRunner directly. 
+     * Note: BlockRunner calls this, or calls QueryRunner directly.
      * Since this service manages the Block entity, let's keep runtime execution separate in BlockRunner/QueryRunner for now,
-     * OR we can expose a helper here. 
-     * Given BlockRunner structure, it likely calls services. 
+     * OR we can expose a helper here.
+     * Given BlockRunner structure, it likely calls services.
      * We will stick to the pattern: Service manages Entity, Runner manages Execution.
      */
 }

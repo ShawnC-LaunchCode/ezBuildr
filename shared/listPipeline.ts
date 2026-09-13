@@ -381,6 +381,81 @@ export function isListVariable(data: unknown): data is ListVariable {
 }
 
 /**
+ * A `list` question's stored value: `{ items: [...] }`. Loosely typed
+ * (`itemId`/`values` both optional) because this guards data straight off a
+ * step's raw JSON value — the stronger guarantee (`itemId: string`,
+ * `values: Record<...>`) lives in `ListValue`/`ListItem`
+ * (`shared/types/stepConfigs.ts`), which every real `list` step value
+ * satisfies, but this check must not crash on something malformed.
+ */
+export interface ListValueEnvelope {
+  items: Array<{ itemId?: string; values?: Record<string, unknown> }>;
+}
+
+/**
+ * Helper: Check if data is a `list` question's stored envelope, as distinct
+ * from a `ListVariable` (also an object, but shaped `{ rows, columns,
+ * metadata }` rather than `{ items }`).
+ */
+export function isListValue(data: unknown): data is ListValueEnvelope {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    !('metadata' in data && 'rows' in data) &&
+    Array.isArray((data as { items?: unknown }).items)
+  );
+}
+
+/**
+ * Convert a `list` question's stored `ListValue` envelope into row-shaped
+ * `ListVariable` data, for consumers that operate on rows rather than the
+ * envelope — the List Tools block (LIST-B15) and Choice's list-bound dynamic
+ * options (LIST-12). This is the single implementation both share.
+ *
+ * Only the top level is projected: a nested list field stays an opaque value
+ * on its parent row, so nested items can never surface as their own rows —
+ * that is a product constraint, not a gap.
+ *
+ * Keeps `itemId` as both `row.id` and `row.itemId`, unlike `projectListValue`
+ * (`shared/types/stepConfigs.ts`), which strips it — that function feeds
+ * documents and scripts plain alias-keyed data with no need for the row's own
+ * identity, while a List Tools row must keep it (e.g. so a later block or a
+ * document loop can still key off the stable item id after filtering).
+ */
+export function listValueToListVariable(value: ListValueEnvelope): ListVariable {
+  const allKeys = new Set<string>();
+  allKeys.add('itemId');
+  value.items.forEach(item => {
+    if (item.values !== undefined && typeof item.values === 'object' && item.values !== null) {
+      Object.keys(item.values).forEach(key => allKeys.add(key));
+    }
+  });
+
+  const columns = Array.from(allKeys).map(key => ({
+    id: key,
+    name: key,
+    type: 'text'
+  }));
+
+  return {
+    metadata: { source: 'list_tools' },
+    rows: value.items.map((item, idx) => {
+      const values = item.values !== undefined && typeof item.values === 'object' && item.values !== null
+        ? item.values
+        : {};
+      const itemId = (typeof item.itemId === 'string' ? item.itemId : undefined) ?? `item-${idx}`;
+      return {
+        id: itemId,
+        itemId,
+        ...values
+      } as ListRow;
+    }),
+    count: value.items.length,
+    columns
+  };
+}
+
+/**
  * Helper: Convert plain array to ListVariable
  */
 export function arrayToListVariable(array: unknown[]): ListVariable {

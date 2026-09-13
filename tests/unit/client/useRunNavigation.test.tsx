@@ -215,6 +215,22 @@ describe('shared advance transport submission identity', () => {
     expect(context.setCurrentPageIndex).toHaveBeenCalledWith(1);
   });
 
+  it('resolves the server nextPageId to its own index rather than currentPageIndex + 1 (RUN-B1)', async () => {
+    // Three visible pages so a skip is distinguishable from a plain advance:
+    // page-3 sits at index 2, while currentPageIndex (0) + 1 is only 1.
+    const skipPages: ApiPage[] = [page, { ...page, id: 'page-2', order: 1 }, { ...page, id: 'page-3', order: 2 }];
+    advanceMock.mockImplementation(({ submissionKey }: { submissionKey: string }) => Promise.resolve({
+      success: true, values: {}, blockStates: [], navigation: { nextPageId: 'page-3' }, submissionKey,
+    }));
+    const { result, context } = renderTransport();
+    const skipContext = { ...context, visiblePages: skipPages, currentPageIndex: 0 };
+
+    await result.current.advanceAfterValidation(skipContext);
+
+    expect(skipContext.setCurrentPageIndex).toHaveBeenCalledWith(2);
+    expect(skipContext.setCurrentPageIndex).not.toHaveBeenCalledWith(1);
+  });
+
   it('blocks duplicate calls during both the autosave flush and the request', async () => {
     const flush = deferred<void>();
     const response = deferred<ApiAdvanceResult>();

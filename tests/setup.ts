@@ -243,6 +243,55 @@ async function provisionAdminBypassRole(
   );
 }
 
+// RLS-11 cause 5 — the reason the restricted gate had to run single-fork.
+//
+// Both roles above are CLUSTER-level and shared by every worker, and each
+// worker's setup re-asserts them with `ALTER ROLE ... WITH PASSWORD`. Two
+// workers doing that at the same instant write the same `pg_authid` row, and
+// Postgres rejects the loser with `tuple concurrently updated` (XX000) at the
+// ALTER in `provisionRestrictedRole`. That fails the worker's setup, which takes
+// down whichever test file it happened to be starting — hence a DIFFERENT extra
+// file failing on every parallel run (2026-09-06: three runs out of three;
+// 2026-09-12: one of two). Reproduced in isolation: 8 concurrent clients
+// re-asserting one role fail without a lock and never with one.
+//
+// A transaction-scoped advisory lock serializes the block across every worker
+// sharing this database, which is every worker in one gate run. Advisory locks
+// are per-database while roles are cluster-wide, so two worktrees on different
+// test databases can still collide; the bounded retry covers that, and is safe
+// because every statement in both functions is idempotent.
+const ROLE_PROVISION_LOCK = 0x524c5335; // "RLS5"
+const MAX_PROVISION_ATTEMPTS = 5;
+
+function isConcurrentRoleWrite(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: string; message?: string };
+  return (code === 'XX000' && /tuple concurrently updated/.test(message ?? ''))
+    || code === '23505' // concurrent CREATE ROLE: pg_authid_rolname_index
+    || code === '42710'; // duplicate_object: another database created it first
+}
+
+async function provisionSharedRoles(
+  ownerClient: { query: (sql: string) => Promise<unknown> },
+  schema: string
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await ownerClient.query('BEGIN');
+      await ownerClient.query(`SELECT pg_advisory_xact_lock(${ROLE_PROVISION_LOCK})`);
+      await provisionRestrictedRole(ownerClient, schema);
+      await provisionAdminBypassRole(ownerClient, schema);
+      await ownerClient.query('COMMIT');
+      return;
+    } catch (error: unknown) {
+      await ownerClient.query('ROLLBACK').catch(() => undefined);
+      if (attempt >= MAX_PROVISION_ATTEMPTS || !isConcurrentRoleWrite(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt + Math.random() * 100));
+    }
+  }
+}
+
 // Global test hooks
 beforeAll(async () => {
   // Conditionally load jest-dom for UI tests (JSDOM environment)
@@ -345,8 +394,7 @@ beforeAll(async () => {
         // The restricted role needs to exist AND be granted against a schema
         // that already has every table migrations will ever create in this
         // run — hence provisioning last, after migrations, not before.
-        await provisionRestrictedRole(ownerClient, schemaName);
-        await provisionAdminBypassRole(ownerClient, schemaName);
+        await provisionSharedRoles(ownerClient, schemaName);
         await ownerClient.end();
 
         process.env.DATABASE_URL = toRestrictedUrl(connectionString, RLS5_ROLE, RLS5_PASSWORD);

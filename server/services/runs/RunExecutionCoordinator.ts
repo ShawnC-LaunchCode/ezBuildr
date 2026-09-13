@@ -213,6 +213,32 @@ export class RunExecutionCoordinator {
                 navigation.currentProgress
             );
         }
+        // 5. RUN-P1: fire the page being entered's onPageEnter phase (and its
+        // `beforePage` lifecycle hooks) once per arrival. This runs whenever
+        // the computed target differs from where this call started, which is
+        // true for a normal forward move AND for arriving again via back
+        // navigation -- back is client-side-only today (there is no "go back"
+        // endpoint), so a re-arrival is observed here simply as `next`/`advance`
+        // being called with `currentPageId` behind where the run already was.
+        // A refresh or any GET never reaches this method at all, so neither
+        // fires it. `mode` is threaded straight through -- exactly like onNext
+        // above -- so preview gets the same per-block suppression (e.g.
+        // WriteBlockRunner's simulated write) as every other phase; no new
+        // preview rule is introduced here. Its result is handled exactly like
+        // onNext's: discarded here, with any durable output left to whatever
+        // the individual block/hook already persists (virtual-step upserts,
+        // script_execution_log) -- this call adds no persistence of its own.
+        if (navigation.nextPageId && navigation.nextPageId !== currentPageId) {
+            await blockRunner.runPhase({
+                workflowId,
+                runId,
+                phase: "onPageEnter",
+                pageId: navigation.nextPageId,
+                data: blockResult.data ?? dataMap,
+                mode,
+                aliasMap,
+            });
+        }
         return navigation;
     }
     /**

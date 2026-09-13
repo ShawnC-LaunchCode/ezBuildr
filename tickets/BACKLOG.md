@@ -17,6 +17,17 @@ what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 > **As of 2026-09-11 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
 > (ENV-1/ENV-3 remainders + RLS-1..5).**
 >
+> **The post-promotion cleanup board (CLN-1..7) closed and retired into `backlog/CLEANUP.md` on
+> 2026-09-13.** Six planned tickets and one found at review all landed on `dev` on 2026-09-12:
+> - the OpenTelemetry advisory upgrade
+> - RLS-B5, CB-B2's silent clamp, RUN-B1, CB-B8
+> - LIST-B15, RUN-P1, and STB-B14's code
+> - Dependabot retargeted to `dev`
+> - **CLN-7**, block CRUD failing under RLS
+>
+> It parks one entry, `CLN-B1`, and files `RLS-B6` and `DEP-B2` below. ⚠️ STB-B14's per-environment
+> `--apply` run is still owed.
+>
 > **The Code Blocks board (CB-1..11, 20 units) closed and retired into
 > `backlog/CODE_BLOCKS.md` on 2026-09-11.** All four phase gates were signed, and
 > it discharged `STB-B8`. It parks nine entries, `CB-B1..B9`, and seven standing
@@ -101,27 +112,31 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
-| RUN-P1 | `triage` | **`onPageEnter` blocks NEVER EXECUTE** — but MEASURED 2026-09-10: the `blocks` table is EMPTY in production and on dev, so nothing is broken *today*. No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
+| ~~RUN-P1~~ | ✅ fixed 2026-09-12 (CLN-2) | **`onPageEnter` blocks NEVER EXECUTE** — but MEASURED 2026-09-10: the `blocks` table is EMPTY in production and on dev, so nothing is broken *today*. No call site passes that phase to `blockRunner.runPhase` — only onNext / onPageSubmit / onRunComplete / onRunStart. It is the DEFAULT phase for every new Read Table block, and hard-coded for the Choice→List Tools conversion, so those blocks silently do nothing. The `beforePage` lifecycle-hook phase is dead for the same reason | Inline below: `RUN-P1` |
 | AI-P1 | `mitigated` | **Mitigated, not verified end-to-end (2026-09-11):** production's `GEMINI_MODEL` now reads `gemini-2.5-flash` and the service restarted ~2026-09-10 09:25Z; the code default moved in `6ec92be9` and reaches prod on promotion. Prod's build predates the `/health` AI probe, so no live proof. Original: **Prod's `GEMINI_MODEL=gemini-2.0-flash` is retired by Google** — the provider answers 404 "no longer available", so AI workflow generation and AI Assist return 500 in production. Default is hardcoded in 5 code paths + `.env.example`. Found by CB-10c's live proof; unrelated to CB-10c | Inline below: `AI-P1` |
 | AI-B2 | `triage` | The AI Assist prompt references the generation schema without including it, so the model returns unsupported step types (`text_input`, `email_input`) and omits required fields, producing a 422. Pre-existing; unrelated to the removed transform arrays | Inline below: `AI-B2` |
 | ~~LIST-B1~~ | ✅ fixed 2026-09-10 | List Tools' source picker queried `/api/pages/<workflowId>/steps` and always returned nothing. Now uses `useWorkflowSteps`; live-verified end to end (dropdown offers the Read Table output, selection saves). **Parks `LIST-B15`** | Inline below: `LIST-B1` |
-| LIST-B15 | `ready` | A `list` question cannot be a List Tools source. **Investigated 2026-09-10 — the original framing was partly wrong**: the broken configuration is ALREADY reachable via the Choice editor's convert-to-List-Tools action, and the envelope→rows conversion already exists twice. Recommendation: adapt at the runner's input boundary, ~half a day | Inline below: `LIST-B15` |
+| ~~LIST-B15~~ | ✅ fixed 2026-09-12 (CLN-3) | A `list` question cannot be a List Tools source. **Investigated 2026-09-10 — the original framing was partly wrong**: the broken configuration is ALREADY reachable via the Choice editor's convert-to-List-Tools action, and the envelope→rows conversion already exists twice. Recommendation: adapt at the runner's input boundary, ~half a day | Inline below: `LIST-B15` |
 | ~~LIST-B16~~ | ✅ fixed 2026-09-10 | The Add Action menu's seeds moved to `pages/newBlockDefaults.ts`, one per type and each annotated with its own config type; `list_tools` now seeds `{sourceListVar, outputListVar}`, so the new block's virtual step gets an alias instead of `null`. **Parks nothing** | Inline below: `LIST-B16` |
 | ~~LIST-B2~~ | ✅ fixed 2026-09-10 | The block dialog's Block Type field is now read-only text (the picker was permanently `disabled` anyway), so it can never render blank — for `list_tools` in Easy mode or for `js`/`transform` in either. Took the dead `FEATURES` mode-gate in `lib/mode.ts` with it. **Parks nothing** | Inline below: `LIST-B2` |
-| RUN-B1 | `triage` | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
+| ~~RUN-B1~~ | ✅ fixed 2026-09-12 (CLN-1; mutation-verified) | The client silently ignoring the server's authoritative `nextPageId` is caught by NOTHING. `applyAdvanceNavigation`'s page resolution can be replaced with `currentPageIndex + 1` and all 3860 unit tests still pass. Pre-existing — proven against the pre-CB-10a tree, not introduced by it | Inline below: `RUN-B1` |
+| CLN-B1 | `enhancement` | `scripts/test-captcha.mjs` imports `node-fetch`, which is not in `package.json`; it resolves only via `google-auth-library` → `gaxios`. Switch the script to the global `fetch`, or declare the package. One line | `backlog/CLEANUP.md` |
+| DEP-B2 | `needs-initiative` | **Tailwind 3 → 4 is a migration, not a bump** (Dependabot #179, `3.4.19 → 4.3.3`, closed 2026-09-12). v4 replaces `tailwind.config` with CSS-first `@theme` config, changes the PostCSS plugin, and renames or removes utilities. It will interact with `SECT-B11` (the `--primary` `/opacity` bug). Needs a visual pass over the whole client, so load the **design** skill | Inline: this row |
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
-| RLS-B5 | `informational` | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
+| RLS-B6 | `needs-initiative` | **`blocks` has no RLS policy anywhere in the migration chain** (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
+| ~~RLS-B5~~ | ✅ fixed 2026-09-12 (CLN-1) | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
 | CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
 | CB-B5 | `needs-initiative` | Live-run document blobs leak: orphaned uploads, a ZIP with no row, and row deletion never removes blobs. Needs a retention ruling first; overlaps `ZR-B1`/`ZR-B3` | `backlog/CODE_BLOCKS.md` |
-| CB-B2 | `product-decision` | Sandbox timeout ceiling is 3000 ms, and **the Code Block schema accepts up to 30000, clamped silently**. Aligning the two is cheap; raising the ceiling needs a real case | `backlog/CODE_BLOCKS.md` |
+| CB-B2 | `product-decision` (the silent-clamp half ✅ fixed 2026-09-12 in CLN-1: schema and UI now cap at 3000; raising the ceiling is still open) | Sandbox timeout ceiling is 3000 ms, and **the Code Block schema accepts up to 30000, clamped silently**. Aligning the two is cheap; raising the ceiling needs a real case | `backlog/CODE_BLOCKS.md` |
 | CB-B3 | `needs-initiative` | Impure blocks are forced to `always`; there is no way to declare an external (DataVault) dependency in the change hash. Measure first | `backlog/CODE_BLOCKS.md` |
 | CB-B6 | `informational` | Client field-error focusing is fed by nothing: per-field validation is flattened to strings before it reaches the runner, so `focusFirstFieldError` has never fired | `backlog/CODE_BLOCKS.md` |
-| CB-B8 | `informational` | Inspector cross-tenant denial is enforced by RLS, not by `readInspector`'s own checks. Disabling both leaves the test green | `backlog/CODE_BLOCKS.md` |
+| ~~CB-B8~~ | ✅ fixed 2026-09-12 (CLN-1: both guards now unit-tested, mutation-verified) | Inspector cross-tenant denial is enforced by RLS, not by `readInspector`'s own checks. Disabling both leaves the test green | `backlog/CODE_BLOCKS.md` |
 | CB-B9 | `informational` | Switching a Code Block's language leaves the other language's code in the editor; the failure is loud and self-inflicted | `backlog/CODE_BLOCKS.md` |
 | CB-B1 | `informational` | `js_question` `display: "visible"` never had a renderer; the field was deleted by CB-1. A visible computed display would be a new feature | `backlog/CODE_BLOCKS.md` |
 | CB-B4 | `informational` | `emit()` may be called only once, by design (one object, many keys). **Do not "fix" into multi-emit** | `backlog/CODE_BLOCKS.md` |
 | STB-B13 | `needs-initiative` | **RLS gate's 3 red files are all respondent (run-token) writes** — a page submit stores nothing under a non-owner role and still returns 200. Belongs to RLS Phase 2, not STB. Do **not** allowlist | `backlog/STEP_TOOLBOX.md` |
+| ~~STB-B14~~ | ✅ code fixed 2026-09-12 (CLN-4); **the per-environment `--apply` run is still owed** | **The canonicalizer audit is blind to `sections[]`-shaped version graphs.** 57/58 production `workflow_versions` use that shape, and 56 still hold legacy type names, yet `--audit` passes. Not a migration risk; whether anything still *loads* them is unverified | `backlog/STEP_TOOLBOX.md` |
 | STB-B6 | `informational` | `sanitizeStepValue` / `validateStepValue` are dead but look like the obvious home for value logic — already cost one silent precision bug. Wire in or delete | `backlog/STEP_TOOLBOX.md` |
 | ~~STB-B8~~ | ✅ **discharged 2026-09-11** | Sandboxed JS/Python transforms. Shipped as the **Code Blocks (CB)** initiative, now retired into `backlog/CODE_BLOCKS.md`. ⚠️ **`server/services/scripting/` is still dormant, not dead — do not delete it**; Code Blocks build on it | `backlog/STEP_TOOLBOX.md` |
 | STB-B2 | `product-decision` | Timezone-aware `date_time` — changes stored meaning for existing answers, needs a ruling first | `backlog/STEP_TOOLBOX.md` |
@@ -805,8 +820,10 @@ from earlier audits were disproved, and two of them ("branch protection is off",
   same-connection instrumentation left in `auth.routes.ts` to catch the next occurrence.
   This was the reason the RLS gate stayed advisory. **Re-measured 2026-09-11: zero
   occurrences in all 29 gate runs since 2026-09-08** (single-fork), so the gate is now a
-  required check on `main`. Keep the instrumentation; lifting the single-fork pin is
-  RLS-11 cause 5.
+  required check on `main`. Keep the instrumentation. The gate runs **parallel** again
+  since 2026-09-12: its only reproducible nondeterminism was concurrent `ALTER ROLE` in
+  per-worker setup (RLS-11 cause 5, `b909c73c`), now serialized — a different thing from
+  this entry, whose cause is still unidentified.
 - **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
   above); this initiative only adds that it now carries an RLS policy. Recorded here so the
   next audit does not file it a third time — it has already been filed twice.

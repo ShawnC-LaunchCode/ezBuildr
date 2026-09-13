@@ -326,7 +326,7 @@ export function FiringPanel({
                         id="cb-timeout"
                         type="number"
                         min={100}
-                        max={30000}
+                        max={3000}
                         value={config.timeoutMs ?? 1000}
                         onChange={(event) => { onChange({ timeoutMs: Number(event.target.value) || 1000 }); }}
                         className="h-8 text-xs tabular-nums"
