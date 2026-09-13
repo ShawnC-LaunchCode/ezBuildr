@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** three open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13), **RLS-10** (no suite yet) · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
+**Status:** three open — **RLS-4** (production: migrations done, 38/38/38 enabled+forced; the owner-only role swap remains, rehearsed on a clone — production still connects as `neondb_owner`, so the policies are **bypassed**), **RLS-8** (34 sites, measured 2026-09-13), **RLS-10** (🔄 dispatched 2026-09-13) · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -568,10 +568,10 @@ in the same commit as each fix.
 
 ---
 
-## RLS-10 — Data-driven proof that every policy actually isolates 🔲 open
+## RLS-10 — Data-driven proof that every policy actually isolates 🔄 in progress (dispatched 2026-09-13)
 
-**Priority: P2** · Size: S/M · Files: `tests/integration/rls-coverage.test.ts`
-or a sibling suite
+**Priority: P2** (the cheap check to run before the RLS-4 production role swap) · Size: M · Files: **new**
+`tests/integration/rls10-policyIsolation.test.ts` only. No server code, no migrations.
 
 ### Finding
 
@@ -585,27 +585,113 @@ subset of tables, chosen by whoever wrote them. There is no table-driven proof.
 ### Preferred fix
 
 One suite that enumerates covered tables from `pg_policies` — not a hand-written
-list, which is the mistake migrations 0001/0011/0024 each made in turn — and for
-each asserts, as a non-owner role:
+list, which is the mistake migrations 0001/0011/0024 each made in turn — and
+asserts isolation for each one as a non-owner role. New covered tables are then
+included automatically, which is the property that makes this worth writing.
 
-| condition | expected |
+#### Re-audit, 2026-09-13: what the policies actually look like
+
+Measured on the dev Neon branch (`pg_policies`, 38 tables, all enabled and forced).
+The original four-row table below assumed every policy is `tenant_id = GUC`. **They
+are not**, and a dev who writes the naive version will hit three false failures:
+
+| shape | tables | how the tenant is found |
+|---|---|---|
+| **direct** — `NOT (tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)` | 24 incl. `ai_usage`, `audit_logs`, `collections`, `records`, `teams`, `metrics_*`, `sli_*`, `run_resume_links`, `run_document_deliveries`, `workflow_blueprints`, `datavault_databases`/`_tables`/`_api_tokens`/`_row_notes`/`_number_sequences` | the row's own `tenant_id` |
+| **derived** — no `tenant_id` column | `datavault_columns`, `_rows`, `_values`, `_unique_keys`, `_table_access`, `_table_permissions`, `_database_access` (via `app_datavault_*_tenant(...)`); `code_block_runs` (run → workflow); `workflows`, `pages`, `sections`, `steps` (via `app_owner_tenant(...)` on the workflow) | a parent row |
+| **bootstrap disjuncts** (an extra `OR` that opens one row by id/token) | `users` (`app.current_user_id`, `app.current_login_email`), `projects` (`app.current_project_id`), `organizations` (`app.current_org_id`), `connections` (`app.current_connection_id`), `workflows` (`app.current_workflow_id`), `signature_requests` (`app.current_signing_token`, `app.current_envelope_id`), `tenant_domains` (verified domain = `app.current_branding_domain`) | as direct/derived, plus the disjunct |
+
+Three behaviours are **deliberate rulings**, not leaks. Pin each with an assertion and a
+comment citing its source; do not "fix" them:
+
+1. **NULL-tenant rows are visible when no tenant is pinned.** `IS NOT DISTINCT FROM` is
+   migration `0027_rls_null_tenant_isolation.sql` — the registration/bootstrap case. A
+   NULL-tenant row must still be **invisible** once any real tenant is pinned. Only four
+   covered tables allow NULL `tenant_id`: `audit_logs`, `projects`, `users`,
+   `workflow_blueprints`.
+2. **`workflows` with `is_public = true AND status = 'active'` — and their `pages`,
+   `sections`, `steps` — are visible with no tenant pinned.** That is the anonymous
+   public-link runner. Seed the isolation fixtures as **private** workflows so this escape
+   does not apply, and pin the escape separately with one public active workflow.
+3. **Bootstrap GUCs are out of scope** for the matrix. They are transaction-local and
+   unset on a fresh transaction; the suite must not set them. (Proving each one opens
+   exactly its one row is a possible follow-up — record it as an observation, don't build it.)
+
+#### The matrix — per table, as the restricted role, each in its own transaction
+
+`seededA` / `seededB` are the primary keys of the rows **this suite** seeded for tenant
+A / B. Always intersect with them: other files in the same worker schema leave rows
+behind, so "count(*) = 0" is wrong.
+
+| condition (set with `set_config(..., true)` inside `BEGIN`) | expected |
 |---|---|
-| no tenant GUC | 0 rows |
-| GUC = `''` (the empty-string trap) | 0 rows |
-| GUC = tenant A | only tenant A's rows |
-| GUC = tenant B | 0 of tenant A's rows |
+| no tenant GUC | `visible ∩ (seededA ∪ seededB) = ∅` |
+| GUC = `''` (the empty-string trap) | same |
+| GUC = tenant A | `visible ⊇ seededA` **and** `visible ∩ seededB = ∅` |
+| GUC = tenant B | `visible ⊇ seededB` **and** `visible ∩ seededA = ∅` |
+| GUC = tenant A, `UPDATE t SET <pk> = <pk> WHERE <pk> = ANY(seededB)` | 0 rows affected (then `ROLLBACK`) |
 
-New covered tables are then included automatically, which is the property that
-makes this worth writing at all.
+The `visible ⊇ seededA` half is what catches a policy that is dropped or over-strict —
+FORCE with no policy is default-deny, which a "sees nothing foreign" check alone would
+pass. Resolve the primary-key column(s) from the catalog (`pg_index.indisprimary`), not
+by assuming `id`.
+
+#### Shape of the implementation
+
+- **One exported-in-file function** `checkIsolation(table, seededA, seededB): Promise<string[]>`
+  returning violation messages, not calling `expect` itself. The per-table tests
+  `expect(violations).toEqual([])`; the non-vacuity tests (AC 3) need to call it and see
+  violations come back.
+- **Seeding:** a `SEEDERS: Record<string, (tenant) => Promise<Row[]>>` map, run as the
+  owner (`getOwnerDb()`, which bypasses RLS). Reuse `TestFactory`
+  (`tests/helpers/testFactory.ts`: `createTenant`, `createWorkflow`, `createPage`,
+  `createStep`, `createDatabase`, `createTable`, `createCollection`) wherever it covers a
+  table, and plain drizzle inserts from `shared/schema` for the rest. Seed at least one
+  row per tenant per table.
+- **Coverage is driven by the catalog, not the map.** The suite enumerates
+  `pg_policies`; a table with neither a seeder nor an entry in
+  `SKIPPED: Record<string, string /* reason */>` **fails** with a message naming it. That
+  is AC 1 and AC 4 together: the map says *how* to seed, the catalog says *what must be
+  covered*, and a new policy table turns the suite red until someone handles it.
+- **The restricted role:** copy `connectAsAppRole()` from
+  `tests/integration/rls4-forceEnforcement.test.ts`, but with its **own** role name
+  (`rls10_app_role`) so it cannot race that file's `ALTER ROLE`. Wrap the role
+  provisioning in the retry that `tests/setup.ts` uses (`isConcurrentRoleWrite`: codes
+  `XX000` "tuple concurrently updated", `23505`, `42710`). Concurrent `ALTER ROLE` on one
+  role was RLS-11 cause 5, and it failed a random file per run. Assert the role is
+  `rolbypassrls = false` and `rolsuper = false` in `beforeAll`, or the suite passes for the
+  wrong reason.
+- The suite must pass in **both** modes: plain `test:integration` and under
+  `RLS_RESTRICTED=true` (the gate). It uses its own raw connection, so the app pool's role
+  doesn't matter, but prove it.
 
 ### Acceptance criteria
 
-1. Enumerated from the catalog, never a literal table list.
-2. All four conditions asserted per table.
-3. **Proven non-vacuous**: drop one policy, confirm that table fails; restore.
-4. Tables needing fixtures in two tenants are seeded generically, or skipped
-   with an explicit recorded reason — a silently skipped table is the failure
-   mode this whole initiative keeps producing.
+1. Tables are enumerated from `pg_policies` at runtime, never from a literal table list. A
+   policy table with no seeder and no `SKIPPED` entry fails the suite, naming the table.
+2. All five matrix conditions are asserted for every seeded table, via `checkIsolation`,
+   intersected with this suite's own seeded keys.
+3. **Proven non-vacuous, in the suite itself** (like `rls-coverage.test.ts`'s probe
+   tests): on a probe table created by the test with a correct `tenant_isolation` policy
+   plus ENABLE and FORCE, `checkIsolation` returns `[]`. After replacing the policy with
+   `USING (true)` it returns a cross-tenant violation. After dropping the policy it returns
+   an "A cannot see its own rows" violation. Drop the probe in `finally`.
+4. `SKIPPED` holds only tables that genuinely cannot be seeded, each with a one-line reason;
+   **target zero**. The turn-in lists every entry. A silently skipped table is the failure
+   this initiative keeps producing.
+5. The three rulings above are pinned by explicit assertions: NULL-tenant rows visible with
+   no GUC and invisible when tenant A is pinned, on all four nullable tables; one public
+   active workflow and its page/step visible with no GUC; the role is non-bypass and
+   non-super.
+6. Green in both modes: `npx vitest run --project integration tests/integration/rls10-policyIsolation.test.ts`,
+   and the same with `RLS_RESTRICTED=true`. `npm run test:rls-gate` stays green with
+   `.rls-allowlist.json` still empty. `npm run test:fast` is unchanged from baseline.
+7. Gates: `npx tsc --noEmit` clean, and
+   `npx eslint tests/integration/rls10-policyIsolation.test.ts --max-warnings 0 --report-unused-disable-directives`
+   clean.
+8. If the matrix finds a **real** isolation defect in a policy, stop and report it with the
+   table, the condition and the rows. Do **not** weaken the assertion, add a `SKIPPED`
+   entry for it, or write a migration. That is a finding for the reviewer.
 
 ### Ties
 
