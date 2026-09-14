@@ -10,7 +10,6 @@ import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
 import { adminAccessService } from "../services/AdminAccessService";
-import { adminUserService } from "../services/AdminUserService";
 import { adminOrgStatsService } from "../services/AdminOrgStatsService";
 import { mfaService } from "../services/MfaService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
@@ -129,7 +128,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(400).json({ message: "You cannot delete your own account" });
       }
 
-      await adminUserService.deleteUser(userId);
+      await adminAccessService.deleteUser(req.adminUser.id, userId, req.id);
       invalidateUserCache(userId);
 
       logger.info(
