@@ -434,8 +434,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    * Optimized to use a single query instead of fetching all workflows
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async getWorkflowStats(tx?: DbTransaction) {
-    const database = this.getDb(tx);
+  async getWorkflowStats(tx?: DbTransaction, adminDbOverride?: DrizzleDB) {
+    // See getUserStats: the admin console's BYPASSRLS handle (RLS-8).
+    const database = adminDbOverride ?? this.getDb(tx);
     const { systemStatsRepository } = await import("./SystemStatsRepository");
     const [stats, systemStats] = await Promise.all([
       database

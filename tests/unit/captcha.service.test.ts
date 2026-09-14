@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import { CaptchaService } from "../../server/services/CaptchaService";
 
@@ -21,10 +21,21 @@ describe("CaptchaService", () => {
       expect(parsed.answer).toBeUndefined();
       expect(typeof parsed.answerHash).toBe("string");
     });
-    it("should generate unique tokens for each challenge", () => {
-      const challenge1 = CaptchaService.generateSimpleChallenge();
-      const challenge2 = CaptchaService.generateSimpleChallenge();
-      expect(challenge1.token).not.toBe(challenge2.token);
+    it("should generate unique tokens for each challenge, even for the same sum in the same millisecond", () => {
+      // Pinned to the collision case. Left to chance, the two challenges only
+      // shared a sum and a millisecond ~1 run in 40 — and that is how this
+      // test used to fail CI intermittently, while the tokens really were equal.
+      const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const now = vi.spyOn(Date, "now").mockReturnValue(1_789_000_000_000);
+      try {
+        const challenge1 = CaptchaService.generateSimpleChallenge();
+        const challenge2 = CaptchaService.generateSimpleChallenge();
+        expect(challenge1.question).toBe(challenge2.question);
+        expect(challenge1.token).not.toBe(challenge2.token);
+      } finally {
+        random.mockRestore();
+        now.mockRestore();
+      }
     });
     it("should generate challenges with numbers between 10-50", () => {
       for (let i = 0; i < 10; i++) {

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { projects, users } from "@shared/schema";
+import { projects, users, workflows } from "@shared/schema";
 
 import { db } from "../db";
 import { adminDb, isAdminDbConfigured } from "../db/adminDb";
@@ -14,6 +14,7 @@ import {
   type AdminOrgStatsQueryRow,
 } from "../repositories/AdminOrgStatsRepository";
 import { isRlsEnforced, withTenant } from "../utils/rlsContext";
+import type { DbTransaction } from "../repositories/BaseRepository";
 import {
   userRepository,
   type UserRepository,
@@ -295,6 +296,120 @@ export class AdminAccessService {
       targetUserId: null,
       requestId: requestId ?? null,
     });
+  }
+
+  /**
+   * Resolve the tenant a user belongs to, reading cross-tenant. `null` is a
+   * real answer, not a miss: a placeholder or not-yet-assigned user has no
+   * tenant, and `users`' policy is NULL-safe for exactly that row shape.
+   */
+  private async resolveTenantForUser(userId: string): Promise<{ found: boolean; tenantId: string | null }> {
+    const database = this.adminDbOrUndefined() ?? db;
+    const [row] = await database
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return { found: row !== undefined, tenantId: row?.tenantId ?? null };
+  }
+
+  /**
+   * Run a write against one user, inside THAT user's tenant.
+   *
+   * Same read/write split as `deleteWorkflow`: the BYPASSRLS pool only
+   * resolves the target's tenant, and the write runs on the normal pool pinned
+   * to it, so `users`' policy still checks it. A tenant-less user is written
+   * with no tenant pinned: `users`' USING and WITH CHECK are both
+   * `tenant_id IS NOT DISTINCT FROM app_current_tenant()`, so with no GUC set
+   * exactly the NULL-tenant rows are writable — which is that user.
+   *
+   * RLS-8: these writes used to run unscoped straight from admin.routes. Under
+   * enforcement a user in any tenant was invisible to the UPDATE, so activate,
+   * deactivate and role changes all failed with "User not found".
+   */
+  private async writeUserInOwnTenant<T>(
+    targetUserId: string,
+    write: (tx?: DbTransaction) => Promise<T>,
+  ): Promise<{ result: T; tenantId: string | null }> {
+    const { found, tenantId } = await this.resolveTenantForUser(targetUserId);
+    if (!found) { throw new Error("User not found"); }
+    const result = tenantId != null
+      ? await withTenant(tenantId, (tx) => write(tx))
+      : await write();
+    return { result, tenantId };
+  }
+
+  /** Activate or deactivate any user. Backs `PUT /api/admin/users/:userId/active`. */
+  async setUserActive(actorUserId: string, targetUserId: string, isActive: boolean, requestId: string | undefined): Promise<User> {
+    const { result, tenantId } = await this.writeUserInOwnTenant(targetUserId,
+      (tx) => this.userRepo.updateIsActive(targetUserId, isActive, tx));
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.setActive",
+      targetTenantId: tenantId,
+      targetUserId,
+      requestId: requestId ?? null,
+    });
+    return result;
+  }
+
+  /** Change any user's system role. Backs `PUT /api/admin/users/:userId/role`. */
+  async setUserRole(actorUserId: string, targetUserId: string, role: "admin" | "creator", requestId: string | undefined): Promise<User> {
+    const { result, tenantId } = await this.writeUserInOwnTenant(targetUserId,
+      (tx) => this.userRepo.updateRole(targetUserId, role, tx));
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.setRole",
+      targetTenantId: tenantId,
+      targetUserId,
+      requestId: requestId ?? null,
+    });
+    return result;
+  }
+
+  /**
+   * Every workflow in the system. Backs `GET /api/admin/workflows`.
+   *
+   * RLS-8: this was the repository's plain `findAll` on the normal pool, which
+   * under enforcement returned only public + active workflows — a short list
+   * that looked complete.
+   */
+  async listAllWorkflows(actorUserId: string, requestId: string | undefined): Promise<Workflow[]> {
+    const database = this.adminDbOrUndefined() ?? db;
+    const all = await database.select().from(workflows);
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.workflows.listAll",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return all;
+  }
+
+  /**
+   * Platform-wide user and workflow counts. Backs `GET /api/admin/stats`.
+   *
+   * RLS-8: read on the normal pool, both counts silently excluded every
+   * tenant's rows under enforcement, so the dashboard reported ~0.
+   */
+  async getPlatformStats(actorUserId: string, requestId: string | undefined): Promise<{
+    userStats: Awaited<ReturnType<UserRepository['getUserStats']>>;
+    workflowStats: Awaited<ReturnType<WorkflowRepository['getWorkflowStats']>>;
+  }> {
+    const adminHandle = this.adminDbOrUndefined();
+    const [userStats, workflowStats] = await Promise.all([
+      this.userRepo.getUserStats(undefined, adminHandle),
+      this.workflowRepo.getWorkflowStats(undefined, adminHandle),
+    ]);
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.stats.read",
+      targetTenantId: null,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
+    return { userStats, workflowStats };
   }
 
   /** Every workflow attributable to one user, regardless of that user's tenant.

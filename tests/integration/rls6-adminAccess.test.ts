@@ -301,4 +301,87 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     `)));
     expect(ownerRows[0]?.tableowner).not.toBe(ADMIN_ROLE);
   });
+
+  // ---------------------------------------------------------------------------
+  // RLS-8: admin endpoints that used to run on the normal pool. Under
+  // enforcement each was silently wrong — writes to another tenant's user
+  // failed "User not found", and the all-workflows list and platform stats
+  // saw almost nothing. Each test targets a row in tenant B, which the admin
+  // (tenant A) cannot see on the normal pool.
+  // ---------------------------------------------------------------------------
+
+  describe("RLS-8: admin writes and platform-wide reads", () => {
+    const admin = () => ({
+      put: (url: string) => request(baseURL).put(url).set("Authorization", `Bearer ${adminToken}`),
+      get: (url: string) => request(baseURL).get(url).set("Authorization", `Bearer ${adminToken}`),
+    });
+
+    async function storedUser(id: string) {
+      const [row] = await getOwnerDb().select({ role: schema.users.role, isActive: schema.users.isActive })
+        .from(schema.users).where(eq(schema.users.id, id));
+      return row;
+    }
+
+    it("changes the system role of a user in another tenant", async () => {
+      try {
+        const res = await admin().put(`/api/admin/users/${userBId}/role`).send({ role: "admin" });
+        expect(res.status).toBe(200);
+        expect((await storedUser(userBId)).role).toBe("admin");
+      } finally {
+        // Restored directly, not via the API: demoting goes through the
+        // last-admin guard, which is not what this test is about.
+        await getOwnerDb().update(schema.users).set({ role: "creator" }).where(eq(schema.users.id, userBId));
+      }
+    });
+
+    it("deactivates and reactivates a user in another tenant", async () => {
+      const off = await admin().put(`/api/admin/users/${userBId}/active`).send({ isActive: false });
+      expect(off.status).toBe(200);
+      expect((await storedUser(userBId)).isActive).toBe(false);
+
+      const on = await admin().put(`/api/admin/users/${userBId}/active`).send({ isActive: true });
+      expect(on.status).toBe(200);
+      expect((await storedUser(userBId)).isActive).toBe(true);
+
+      const audited = rows(await getOwnerDb().execute(sql`
+        SELECT target_tenant_id FROM admin_access_log
+        WHERE actor_user_id = ${adminUserId} AND action = 'admin.user.setActive' AND target_user_id = ${userBId}
+      `));
+      expect(audited).toHaveLength(2);
+      expect(audited[0].target_tenant_id).toBe(tenantBId);
+    });
+
+    it("lists a private workflow from another tenant, and counts platform-wide", async () => {
+      const [project] = await getOwnerDb().insert(schema.projects).values({
+        title: `RLS-8 tenant B ${nanoid()}`,
+        name: `RLS-8 tenant B ${nanoid()}`,
+        tenantId: tenantBId,
+        creatorId: userBId,
+        ownerId: userBId,
+      }).returning();
+      const [privateWorkflow] = await getOwnerDb().insert(schema.workflows).values({
+        projectId: project.id,
+        title: "RLS-8 private tenant-B workflow",
+        status: "draft",
+        isPublic: false,
+        creatorId: userBId,
+        ownerId: userBId,
+      }).returning();
+
+      const list = await admin().get("/api/admin/workflows");
+      expect(list.status).toBe(200);
+      // Was public + active workflows only: a short list that looked complete.
+      const listed = (list.body as Array<{ id: string; creator: { id: string } }>)
+        .find((w) => w.id === privateWorkflow.id);
+      expect(listed?.creator.id).toBe(userBId);
+
+      const stats = await admin().get("/api/admin/stats");
+      expect(stats.status).toBe(200);
+      // Was ~0 for both: the counts saw only tenant-less rows.
+      // (`totalUsers` is a lifetime counter kept in `system_stats`, which has no
+      // policy, so it says nothing about RLS and is not asserted.)
+      expect(stats.body.adminUsers).toBeGreaterThanOrEqual(1);
+      expect(stats.body.draftWorkflows).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

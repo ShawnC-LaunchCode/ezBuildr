@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** three open — **RLS-4** (production — promoted 2026-09-12; only the role swap remains, rehearsed on a clone), **RLS-8**, **RLS-10** · RLS-9 ✅ · RLS-11 ✅ · **Updated:** 2026-09-12
+**Status:** one open — **RLS-4** (production CUT OVER 2026-09-13 15:33 UTC and **enforcing** — it connects as `ezbuildr_app`; only the owner's app-level checks remain) · RLS-8 ✅ (2026-09-13: 34 → 17 sites, all triaged) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -22,6 +22,11 @@
 | How the scope was bounded (retired plan) | [`backlog/ENVIRONMENTS_AND_RLS.md`](backlog/ENVIRONMENTS_AND_RLS.md) |
 
 ## Where enforcement actually stands
+
+> ✅ **UPDATE 2026-09-13 — production is enforcing.** All three environments now connect as
+> the non-owner `ezbuildr_app` with `RLS_ENFORCED=true`, against 38 policy tables that are
+> enabled AND forced. The table below is the 2026-08-25 correction, kept for its lesson; for
+> production's cutover record see RLS-4.
 
 > 🔴 **CORRECTED 2026-08-25. The previous version of this table said dev and
 > test were enforcing. They were not, and neither was anything else.**
@@ -68,7 +73,7 @@
 |---|---|---|---|
 | dev | `ezbuildr_app` | ✅ **2026-08-25** | 42 migrations, 37/37/37 after 0041. Verified live: register + create project + read back on the restricted role |
 | test | `ezbuildr_app` | ⚠️ **enforcing, no FORCE** | 37 migrations, 36/36 enabled. Was enforcing all along; 0041 adds FORCE via a `dev` → `test` promotion |
-| **production** | `neondb_owner` | ❌ **not enforcing** | 24 migrations, 9 RLS tables — needs a `test` → `main` PR first |
+| **production** | `ezbuildr_app` | ✅ **2026-09-13 15:33 UTC** | 50 migrations since PR #185; 38 policy tables, all enabled and forced. Cut over by the owner (RLS-4 cutover record). Re-measured 15:45Z: app pool `ezbuildr_app` ×3 (`rolsuper=f`, `rolbypassrls=f`, 0 memberships), deploy `a5e1e15f` healthy with no 5xx and no error-level logs |
 
 **What this changes.** Production is still the bulk of the remaining work, but
 the cutover procedure now needs a catalog check *before* the role swap (§4.0 of
@@ -153,7 +158,7 @@ Check that table before filing anything against this area.
 
 ---
 
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test DONE; production: promoted 2026-09-12, role swap remains (rehearsed)
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test + production CUT OVER (production 2026-09-13); owner's app-level checks pending
 
 ### Progress — 2026-08-22 · **dev is cut over and enforcing**
 
@@ -298,10 +303,47 @@ What the rehearsal deliberately does NOT prove — do not read more into it:
   tested over the MCP connection. It is not part of §2 and must not be run on production —
   see the runbook's §2 note on proving enforcement.
 
-**What remains is owner-only:** create the role on production with a password you
+**Pre-swap drift check, 2026-09-13 — production matches the migration chain exactly.**
+Compared read-only against a schema freshly built from migrations (local Postgres 16.12,
+production 17.10). Schema prefixes were stripped, because Postgres prints them for a
+non-`public` schema.
+
+| object | compared on | result |
+|---|---|---|
+| `tenant_isolation` policies | table, command, permissive, roles, and hashes of `USING` and `WITH CHECK` | **38 / 38 identical** |
+| RLS helper functions (`app_current_tenant`, `app_owner_tenant`, `app_datavault_{database,table,row}_tenant`) | volatility, `SECURITY DEFINER`, and a hash of the full definition | **5 / 5 identical** |
+
+So RLS-10's per-table isolation proof applies to production's current definitions, which
+have been enforced there since the 15:33 UTC cutover the same day.
+
+**Was owner-only — done 2026-09-13, see the cutover record below:** create the role on production with a password you
 generate (owner decision 2026-08-25), then set the four Railway variables in one change and
 redeploy (runbook §3). The runbook's own precondition — §6, understand the intermittent
 "Registration failed" before production — is still open.
+
+**✅ CUT OVER 2026-09-13, 15:33 UTC.** The owner ran the cutover script from their own
+terminal (runbook §2–§3 automated; it stops at the first failed check and never prints a
+secret — Claude's auto-mode classifier blocks production writes, so it could not):
+
+| step | result |
+|---|---|
+| role | `ezbuildr_app` created: `rolsuper=f`, `rolbypassrls=f`, 0 memberships |
+| pre-flight | 38 / 38 / 38 |
+| isolation, connected AS `ezbuildr_app` | no tenant → 0 projects; tenant pinned → its 4 projects, 0 from the other tenant |
+| variables, one change | `DATABASE_URL`=`ezbuildr_app`; `ADMIN_DATABASE_URL` and `MIGRATION_DATABASE_URL`=`neondb_owner`; `RLS_ENFORCED=true` |
+| deploy `a5e1e15f` (`681f8f76`) | migrations ran `using MIGRATION_DATABASE_URL`; boot log `Admin DB: initialized.`; `/health` healthy; no 5xx |
+| live connections | `ezbuildr_app` ×3 (app pool), `neondb_owner` ×4 (admin + migrations) |
+
+**Still owed — needs the owner's login:** the admin console must list **both** tenants (a short
+but plausible list means `ADMIN_DATABASE_URL` is not in effect), and one interview must run end
+to end with a generated document. The §6 "Registration failed" precondition was **accepted** by the
+owner on 2026-09-13 on the evidence in runbook §6 (133 silent CI runs), not closed. **Rollback** is
+unchanged: point `DATABASE_URL` back at the `ADMIN_DATABASE_URL` value, set `RLS_ENFORCED=false`,
+redeploy.
+
+**What this changes for everyone:** a query on a tenant table that runs outside a tenant
+transaction now returns **zero rows in production** instead of everything — the failure looks like
+missing data, not an error.
 
 **Priority: P0** · Size: S · **UNBLOCKED** — RLS-2, RLS-3, RLS-6 and RLS-7 all closed
 2026-08-22, and the admin-access path called out below was built. Gated now only on a
@@ -455,10 +497,48 @@ take the product down, and the blast radius is "every query returns zero rows".
 
 ---
 
-## RLS-8 — Close the 32 call sites that bypass tenant scoping 🔲 open
+## RLS-8 — Close the 32 call sites that bypass tenant scoping ✅ DONE 2026-09-13
 
 **Priority: P1** · Size: M · Files: see the audit output — run
 `npx tsx scripts/audit-rls-surface.ts`
+
+### ✅ What shipped — 2026-09-13
+
+Production began enforcing RLS the same day (RLS-4), which turned this from
+hygiene into live defects: an unscoped read of a covered table returns **zero
+rows, not an error**, so every one of these answered normally while doing
+nothing. The audit went from 34 sites to **17, every one triaged** in
+`.rls-surface-allowlist.json` as DELIBERATE or a verified FALSE POSITIVE.
+
+Real defects fixed, each with a test that fails on the old code under the RLS
+gate and passes on the new (`tests/integration/rls8-scopedPaths.test.ts`, the
+RLS-8 block of `rls6-adminAccess.test.ts`, `tests/unit/services/alerts.batchEvaluate.test.ts`):
+
+| Path | Was, under enforcement | Fix |
+|---|---|---|
+| Admin activate / deactivate / role change | "User not found" for any user in a tenant | `AdminAccessService.setUserActive/setUserRole`: resolve the target's tenant on the admin pool, write pinned to it |
+| Admin all-workflows list | public + active workflows only | `AdminAccessService.listAllWorkflows` on the admin pool |
+| Admin stats | ~0 users and workflows | `getPlatformStats` passes the admin handle to both counts |
+| SLI job (`computeAndSaveSLIs`) and alert batch | threw "no tenant in context" per row, swallowed | each row runs in `runWithTenantContext(row.tenant_id)` |
+| `/api/workflow-analytics/timeseries`, `/sli` | empty series, 0 runs, empty history | reads wrapped in `withCurrentTenant` |
+| Snapshot save-from-run / validate | saved `{}`; every snapshot "safe" | step joins wrapped in `withCurrentTenant` |
+| Tenant member-role change | 404 "User not found in this tenant" | UPDATE pinned to the URL's (validated) tenant |
+| Email verification | 200, but the flag never persisted for a user with a tenant | self-identification write (`findSelfUser`/`updateSelfUser`) |
+
+Also: `DatavaultDatabasesRepository` and `ReadTableBlockRunner` built their
+inlined subqueries on the pool (harmless, but unreadable to the audit and to
+people) — now on the caller's connection and a connection-less `QueryBuilder`;
+`BlockRunner.runPhaseWithTransaction` was dead code and is deleted.
+
+Found by the new tests, not by the audit: `SystemStatsRepository.getOrInitialize`
+raced itself — the stats endpoint initializes from two parallel reads, both
+inserted row 1, and the dashboard 500ed on any database with no stats row yet.
+Now `ON CONFLICT DO NOTHING`.
+
+**Follow-up, not done here:** the admin handlers the audit does not flag
+because they delegate to other services (`adminUserService.deleteUser`,
+`accountLockoutService`, `mfaService.adminResetMfa`, `workflowClonerService`)
+were not walked end to end under enforcement.
 
 ### Finding
 
@@ -568,10 +648,57 @@ in the same commit as each fix.
 
 ---
 
-## RLS-10 — Data-driven proof that every policy actually isolates 🔲 open
+## RLS-10 — Data-driven proof that every policy actually isolates ✅ DONE 2026-09-13
 
-**Priority: P2** · Size: S/M · Files: `tests/integration/rls-coverage.test.ts`
-or a sibling suite
+**Priority: P2** (the cheap check to run before the RLS-4 production role swap) · Size: M · Files: **new**
+`tests/integration/rls10-policyIsolation.test.ts` only. No server code, no migrations.
+
+### ✅ Verified 2026-09-13 (reviewer)
+
+**Shipped:** one suite, 44 tests.
+- It enumerates **38 policy tables** from `pg_policies` and seeds all 38, so `SKIPPED = {}`.
+- Each table runs the five-condition matrix.
+- Two more tests cover coverage: every table must have a seeder, and `SKIPPED` must stay empty.
+- An in-suite probe proves the check is non-vacuous. The three rulings are pinned.
+
+**No isolation defect was found** in any of the 38 policies.
+
+**Reviewer mutations against real tables** (the gate's own probe is not enough on its own):
+
+| mutation | result |
+|---|---|
+| `collections` policy → `USING (true)` | 🔴 no-GUC visibility and a cross-tenant leak, both directions |
+| `datavault_values` policy dropped (derived table) | 🔴 each tenant loses its own rows |
+| `code_block_runs` keeps the parent join, loses the tenant check | 🔴 leak |
+| `teams` + `OR current_setting('app.current_tenant_id', true) IS NULL` | 🟢 **passed the dev's version** → fixed at review, now 🔴 |
+
+**Fixed at review (reviewer-fix path):** the "no tenant GUC" condition reused one restricted
+connection. Once a transaction has touched the GUC, Postgres reads it back as `''`, not unset.
+So after the first table, "unset" was a second copy of the empty-string check, and a policy
+that opened only when the setting was truly unset passed (row 4 above). Condition 1 and the
+two ruling tests now use a fresh connection. The reviewer also added a guard so an empty seeded
+set throws rather than passing vacuously.
+
+**Gates:**
+
+| gate | result |
+|---|---|
+| file, normal mode | 44/44 |
+| file, `RLS_RESTRICTED=true` | 44/44 |
+| `npm run test:rls-gate` | 152/152 files, 1442 tests, 0 failing, allowlist empty |
+| `test:fast` | 340 / 3906 (unchanged) |
+| `tsc` | 0 errors |
+| scoped eslint | clean |
+
+**What it does not prove:** like `rls-coverage.test.ts`, it runs against a schema freshly built
+from the migration chain. It says nothing about whether a long-lived environment's policy
+*definitions* have drifted from that chain, which is the shape of the 2026-08-25 defect. **Done for
+production 2026-09-13:** all 38 policies and all 5 RLS helper functions are identical to a
+migration-built schema. See RLS-4's pre-swap drift check.
+
+**Observation (not a ticket):** `TestFactory.createTable` omits `tenantId`, although
+`datavault_tables.tenant_id` is NOT NULL, so every caller has to pass `{ tenantId }` in
+`overrides`. The fix is one line in `tests/helpers/testFactory.ts`.
 
 ### Finding
 
@@ -585,27 +712,113 @@ subset of tables, chosen by whoever wrote them. There is no table-driven proof.
 ### Preferred fix
 
 One suite that enumerates covered tables from `pg_policies` — not a hand-written
-list, which is the mistake migrations 0001/0011/0024 each made in turn — and for
-each asserts, as a non-owner role:
+list, which is the mistake migrations 0001/0011/0024 each made in turn — and
+asserts isolation for each one as a non-owner role. New covered tables are then
+included automatically, which is the property that makes this worth writing.
 
-| condition | expected |
+#### Re-audit, 2026-09-13: what the policies actually look like
+
+Measured on the dev Neon branch (`pg_policies`, 38 tables, all enabled and forced).
+The original four-row table below assumed every policy is `tenant_id = GUC`. **They
+are not**, and a dev who writes the naive version will hit three false failures:
+
+| shape | tables | how the tenant is found |
+|---|---|---|
+| **direct** — `NOT (tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)` | 24 incl. `ai_usage`, `audit_logs`, `collections`, `records`, `teams`, `metrics_*`, `sli_*`, `run_resume_links`, `run_document_deliveries`, `workflow_blueprints`, `datavault_databases`/`_tables`/`_api_tokens`/`_row_notes`/`_number_sequences` | the row's own `tenant_id` |
+| **derived** — no `tenant_id` column | `datavault_columns`, `_rows`, `_values`, `_unique_keys`, `_table_access`, `_table_permissions`, `_database_access` (via `app_datavault_*_tenant(...)`); `code_block_runs` (run → workflow); `workflows`, `pages`, `sections`, `steps` (via `app_owner_tenant(...)` on the workflow) | a parent row |
+| **bootstrap disjuncts** (an extra `OR` that opens one row by id/token) | `users` (`app.current_user_id`, `app.current_login_email`), `projects` (`app.current_project_id`), `organizations` (`app.current_org_id`), `connections` (`app.current_connection_id`), `workflows` (`app.current_workflow_id`), `signature_requests` (`app.current_signing_token`, `app.current_envelope_id`), `tenant_domains` (verified domain = `app.current_branding_domain`) | as direct/derived, plus the disjunct |
+
+Three behaviours are **deliberate rulings**, not leaks. Pin each with an assertion and a
+comment citing its source; do not "fix" them:
+
+1. **NULL-tenant rows are visible when no tenant is pinned.** `IS NOT DISTINCT FROM` is
+   migration `0027_rls_null_tenant_isolation.sql` — the registration/bootstrap case. A
+   NULL-tenant row must still be **invisible** once any real tenant is pinned. Only four
+   covered tables allow NULL `tenant_id`: `audit_logs`, `projects`, `users`,
+   `workflow_blueprints`.
+2. **`workflows` with `is_public = true AND status = 'active'` — and their `pages`,
+   `sections`, `steps` — are visible with no tenant pinned.** That is the anonymous
+   public-link runner. Seed the isolation fixtures as **private** workflows so this escape
+   does not apply, and pin the escape separately with one public active workflow.
+3. **Bootstrap GUCs are out of scope** for the matrix. They are transaction-local and
+   unset on a fresh transaction; the suite must not set them. (Proving each one opens
+   exactly its one row is a possible follow-up — record it as an observation, don't build it.)
+
+#### The matrix — per table, as the restricted role, each in its own transaction
+
+`seededA` / `seededB` are the primary keys of the rows **this suite** seeded for tenant
+A / B. Always intersect with them: other files in the same worker schema leave rows
+behind, so "count(*) = 0" is wrong.
+
+| condition (set with `set_config(..., true)` inside `BEGIN`) | expected |
 |---|---|
-| no tenant GUC | 0 rows |
-| GUC = `''` (the empty-string trap) | 0 rows |
-| GUC = tenant A | only tenant A's rows |
-| GUC = tenant B | 0 of tenant A's rows |
+| no tenant GUC | `visible ∩ (seededA ∪ seededB) = ∅` |
+| GUC = `''` (the empty-string trap) | same |
+| GUC = tenant A | `visible ⊇ seededA` **and** `visible ∩ seededB = ∅` |
+| GUC = tenant B | `visible ⊇ seededB` **and** `visible ∩ seededA = ∅` |
+| GUC = tenant A, `UPDATE t SET <pk> = <pk> WHERE <pk> = ANY(seededB)` | 0 rows affected (then `ROLLBACK`) |
 
-New covered tables are then included automatically, which is the property that
-makes this worth writing at all.
+The `visible ⊇ seededA` half is what catches a policy that is dropped or over-strict —
+FORCE with no policy is default-deny, which a "sees nothing foreign" check alone would
+pass. Resolve the primary-key column(s) from the catalog (`pg_index.indisprimary`), not
+by assuming `id`.
+
+#### Shape of the implementation
+
+- **One exported-in-file function** `checkIsolation(table, seededA, seededB): Promise<string[]>`
+  returning violation messages, not calling `expect` itself. The per-table tests
+  `expect(violations).toEqual([])`; the non-vacuity tests (AC 3) need to call it and see
+  violations come back.
+- **Seeding:** a `SEEDERS: Record<string, (tenant) => Promise<Row[]>>` map, run as the
+  owner (`getOwnerDb()`, which bypasses RLS). Reuse `TestFactory`
+  (`tests/helpers/testFactory.ts`: `createTenant`, `createWorkflow`, `createPage`,
+  `createStep`, `createDatabase`, `createTable`, `createCollection`) wherever it covers a
+  table, and plain drizzle inserts from `shared/schema` for the rest. Seed at least one
+  row per tenant per table.
+- **Coverage is driven by the catalog, not the map.** The suite enumerates
+  `pg_policies`; a table with neither a seeder nor an entry in
+  `SKIPPED: Record<string, string /* reason */>` **fails** with a message naming it. That
+  is AC 1 and AC 4 together: the map says *how* to seed, the catalog says *what must be
+  covered*, and a new policy table turns the suite red until someone handles it.
+- **The restricted role:** copy `connectAsAppRole()` from
+  `tests/integration/rls4-forceEnforcement.test.ts`, but with its **own** role name
+  (`rls10_app_role`) so it cannot race that file's `ALTER ROLE`. Wrap the role
+  provisioning in the retry that `tests/setup.ts` uses (`isConcurrentRoleWrite`: codes
+  `XX000` "tuple concurrently updated", `23505`, `42710`). Concurrent `ALTER ROLE` on one
+  role was RLS-11 cause 5, and it failed a random file per run. Assert the role is
+  `rolbypassrls = false` and `rolsuper = false` in `beforeAll`, or the suite passes for the
+  wrong reason.
+- The suite must pass in **both** modes: plain `test:integration` and under
+  `RLS_RESTRICTED=true` (the gate). It uses its own raw connection, so the app pool's role
+  doesn't matter, but prove it.
 
 ### Acceptance criteria
 
-1. Enumerated from the catalog, never a literal table list.
-2. All four conditions asserted per table.
-3. **Proven non-vacuous**: drop one policy, confirm that table fails; restore.
-4. Tables needing fixtures in two tenants are seeded generically, or skipped
-   with an explicit recorded reason — a silently skipped table is the failure
-   mode this whole initiative keeps producing.
+1. Tables are enumerated from `pg_policies` at runtime, never from a literal table list. A
+   policy table with no seeder and no `SKIPPED` entry fails the suite, naming the table.
+2. All five matrix conditions are asserted for every seeded table, via `checkIsolation`,
+   intersected with this suite's own seeded keys.
+3. **Proven non-vacuous, in the suite itself** (like `rls-coverage.test.ts`'s probe
+   tests): on a probe table created by the test with a correct `tenant_isolation` policy
+   plus ENABLE and FORCE, `checkIsolation` returns `[]`. After replacing the policy with
+   `USING (true)` it returns a cross-tenant violation. After dropping the policy it returns
+   an "A cannot see its own rows" violation. Drop the probe in `finally`.
+4. `SKIPPED` holds only tables that genuinely cannot be seeded, each with a one-line reason;
+   **target zero**. The turn-in lists every entry. A silently skipped table is the failure
+   this initiative keeps producing.
+5. The three rulings above are pinned by explicit assertions: NULL-tenant rows visible with
+   no GUC and invisible when tenant A is pinned, on all four nullable tables; one public
+   active workflow and its page/step visible with no GUC; the role is non-bypass and
+   non-super.
+6. Green in both modes: `npx vitest run --project integration tests/integration/rls10-policyIsolation.test.ts`,
+   and the same with `RLS_RESTRICTED=true`. `npm run test:rls-gate` stays green with
+   `.rls-allowlist.json` still empty. `npm run test:fast` is unchanged from baseline.
+7. Gates: `npx tsc --noEmit` clean, and
+   `npx eslint tests/integration/rls10-policyIsolation.test.ts --max-warnings 0 --report-unused-disable-directives`
+   clean.
+8. If the matrix finds a **real** isolation defect in a policy, stop and report it with the
+   table, the condition and the rows. Do **not** weaken the assertion, add a `SKIPPED`
+   entry for it, or write a migration. That is a finding for the reviewer.
 
 ### Ties
 
@@ -956,7 +1169,7 @@ RLS-5     gate: full integration as the restricted role
 added 2026-08-25, after 0041 found the policies were defined but inert:
 RLS-8     close the 32 unscoped call sites        ─┐ 8 before 9, or the
 RLS-9  ✅ surface audit into CI, two-way ratchet  ─┘ done 2026-08-25
-RLS-10    data-driven per-table isolation proof     (independent of both)
+RLS-10 ✅ data-driven per-table isolation proof     done 2026-09-13
 
 added 2026-09-06, after the gate was found red for 9 days:
 RLS-11    repair the enforcement gate               (P0 — two causes look live in dev)

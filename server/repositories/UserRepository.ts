@@ -256,8 +256,10 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Optimized to use a single query instead of fetching all users
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async getUserStats(tx?: DbTransaction) {
-    const database = this.getDb(tx);
+  async getUserStats(tx?: DbTransaction, adminDbOverride?: DrizzleDB) {
+    // `adminDbOverride`: the admin console's BYPASSRLS handle (RLS-8), passed in
+    // by AdminAccessService — the only code allowed to hold it.
+    const database = adminDbOverride ?? this.getDb(tx);
     const { systemStatsRepository } = await import("./SystemStatsRepository");
 
     // Run queries in parallel

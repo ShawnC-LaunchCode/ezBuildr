@@ -42,19 +42,23 @@ export class DatavaultDatabasesRepository {
     // pool query inside the caller's transaction deadlocks the size-1 test pool.
     const { orgIds } = await getAccessibleOwnershipFilter(userId, tx);
 
+    // The subqueries below are inlined into the outer query, so they always run
+    // on whatever connection runs it. Building them on `conn` just makes that
+    // visible — the RLS surface audit reads text, and building these on the pool
+    // used to count as four unscoped queries that never actually ran on their own.
     // 1. Get projects user has access to
-    const sharedProjectIds = db
+    const sharedProjectIds = conn
       .select({ id: projectAccess.projectId })
       .from(projectAccess)
       .where(eq(projectAccess.principalId, userId));
 
     // 2. Get workflows user has access to
-    const sharedWorkflowIds = db
+    const sharedWorkflowIds = conn
       .select({ id: workflowAccess.workflowId })
       .from(workflowAccess)
       .where(eq(workflowAccess.principalId, userId));
 
-    const sharedDatabaseIds = db
+    const sharedDatabaseIds = conn
       .select({ id: datavaultDatabaseAccess.databaseId })
       .from(datavaultDatabaseAccess)
       .where(
@@ -67,7 +71,7 @@ export class DatavaultDatabasesRepository {
             eq(datavaultDatabaseAccess.principalType, "team"),
             inArray(
               datavaultDatabaseAccess.principalId,
-              db
+              conn
                 .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
                 .from(teamMembers)
                 .where(eq(teamMembers.userId, userId))
@@ -86,7 +90,7 @@ export class DatavaultDatabasesRepository {
         or(
           inArray(
             datavaultDatabases.scopeId,
-            db.select({ id: projects.id }).from(projects).where(
+            conn.select({ id: projects.id }).from(projects).where(
               or(
                 eq(projects.ownerId, userId), // Legacy
                 eq(projects.createdBy, userId), // Legacy
@@ -105,7 +109,7 @@ export class DatavaultDatabasesRepository {
         or(
           inArray(
             datavaultDatabases.scopeId,
-            db.select({ id: workflows.id }).from(workflows).where(
+            conn.select({ id: workflows.id }).from(workflows).where(
               or(
                 eq(workflows.creatorId, userId), // Legacy
                 eq(workflows.ownerId, userId), // Legacy

@@ -7,7 +7,6 @@ import type {
 } from "@shared/types/blocks";
 import type { LifecycleHookPhase } from "@shared/types/scripting";
 
-import { db } from "../db";
 import { logger } from "../logger";
 
 import { analyticsService } from "./analytics/AnalyticsService";
@@ -76,45 +75,12 @@ export class BlockRunner {
   }
 
   /**
-   * Run all blocks for a given phase WITH TRANSACTION WRAPPER
-   * Execution order: lifecycle hooks → generic blocks
-   *
-   * TRANSACTION FIX: All write operations within this phase are wrapped in a single database
-   * transaction. If any block fails, all previous writes are rolled back atomically.
-   * Use this for critical workflows where data consistency is essential.
-   *
-   * NOTE: External side effects (HTTP calls, emails, external APIs) cannot be rolled back
-   * by database transactions. Design your workflows accordingly.
-   */
-  // ⚠️ DEAD CODE, and it must not be revived as-is (checked 2026-08-21: no
-  // caller anywhere in server/ or tests/).
-  //
-  // Two things are wrong with it now. It opens a bare `db.transaction`, so
-  // every covered table written inside is unscoped under enforcement — and
-  // worse, the block runners it dispatches to resolve their own tenant and
-  // open their OWN `withTenant` transaction (see WriteRunner). Nesting one
-  // inside this transaction is the SystemStats deadlock class: against the
-  // size-1 test pool the inner transaction waits forever for a connection the
-  // outer one is holding, and it HANGS rather than failing.
-  //
-  // If cross-block atomicity is ever wanted, the transaction has to be opened
-  // with `withCurrentTenant` here AND threaded into the runners so they reuse
-  // it instead of opening their own.
-  async runPhaseWithTransaction(context: BlockContext): Promise<BlockResult> {
-    return db.transaction(async (tx) => {
-      // Execute the phase with transaction context
-      return this.runPhase(context, tx);
-    });
-  }
-
-  /**
    * Run all blocks for a given phase
    * Execution order: lifecycle hooks → generic blocks
    * Returns combined result from all blocks
    *
    * NOTE: Individual write operations use transactions (see WriteRunner), but cross-block
    * operations are not wrapped in a single transaction by default. Each block commits independently.
-   * Use runPhaseWithTransaction() for atomic cross-block operations.
    *
    * @param context - Block execution context
    * @param tx - Optional database transaction (for atomic cross-block operations)

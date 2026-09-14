@@ -4,12 +4,11 @@
  */
 
 import { and, asc, desc, eq, exists, inArray, isNull, not, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { alias, QueryBuilder } from "drizzle-orm/pg-core";
 
 import { datavaultRows, datavaultValues } from "@shared/schema";
 import type { DatavaultColumn } from "@shared/schema";
 
-import { db } from "../../db";
 import { logger } from "../../logger";
 import { stepValueRepository, datavaultColumnsRepository } from "../../repositories";
 import { runWithTenantContext, withTenant, withVerifiedIdentifier } from "../../utils/rlsContext";
@@ -19,6 +18,14 @@ import { BaseBlockRunner } from "./BaseBlockRunner";
 import type { BlockContext, BlockResult, Block, ReadTableConfig, ReadTableOperator } from "./types";
 
 import type { SQL, SQLWrapper } from "drizzle-orm";
+
+/**
+ * Builds the correlated `exists(...)` filter subqueries. They are inlined into
+ * the tenant-scoped outer queries, so they must not be tied to any connection.
+ * A connection-less builder says so in code; building them on the pool read
+ * (to people and to the RLS surface audit alike) as a bare-pool query (RLS-8).
+ */
+const subqueries = new QueryBuilder();
 
 type ReadTableQueryFilter = {
   columnId: string;
@@ -356,7 +363,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
 
       if (filter.operator === 'is_empty') {
         whereConditions.push(not(exists(
-          db.select({ one: sql`1` })
+          subqueries.select({ one: sql`1` })
             .from(valueAlias)
             .where(and(correlation, nonEmptyValue(valueAlias.value)))
         )));
@@ -366,7 +373,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
       const valueCondition = buildValueCondition(valueAlias.value, filter);
       if (valueCondition) {
         whereConditions.push(exists(
-          db.select({ one: sql`1` })
+          subqueries.select({ one: sql`1` })
             .from(valueAlias)
             .where(and(correlation, valueCondition))
         ));
@@ -414,8 +421,9 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
     // every Read Table block returned an EMPTY list rather than an error, which
     // in a workflow reads as "the table has no matching rows". The scanner could
     // not see it: `await db` sits on its own line, which its single-line
-    // `db.select(` pattern missed. The `exists(...)` subqueries above need no
-    // scoping of their own — they are inlined into these outer queries.
+    // single-line pattern missed. The `exists(...)` subqueries above need no
+    // scoping of their own — they are inlined into these outer queries, and are
+    // built on the connection-less `subqueries` builder for exactly that reason.
     const values = await withTenant(params.tenantId, (tx) => tx
       .select({
         rowId: datavaultValues.rowId,
