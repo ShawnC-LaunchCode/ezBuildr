@@ -259,4 +259,35 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
       expect(mocks.updateGenerationStatus).toHaveBeenLastCalledWith(RUN_ID, 'done');
     },
   );
+
+  // 2026-09-14: a production run whose only template failed every tag was
+  // marked 'done' with zero documents, and the respondent was told nothing.
+  describe('when documents fail to render', () => {
+    const failure = { alias: 'contract', error: 'Failed to generate document for "contract"' };
+
+    it('every document failed: the run is marked failed, not done, and nothing downstream runs', async () => {
+      mocks.render.mockResolvedValue({ documents: [], skipped: [], failed: [failure], totalGenerated: 0, isArchived: false });
+
+      const result = await makeService().generateDocuments(RUN_ID);
+
+      expect(result.success).toBe(false);
+      expect(result.failed).toEqual([failure]); // the reason reaches the caller, not just the log
+      expect(mocks.updateGenerationStatus).toHaveBeenLastCalledWith(RUN_ID, 'failed:Documents could not be generated');
+      expect(mocks.updateGenerationStatus).not.toHaveBeenCalledWith(RUN_ID, 'done');
+      expect(mocks.createDocument).not.toHaveBeenCalled();
+      expect(mocks.events).not.toContain('hook:afterDocumentsGenerated');
+    });
+
+    it('some documents failed: the ones that rendered are still delivered', async () => {
+      mocks.render.mockResolvedValue({
+        documents: [generatedDocument], skipped: [], failed: [failure], totalGenerated: 1, isArchived: false,
+      });
+
+      const result = await makeService().generateDocuments(RUN_ID);
+
+      expect(result).toEqual(expect.objectContaining({ success: true, documentsGenerated: 1, failed: [failure] }));
+      expect(mocks.createDocument).toHaveBeenCalledTimes(1);
+      expect(mocks.updateGenerationStatus).toHaveBeenLastCalledWith(RUN_ID, 'done');
+    });
+  });
 });

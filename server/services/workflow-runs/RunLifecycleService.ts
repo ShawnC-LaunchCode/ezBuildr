@@ -675,7 +675,39 @@ export class RunLifecycleService {
         }
       }
 
-      logger.info({ runId, totalGenerated }, 'Documents generated successfully');
+      if (failed.length > 0) {
+        // A document that failed to render must never read as success. Before
+        // this, every per-document failure was collected, logged, and then the
+        // run was marked 'done' — so on 2026-09-14 a production run whose only
+        // template had 144 uncompilable tags "completed" with zero documents
+        // and the respondent was told nothing.
+        // Alias + message only: each entry's `details` repeats the renderer's
+        // full error, which the engine has already logged once per document.
+        const failedSummary = failed.map((entry) => {
+          const { alias, error } = entry as { alias?: string; error?: string };
+          return { alias, error };
+        });
+        logger.error({ runId, totalGenerated, failed: failedSummary }, 'Some documents could not be generated');
+        if (totalGenerated === 0) {
+          // Nothing to deliver. 'failed:<reason>' is what the runner shows the
+          // respondent; the per-document `failed` details still go back to the
+          // caller (the manual-regenerate route, the completion worker), which
+          // throwing here would discard.
+          await workflowRunRepository.updateGenerationStatus(runId, 'failed:Documents could not be generated');
+          return {
+            success: false,
+            documentsGenerated: 0,
+            documents,
+            skipped,
+            failed,
+            isArchived,
+            errors: failedSummary.map((f) => f.error ?? 'Document could not be generated'),
+          };
+        }
+        // Partial: the documents that did render still reach the respondent.
+      } else {
+        logger.info({ runId, totalGenerated }, 'Documents generated successfully');
+      }
 
       // SCRIPT-1: afterDocumentsGenerated lifecycle hooks. Like beforeFinalBlock,
       // this phase was selectable in the builder but never invoked. It fires once
