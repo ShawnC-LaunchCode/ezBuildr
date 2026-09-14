@@ -1,6 +1,7 @@
 
 import { Check, Copy, ExternalLink, Eye } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ interface PublishingSettingsCardProps {
     requireLogin: boolean;
     setRequireLogin: (value: boolean) => void;
     shareableLink: string;
+    /** `status === 'active'`. Only a published workflow's link works for participants. */
+    isPublished: boolean;
     linkCopied: boolean;
     onCopyLink: () => void;
 }
@@ -25,6 +28,7 @@ export function PublishingSettingsCard({
     requireLogin,
     setRequireLogin,
     shareableLink,
+    isPublished,
     linkCopied,
     onCopyLink
 }: PublishingSettingsCardProps) {
@@ -75,7 +79,17 @@ export function PublishingSettingsCard({
                         <Separator />
 
                         <div className="space-y-2">
-                            <Label>Shareable Link</Label>
+                            <div className="flex items-center justify-between gap-2">
+                                <Label>Shareable Link</Label>
+                                {/* A draft's link answers "Workflow not found" to
+                                    everyone but its signed-in creator, so say so
+                                    before someone sends it out. */}
+                                {!isPublished && (
+                                    <Badge variant="outline" className="font-normal text-muted-foreground">
+                                        Not live yet
+                                    </Badge>
+                                )}
+                            </div>
                             <div className="flex gap-2">
                                 <Input
                                     value={shareableLink}
@@ -137,9 +151,11 @@ export function PublishingSettingsCard({
                                 </Tooltip>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                {shareableLink
-                                    ? "Share this link with participants, or open it to fill the workflow out yourself"
-                                    : "Save settings to generate the participant link"}
+                                {!shareableLink
+                                    ? "Save settings to generate the participant link"
+                                    : isPublished
+                                        ? "Share this link with participants, or open it to fill the workflow out yourself"
+                                        : "Goes live when you publish from the Review tab. Until then, only you can open it, while signed in."}
                             </p>
                         </div>
                     </>
