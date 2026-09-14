@@ -1,8 +1,13 @@
 import { logger } from '../logger';
 
-/** The one part of a pg / Neon pool this needs: both are EventEmitters. */
+interface ErrorEmittingClient {
+  on(event: 'error', listener: (err: Error) => void): unknown;
+}
+
+/** The part of a pg / Neon pool this needs: both are EventEmitters. */
 interface ErrorEmittingPool {
   on(event: 'error', listener: (err: Error) => void): unknown;
+  on(event: 'connect', listener: (client: ErrorEmittingClient) => void): unknown;
 }
 
 /**
@@ -22,5 +27,19 @@ interface ErrorEmittingPool {
 export function handlePoolErrors(pool: ErrorEmittingPool, poolName: string): void {
   pool.on('error', (err: Error) => {
     logger.error({ err, pool: poolName }, 'Postgres pool: an idle connection was dropped; it will be replaced on next use');
+  });
+
+  // The pool only forwards errors from connections sitting IDLE in it. A
+  // connection that is checked out — a transaction holds one for its whole
+  // duration — emits a drop on the CLIENT, and with no listener there Node
+  // throws and the process dies the same way ("Emitted 'error' event on Client
+  // instance", seen 2026-09-14 after the pool listener above was added).
+  // 'connect' fires once per new connection, so this listener stays with it
+  // whether idle or checked out. The query or transaction using it still fails
+  // normally, and the broken connection is discarded when it is released.
+  pool.on('connect', (client: ErrorEmittingClient) => {
+    client.on('error', (err: Error) => {
+      logger.error({ err, pool: poolName }, 'Postgres connection dropped while checked out; the query using it will fail and it will be discarded');
+    });
   });
 }

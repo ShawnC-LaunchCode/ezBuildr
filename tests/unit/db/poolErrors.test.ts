@@ -76,6 +76,22 @@ describe('Postgres pool error handling', () => {
     expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ err: DROPPED, pool: 'app' }), expect.any(String));
   });
 
+  it('a connection dropped while CHECKED OUT is handled too, not just an idle one', async () => {
+    // The pool forwards errors only from idle connections; a checked-out one
+    // (held by a transaction) emits on the client itself. That is the crash
+    // the pool-level listener alone did not stop.
+    const { EventEmitter } = await import('node:events');
+    const { handlePoolErrors } = await import('../../../server/db/poolErrors');
+    const pool = new EventEmitter();
+    handlePoolErrors(pool, 'app');
+
+    const client = new EventEmitter();
+    pool.emit('connect', client); // pg-pool emits this once per new connection
+
+    expect(client.listenerCount('error')).toBe(1);
+    expect(() => client.emit('error', DROPPED)).not.toThrow();
+  });
+
   it('initializeDatabase attaches the handler to the app pool', async () => {
     process.env.DATABASE_URL = LOCAL_URL;
     const { initializeDatabase, closeDatabase } = await import('../../../server/db');
