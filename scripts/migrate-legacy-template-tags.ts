@@ -59,12 +59,6 @@ async function rollback(reportPath: string): Promise<void> {
 }
 
 async function migrate(apply: boolean): Promise<void> {
-  const versionRefs = await db.select({ ref: templateVersions.fileRef }).from(templateVersions);
-  if (versionRefs.length > 0) {
-    // Versions pin their own file_ref; repointing only `templates` would leave them stale.
-    throw new Error(`${versionRefs.length} template_versions row(s) exist — extend this script to repoint them before applying.`);
-  }
-
   const rows = await db.select({ id: templates.id, fileRef: templates.fileRef, name: templates.name }).from(templates);
   const byRef = new Map<string, string[]>();
   for (const row of rows) {
@@ -100,6 +94,21 @@ async function migrate(apply: boolean): Promise<void> {
   }
 
   console.log(`\n${planned.length} to convert, ${clean} already clean, ${missing} missing, ${blocked} blocked.`);
+
+  // A template version pins its own file_ref, so repointing only `templates`
+  // would leave a version of a converted file on the unconverted one. Only
+  // versions of files THIS run would convert matter: dev had 2 versions of
+  // unrelated templates, and refusing on any version at all aborted even the
+  // dry run there.
+  const pinnedVersions = planned.length > 0
+    ? await db.select({ ref: templateVersions.fileRef }).from(templateVersions)
+      .where(inArray(templateVersions.fileRef, planned.map((p) => p.oldRef)))
+    : [];
+  if (pinnedVersions.length > 0) {
+    const message = `${pinnedVersions.length} template_versions row(s) pin a file this would convert — extend this script to repoint them`;
+    if (apply) { throw new Error(`${message} before applying.`); }
+    console.log(`WARNING: ${message}.`);
+  }
   if (!apply || planned.length === 0) {
     if (!apply) { console.log('Dry run: nothing written. Re-run with --apply.'); }
     return;
