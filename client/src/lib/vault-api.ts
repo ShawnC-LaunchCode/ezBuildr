@@ -12,6 +12,7 @@ import type { ResolvedBranding } from '@shared/types/branding';
 import type { ConditionExpression } from '@shared/types/conditions';
 
 import { getRunToken } from './runTokens';
+import { refreshSession } from './sessionRefresh';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
@@ -29,10 +30,6 @@ export class FetchApiError extends Error {
     this.name = "FetchApiError";
     this.status = status;
   }
-}
-
-interface RefreshTokenResponse {
-  token?: string;
 }
 
 // Global Access Token (Memory Only)
@@ -106,6 +103,31 @@ export function getAuthHeaders(): Record<string, string> {
 
   return headers;
 }
+/**
+ * The token to retry a 401 with, or null if the session cannot be renewed.
+ *
+ * If another request already renewed the session while this one was in flight,
+ * that token is used as-is: refreshing again is never free here, because two
+ * refreshes sent with the same cookie sign the user out everywhere (see
+ * sessionRefresh.ts).
+ */
+async function renewAccessToken(sentAuthorization: string | undefined): Promise<string | null> {
+  if (globalAccessToken !== null && `Bearer ${globalAccessToken}` !== sentAuthorization) {
+    return globalAccessToken;
+  }
+  try {
+    const refreshed = await refreshSession();
+    const renewedToken = refreshed.body?.token;
+    if (refreshed.ok && typeof renewedToken === "string" && renewedToken.length > 0) {
+      setAccessToken(renewedToken);
+      return renewedToken;
+    }
+  } catch {
+    // Refresh failed; the caller throws the original 401.
+  }
+  return null;
+}
+
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -140,26 +162,16 @@ export async function fetchAPI<T>(
     headers,
     credentials: "include", // Include cookies for auth
   });
-  // Handle 401 (Unauthorized) - Attempt Refresh
+  // Handle 401 (Unauthorized): renew the session once, then retry.
   if (response.status === 401 && !isRunEndpoint && !endpoint.includes('/api/auth/login')) {
-    // Try to refresh token
-    try {
-      const refreshRes = await fetch(`${API_BASE}/api/auth/refresh-token`, { method: 'POST', credentials: 'include' });
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json() as RefreshTokenResponse;
-        if (refreshData.token !== undefined && refreshData.token !== null) {
-          setAccessToken(refreshData.token);
-          headers["Authorization"] = `Bearer ${refreshData.token}`;
-        }
-        // Retry original request
-        response = await fetch(url, {
-          ...options,
-          headers, // Updated with new token if available
-          credentials: "include",
-        });
-      }
-    } catch (err) {
-      // Refresh failed, proceed to throw error
+    const freshToken = await renewAccessToken(headers["Authorization"]);
+    if (freshToken !== null) {
+      headers["Authorization"] = `Bearer ${freshToken}`;
+      response = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
     }
   }
   if (!response.ok) {

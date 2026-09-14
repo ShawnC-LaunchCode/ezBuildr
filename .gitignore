@@ -75,3 +75,6 @@ tools/skill-trigger-eval/results/
 
 # RLS-5 gate output (scripts/rls-gate.ts) — a run artifact, never committed.
 rls-gate-results.json
+
+# Rollback reports from scripts/migrate-legacy-template-tags.ts (keep them locally, never commit)
+template-tag-migration-*.json

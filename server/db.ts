@@ -11,6 +11,8 @@ import type { NeonDatabase } from 'drizzle-orm/neon-serverless';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool, PoolClient } from 'pg';
 
+import { handlePoolErrors } from './db/poolErrors';
+
 // Exported so server/db/adminDb.ts (RLS-6's second, BYPASSRLS-role pool) can
 // type its own Drizzle instance identically without importing this module's
 // runtime state — the two pools are deliberately independent connections.
@@ -50,6 +52,7 @@ async function initializeDatabase() {
 
     neonConfig.webSocketConstructor = ws.default;
     pool = new NeonPoolClass({ connectionString: databaseUrl });
+    handlePoolErrors(pool, 'app');
 
     const { drizzle: drizzleNeon } = await import('drizzle-orm/neon-serverless');
     _db = drizzleNeon(pool, { schema });
@@ -64,6 +67,7 @@ async function initializeDatabase() {
     // search_path settings. This ensures schema isolation is reliable.
     const poolSize = env.NODE_ENV === 'test' ? 1 : 10;
     pool = new pg.default.Pool({ connectionString: databaseUrl, max: poolSize });
+    handlePoolErrors(pool, 'app');
 
     const testSchema = process.env.TEST_SCHEMA ?? (global as Record<string, unknown>).__TEST_SCHEMA__;
     if (testSchema && env.NODE_ENV === 'test') {

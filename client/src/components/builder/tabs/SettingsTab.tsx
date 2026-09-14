@@ -330,6 +330,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             requireLogin={requireLogin}
             setRequireLogin={setRequireLogin}
             shareableLink={shareableLink}
+            isPublished={workflow?.status === "active"}
             linkCopied={linkCopied}
             onCopyLink={handleCopyLink}
           />

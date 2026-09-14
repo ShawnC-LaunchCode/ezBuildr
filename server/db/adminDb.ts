@@ -7,6 +7,8 @@ import type { DrizzleDB } from "../db";
 import type { Pool as NeonPool } from '@neondatabase/serverless';
 import type { Pool, PoolClient } from 'pg';
 
+import { handlePoolErrors } from './poolErrors';
+
 /**
  * RLS-6: a SECOND, dedicated connection pool for the admin console's
  * cross-tenant read path.
@@ -89,6 +91,7 @@ export async function initializeAdminDb() {
 
     neonConfig.webSocketConstructor = ws.default;
     pool = new NeonPoolClass({ connectionString: databaseUrl });
+    handlePoolErrors(pool, 'admin');
 
     const { drizzle: drizzleNeon } = await import('drizzle-orm/neon-serverless');
     _db = drizzleNeon(pool, { schema });
@@ -101,6 +104,7 @@ export async function initializeAdminDb() {
     // pinning (below) is reliable.
     const poolSize = env.NODE_ENV === 'test' ? 1 : 3;
     pool = new pg.default.Pool({ connectionString: databaseUrl, max: poolSize });
+    handlePoolErrors(pool, 'admin');
 
     // Mirrors server/db.ts's identical wrapper: in tests, every physical
     // connection checkout must pin search_path to the current worker's

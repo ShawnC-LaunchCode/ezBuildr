@@ -3,6 +3,7 @@ import { usePreviewStore } from "@/store/preview";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { refreshSession } from "@/lib/sessionRefresh";
 import { authAPI, setAccessToken } from "@/lib/vault-api";
 
 import type { AuthUserPayload } from "@shared/schema";
@@ -32,21 +33,19 @@ export function useAuth(): AuthHookReturn {
     queryKey: ["auth"],
     queryFn: async () => {
       try {
-        // Try to refresh token on mount (silent refresh)
-        // This exchanges the HttpOnly cookie for a JWT Access Token
-        const res = await fetch("/api/auth/refresh-token", {
-          method: "POST",
-          credentials: "include", // CRITICAL: Must include cookies for refresh token
-        });
+        // Silent refresh on mount/focus: exchanges the HttpOnly cookie for a JWT
+        // access token. Shared with fetchAPI's 401 retry — two refreshes sent
+        // with the same cookie sign the user out everywhere (sessionRefresh.ts).
+        const refreshed = await refreshSession();
 
-        if (!res.ok) {
-          if (res.status === 401) {
+        if (!refreshed.ok) {
+          if (refreshed.status === 401) {
             return null;
           }
           throw new Error("Failed to refresh session");
         }
 
-        return await res.json() as AuthResponse;
+        return refreshed.body as AuthResponse | null;
       } catch (_err) {
         return null;
       }

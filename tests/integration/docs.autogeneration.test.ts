@@ -592,8 +592,17 @@ describe('Automatic document generation on run completion', () => {
     // TPL-3 deliberately superseded DOC-104's blank-and-record behavior with
     // strict-undefined rendering: one bad template fails without preventing
     // other documents in the Final Block from being attempted.
-    expect(result.success).toBe(true);
+    //
+    // With EVERY document failed, the run is a failure (2026-09-14). This used
+    // to assert success: true — the exact shape that let a production run
+    // "complete" with zero documents while the respondent was told nothing.
+    expect(result.success).toBe(false);
     expect(result.documentsGenerated).toBe(0);
+    const [runRow] = await getOwnerDb()
+      .select({ generationStatus: schema.workflowRuns.generationStatus })
+      .from(schema.workflowRuns)
+      .where(eq(schema.workflowRuns.id, runId));
+    expect(runRow.generationStatus).toBe('failed:Documents could not be generated');
     expect(result.failed).toEqual([
       expect.objectContaining({
         alias: 'contract',

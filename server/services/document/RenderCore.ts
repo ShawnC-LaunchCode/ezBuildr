@@ -64,6 +64,10 @@ interface DocxtemplaterError {
     properties?: {
         id?: string;
         explanation?: string;
+        /** The failing tag's source text, e.g. `defaultValue x "y"`. */
+        xtag?: string;
+        /** The DOCX part it sits in, e.g. `word/document.xml`. */
+        file?: string;
         errors?: DocxtemplaterError[];
     };
 }
@@ -445,7 +449,17 @@ export async function renderDocxBuffer({
 
 function handleRenderError(error: RenderError): never {
     const errors = error.properties?.errors;
-    logger.error({ error, errors }, 'Docxtemplater render error');
+    // One entry per failing tag, no stacks. The raw error carries a full stack
+    // trace for EVERY tag: a template with 144 bad tags hit Railway's 500
+    // logs/sec cap in production (2026-09-14), dropping 1,118 unrelated lines.
+    logger.error({
+        message: error.message,
+        tags: errors?.map((err) => ({
+            tag: err.properties?.xtag,
+            id: err.properties?.id,
+            file: err.properties?.file,
+        })),
+    }, 'Docxtemplater render error');
 
     if (errors !== undefined) {
         const errorDetails = errors
