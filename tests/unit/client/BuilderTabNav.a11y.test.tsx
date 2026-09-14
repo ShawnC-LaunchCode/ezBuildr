@@ -16,6 +16,7 @@ const tabIds: BuilderTab[] = [
   'templates',
   'data-sources',
   'review',
+  'runs',
   'snapshots',
   'settings',
 ];

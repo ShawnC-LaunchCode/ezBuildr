@@ -27,6 +27,7 @@ describe("WorkflowLintBuilderTab stays in sync with BuilderTab (MAP-B3)", () => 
       "settings",
       "map",
       "review",
+      "runs",
       "snapshots",
     ];
     const builderTabIds = TABS.map((tab) => tab.id).sort();
