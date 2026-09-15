@@ -1,9 +1,8 @@
-import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 
-import { assertNoReservedStatementSyntax } from './RenderCore';
+import { assertNoReservedStatementSyntax, createDocxRenderer } from './RenderCore';
 import { TemplateParser } from './TemplateParser';
 
 export interface ScanResult {
@@ -281,8 +280,7 @@ export class TemplateScanner {
         return { xml: newXml, repairs, errors };
     }
 
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    private validateBuffer(buffer: Buffer) {
+    private validateBuffer(buffer: Buffer): void {
         const zip = new PizZip(buffer);
 
         // D4: reject reserved {%/{# statement syntax at upload. Delegated to
@@ -290,12 +288,14 @@ export class TemplateScanner {
         // on assertNoReservedStatementSyntax for why one copy matters.
         assertNoReservedStatementSyntax(zip);
 
-        const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-            delimiters: { start: '{{', end: '}}' }
-        });
-        doc.compile();
+        // D2: compile every tag with the RENDERER's own parser and filter
+        // registry -- construction is where a bad tag fails. This used to be a
+        // bare Docxtemplater with the default parser, which treats a whole tag
+        // as one opaque variable name, so `{{defaultValue x "y"}}` (the
+        // deleted prefix grammar) passed upload here and then failed every tag
+        // at render. 12 production templates got through that way and produced
+        // no documents (2026-09-14).
+        createDocxRenderer(zip, {});
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

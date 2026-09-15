@@ -959,7 +959,11 @@ export function registerRunRoutes(app: Express): void {
    * Accepts creator session OR Bearer runToken
    */
 
-  app.get('/api/runs/:runId/documents', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  // optionalHybridAuth first, like /values, /runtime and /next: without it
+  // nothing sets req.userId, so the creator branch below was unreachable and a
+  // creator's session got 401 — only a respondent's run token worked. A run
+  // token still wins: the cookie strategy is skipped whenever a Bearer is sent.
+  app.get('/api/runs/:runId/documents', optionalHybridAuth, creatorOrRunTokenAuth,asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
       // Validate runId

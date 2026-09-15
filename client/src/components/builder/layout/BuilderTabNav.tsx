@@ -9,6 +9,7 @@ import {
   Settings,
   Camera,
   ClipboardCheck,
+  History,
   Waypoints,
 } from "lucide-react";
 
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 import type React from "react";
 import type { ComponentType } from "react";
 
-export type BuilderTab = "pages" | "map" | "templates" | "data-sources" | "settings" | "snapshots" | "review";
+export type BuilderTab = "pages" | "map" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "runs";
 interface TabConfig {
   id: BuilderTab;
   label: string;
@@ -29,6 +30,7 @@ export const TABS: TabConfig[] = [
   { id: "templates", label: "Templates", icon: FileText },
   { id: "data-sources", label: "Data Sources", icon: Database },
   { id: "review", label: "Review", icon: ClipboardCheck },
+  { id: "runs", label: "Runs", icon: History },
   { id: "snapshots", label: "Snapshots", icon: Camera },
   { id: "settings", label: "Settings", icon: Settings },
 ];

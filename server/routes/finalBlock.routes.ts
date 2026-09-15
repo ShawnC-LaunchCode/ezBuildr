@@ -20,7 +20,7 @@ import path from 'path';
 import { z } from 'zod';
 
 import { createLogger } from '../logger.js';
-import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
+import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
 import { runGeneratedDocumentsRepository } from '../repositories/index.js';
@@ -277,6 +277,10 @@ export function registerFinalBlockRoutes(app: Express): void {
   app.get(
     '/api/runs/:runId/final-documents/:filename/download',
 
+    // Without optionalHybridAuth nothing set req.userId, so a creator could not
+    // download their own run's documents — only a run token worked. The creator
+    // branch below already checks run access (runService.getRun).
+    optionalHybridAuth,
     creatorOrRunTokenAuth,
 
     asyncHandler(async (req: Request, res: Response) => {
@@ -348,9 +352,11 @@ export function registerFinalBlockRoutes(app: Express): void {
           filename: req.params.filename,
         }, 'Failed to download Final Block document');
 
-        res.status(500).json({
+        // "Run not found" / "File not found" are 404s, not server faults.
+        const { status, message } = classifyRouteError(error, 'Download failed');
+        res.status(status).json({
           success: false,
-          error: 'Download failed',
+          error: message,
         });
       }
     })

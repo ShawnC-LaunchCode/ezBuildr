@@ -17,12 +17,13 @@ import { useRunSession, type RunIdKind } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
+import { useHeldRunToken } from "@/hooks/runner/useHeldRunToken";
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { ApiAdvanceResult, ApiPage, ApiStep, ApiWorkflow } from "@/lib/vault-api";
-import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
 import type { LogicRule } from "@shared/schema";
+import { adaptLegacyStep } from "@shared/types/stepConfigs";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
 
 export interface PreviewRunnerControls {
@@ -130,13 +131,33 @@ function getFinalPageConfig(page: ApiPage | undefined): RunnerPageConfig | undef
   return page ? getRunnerPageConfig(page) : undefined;
 }
 
-export function partitionRunnerPages(visiblePages: ApiPage[]): {
+/**
+ * A page whose every step is a Final Documents step — how documents are
+ * authored now, instead of the legacy `config.finalBlock` page flag. Only
+ * pages made up ENTIRELY of them qualify: a page that also asks questions must
+ * stay in the respondent's path, or its questions would be skipped.
+ */
+function isFinalDocumentsStepPage(page: ApiPage, steps: ApiStep[]): boolean {
+  const pageSteps = steps.filter((step) => step.pageId === page.id && step.isVirtual !== true);
+  return pageSteps.length > 0
+    && pageSteps.every((step) => adaptLegacyStep({ type: step.type }).type === "final_documents");
+}
+
+/**
+ * Split visible pages into the pages a respondent answers and the final
+ * documents page shown after completion. Until 2026-09-14 only the legacy
+ * `finalBlock` flag counted, so a workflow authored with Final Documents STEPS
+ * finished on a generic "Interview complete" card with no way to download the
+ * documents it had just generated.
+ */
+export function partitionRunnerPages(visiblePages: ApiPage[], steps: ApiStep[] = []): {
   respondentPages: ApiPage[];
   finalPage: ApiPage | undefined;
 } {
+  const isFinal = (page: ApiPage): boolean => hasFinalBlock(page) || isFinalDocumentsStepPage(page, steps);
   return {
-    respondentPages: visiblePages.filter((page) => !hasFinalBlock(page)),
-    finalPage: visiblePages.find((page) => hasFinalBlock(page)),
+    respondentPages: visiblePages.filter((page) => !isFinal(page)),
+    finalPage: visiblePages.find(isFinal),
   };
 }
 
@@ -167,7 +188,7 @@ export function WorkflowRunner({
   const workflow = runtime?.workflow;
   const pages = runtime?.pages;
   const sections = runtime?.sections;
-  const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
+  const runToken = useHeldRunToken(actualRunId ?? null);
   const effectiveAllSteps = runtime?.steps;
   const effectiveLogicRules = runtime?.logicRules as LogicRule[] | undefined ?? [];
 
@@ -189,8 +210,8 @@ export function WorkflowRunner({
     sections
   );
   const { respondentPages, finalPage } = useMemo(
-    () => partitionRunnerPages(visiblePages),
-    [visiblePages]
+    () => partitionRunnerPages(visiblePages, effectiveAllSteps ?? []),
+    [visiblePages, effectiveAllSteps]
   );
   const finalPageConfig = getFinalPageConfig(finalPage);
 

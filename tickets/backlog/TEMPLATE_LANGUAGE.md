@@ -53,6 +53,80 @@ One grammar now serves both DOCX templates and runner answer-piping, parsed in a
 - **TPL-O5 — no integration test covers upload → store → generate** with a real workflow's
   answers. Every test in the initiative builds buffers in memory. Such a test would have caught
   the smart-quote bug years earlier.
+- **TPL-O8 — author-set download names for generated documents.** `enhancement` · filed
+  2026-09-15 by owner request · est. Size M. Today a respondent downloads
+  `4c1df78d-f13d-…-<alias>-<uuid>.pdf`. The ask: when adding a template to the Final Documents
+  step, the author types a name that reads workflow variables, e.g.
+  `Advanced Healthcare Directive - {{ client_last_name }} - {{ today | formatDate:"M-D-YY" }}`
+  → `Advanced Healthcare Directive - Cooley - 9-15-26.pdf`.
+
+  **Where the ugly name comes from** (anchors are quotes; line numbers drift).
+  `EnhancedDocumentEngine.generateFinalBlockDocuments` passes
+  `` outputName: options.runId ? `${options.runId}_${doc.alias}` : doc.alias ``, and
+  `DocumentEngine.generate` appends `` -${crypto.randomUUID()} ``. That one string is then
+  used for five different jobs at once:
+  1. **Display.** `RunCompletionView.tsx` (`{doc.fileName}`), `FinalDocumentsPage.tsx`,
+     `ExecutionDetailView.tsx` and the builder `RunsTab.tsx`.
+  2. **Lookup key.** `GET /api/runs/:runId/final-documents/:filename/download`
+     (`finalBlock.routes.ts`) finds the row with `docs.find(d => d.fileName === sanitizedFilename)`.
+  3. **Storage key.** `` `runs/${runId}/documents/${filename}` `` (`FinalBlockRenderer.prepareResponseDocuments`).
+  4. **Saved name.** The route's `Content-Disposition`, and the client's `link.download = fileName`
+     in `downloadRunDocument` (`client/src/lib/vault-api.ts`).
+  5. **Other copies.** ZIP entries (`createArchive`, `path.basename`) and every delivery
+     adapter's `fileName: doc.fileName` (email, webhook, cloud storage).
+
+  **Preferred shape.**
+  - **Keep the internal filename unique and ugly.** It is a key, so do not make it pretty. Add a
+    separate nullable `display_name` column on `run_generated_documents`.
+    - Jobs 1, 4 and 5 read `displayName ?? fileName`; jobs 2 and 3 keep the unique name.
+    - `Content-Disposition` needs RFC 5987 `filename*=UTF-8''…`, because names now carry
+      spaces and non-ASCII. `admin.routes.ts` already does this.
+  - **Config.** Add an optional `downloadName` on each `FinalBlockConfig.documents[]` entry,
+    in both `shared/types/stepConfigs.ts` and `FinalBlockConfigSchema`.
+    - Put it on the entry, **not** on `templates`: one template is reused across workflows whose
+      aliases differ, and the name reads *this* workflow's variables.
+  - **Render through `RenderCore`.** CLAUDE.md convention #9: one grammar. Do not write a second
+    mini-parser for names. Feed it the same normalized data the document body sees.
+    - Validate the name at save time with the static extractor, the same way a template upload
+      is scanned (D2).
+    - At run time, a render failure falls back to the default name and logs a warning. It must
+      **never** fail the document.
+  - **`today` does not exist.** A grep for it across `server/` finds nothing. Add it to the data
+    that both the name and the document body see, because templates want it too.
+  - **Sanitize the rendered name.**
+    - Replace `\ / : * ? " < > |`. This means `M/D/YY` would break, so the guide should show dashes.
+    - Collapse runs of whitespace and separators, so a skipped optional answer does not leave
+      `Directive -  - 9-15-26`.
+    - Cap the length, then append the extension.
+  - **Collisions.** Two entries that render the same name in one run get ` (2)`. `ZipBundler`
+    already de-dupes, so pass it the display name.
+  - **Default when the name is blank.** Use `templates.name`, not the UUID.
+    - This is a cheap first slice on its own: it fixes the name for every existing workflow,
+      and nobody has to configure anything.
+
+  **Decisions (owner, 2026-09-15):**
+  - **D-a: `today` is the end user's date, in their timezone, where that can be known.**
+    Nothing in `shared/schema` stores a timezone, and the server runs in UTC, so a Central-time
+    evening run on 9-15 would otherwise be named 9-16. Capture the respondent's browser timezone
+    (`Intl.DateTimeFormat().resolvedOptions().timeZone`) when the run completes.
+    - Falling back to UTC when the timezone is unavailable is acceptable. Examples: runs
+      completed by the server, API-created runs, and runs from before this change.
+    - **The fallback must be documented** in `VARIABLES_IN_DOCUMENTS.md` when this ships. The
+      owner asked for this explicitly, so the ticket's acceptance criteria must include it.
+    - Related: `STB-B2` (backlog/STEP_TOOLBOX.md).
+  - **D-b: delivery destinations use the display name too.** That covers email attachments,
+    webhook `fileName`, and cloud-storage object names. An emailed attachment called
+    `<uuid>.pdf` is the same bug in a different place.
+
+  **Before promoting, confirm `formatDate` accepts `M-D-YY` tokens.**
+
+  **Ties:** skills `db-schema-change` (new column), `add-api-endpoint` (download route),
+  `design` (the name field in the Final Documents inspector, plus the four display surfaces),
+  `run-tests`. Guide: `docs/guides/VARIABLES_IN_DOCUMENTS.md` needs a naming section and
+  a runnable sample in `docSamples.test.ts`.
+  **Vertical proof:** set the name in the builder, run the workflow, complete it, then check
+  three things: the completion page text, the saved file's name, and the ZIP entry name. Keep
+  the renderer, route and storage unmocked.
 - **Filter vocabulary has near-duplicates.** `informational`. Layering presets over the original
   helpers left `titleCase`/`titlecase`, `default`/`defaultValue`, three currency spellings and
   four date spellings. All render; there is just no single obvious name to teach. Documented in

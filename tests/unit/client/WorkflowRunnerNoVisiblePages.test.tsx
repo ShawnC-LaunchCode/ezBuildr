@@ -18,7 +18,7 @@ import {
   partitionRunnerPages,
   type LoadedRunnerScreenProps,
 } from '../../../client/src/pages/WorkflowRunner';
-import type { ApiPage } from '../../../client/src/lib/vault-api';
+import type { ApiPage, ApiStep } from '../../../client/src/lib/vault-api';
 import { DEFAULT_RESOLVED_BRANDING } from '../../../shared/types/branding';
 
 function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRunnerScreenProps {
@@ -84,6 +84,40 @@ describe('LoadedRunnerScreen — zero visible pages (RUN2-4)', () => {
 
     expect(result.respondentPages).toEqual([questionPage]);
     expect(result.finalPage).toEqual(finalPage);
+  });
+
+  describe('step-authored final pages (2026-09-14)', () => {
+    const page = (id: string, order: number): ApiPage => ({
+      id, workflowId: 'workflow-1', title: id, description: null, order, createdAt: '2026-09-14T00:00:00.000Z',
+    });
+    const step = (id: string, pageId: string, type: string): ApiStep => ({ id, pageId, type } as unknown as ApiStep);
+
+    it('a page made entirely of Final Documents steps is the final page', () => {
+      // Was: only the legacy config.finalBlock flag counted, so this workflow
+      // ended on a generic "Interview complete" card with no downloads.
+      const questions = page('questions', 0);
+      const packages = page('packages', 1);
+      const steps = [
+        step('q1', 'questions', 'text'),
+        step('f1', 'packages', 'final_documents'),
+        step('f2', 'packages', 'final_documents'),
+      ];
+
+      const result = partitionRunnerPages([questions, packages], steps);
+
+      expect(result.finalPage).toEqual(packages);
+      expect(result.respondentPages).toEqual([questions]);
+    });
+
+    it('a page mixing questions and Final Documents steps stays in the respondent path', () => {
+      const mixed = page('mixed', 0);
+      const steps = [step('q1', 'mixed', 'text'), step('f1', 'mixed', 'final_documents')];
+
+      const result = partitionRunnerPages([mixed], steps);
+
+      expect(result.finalPage).toBeUndefined();
+      expect(result.respondentPages).toEqual([mixed]);
+    });
   });
 
   it('renders a dedicated terminal screen, not the dead-end "No visible pages." question screen', () => {

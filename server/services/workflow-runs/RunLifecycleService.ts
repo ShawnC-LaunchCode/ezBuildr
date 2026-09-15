@@ -33,7 +33,7 @@ import { workflowTenantResolver } from "../WorkflowTenantResolver";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
-import { runDefinitionProvider, RunDefinitionProvider, type RunPage } from "./RunDefinitionProvider";
+import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition, type RunPage } from "./RunDefinitionProvider";
 export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
@@ -87,6 +87,34 @@ const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["text", "email", "website",
 const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "scale"]);
 
 import { adaptLegacyStep } from "../../../shared/types/stepConfigs";
+import { evaluateWorkflowVisibility } from "../../../shared/workflowLogic";
+
+/**
+ * Which steps are visible for a run, by the runner's own rules
+ * (client usePageVisibility): step-id-keyed answers, aliases resolved to step
+ * ids, sections, page and step visibleIf, and logic rules. With no pages in the
+ * definition, each step's page counts as a visible root — as in the runner.
+ */
+function visibleStepIdsForRun(
+  definition: Pick<RunDefinition, 'sections' | 'pages' | 'steps' | 'logicRules'>,
+  byStepId: Record<string, unknown>,
+): Set<string> {
+  const pages = definition.pages.length > 0
+    ? definition.pages
+    : Array.from(new Set(definition.steps.map((step) => step.pageId))).map((id) => ({ id }));
+  const aliasToStepId = new Map<string, string>();
+  for (const step of definition.steps) {
+    if (step.alias !== null && step.alias !== '') { aliasToStepId.set(step.alias, step.id); }
+  }
+  return evaluateWorkflowVisibility({
+    sections: definition.sections ?? [],
+    pages,
+    steps: definition.steps,
+    rules: definition.logicRules ?? [],
+    data: byStepId,
+    resolveAlias: (name) => aliasToStepId.get(name),
+  }).visibleSteps;
+}
 
 function coerceInitialValueForStepType(value: unknown, stepType: string, config?: unknown): unknown {
   const normalizedType = adaptLegacyStep({ type: stepType, config }).type;
@@ -521,7 +549,8 @@ export class RunLifecycleService {
       // this is a correctness/auditability guarantee, not just UX. A
       // versionless run still falls back to the live tables via the
       // provider's 'live' branch (unchanged today-behavior, AC3).
-      const { steps: definitionSteps, pages: definitionPages } = await this.definitionProvider.getDefinition(run);
+      const definition = await this.definitionProvider.getDefinition(run);
+      const { steps: definitionSteps, pages: definitionPages } = definition;
       // RLS-5: `runWithTenantContext` above populates the async STORE, which is
       // what converted services read — but a repository call issued directly on
       // the pool never consults it. The store and the transaction GUC are
@@ -535,24 +564,23 @@ export class RunLifecycleService {
       if (!workflow) {throw createError.notFound('Workflow', workflowId);}
       if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
 
-      const finalBlockConfigs: FinalBlockConfig[] = [];
+      // Candidates only: which of these apply to THIS run is decided below,
+      // once the run's answers exist.
+      const finalBlockSteps: Array<{ stepId: string; config: FinalBlockConfig }> = [];
       for (const step of definitionSteps) {
         if (step.type !== 'final_documents') {continue;}
         if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
         const config = step.config as FinalBlockConfig | null;
         if (config?.documents && config.documents.length > 0) {
-          finalBlockConfigs.push(config);
+          finalBlockSteps.push({ stepId: step.id, config });
         }
       }
 
-      if (options.finalStepId === undefined) {
-        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionPages);
-        if (legacyConfig) {
-          finalBlockConfigs.push(legacyConfig);
-        }
-      }
+      const legacyConfig = options.finalStepId === undefined
+        ? await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionPages)
+        : null;
 
-      if (finalBlockConfigs.length === 0) {
+      if (finalBlockSteps.length === 0 && !legacyConfig) {
         if (options.finalStepId !== undefined) {
           throw createError.validation('Invalid step: must be a Final Block with configured documents');
         }
@@ -570,6 +598,26 @@ export class RunLifecycleService {
       // 3. Get canonical run data and hand documents the alias-keyed view.
       const runData = options.runData ?? await this.runDataSvc.buildForRun(runId, workflowId);
       const stepValues = runData.byAlias;
+
+      // Branch-specific packages (2026-09-14): a Final Documents step hidden for
+      // THIS run — by its own visibleIf, its page's or section's, or a logic
+      // rule — must not generate. The runner never shows it, yet every one used
+      // to render: a respondent on one branch got all 12 estate packages. Same
+      // evaluator and inputs as the runner. A step asked for by id (finalStepId,
+      // the manual per-step route) is an explicit request and is not filtered.
+      const visibleStepIds = visibleStepIdsForRun(definition, runData.byStepId ?? {});
+      const finalBlockConfigs: FinalBlockConfig[] = [
+        ...finalBlockSteps
+          .filter(({ stepId }) => options.finalStepId !== undefined || visibleStepIds.has(stepId))
+          .map(({ config }) => config),
+        ...(legacyConfig ? [legacyConfig] : []),
+      ];
+      if (finalBlockConfigs.length === 0) {
+        // Not a failure: the answers simply select no package.
+        logger.info({ runId, hiddenFinalSteps: finalBlockSteps.length }, 'Every Final Documents step is hidden for this run; no documents apply');
+        await workflowRunRepository.updateGenerationStatus(runId, 'done');
+        return { success: true, documentsGenerated: 0, documents: [] };
+      }
       const listConfigs = getListConfigsByAlias(definitionSteps);
       const listBoundChoices = getChoiceListBindingsByAlias(definitionSteps);
 

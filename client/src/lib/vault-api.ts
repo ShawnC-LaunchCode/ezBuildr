@@ -128,6 +128,46 @@ async function renewAccessToken(sentAuthorization: string | undefined): Promise<
   return null;
 }
 
+/**
+ * Download one of a run's generated documents.
+ *
+ * A fetch, not a plain link: the route authenticates by a Bearer token, which a
+ * link cannot send. Pass the run's token when the caller holds one -- that is
+ * how an anonymous respondent downloads from the completion screen, where a
+ * plain link answered 401 (2026-09-15). A run token cannot be renewed, so a 401
+ * with one is final. Without one this authenticates as the signed-in creator:
+ * the access token lives in memory, and a 401 renews through the shared
+ * single-flight path (renewAccessToken) and retries once, like fetchAPI.
+ */
+export async function downloadRunDocument(runId: string, fileName: string, runToken: string | null = null): Promise<void> {
+  const url = `${API_BASE}/api/runs/${encodeURIComponent(runId)}/final-documents/${encodeURIComponent(fileName)}/download`;
+  const request = (token: string | null): Promise<Response> => fetch(url, {
+    headers: token !== null ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+
+  let response = await request(runToken ?? globalAccessToken);
+  if (response.status === 401 && runToken === null) {
+    const freshToken = await renewAccessToken(globalAccessToken !== null ? `Bearer ${globalAccessToken}` : undefined);
+    if (freshToken !== null) { response = await request(freshToken); }
+  }
+  if (!response.ok) {
+    throw new FetchApiError(`Download failed (HTTP ${response.status})`, response.status);
+  }
+
+  const objectUrl = URL.createObjectURL(await response.blob());
+  try {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -1030,6 +1070,21 @@ export interface ApiRun {
   metadata: unknown;
   createdAt: string;
   updatedAt: string;
+  /** 'pending' | 'generating' | 'done' | 'failed:<reason>' — sent by the server, read by the Runs tab. */
+  generationStatus?: string | null;
+}
+/** A document a run generated (`run_generated_documents`). */
+export interface ApiRunDocument {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  createdAt: string;
+}
+export interface ApiRunDocumentList {
+  documents: ApiRunDocument[];
+  generationStatus?: string | null;
 }
 export interface ApiStepValue {
   id: string;
@@ -1126,7 +1181,10 @@ export const runAPI = {
   getRuntime: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRunRuntime }>(`/api/runs/${id}/runtime`).then(res => res.data),
   getDocuments: (id: string) =>
-    fetchAPI<{ success: boolean; documents: unknown[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
+    fetchAPI<{ success: boolean; documents: ApiRunDocument[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
+  getDocumentList: (id: string): Promise<ApiRunDocumentList> =>
+    fetchAPI<{ success: boolean } & ApiRunDocumentList>(`/api/runs/${id}/documents`)
+      .then(({ documents, generationStatus }) => ({ documents, generationStatus })),
   upsertValue: (runId: string, stepId: string, value: unknown) =>
     fetchAPI<{ message: string }>(`/api/runs/${runId}/values`, {
       method: "POST",

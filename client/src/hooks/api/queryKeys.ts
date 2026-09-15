@@ -23,6 +23,9 @@ export const queryKeys = {
     run: (id: string) => ["runs", id] as const,
     runWithValues: (id: string) => ["runs", id, "values"] as const,
     runRuntime: (id: string) => ["runs", id, "runtime"] as const,
+    // Not ["run-documents", id]: the runner's FinalDocumentsPage caches a
+    // different shape under that key, and the query cache is app-wide.
+    runDocuments: (id: string) => ["runs", id, "documents"] as const,
     accountPreferences: ["account", "preferences"] as const,
     workflowMode: (workflowId: string) => ["workflows", workflowId, "mode"] as const,
     collections: (tenantId: string) => ["collections", tenantId] as const,

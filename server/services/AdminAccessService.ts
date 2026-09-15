@@ -15,6 +15,7 @@ import {
 } from "../repositories/AdminOrgStatsRepository";
 import { isRlsEnforced, withTenant } from "../utils/rlsContext";
 import type { DbTransaction } from "../repositories/BaseRepository";
+import { datavaultTablesRepository } from "../repositories/DatavaultTablesRepository";
 import {
   userRepository,
   type UserRepository,
@@ -365,6 +366,35 @@ export class AdminAccessService {
       requestId: requestId ?? null,
     });
     return result;
+  }
+
+  /**
+   * Delete any user, and their personal DataVault tables. Backs
+   * `DELETE /api/admin/users/:userId`.
+   *
+   * Same split as setUserActive/setUserRole: the target's tenant is resolved on
+   * the read-only admin pool and the delete runs pinned to it, so the policies
+   * still check it. This used to live in AdminUserService, pinned to the ACTING
+   * admin's tenant — so deleting a user the console lists in any other tenant
+   * answered 404 "User not found" (found 2026-09-14).
+   *
+   * Tables go first to avoid competing cascades (user -> table -> rows CASCADE,
+   * user -> rows SET NULL). The audit row is written only after the delete
+   * succeeds, and without `targetUserId`: that column is `ON DELETE SET NULL`,
+   * so it cannot outlive the user. The deleted id is in the route's app log.
+   */
+  async deleteUser(actorUserId: string, targetUserId: string, requestId: string | undefined): Promise<void> {
+    const { tenantId } = await this.writeUserInOwnTenant(targetUserId, async (tx) => {
+      await datavaultTablesRepository.deleteOwnedByUser(targetUserId, tx);
+      await this.userRepo.deleteUser(targetUserId, tx);
+    });
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.delete",
+      targetTenantId: tenantId,
+      targetUserId: null,
+      requestId: requestId ?? null,
+    });
   }
 
   /**

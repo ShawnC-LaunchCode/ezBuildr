@@ -42,6 +42,7 @@ import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
 import { MapTab } from "@/components/builder/map/MapTab";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
 import { ReviewTab } from "@/components/builder/tabs/ReviewTab";
+import { RunsTab } from "@/components/builder/tabs/RunsTab";
 import { PagesTab } from "@/components/builder/tabs/PagesTab";
 import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
 import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
@@ -421,6 +422,11 @@ export default function WorkflowBuilder() {
               <BuilderTabPanel activeTab={activeTab} tab="review">
                 {activeTab === "review" && (
                   <ReviewTab workflowId={workflowId} />
+                )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="runs">
+                {activeTab === "runs" && (
+                  <RunsTab workflowId={workflowId} />
                 )}
               </BuilderTabPanel>
               <BuilderTabPanel activeTab={activeTab} tab="snapshots">

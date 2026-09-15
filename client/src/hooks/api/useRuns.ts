@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { runAPI, type ApiAdvanceResult, type ApiRun, type ApiRunRuntime, type ApiStepValue } from "../../lib/vault-api";
+import { runAPI, type ApiAdvanceResult, type ApiRun, type ApiRunDocumentList, type ApiRunRuntime, type ApiStepValue } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -9,6 +9,15 @@ export function useRuns(workflowId: string | undefined): UseQueryResult<ApiRun[]
         queryKey: queryKeys.runs(workflowId ?? ""),
         queryFn: () => runAPI.list(workflowId ?? ""),
         enabled: !!workflowId && workflowId !== "undefined",
+    });
+}
+
+/** A run's generated documents, fetched as the signed-in creator (Runs tab). */
+export function useRunDocuments(runId: string | undefined): UseQueryResult<ApiRunDocumentList> {
+    return useQuery({
+        queryKey: queryKeys.runDocuments(runId ?? ""),
+        queryFn: () => runAPI.getDocumentList(runId ?? ""),
+        enabled: !!runId && runId !== "undefined",
     });
 }
 

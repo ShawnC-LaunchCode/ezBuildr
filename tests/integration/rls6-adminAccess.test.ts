@@ -314,6 +314,8 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
     const admin = () => ({
       put: (url: string) => request(baseURL).put(url).set("Authorization", `Bearer ${adminToken}`),
       get: (url: string) => request(baseURL).get(url).set("Authorization", `Bearer ${adminToken}`),
+      post: (url: string) => request(baseURL).post(url).set("Authorization", `Bearer ${adminToken}`),
+      del: (url: string) => request(baseURL).delete(url).set("Authorization", `Bearer ${adminToken}`),
     });
 
     async function storedUser(id: string) {
@@ -382,6 +384,62 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
       // policy, so it says nothing about RLS and is not asserted.)
       expect(stats.body.adminUsers).toBeGreaterThanOrEqual(1);
       expect(stats.body.draftWorkflows).toBeGreaterThanOrEqual(1);
+    });
+
+    // Admin actions that delegate to other services (follow-up, 2026-09-14).
+    it("deletes a user in another tenant", async () => {
+      const reg = await request(baseURL).post("/api/auth/register").send({
+        email: `rls8-delete-${nanoid()}@example.com`,
+        password: "StrongTestUser123!@#",
+        firstName: "RLS8",
+        lastName: "Delete",
+      });
+      expect(reg.status).toBe(201);
+      const doomedId = reg.body.user.id as string;
+      await getOwnerDb().update(schema.users).set({ tenantId: tenantBId }).where(eq(schema.users.id, doomedId));
+
+      const res = await admin().del(`/api/admin/users/${doomedId}`);
+      // Was 404 "User not found": the delete ran pinned to the ADMIN's tenant,
+      // where a tenant-B user is invisible — for a user the console lists.
+      expect(res.status).toBe(200);
+      const remaining = await getOwnerDb().select({ id: schema.users.id }).from(schema.users)
+        .where(eq(schema.users.id, doomedId));
+      expect(remaining).toHaveLength(0);
+    });
+
+    it("resets MFA for a user in another tenant", async () => {
+      await getOwnerDb().insert(schema.mfaSecrets).values({ userId: userBId, secret: "rls8-not-a-real-secret", enabled: true });
+      await getOwnerDb().update(schema.users).set({ mfaEnabled: true }).where(eq(schema.users.id, userBId));
+      try {
+        const res = await admin().post(`/api/admin/users/${userBId}/reset-mfa`);
+        expect(res.status).toBe(200);
+        const [row] = await getOwnerDb().select({ mfaEnabled: schema.users.mfaEnabled }).from(schema.users)
+          .where(eq(schema.users.id, userBId));
+        expect(row.mfaEnabled).toBe(false);
+        const secrets = await getOwnerDb().select().from(schema.mfaSecrets).where(eq(schema.mfaSecrets.userId, userBId));
+        expect(secrets).toHaveLength(0);
+      } finally {
+        await getOwnerDb().delete(schema.mfaSecrets).where(eq(schema.mfaSecrets.userId, userBId));
+        await getOwnerDb().update(schema.users).set({ mfaEnabled: false }).where(eq(schema.users.id, userBId));
+      }
+    });
+
+    it("unlocks a user in another tenant", async () => {
+      await getOwnerDb().insert(schema.accountLocks).values({
+        userId: userBId,
+        lockedUntil: new Date(Date.now() + 60 * 60 * 1000),
+        reason: "rls8 test",
+      });
+      try {
+        const res = await admin().post(`/api/admin/users/${userBId}/unlock`);
+        expect(res.status).toBe(200);
+        const locks = await getOwnerDb().select({ unlocked: schema.accountLocks.unlocked }).from(schema.accountLocks)
+          .where(eq(schema.accountLocks.userId, userBId));
+        expect(locks.length).toBeGreaterThan(0);
+        expect(locks.every((lock) => lock.unlocked)).toBe(true);
+      } finally {
+        await getOwnerDb().delete(schema.accountLocks).where(eq(schema.accountLocks.userId, userBId));
+      }
     });
   });
 });

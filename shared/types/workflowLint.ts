@@ -7,6 +7,7 @@ export type WorkflowLintBuilderTab =
   | "settings"
   | "map"
   | "review"
+  | "runs"
   | "snapshots";
 
 export interface WorkflowLintTarget {
