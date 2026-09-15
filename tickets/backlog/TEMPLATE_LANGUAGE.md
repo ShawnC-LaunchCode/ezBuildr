@@ -104,14 +104,21 @@ One grammar now serves both DOCX templates and runner answer-piping, parsed in a
     - This is a cheap first slice on its own: it fixes the name for every existing workflow,
       and nobody has to configure anything.
 
-  **Open questions (owner):**
-  - **Q1: which timezone is `today` in?** Nothing in `shared/schema` stores a timezone. The
-    server runs in UTC, so a Central-time evening run on 9-15 would be named 9-16.
-    Recommendation: capture the respondent's browser timezone when the run completes, because
-    it is their date. Related: `STB-B2` (backlog/STEP_TOOLBOX.md).
-  - **Q2: do delivery destinations use the display name too?** Recommendation: yes. An emailed
-    attachment called `<uuid>.pdf` is the same bug in a different place.
-  - **Before promoting, confirm `formatDate` accepts `M-D-YY` tokens.**
+  **Decisions (owner, 2026-09-15):**
+  - **D-a: `today` is the end user's date, in their timezone, where that can be known.**
+    Nothing in `shared/schema` stores a timezone, and the server runs in UTC, so a Central-time
+    evening run on 9-15 would otherwise be named 9-16. Capture the respondent's browser timezone
+    (`Intl.DateTimeFormat().resolvedOptions().timeZone`) when the run completes.
+    - Falling back to UTC when the timezone is unavailable is acceptable. Examples: runs
+      completed by the server, API-created runs, and runs from before this change.
+    - **The fallback must be documented** in `VARIABLES_IN_DOCUMENTS.md` when this ships. The
+      owner asked for this explicitly, so the ticket's acceptance criteria must include it.
+    - Related: `STB-B2` (backlog/STEP_TOOLBOX.md).
+  - **D-b: delivery destinations use the display name too.** That covers email attachments,
+    webhook `fileName`, and cloud-storage object names. An emailed attachment called
+    `<uuid>.pdf` is the same bug in a different place.
+
+  **Before promoting, confirm `formatDate` accepts `M-D-YY` tokens.**
 
   **Ties:** skills `db-schema-change` (new column), `add-api-endpoint` (download route),
   `design` (the name field in the Final Documents inspector, plus the four display surfaces),
