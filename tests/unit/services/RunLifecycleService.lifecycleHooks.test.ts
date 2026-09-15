@@ -290,4 +290,56 @@ describe('RunLifecycleService document-generation lifecycle hooks', () => {
       expect(mocks.updateGenerationStatus).toHaveBeenLastCalledWith(RUN_ID, 'done');
     });
   });
+
+  // 2026-09-14: the estate workflow's final page holds 12 Final Documents
+  // steps, each shown only on its branch. Generation ignored visibility and a
+  // respondent on one branch got all 12 packages.
+  describe('Final Documents steps hidden for this run (branch-specific packages)', () => {
+    const packageStep = (id: string, route: string) => ({
+      id,
+      type: 'final_documents',
+      pageId: 'packages-page',
+      alias: null,
+      visibleIf: {
+        id: `group-${id}`,
+        type: 'group',
+        operator: 'AND',
+        conditions: [{ id: `cond-${id}`, type: 'condition', variable: 'administration_route', operator: 'equals', value: route, valueType: 'constant' }],
+      },
+      config: { markdownHeader: '', documents: [{ id: `doc-${id}`, documentId: `template-${id}`, alias: id }] },
+    });
+
+    beforeEach(() => {
+      mocks.getDefinition.mockResolvedValue({
+        sections: [],
+        logicRules: [],
+        pages: [{ id: 'questions-page' }, { id: 'packages-page' }],
+        steps: [
+          { id: 'route-step', type: 'choice', pageId: 'questions-page', alias: 'administration_route', config: null },
+          packageStep('testate', 'will'),
+          packageStep('intestate', 'no_will'),
+        ],
+      });
+    });
+
+    it('renders only the package whose condition matches the answers', async () => {
+      mocks.buildRunData.mockResolvedValue({ byAlias: { administration_route: 'will' }, byStepId: { 'route-step': 'will' } });
+
+      await makeService().generateDocuments(RUN_ID);
+
+      expect(mocks.render).toHaveBeenCalledTimes(1);
+      const [[request]] = mocks.render.mock.calls as Array<[{ finalBlockConfig: { documents: Array<{ alias: string }> } }]>;
+      expect(request.finalBlockConfig.documents.map((doc) => doc.alias)).toEqual(['testate']);
+    });
+
+    it('generates nothing — and does not fail — when no package applies', async () => {
+      mocks.buildRunData.mockResolvedValue({ byAlias: { administration_route: 'other' }, byStepId: { 'route-step': 'other' } });
+
+      const result = await makeService().generateDocuments(RUN_ID);
+
+      expect(mocks.render).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ success: true, documentsGenerated: 0 }));
+      expect(mocks.updateGenerationStatus).toHaveBeenLastCalledWith(RUN_ID, 'done');
+    });
+  });
 });
