@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm';
 import {
+    customType,
     index,
     uniqueIndex,
     jsonb,
@@ -211,12 +212,37 @@ export const runSubmissions = pgTable("run_submissions", {
 export type RunSubmission = InferSelectModel<typeof runSubmissions>;
 export type InsertRunSubmission = InferInsertModel<typeof runSubmissions>;
 
+/**
+ * jsonb for answers, read without a second JSON.parse.
+ *
+ * Both drivers -- node-postgres, and @neondatabase/serverless in production --
+ * already decode jsonb, and drizzle's jsonb() then JSON.parse()s any string it
+ * gets back. So a stored string answer that is also valid JSON ("15552013344",
+ * "true", "null") came back as a number, boolean or null (2026-09-15). The
+ * runner then autosaved a phone answer as a number and the draft save rejected
+ * it as "expected a string value". Nothing was wrong on disk; only reads were.
+ *
+ * Writes are unchanged: JSON.stringify, exactly as jsonb() does. Same SQL type,
+ * so no migration.
+ */
+const answerJsonb = customType<{ data: unknown; driverData: unknown }>({
+    dataType() {
+        return 'jsonb';
+    },
+    toDriver(value) {
+        return JSON.stringify(value);
+    },
+    fromDriver(value) {
+        return value;
+    },
+});
+
 // Step values (Answers)
 export const stepValues = pgTable("step_values", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     stepId: uuid("step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
-    value: jsonb("value").notNull(),
+    value: answerJsonb("value").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
