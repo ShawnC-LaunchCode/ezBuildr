@@ -18,6 +18,8 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from 'zod';
 
+import { storedJsonb } from './columns';
+
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
     dataType() {
         return 'bytea';
@@ -132,7 +134,8 @@ export const datavaultValues = pgTable("datavault_values", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     rowId: uuid("row_id").references(() => datavaultRows.id, { onDelete: 'cascade' }).notNull(),
     columnId: uuid("column_id").references(() => datavaultColumns.id, { onDelete: 'cascade' }).notNull(),
-    value: jsonb("value"),
+    // storedJsonb, not jsonb(): a text cell such as "12345" read back as a number (./columns).
+    value: storedJsonb("value"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -280,7 +283,7 @@ export const collectionFields = pgTable("collection_fields", {
     type: collectionFieldTypeEnum("type").notNull(),
     isRequired: boolean("is_required").default(false).notNull(),
     options: jsonb("options"), // For select/multi-select: array of valid options
-    defaultValue: jsonb("default_value"), // Default value for new records
+    defaultValue: storedJsonb("default_value"), // Default value for new records; storedJsonb, see ./columns
     order: integer("order").default(0),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

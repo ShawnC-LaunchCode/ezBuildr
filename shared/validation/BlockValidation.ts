@@ -126,7 +126,7 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
         case "phone":
         case "phone_advanced": {
-            rules.push({ type: "pattern", regex: "^[+]?[(]?[0-9]{3}[)]?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4,6}$", message: "Invalid phone number" });
+            rules.push({ type: "phone" });
             break;
         }
 

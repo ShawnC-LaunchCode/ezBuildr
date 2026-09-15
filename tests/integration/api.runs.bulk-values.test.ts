@@ -23,6 +23,7 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
   let emailStepId: string;
   let requiredRadioStepId: string;
   let otherPageStepId: string;
+  let phoneStepId: string;
   let runId: string;
 
   beforeAll(async () => {
@@ -103,6 +104,15 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
       },
     });
     requiredRadioStepId = requiredRadioStep.id;
+
+    const phoneStep = await factory.createStep(page.id, {
+      title: 'Phone',
+      alias: 'phone',
+      type: 'phone',
+      order: 6,
+      config: { format: 'international' },
+    });
+    phoneStepId = phoneStep.id;
 
     const otherPage = await factory.createPage(workflowId, {
       title: 'Other Page',
@@ -265,5 +275,91 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
       .where(eq(schema.stepValues.runId, runId));
 
     expect(savedValues.find(v => v.stepId === otherPageStepId)).toBeUndefined();
+  });
+
+  // 2026-09-15: phone answers are stored as digits and checked by digit count,
+  // 7 to 15, instead of a pattern that demanded an area code.
+  it('keeps a half-typed phone number as a resumable draft', async () => {
+    const res = await request(ctx.app)
+      .post(`/api/runs/${runId}/values/bulk`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({ values: [{ stepId: phoneStepId, value: '12345' }] });
+
+    expect(res.status).toBe(200);
+    const savedValues = await getOwnerDb().select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(savedValues.find(v => v.stepId === phoneStepId)?.value).toBe('12345');
+  });
+
+  it('rejects a phone value that is not a string, even as a draft', async () => {
+    const res = await request(ctx.app)
+      .post(`/api/runs/${runId}/values/bulk`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({ values: [{ stepId: phoneStepId, value: 15552013344 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.details.stepIds).toEqual([phoneStepId]);
+  });
+
+  it('refuses a page submit with a phone number shorter than 7 digits', async () => {
+    const res = await request(ctx.app)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({
+        values: [
+          { stepId: phoneStepId, value: '123456' },
+          { stepId: requiredRadioStepId, value: 'starter' },
+          { stepId: emailStepId, value: 'person@example.com' },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors[0]).toContain(phoneStepId);
+    const savedValues = await getOwnerDb().select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(savedValues.find(v => v.stepId === phoneStepId)?.value).not.toBe('123456');
+  });
+
+  it('accepts a page submit with a seven-digit local number, stored as digits', async () => {
+    const res = await request(ctx.app)
+      .post(`/api/runs/${runId}/pages/${pageId}/submit`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({
+        values: [
+          { stepId: phoneStepId, value: '7654321' },
+          { stepId: requiredRadioStepId, value: 'starter' },
+          { stepId: emailStepId, value: 'person@example.com' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const savedValues = await getOwnerDb().select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(savedValues.find(v => v.stepId === phoneStepId)?.value).toBe('7654321');
+  });
+
+  // 2026-09-15: a text answer that is also valid JSON was read back as another
+  // type -- drizzle re-parsed the driver's already-decoded jsonb string.
+  it('reads back text answers that look like JSON as the strings they are', async () => {
+    const res = await request(ctx.app)
+      .post(`/api/runs/${runId}/values/bulk`)
+      .set('Authorization', `Bearer ${ctx.authToken}`)
+      .send({
+        values: [
+          { stepId: stepId1, value: 'true' },
+          { stepId: stepId2, value: '12345' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    const savedValues = await getOwnerDb().select()
+      .from(schema.stepValues)
+      .where(eq(schema.stepValues.runId, runId));
+    expect(savedValues.find(v => v.stepId === stepId1)?.value).toBe('true');
+    expect(savedValues.find(v => v.stepId === stepId2)?.value).toBe('12345');
   });
 });

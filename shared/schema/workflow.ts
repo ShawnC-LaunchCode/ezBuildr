@@ -24,6 +24,7 @@ export interface FileUploadConfig {
     required?: boolean;
 }
 import { tenants, users, ownerTypeEnum } from './auth';
+import { storedJsonb } from './columns';
 
 // ===================================================================
 // ENUMS
@@ -296,7 +297,8 @@ export const steps = pgTable("steps", {
     required: boolean("required").default(false),
     config: jsonb("config"),
     alias: text("alias"),
-    defaultValue: jsonb("default_value"),
+    // storedJsonb, not jsonb(): a default such as "12345" read back as a number (./columns).
+    defaultValue: storedJsonb("default_value"),
     order: integer("order").notNull(),
     isVirtual: boolean("is_virtual").default(false).notNull(),
     visibleIf: jsonb("visible_if"),

@@ -1,6 +1,6 @@
 # Environment split & real tenant isolation (ENV / RLS)
 
-**Status:** one open — **RLS-4** (production CUT OVER 2026-09-13 15:33 UTC and **enforcing** — it connects as `ezbuildr_app`; only the owner's app-level checks remain) · RLS-8 ✅ (2026-09-13: 34 → 17 sites, all triaged) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-13
+**Status:** none open — RLS-4 ✅ (production cut over 2026-09-13 15:33 UTC and **enforcing** as `ezbuildr_app`; owner's app-level checks passed 2026-09-15) · RLS-8 ✅ (2026-09-13: 34 → 17 sites, all triaged) · RLS-9 ✅ · RLS-10 ✅ · RLS-11 ✅ · **Updated:** 2026-09-15
 
 > **Most of this initiative is closed and its detail has moved.** ENV-1..4 and
 > RLS-1, 2a–2f, 3, 5, 6 and 7 all shipped between 2026-08-15 and 2026-08-22;
@@ -158,7 +158,21 @@ Check that table before filing anything against this area.
 
 ---
 
-## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role 🔄 dev + test + production CUT OVER (production 2026-09-13); owner's app-level checks pending
+## RLS-4 — Add `FORCE ROW LEVEL SECURITY` and move off the owner role ✅ DONE 2026-09-15
+
+### ✅ Closed 2026-09-15 — both app-level checks passed in production
+
+- **Admin console crosses tenants** (2026-09-14): `/admin/users` listed users from two tenants (Acme and
+  the ENV3 probe tenant) through the audited BYPASSRLS path, verified against the database read-only.
+- **An interview runs end to end with generated documents** (2026-09-15): the Estate Administration
+  workflow's run `b0b645c9` completed under enforcement and generated 12 documents.
+
+Reaching the second check exposed defects that were not RLS but had been hidden until real runs happened,
+all fixed and promoted (PRs #196, #197): the refresh-token race that signed users out everywhere; 12
+AI-built templates stored in the deleted prefix grammar (converted by `scripts/migrate-legacy-template-tags.ts`,
+owner-run); a run whose documents all failed reading as `done`; generation ignoring Final Documents step
+visibility; and the runner not recognising a step-authored final page. The one-off cutover script is deleted;
+`docs/deployment/RLS4_CUTOVER.md` remains the procedure of record.
 
 ### Progress — 2026-08-22 · **dev is cut over and enforcing**
 

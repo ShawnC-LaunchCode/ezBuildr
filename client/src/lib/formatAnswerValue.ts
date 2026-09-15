@@ -5,6 +5,7 @@
  * formatting rules.
  */
 
+import { formatPhoneNumber } from "@shared/phoneFormat";
 import {
   resolveBooleanConfig,
   resolveBooleanLogicalValue,
@@ -118,30 +119,40 @@ function formatBooleanValue(value: unknown, config: unknown): string | undefined
   return logicalValue ? resolvedConfig.trueLabel : resolvedConfig.falseLabel;
 }
 
+/** Type-specific display for a step's answer, or undefined to fall through to generic formatting. */
+function formatByStepType(val: unknown, type: string | undefined, config: unknown): string | undefined {
+  switch (type) {
+    case "choice":
+      return formatChoiceValue(val, config);
+    case "address":
+      return formatAddressValue(val, config);
+    case "boolean":
+      return formatBooleanValue(val, config) ?? String(val);
+    case "phone":
+      return typeof val === "string" || typeof val === "number" ? formatPhoneNumber(val) : undefined;
+    case "number": {
+      if (typeof val !== "number") {
+        return undefined;
+      }
+      const numberConfig = resolveNumberConfig("number", config);
+      return numberConfig.mode === "number"
+        ? undefined
+        : formatCurrencyForDisplay(val, { mode: numberConfig.mode, currency: numberConfig.currency ?? "USD" });
+    }
+    default:
+      return undefined;
+  }
+}
+
 export function formatAnswerValue(val: unknown, context: AnswerFormatContext = {}): string {
   if (val === null || val === undefined || val === "") {
     return "Not answered";
   }
 
   const adapted = context.type ? adaptLegacyStep({ type: context.type, config: context.config }) : { type: undefined, config: undefined };
-  const type = adapted.type;
-  if (type === "choice") {
-    return formatChoiceValue(val, adapted.config);
-  }
-  if (type === "address") {
-    return formatAddressValue(val, adapted.config);
-  }
-  if (type === "boolean") {
-    return formatBooleanValue(val, adapted.config) ?? String(val);
-  }
-  if (type === "number" && typeof val === "number") {
-    const config = resolveNumberConfig("number", adapted.config);
-    if (config.mode !== "number") {
-      return formatCurrencyForDisplay(val, {
-        mode: config.mode,
-        currency: config.currency ?? "USD",
-      });
-    }
+  const typed = formatByStepType(val, adapted.type, adapted.config);
+  if (typed !== undefined) {
+    return typed;
   }
 
   if (typeof val === "boolean") {

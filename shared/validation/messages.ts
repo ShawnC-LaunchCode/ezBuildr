@@ -9,6 +9,7 @@ export const defaultValidationMessages: Record<ValidationRuleType, string> = {
     pattern: "Invalid format",
     email: "Please enter a valid email address",
     url: "Please enter a valid URL",
+    phone: "Please enter a valid phone number",
     maxDecimalPlaces: "Must have no more than {value} decimal places",
     conditional: "Condition not met",
     script: "Validation failed",

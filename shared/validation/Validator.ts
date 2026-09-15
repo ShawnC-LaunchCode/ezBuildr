@@ -1,4 +1,5 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
+import { phoneValidationError } from "../phoneFormat";
 
 import { defaultValidationMessages, formatMessage } from "./messages";
 import { safeRegexTest } from "./regexSafety";
@@ -134,6 +135,17 @@ function validateRule(
                 }
             }
             break;
+        case "phone": {
+            // Counts digits rather than matching a pattern: a formatted legacy
+            // value ("+1 555 201 3344") and a stored digit string are the same
+            // number, and a regex that demanded an area code rejected valid
+            // seven-digit local numbers.
+            const phoneError = phoneValidationError(value);
+            if (phoneError !== null) {
+                return rule.message ?? phoneError;
+            }
+            break;
+        }
         case "maxDecimalPlaces":
             if (typeof value === "number" || typeof value === "string") {
                 if (rule.value === 0 && typeof value === "number" && !Number.isInteger(value)) {

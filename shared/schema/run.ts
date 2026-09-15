@@ -18,6 +18,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 import { users, tenants } from './auth';
+import { storedJsonb } from './columns';
 import { projects, workflows, workflowVersions, pages, steps, templates, workflowTemplates } from './workflow';
 
 // ===================================================================
@@ -211,12 +212,13 @@ export const runSubmissions = pgTable("run_submissions", {
 export type RunSubmission = InferSelectModel<typeof runSubmissions>;
 export type InsertRunSubmission = InferInsertModel<typeof runSubmissions>;
 
-// Step values (Answers)
+// Step values (Answers). `value` is storedJsonb, not jsonb(): an answer is often
+// a bare string that looks like JSON (a phone number), see ./columns.
 export const stepValues = pgTable("step_values", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     stepId: uuid("step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
-    value: jsonb("value").notNull(),
+    value: storedJsonb("value").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

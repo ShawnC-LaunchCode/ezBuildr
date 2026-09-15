@@ -247,6 +247,41 @@ export function useRunNavigationTransport({
   ]);
 }
 
+/** `summary` without one occurrence of each stale message: several fields can share a message. */
+function withoutMessages(summary: string[], stale: string[]): string[] {
+  const remaining = [...summary];
+  for (const message of stale) {
+    const index = remaining.indexOf(message);
+    if (index >= 0) { remaining.splice(index, 1); }
+  }
+  return remaining;
+}
+
+/**
+ * The page summary and per-field validation messages. A field's messages go as
+ * soon as its answer changes -- before, a corrected field kept its error until
+ * the next Next (2026-09-15) -- and the summary loses them with it.
+ */
+interface ValidationErrorsState {
+  errors: string[];
+  setErrors: Dispatch<SetStateAction<string[]>>;
+  fieldErrors: Record<string, string[]>;
+  setFieldErrors: Dispatch<SetStateAction<Record<string, string[]>>>;
+  clearFieldError: (stepId: string) => void;
+}
+
+function useValidationErrors(): ValidationErrorsState {
+  const [errors, setErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const clearFieldError = useCallback((stepId: string) => {
+    const stale = fieldErrors[stepId];
+    if (stale === undefined) { return; }
+    setFieldErrors((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== stepId)));
+    setErrors((summary) => withoutMessages(summary, stale));
+  }, [fieldErrors]);
+  return { errors, setErrors, fieldErrors, setFieldErrors, clearFieldError };
+}
+
 export interface UseRunNavigationReturn {
   currentPageIndex: number;
   setCurrentPageIndex: Dispatch<SetStateAction<number>>;
@@ -257,6 +292,8 @@ export interface UseRunNavigationReturn {
   setShowReview: Dispatch<SetStateAction<boolean>>;
   errors: string[];
   fieldErrors: Record<string, string[]>;
+  /** Drop one field's validation messages once the respondent edits it. */
+  clearFieldError: (stepId: string) => void;
   handleNext: () => Promise<void>;
   handlePrev: () => Promise<void>;
   /**
@@ -283,8 +320,7 @@ export function useRunNavigation({
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialCompleted);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const { errors, setErrors, fieldErrors, setFieldErrors, clearFieldError } = useValidationErrors();
   const initializedRunRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -509,6 +545,7 @@ export function useRunNavigation({
     setShowReview,
     errors,
     fieldErrors,
+    clearFieldError,
     handleNext,
     handlePrev,
     jumpToPage,

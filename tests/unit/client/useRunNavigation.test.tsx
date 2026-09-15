@@ -321,3 +321,64 @@ describe('shared advance transport submission identity', () => {
     expect(context.setCurrentPageIndex).toHaveBeenCalledWith(1);
   });
 });
+
+describe('useRunNavigation clearFieldError', () => {
+  beforeEach(() => {
+    validatePageMock.mockReset();
+    toastMock.mockReset();
+    window.scrollTo = vi.fn();
+  });
+
+  const emailStep: ApiStep = { ...phoneStep, id: 'email-step', type: 'email', title: 'Email', alias: 'email', order: 1 };
+
+  async function failValidation(blockErrors: Record<string, string[]>) {
+    validatePageMock.mockResolvedValueOnce({ valid: false, blockErrors });
+    const transport: RunNavigationTransport = {
+      getVisiblePageSteps: () => [phoneStep, emailStep],
+      saveBeforeLeavingPage: vi.fn().mockResolvedValue(undefined),
+      advanceAfterValidation: vi.fn().mockResolvedValue(undefined),
+    };
+    const hook = renderHook(() => useRunNavigation({
+      actualRunId: 'run-1',
+      visiblePages: [page],
+      effectiveValues: {},
+      transport,
+    }));
+    await act(async () => { await hook.result.current.handleNext(); });
+    return hook;
+  }
+
+  // 2026-09-15: a corrected field kept its error until the next Next.
+  it("drops one field's messages from the field list and the summary, leaving the rest", async () => {
+    const { result } = await failValidation({
+      'phone-step': ['Phone numbers need at least 7 digits'],
+      'email-step': ['Please enter a valid email address'],
+    });
+    expect(Object.keys(result.current.fieldErrors).sort()).toEqual(['email-step', 'phone-step']);
+
+    act(() => { result.current.clearFieldError('phone-step'); });
+
+    expect(result.current.fieldErrors).toEqual({ 'email-step': ['Please enter a valid email address'] });
+    expect(result.current.errors).toEqual(['Please enter a valid email address']);
+  });
+
+  it('removes only one copy of a message two fields share', async () => {
+    const { result } = await failValidation({
+      'phone-step': ['This field is required'],
+      'email-step': ['This field is required'],
+    });
+
+    act(() => { result.current.clearFieldError('phone-step'); });
+
+    expect(result.current.errors).toEqual(['This field is required']);
+  });
+
+  it('changes nothing for a field that has no error', async () => {
+    const { result } = await failValidation({ 'email-step': ['Please enter a valid email address'] });
+
+    act(() => { result.current.clearFieldError('phone-step'); });
+
+    expect(result.current.fieldErrors).toEqual({ 'email-step': ['Please enter a valid email address'] });
+    expect(result.current.errors).toEqual(['Please enter a valid email address']);
+  });
+});
