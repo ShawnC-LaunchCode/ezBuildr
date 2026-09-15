@@ -9,7 +9,7 @@ export type ValidationRuleType =
     | "pattern"
     | "email"
     | "url"
-     
+    | "phone"       // 7 to 15 digits, whatever the formatting (shared/phoneFormat.ts)
     | "maxDecimalPlaces" // validation for currency/numbers
     | "custom"      // Custom sync JS function (legacy/simple)
     | "conditional" // DSL or simple conditional
@@ -58,6 +58,10 @@ export interface UrlRule extends ValidationRuleBase {
     type: "url";
 }
 
+export interface PhoneRule extends ValidationRuleBase {
+    type: "phone";
+}
+
 export interface MaxDecimalPlacesRule extends ValidationRuleBase {
     type: "maxDecimalPlaces";
     value: number;
@@ -83,6 +87,7 @@ export type ValidationRule =
     | PatternRule
     | EmailRule
     | UrlRule
+    | PhoneRule
     | MaxDecimalPlacesRule
     | ConditionalRule
     | ScriptRule;

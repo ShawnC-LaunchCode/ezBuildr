@@ -1,21 +1,30 @@
 /**
  * PhoneBlockRenderer - Phone Number Input
  *
- * Features:
- * - US phone formatting (XXX) XXX-XXXX
- * - International support (future)
- * - Input masking
- * - Validation
+ * Storage: digits only. Display: right-filled, like entering money from the
+ * pennies -- "7654321" shows as "765-4321" and "120987654321" as
+ * "+12 (098) 765-4321" (shared/phoneFormat.ts). Formatting is display only; the
+ * stored value never carries it.
  *
- * Storage: Normalized string (digits only or E.164 format)
+ * A number shorter than seven digits is flagged once typing pauses for a
+ * second, and page validation refuses it on Next.
  */
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
+import {
+  extractPhoneDigits,
+  formatPhoneNumber,
+  PHONE_MAX_DIGITS,
+  phoneValidationError,
+} from "@shared/phoneFormat";
 import { resolvePhoneConfig } from "@shared/types/stepConfigs";
+
+/** How long typing must pause before a too-short number is flagged. */
+export const PHONE_IDLE_CHECK_MS = 1000;
 
 export interface PhoneBlockProps {
   step: Step;
@@ -28,63 +37,45 @@ export interface PhoneBlockProps {
   hasError?: boolean;
 }
 
-export function PhoneBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: PhoneBlockProps) {
+export function PhoneBlockRenderer({ step, value, onChange, readOnly, ariaDescribedBy, required, hasError }: PhoneBlockProps) {
   const config = resolvePhoneConfig(step.config);
-  const format = config?.format ?? "US";
+  const [idleError, setIdleError] = useState<string | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Format phone number for display
-  const formatPhoneDisplay = (phone: string): string => {
-    if (!phone) {
-      return "";
-    }
+  useEffect(() => () => { clearTimeout(idleTimerRef.current); }, []);
 
-    // Remove all non-digits
-    const digits = phone.replace(/\D/g, "");
-
-    if (format === "US") {
-      // US format: (XXX) XXX-XXXX
-      if (digits.length <= 3) {
-        return digits;
-      }
-      if (digits.length <= 6) {
-        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-      }
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-    }
-
-    // International: just return digits
-    return digits;
-  };
-
-  // Handle change with formatting
-  const handleChange = (newValue: string) => {
-    // Extract digits only
-    const digits = newValue.replace(/\D/g, "");
-
-    // Limit to 10 digits for US
-    if (format === "US" && digits.length > 10) {
-      return;
-    }
-
-    // Store normalized value (digits only)
+  const handleChange = (text: string) => {
+    const digits = extractPhoneDigits(text).slice(0, PHONE_MAX_DIGITS);
     onChange(digits);
+
+    setIdleError(null);
+    clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => { setIdleError(phoneValidationError(digits)); }, PHONE_IDLE_CHECK_MS);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-  const displayValue = formatPhoneDisplay(value ?? "");
+  // Page validation already shows its own message below the field; never show both.
+  const showIdleError = idleError !== null && hasError !== true;
+  const idleErrorId = `${step.id}-phone-hint`;
+  const describedBy = [ariaDescribedBy, showIdleError ? idleErrorId : undefined].filter(Boolean).join(" ");
 
   return (
-    <Input
-      id={step.id}
-      type="tel"
-      value={displayValue}
-      onChange={(e) => handleChange(e.target.value)}
-      placeholder={format === "US" ? "(555) 123-4567" : "Phone number"}
-      autoComplete="tel"
-      disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
+    <div className="space-y-1">
+      <Input
+        id={step.id}
+        type="tel"
+        inputMode="tel"
+        value={formatPhoneNumber(value)}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={config?.placeholder ?? "(555) 123-4567"}
+        autoComplete="tel"
+        disabled={readOnly}
+        aria-describedby={describedBy !== "" ? describedBy : undefined}
+        aria-required={required ? "true" : undefined}
+        aria-invalid={hasError === true || showIdleError ? "true" : undefined}
       />
+      {showIdleError && (
+        <p id={idleErrorId} className="text-sm text-destructive" role="alert">{idleError}</p>
+      )}
+    </div>
   );
 }

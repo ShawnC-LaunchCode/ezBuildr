@@ -27,7 +27,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
+import { extractPhoneDigits, formatPhoneNumber, PHONE_MAX_DIGITS } from "@shared/phoneFormat";
 import type { MultiFieldConfig, MultiFieldValue } from "@shared/types/stepConfigs";
+
+/** What a sub-field stores: numbers as numbers, phones as digits only, the rest as typed. */
+function toStoredFieldValue(fieldType: string, raw: string): string | number {
+  if (fieldType === "number") { return parseFloat(raw); }
+  if (fieldType === "phone") { return extractPhoneDigits(raw).slice(0, PHONE_MAX_DIGITS); }
+  return raw;
+}
 
 export interface MultiFieldBlockProps {
   step: Step;
@@ -82,10 +90,9 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly , aria
         <Input
           id={`${step.id}-${field.key}`}
           type={inputType}
-          value={String(fieldValue)}
+          value={field.type === "phone" ? formatPhoneNumber(fieldValue) : String(fieldValue)}
           onChange={(e) => {
-            const newValue = field.type === "number" ? parseFloat(e.target.value) : e.target.value;
-            updateField(field.key, newValue);
+            updateField(field.key, toStoredFieldValue(field.type, e.target.value));
           }}
           placeholder={field.placeholder ?? field.label}
           disabled={readOnly}

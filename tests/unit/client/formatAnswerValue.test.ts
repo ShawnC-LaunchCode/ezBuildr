@@ -30,3 +30,15 @@ describe('formatAnswerValue — canonical currency review output', () => {
     })).toBe('1234.5');
   });
 });
+
+describe('formatAnswerValue — phone numbers', () => {
+  // 2026-09-15: the review screen showed stored digits ("15552013344").
+  it('shows a stored digit string right-filled', () => {
+    expect(formatAnswerValue('120987654321', { type: 'phone' })).toBe('+12 (098) 765-4321');
+    expect(formatAnswerValue('7654321', { type: 'phone' })).toBe('765-4321');
+  });
+
+  it('reformats a legacy formatted value the same way', () => {
+    expect(formatAnswerValue('+1 555 201 3344', { type: 'phone' })).toBe('+1 (555) 201-3344');
+  });
+});
