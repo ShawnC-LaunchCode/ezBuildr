@@ -17,9 +17,9 @@ import { useRunSession, type RunIdKind } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { usePageVisibility } from "@/hooks/runner/usePageVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
+import { useHeldRunToken } from "@/hooks/runner/useHeldRunToken";
 import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { ApiAdvanceResult, ApiPage, ApiStep, ApiWorkflow } from "@/lib/vault-api";
-import { getRunToken } from "@/lib/runTokens";
 import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
 import type { LogicRule } from "@shared/schema";
@@ -188,7 +188,7 @@ export function WorkflowRunner({
   const workflow = runtime?.workflow;
   const pages = runtime?.pages;
   const sections = runtime?.sections;
-  const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
+  const runToken = useHeldRunToken(actualRunId ?? null);
   const effectiveAllSteps = runtime?.steps;
   const effectiveLogicRules = runtime?.logicRules as LogicRule[] | undefined ?? [];
 
