@@ -129,21 +129,25 @@ async function renewAccessToken(sentAuthorization: string | undefined): Promise<
 }
 
 /**
- * Download one of a run's generated documents as the signed-in creator.
+ * Download one of a run's generated documents.
  *
- * A fetch, not a plain link: the access token lives in memory, so a link would
- * authenticate only through the refresh cookie. A 401 renews through the shared
+ * A fetch, not a plain link: the route authenticates by a Bearer token, which a
+ * link cannot send. Pass the run's token when the caller holds one -- that is
+ * how an anonymous respondent downloads from the completion screen, where a
+ * plain link answered 401 (2026-09-15). A run token cannot be renewed, so a 401
+ * with one is final. Without one this authenticates as the signed-in creator:
+ * the access token lives in memory, and a 401 renews through the shared
  * single-flight path (renewAccessToken) and retries once, like fetchAPI.
  */
-export async function downloadRunDocument(runId: string, fileName: string): Promise<void> {
+export async function downloadRunDocument(runId: string, fileName: string, runToken: string | null = null): Promise<void> {
   const url = `${API_BASE}/api/runs/${encodeURIComponent(runId)}/final-documents/${encodeURIComponent(fileName)}/download`;
   const request = (token: string | null): Promise<Response> => fetch(url, {
     headers: token !== null ? { Authorization: `Bearer ${token}` } : {},
     credentials: "include",
   });
 
-  let response = await request(globalAccessToken);
-  if (response.status === 401) {
+  let response = await request(runToken ?? globalAccessToken);
+  if (response.status === 401 && runToken === null) {
     const freshToken = await renewAccessToken(globalAccessToken !== null ? `Bearer ${globalAccessToken}` : undefined);
     if (freshToken !== null) { response = await request(freshToken); }
   }

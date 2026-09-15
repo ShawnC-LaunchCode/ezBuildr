@@ -5,12 +5,13 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { downloadRunDocument } from "@/lib/vault-api";
 interface FinalDocumentsPageProps {
   runId: string;
   runToken?: string; // Optional run token for preview mode
@@ -35,7 +36,43 @@ interface GeneratedDocument {
   fileSize?: number;
   createdAt: string;
 }
-// eslint-disable-next-line max-lines-per-function, complexity
+
+/**
+ * Download one generated document. A fetch rather than a plain link: the route
+ * authenticates by a Bearer run token or a creator session, and a link click
+ * can send neither for an anonymous respondent, so it answered 401 (2026-09-15).
+ */
+function DocumentDownloadButton({ runId, runToken, fileName }: { runId: string; runToken?: string; fileName: string }) {
+  const [state, setState] = useState<"idle" | "downloading" | "failed">("idle");
+  const onDownload = async (): Promise<void> => {
+    setState("downloading");
+    try {
+      await downloadRunDocument(runId, fileName, runToken ?? null);
+      setState("idle");
+    } catch {
+      setState("failed");
+    }
+  };
+  return (
+    <div className="ml-2 shrink-0 flex flex-col items-end gap-1">
+      <Button
+        size="sm"
+        className="bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+        onClick={() => { void onDownload(); }}
+        disabled={state === "downloading"}
+      >
+        {state === "downloading"
+          ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" aria-hidden="true" />
+          : <Download className="w-3.5 h-3.5 mr-2" aria-hidden="true" />}
+        Download
+      </Button>
+      {state === "failed" && (
+        <p className="text-xs text-destructive" role="alert">Download failed. Please try again.</p>
+      )}
+    </div>
+  );
+}
+// eslint-disable-next-line complexity
 export function FinalDocumentsPage({ runId, runToken, pageConfig }: FinalDocumentsPageProps) {
   const title = pageConfig.title ?? pageConfig.screenTitle ?? "Your Completed Documents";
   const message = (pageConfig.message ?? pageConfig.markdownMessage) ?? "";
@@ -262,16 +299,7 @@ export function FinalDocumentsPage({ runId, runToken, pageConfig }: FinalDocumen
                         )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      className="ml-2 shrink-0 bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
-                      asChild
-                    >
-                      <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-3.5 h-3.5 mr-2" aria-hidden="true" />
-                        Download
-                      </a>
-                    </Button>
+                    <DocumentDownloadButton runId={runId} runToken={runToken} fileName={doc.fileName} />
                   </div>
                 ))}
               </div>
