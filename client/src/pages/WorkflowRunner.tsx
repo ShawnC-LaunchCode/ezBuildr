@@ -253,6 +253,7 @@ export function WorkflowRunner({
     setShowReview,
     errors,
     fieldErrors,
+    clearFieldError,
     handleNext,
     handlePrev,
     jumpToPage,
@@ -270,6 +271,12 @@ export function WorkflowRunner({
     returnToReviewAfterNext: reviewEditStepId !== null,
     visitedPageIds,
   });
+
+  // A respondent editing an answer clears that field's validation message.
+  const updateValueAndClearError = useCallback((stepId: string, value: Parameters<typeof handleUpdateValue>[1]) => {
+    handleUpdateValue(stepId, value);
+    clearFieldError(stepId);
+  }, [handleUpdateValue, clearFieldError]);
 
   const visiblePageSteps = currentPage != null ? getVisiblePageSteps(currentPage.id) : [];
   const previewActive = useRef(true);
@@ -403,7 +410,7 @@ export function WorkflowRunner({
         await handlePrev();
       }}
       handleFinalSubmit={handleFinalSubmit}
-      handleUpdateValue={handleUpdateValue}
+      handleUpdateValue={updateValueAndClearError}
       setCurrentPageIndex={setCurrentPageIndex}
       setShowReview={setShowReview}
       reviewEditStepId={reviewEditStepId}
