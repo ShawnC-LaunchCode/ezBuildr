@@ -46,6 +46,41 @@ interface ApplyResult {
   adjustments?: string[];
 }
 
+/**
+ * Where "open what you imported" goes. `rootId` is the id of the bundle's ROOT,
+ * whose kind depends on its scope: a project bundle's root is a project, so
+ * sending it to the workflow builder answered "Workflow not found" for an import
+ * that had succeeded (2026-09-15, a project bundle imported on production). A
+ * tenant bundle has no single thing to open, so it gets no link.
+ */
+function importedRootDestination(
+  applied: Pick<ApplyResult, "scope" | "rootId">
+): { href: string; label: string } | null {
+  switch (applied.scope) {
+    case "workflow":
+      return { href: `/workflows/${applied.rootId}/builder`, label: "Open the imported workflow" };
+    case "project":
+      return { href: `/projects/${applied.rootId}`, label: "Open the imported project" };
+    case "database":
+      return { href: `/datavault/databases/${applied.rootId}`, label: "Open the imported database" };
+    default:
+      return null;
+  }
+}
+
+/** The success panel's primary action, or nothing when the root has no single page to open. */
+function OpenImportedRootButton({ applied, onOpen }: { applied: ApplyResult; onOpen: (href: string) => void }) {
+  const destination = importedRootDestination(applied);
+  if (destination === null) {
+    return null;
+  }
+  return (
+    <Button size="sm" onClick={() => onOpen(destination.href)}>
+      {destination.label}
+    </Button>
+  );
+}
+
 async function postBundle<T>(
   path: string,
   file: File,
@@ -235,9 +270,7 @@ export default function ImportWorkflow(): JSX.Element {
               Everything in the bundle was created in this workspace.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button size="sm" onClick={() => navigate(`/workflows/${applied.rootId}/builder`)}>
-                Open the imported workflow
-              </Button>
+              <OpenImportedRootButton applied={applied} onOpen={navigate} />
               <Button size="sm" variant="outline" onClick={() => navigate("/workflows")}>
                 Back to workflows
               </Button>

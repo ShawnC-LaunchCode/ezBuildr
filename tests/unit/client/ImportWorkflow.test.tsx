@@ -281,4 +281,53 @@ describe('ImportWorkflow', () => {
       expect(region.parentElement).toHaveFocus();
     });
   });
+
+  // 2026-09-15: a PROJECT bundle imported on production sent the user to
+  // /workflows/<projectId>/builder, which answered "Workflow not found" for an
+  // import that had succeeded. `rootId` is the bundle root, and its kind follows
+  // the bundle's scope.
+  it.each([
+    ['workflow', 'wf-1', 'Open the imported workflow', '/workflows/wf-1/builder'],
+    ['project', 'proj-1', 'Open the imported project', '/projects/proj-1'],
+    ['database', 'db-1', 'Open the imported database', '/datavault/databases/db-1'],
+  ])('opens the imported %s root at its own page', async (scope, rootId, label, href) => {
+    mockFetch(CLEAN_PREVIEW, { rootId, scope, entityCounts: {}, blobsRestored: 0, warnings: [] });
+    const user = userEvent.setup();
+    render(<ImportWorkflow />);
+
+    await chooseFile(user);
+    await screen.findByText('What will be created');
+    await user.click(screen.getByRole('button', { name: /Import this workflow/ }));
+
+    await user.click(await screen.findByRole('button', { name: label }));
+    expect(navigate).toHaveBeenCalledWith(href);
+  });
+
+  it('never offers the workflow builder for a project import', async () => {
+    mockFetch(CLEAN_PREVIEW, { rootId: 'proj-1', scope: 'project', entityCounts: {}, blobsRestored: 0, warnings: [] });
+    const user = userEvent.setup();
+    render(<ImportWorkflow />);
+
+    await chooseFile(user);
+    await screen.findByText('What will be created');
+    await user.click(screen.getByRole('button', { name: /Import this workflow/ }));
+
+    await screen.findByText('Import complete');
+    expect(screen.queryByRole('button', { name: 'Open the imported workflow' })).toBeNull();
+    expect(navigate).not.toHaveBeenCalledWith('/workflows/proj-1/builder');
+  });
+
+  it('offers no "open" link for a tenant import, only the way back', async () => {
+    mockFetch(CLEAN_PREVIEW, { rootId: 'tenant-1', scope: 'tenant', entityCounts: {}, blobsRestored: 0, warnings: [] });
+    const user = userEvent.setup();
+    render(<ImportWorkflow />);
+
+    await chooseFile(user);
+    await screen.findByText('What will be created');
+    await user.click(screen.getByRole('button', { name: /Import this workflow/ }));
+
+    await screen.findByText('Import complete');
+    expect(screen.queryByRole('button', { name: /Open the imported/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back to workflows' })).toBeInTheDocument();
+  });
 });
