@@ -371,10 +371,7 @@ async function buildWorld(label: "A" | "B"): Promise<World> {
   const collection = await factory.createCollection(tenant.id, user.id);
 
   const database = await factory.createDatabase(project.id, tenant.id, user.id);
-  // createTable's own insert omits tenantId (datavault_tables.tenant_id is
-  // NOT NULL) — every other caller in this repo passes it explicitly via
-  // overrides too (see tests/integration/preview.isolation.test.ts).
-  const table = await factory.createTable(database.id, user.id, { tenantId: tenant.id });
+  const table = await factory.createTable(database.id, user.id);
 
   const [column] = await db.insert(schema.datavaultColumns).values({
     tableId: table.id,
