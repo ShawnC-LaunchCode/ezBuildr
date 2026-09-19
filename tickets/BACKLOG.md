@@ -14,8 +14,10 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-09-11 the only live board is `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
-> (ENV-1/ENV-3 remainders + RLS-1..5).**
+> **As of 2026-09-19 there is no live board.** The last one, Environment split & tenant
+> isolation (ENV / RLS), retired into `backlog/ENVIRONMENTS_AND_RLS.md` once production
+> enforcement was verified. It parks `RLS-B7..B9`; `RLS-B8` (admin MFA reset and unlock
+> skip the admin audit trail) is the one with real work in it.
 >
 > **The post-promotion cleanup board (CLN-1..7) closed and retired into `backlog/CLEANUP.md` on
 > 2026-09-13.** Six planned tickets and one found at review all landed on `dev` on 2026-09-12:
@@ -124,7 +126,7 @@ IDs are stable, heading anchors are not.
 | TPL-O8 | `enhancement` | **Owner request 2026-09-15: author-set download names for generated documents**, rendered from workflow variables (`Advanced Healthcare Directive - Cooley - 9-15-26`). Today's name is `<runId>_<alias>-<uuid>`, and that one string is also the download lookup key and the storage key, so the fix is a separate `display_name` column, not a renamed file. A `today` variable does not exist yet. **Ruled 2026-09-15:** "today" is the end user's timezone where it can be known, and a UTC fallback is OK but must be documented; delivery destinations use the display name too. Cheap first slice: default to the template's name | `backlog/TEMPLATE_LANGUAGE.md` |
 | DEP-B2 | `needs-initiative` | **Tailwind 3 → 4 is a migration, not a bump** (Dependabot #179, `3.4.19 → 4.3.3`, closed 2026-09-12). v4 replaces `tailwind.config` with CSS-first `@theme` config, changes the PostCSS plugin, and renames or removes utilities. It will interact with `SECT-B11` (the `--primary` `/opacity` bug). Needs a visual pass over the whole client, so load the **design** skill | Inline: this row |
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
-| ~~RLS-B1~~ | ✅ fixed 2026-09-11 | `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
+| ~~RLS-B1~~ | ✅ fixed 2026-09-11 | ⚠️ **ID collision: this is not ENV/RLS's open `RLS-B1` ("Registration failed"), which is in the ENV/RLS section below.** `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
 | RLS-B6 | `needs-initiative` | **`blocks` has no RLS policy anywhere in the migration chain** (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
 | ~~RLS-B5~~ | ✅ fixed 2026-09-12 (CLN-1) | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
 | CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
@@ -195,7 +197,7 @@ IDs are stable, heading anchors are not.
 | LU-B2 | `informational` | LU Phase 1 gate never drive-through'd; two changes went live unwatched | `backlog/LOGIC_UNIFICATION.md` |
 | LU-B3 | `informational` | Dead-store-action guardrail tests references, not reachability | `backlog/LOGIC_UNIFICATION.md` |
 | LU-B4 | `informational` | Builder store is global but conceptually per-workflow — latent if tabs land | `backlog/LOGIC_UNIFICATION.md` |
-| DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
+| ~~DEBT-11~~ | ✅ **delivered** 2026-09-13 | ~~RLS policies defined but not enforced~~ — enforced in all three environments (ENV/RLS, `RLS-B3`). Do not re-file | `backlog/TECH_DEBT.md` |
 | ~~DEBT-OPS1~~ | **RESOLVED** | ~~`STORAGE_DRIVER=s3` unset in Railway~~ — **stale entry, do not re-file.** Measured 2026-08-13: production has `STORAGE_DRIVER=s3` with `AWS_S3_*` configured. Already recorded as **O-3 closed 2026-08-04** on the Roadmap board (retired → `backlog/ROADMAP.md`); this index was never updated and misled a reviewer into citing it as a live incident | `backlog/TECH_DEBT.md` |
 | ~~DEBT-OPS2~~ | **RESOLVED** | ~~Branch protection is off~~ — **stale entry, do not re-file.** Branch protection was *never* off; it uses a **repository ruleset** (`main-protection`), and the legacy `repos/.../branches/main/protection` API returns 404 *"Branch protection has been disabled"* even while the ruleset is active. Several audits concluded protection was off from that 404 alone. Query `gh api repos/ShawnC-LaunchCode/ezBuildr/rulesets` instead — see `CLAUDE.md` "The real boundary: rulesets, not the legacy API" | `backlog/TECH_DEBT.md` |
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
@@ -802,14 +804,13 @@ Relatedly, a verification probe that imports `server/db` reads `.env` and writes
 to the shared dev branch **even when the app under test points at a throwaway** —
 SECT-9 leaked a tenant row that way.
 
-## Environment split & tenant isolation (ENV / RLS) — [detail](backlog/ENVIRONMENTS_AND_RLS.md) — **partially** retired 2026-08-23
+## Environment split & tenant isolation (ENV / RLS) — [detail](backlog/ENVIRONMENTS_AND_RLS.md) — retired 2026-09-19
 
-**⚠️ Still open: `RLS-4` for PRODUCTION**, on the live board at
-[`ENVIRONMENTS_AND_RLS_TICKETS.md`](ENVIRONMENTS_AND_RLS_TICKETS.md). ENV-1..4 and
-RLS-1, 2a–2f, 3, 5, 6, 7 all shipped. RLS enforcement is live on dev and test;
-production still connects as `neondb_owner` (BYPASSRLS) and is 26 migrations
-behind (0024–0049, measured 2026-09-11), so it is gated on a `test` → `main`
-promotion, not on RLS work.
+Every ticket shipped: ENV-1..4 and RLS-1..11. **RLS is enforced in all three
+environments** (production since 2026-09-13 15:33 UTC). Measured 2026-09-19, each
+branch has 38 policy tables, all enabled and forced. The app connects as the
+non-owner `ezbuildr_app`, so an unscoped read of a tenant table returns **zero rows,
+not an error**. The patterns are in `docs/architecture/TENANT_ISOLATION_RLS.md`.
 
 The detail file's **Withdrawn findings** table is the important part: five claims
 from earlier audits were disproved, and two of them ("branch protection is off",
@@ -824,16 +825,27 @@ from earlier audits were disproved, and two of them ("branch protection is off",
   required check on `main`. Keep the instrumentation. The gate runs **parallel** again
   since 2026-09-12: its only reproducible nondeterminism was concurrent `ALTER ROLE` in
   per-worker setup (RLS-11 cause 5, `b909c73c`), now serialized — a different thing from
-  this entry, whose cause is still unidentified.
+  this entry, whose cause is still unidentified. The owner **accepted** it as a production
+  precondition on 2026-09-13 (133 clean CI runs). Don't promote it without a new occurrence.
+  ⚠️ Not the same as the scan table's fixed `RLS-B1` (preview.isolation): the ID collides.
 - **`records`** — **not a separate entry.** Tracked as **`DV-B3`** (see the scan table
   above); this initiative only adds that it now carries an RLS policy. Recorded here so the
   next audit does not file it a third time — it has already been filed twice.
-- **RLS-B3 — `DEBT-11` is superseded** · `wont-fix`. "RLS policies defined but not enforced"
-  described exactly the state this initiative removed. Strike it from `backlog/TECH_DEBT.md`
-  once production is cut over, or the next audit re-files it.
+- **RLS-B3 — `DEBT-11` is superseded** · `wont-fix`, **done**. Production was cut over on
+  2026-09-13, and `DEBT-11` is marked delivered here and in `backlog/TECH_DEBT.md`.
 - **RLS-B4 — background workers are not requests** · `informational`, **delivered**. Predicted
   the failure and it happened; `server/utils/forEachTenant.ts` is the answer. Kept because the
   reasoning governs any new scheduled job and the failure mode is silent.
+- **RLS-B7 — an RLS test for every DB operation** · `wont-fix`. About 980 call sites and
+  200–330 hours. Enforcement happens at the table, so a table-level check (RLS-10) covers
+  it. The 2026-08-25 inert-policy defect would have passed every one of those tests.
+- **RLS-B8 — admin MFA reset and unlock bypass the admin audit trail** · `enhancement`.
+  Both work under enforcement (tested). But MFA reset flips `users.mfaEnabled` through
+  `updateSelfUser` with an id from the URL, which that helper forbids, and neither
+  action writes `admin_access_log`. Move both into `AdminAccessService`.
+- **RLS-B9 — prove each bootstrap GUC opens exactly one row** · `enhancement`. RLS-10
+  leaves the bootstrap disjuncts out on purpose. There is no known defect; do it only
+  when a disjunct is added or widened.
 - **ENV-B1/B2 — `dev.`/`test.ezbuildr.com` do not resolve** · `operational`. DNS records were
   never created at the registrar. Owner decision 2026-08-15: leave. If ever activated,
   `BASE_URL`/`ALLOWED_ORIGIN` must move in the same change or OAuth and CORS break.
@@ -1129,10 +1141,8 @@ the full closed-ticket table: `backlog/LOGIC_UNIFICATION.md`.
 15 of the 16 DEBT tickets shipped. What remains is one decision and three
 things a dev cannot do from a worktree.
 
-- **DEBT-11 — RLS defined but not enforced** · `product-decision`. Deliberate
-  (prod connects as table owner), but the second line of defence is inert and
-  more code is written each week assuming it stays that way. Decide this
-  quarter or say so in the docs.
+- ~~**DEBT-11 — RLS defined but not enforced**~~ · **delivered 2026-09-13** by the
+  ENV/RLS initiative. RLS is enforced in all three environments. Do not re-file.
 - **DEBT-OPS1 — `STORAGE_DRIVER=s3` unset in Railway** · `operational` ·
   **live customer impact.** DEBT-15's code landed and is driver-agnostic, but
   the default is `disk`, so generated documents still land on the ephemeral

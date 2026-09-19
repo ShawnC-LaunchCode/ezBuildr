@@ -19,8 +19,9 @@
  *
  * Re-audit measured on the dev Neon branch 2026-09-13: 38 policy tables, three
  * shapes (direct tenant_id, ownership-derived, and direct-plus-bootstrap-
- * disjunct) — see `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` RLS-10 for the
- * full matrix and the three rulings pinned below (AC5).
+ * disjunct) — see RLS-10 in the retired board
+ * (`git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`) for the full
+ * matrix and the three rulings pinned below (AC5).
  */
 import { randomUUID } from "crypto";
 

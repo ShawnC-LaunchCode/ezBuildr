@@ -8,7 +8,8 @@
  * then for 23 more (09-07 -> 09-11) with nobody forced to look. `dev` has no
  * required checks and pushes to it use the owner bypass, so making the gate
  * required there would change nothing; an alert is what reaches a human.
- * See RLS-11 AC 4 in tickets/ENVIRONMENTS_AND_RLS_TICKETS.md.
+ * See RLS-11 AC 4: `git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`
+ * (the board is retired; tickets/backlog/ENVIRONMENTS_AND_RLS.md has the summary).
  *
  * Usage:
  *   node scripts/ci/post-slack-gate-failure.js --gate "RLS Enforcement Gate" \
