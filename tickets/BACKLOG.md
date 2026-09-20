@@ -14,10 +14,14 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-09-19 there is no live board.** The last one, Environment split & tenant
-> isolation (ENV / RLS), retired into `backlog/ENVIRONMENTS_AND_RLS.md` once production
-> enforcement was verified. It parks `RLS-B7..B9`; `RLS-B8` (admin MFA reset and unlock
-> skip the admin audit trail) is the one with real work in it.
+> **As of 2026-09-19 the only live board is `tickets/BLOCKS_RLS_TICKETS.md` (BLK-1).**
+> It carries one ticket, promoted from `RLS-B6`: `blocks` is the last workflow-owned
+> table with no RLS policy. ⚠️ Read its "trap" section before starting — adding the
+> policy without scoping `getBlocksForPhase` stops every block executing, silently.
+>
+> **Environment split & tenant isolation (ENV / RLS) retired 2026-09-19** into
+> `backlog/ENVIRONMENTS_AND_RLS.md`, once production enforcement was verified end to
+> end. It parks `RLS-B7` and `RLS-B9`; `RLS-B8` was fixed the same day (`8eef1a8a`).
 >
 > **The post-promotion cleanup board (CLN-1..7) closed and retired into `backlog/CLEANUP.md` on
 > 2026-09-13.** Six planned tickets and one found at review all landed on `dev` on 2026-09-12:
@@ -127,7 +131,7 @@ IDs are stable, heading anchors are not.
 | DEP-B2 | `needs-initiative` | **Tailwind 3 → 4 is a migration, not a bump** (Dependabot #179, `3.4.19 → 4.3.3`, closed 2026-09-12). v4 replaces `tailwind.config` with CSS-first `@theme` config, changes the PostCSS plugin, and renames or removes utilities. It will interact with `SECT-B11` (the `--primary` `/opacity` bug). Needs a visual pass over the whole client, so load the **design** skill | Inline: this row |
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | ~~RLS-B1~~ | ✅ fixed 2026-09-11 | ⚠️ **ID collision: this is not ENV/RLS's open `RLS-B1` ("Registration failed"), which is in the ENV/RLS section below.** `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
-| RLS-B6 | `needs-initiative` | **`blocks` has no RLS policy anywhere in the migration chain** (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
+| RLS-B6 | ⬆️ **promoted 2026-09-19 → `BLK-1` in [`BLOCKS_RLS_TICKETS.md`](BLOCKS_RLS_TICKETS.md)** | Re-verified against production that day: 0 policies, row security off, 0 block rows. **`blocks` has no RLS policy anywhere in the migration chain** (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
 | ~~RLS-B5~~ | ✅ fixed 2026-09-12 (CLN-1) | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
 | CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
 | CB-B5 | `needs-initiative` | Live-run document blobs leak: orphaned uploads, a ZIP with no row, and row deletion never removes blobs. Needs a retention ruling first; overlaps `ZR-B1`/`ZR-B3` | `backlog/CODE_BLOCKS.md` |
@@ -839,10 +843,11 @@ from earlier audits were disproved, and two of them ("branch protection is off",
 - **RLS-B7 — an RLS test for every DB operation** · `wont-fix`. About 980 call sites and
   200–330 hours. Enforcement happens at the table, so a table-level check (RLS-10) covers
   it. The 2026-08-25 inert-policy defect would have passed every one of those tests.
-- **RLS-B8 — admin MFA reset and unlock bypass the admin audit trail** · `enhancement`.
-  Both work under enforcement (tested). But MFA reset flips `users.mfaEnabled` through
-  `updateSelfUser` with an id from the URL, which that helper forbids, and neither
-  action writes `admin_access_log`. Move both into `AdminAccessService`.
+- ~~**RLS-B8 — admin MFA reset and unlock bypass the admin audit trail**~~ · ✅ **fixed
+  2026-09-19 (`8eef1a8a`)**. Both now go through `AdminAccessService`
+  (`resetUserMfa`/`unlockUserAccount`), writing the users row pinned to the TARGET's
+  tenant and recording an audit row. `adminResetMfa` became `clearMfaData`, which never
+  touches `users`. Mutation-verified in `rls6-adminAccess.test.ts`.
 - **RLS-B9 — prove each bootstrap GUC opens exactly one row** · `enhancement`. RLS-10
   leaves the bootstrap disjuncts out on purpose. There is no known defect; do it only
   when a disjunct is added or widened.

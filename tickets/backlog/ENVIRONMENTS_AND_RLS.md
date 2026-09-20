@@ -261,7 +261,16 @@ work.
 
 **Next step:** none. Read this before proposing a bigger RLS-10.
 
-### RLS-B8 — admin MFA reset and unlock bypass the admin audit trail · `enhancement`
+### RLS-B8 — admin MFA reset and unlock bypass the admin audit trail · ✅ FIXED 2026-09-19
+
+> **Closed by `8eef1a8a`.** `AdminAccessService.resetUserMfa` and `unlockUserAccount` now own
+> both actions: the `users` write runs pinned to the target's tenant via
+> `writeUserInOwnTenant`, and each records an `admin_access_log` row.
+> `MfaService.adminResetMfa` became `clearMfaData`, which clears `mfa_secrets` and
+> `mfa_backup_codes` and never touches `users`. Two tests in `rls6-adminAccess.test.ts`
+> assert the audit rows and their target tenant; both were proven to fail when the audit
+> write is suppressed and when the actor's tenant is stamped instead of the target's.
+> Original entry follows.
 
 Both work under enforcement: `rls6-adminAccess.test.ts` resets MFA and unlocks a user
 in another tenant (`123bb303`). Two gaps remain, found 2026-09-19:
