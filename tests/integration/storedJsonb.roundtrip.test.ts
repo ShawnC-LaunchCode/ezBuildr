@@ -32,7 +32,7 @@ describe('jsonb columns read back the strings they stored', () => {
     const factory = new TestFactory();
     const { tenant, project, user } = await factory.createTenant();
     const database = await factory.createDatabase(project.id, tenant.id, user.id);
-    const table = await factory.createTable(database.id, user.id, { tenantId: tenant.id });
+    const table = await factory.createTable(database.id, user.id);
     const [code] = await getOwnerDb().insert(schema.datavaultColumns)
       .values({ tableId: table.id, name: 'Code', slug: 'code', type: 'text' }).returning();
     const [flag] = await getOwnerDb().insert(schema.datavaultColumns)

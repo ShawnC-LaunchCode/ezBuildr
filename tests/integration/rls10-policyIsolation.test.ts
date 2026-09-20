@@ -19,8 +19,9 @@
  *
  * Re-audit measured on the dev Neon branch 2026-09-13: 38 policy tables, three
  * shapes (direct tenant_id, ownership-derived, and direct-plus-bootstrap-
- * disjunct) — see `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` RLS-10 for the
- * full matrix and the three rulings pinned below (AC5).
+ * disjunct) — see RLS-10 in the retired board
+ * (`git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`) for the full
+ * matrix and the three rulings pinned below (AC5).
  */
 import { randomUUID } from "crypto";
 
@@ -371,10 +372,7 @@ async function buildWorld(label: "A" | "B"): Promise<World> {
   const collection = await factory.createCollection(tenant.id, user.id);
 
   const database = await factory.createDatabase(project.id, tenant.id, user.id);
-  // createTable's own insert omits tenantId (datavault_tables.tenant_id is
-  // NOT NULL) — every other caller in this repo passes it explicitly via
-  // overrides too (see tests/integration/preview.isolation.test.ts).
-  const table = await factory.createTable(database.id, user.id, { tenantId: tenant.id });
+  const table = await factory.createTable(database.id, user.id);
 
   const [column] = await db.insert(schema.datavaultColumns).values({
     tableId: table.id,
@@ -459,6 +457,22 @@ const SEEDERS: Record<string, Seeder> = {
       entityType: "test",
       entityId: "rls10",
     }).returning({ id: schema.auditLogs.id });
+    return [row.id];
+  },
+
+  // BLK-1: ownership-derived like steps/pages — the tenant comes from the
+  // parent workflow, which `buildWorld` creates PRIVATE, so 0050's
+  // `is_public AND status = 'active'` disjunct does not apply here and the
+  // matrix's "no tenant GUC sees nothing" condition stays meaningful.
+  blocks: async (w) => {
+    const [row] = await getOwnerDb().insert(schema.blocks).values({
+      workflowId: w.workflowId,
+      pageId: w.pageId,
+      type: "validate",
+      phase: "onPageSubmit",
+      order: 0,
+      config: { rules: [] },
+    }).returning({ id: schema.blocks.id });
     return [row.id];
   },
 

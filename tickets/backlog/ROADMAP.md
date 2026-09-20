@@ -149,7 +149,7 @@ paragraph so the *intent* is not lost; the original text is in git history.
   from `.env.example`, which are committed to a public repo.
   **⚠️ The repo owner has ruled these deliberate placeholders. Do NOT re-file
   this as a security finding** — it has been raised and settled more than once
-  (see also `ENVIRONMENTS_AND_RLS_TICKETS.md` ENV-3 AC2). Recorded here only so
+  (see also ENV-3 AC2 in `git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`). Recorded here only so
   the next auditor recognizes it as settled rather than new. Rotating them
   invalidates all existing sessions and refresh tokens; it is a Railway variable
   change, no code.

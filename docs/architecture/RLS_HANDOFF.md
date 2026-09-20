@@ -44,11 +44,12 @@ all of the above from silently rotting — read §7 before touching the allowlis
   *how to turn enforcement on*. Read **this** file for *state, patterns and
   hazards*. (The old `RLS_COMPLETION_PLAN.md` was retired 2026-08-23 — its
   phases 1–4 all shipped; see `tickets/backlog/ENVIRONMENTS_AND_RLS.md`.)
-- **Board:** [`ENVIRONMENTS_AND_RLS_TICKETS.md`](../../tickets/ENVIRONMENTS_AND_RLS_TICKETS.md)
-  — slimmed 2026-08-23 to its **one remaining ticket, RLS-4 for production**.
-  Every other ENV/RLS ticket is closed; the closure record, the withdrawn
-  findings and the parked observations are in
-  [`backlog/ENVIRONMENTS_AND_RLS.md`](../../tickets/backlog/ENVIRONMENTS_AND_RLS.md).
+- **Board:** none. The ENV/RLS initiative retired on 2026-09-19 after production
+  enforcement was verified. The closure record, the withdrawn findings and the
+  parked observations (`RLS-B1`, `RLS-B7..B9`) are in
+  [`backlog/ENVIRONMENTS_AND_RLS.md`](../../tickets/backlog/ENVIRONMENTS_AND_RLS.md),
+  and each closed ticket's full text is recoverable with
+  `git log -p -- tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`.
 
 ---
 

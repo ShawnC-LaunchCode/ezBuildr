@@ -30,7 +30,7 @@
  */
 import { randomUUID } from "crypto";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import express, { type Express } from "express";
 import { nanoid } from "nanoid";
 import request from "supertest";
@@ -437,6 +437,74 @@ describe("RLS-6: admin cross-tenant read path (BYPASSRLS), audited", () => {
           .where(eq(schema.accountLocks.userId, userBId));
         expect(locks.length).toBeGreaterThan(0);
         expect(locks.every((lock) => lock.unlocked)).toBe(true);
+      } finally {
+        await getOwnerDb().delete(schema.accountLocks).where(eq(schema.accountLocks.userId, userBId));
+      }
+    });
+
+    /** Audit rows for one action against user B, read owner-side. */
+    const auditRows = async (action: string) => getOwnerDb()
+      .select().from(schema.adminAccessLog)
+      .where(and(
+        eq(schema.adminAccessLog.action, action),
+        eq(schema.adminAccessLog.targetUserId, userBId),
+      ));
+
+    // RLS-B8. Both actions worked before this; neither left a trace in
+    // `admin_access_log`, while every neighbouring admin mutation
+    // (setUserActive/setUserRole/deleteUser) records one. An MFA reset is a
+    // security-sensitive action on someone else's account, so "it was in the
+    // app log" is not an audit trail.
+    it("records an audit row for an MFA reset, stamped with the TARGET's tenant", async () => {
+      await getOwnerDb().insert(schema.mfaSecrets).values({ userId: userBId, secret: "rlsb8-not-a-real-secret", enabled: true });
+      await getOwnerDb().update(schema.users).set({ mfaEnabled: true }).where(eq(schema.users.id, userBId));
+      // A delta, not an absolute count: the reset test above performs the same
+      // action on the same user, and per-worker schemas are reused across
+      // files, so any fixed total is a hostage to test order.
+      const before = await auditRows("admin.user.resetMfa");
+      try {
+        const res = await admin().post(`/api/admin/users/${userBId}/reset-mfa`);
+        expect(res.status).toBe(200);
+
+        const audits = (await auditRows("admin.user.resetMfa"))
+          .filter((row) => !before.some((seen) => seen.id === row.id));
+        expect(audits).toHaveLength(1);
+        // Tenant B's id, not the acting admin's — the audit answers "whose
+        // account was this?", so the admin's own tenant would be the wrong
+        // answer and would read as plausible.
+        expect(audits[0].targetTenantId).toBe(tenantBId);
+        expect(audits[0].actorUserId).toBe(adminUserId);
+
+        // And the reset itself still happened, on both tables.
+        const [row] = await getOwnerDb().select({ mfaEnabled: schema.users.mfaEnabled }).from(schema.users)
+          .where(eq(schema.users.id, userBId));
+        expect(row.mfaEnabled).toBe(false);
+        const secrets = await getOwnerDb().select().from(schema.mfaSecrets).where(eq(schema.mfaSecrets.userId, userBId));
+        expect(secrets).toHaveLength(0);
+      } finally {
+        await getOwnerDb().delete(schema.mfaSecrets).where(eq(schema.mfaSecrets.userId, userBId));
+        await getOwnerDb().update(schema.users).set({ mfaEnabled: false }).where(eq(schema.users.id, userBId));
+      }
+    });
+
+    // (The unknown-user case is the ROUTE's `getUser` check, which answers 404
+    // before the service is reached; `unlockUserAccount`'s own "User not found"
+    // is a second line of defence for a future caller that skips that gate.)
+    it("records an audit row for an unlock, stamped with the TARGET's tenant", async () => {
+      await getOwnerDb().insert(schema.accountLocks).values({
+        userId: userBId,
+        lockedUntil: new Date(Date.now() + 60 * 60 * 1000),
+        reason: "rlsb8 test",
+      });
+      try {
+        const before = await auditRows("admin.user.unlock");
+        const res = await admin().post(`/api/admin/users/${userBId}/unlock`);
+        expect(res.status).toBe(200);
+
+        const audits = (await auditRows("admin.user.unlock"))
+          .filter((row) => !before.some((seen) => seen.id === row.id));
+        expect(audits).toHaveLength(1);
+        expect(audits[0].targetTenantId).toBe(tenantBId);
       } finally {
         await getOwnerDb().delete(schema.accountLocks).where(eq(schema.accountLocks.userId, userBId));
       }

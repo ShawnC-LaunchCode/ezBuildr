@@ -155,8 +155,11 @@ export function registerBlockRoutes(app: Express): void {
       }
       const { blockId } = req.params;
       const updates = req.body as BlockRequest;
-      // Look up workflowId for auto-revert middleware
-      const block = await blockRepository.findById(blockId);
+      // Look up workflowId for auto-revert middleware.
+      // BLK-1: scoped. `blocks` now carries a policy, so on the bare pool this
+      // returned nothing and the route answered 404 "Block not found" for a
+      // block the caller owns — before any service ran.
+      const block = await withCurrentTenant((tx) => blockRepository.findById(blockId, tx));
       if (!block) {
         res.status(404).json({ success: false, errors: ["Block not found"] });
         return;
@@ -211,8 +214,9 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       const { blockId } = req.params;
-      // Look up workflowId for auto-revert middleware
-      const block = await blockRepository.findById(blockId);
+      // Look up workflowId for auto-revert middleware (BLK-1: scoped — see the
+      // update route above; unscoped this 404s a block the caller owns).
+      const block = await withCurrentTenant((tx) => blockRepository.findById(blockId, tx));
       if (!block) {
         res.status(404).json({ success: false, errors: ["Block not found"] });
         return;

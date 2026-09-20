@@ -19,7 +19,12 @@ property if the register is reopened.
 
 ---
 
-## DEBT-11 — RLS policies defined but not enforced · `product-decision`
+## DEBT-11 — RLS policies defined but not enforced · ✅ **delivered 2026-09-13**
+
+> **Resolved — do not re-file.** The ENV/RLS initiative enforced RLS in all three
+> environments: FORCE on all 38 policy tables, with the app running as the non-owner
+> `ezbuildr_app` (production since 2026-09-13). See `backlog/ENVIRONMENTS_AND_RLS.md`
+> and `docs/architecture/TENANT_ISOLATION_RLS.md`. The text below is the original entry.
 
 **Not a ticket — a decision Shawn owns.** Recorded so it stops living only in
 migration comments.

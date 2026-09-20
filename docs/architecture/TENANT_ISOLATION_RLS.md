@@ -1,6 +1,10 @@
 # Tenant Isolation via Postgres Row-Level Security (RLS)
 
-Status: **Phase 1–2 landed; Phase 4 done for workflows/pages/steps and for the six DataVault tables listed below (all defined, not yet enforced).** Tracking ticket: SEC-051.
+Status: **Enforcing in all three environments** — `dev` since 2026-08-25, `test` since
+2026-08-23 (FORCE via 0041), **production since 2026-09-13 15:33 UTC**. 38 policy tables,
+all ENABLE + FORCE; the app connects as the non-owner `ezbuildr_app`. See §3 for what that
+means day to day. Tracking ticket: SEC-051. Sections 5 and 2b–2g below are the rollout
+history and the patterns it produced; they are kept because the patterns still apply.
 
 This document is the source of truth for how ezBuildr isolates one tenant's data
 from another at the database layer, why it is rolled out in stages, and the exact
@@ -12,11 +16,10 @@ steps to turn enforcement on. Read it before changing anything under
 ## 1. The problem RLS solves
 
 ezBuildr is multi-tenant: many tenants share the same tables, separated by a
-`tenant_id` column. Today isolation is enforced **only in application code** —
-every query is expected to include `WHERE tenant_id = <caller's tenant>`. That is
-consistent today, but it is a convention, not a guarantee: one forgotten predicate
-in a future query is a silent cross-tenant leak, with nothing underneath to catch
-it.
+`tenant_id` column. Before RLS, isolation was enforced **only in application code**
+— every query was expected to include `WHERE tenant_id = <caller's tenant>`. That
+was a convention, not a guarantee: one forgotten predicate in a future query is a
+silent cross-tenant leak, with nothing underneath to catch it.
 
 RLS moves the guarantee into Postgres itself. With RLS enforced, the database
 refuses to return or modify rows that don't belong to the current tenant — even if
@@ -40,6 +43,21 @@ service-layer scoping and the `withTenant` query helper
   `USING` filters reads/updates/deletes; `WITH CHECK` blocks writing a row for
   another tenant. `current_setting(..., true)` returns NULL when the GUC is unset,
   so an unset session sees **zero** rows (fail-closed).
+
+  ⚠️ **That is the original shape, not the live one.** Once a transaction on a
+  pooled connection has touched the GUC, it reads back as `''`, not NULL, and
+  `''::uuid` *raises* — so the bare cast turned "no tenant" into a 500. Migration
+  `0026_rls_nullif_guc_cast` wraps it in `NULLIF(…, '')`, and `0027` makes the
+  comparison NULL-safe so tenant-less bootstrap rows stay reachable. The live
+  direct-table policy is:
+
+  ```sql
+  NOT (tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  ```
+
+  Several tables use derived (parent-row) policies or add a bootstrap disjunct
+  instead; `pg_policies` is the source of truth, and
+  `tests/integration/rls10-policyIsolation.test.ts` proves each one isolates.
 
 - **The runtime context.** `server/utils/rlsContext.ts` sets that GUC per request.
   The critical detail is that it uses **transaction-scoped** `set_config(..., true)`
@@ -83,19 +101,42 @@ not mount entrypoint middleware — see `TM-B1` in `tickets/BACKLOG.md`).
 
 ---
 
-## 3. Why it is staged (and currently NOT enforced)
+## 3. What enforcement means now
 
-Postgres does not apply RLS to a table's **owner** or to **superusers** unless the
-table is also in `FORCE` mode. In every environment we run:
+Postgres does not apply RLS to a table's **owner** or to a role with `BYPASSRLS`,
+and a policy on a table whose `relrowsecurity` is false is never evaluated. All
+three conditions were true somewhere during the rollout (see `RLS_HANDOFF.md`).
+Today, in every deployed environment:
 
-- **Production (Neon):** the app connects as the role that owns the tables → RLS
-  bypassed.
-- **CI / local Docker tests:** connect as the `postgres` superuser → RLS bypassed.
+| Variable | Role | Used for |
+|---|---|---|
+| `DATABASE_URL` | `ezbuildr_app` — not the owner, `rolbypassrls = f`, no memberships | every application query |
+| `ADMIN_DATABASE_URL` | `neondb_owner` (BYPASSRLS) | the audited admin cross-tenant **read** path only (below) |
+| `MIGRATION_DATABASE_URL` | `neondb_owner` | `db:migrate` at container start — the app role has no DDL |
+| `RLS_ENFORCED=true` | — | makes `AdminAccessService` refuse to run without the admin pool |
 
-So after migration 0001, the policies are **defined but inert everywhere**. This is
-deliberate: it lets us land the policies and the runtime plumbing, verify them, and
-only then flip enforcement — instead of a big-bang cutover that would break every
-un-scoped code path at once (a session that never sets the tenant GUC sees no rows).
+**The consequence to design around:** a query on a policy table that runs outside
+a tenant transaction returns **zero rows** — not an error. It reads as missing
+data. Every such query must run inside `withTenant` / `withCurrentTenant`, or on
+one of the deliberate bootstrap paths in §2e.
+
+**Local runs do not see any of this.** The local `.env` connects as `neondb_owner`,
+which bypasses RLS, so a scoping bug cannot be reproduced by running the app
+locally. Use the RLS gate (`npm run test:rls-gate`, the integration suite as a
+restricted role — a required check on `main`) or the `ezbuildr_app` role.
+
+### The admin pool is read-only by containment, not by privilege
+
+In CI the bypass role is granted `SELECT` only, so
+`tests/integration/rls7-adminDb-readonly.test.ts` proves no write ever reaches
+`adminDb` — a regression fails with `permission denied`. **In Neon that
+privilege boundary does not exist:** the bypass role *is* `neondb_owner`, which
+can write anything. The read-only property in production therefore rests on two
+things only — `tests/unit/server/adminDb.containment.test.ts`, which limits which
+modules may import `adminDb`, and the CI test above. The shape is always: resolve
+the target's tenant on `adminDb`, then write on the normal pool inside
+`withTenant(thatTenant, …)` so the ordinary policy checks the write
+(`AdminAccessService.writeUserInOwnTenant`). Do not add a write on `adminDb`.
 
 ---
 
@@ -633,6 +674,45 @@ and deferred to their own migration; they can reuse `app_current_tenant()` and
 the same `EXISTS (… workflows … app_owner_tenant …)` pattern where they hang
 off a workflow.
 
+### 2h. Two places the tenant silently goes missing (RLS-5, RLS-7, RLS-8, RLS-11)
+
+Both hazards fail the same way: the tenant is known somewhere, but it never
+reaches the connection, so the read returns nothing and the caller treats that
+as missing data.
+
+**Multer drops the async context.** `rlsContext` opens an `AsyncLocalStorage`
+store for each request, and `withCurrentTenant` reads the tenant from it.
+Multer resumes the middleware chain from its own stream callback, which runs
+*outside* that store, so everything after multer runs unscoped. Any route that
+parses multipart must mount `rlsContext` **again after the multer middleware**
+(see the `/api/runs/:runId/steps/:stepId/files` route in
+`server/routes/runs.routes.ts` and the templates upload route). The re-mount
+seeds the new store only from `req.tenantId`, so any auth middleware that
+resolves a tenant must stamp `req.tenantId` as well as calling
+`setCurrentTenantId`. `runTokenAuth` did not, and every multipart run-token
+request ran unscoped: uploads returned 404 on a valid run token for any
+non-public workflow (RLS-11, cause 1).
+
+**Background jobs have no ambient tenant.** A cron job, cleanup sweep or rollup
+has no request, so under enforcement every read it makes returns nothing. The
+job does not fail: it reports success after processing zero rows. Scope each job
+explicitly:
+
+- **Per tenant:** `forEachTenant(jobName, (tenantId, tx) => …)`
+  (`server/utils/forEachTenant.ts`) runs the body once per tenant inside that
+  tenant's `withTenant` transaction and logs per-tenant failures without
+  aborting the sweep. `tenants` has no policy, so enumerating tenants needs no
+  privilege.
+- **Per row, when the rows carry their own tenant:** wrap each row's work in
+  `runWithTenantContext(row.tenant_id, …)`. The alert batch evaluator
+  (`server/services/alerts.ts`) does this, and `computeAndSaveSLIs`
+  (`server/jobs/metricsRollup.ts`) combines both approaches: it reads inside
+  `forEachTenant`, then handles each row inside that row's own context (RLS-8).
+
+Do **not** solve this with a second BYPASSRLS role. A job that iterates tenants
+is scoped like the rest of the app and cannot leak across tenants even if its
+own predicates are wrong.
+
 ---
 
 ## 6. Verifying enforcement manually
@@ -668,7 +748,10 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 2. Add the table name to a new RLS migration (copy the pattern in `0001`) — do NOT
    edit `0001`. New tenant tables without a policy are a silent isolation gap.
 3. If the table is scoped indirectly, write a join-based policy (§5, Phase 4).
-4. Route its queries through `withTenant`/`withCurrentTenant` once enforcement is on.
+4. Route its queries through `withTenant`/`withCurrentTenant`. Enforcement is on in
+   every environment, so an unscoped query returns zero rows from day one.
+5. `rls-coverage.test.ts` fails until the table is ENABLE + FORCE, and
+   `rls10-policyIsolation.test.ts` fails until it has a seeder. Both are intended.
 
 ---
 

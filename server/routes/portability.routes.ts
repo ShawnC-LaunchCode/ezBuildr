@@ -96,6 +96,10 @@ const BUNDLE_REJECTION_SIGNALS = [
   'Unresolvable reference',
   'Bundle roots not found',
   'Duplicate entry detected',
+  // adm-zip >= 0.6.1 rejects duplicate entry names itself, at open, before
+  // BundleReader's own check can run ("ADM-ZIP: Duplicate entry name ...").
+  // Same rejection, different wording — without this it falls through to a 500.
+  'Duplicate entry name',
   'Size mismatch',
   'newer version of ezBuildr'
 ];

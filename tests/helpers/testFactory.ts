@@ -397,18 +397,22 @@ export class TestFactory {
     overrides?: Partial<typeof schema.datavaultTables.$inferInsert>
   ) {
     // No tenantId parameter here — relies on lastTenantId, set by a prior
-    // createDatabase() call on this same instance.
+    // createDatabase() call on this same instance. `tenant_id` is NOT NULL, so
+    // it is written from the same value the transaction is pinned to.
+    const tenantId = overrides?.tenantId ?? this.lastTenantId;
+    if (!tenantId) {
+      throw new Error('createTable needs a tenant: call createDatabase() on this factory first, or pass overrides.tenantId');
+    }
     const [table] = await this.withKnownTenant((tx) => tx
       .insert(schema.datavaultTables)
       .values({
         id: generateId(),
+        tenantId,
         databaseId,
         name: 'Test Table',
         slug: `test-table-${generateId()}`,
         description: 'Test table',
         ownerUserId: userId,
-        // @ts-expect-error - TODO: fix type
-        columns: [],
         ...overrides,
       })
       .returning());

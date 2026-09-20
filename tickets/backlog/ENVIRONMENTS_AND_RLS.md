@@ -1,10 +1,9 @@
-# Environment split & real tenant isolation (ENV / RLS) — closed portion
+# Environment split & real tenant isolation (ENV / RLS) — retired
 
-**Partial retire, 2026-08-23.** This initiative is **not fully closed**: `RLS-4`
-is still open for **production** and lives on in
-[`tickets/ENVIRONMENTS_AND_RLS_TICKETS.md`](../ENVIRONMENTS_AND_RLS_TICKETS.md).
-Everything else — ENV-1..4 and RLS-1, 2a–2f, 3, 5, 6, 7 — is shipped, and its
-detail moved here so the active board is one open ticket instead of 2,400 lines.
+**Fully retired 2026-09-19.** Partially retired on 2026-08-23 (ENV-1..4 and
+RLS-1, 2a–2f, 3, 5, 6, 7). The rest, RLS-4, RLS-8, RLS-9, RLS-10 and RLS-11, stayed on
+the board until production was cut over and verified, and it closed on 2026-09-15.
+The board file `tickets/ENVIRONMENTS_AND_RLS_TICKETS.md` is deleted.
 
 **Recovering a closed ticket's full text** — Finding, Preferred fix, acceptance
 criteria and dated verification notes:
@@ -26,13 +25,16 @@ the traps that cost real time) and [`docs/deployment/RLS4_CUTOVER.md`](../RLS4_C
 ## What the initiative achieved
 
 Tenant isolation moved from *"service-layer `eq(tenantId, …)` predicates that a
-developer must remember"* to *"the database refuses"*, on dev and test.
+developer must remember"* to *"the database refuses"*, in all three environments.
 
 | | before | after |
 |---|---|---|
-| RLS policies | defined, inert (owner bypasses) | enforced on dev + test |
-| Integration suite as a non-owner role | 26 of 124 files passing | **124 / 124**, allowlist empty |
-| Enforcement regression gate | none | `npm run test:rls-gate`, green in CI |
+| RLS policies | defined, inert (owner bypasses) | enforced on dev, test **and production** (production since 2026-09-13 15:33 UTC) |
+| Catalog state, measured 2026-09-19 | production: 9 policy tables, none forced | **38 / 38 / 38** (policy / enabled / forced) on every branch, 50 migrations each |
+| Integration suite as a non-owner role | 26 of 124 files passing | all files green, allowlist empty |
+| Enforcement regression gate | none | `RLS Enforcement Gate`, a required check on `main`, alerts Slack on red |
+| Unscoped call-site audit | not run anywhere | `npm run audit:rls-surface` in CI with a two-way ratchet; 17 sites, all triaged |
+| Per-policy isolation proof | hand-picked tables | `rls10-policyIsolation.test.ts`, driven by `pg_policies` |
 | Production defects found | — | ~20, nearly all failing **silently** |
 
 The defects are the part worth remembering, because they share a shape: under
@@ -46,9 +48,9 @@ DocuSign webhooks retried forever, and run analytics silently stopped recording.
 
 ## How the scope got bounded (from the retired `RLS_COMPLETION_PLAN.md`)
 
-That plan is retired — phases 1–4 all shipped, and phase 5's remaining half is
-RLS-4 for production. Its one durable idea is worth keeping, because it is the
-thing that turned an apparently open-ended epic into a finite checklist:
+That plan is retired — every phase shipped, production included (RLS-4, cut over
+2026-09-13). Its one durable idea is worth keeping, because it is the thing that
+turned an apparently open-ended epic into a finite checklist:
 
 > **The failure mode is discovery-by-execution.** An unscoped read is invisible
 > until some test drives that exact path, so "what's left" could only be
@@ -98,6 +100,12 @@ Full text: `git log -p -- tickets/RLS_COMPLETION_PLAN.md`.
 | RLS-5 | Gate: full integration as the non-owner role | 2026-08-22 |
 | RLS-6 | Cross-tenant read path for the admin console, audited | 2026-08-19 |
 | RLS-7 | Route admin cross-tenant operations through `adminDb` | 2026-08-22 |
+| RLS-4 | `FORCE` + move off the owner role — dev 08-22, test 08-23, **production 2026-09-13**; both app-level checks passed (admin console across tenants 09-14, an interview with 12 generated documents 09-15) | 2026-09-15 |
+| RLS-8 | Close the unscoped call sites — 34 → 17, all triaged (`031a0c6e`). Its "admin handlers that delegate" follow-up (delete user, unlock, MFA reset, admin copy) closed in `123bb303` with enforcement tests in `rls6-adminAccess.test.ts` | 2026-09-13 |
+| RLS-9 | Surface audit in CI, two-way ratchet | 2026-08-25 |
+| RLS-10 | Data-driven proof that every policy isolates (38 tables, 0 skipped). Its `TestFactory.createTable` observation fixed in `3d69bb22` | 2026-09-13 |
+| RLS-11 | The enforcement gate, red for 9 days — 6 causes fixed, required on `main` | 2026-09-12 |
+| — | Doc pass: `TENANT_ISOLATION_RLS.md` brought current (enforcement, admin pool, multer, background jobs) in `33f01bf1` | 2026-09-19 |
 
 ### Withdrawn findings — these were WRONG, do not re-file
 
@@ -160,6 +168,10 @@ must compare the **host or the database**, not `/health`. Confirmed again
 
 ### RLS-B1 — the restricted integration suite is not deterministic · `needs-initiative`
 
+> ⚠️ **ID collision.** `BACKLOG.md`'s scan table has a *different*, fixed `RLS-B1`
+> (preview.isolation under the gate, 2026-09-11), filed by another initiative. This one
+> is still open.
+
 Roughly two files per full restricted run die in `setupIntegrationTest` with
 `Registration failed`, and *which* files differ every run. The underlying error
 is `users`' WITH CHECK rejecting registration's `tenant_id = NULL` insert, which
@@ -179,6 +191,12 @@ gate runs since 2026-09-08** (single-fork), so the gate is now a required check 
 is not the same as the cause being found. The restricted gate also runs **parallel**
 again since 2026-09-12: the only nondeterminism that reproduced there was concurrent
 `ALTER ROLE` in per-worker setup (RLS-11 cause 5), now serialized with an advisory lock.
+
+**Accepted, not closed (2026-09-13).** `RLS4_CUTOVER.md` §6 made "understand the
+intermittent Registration failed" a precondition for production. The owner accepted it
+on the evidence of 133 CI runs where it never fired, and production was cut over. The
+cause is still unknown. **Do not promote this without a fresh occurrence**: an
+investigation that cannot reproduce anything can only guess.
 
 **Next step:** read the `RLS-5: registration insert rejected` log the next time
 a full restricted run goes red; it prints the schema, role and GUC on the
@@ -202,8 +220,8 @@ exactly the state this initiative removed on dev and test. Resolve it as
 **promoted and delivered** rather than leaving it parked, or the next audit
 re-files it.
 
-**Next step:** strike `DEBT-11` from `backlog/TECH_DEBT.md` when production is
-cut over.
+**Done 2026-09-19:** production was cut over on 2026-09-13, and `DEBT-11` is marked
+delivered in `backlog/TECH_DEBT.md` and in the `BACKLOG.md` index.
 
 ### RLS-B4 — background workers are not requests · `informational` (delivered)
 
@@ -218,3 +236,72 @@ the failure mode is invisible — an unscoped job completes successfully having
 processed nothing.
 
 **Next step:** none. Read `forEachTenant`'s header before adding a scheduled job.
+The pattern is also written up in `TENANT_ISOLATION_RLS.md` §2h.
+
+*`RLS-B5` and `RLS-B6` were filed straight into `BACKLOG.md` by other initiatives
+(CLN): B5 is fixed, and B6 (`blocks` has no policy) is open there.*
+
+### RLS-B7 — a pass/fail RLS test for every database operation · `wont-fix`
+
+Proposed 2026-08-25: a test per database operation (own tenant succeeds, other tenant
+gets nothing) so RLS is proven at "100% of locations". Measured surface: about 980
+drizzle call sites across 395 repository methods, 50 repositories and 219 services,
+estimated at **200–330 hours** plus a permanent per-method cost and roughly double the
+suite runtime.
+
+**Rejected because the table is where enforcement happens, not the operation.** If the
+policy on `projects` is right, Postgres filters all 430 selects against it the same way,
+so most of those 980 tests would be testing Postgres. The real risk is whether a code
+path sets the tenant GUC at all. That is a static-analysis problem (RLS-9's audit) plus
+a runtime check (the throw in `server/utils/rlsContext.ts`), not a test-matrix problem.
+Deciding evidence: the 2026-08-25 defect (36 policies defined but inert) would have
+passed all 980 tests, because they would have run on freshly built schemas. A
+table-level structural check found it, and RLS-10 provides that check for 1–2 days of
+work.
+
+**Next step:** none. Read this before proposing a bigger RLS-10.
+
+### RLS-B8 — admin MFA reset and unlock bypass the admin audit trail · ✅ FIXED 2026-09-19
+
+> **Closed by `8eef1a8a`.** `AdminAccessService.resetUserMfa` and `unlockUserAccount` now own
+> both actions: the `users` write runs pinned to the target's tenant via
+> `writeUserInOwnTenant`, and each records an `admin_access_log` row.
+> `MfaService.adminResetMfa` became `clearMfaData`, which clears `mfa_secrets` and
+> `mfa_backup_codes` and never touches `users`. Two tests in `rls6-adminAccess.test.ts`
+> assert the audit rows and their target tenant; both were proven to fail when the audit
+> write is suppressed and when the actor's tenant is stamped instead of the target's.
+> Original entry follows.
+
+Both work under enforcement: `rls6-adminAccess.test.ts` resets MFA and unlocks a user
+in another tenant (`123bb303`). Two gaps remain, found 2026-09-19:
+
+- `MfaService.adminResetMfa` → `disableMfa` → `setUserMfaFlag` writes `users.mfaEnabled`
+  through `updateSelfUser`, whose header says never to call it for someone else's row
+  or with an id from the request. The admin route passes `req.params.userId`. It is
+  safe only because the route has already gated on `isAdmin` and resolved the target
+  through `adminAccessService.getUser`. The comment in `MfaService` that calls this
+  "still outstanding in RLS_HANDOFF.md" is out of date.
+- Neither action writes an `admin_access_log` row. Every other admin user mutation
+  (`setUserActive`, `setUserRole`, `deleteUser`) does, via `AdminAccessService`. Only a
+  `logger.warn` records an MFA reset, and that is a security-sensitive action.
+
+`account_locks`, `login_attempts`, `mfa_secrets` and `mfa_backup_codes` carry **no RLS
+policy**, so the lockout and MFA-table writes are not the problem. Only the `users` flip
+and the audit are.
+
+**Next step:** add `AdminAccessService.resetUserMfa` using `writeUserInOwnTenant` plus
+an audit record (and the same for unlock), with the route calling it. Keep the existing
+`rls6` tests as the regression guard.
+
+### RLS-B9 — prove each bootstrap GUC opens exactly its one row · `enhancement`
+
+RLS-10's matrix deliberately leaves out the bootstrap disjuncts: `app.current_user_id`,
+`app.current_login_email`, `app.current_project_id`, `app.current_org_id`,
+`app.current_connection_id`, `app.current_workflow_id`, `app.current_signing_token`,
+`app.current_envelope_id`, and `tenant_domains`' verified-domain disjunct. Each is
+transaction-local, and all 38 policy definitions match the migration chain in
+production (pre-swap drift check, 2026-09-13). A test would pin that each one opens
+exactly one row and nothing more. There is no known defect behind this.
+
+**Next step:** only if a new bootstrap disjunct is added, or one is widened. Extend
+`rls10-policyIsolation.test.ts` rather than writing a new suite.

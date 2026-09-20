@@ -282,7 +282,7 @@ describe.sequential('CB-9a-1 preview isolation', () => {
     const { workflowId } = await fixture();
     const factory = new TestFactory();
     const database = await factory.createDatabase(ctx.projectId!, ctx.tenantId, ctx.userId);
-    const table = await factory.createTable(database.id, ctx.userId, { tenantId: ctx.tenantId });
+    const table = await factory.createTable(database.id, ctx.userId);
     const collection = await factory.createCollection(ctx.tenantId, ctx.userId);
     await getOwnerDb().insert(schema.blocks).values([
       { workflowId, type: 'write', phase: 'onRunStart', config: { tableId: table.id, mode: 'create', columnMappings: [], outputKey: 'fakeRow' } },

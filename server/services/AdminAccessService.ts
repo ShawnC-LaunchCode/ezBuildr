@@ -4,6 +4,8 @@ import { projects, users, workflows } from "@shared/schema";
 
 import { db } from "../db";
 import { adminDb, isAdminDbConfigured } from "../db/adminDb";
+import { accountLockoutService } from "./AccountLockoutService";
+import { mfaService } from "./MfaService";
 import {
   adminAccessLogRepository,
   type AdminAccessLogRepository,
@@ -295,6 +297,65 @@ export class AdminAccessService {
       action: "admin.workflow.delete",
       targetTenantId: tenantId,
       targetUserId: null,
+      requestId: requestId ?? null,
+    });
+  }
+
+  /**
+   * Reset a user's MFA. Backs `POST /api/admin/users/:userId/reset-mfa`.
+   *
+   * RLS-B8: the `users.mfa_enabled` flip used to run through
+   * `updateSelfUser(req.params.userId, …)`, whose own header forbids both
+   * halves of that call — another user's row, and an id taken from request
+   * input. It worked (the self-id GUC opens whatever row it is handed), which
+   * is precisely why it needed fixing rather than leaving: the isolation came
+   * from the route's `isAdmin` gate alone, and the helper's contract was the
+   * only thing saying so. It now uses the same resolve-then-write-pinned split
+   * as `setUserActive`/`setUserRole`, and — like every other admin mutation —
+   * writes an audit row. An MFA reset had been recorded only in the app log.
+   *
+   * Order matters: the flag is cleared FIRST, then the secret and backup codes.
+   * A failure between the two leaves MFA off with stale rows, which the next
+   * enrolment overwrites. The reverse order would leave a user flagged as
+   * MFA-enabled with no secret to satisfy it — locked out, on the endpoint
+   * whose purpose is rescuing a locked-out user.
+   *
+   * `mfa_secrets` and `mfa_backup_codes` carry no RLS policy, so clearing them
+   * needs no tenant.
+   */
+  async resetUserMfa(actorUserId: string, targetUserId: string, requestId: string | undefined): Promise<void> {
+    const { tenantId } = await this.writeUserInOwnTenant(targetUserId,
+      (tx) => this.userRepo.updateUser(targetUserId, { mfaEnabled: false }, tx));
+    await mfaService.clearMfaData(targetUserId);
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.resetMfa",
+      targetTenantId: tenantId,
+      targetUserId,
+      requestId: requestId ?? null,
+    });
+  }
+
+  /**
+   * Unlock a locked account. Backs `POST /api/admin/users/:userId/unlock`.
+   *
+   * RLS-B8: `account_locks` carries no RLS policy, so the unlock itself never
+   * needed a tenant and is not what this changes. What was missing is the
+   * audit row — this is an admin action on another user's account, and every
+   * neighbouring one records itself. The target's tenant is resolved on the
+   * admin pool purely to stamp the audit row, and to answer "User not found"
+   * for an id that does not exist rather than reporting a successful unlock of
+   * nothing.
+   */
+  async unlockUserAccount(actorUserId: string, targetUserId: string, requestId: string | undefined): Promise<void> {
+    const { found, tenantId } = await this.resolveTenantForUser(targetUserId);
+    if (!found) { throw new Error("User not found"); }
+    await accountLockoutService.unlockAccount(targetUserId);
+    await this.auditRepo.record({
+      actorUserId,
+      action: "admin.user.unlock",
+      targetTenantId: tenantId,
+      targetUserId,
       requestId: requestId ?? null,
     });
   }

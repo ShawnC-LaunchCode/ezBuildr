@@ -173,8 +173,13 @@ export class SchemaManager {
     // catalog assertions in pages-contract.test.ts that prove they are gone
     // would fail against it — and any test that accidentally still wrote to
     // them would keep succeeding there.
+    // Bumped to _v45 for BLK-1 migration 0050, which puts a tenant_isolation
+    // policy on `blocks` plus ENABLE + FORCE. A stale _v44 schema has neither,
+    // so rls-coverage/rls10 would not see the table as covered and the new
+    // rls-blocks suite would pass vacuously — it would be asserting isolation
+    // against a table with no policy at all.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v44`;
+        return `test_schema_w${this.workerId}_v45`;
     }
 
     /**
