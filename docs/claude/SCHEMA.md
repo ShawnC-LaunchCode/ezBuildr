@@ -4,7 +4,7 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `pages` / `sections` / `steps` tables (no `tenant_id`) have ownership/join-based `tenant_isolation` policies; migration `0039` adds the Section policy. See [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
+> **Row-Level Security (SEC-051):** the 26 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); later tenant-scoped tables add their policies in their own migrations. The indirectly-scoped `workflows` / `pages` / `sections` / `steps` / `blocks` tables (no `tenant_id`) have ownership/join-based `tenant_isolation` policies; migration `0039` adds the Section policy and `0050` the Block one (BLK-1). **Every policy-bearing table is ENABLE + FORCE in all three environments**, so an unscoped read returns zero rows rather than erroring. See [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
 ## Workflow Core — `shared/schema/workflow.ts` (21 tables)
 
@@ -21,7 +21,7 @@ Inventory of all **108 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `pages` | Workflow pages: order, optional `section_id`, visibleIf. Membership changes only through atomic Section creation or page reorder. |
 | `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
-| `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
+| `blocks` | Reusable workflow blocks (see `blockTypeEnum` below). RLS via the parent workflow's owner (migration `0050`), same shape as `steps`, plus the public-active-workflow read disjunct that anonymous runs depend on |
 | `lifecycle_hooks` | Workflow phase hooks: phase, language, code, mutationMode |
 | `document_hooks` | Document transformation hooks (`finalBlockDocumentId`, not a FK) |
 | `project_access` / `workflow_access` | Per-project / per-workflow permissions |

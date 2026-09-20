@@ -460,6 +460,22 @@ const SEEDERS: Record<string, Seeder> = {
     return [row.id];
   },
 
+  // BLK-1: ownership-derived like steps/pages — the tenant comes from the
+  // parent workflow, which `buildWorld` creates PRIVATE, so 0050's
+  // `is_public AND status = 'active'` disjunct does not apply here and the
+  // matrix's "no tenant GUC sees nothing" condition stays meaningful.
+  blocks: async (w) => {
+    const [row] = await getOwnerDb().insert(schema.blocks).values({
+      workflowId: w.workflowId,
+      pageId: w.pageId,
+      type: "validate",
+      phase: "onPageSubmit",
+      order: 0,
+      config: { rules: [] },
+    }).returning({ id: schema.blocks.id });
+    return [row.id];
+  },
+
   code_block_runs: async (w) => {
     const [row] = await getOwnerDb().insert(schema.codeBlockRuns).values({
       runId: w.runId,

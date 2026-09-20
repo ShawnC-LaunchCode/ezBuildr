@@ -7,8 +7,17 @@ import {
   pageRepository,
   type DbTransaction,
 } from "../repositories";
-import { withCurrentTenant } from "../utils/rlsContext";
+import { createLogger } from "../logger";
+import {
+  getCurrentTenantId,
+  withCurrentTenant,
+  withTenant,
+  withVerifiedIdentifier,
+} from "../utils/rlsContext";
+import { workflowTenantResolver } from "./WorkflowTenantResolver";
 import { workflowService } from "./WorkflowService";
+
+const logger = createLogger({ module: 'block-service' });
 
 /**
  * Service layer for block-related business logic
@@ -173,33 +182,87 @@ export class BlockService {
   }
 
   /**
-   * Get blocks for a specific workflow phase (no ownership check - internal use)
-   * Used by BlockRunner during workflow execution
+   * Run one read of `blocks` under the right tenant, for the execution path.
    *
-   * Deliberately NOT tenant-wrapped (CLN-7): it reads only `blocks`, which
-   * carries no RLS policy, and BlockRunner reaches it from run paths that may
-   * legitimately have no request tenant, where `withCurrentTenant` would throw
-   * "RLS: no tenant in context" under enforcement.
+   * BLK-1: `blocks` now carries a tenant_isolation policy (migration 0050), so
+   * an unscoped read returns ZERO rows rather than erroring — and
+   * `BlockRunner.runPhase` treats an empty list as "nothing to run" and reports
+   * success. Unscoped, every block in the product would stop executing with no
+   * error anywhere. The previous comment here ("deliberately NOT tenant-wrapped
+   * ... `blocks` carries no RLS policy", CLN-7) was true when written and is
+   * now exactly backwards.
+   *
+   * A plain `withCurrentTenant` is still wrong, for the reason that comment
+   * gave: this is reached from run paths with no ambient tenant (background
+   * completion jobs, anonymous public-link runs) where it throws. So this
+   * follows the pattern `RunLifecycleService.generateDocuments` established for
+   * the same situation:
+   *
+   *   1. an ambient tenant (ordinary authenticated and run-token requests) is
+   *      used as-is;
+   *   2. otherwise the tenant is resolved FROM THE WORKFLOW via migration
+   *      0030's self-identification clause — `workflowId` here is an
+   *      established value, not request input, the same standing `runTokenAuth`
+   *      relies on;
+   *   3. if resolution fails, the read runs unscoped. That is not a hole: the
+   *      policy's `is_public AND status = 'active'` disjunct is what makes
+   *      anonymous public-link runs work, and a PRIVATE workflow correctly
+   *      yields nothing. It is logged, because reaching here for a private
+   *      workflow means blocks silently did not run.
+   */
+  private async readBlocksForExecution(
+    workflowId: string,
+    read: (tx?: DbTransaction) => Promise<Block[]>
+  ): Promise<Block[]> {
+    if (getCurrentTenantId() !== undefined) {
+      return withCurrentTenant((tx) => read(tx));
+    }
+
+    const resolvedTenantId = await withVerifiedIdentifier(
+      'app.current_workflow_id',
+      workflowId,
+      (tx) => workflowTenantResolver.resolveForWorkflowId(workflowId, tx)
+    );
+    if (resolvedTenantId) {
+      return withTenant(resolvedTenantId, (tx) => read(tx));
+    }
+
+    logger.warn(
+      { workflowId },
+      'BLK-1: no tenant resolved for block execution; reading unscoped, so only a public active workflow will return blocks'
+    );
+    return read();
+  }
+
+  /**
+   * Get blocks for a specific workflow phase (no ownership check - internal use)
+   * Used by BlockRunner during workflow execution.
+   *
+   * Tenant scoping is `readBlocksForExecution`'s job — see the reasoning there
+   * before changing it. Both branches below share ONE transaction, so the two
+   * reads cannot straddle different tenant contexts.
    */
   async getBlocksForPhase(
     workflowId: string,
     phase: BlockPhase,
     pageId?: string
   ): Promise<Block[]> {
-    if (pageId) {
-      // Get page-specific blocks and workflow-scoped blocks for this phase
-      const [pageBlocks, workflowBlocks] = await Promise.all([
-        this.blockRepo.findByPagePhase(pageId, phase),
-        this.blockRepo.findByWorkflowPhase(workflowId, phase).then((blocks: Block[]) =>
-          blocks.filter((b: Block) => !b.pageId) // Only workflow-scoped blocks
-        ),
-      ]);
-      // Combine and sort by order
-      return [...workflowBlocks, ...pageBlocks].sort((a: Block, b: Block) => a.order - b.order);
-    }
+    return this.readBlocksForExecution(workflowId, async (tx) => {
+      if (pageId) {
+        // Get page-specific blocks and workflow-scoped blocks for this phase
+        const [pageBlocks, workflowBlocks] = await Promise.all([
+          this.blockRepo.findByPagePhase(pageId, phase, tx),
+          this.blockRepo.findByWorkflowPhase(workflowId, phase, tx).then((blocks: Block[]) =>
+            blocks.filter((b: Block) => !b.pageId) // Only workflow-scoped blocks
+          ),
+        ]);
+        // Combine and sort by order
+        return [...workflowBlocks, ...pageBlocks].sort((a: Block, b: Block) => a.order - b.order);
+      }
 
-    // Just get workflow-scoped blocks for this phase
-    return this.blockRepo.findByWorkflowPhase(workflowId, phase);
+      // Just get workflow-scoped blocks for this phase
+      return this.blockRepo.findByWorkflowPhase(workflowId, phase, tx);
+    });
   }
 }
 
