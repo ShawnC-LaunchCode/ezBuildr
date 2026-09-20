@@ -48,9 +48,9 @@ DocuSign webhooks retried forever, and run analytics silently stopped recording.
 
 ## How the scope got bounded (from the retired `RLS_COMPLETION_PLAN.md`)
 
-That plan is retired — phases 1–4 all shipped, and phase 5's remaining half is
-RLS-4 for production. Its one durable idea is worth keeping, because it is the
-thing that turned an apparently open-ended epic into a finite checklist:
+That plan is retired — every phase shipped, production included (RLS-4, cut over
+2026-09-13). Its one durable idea is worth keeping, because it is the thing that
+turned an apparently open-ended epic into a finite checklist:
 
 > **The failure mode is discovery-by-execution.** An unscoped read is invisible
 > until some test drives that exact path, so "what's left" could only be
