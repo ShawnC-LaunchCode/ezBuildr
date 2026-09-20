@@ -468,7 +468,12 @@ describe.sequential("Portability Import API Integration Tests", () => {
       .attach("file", buffer, "bundle.ezb");
 
     expect(apply.status).toBe(400);
-    expect(apply.body.message).toMatch(/Duplicate entry detected/);
+    // Either rejection is correct: BundleReader's own check ("Duplicate entry
+    // detected"), or adm-zip >= 0.6.1 refusing the archive at open ("Duplicate
+    // entry name"). The product behaviour under test is the 400, not which
+    // layer catches it. BundleReader's check is still covered directly in
+    // tests/unit/portability/bundleFormat.test.ts.
+    expect(apply.body.message).toMatch(/Duplicate entry (detected|name)/);
   });
 
   it("IEX2-13 AC 4: size mismatch in the zip is a 400, not a 500", async () => {
