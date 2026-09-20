@@ -14,10 +14,15 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-09-19 the only live board is `tickets/BLOCKS_RLS_TICKETS.md` (BLK-1).**
-> It carries one ticket, promoted from `RLS-B6`: `blocks` is the last workflow-owned
-> table with no RLS policy. ⚠️ Read its "trap" section before starting — adding the
-> policy without scoping `getBlocksForPhase` stops every block executing, silently.
+> **As of 2026-09-20 there is no live board.**
+>
+> **Blocks RLS (BLK-1) shipped and retired 2026-09-20** into `backlog/BLOCKS_RLS.md`
+> (`a984b1fe`). `blocks` now carries an ownership-derived policy (migration `0050`), so
+> **every workflow-owned table is covered**. The trap the ticket predicted was real —
+> unscoped reads would have stopped all block execution silently — and a second instance
+> it did NOT predict was found in `blocks.routes.ts`. It parks `BLK-B1..B3`, all
+> informational; `BLK-B1` is the one worth reading: a route-level cross-tenant test can
+> pass against a policy replaced by `USING (true)`.
 >
 > **Environment split & tenant isolation (ENV / RLS) retired 2026-09-19** into
 > `backlog/ENVIRONMENTS_AND_RLS.md`, once production enforcement was verified end to
@@ -131,7 +136,7 @@ IDs are stable, heading anchors are not.
 | DEP-B2 | `needs-initiative` | **Tailwind 3 → 4 is a migration, not a bump** (Dependabot #179, `3.4.19 → 4.3.3`, closed 2026-09-12). v4 replaces `tailwind.config` with CSS-first `@theme` config, changes the PostCSS plugin, and renames or removes utilities. It will interact with `SECT-B11` (the `--primary` `/opacity` bug). Needs a visual pass over the whole client, so load the **design** skill | Inline: this row |
 | ~~DEP-B1~~ | ✅ fixed 2026-09-10 (`265cbeb0`) | `npm audit` fails the Security Scan on newly-published `@xmldom/xmldom` advisories, turning the Deployment Safety Check red on `dev`. Not caused by any code change — the lockfile is untouched. The 0.9.x copy has a clean patch; the 0.8.x copy under `mammoth` has none, so it needs an override or an expiring allowlist entry | Inline below: `DEP-B1` |
 | ~~RLS-B1~~ | ✅ fixed 2026-09-11 | ⚠️ **ID collision: this is not ENV/RLS's open `RLS-B1` ("Registration failed"), which is in the ENV/RLS section below.** `preview.isolation.test.ts` failed 2/19 under `RLS_RESTRICTED=true`. **Production code, not a fixture, and the filed diagnosis was wrong**: the tenant matched; `EnvelopeBuilder` and the document-delivery enqueue + worker read RLS-covered tables on the bare pool. Now 19/19; each fix mutation-tested | Inline below: `RLS-B1` |
-| RLS-B6 | ⬆️ **promoted 2026-09-19 → `BLK-1` in [`BLOCKS_RLS_TICKETS.md`](BLOCKS_RLS_TICKETS.md)** | Re-verified against production that day: 0 policies, row security off, 0 block rows. **`blocks` has no RLS policy anywhere in the migration chain** (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
+| ~~RLS-B6~~ | ✅ **fixed 2026-09-20 as `BLK-1`** (`a984b1fe`, detail in `backlog/BLOCKS_RLS.md`) | ~~**`blocks` has no RLS policy anywhere in the migration chain**~~ — migration `0050` adds one, ownership-derived like `steps`. Original finding: (found in CLN-7, 2026-09-12). Tenant isolation for block rows, whose `config` holds DataVault table ids and query ids, rests entirely on the services' `verifyAccess`. Unlike `steps`/`pages`, a bare read of another tenant's blocks is not stopped at the database. Adding one needs a workflow-ownership policy like `steps`' (0031) and a check of every block read path, including `BlockRunner`, which reads without a request tenant | Inline: this row |
 | ~~RLS-B5~~ | ✅ fixed 2026-09-12 (CLN-1) | `authorizeRun` in `esign.routes.ts` reads `workflow_runs` on the bare pool with no tenant — the RLS-B1 shape. Harmless only while `workflow_runs` has no RLS; breaks esign execute/status authorization the day it does | Inline below: `RLS-B1` → "Split out" |
 | CB-B7 | `needs-initiative` | **The pinned run definition omits Code Block output (virtual) steps.** Rediscovered twice. Workaround: read `findByWorkflowIdWithAliases` | `backlog/CODE_BLOCKS.md` |
 | CB-B5 | `needs-initiative` | Live-run document blobs leak: orphaned uploads, a ZIP with no row, and row deletion never removes blobs. Needs a retention ruling first; overlaps `ZR-B1`/`ZR-B3` | `backlog/CODE_BLOCKS.md` |
