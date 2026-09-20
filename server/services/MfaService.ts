@@ -345,11 +345,11 @@ export class MfaService {
      * `updateSelfUser` pins the self-id GUC so the row is visible and the row's
      * own tenant so the write is permitted.
      *
-     * ⚠️ `adminResetMfa` reaches `disableMfa` for ANOTHER user, which is a
-     * cross-tenant admin write and does not belong on this path — it is part of
-     * the admin.routes/adminDb cluster still outstanding in
-     * docs/architecture/RLS_HANDOFF.md, and is the reason this reads the row rather than
-     * assuming the caller's own tenant.
+     * ⚠️ Self only. An admin resetting SOMEONE ELSE'S MFA must not come through
+     * here: `AdminAccessService.resetUserMfa` owns that, resolving the target's
+     * tenant on the admin pool and writing pinned to it (RLS-B8). This path
+     * still reads the row rather than assuming the caller's own tenant, because
+     * a user may have none.
      */
     private async setUserMfaFlag(userId: string, enabled: boolean): Promise<void> {
         const user = await findSelfUser(userId);
@@ -360,16 +360,22 @@ export class MfaService {
     }
 
     /**
-     * Admin reset MFA (for locked out users)
+     * Delete every MFA artefact for a user: the secret and the backup codes.
+     *
+     * Deliberately does NOT touch `users.mfa_enabled` — that row belongs to
+     * whoever owns the tenant scoping for this operation. For an admin acting
+     * on another user that is `AdminAccessService.resetUserMfa`, which clears
+     * the flag first and then calls this (RLS-B8). Neither table here carries
+     * an RLS policy, so this needs no tenant of its own.
      */
-    async adminResetMfa(userId: string): Promise<void> {
-        await this.disableMfa(userId);
-
-        // Also delete the secret
+    async clearMfaData(userId: string): Promise<void> {
         await db.delete(mfaSecrets)
             .where(eq(mfaSecrets.userId, userId));
 
-        log.warn({ userId }, 'Admin reset MFA');
+        await db.delete(mfaBackupCodes)
+            .where(eq(mfaBackupCodes.userId, userId));
+
+        log.warn({ userId }, 'MFA data cleared');
     }
 }
 

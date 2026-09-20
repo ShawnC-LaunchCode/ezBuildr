@@ -11,7 +11,6 @@ import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
 import { adminAccessService } from "../services/AdminAccessService";
 import { adminOrgStatsService } from "../services/AdminOrgStatsService";
-import { mfaService } from "../services/MfaService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -258,8 +257,9 @@ export function registerAdminRoutes(app: Express): void {
         });
       }
 
-      // Unlock the account
-      await accountLockoutService.unlockAccount(userId);
+      // Unlock the account. RLS-B8: through AdminAccessService so the action
+      // is audited like every other admin mutation on a user.
+      await adminAccessService.unlockUserAccount(req.adminUser.id, userId, req.id);
 
       logger.info(
         {
@@ -314,8 +314,9 @@ export function registerAdminRoutes(app: Express): void {
         });
       }
 
-      // Reset MFA (disables and deletes all MFA data)
-      await mfaService.adminResetMfa(userId);
+      // Reset MFA (disables and deletes all MFA data). RLS-B8: the users row is
+      // written pinned to the TARGET's tenant, and the reset is audited.
+      await adminAccessService.resetUserMfa(req.adminUser.id, userId, req.id);
 
       logger.warn(
         {

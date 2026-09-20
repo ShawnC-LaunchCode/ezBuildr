@@ -556,27 +556,32 @@ describe("MfaService", () => {
       });
     });
 
-    describe("adminResetMfa()", () => {
-      it("should reset MFA and delete secret", async () => {
+    describe("clearMfaData()", () => {
+      // RLS-B8: replaced adminResetMfa, which reached disableMfa — and so
+      // updateSelfUser — for ANOTHER user's row. The users flag now belongs to
+      // AdminAccessService.resetUserMfa; this method only clears MFA tables.
+      it("deletes the secret and the backup codes", async () => {
         const userId = "user-123";
-
-        mockDbUpdate.mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
-        });
 
         mockDbDelete.mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),
         });
 
-        await mfaService.adminResetMfa(userId);
+        await mfaService.clearMfaData(userId);
 
-        // Verify MFA was disabled
-        expect(mockDbUpdate).toHaveBeenCalled();
+        // One delete per table: mfa_secrets and mfa_backup_codes.
+        expect(mockDbDelete).toHaveBeenCalledTimes(2);
+      });
 
-        // Verify secret and backup codes were deleted
-        expect(mockDbDelete).toHaveBeenCalled();
+      it("does NOT touch the user row — that write belongs to the admin path", async () => {
+        mockDbDelete.mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await mfaService.clearMfaData("user-123");
+
+        expect(mockUpdateSelfUser).not.toHaveBeenCalled();
+        expect(mockDbUpdate).not.toHaveBeenCalled();
       });
     });
   });
