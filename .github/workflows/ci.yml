@@ -48,7 +48,7 @@ jobs:
     # GREENS before (see CLAUDE.md on worktrees sharing one tsbuildinfo). A
     # 30-second saving is not worth a type-check that can pass without looking.
     - name: Restore ESLint cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .eslintcache
         key: eslint-${{ runner.os }}-${{ hashFiles('.eslintrc.json', '.eslintignore', 'package-lock.json') }}-${{ github.sha }}
